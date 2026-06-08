@@ -6,6 +6,8 @@ import {
   X, ShieldCheck, AlertTriangle, CheckCircle2, Clock, Upload, Plus, Trash2, Users, Plane,
   CreditCard, FileText, Camera, Loader2, ChevronLeft, UserPlus, Printer,
 } from 'lucide-react';
+import EmailInput from '@/components/EmailInput';
+import PhoneInput from '@/components/PhoneInput';
 
 const VISA_STATUS = ['NOT_REQUIRED', 'REQUIRED', 'IN_PROGRESS', 'SUBMITTED', 'APPROVED', 'REJECTED'];
 const DOC_TYPES = ['PASSPORT', 'VISA', 'NATIONAL_ID', 'EMIRATES_ID', 'DRIVERS_LICENSE', 'RESIDENCE_PERMIT', 'ENTRY_PERMIT', 'VACCINATION', 'INSURANCE', 'FLIGHT_ITINERARY', 'HOTEL_VOUCHER', 'INVITATION_LETTER', 'WORK_PERMIT', 'PERMIT_APPROVAL', 'CUSTOMS', 'OTHER'];
@@ -211,8 +213,8 @@ function IdentityForm({ t, busy, onSave, uploadTo, uploadBusy, flags }: any) {
         <F label="Date of birth"><input type="date" className={inp} value={f.dateOfBirth} onChange={(e) => set('dateOfBirth', e.target.value)} /></F>
         <F label="Nationality"><input className={inp} value={f.nationality} onChange={(e) => set('nationality', e.target.value)} /></F>
         <F label="Country of residence"><input className={inp} value={f.countryOfResidence} onChange={(e) => set('countryOfResidence', e.target.value)} /></F>
-        <F label="Mobile"><input className={inp} value={f.phone} onChange={(e) => set('phone', e.target.value)} /></F>
-        <F label="Email"><input className={inp} value={f.email} onChange={(e) => set('email', e.target.value)} /></F>
+        <F label="Mobile"><PhoneInput value={f.phone || ''} onChange={(v) => set('phone', v)} /></F>
+        <F label="Email"><EmailInput className={inp} value={f.email} onChange={(e) => set('email', e.target.value)} /></F>
         <div className="col-span-2 border-t border-slate-100 my-1" />
         <F label="Passport number"><input className={inp} value={f.passportNumber} onChange={(e) => set('passportNumber', e.target.value)} /></F>
         <F label="Place of issue"><input className={inp} value={f.passportPlaceOfIssue} onChange={(e) => set('passportPlaceOfIssue', e.target.value)} /></F>
@@ -220,7 +222,7 @@ function IdentityForm({ t, busy, onSave, uploadTo, uploadBusy, flags }: any) {
         <F label="Expiry date"><input type="date" className={inp} value={f.passportExpiry} onChange={(e) => set('passportExpiry', e.target.value)} /></F>
         <F label="National / Emirates ID"><input className={inp} value={f.nationalId} onChange={(e) => set('nationalId', e.target.value)} /></F>
         <F label="Emergency contact"><input className={inp} value={f.emergencyContactName} onChange={(e) => set('emergencyContactName', e.target.value)} placeholder="Name" /></F>
-        <F label="Emergency phone"><input className={inp} value={f.emergencyContactPhone} onChange={(e) => set('emergencyContactPhone', e.target.value)} /></F>
+        <F label="Emergency phone"><PhoneInput value={f.emergencyContactPhone || ''} onChange={(v) => set('emergencyContactPhone', v)} /></F>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3">
         {[['passportFrontUrl', 'Front page'], ['passportInfoUrl', 'Info page'], ['passportAdditionalUrl', 'Additional pages'], ['passportPdfUrl', 'Full PDF']].map(([field, label]) => (

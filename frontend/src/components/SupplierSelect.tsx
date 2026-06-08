@@ -15,6 +15,8 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { financeApi, uploadFile } from '@/lib/api';
 import { Search, Plus, X, ChevronDown, Loader2, Building2 } from 'lucide-react';
+import EmailInput from '@/components/EmailInput';
+import PhoneInput from '@/components/PhoneInput';
 
 // ── Category list ──────────────────────────────────────────────────────────────
 export const SUPPLIER_CATEGORIES = [
@@ -133,11 +135,11 @@ function QuickAddModal({
             </div>
             <div>
               <label className="label">Phone</label>
-              <input className="input w-full" {...f('phone')} placeholder="+971 4 XXX XXXX" />
+              <PhoneInput value={form.phone || ''} onChange={(v) => setForm(s => ({ ...s, phone: v }))} placeholder="+971 4 XXX XXXX" />
             </div>
             <div className="col-span-2">
               <label className="label">Email</label>
-              <input type="email" className="input w-full" {...f('email')} />
+              <EmailInput className="input w-full" {...f('email')} />
             </div>
             <div className="col-span-2">
               <label className="label">Notes</label>

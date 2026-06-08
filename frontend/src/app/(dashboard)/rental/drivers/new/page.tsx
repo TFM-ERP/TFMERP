@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Briefcase, UserCheck } from 'lucide-react';
 import { rentalApi, hrApi } from '@/lib/api';
+import EmailInput from '@/components/EmailInput';
+import PhoneInput from '@/components/PhoneInput';
 
 export default function NewDriverPage() {
   const router = useRouter();
@@ -108,8 +110,8 @@ export default function NewDriverPage() {
           <h3 className="text-sm font-semibold text-gray-700 mb-4">Driver details</h3>
           <div className="grid grid-cols-2 gap-4">
             <div><label className="label">Full name *</label><input className="input w-full" value={form.fullName} onChange={e => set('fullName', e.target.value)} disabled={isHire && !!form.employeeId} /></div>
-            <div><label className="label">Mobile</label><input className="input w-full" value={form.mobile} onChange={e => set('mobile', e.target.value)} /></div>
-            <div><label className="label">Email</label><input className="input w-full" value={form.email} onChange={e => set('email', e.target.value)} /></div>
+            <div><label className="label">Mobile</label><PhoneInput value={form.mobile || ''} onChange={(v) => set('mobile', v)} /></div>
+            <div><label className="label">Email</label><EmailInput className="input w-full" value={form.email} onChange={e => set('email', e.target.value)} /></div>
             <div><label className="label">License number</label><input className="input w-full" value={form.licenseNumber} onChange={e => set('licenseNumber', e.target.value)} /></div>
             <div><label className="label">License class</label><input className="input w-full" value={form.licenseClass} onChange={e => set('licenseClass', e.target.value)} placeholder="e.g. 3 (Light)" /></div>
             <div><label className="label">License expiry</label><input type="date" className="input w-full" value={form.licenseExpiry} onChange={e => set('licenseExpiry', e.target.value)} /></div>

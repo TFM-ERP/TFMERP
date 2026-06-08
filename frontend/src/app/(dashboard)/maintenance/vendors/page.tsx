@@ -9,6 +9,8 @@ import {
   X, Save, Loader2, ChevronRight, Wrench, Building2, FileText,
   Upload, Trash2, Check, AlertTriangle,
 } from 'lucide-react';
+import EmailInput from '@/components/EmailInput';
+import PhoneInput from '@/components/PhoneInput';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -247,15 +249,15 @@ function VendorWizardModal({ onClose, onCreated }: {
               </div>
               <div>
                 <label className="label">Mobile</label>
-                <input className="input w-full" {...str('mobile')} placeholder="+971 50 000 0000" />
+                <PhoneInput value={form.mobile || ''} onChange={(v) => setForm(s => ({ ...s, mobile: v }))} placeholder="+971 50 000 0000" />
               </div>
               <div>
                 <label className="label">WhatsApp</label>
-                <input className="input w-full" {...str('whatsapp')} placeholder="+971 50 000 0000" />
+                <PhoneInput value={form.whatsapp || ''} onChange={(v) => setForm(s => ({ ...s, whatsapp: v }))} placeholder="+971 50 000 0000" />
               </div>
               <div>
                 <label className="label">Email</label>
-                <input type="email" className="input w-full" {...str('email')} />
+                <EmailInput className="input w-full" {...str('email')} />
               </div>
               <div>
                 <label className="label">Website</label>

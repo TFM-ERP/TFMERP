@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { ArrowLeft, Check } from 'lucide-react';
 import { hrApi } from '@/lib/api';
 import { NATIONALITIES } from '@/lib/countries';
+import EmailInput from '@/components/EmailInput';
+import PhoneInput from '@/components/PhoneInput';
 
 const DEPARTMENTS = [
   'Administration', 'Finance', 'Accounting', 'Operations', 'Dispatch', 'Fleet',
@@ -16,11 +18,17 @@ const STATUSES = ['Active', 'OnLeave', 'Suspended', 'Resigned', 'Terminated', 'R
 const STEPS = ['Basic details', 'Contact', 'Employment', 'Identity & compliance', 'Payroll & banking', 'Driver details'];
 
 function F({ label, k, form, set, type = 'text', span }: any) {
+  const isEmail = type === 'email' || /email/i.test(k);
+  const isPhone = type !== 'number' && /phone|mobile|landline|whatsapp|fax|tel/i.test(k);
   return (
     <div className={span ? 'col-span-2' : ''}>
       <label className="label">{label}</label>
-      <input type={type} className="input w-full" value={form[k] ?? ''}
-        onChange={(e) => set(k, type === 'number' ? Number(e.target.value) : e.target.value)} />
+      {isPhone
+        ? <PhoneInput value={form[k] ?? ''} onChange={(v: string) => set(k, v)} />
+        : isEmail
+          ? <EmailInput className="input w-full" value={form[k] ?? ''} onChange={(e: any) => set(k, e.target.value)} />
+          : <input type={type} className="input w-full" value={form[k] ?? ''}
+              onChange={(e) => set(k, type === 'number' ? Number(e.target.value) : e.target.value)} />}
     </div>
   );
 }

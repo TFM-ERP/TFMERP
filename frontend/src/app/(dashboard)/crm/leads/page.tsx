@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import { UserPlus, Plus, X, ArrowRight, Trash2, ArrowLeft } from 'lucide-react';
 import { crmApi } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
+import EmailInput from '@/components/EmailInput';
+import PhoneInput from '@/components/PhoneInput';
 
 const STATUS = ['NEW', 'CONTACTED', 'QUALIFIED', 'CONVERTED', 'LOST'];
 const CLS: Record<string, string> = { NEW: 'bg-blue-50 text-blue-700', CONTACTED: 'bg-amber-50 text-amber-700', QUALIFIED: 'bg-teal-50 text-teal-700', CONVERTED: 'bg-green-50 text-green-700', LOST: 'bg-gray-100 text-gray-500' };
@@ -88,8 +90,8 @@ function LeadModal({ lead, onClose, onSaved }: any) {
           <div className="grid grid-cols-2 gap-2">
             <div><label className="label">Company</label><input className="input w-full" value={f.companyName || ''} onChange={e => setF({ ...f, companyName: e.target.value })} /></div>
             <div><label className="label">Contact</label><input className="input w-full" value={f.contactName || ''} onChange={e => setF({ ...f, contactName: e.target.value })} /></div>
-            <div><label className="label">Email</label><input className="input w-full" value={f.email || ''} onChange={e => setF({ ...f, email: e.target.value })} /></div>
-            <div><label className="label">Phone</label><input className="input w-full" value={f.phone || ''} onChange={e => setF({ ...f, phone: e.target.value })} /></div>
+            <div><label className="label">Email</label><EmailInput className="input w-full" value={f.email || ''} onChange={e => setF({ ...f, email: e.target.value })} /></div>
+            <div><label className="label">Phone</label><PhoneInput value={f.phone || ''} onChange={(v) => setF({ ...f, phone: v })} /></div>
             <div><label className="label">Source</label><select className="input w-full" value={f.source || ''} onChange={e => setF({ ...f, source: e.target.value })}><option value="">—</option>{['Referral', 'Website', 'Walk-in', 'Repeat', 'Social', 'Other'].map(s => <option key={s}>{s}</option>)}</select></div>
             <div><label className="label">Status</label><select className="input w-full" value={f.status} onChange={e => setF({ ...f, status: e.target.value })}>{STATUS.map(s => <option key={s}>{s}</option>)}</select></div>
             <div className="col-span-2"><label className="label">Estimated value (AED)</label><input type="number" className="input w-full" value={f.estimatedValue} onChange={e => setF({ ...f, estimatedValue: e.target.value })} /></div>

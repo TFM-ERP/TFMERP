@@ -9,6 +9,8 @@ import {
   ArrowLeft, Save, Loader2, Edit2, Trash2, User, ShieldCheck,
   Wallet, FolderOpen, Package, Award, Car,
 } from 'lucide-react';
+import EmailInput from '@/components/EmailInput';
+import PhoneInput from '@/components/PhoneInput';
 
 type TabKey = 'overview' | 'compliance' | 'payroll' | 'documents' | 'assets' | 'certifications' | 'driver';
 
@@ -19,11 +21,17 @@ const STATUSES = ['Active','OnLeave','Suspended','Resigned','Terminated','Retire
 const empFullName = (e: any) => e?.displayName || `${e?.firstName || ''} ${e?.lastName || ''}`.trim();
 
 function F({ label, k, form, set, type = 'text' }: any) {
+  const isEmail = type === 'email' || /email/i.test(k);
+  const isPhone = type !== 'number' && /phone|mobile|landline|whatsapp|fax|tel/i.test(k);
   return (
     <div>
       <label className="label">{label}</label>
-      <input type={type} className="input w-full" value={form[k] ?? ''}
-        onChange={e => set(k, type === 'number' ? (e.target.value === '' ? '' : Number(e.target.value)) : e.target.value)} />
+      {isPhone
+        ? <PhoneInput value={form[k] ?? ''} onChange={(v: string) => set(k, v)} />
+        : isEmail
+          ? <EmailInput className="input w-full" value={form[k] ?? ''} onChange={(e: any) => set(k, e.target.value)} />
+          : <input type={type} className="input w-full" value={form[k] ?? ''}
+              onChange={e => set(k, type === 'number' ? (e.target.value === '' ? '' : Number(e.target.value)) : e.target.value)} />}
     </div>
   );
 }

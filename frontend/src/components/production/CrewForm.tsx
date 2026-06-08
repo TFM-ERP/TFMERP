@@ -8,12 +8,20 @@ import { crewApi, uploadFile, assetUrl } from '@/lib/api';
 import { NATIONALITIES, COUNTRIES } from '@/lib/countries';
 import { cn } from '@/lib/utils';
 import DepartmentRolePicker from './DepartmentRolePicker';
+import EmailInput from '@/components/EmailInput';
+import PhoneInput from '@/components/PhoneInput';
 
 function F({ label, k, form, set, type = 'text', span }: any) {
+  const isEmail = type === 'email' || /email/i.test(k);
+  const isPhone = /phone|mobile|whatsapp|fax/i.test(k);
   return (
     <div className={span ? 'col-span-2' : ''}>
       <label className="label">{label}</label>
-      <input type={type} className="input w-full" value={form[k] ?? ''} onChange={e => set(k, e.target.value)} />
+      {isPhone
+        ? <PhoneInput value={form[k] ?? ''} onChange={(v: string) => set(k, v)} />
+        : isEmail
+          ? <EmailInput className="input w-full" value={form[k] ?? ''} onChange={(e: any) => set(k, e.target.value)} />
+          : <input type={type} className="input w-full" value={form[k] ?? ''} onChange={e => set(k, e.target.value)} />}
     </div>
   );
 }

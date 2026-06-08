@@ -6,6 +6,7 @@ import {
   Users as UsersIcon, Plus, Search, Edit2, X, Check,
   Mail, Building2, Loader2, KeyRound, UserCircle, ChevronRight,
 } from 'lucide-react';
+import EmailInput from '@/components/EmailInput';
 
 const ROLE_LABELS: Record<string, string> = {
   SYSTEM_ADMIN: 'System Administrator',
@@ -234,7 +235,7 @@ function CreateUserModal({ onClose, onDone }: { onClose: () => void; onDone: () 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="col-span-2">
                     <label className="label">Login Email *</label>
-                    <input className="input w-full" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="defaults to employee email" />
+                    <EmailInput className="input w-full" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="defaults to employee email" />
                   </div>
                   <div className="col-span-2">
                     <label className="label">Temporary Password *</label>
@@ -326,7 +327,7 @@ function EditUserModal({ user, onClose, onDone }: { user: any; onClose: () => vo
           </p>
           <div>
             <label className="label">Login Email</label>
-            <input className="input w-full" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+            <EmailInput className="input w-full" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
           </div>
           <div>
             <label className="label">Role</label>

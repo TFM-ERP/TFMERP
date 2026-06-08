@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { contractsApi, productionApi, laborApi } from '@/lib/api';
 import { FileSignature, FilePlus2, Send, PenLine, CheckCircle2, X, Loader2, Coins, Users, Sparkles } from 'lucide-react';
 import { PanelHeader, Chip, Btn, EmptyState, SectionLabel, inputCls } from './ui';
+import EmailInput from '@/components/EmailInput';
 
 const money = (n: any, c = 'AED') => (n == null || n === '' ? '—' : `${c} ${Number(n).toLocaleString()}`);
 const STATUS: Record<string, string> = {
@@ -102,7 +103,7 @@ function NewContractModal({ projectId, templates, onClose, onDone }: any) {
               <div className="flex items-center justify-between text-slate-600"><span className="inline-flex items-center gap-1"><Coins size={11} /> Weekly</span><b>{money(member.weeklyRate, member.currency)}</b></div>
             </div>
           )}
-          <label className="text-sm block"><span className="block text-xs font-medium text-slate-500 mb-1">Counterparty email (for e-sign)</span><input className={inp} value={f.counterpartyEmail} onChange={(e) => set('counterpartyEmail', e.target.value)} /></label>
+          <label className="text-sm block"><span className="block text-xs font-medium text-slate-500 mb-1">Counterparty email (for e-sign)</span><EmailInput className={inp} value={f.counterpartyEmail} onChange={(e) => set('counterpartyEmail', e.target.value)} /></label>
           <div className="grid grid-cols-2 gap-3">
             <label className="text-sm"><span className="block text-xs font-medium text-slate-500 mb-1">Contract value</span><input type="number" className={inp} value={f.contractValue} onChange={(e) => set('contractValue', e.target.value)} placeholder="auto from rate" /></label>
             <label className="text-sm"><span className="block text-xs font-medium text-slate-500 mb-1">Start</span><input type="date" className={inp} value={f.startDate} onChange={(e) => set('startDate', e.target.value)} /></label>

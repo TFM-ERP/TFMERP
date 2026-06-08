@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { travelApi } from '@/lib/api';
 import { Users, Plus, X, Loader2, ShieldCheck } from 'lucide-react';
 import TravelIdentityPanel from '@/components/production/TravelIdentityPanel';
+import EmailInput from '@/components/EmailInput';
+import PhoneInput from '@/components/PhoneInput';
 
 const PTYPE_CLS: Record<string, string> = { TALENT: 'bg-violet-100 text-violet-700', CREW: 'bg-blue-100 text-blue-700', CONSULTANT: 'bg-amber-100 text-amber-700', VIP: 'bg-rose-100 text-rose-700', ACCOMPANYING: 'bg-slate-100 text-slate-600' };
 
@@ -65,8 +67,8 @@ function AddTravelerModal({ onClose, onDone }: any) {
           <L label="Full name *"><input className={inp} value={f.fullName} onChange={(e) => set('fullName', e.target.value)} /></L>
           <L label="Person type"><select className={inp} value={f.personType} onChange={(e) => set('personType', e.target.value)}>{['TALENT', 'CREW', 'CONSULTANT', 'VIP'].map((x) => <option key={x} value={x}>{x}</option>)}</select></L>
           <L label="Nationality"><input className={inp} value={f.nationality} onChange={(e) => set('nationality', e.target.value)} placeholder="AE / GB / US" /></L>
-          <L label="Email"><input className={inp} value={f.email} onChange={(e) => set('email', e.target.value)} /></L>
-          <L label="Phone"><input className={inp} value={f.phone} onChange={(e) => set('phone', e.target.value)} /></L>
+          <L label="Email"><EmailInput className={inp} value={f.email} onChange={(e) => set('email', e.target.value)} /></L>
+          <L label="Phone"><PhoneInput value={f.phone || ''} onChange={(v) => set('phone', v)} /></L>
           <L label="Passport number"><input className={inp} value={f.passportNumber} onChange={(e) => set('passportNumber', e.target.value)} /></L>
           <L label="Passport expiry"><input type="date" className={inp} value={f.passportExpiry} onChange={(e) => set('passportExpiry', e.target.value)} /></L>
           <label className="col-span-2 flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" checked={f.gdprConsent} onChange={(e) => set('gdprConsent', e.target.checked)} className="rounded" /> Data-processing consent on file</label>

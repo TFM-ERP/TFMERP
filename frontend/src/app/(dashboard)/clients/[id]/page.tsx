@@ -10,6 +10,8 @@ import {
   Edit2, Save, Trash2, Upload, User, Building2,
 } from 'lucide-react';
 import ContactPicker from '@/components/ContactPicker';
+import EmailInput from '@/components/EmailInput';
+import PhoneInput from '@/components/PhoneInput';
 
 const STATUS_COLORS: Record<string, string> = {
   ACTIVE: 'bg-green-100 text-green-700',
@@ -240,13 +242,19 @@ export default function ClientDetailPage() {
 
 // Editable field — input when editing, label/value when viewing
 function EF({ label, k, editing, edit, set, view, type = 'text', textarea }: any) {
+  const isEmail = type === 'email' || /email/i.test(k);
+  const isPhone = /phone|mobile|landline|whatsapp|fax|tel/i.test(k);
   return (
     <div>
       <label className="label">{label}</label>
       {editing ? (
         textarea
           ? <textarea className="input w-full" rows={2} value={edit[k] ?? ''} onChange={e => set(k, e.target.value)} />
-          : <input type={type} className="input w-full" value={type === 'date' ? (edit[k]?.slice?.(0,10) ?? edit[k] ?? '') : (edit[k] ?? '')} onChange={e => set(k, e.target.value)} />
+          : isPhone
+            ? <PhoneInput value={edit[k] ?? ''} onChange={(v) => set(k, v)} />
+            : isEmail
+              ? <EmailInput className="input w-full" value={edit[k] ?? ''} onChange={e => set(k, e.target.value)} />
+              : <input type={type} className="input w-full" value={type === 'date' ? (edit[k]?.slice?.(0,10) ?? edit[k] ?? '') : (edit[k] ?? '')} onChange={e => set(k, e.target.value)} />
       ) : (
         <p className="text-sm text-gray-800 mt-0.5">{view || '—'}</p>
       )}
@@ -295,8 +303,8 @@ function ContactsTab({ client, reload }: { client: any; reload: () => void }) {
             <div className="grid grid-cols-2 gap-3">
               <div><label className="label">Name</label><input className="input w-full" value={form.name ?? ''} onChange={e => setForm({ ...form, name: e.target.value })} /></div>
               <div><label className="label">Title</label><input className="input w-full" value={form.title ?? ''} onChange={e => setForm({ ...form, title: e.target.value })} /></div>
-              <div><label className="label">Email</label><input className="input w-full" value={form.email ?? ''} onChange={e => setForm({ ...form, email: e.target.value })} /></div>
-              <div><label className="label">Mobile</label><input className="input w-full" value={form.mobile ?? ''} onChange={e => setForm({ ...form, mobile: e.target.value })} /></div>
+              <div><label className="label">Email</label><EmailInput className="input w-full" value={form.email ?? ''} onChange={e => setForm({ ...form, email: e.target.value })} /></div>
+              <div><label className="label">Mobile</label><PhoneInput value={form.mobile || ''} onChange={(v) => setForm({ ...form, mobile: v })} /></div>
             </div>
             <label className="flex items-center gap-2 mt-3 text-sm text-gray-600">
               <input type="checkbox" checked={!!form.isPrimary} onChange={e => setForm({ ...form, isPrimary: e.target.checked })} /> Primary contact

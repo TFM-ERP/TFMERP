@@ -11,6 +11,8 @@ import {
   LICENSE_TYPES, LICENSE_STATUS, VAT_STATUS, CORPORATE_TAX_STATUS,
   DOCUMENT_TYPES, LOCATION_TYPES, showsMainland, showsFreeZone,
 } from '@/lib/companyOptions';
+import EmailInput from '@/components/EmailInput';
+import PhoneInput from '@/components/PhoneInput';
 
 type TabKey =
   | 'profile' | 'licensing' | 'regulatory' | 'tax'
@@ -152,19 +154,19 @@ export default function CompanyPage() {
                 </div>
                 <div>
                   <label className="label">Main Email</label>
-                  <input type="email" className="input w-full" value={data.mainEmail ?? ''} onChange={e => set('mainEmail', e.target.value)} />
+                  <EmailInput className="input w-full" value={data.mainEmail ?? ''} onChange={e => set('mainEmail', e.target.value)} />
                 </div>
                 <div>
                   <label className="label">Billing Email</label>
-                  <input type="email" className="input w-full" value={data.billingEmail ?? ''} onChange={e => set('billingEmail', e.target.value)} />
+                  <EmailInput className="input w-full" value={data.billingEmail ?? ''} onChange={e => set('billingEmail', e.target.value)} />
                 </div>
                 <div>
                   <label className="label">Main Phone</label>
-                  <input className="input w-full" value={data.mainPhone ?? ''} onChange={e => set('mainPhone', e.target.value)} placeholder="+971 4 XXX XXXX" />
+                  <PhoneInput value={data.mainPhone || ''} onChange={(v) => set('mainPhone', v)} placeholder="+971 4 XXX XXXX" />
                 </div>
                 <div>
                   <label className="label">Emergency Phone</label>
-                  <input className="input w-full" value={data.emergencyPhone ?? ''} onChange={e => set('emergencyPhone', e.target.value)} />
+                  <PhoneInput value={data.emergencyPhone || ''} onChange={(v) => set('emergencyPhone', v)} />
                 </div>
                 <div>
                   <label className="label">City</label>

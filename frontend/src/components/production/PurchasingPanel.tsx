@@ -5,6 +5,8 @@ import { Plus, Trash2, FileText, Building2, CheckCircle, Ban, Receipt, GitBranch
 import { productionApi, approvalsApi, assetUrl } from '@/lib/api';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import { Btn, Chip, EmptyState, inputCls } from './ui';
+import EmailInput from '@/components/EmailInput';
+import PhoneInput from '@/components/PhoneInput';
 
 const PO_TONE: Record<string, string> = {
   DRAFT: 'slate', SUBMITTED: 'need', REJECTED: 'risk',
@@ -246,8 +248,8 @@ export default function PurchasingPanel({ projectId, currency = 'AED', accounts 
                 <div><label className="label text-xs">Name *</label><input className={inputCls} value={vendor.name} onChange={e => setVendor((f: any) => ({ ...f, name: e.target.value }))} /></div>
                 <div><label className="label text-xs">Category</label><input className={inputCls} value={vendor.category} onChange={e => setVendor((f: any) => ({ ...f, category: e.target.value }))} placeholder="Equipment, Catering…" /></div>
                 <div><label className="label text-xs">Contact</label><input className={inputCls} value={vendor.contactName} onChange={e => setVendor((f: any) => ({ ...f, contactName: e.target.value }))} /></div>
-                <div><label className="label text-xs">Phone</label><input className={inputCls} value={vendor.phone} onChange={e => setVendor((f: any) => ({ ...f, phone: e.target.value }))} /></div>
-                <div><label className="label text-xs">Email</label><input className={inputCls} value={vendor.email} onChange={e => setVendor((f: any) => ({ ...f, email: e.target.value }))} /></div>
+                <div><label className="label text-xs">Phone</label><PhoneInput value={vendor.phone || ''} onChange={(v) => setVendor((f: any) => ({ ...f, phone: v }))} /></div>
+                <div><label className="label text-xs">Email</label><EmailInput className={inputCls} value={vendor.email} onChange={e => setVendor((f: any) => ({ ...f, email: e.target.value }))} /></div>
                 <div><label className="label text-xs">TRN</label><input className={inputCls} value={vendor.trn} onChange={e => setVendor((f: any) => ({ ...f, trn: e.target.value }))} /></div>
               </div>
               <div className="flex gap-2 mt-3"><Btn variant="primary" onClick={saveVendor}>Add vendor</Btn><Btn variant="secondary" onClick={() => setAddingVendor(false)}>Cancel</Btn></div>

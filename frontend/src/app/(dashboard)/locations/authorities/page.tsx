@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { locationLibraryApi } from '@/lib/api';
 import { Landmark, Plus, X, Save, Trash2, ExternalLink, Clock } from 'lucide-react';
+import EmailInput from '@/components/EmailInput';
+import PhoneInput from '@/components/PhoneInput';
 
 const CATEGORIES = ['MEDIA_AUTHORITY', 'FILM_COMMISSION', 'MEDIA_ZONE', 'MEDIA_COUNCIL', 'AVIATION', 'ROADS', 'POLICE', 'AIRPORT', 'HERITAGE', 'MUNICIPALITY', 'MARINE', 'OTHER'];
 const CAT_CLS: Record<string, string> = {
@@ -94,8 +96,8 @@ export default function AuthoritiesPage() {
               <label className="text-sm"><span className="block text-xs text-gray-500 mb-1">Jurisdiction</span><input className={inp} value={form.jurisdiction} onChange={(e) => set('jurisdiction', e.target.value)} placeholder="Abu Dhabi / UAE" /></label>
               <label className="text-sm"><span className="block text-xs text-gray-500 mb-1">Contact name</span><input className={inp} value={form.contactName} onChange={(e) => set('contactName', e.target.value)} /></label>
               <label className="text-sm"><span className="block text-xs text-gray-500 mb-1">Lead time (days)</span><input type="number" className={inp} value={form.leadTimeDays} onChange={(e) => set('leadTimeDays', e.target.value)} /></label>
-              <label className="text-sm"><span className="block text-xs text-gray-500 mb-1">Email</span><input className={inp} value={form.email} onChange={(e) => set('email', e.target.value)} /></label>
-              <label className="text-sm"><span className="block text-xs text-gray-500 mb-1">Phone</span><input className={inp} value={form.phone} onChange={(e) => set('phone', e.target.value)} /></label>
+              <label className="text-sm"><span className="block text-xs text-gray-500 mb-1">Email</span><EmailInput className={inp} value={form.email} onChange={(e) => set('email', e.target.value)} /></label>
+              <label className="text-sm"><span className="block text-xs text-gray-500 mb-1">Phone</span><PhoneInput value={form.phone || ''} onChange={(v) => set('phone', v)} /></label>
               <label className="text-sm col-span-2"><span className="block text-xs text-gray-500 mb-1">Portal URL</span><input className={inp} value={form.portalUrl} onChange={(e) => set('portalUrl', e.target.value)} /></label>
               <label className="text-sm col-span-2"><span className="block text-xs text-gray-500 mb-1">Notes</span><textarea className={inp} rows={2} value={form.notes} onChange={(e) => set('notes', e.target.value)} /></label>
             </div>

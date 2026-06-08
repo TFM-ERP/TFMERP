@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { clientsApi } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { Search, RefreshCw, Plus, Building2, X, ChevronRight } from 'lucide-react';
+import EmailInput from '@/components/EmailInput';
+import PhoneInput from '@/components/PhoneInput';
 
 const STATUS_COLORS: Record<string, string> = {
   ACTIVE: 'bg-green-100 text-green-700',
@@ -110,8 +112,8 @@ function NewClientModal({ onClose, onCreated }: { onClose: () => void; onCreated
           {tab === 'contact' && (
             <div className="grid grid-cols-2 gap-4">
               <div><label className="label">Primary Contact Name</label><input className="input w-full" {...str('contactName')} /></div>
-              <div><label className="label">Email</label><input className="input w-full" {...str('email')} /></div>
-              <div><label className="label">Phone</label><input className="input w-full" {...str('phone')} placeholder="+971 …" /></div>
+              <div><label className="label">Email</label><EmailInput className="input w-full" {...str('email')} /></div>
+              <div><label className="label">Phone</label><PhoneInput value={form.phone || ''} onChange={(v) => setForm(f => ({ ...f, phone: v }))} placeholder="+971 …" /></div>
             </div>
           )}
 

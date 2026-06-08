@@ -5,6 +5,8 @@ import { castingApi, travelApi, usersApi, productionApi } from '@/lib/api';
 import { Users, Plus, X, Loader2, ShieldCheck, Search, Trash2, Plane, CheckCircle2, Clock, MinusCircle, Gauge, Award, Contact, SlidersHorizontal, ListPlus, Bookmark, FolderPlus } from 'lucide-react';
 import TravelIdentityPanel from '@/components/production/TravelIdentityPanel';
 import { RepresentationTab, CreditsTab, CrmTab } from '@/components/production/TalentV3Tabs';
+import EmailInput from '@/components/EmailInput';
+import PhoneInput from '@/components/PhoneInput';
 
 const CONSENT_CLS: Record<string, string> = { GRANTED: 'bg-emerald-100 text-emerald-700', PENDING: 'bg-amber-100 text-amber-700', WITHDRAWN: 'bg-rose-100 text-rose-700', EXPIRED: 'bg-slate-100 text-slate-500' };
 
@@ -305,9 +307,9 @@ function AddTalentModal({ existing, onClose, onDone }: any) {
 
           <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mt-4 mb-2">Contact, union & professional</p>
           <div className="grid grid-cols-2 gap-3">
-            <L label="Email"><input className={inp} value={f.email} onChange={(e) => set('email', e.target.value)} /></L>
-            <L label="Mobile"><input className={inp} value={f.phone} onChange={(e) => set('phone', e.target.value)} /></L>
-            <L label="WhatsApp"><input className={inp} value={f.whatsapp} onChange={(e) => set('whatsapp', e.target.value)} /></L>
+            <L label="Email"><EmailInput className={inp} value={f.email} onChange={(e) => set('email', e.target.value)} /></L>
+            <L label="Mobile"><PhoneInput value={f.phone || ''} onChange={(v) => set('phone', v)} /></L>
+            <L label="WhatsApp"><PhoneInput value={f.whatsapp || ''} onChange={(v) => set('whatsapp', v)} /></L>
             <L label="Union / Guild"><select className={inp} value={f.laborBodyId} onChange={(e) => set('laborBodyId', e.target.value)}><option value="">None / Non-union</option>{unions.map((u) => <option key={u.id} value={u.id}>{u.name}{u.country?.name ? ` (${u.country.name})` : ''}</option>)}</select></L>
             <L label="Agency"><input className={inp} value={f.agencyName} onChange={(e) => set('agencyName', e.target.value)} /></L>
             <L label="Consent"><select className={inp} value={f.consentStatus} onChange={(e) => set('consentStatus', e.target.value)}>{['GRANTED', 'PENDING'].map((x) => <option key={x} value={x}>{x}</option>)}</select></L>

@@ -10,6 +10,8 @@ import {
   FileText, Calendar, Shield, Upload, Eye, Trash2, Loader2,
 } from 'lucide-react';
 import DriverPayments from '@/components/rental/DriverPayments';
+import EmailInput from '@/components/EmailInput';
+import PhoneInput from '@/components/PhoneInput';
 
 const JOB_STATUS_STYLE: Record<string, string> = {
   ASSIGNED: 'bg-blue-100 text-blue-700',
@@ -353,8 +355,8 @@ export default function DriverDetailPage() {
                       <option value="EMPLOYEE">Employee</option><option value="FREELANCE">Freelance</option>
                     </select>
                   </div>
-                  <div><label className="label">Mobile</label><input className="input w-full" value={editForm.mobile || ''} onChange={e => setEditForm((f: any) => ({ ...f, mobile: e.target.value }))} /></div>
-                  <div><label className="label">Email</label><input className="input w-full" value={editForm.email || ''} onChange={e => setEditForm((f: any) => ({ ...f, email: e.target.value }))} /></div>
+                  <div><label className="label">Mobile</label><PhoneInput value={editForm.mobile || ''} onChange={(v) => setEditForm((f: any) => ({ ...f, mobile: v }))} /></div>
+                  <div><label className="label">Email</label><EmailInput className="input w-full" value={editForm.email || ''} onChange={e => setEditForm((f: any) => ({ ...f, email: e.target.value }))} /></div>
                   <div><label className="label">Emirates ID</label><input className="input w-full font-mono" value={editForm.emiratesId || ''} onChange={e => setEditForm((f: any) => ({ ...f, emiratesId: e.target.value }))} /></div>
                   <div><label className="label">Emirates ID Expiry</label><input type="date" className="input w-full" value={editForm.emiratesIdExpiry ? new Date(editForm.emiratesIdExpiry).toISOString().slice(0,10) : ''} onChange={e => setEditForm((f: any) => ({ ...f, emiratesIdExpiry: e.target.value }))} /></div>
                   <div><label className="label">Passport No.</label><input className="input w-full font-mono" value={editForm.passportNumber || ''} onChange={e => setEditForm((f: any) => ({ ...f, passportNumber: e.target.value }))} /></div>

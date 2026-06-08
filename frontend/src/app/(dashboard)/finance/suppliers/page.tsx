@@ -10,6 +10,8 @@ import {
   Check, Upload, Trash2, FileText, Phone, Mail, Globe,
 } from 'lucide-react';
 import { SUPPLIER_CATEGORIES } from '@/components/SupplierSelect';
+import EmailInput from '@/components/EmailInput';
+import PhoneInput from '@/components/PhoneInput';
 
 // -- Constants -----------------------------------------------------------------
 
@@ -266,11 +268,11 @@ function NewSupplierModal({ onClose, onCreated }: {
               </div>
               <div>
                 <label className="label flex items-center gap-1"><Phone size={12} /> Phone</label>
-                <input className="input w-full" {...str('phone')} placeholder="+971 4 XXX XXXX" />
+                <PhoneInput value={form.phone || ''} onChange={(v) => setForm(f => ({ ...f, phone: v }))} placeholder="+971 4 XXX XXXX" />
               </div>
               <div>
                 <label className="label flex items-center gap-1"><Mail size={12} /> Email</label>
-                <input type="email" className="input w-full" {...str('email')} />
+                <EmailInput className="input w-full" {...str('email')} />
               </div>
               <div className="col-span-2">
                 <label className="label flex items-center gap-1"><Globe size={12} /> Website</label>

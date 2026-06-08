@@ -7,6 +7,7 @@ import {
   Mail, Building2, Edit2, Trash2, ChevronDown, User,
 } from 'lucide-react';
 import PhoneInput, { PhoneDisplay } from '@/components/PhoneInput';
+import EmailInput from '@/components/EmailInput';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -305,7 +306,7 @@ function ContactModal({
               />
               <div>
                 <label className={labelCls}>Email</label>
-                <input className={inputCls} type="email" value={form.email} onChange={(e) => set('email', e.target.value)} placeholder="jane@example.com" />
+                <EmailInput className={inputCls} value={form.email} onChange={(e) => set('email', e.target.value)} placeholder="jane@example.com" />
               </div>
             </div>
           </div>

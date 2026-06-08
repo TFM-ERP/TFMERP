@@ -11,6 +11,8 @@ import {
   Wrench, DollarSign, User, MessageCircle, Check, CheckCircle2,
   Building2, CreditCard, AlertTriangle,
 } from 'lucide-react';
+import EmailInput from '@/components/EmailInput';
+import PhoneInput from '@/components/PhoneInput';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -198,10 +200,10 @@ function ContactForm({ initial, onSave, onCancel }: {
           </select>
         </div>
         <div><label className="label">Job Title</label><input className="input w-full" {...f('jobTitle')} /></div>
-        <div><label className="label">Mobile</label><input className="input w-full" {...f('mobile')} placeholder="+971 50 XXX XXXX" /></div>
-        <div><label className="label">WhatsApp</label><input className="input w-full" {...f('whatsapp')} placeholder="+971 50 XXX XXXX" /></div>
-        <div><label className="label">Email</label><input type="email" className="input w-full" {...f('email')} /></div>
-        <div><label className="label">Office Phone</label><input className="input w-full" {...f('officePhone')} /></div>
+        <div><label className="label">Mobile</label><PhoneInput value={form.mobile || ''} onChange={(v) => setForm((s: any) => ({ ...s, mobile: v }))} placeholder="+971 50 XXX XXXX" /></div>
+        <div><label className="label">WhatsApp</label><PhoneInput value={form.whatsapp || ''} onChange={(v) => setForm((s: any) => ({ ...s, whatsapp: v }))} placeholder="+971 50 XXX XXXX" /></div>
+        <div><label className="label">Email</label><EmailInput className="input w-full" {...f('email')} /></div>
+        <div><label className="label">Office Phone</label><PhoneInput value={form.officePhone || ''} onChange={(v) => setForm((s: any) => ({ ...s, officePhone: v }))} /></div>
         <div className="col-span-2"><label className="label">Notes</label><input className="input w-full" {...f('notes')} /></div>
         <div className="col-span-2 flex items-center gap-2">
           <input type="checkbox" id="isPrimary" checked={!!form.isPrimary}
@@ -585,15 +587,15 @@ export default function VendorDetailPage() {
                 </div>
                 <div>
                   <label className="label">Mobile</label>
-                  <input className="input w-full" {...ef('mobile')} placeholder="+971 50 000 0000" />
+                  <PhoneInput value={editData.mobile || ''} onChange={(v) => setEditData((d: any) => ({ ...d, mobile: v }))} placeholder="+971 50 000 0000" />
                 </div>
                 <div>
                   <label className="label">WhatsApp</label>
-                  <input className="input w-full" {...ef('whatsapp')} placeholder="+971 50 000 0000" />
+                  <PhoneInput value={editData.whatsapp || ''} onChange={(v) => setEditData((d: any) => ({ ...d, whatsapp: v }))} placeholder="+971 50 000 0000" />
                 </div>
                 <div>
                   <label className="label">Email</label>
-                  <input type="email" className="input w-full" {...ef('email')} />
+                  <EmailInput className="input w-full" {...ef('email')} />
                 </div>
                 <div>
                   <label className="label">Website</label>

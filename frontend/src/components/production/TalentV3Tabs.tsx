@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { castingApi } from '@/lib/api';
 import { Plus, Trash2, Loader2, Briefcase, Film, Phone, Calendar, Star } from 'lucide-react';
+import EmailInput from '@/components/EmailInput';
+import PhoneInput from '@/components/PhoneInput';
 
 const REP_TYPES = ['AGENCY', 'MANAGER', 'LAWYER', 'PUBLICIST', 'BUSINESS_MANAGER', 'ASSISTANT'];
 const CREDIT_TYPES = ['FILM', 'TV', 'COMMERCIAL', 'THEATRE', 'OTHER'];
@@ -37,8 +39,8 @@ export function RepresentationTab({ talentId }: { talentId: string }) {
           <select className={inp} value={f.repType} onChange={(e) => set('repType', e.target.value)}>{REP_TYPES.map((x) => <option key={x} value={x}>{x.replace('_', ' ')}</option>)}</select>
           <input className={inp} placeholder="Name *" value={f.name} onChange={(e) => set('name', e.target.value)} />
           <input className={inp} placeholder="Company" value={f.company} onChange={(e) => set('company', e.target.value)} />
-          <input className={inp} placeholder="Email" value={f.email} onChange={(e) => set('email', e.target.value)} />
-          <input className={inp} placeholder="Phone" value={f.phone} onChange={(e) => set('phone', e.target.value)} />
+          <EmailInput className={inp} placeholder="Email" value={f.email} onChange={(e) => set('email', e.target.value)} />
+          <PhoneInput placeholder="Phone" value={f.phone || ''} onChange={(v) => set('phone', v)} />
           <input className={inp} placeholder="Commission %" type="number" value={f.commissionPct} onChange={(e) => set('commissionPct', e.target.value)} />
           <input className={inp} placeholder="Territory" value={f.territory} onChange={(e) => set('territory', e.target.value)} />
           <label className="text-[11px] text-slate-500 inline-flex items-center gap-1.5"><input type="checkbox" checked={f.isPrimary} onChange={(e) => set('isPrimary', e.target.checked)} /> Primary agent</label>
