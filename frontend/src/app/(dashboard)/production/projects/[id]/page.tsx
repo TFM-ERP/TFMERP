@@ -161,11 +161,11 @@ const TAB_META: Record<string, { label: string; icon: any }> = {
 // Domain-aligned grouping (SYS-06): each group = a business system, not a loose tab bin.
 const TAB_GROUPS: { key: string; label: string; tabs: Tab[] }[] = [
   { key: 'overview', label: 'Overview', tabs: ['overview'] },
-  { key: 'planning', label: 'Planning', tabs: ['schedule', 'callsheets'] },
+  { key: 'planning', label: 'Planning', tabs: ['schedule', 'breakdowns', 'callsheets'] },
   { key: 'money', label: 'Budget & Cost', tabs: ['budget', 'topsheet', 'fringe', 'incentives', 'overages'] },
   { key: 'acct', label: 'Accounting', tabs: ['actual', 'costreport', 'purchasing', 'accounting', 'cash'] },
   { key: 'workforce', label: 'Workforce', tabs: ['crew', 'perdiem'] },
-  { key: 'locations', label: 'Locations', tabs: ['locations', 'breakdowns'] },
+  { key: 'locations', label: 'Locations', tabs: ['locations'] },
   { key: 'engagements', label: 'Engagements', tabs: ['travel', 'contracts', 'casting', 'accommodation', 'transport', 'shuttle', 'arrivals', 'fuel', 'logistics'] },
   { key: 'setup', label: 'Setup & Output', tabs: ['settings', 'labor', 'globals', 'documents', 'projectemail', 'credits'] },
 ];

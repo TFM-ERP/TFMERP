@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { Plus, Trash2, Film, Calendar, RefreshCw, Users, Printer, GripVertical, FileUp, Wand2 } from 'lucide-react';
 import { productionApi, uploadFile } from '@/lib/api';
 import { formatDate, cn } from '@/lib/utils';
-import BreakdownPanel from './BreakdownPanel';
 import BreakdownMappingModal from './BreakdownMappingModal';
 import UniversalDoodPanel from './UniversalDoodPanel';
 
@@ -15,7 +14,7 @@ const CODE_CLR: Record<string, string> = { SW: 'bg-green-100 text-green-700', W:
 const pagesLabel = (p: number) => { const whole = Math.floor(p); const e = Math.round((p - whole) * 8); return `${whole || (e ? '' : '0')}${e ? ` ${e}/8` : ''}`.trim() || '0'; };
 
 export default function StripboardPanel({ projectId, cast = [], currency = 'AED', accounts = [] }: { projectId: string; cast?: string[]; currency?: string; accounts?: { code: string; title: string }[] }) {
-  const [view, setView] = useState<'board' | 'dood' | 'breakdown'>('board');
+  const [view, setView] = useState<'board' | 'dood'>('board');
   const [board, setBoard] = useState<any>(null);
   const [dood, setDood] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -157,7 +156,6 @@ export default function StripboardPanel({ projectId, cast = [], currency = 'AED'
         <div className="flex gap-1">
           <button onClick={() => setView('board')} className={cn('text-xs px-3 py-1.5 rounded-lg', view === 'board' ? 'bg-brand-50 text-brand-700' : 'text-gray-500 hover:bg-gray-50')}>Stripboard</button>
           <button onClick={() => setView('dood')} className={cn('text-xs px-3 py-1.5 rounded-lg', view === 'dood' ? 'bg-brand-50 text-brand-700' : 'text-gray-500 hover:bg-gray-50')}>Day Out of Days</button>
-          <button onClick={() => setView('breakdown')} className={cn('text-xs px-3 py-1.5 rounded-lg', view === 'breakdown' ? 'bg-brand-50 text-brand-700' : 'text-gray-500 hover:bg-gray-50')}>Breakdown</button>
         </div>
         <div className="flex gap-2 items-center">
           {board && <span className="text-xs text-gray-400">{board.totalScenes} scenes · {pagesLabel(board.totalPages)} pages · {board.shootDays} days</span>}
@@ -197,9 +195,7 @@ export default function StripboardPanel({ projectId, cast = [], currency = 'AED'
         </div>
       )}
 
-      {view === 'breakdown' ? (
-        <BreakdownPanel projectId={projectId} currency={currency} accounts={accounts} scenes={flatStrips()} />
-      ) : loading ? <div className="card p-10 text-center text-gray-400 text-sm">Loading…</div> : view === 'board' ? (
+      {loading ? <div className="card p-10 text-center text-gray-400 text-sm">Loading…</div> : view === 'board' ? (
         <div className="space-y-3">
           {board && board.board.length === 0 && board.unscheduled.length === 0 && (
             <div className="card p-10 text-center text-gray-400 text-sm"><Film size={24} className="mx-auto mb-2 opacity-30" />No scenes yet. Add scenes and assign them to shoot days.</div>
