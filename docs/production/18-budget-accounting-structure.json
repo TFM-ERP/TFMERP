@@ -1,0 +1,141 @@
+{
+  "system": "TFM Production ERP — budget & accounting knowledge index",
+  "version": "2.0-studio-grade-spec",
+  "status_legend": { "IMPLEMENTED": "live in code", "SPEC": "approved architecture, implementation pending" },
+  "see_also": ["18-budget-accounting-structure.md", "12-budget-lifecycle-and-topsheet-comparison.md", "17-mm-industry-coa-reconciliation.md"],
+
+  "core_principle": { "status": "IMPLEMENTED", "rule": "Two ledgers: estimates in BudgetLineItem tree, actuals in ProjectTransaction; reconciled ONLY by accountCode at cost-center grain." },
+  "coa_numbering": { "status": "IMPLEMENTED", "standard": "Movie Magic / AICP industry topsheet", "tiers": { "ATL": "1000-1899", "BTL": "2000-4999", "POST": "5000-5899", "OTHER": "6300-6900", "DISTRIBUTION": "7000-9100 optional" }, "legacy_translation": "CoaMappingTable TFM_LEGACY" },
+
+  "budget": {
+    "status": "IMPLEMENTED",
+    "hierarchy": "BudgetVersion → BudgetSection(tier) → BudgetAccount(code) → BudgetLineItem",
+    "lifecycle": { "states": ["DRAFT", "REVIEW(V1..Vn)", "APPROVED", "LOCKED", "WORKING"], "locked_immutable": true, "lock_side_effect": "anchors shootEndDate from shoot_days global" },
+    "revised_budget": "Σ lines ± APPROVED transfers + APPROVED overages",
+    "population_paths": ["master CoA seed", "MM direct import", "MM AI-reviewed import (preview→review→confirm clone)", "script breakdown", "DOOD→globals staging→push", "crew labour blocks (shoot vs prep/wrap rates)"]
+  },
+
+  "accounting_core": {
+    "status": "IMPLEMENTED",
+    "ledger_model": "ProjectTransaction",
+    "kinds": ["COST", "INCOME", "SALES_REVENUE", "CORPORATE_OVERHEAD"],
+    "recognition": { "actual_cost": ["APPROVED", "PAID"], "income": ["INVOICED", "RECEIVED", "PAID", "APPROVED"], "cash": ["PAID", "RECEIVED"] },
+    "period_guard_assertOpen": ["ledger create/update/delete", "ledger setStatus", "PO invoicing", "petty cash spend+delete", "payment run", "timecard posting"],
+    "cost_report": "live: EFC = Actual + ETC; Variance = RevisedBudget − EFC; CostReportSnapshot freezes",
+    "cash": { "ap_aging": ["current", "1-30", "31-60", "61-90", "90+"], "payment_run": "paySelected", "cashflow": "weekly buckets", "fx": "master table, USD peg 3.6725" },
+    "ui_tabs": { "Budget": ["budget", "topsheet", "fringe", "incentives", "overages"], "Accounting": ["budget-vs-actual", "costreport", "purchasing", "ledger", "cash"] }
+  },
+
+  "enhancements": {
+    "schema": {
+      "amortization": { "status": "SPEC", "models": { "AmortizationLedger": ["projectId(series umbrella)", "name", "type:AmortizationType", "totalPool", "method EQUAL_PER_EPISODE|WEIGHTED_BY_BUDGET|MANUAL", "episodes[{episodeProjectId,weight,allocated}]", "status OPEN|ALLOCATED|CLOSED"] }, "enum_AmortizationType": ["MAIN", "ENHANCEMENT", "CONSTRUCTION", "HOLIDAY"], "relations": "ProjectTransaction.amortizationLedgerId?, BudgetLineItem.amortizationLedgerId?", "behavior": "allocation run posts per-episode transactions under each episode's period locks" },
+      "zatca_phase2": {
+        "status": "IMPLEMENTED (schema) / SPEC (clearance middleware)",
+        "applies_to": ["ProjectTransaction", "PurchaseOrder"],
+        "enum_InvoiceClassification": ["B2B", "B2C", "B2G"],
+        "fields": {
+          "invoiceClassification": "B2B|B2C|B2G — drives clearance vs reporting",
+          "zatcaUuid": "36-char invoice UUID, unique across ZATCA ecosystem",
+          "zatcaIcv": "Invoice Counter Value — strictly sequential per EGS unit",
+          "zatcaXmlHash": "hash of this signed UBL 2.1 XML",
+          "zatcaPreviousInvoiceHash": "PIH — cryptographic chain to preceding invoice",
+          "zatcaCryptographicStamp": "ECDSA stamp (simplified: device CSID stamp; standard: ZATCA stamp on clearance)",
+          "zatcaCsid": "Cryptographic Stamp Identifier",
+          "zatcaQrCode": "base64 TLV QR incl. stamp, public key, ECDSA signature (Phase 2)",
+          "zatcaClearanceStatus": "PENDING|CLEARED|REPORTED|REJECTED",
+          "zatcaClearedAt": "timestamp"
+        },
+        "model": "B2B/B2G real-time clearance before issue; B2C simplified reported within 24h; UBL 2.1 XML",
+        "populated_by": "fatoora clearance middleware ONLY — never hand-entered; CSID credentials in backend/.env"
+      },
+      "jordan_jofotara": {
+        "status": "IMPLEMENTED (schema) / SPEC (submit middleware)",
+        "applies_to": ["ProjectTransaction", "PurchaseOrder"],
+        "fields": {
+          "jordanFawateeryUuid": "submission UUID returned by JoFotara",
+          "jordanFawateeryQR": "ISTD-issued QR after validation — required on customer invoice",
+          "ublStandardVersion": "payload dialect marker 'UBL 2.1'"
+        },
+        "authority": "ISTD (Income & Sales Tax Department)",
+        "model": "clearance — validate before issue; mandatory all B2B/B2C/B2G since 2025-04-01; non-JoFotara invoices ineligible for VAT deduction"
+      },
+      "withholding_tax": { "status": "SPEC", "model": "WithholdingTaxLiability", "fields": ["transactionId unique", "jurisdiction", "ratePct 5-20", "baseAmount", "withheldAmount", "dueDate default = 10th of month after payment (stored per row)", "remittanceStatus PENDING|PAID", "certificateUrl"], "behavior": "payment run splits: vendor net + WHT accrual; treasury ages remittances" },
+      "dual_currency": { "status": "SPEC", "fields": "ProductionProject.studioCurrency (presentation) vs existing currency (functional/production)" },
+      "sox_void": { "status": "SPEC", "fields": ["ProjectTransaction.status += VOID", "voidedAt/By/Reason", "reversesId self-relation"] }
+    },
+    "ledger_logic": {
+      "uae_rcm": { "status": "SPEC", "trigger": "AP invoice from non-resident supplier", "action": "auto-post Output VAT liability + Input VAT recoverable, net cash zero, origin SYSTEM_RCM, linked + co-voided", "article_53_block": "Input VAT recovery blocked for ENTERTAINMENT category — reads JurisdictionTaxRule.rules.blockedInputTax, no hardcoded country logic" },
+      "uae_ct_settlement": { "status": "SPEC", "law": "Federal Decree-Law 47/2022", "sequence": ["1 Withholding Tax Credit", "2 Foreign Tax Credit (capped)", "3 Cabinet-approved incentives", "4 pay remainder"], "shape": "pure settleCorporateTax(liability, credits[]) + audited journal pairs" },
+      "fx_revaluation": { "status": "SPEC", "run": "period-end revalueOpenAP(period), idempotent", "rate": "month-end spot from master FX snapshot", "posting": "unrealized gain/loss to dedicated account 6810, origin SYSTEM_FX_REVAL, auto-reversing, excluded from per-account EFC", "guarded": true },
+      "sox_pattern": { "status": "SPEC", "rule": "NO hard deletes on ProjectTransaction at service layer; void(id, reason) → original preserved as VOID + canceling entry (reversesId); VOID excluded from all computed figures; DB trigger rejects DELETE as belt-and-braces", "reroutes": ["ledger.remove", "petty-cash delete", "PO un-invoice", "AI-import rollback"] }
+    },
+    "api_extensions": {
+      "status": "SPEC",
+      "routes": {
+        "POST production/e-invoicing/fatoora/clearance": "KSA UBL XML → ZATCA real-time clearance; persists stamp/hash/uuid/QR",
+        "POST production/e-invoicing/fawateery/submit": "Jordan encrypted UBL 2.1 → ISTD; persists QR",
+        "POST production/costing/p-cards/envelopes": "ingest P-Card envelopes; balanced Dr expense / Cr card-clearing lines; receipts attached immutably",
+        "GET production/costing/incentives/qspi/:projectId": "QSPI 40% base vs ≤10% uplift criteria tracker (reads seeded Qatar IncentiveProgram)",
+        "GET production/ledger/wht/:projectId": "WHT liability aging",
+        "POST production/ledger/wht/:id/remit": "mark remitted",
+        "POST production/accounting/fx-revaluation/:period": "period-end revaluation run",
+        "POST production/ledger/:id/void": "SOX void (replaces DELETE)"
+      },
+      "secrets_rule": "ZATCA CSID / ISTD keys only in backend/.env"
+    },
+    "weekly_cost_report": {
+      "status": "SPEC",
+      "columns": ["Locked Budget", "Actuals to Date (excl VOID)", "Current Weekly Spend = actuals − previous LOCKED weekly snapshot", "Open POs (Committed)", "ETC", "EFC", "Variance"],
+      "snapshot_model_additions": ["weekEnding", "lockedBy/lockedAt", "status DRAFT|LOCKED (immutable when locked)", "reconciliationProof{tbHash, bankRecState}", "sentTo distribution log"],
+      "pre_lock_guard": { "checks": ["Trial Balance balanced (core accounting module)", "bank accounts reconciled through weekEnding", "period locks consistent"], "on_fail": "lock BLOCKED with named reasons", "significance": "first hard bridge production ↔ core accounting (src/accounting trial-balance + bank-rec)" }
+    },
+    "project_entity_tb_audit_pack": {
+      "status": "SPEC (engine) / IMPLEMENTED (complianceRules schema + seeded per program)",
+      "driver": "IncentiveProgram.complianceRules { auditRequired, auditorRequirement, auditDeadlineDays, dedicatedBankAccount, localEntityRequired, qualifyingSpendRules, eligibilityConditions[] }",
+      "tb_account_classes": { "assets": ["project dedicated bank", "petty cash floats", "vendor deposits/advances", "VAT input recoverable"], "liabilities": ["AP open invoices", "accrued costs", "WHT payable", "VAT output payable", "payroll/fringe accruals"], "funding": ["financier/inter-company funding-in"], "income": ["interest", "rebate receivable"], "expenses": ["MM topsheet accounts 1100-6900"] },
+      "balancing_identity": "funding received = cash in bank + advances outstanding + costs incurred − liabilities unpaid",
+      "audit_matrix": {
+        "AE_AbuDhabi_ADFC": { "auditRequired": true, "auditor": "ADFC-pre-approved independent (entertainment experience); Audited Expenditure Statement + working sheets", "deadlineDays": 180, "dedicatedBankAccount": true, "localEntity": "AD-registered applicant", "qualifyingSpend": "ADQPE: UAE-resident crew + AD-licensed vendors, VAT excluded" },
+        "SA_FilmSaudi": { "auditRequired": true, "auditor": "final audit approved by Saudi Film Commission before payment", "dedicatedBankAccount": false, "localEntity": "KSA register or Saudi co-production partner; pre-approval before PP" },
+        "QA_QSPI": { "auditRequired": "TBD — guidelines pending (apps Q2 2026)", "dedicatedBankAccount": "TBD", "localEntity": "MCQ-licensed entity/SPV" },
+        "JO_RFC": { "auditRequired": true, "auditor": "CPA-audited expenditure reports; payout ≤150 days", "dedicatedBankAccount": false, "localEntity": "Jordanian tax-resident applicant" },
+        "US_GA": { "auditRequired": true, "auditor": "mandatory since 2023: GDOR or GDOR-certified Eligible Auditor (GDOR reviews third-party audits)" },
+        "US_CA": { "auditRequired": true, "auditor": "CPA Agreed-Upon-Procedures report; CPA independent of production accounting + CFC orientation" },
+        "US_NY": { "auditRequired": false, "auditor": "ESD program review; no mandatory CPA audit found — verify per allocation letter" },
+        "CA_PSTC": { "auditRequired": "costs > CAD 500,000", "auditor": "audited cost report; CAVCO/CRA records access" },
+        "UK_AVEC": { "auditRequired": true, "auditor": "Companies Act 2006 s.1212-eligible accountant's report at BFI final certification (cultural-test C/D, co-productions)" }
+      },
+      "enforcement": ["dedicatedBankAccount → BankAccount.projectId link required before claim advances (SPEC)", "auditRequired → project-entity TB + Audit Pack export (TB, bank rec, AP listing, qualifying-spend schedule, locked weekly snapshots)", "auditDeadlineDays → claim-tracker countdown from calendar-anchored wrap", "qualifyingSpendRules → per-program qualifying flag on transactions"]
+    },
+    "integrity_rules": [
+      "all new rows are ProjectTransactions matched by accountCode (two-ledger preserved)",
+      "every write through assertOpen; every destructive path through void()",
+      "LOCKED artifacts immutable forever; corrections forward-posted",
+      "PENDING-first approval gates everywhere",
+      "jurisdiction logic from JurisdictionTaxRule data, never country ifs",
+      "AI never writes live numbers",
+      "historical projects unchanged; capabilities apply forward"
+    ],
+    "implementation_order": ["sox_void", "wht + payment-run split", "rcm + art53", "dual currency + fx revaluation", "weekly report engine + snapshot lock + reconciliation guard", "e-invoicing (ZATCA sandbox → JoFotara)", "amortization ledger", "p-cards + qspi dashboard", "ct settlement waterfall"],
+    "ui_landing_spots": { "Ledger tab": "Void action + WHT sub-view", "Cash tab": "Treasury (WHT aging, P-Card envelopes)", "Cost Report tab": "weekly-lock bar with reconciliation status lights", "Project Settings": "studio/presentation currency", "Compliance module": "e-invoicing clearance queue" }
+  },
+
+  "key_endpoints_implemented": {
+    "cost_report": "GET costing/report/:projectId",
+    "snapshots": "GET|POST costing/snapshots/:projectId",
+    "transfers": "GET|POST costing/transfers, PATCH :id/status",
+    "pos": "GET|POST costing/pos, POST :id/invoice, POST :id/upload-invoice",
+    "petty_cash": "GET|POST costing/floats, POST floats/:floatId/txns",
+    "ledger": "GET|POST ledger, PATCH :id/status, GET ap-aging/:projectId, POST pay-selected, GET periods/:projectId",
+    "mm_ai_import": "POST movie-magic/:projectId/import/ai-preview|ai-confirm",
+    "dood_calendar": "GET scheduling/dood-matrix, POST dood-to-globals, GET calendar, GET callsheet-data"
+  },
+  "files": {
+    "budget": "backend/src/production/budget/budget.service.ts",
+    "costing": "backend/src/production/costing/costing.service.ts",
+    "ledger": "backend/src/production/ledger/ledger.service.ts",
+    "coa_seed": "backend/src/production/projects/projects.service.ts",
+    "core_accounting_bridge": "backend/src/accounting/* (trial balance, bank rec — consumed by weekly report guard)",
+    "ai_mapping": "backend/src/production/movie-magic/ai-mapping.service.ts + production/context/dynamic-context.service.ts"
+  }
+}

@@ -1,0 +1,70 @@
+import { Module } from '@nestjs/common';
+import { PrismaModule } from '../common/prisma/prisma.module';
+import { ProjectsController } from './projects/projects.controller';
+import { ProjectsService } from './projects/projects.service';
+import { BudgetController } from './budget/budget.controller';
+import { BudgetService } from './budget/budget.service';
+import { CrewController } from './crew/crew.controller';
+import { CrewService } from './crew/crew.service';
+import { CallSheetsController } from './callsheets/callsheets.controller';
+import { CallSheetsService } from './callsheets/callsheets.service';
+import { PerDiemController } from './perdiem/perdiem.controller';
+import { PerDiemService } from './perdiem/perdiem.service';
+import { OveragesController } from './overages/overages.controller';
+import { OveragesService } from './overages/overages.service';
+import { CreditsController } from './credits/credits.controller';
+import { CreditsService } from './credits/credits.service';
+import { LedgerController } from './ledger/ledger.controller';
+import { LedgerService } from './ledger/ledger.service';
+import { CostingController } from './costing/costing.controller';
+import { CostingService } from './costing/costing.service';
+import { SchedulingController } from './scheduling/scheduling.controller';
+import { SchedulingService } from './scheduling/scheduling.service';
+import { DoodCalculationService } from './scheduling/dood-calculation.service';
+import { CalendarAnchoringService } from './scheduling/calendar-anchoring.service';
+import { BreakdownController } from './breakdown/breakdown.controller';
+import { BreakdownService } from './breakdown/breakdown.service';
+import { ScriptImportService } from './breakdown/script-import.service';
+import { PayrollController } from './payroll/payroll.controller';
+import { PayrollService } from './payroll/payroll.service';
+import { LocationsController } from './locations/locations.controller';
+import { LocationsService } from './locations/locations.service';
+import { DocumentsController } from './documents/documents.controller';
+import { DocumentsService } from './documents/documents.service';
+import { MailController } from './mail/mail.controller';
+import { MailService } from './mail/mail.service';
+import { EmailService } from '../collections/email.service';
+import { VendorOnboardingController, VendorOnboardingPublicController } from './vendor-onboarding/vendor-onboarding.controller';
+import { VendorOnboardingService } from './vendor-onboarding/vendor-onboarding.service';
+import { MovieMagicController } from './movie-magic/movie-magic.controller';
+import { MovieMagicService } from './movie-magic/movie-magic.service';
+import { DynamicContextService } from './context/dynamic-context.service';
+import { AiMappingService } from './movie-magic/ai-mapping.service';
+import { WorkflowModule } from '../workflow/workflow.module';
+import { LocationsLibraryModule } from '../locations-library/locations-library.module';
+import { TravelController } from './travel/travel.controller';
+import { TravelService } from './travel/travel.service';
+import { AmadeusService } from './travel/integrations/amadeus.service';
+import { ConcurService } from './travel/integrations/concur.service';
+import { ContractsController, ContractsWebhookController } from './contracts/contracts.controller';
+import { ContractsService } from './contracts/contracts.service';
+import { CastingController, CastingPublicController } from './casting/casting.controller';
+import { CastingService } from './casting/casting.service';
+import { AccommodationController } from './logistics/accommodation.controller';
+import { AccommodationService } from './logistics/accommodation.service';
+import { TransportController } from './logistics/transport.controller';
+import { TransportService } from './logistics/transport.service';
+import { ShuttleController } from './logistics/shuttle.controller';
+import { ShuttleService } from './logistics/shuttle.service';
+import { ArrivalController } from './logistics/arrival.controller';
+import { ArrivalService } from './logistics/arrival.service';
+import { LogisticsReportsController } from './logistics/logistics-reports.controller';
+import { LogisticsReportsService } from './logistics/logistics-reports.service';
+
+@Module({
+  imports: [PrismaModule, WorkflowModule, LocationsLibraryModule],
+  controllers: [ProjectsController, BudgetController, CrewController, CallSheetsController, PerDiemController, OveragesController, CreditsController, LedgerController, CostingController, SchedulingController, BreakdownController, DocumentsController, MailController, PayrollController, LocationsController, VendorOnboardingController, VendorOnboardingPublicController, MovieMagicController, TravelController, ContractsController, ContractsWebhookController, CastingController, CastingPublicController, AccommodationController, TransportController, ShuttleController, ArrivalController, LogisticsReportsController],
+  providers: [ProjectsService, BudgetService, CrewService, CallSheetsService, PerDiemService, OveragesService, CreditsService, LedgerService, CostingService, SchedulingService, DoodCalculationService, CalendarAnchoringService, BreakdownService, ScriptImportService, DocumentsService, MailService, EmailService, PayrollService, LocationsService, VendorOnboardingService, MovieMagicService, DynamicContextService, AiMappingService, TravelService, AmadeusService, ConcurService, ContractsService, CastingService, AccommodationService, TransportService, ShuttleService, ArrivalService, LogisticsReportsService],
+  exports: [DynamicContextService, AiMappingService],
+})
+export class ProductionModule {}

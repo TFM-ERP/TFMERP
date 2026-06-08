@@ -1,0 +1,334 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TFM ERP — NetSuite-inspired design system
+   Brand: TFM Gold #C3A56E  ·  Sidebar charcoal #2B2E31
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@layer base {
+  :root {
+    --brand:          #0F172A;
+    --brand-hover:    #1E293B;
+    --brand-dark:     #0F172A;
+    --sidebar-bg:     #2B2E31;
+    --sidebar-hover:  #363A3E;
+    --sidebar-active: #3D4045;
+    --sidebar-border: #3D4045;
+    --sidebar-text:   #C9CACB;
+    --sidebar-muted:  #737679;
+    --page-bg:        #F4F5F7;
+    --card-bg:        #FFFFFF;
+    --card-border:    #DFE1E6;
+    --text-primary:   #172B4D;
+    --text-secondary: #5E6C84;
+    --text-muted:     #97A0AF;
+    --divider:        #EBECF0;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { font-size: 13px; }
+
+  body {
+    font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+    background-color: var(--page-bg);
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  h1 { font-size: 1.15rem; font-weight: 700; }
+  h2 { font-size: 1rem;    font-weight: 600; }
+  h3 { font-size: .9rem;   font-weight: 600; }
+
+  /* Slim scrollbar */
+  ::-webkit-scrollbar       { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #aaa; }
+}
+
+/* ── Buttons ──────────────────────────────────────────────────────────────── */
+@layer components {
+
+  .btn {
+    @apply inline-flex items-center gap-1.5 px-3 py-[5px] text-[13px] font-medium
+           rounded transition-all cursor-pointer select-none whitespace-nowrap
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-primary {
+    @apply btn font-semibold;
+    background-color: var(--brand);
+    border: 1px solid var(--brand-hover);
+    color: #fff;
+  }
+  .btn-primary:hover:not(:disabled) { background-color: var(--brand-hover); color: #fff; }
+
+  .btn-secondary {
+    @apply btn bg-white text-gray-700;
+    border: 1px solid var(--card-border);
+  }
+  .btn-secondary:hover:not(:disabled) { @apply bg-gray-50; border-color: #b3b9c4; }
+
+  .btn-ghost {
+    @apply btn text-gray-600 bg-transparent border border-transparent;
+  }
+  .btn-ghost:hover:not(:disabled) { @apply bg-gray-100 text-gray-900; }
+
+  .btn-danger {
+    @apply btn text-white bg-red-600;
+    border: 1px solid #b91c1c;
+  }
+  .btn-danger:hover:not(:disabled) { @apply bg-red-700; }
+
+  /* ── Card ─────────────────────────────────────────────────────────────── */
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 4px;
+    box-shadow: 0 1px 2px rgba(0,0,0,.05);
+    padding: 1rem;
+  }
+
+  .card-header {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--divider);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  /* ── Form ─────────────────────────────────────────────────────────────── */
+  .input {
+    display: block;
+    width: 100%;
+    height: 32px;
+    padding: 0 10px;
+    font-size: 13px;
+    color: var(--text-primary);
+    background: white;
+    border: 1px solid var(--card-border);
+    border-radius: 3px;
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .input:hover { border-color: #b3b9c4; }
+  .input:focus {
+    border-color: var(--brand);
+    box-shadow: 0 0 0 2px rgba(195,165,110,.20);
+  }
+  .input::placeholder { color: var(--text-muted); }
+  textarea.input { height: auto; padding: 7px 10px; }
+  select.input   { cursor: pointer; }
+
+  .label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+  }
+
+  /* ── Badge ────────────────────────────────────────────────────────────── */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 7px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 18px;
+  }
+
+  /* ── Table ────────────────────────────────────────────────────────────── */
+  .table-th {
+    padding: 8px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--text-secondary);
+    background: #F1F3F5;
+    border-bottom: 1px solid var(--card-border);
+    white-space: nowrap;
+    text-align: left;
+  }
+
+  .table-td {
+    padding: 8px 12px;
+    font-size: 13px;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--divider);
+    vertical-align: middle;
+  }
+
+  .table-row {
+    transition: background .1s;
+  }
+  .table-row:hover { background-color: #F8F9FB; }
+  .table-row:nth-child(even) { background-color: #FAFBFC; }
+
+  /* ── Page header ──────────────────────────────────────────────────────── */
+  .page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 24px;
+    background: white;
+    border-bottom: 1px solid var(--divider);
+  }
+  .page-title   { font-size: 15px; font-weight: 700; color: var(--text-primary); }
+  .page-subtitle { font-size: 12px; color: var(--text-secondary); margin-top: 1px; }
+
+  /* ── Tabs ─────────────────────────────────────────────────────────────── */
+  .tabs     { display: flex; border-bottom: 1px solid var(--divider); gap: 0; }
+  .tab {
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    cursor: pointer;
+    transition: color .15s;
+  }
+  .tab:hover   { color: var(--text-primary); }
+  .tab.active  { color: var(--brand-dark); border-bottom-color: var(--brand); }
+
+  /* ── Section title ────────────────────────────────────────────────────── */
+  .section-title {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+
+  /* ── Utility classes ──────────────────────────────────────────────────── */
+  .text-brand   { color: var(--brand-dark); }
+  .divider      { border-color: var(--divider); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DARK MODE — toggled by adding .dark to <html> (switch in the top utility bar).
+   Two layers: (1) re-point the design-system variables; (2) remap the raw
+   Tailwind utility classes used across pages so every screen follows without
+   touching components. Print pages keep their own light styling.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Warm graphite — brown-tinted darks in the same family as the TFM gold */
+html.dark {
+  --page-bg:        #191714;
+  --card-bg:        #23201C;
+  --card-border:    #3B3630;
+  --text-primary:   #EAE6DF;
+  --text-secondary: #B3AB9E;
+  --text-muted:     #7A7265;
+  --divider:        #2E2A25;
+  --sidebar-bg:     #211E1A;
+  --sidebar-hover:  #2B2722;
+  --sidebar-active: #322D27;
+  --sidebar-border: #322D27;
+}
+html.dark body { background-color: var(--page-bg); color: var(--text-primary); }
+html.dark ::-webkit-scrollbar-thumb { background: #4A443B; }
+
+/* (2) raw Tailwind utility remap — scoped to dark, print excluded */
+@media not print {
+  html.dark .bg-white { background-color: var(--card-bg) !important; }
+  html.dark .bg-gray-50, html.dark .bg-gray-100, html.dark .bg-gray-50\/60,
+  html.dark .bg-gray-100\/70, html.dark .bg-gray-50\/40 { background-color: #2B2722 !important; }
+  html.dark .hover\:bg-gray-50:hover, html.dark .hover\:bg-gray-100:hover,
+  html.dark .hover\:bg-gray-50\/60:hover { background-color: #322D27 !important; }
+  html.dark .bg-blue-50 { background-color: #1B2735 !important; }
+  html.dark .bg-amber-50 { background-color: #2E2718 !important; }
+  html.dark .bg-sky-50 { background-color: #182832 !important; }
+  html.dark .bg-green-50 { background-color: #18291E !important; }
+  html.dark .bg-red-50 { background-color: #2E1B1B !important; }
+  html.dark .bg-indigo-50, html.dark .bg-brand-50, html.dark .bg-purple-50 { background-color: #232136 !important; }
+  html.dark .bg-teal-50 { background-color: #162926 !important; }
+
+  html.dark .text-gray-900, html.dark .text-gray-800 { color: var(--text-primary) !important; }
+  html.dark .text-gray-700, html.dark .text-gray-600 { color: var(--text-secondary) !important; }
+  html.dark .text-gray-500, html.dark .text-gray-400 { color: var(--text-muted) !important; }
+  html.dark .text-gray-300 { color: #5E574C !important; }
+
+  html.dark .border-gray-100, html.dark .border-gray-200, html.dark .border-gray-50,
+  html.dark .divide-gray-100 > *, html.dark .border-blue-100, html.dark .border-sky-100,
+  html.dark .border-amber-100 { border-color: var(--divider) !important; }
+
+  /* badge/pill tints: keep their hue, lift the text for contrast */
+  html.dark .bg-amber-100 { background-color: #3A2F14 !important; }
+  html.dark .text-amber-700, html.dark .text-amber-600 { color: #E8B85C !important; }
+  html.dark .bg-green-100 { background-color: #173321 !important; }
+  html.dark .text-green-700, html.dark .text-green-800, html.dark .text-green-600 { color: #5DCA85 !important; }
+  html.dark .bg-red-100 { background-color: #3A1A1A !important; }
+  html.dark .text-red-600, html.dark .text-red-500 { color: #F08585 !important; }
+  html.dark .bg-blue-100 { background-color: #1A2C44 !important; }
+  html.dark .text-blue-700, html.dark .text-blue-800 { color: #85B7EB !important; }
+  html.dark .bg-indigo-100, html.dark .bg-purple-100, html.dark .bg-violet-100 { background-color: #2A2745 !important; }
+  html.dark .text-indigo-700, html.dark .text-indigo-600, html.dark .text-purple-700,
+  html.dark .text-purple-600, html.dark .text-violet-700 { color: #AFA9EC !important; }
+  html.dark .bg-teal-50, html.dark .bg-teal-100 { background-color: #14302C !important; }
+  html.dark .text-teal-700 { color: #5DCAA5 !important; }
+  html.dark .bg-sky-100 { background-color: #16303C !important; }
+  html.dark .text-sky-700, html.dark .text-sky-600 { color: #6CB8DD !important; }
+  html.dark .bg-cyan-100 { background-color: #14333A !important; }
+  html.dark .text-cyan-700 { color: #5BC6DC !important; }
+  html.dark .text-brand-600, html.dark .text-brand-700 { color: #D4BC8B !important; }
+  html.dark .bg-brand-100 { background-color: #3A3220 !important; }
+
+  /* form controls */
+  html.dark .input, html.dark select.input, html.dark textarea.input {
+    background-color: #2B2722; color: var(--text-primary); border-color: var(--card-border);
+  }
+  html.dark .input::placeholder { color: var(--text-muted); }
+  html.dark input[type='checkbox'] { color-scheme: dark; }
+  html.dark input[type='date'] { color-scheme: dark; }
+
+  /* remaining tints & neutrals seen across pages */
+  html.dark .bg-gray-200 { background-color: #3B362F !important; }
+  html.dark .bg-slate-50 { background-color: #272320 !important; }
+  html.dark .bg-orange-50 { background-color: #2E2114 !important; }
+  html.dark .bg-orange-100 { background-color: #3A2A16 !important; }
+  html.dark .text-orange-700, html.dark .text-orange-600 { color: #EFA45C !important; }
+  html.dark .bg-yellow-100 { background-color: #36301A !important; }
+  html.dark .text-yellow-700 { color: #E3CB6A !important; }
+  html.dark .bg-blue-50\/40 { background-color: #1B2735 !important; }
+  html.dark .bg-amber-50\/40 { background-color: #2E2718 !important; }
+  html.dark .bg-red-50\/40 { background-color: #2E1B1B !important; }
+  html.dark .bg-brand-50\/40 { background-color: #2A2620 !important; }
+  html.dark .bg-purple-50, html.dark .bg-violet-50 { background-color: #232136 !important; }
+  html.dark .bg-cyan-50 { background-color: #14333A !important; }
+  html.dark .bg-emerald-50 { background-color: #18291E !important; }
+  html.dark .bg-pink-50, html.dark .bg-rose-50 { background-color: #2E1A22 !important; }
+  html.dark .hover\:bg-gray-200:hover { background-color: #443E36 !important; }
+  html.dark .hover\:bg-brand-50:hover { background-color: #2A2620 !important; }
+  html.dark .bg-brand-50 { background-color: #2A2620 !important; }
+  html.dark .border-amber-200, html.dark .border-blue-200, html.dark .border-red-200,
+  html.dark .border-indigo-300, html.dark .border-brand-300, html.dark .border-green-200 { border-color: #4A443B !important; }
+  /* modals / popovers built on plain bg-white are covered by the .bg-white rule;
+     shadows read harsh on dark — soften */
+  html.dark .shadow-xl, html.dark .shadow-md, html.dark .shadow-sm { box-shadow: 0 4px 16px rgba(0,0,0,.5) !important; }
+  /* sticky table headers inside scroll panes */
+  html.dark thead tr { background-color: var(--card-bg); }
+  html.dark .table-th { background-color: #2B2722; }
+
+  /* component classes whose light colors are inlined via @apply */
+  html.dark .btn-secondary { background-color: #2B2722; color: var(--text-secondary); border-color: var(--card-border); }
+  html.dark .btn-secondary:hover:not(:disabled) { background-color: #322D27; border-color: #4A443B; }
+  html.dark .btn-ghost { color: var(--text-secondary); }
+  html.dark .btn-ghost:hover:not(:disabled) { background-color: #2B2722; color: var(--text-primary); }
+  html.dark .table-row:hover { background-color: #2B2722; }
+  html.dark .table-row:nth-child(even) { background-color: #211E1A; }
+  html.dark .page-header { background: var(--card-bg); }
+  html.dark .input:hover { border-color: #4A443B; }
+}

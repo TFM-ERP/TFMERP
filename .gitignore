@@ -1,0 +1,76 @@
+# ─────────────────────────────────────────────────────────────
+# TFM-System — root .gitignore
+# ─────────────────────────────────────────────────────────────
+
+# Dependencies (never commit — 1.5GB+, re-installed via npm install)
+node_modules/
+**/node_modules/
+.pnp
+.pnp.js
+
+# Secrets & environment (NEVER commit — keep only .env.example)
+.env
+.env.local
+.env.development
+.env.development.local
+.env.production
+.env.production.local
+.env.test
+.env.test.local
+**/.env
+**/.env.local
+**/*.local
+# keep the template
+!.env.example
+!**/.env.example
+
+# Build output
+dist/
+build/
+out/
+**/dist/
+**/build/
+.next/
+frontend/.next/
+.turbo/
+
+# Prisma local artifacts
+**/*.prisma.bak
+backend/prisma/*.bak
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+logs/
+
+# Test / coverage
+coverage/
+.nyc_output/
+
+# Caches
+.cache/
+.eslintcache
+*.tsbuildinfo
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temp
+tmp/
+*.tmp
+
+# Build copies, DB dumps, uploads, FUSE junk (never push)
+backend/dist*/
+backups/
+backend/backups/
+backend/uploads/
+**/.fuse_hidden*

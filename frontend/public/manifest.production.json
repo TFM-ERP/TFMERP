@@ -1,0 +1,14 @@
+{
+  "name": "TFM Production",
+  "short_name": "TFM Prod",
+  "description": "The Film Makers — production ERP (offline-capable field tools: petty cash & locations)",
+  "start_url": "/production",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1a1a2e",
+  "theme_color": "#1a1a2e",
+  "icons": [
+    { "src": "/tfm-logo.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

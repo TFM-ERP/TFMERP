@@ -1,0 +1,4142 @@
+// ============================================================
+// TFM ERP — Prisma Schema
+// The Film Makers FZ LLC
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── FX rates (for multi-currency consolidation) ───────────────────────────────
+
+model FxRate {
+  id        String   @id @default(cuid())
+  currency  String   @unique // USD, EUR, GBP…
+  toBase    Decimal  @db.Decimal(14, 6) // value of 1 unit in base currency (AED)
+  updatedAt DateTime @updatedAt
+
+  @@map("fx_rates")
+}
+
+// ── Cloud storage OAuth connections (team-shared) ─────────────────────────────
+
+model IntegrationConnection {
+  id            String    @id @default(cuid())
+  provider      String    @unique // GDRIVE | DROPBOX
+  accountName   String?
+  accountEmail  String?
+  accessToken   String?
+  refreshToken  String?
+  expiresAt     DateTime?
+  scope         String?
+  connectedById String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("integration_connections")
+}
+
+// ── Enums ────────────────────────────────────────────────────────────────────
+
+enum Activity {
+  RENTAL
+  PRODUCTION
+  BOTH
+}
+
+enum UserRole {
+  SYSTEM_ADMIN
+  FINANCE_MANAGER
+  ACCOUNTANT
+  RENTAL_MANAGER
+  RENTAL_COORDINATOR
+  DISPATCHER
+  DRIVER
+  MAINTENANCE
+  PRODUCTION_MANAGER
+  PRODUCTION_COORDINATOR
+  CREW
+  HR_MANAGER
+  SALES
+  TALENT_REP        // agent/manager — sees only the talent they represent
+  TRAVEL_COORDINATOR // travel/logistics — sees traveller passport/visa/ID PII
+}
+
+enum Currency {
+  AED
+  USD
+  EUR
+  GBP
+  SAR
+  CAD
+}
+
+enum QuotationStatus {
+  DRAFT
+  PENDING_REVIEW
+  SENT
+  VIEWED
+  REVISION_REQUESTED
+  APPROVED
+  REJECTED
+  EXPIRED
+  CONVERTED
+  CANCELLED
+}
+
+enum InvoiceType {
+  PROFORMA
+  TAX_INVOICE
+  CREDIT_NOTE
+  DEBIT_NOTE
+}
+
+enum InvoiceStatus {
+  DRAFT
+  PENDING_APPROVAL
+  SENT
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  CANCELLED
+  VOIDED
+  REFUNDED
+  BAD_DEBT
+}
+
+enum PaymentMethod {
+  BANK_TRANSFER
+  CHEQUE
+  CASH
+  CARD
+  ONLINE
+}
+
+enum PaymentStatus {
+  PENDING
+  CLEARED
+  BOUNCED
+  REFUNDED
+}
+
+enum ExpenseStatus {
+  DRAFT
+  SUBMITTED
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  PARTIALLY_APPROVED
+  PAID
+  ARCHIVED
+}
+
+enum VatType {
+  STANDARD      // 5% UAE VAT
+  ZERO_RATED    // 0%
+  EXEMPT        // No VAT
+  OUT_OF_SCOPE  // Not subject to VAT
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+  TRANSFER
+  JOURNAL
+}
+
+// ── Core: Users ──────────────────────────────────────────────────────────────
+
+model User {
+  id               String    @id @default(cuid())
+  fullName         String
+  email            String    @unique
+  mobile           String?
+  passwordHash     String
+  jobTitle         String?
+  department       String?
+  role             UserRole  @default(ACCOUNTANT)
+  activity         Activity  @default(BOTH)
+  isActive         Boolean   @default(true)
+  twoFactorEnabled Boolean   @default(false)
+  twoFactorSecret  String?
+  lastLoginAt      DateTime?
+  approvalLimit    Decimal?  @db.Decimal(15, 2)
+  avatarUrl        String?
+
+  // 1:1 link to the HR employee record (single source of truth for personnel data)
+  employeeId       String?   @unique
+  employee         Employee? @relation("EmployeeUser", fields: [employeeId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  createdQuotations  Quotation[]     @relation("QuotationCreatedBy")
+  approvedQuotations Quotation[]     @relation("QuotationApprovedBy")
+  createdInvoices    Invoice[]       @relation("InvoiceCreatedBy")
+  deductedQuotations Quotation[]     @relation("QuotationDeductionBy")
+  deductedInvoices   Invoice[]       @relation("InvoiceDeductionBy")
+  createdExpenses    Expense[]       @relation("ExpenseCreatedBy")
+  approvedExpenses   Expense[]       @relation("ExpenseApprovedBy")
+  createdBookings    RentalBooking[] @relation("BookingCreatedBy")
+  damageReports      DamageReport[]  @relation("DamageReportedBy")
+  loginHistory       LoginHistory[]
+  auditLogs          AuditLog[]
+  statusChanges      StatusLog[]     @relation("StatusChangedBy")
+  crewLinks          CrewMember[]    @relation("CrewParentUser") // crew rows mapped to this ERP user
+  projectRoles       ProjectRoleAssignment[] // per-project authorization (V1.2)
+
+  // Contracts module
+  contractTemplates  ContractTemplate[] @relation("ContractTemplateCreatedBy")
+  contractsCreated   ProjectContract[]  @relation("ProjectContractCreatedBy")
+  contractPartyLinks ContractParty[]    @relation("ContractPartyUser")
+  // Casting — talent this user represents (TALENT_REP)
+  representedTalent  GlobalTalentProfile[] @relation("TalentRepresentative")
+
+  @@map("users")
+}
+
+// ── V1.2 — per-project authorization layer (doc system/05 §2) ─────────────────
+// LAYERS on top of the global role matrix: the global matrix is the coarse gate
+// ("can touch Production at all"); these define what a user can do on ONE project.
+model PermissionTemplate {
+  id          String  @id @default(cuid())
+  key         String  @unique // LINE_PRODUCER | UPM | DEPT_HEAD | KEY_ACCOUNTANT | COORDINATOR | OBSERVER
+  name        String
+  description String?
+  // capability flags consumed by project-scoped guards, e.g.
+  // { budget:'edit', costReport:'lock', po:'approve', ledger:'edit', crew:'manage' }
+  permissions Json
+  // hide sensitive fields from this template, e.g. ["dayRateAed","iban","passportNumber"]
+  fieldLevelAccess Json?
+  isSystem    Boolean @default(true) // seeded standard roles
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  assignments ProjectRoleAssignment[]
+  @@map("permission_templates")
+}
+
+model ProjectRoleAssignment {
+  id         String   @id @default(cuid())
+  projectId  String
+  project    ProductionProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  templateId String
+  template   PermissionTemplate @relation(fields: [templateId], references: [id])
+  notes      String?
+  createdAt  DateTime @default(now())
+
+  @@unique([projectId, userId]) // one role per user per project
+  @@index([userId])
+  @@map("project_role_assignments")
+}
+
+model LoginHistory {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  ipAddress String?
+  userAgent String?
+  success   Boolean
+  createdAt DateTime @default(now())
+
+  @@map("login_history")
+}
+
+// ── Core: Clients (CRM) ──────────────────────────────────────────────────────
+
+model Client {
+  id              String   @id @default(cuid())
+  companyName     String
+  tradeName       String?
+  trn             String?  // UAE Tax Registration Number
+  billingAddress  String?
+  city            String?
+  country         String   @default("UAE")
+  website         String?
+  creditLimit     Decimal? @db.Decimal(15, 2)
+  paymentTermDays Int      @default(30)
+  currency        Currency @default(AED)
+  notes           String?
+  isActive        Boolean  @default(true)
+  status          String   @default("ACTIVE")  // ACTIVE | INACTIVE | BLOCKED
+  blockReason     String?
+  email           String?
+  phone           String?
+  contactName     String?
+  address         String?
+  googleMapsUrl   String?
+
+  // UAE Tax & Compliance
+  vatId               String?
+  tradeLicenseNumber  String?
+  tradeLicenseExpiry  DateTime?
+  tradeLicenseUrl     String?
+  vatCertificateUrl   String?
+
+  // Banking
+  bankName        String?
+  bankAccount     String?
+  iban            String?
+  swiftCode       String?
+  bankBranch      String?
+  bankAddress     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  contacts           ClientContact[]
+  documents          ClientDocument[]
+  directoryContacts  Contact[]
+  quotations         Quotation[]
+  invoices           Invoice[]
+  payments           Payment[]
+  rentalBookings     RentalBooking[]
+  productionProjects ProductionProject[]
+
+  @@map("clients")
+}
+
+model ClientDocument {
+  id         String   @id @default(cuid())
+  clientId   String
+  client     Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  docType    String   @default("OTHER")  // TRADE_LICENSE | VAT_CERTIFICATE | CONTRACT | LPO | AGREEMENT | OTHER
+  name       String
+  fileUrl    String
+  expiryDate DateTime?
+  notes      String?
+  createdAt  DateTime @default(now())
+
+  @@map("client_documents")
+}
+
+model ClientContact {
+  id        String  @id @default(cuid())
+  clientId  String
+  client    Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name      String
+  title     String?
+  email     String?
+  mobile    String?
+  isPrimary Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@map("client_contacts")
+}
+
+// ── Core: Bank Accounts ──────────────────────────────────────────────────────
+
+model BankAccount {
+  id              String   @id @default(cuid())
+  accountName     String
+  bankName        String
+  branch          String?
+  accountNumber   String
+  iban            String?
+  swiftCode       String?
+  currency        Currency @default(AED)
+  bankAddress     String?
+  qrPaymentData   String?
+  notes           String?
+  isActive        Boolean  @default(true)
+  isDefaultInvoice    Boolean @default(false)
+  isDefaultQuotation  Boolean @default(false)
+  isDefaultReceiving  Boolean @default(false)
+
+  // Dedicated production account — one project's audit-trail bank (ADFC & co.).
+  // null = company account. The incentive claim tracker blocks when the applied
+  // program's complianceRules.dedicatedBankAccount is true and no account is linked.
+  projectId String?
+  project   ProductionProject? @relation(fields: [projectId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  quotations Quotation[]
+  invoices   Invoice[]
+  payments   Payment[]
+
+  @@map("bank_accounts")
+}
+
+// ── Core: VAT / Tax Rates ────────────────────────────────────────────────────
+
+model TaxRate {
+  id          String  @id @default(cuid())
+  name        String  // e.g. "UAE VAT 5%", "Zero Rated"
+  rate        Decimal @db.Decimal(5, 2) // e.g. 5.00
+  vatType     VatType @default(STANDARD)
+  description String?
+  isDefault   Boolean @default(false)
+  isActive    Boolean @default(true)
+
+  createdAt DateTime @default(now())
+
+  quotationItems QuotationItem[]
+  invoiceItems   InvoiceItem[]
+  serviceItems   ServiceItem[]
+
+  @@map("tax_rates")
+}
+
+// ── Finance: Cost Centers & Service Catalog ──────────────────────────────────
+
+model CostCenter {
+  id        String   @id @default(cuid())
+  code      String?  @unique
+  name      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  services  ServiceItem[]
+
+  @@map("cost_centers")
+}
+
+model ServiceItem {
+  id            String   @id @default(cuid())
+  name          String
+  category      String?  // e.g. Personnel, Transportation, Fuel, Water, Waste, Support, Consumable
+  unitOfMeasure String   @default("Service")  // Day | Hour | Trip | Service | Liter | Gallon | Ton | Unit
+  unitPrice     Decimal  @default(0) @db.Decimal(15, 2)
+  taxRateId     String?
+  taxRate       TaxRate? @relation(fields: [taxRateId], references: [id])
+  costCenterId  String?
+  costCenter    CostCenter? @relation(fields: [costCenterId], references: [id])
+  description   String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("service_items")
+}
+
+// ── Finance: Document Sequences ──────────────────────────────────────────────
+
+model DocumentSequence {
+  id        String  @id @default(cuid())
+  prefix    String  @unique // e.g. "QT", "INV", "RCP", "PO"
+  lastNumber Int    @default(0)
+  year      Int
+
+  @@map("document_sequences")
+}
+
+// ── Finance: Quotations ──────────────────────────────────────────────────────
+
+model Quotation {
+  id               String          @id @default(cuid())
+  quotationNumber  String          @unique // e.g. QT-2024-0001
+  clientId         String
+  client           Client          @relation(fields: [clientId], references: [id])
+  bankAccountId    String?
+  bankAccount      BankAccount?    @relation(fields: [bankAccountId], references: [id])
+  activity         Activity        @default(RENTAL)
+  status           QuotationStatus @default(DRAFT)
+
+  // Dates
+  issueDate        DateTime        @default(now())
+  validUntil       DateTime?
+  approvedAt       DateTime?
+
+  // Pricing
+  currency         Currency        @default(AED)
+  subtotal         Decimal         @db.Decimal(15, 2) @default(0)
+  discountType     String?         // "PERCENT" | "FIXED"
+  discountValue    Decimal?        @db.Decimal(15, 2)
+  discountAmount   Decimal         @db.Decimal(15, 2) @default(0)
+  // Manual fixed deduction (goodwill / adjustment / negotiated reduction) applied before VAT
+  deductionAmount      Decimal     @db.Decimal(15, 2) @default(0)
+  deductionReason      String?
+  deductionAppliedById String?
+  deductionAppliedBy   User?       @relation("QuotationDeductionBy", fields: [deductionAppliedById], references: [id])
+  deductionAppliedAt   DateTime?
+  vatAmount        Decimal         @db.Decimal(15, 2) @default(0)
+  total            Decimal         @db.Decimal(15, 2) @default(0)
+
+  // VAT display
+  vatDisplay       String          @default("SEPARATE") // "INCLUDED" | "EXCLUDED" | "SEPARATE" | "HIDDEN"
+  vatNote          String?
+
+  // Content
+  subject          String?
+  notes            String?
+  termsConditions  String?
+  internalNotes    String?
+
+  // Tracking
+  createdById      String
+  createdBy        User            @relation("QuotationCreatedBy", fields: [createdById], references: [id])
+  approvedById     String?
+  approvedBy       User?           @relation("QuotationApprovedBy", fields: [approvedById], references: [id])
+  sentAt           DateTime?
+  clientApprovedAt DateTime?
+  clientRejectedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  items    QuotationItem[]
+  invoices Invoice[]         @relation("QuotationInvoices")
+  bookings RentalBooking[]   @relation("BookingQuotation")
+
+  @@map("quotations")
+}
+
+model QuotationItem {
+  id            String    @id @default(cuid())
+  quotationId   String
+  quotation     Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  sortOrder     Int       @default(0)
+
+  kind          String    @default("ASSET")  // ASSET | SERVICE
+  serviceItemId String?
+  description   String
+  details       String?
+  quantity      Decimal   @db.Decimal(10, 3) @default(1)
+  unit          String?   // "day", "week", "unit", "hour"
+  days          Int       @default(1)
+  unitPrice     Decimal   @db.Decimal(15, 2)
+  discountPct   Decimal   @db.Decimal(5, 2) @default(0)
+  lineTotal     Decimal   @db.Decimal(15, 2)
+
+  taxRateId     String?
+  taxRate       TaxRate?  @relation(fields: [taxRateId], references: [id])
+  taxAmount     Decimal   @db.Decimal(15, 2) @default(0)
+
+  @@map("quotation_items")
+}
+
+// ── Finance: Invoices ─────────────────────────────────────────────────────────
+
+model Invoice {
+  id              String        @id @default(cuid())
+  invoiceNumber   String        @unique // e.g. INV-2024-0001
+  clientId        String
+  client          Client        @relation(fields: [clientId], references: [id])
+  bankAccountId   String?
+  bankAccount     BankAccount?  @relation(fields: [bankAccountId], references: [id])
+  quotationId     String?
+  quotation       Quotation?    @relation("QuotationInvoices", fields: [quotationId], references: [id])
+  activity        Activity      @default(RENTAL)
+  invoiceType     InvoiceType   @default(TAX_INVOICE)
+  status          InvoiceStatus @default(DRAFT)
+
+  // Dates
+  issueDate       DateTime      @default(now())
+  dueDate         DateTime?
+  sentAt          DateTime?
+
+  // Pricing
+  currency        Currency      @default(AED)
+  subtotal        Decimal       @db.Decimal(15, 2) @default(0)
+  discountAmount  Decimal       @db.Decimal(15, 2) @default(0)
+  // Manual fixed deduction (goodwill / adjustment / negotiated reduction) applied before VAT
+  deductionAmount      Decimal  @db.Decimal(15, 2) @default(0)
+  deductionReason      String?
+  deductionAppliedById String?
+  deductionAppliedBy   User?    @relation("InvoiceDeductionBy", fields: [deductionAppliedById], references: [id])
+  deductionAppliedAt   DateTime?
+  vatAmount       Decimal       @db.Decimal(15, 2) @default(0)
+  total           Decimal       @db.Decimal(15, 2) @default(0)
+  amountPaid      Decimal       @db.Decimal(15, 2) @default(0)
+  amountDue       Decimal       @db.Decimal(15, 2) @default(0)
+
+  vatDisplay      String        @default("SEPARATE")
+
+  // Content
+  subject         String?
+  notes           String?
+  termsConditions String?
+  internalNotes   String?
+  poNumber        String?       // Client's Purchase Order number
+
+  // Tracking
+  createdById     String
+  createdBy       User          @relation("InvoiceCreatedBy", fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  items    InvoiceItem[]
+  payments Payment[]
+  booking  RentalBooking? @relation("BookingInvoices", fields: [bookingId], references: [id])
+  bookingId String?
+
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id          String   @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  sortOrder   Int      @default(0)
+
+  kind        String   @default("ASSET")  // ASSET | SERVICE
+  serviceItemId String?
+  description String
+  details     String?
+  quantity    Decimal  @db.Decimal(10, 3) @default(1)
+  unit        String?
+  days        Int      @default(1)
+  unitPrice   Decimal  @db.Decimal(15, 2)
+  discountPct Decimal  @db.Decimal(5, 2) @default(0)
+  lineTotal   Decimal  @db.Decimal(15, 2)
+
+  taxRateId   String?
+  taxRate     TaxRate? @relation(fields: [taxRateId], references: [id])
+  taxAmount   Decimal  @db.Decimal(15, 2) @default(0)
+
+  @@map("invoice_items")
+}
+
+// ── Finance: Payments ─────────────────────────────────────────────────────────
+
+model Payment {
+  id              String        @id @default(cuid())
+  paymentNumber   String        @unique // e.g. RCP-2024-0001
+  invoiceId       String
+  invoice         Invoice       @relation(fields: [invoiceId], references: [id])
+  clientId        String
+  client          Client        @relation(fields: [clientId], references: [id])
+  bankAccountId   String?
+  bankAccount     BankAccount?  @relation(fields: [bankAccountId], references: [id])
+
+  amount          Decimal       @db.Decimal(15, 2)
+  currency        Currency      @default(AED)
+  paymentDate     DateTime      @default(now())
+  method          PaymentMethod @default(BANK_TRANSFER)
+  status          PaymentStatus @default(PENDING)
+  reference       String?       // Cheque no. / transfer ref
+  notes           String?
+
+  clearedAt       DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("payments")
+}
+
+// ── Finance: Expenses ─────────────────────────────────────────────────────────
+
+model Expense {
+  id              String        @id @default(cuid())
+  expenseNumber   String        @unique // e.g. EXP-2024-0001
+  activity        Activity      @default(RENTAL)
+  category        String        // "Fuel", "Maintenance", "Office", "Crew", etc.
+  description     String
+  amount          Decimal       @db.Decimal(15, 2)
+  currency        Currency      @default(AED)
+  vatAmount       Decimal       @db.Decimal(15, 2) @default(0)
+  totalAmount     Decimal       @db.Decimal(15, 2)
+  expenseDate     DateTime      @default(now())
+  status          ExpenseStatus @default(DRAFT)
+  receiptUrl      String?
+  notes           String?
+
+  // Project/Job linking
+  projectRef      String?       // Production project ID or Rental booking ID
+  productionAccountCode String?  // Budget account code (e.g. "2200") for budget-vs-actual
+  vendorName      String?
+  supplierVatId   String?       // VAT ID of the supplier (for input VAT reclaim)
+
+  // Supplier link
+  supplierId      String?
+  supplier        Supplier?     @relation(fields: [supplierId], references: [id])
+
+  createdById     String
+  createdBy       User          @relation("ExpenseCreatedBy", fields: [createdById], references: [id])
+  approvedById    String?
+  approvedBy      User?         @relation("ExpenseApprovedBy", fields: [approvedById], references: [id])
+  approvedAt      DateTime?
+  paidAt          DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("expenses")
+}
+
+// ── Rental: Assets ───────────────────────────────────────────────────────────
+
+enum AssetType {
+  ARTIST_TRAILER
+  STAR_TRAILER
+  MAKEUP_TRAILER
+  WARDROBE_TRAILER
+  MOBILE_TOILET
+  GENERATOR
+  WATER_TANK
+  WASTE_TANK
+  SUPPORT_VEHICLE
+  CREW_TRANSPORT
+  UTILITY_TRAILER
+  TRUCK
+  TOWING_VEHICLE
+  OTHER
+}
+
+enum AssetStatus {
+  AVAILABLE
+  RESERVED
+  ON_HIRE
+  IN_MAINTENANCE
+  OUT_OF_SERVICE
+  DAMAGED
+  IN_TRANSIT
+  RETIRED
+  SOLD
+}
+
+enum BookingStatus {
+  INQUIRY
+  QUOTED
+  AWAITING_PAYMENT
+  APPROVED
+  CONTRACT_SENT
+  CONTRACT_SIGNED
+  SCHEDULED
+  DISPATCHED
+  DELIVERED
+  ACTIVE
+  ON_HIRE
+  EXTENDED
+  PICKUP_SCHEDULED
+  RETURNED
+  INSPECTED
+  COMPLETED
+  CLOSED
+  CANCELLED
+}
+
+enum ContractStatus {
+  DRAFT
+  SENT
+  SIGNED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum MaintenanceType {
+  PREVENTIVE
+  CORRECTIVE
+  INSPECTION
+}
+
+enum MaintenanceStatus {
+  REPORTED
+  SCHEDULED
+  PENDING_APPROVAL
+  APPROVED
+  ASSIGNED
+  WAITING_FOR_PARTS
+  IN_PROGRESS
+  TESTING
+  COMPLETED
+  CLOSED
+  WARRANTY_CLAIM
+  CANCELLED
+}
+
+enum DriverType {
+  EMPLOYEE
+  FREELANCE
+}
+
+enum JobStatus {
+  ASSIGNED
+  EN_ROUTE
+  ARRIVED
+  DELIVERED
+  PICKED_UP
+  COMPLETED
+  CANCELLED
+}
+
+enum IncidentType {
+  VEHICLE_BREAKDOWN
+  TRAILER_ISSUE
+  GENERATOR_FAILURE
+  ACCIDENT
+  DELAY
+  SITE_ACCESS_ISSUE
+  EQUIPMENT_DAMAGE
+  OTHER
+}
+
+enum IncidentUrgency {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum IncidentStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+model Asset {
+  id                String      @id @default(cuid())
+  name              String
+  assetType         AssetType
+  // High-level category that drives which fields/tabs/compliance apply.
+  // VEHICLE | GENERATOR | TRAILER | MOBILE_OFFICE | EQUIPMENT | OTHER
+  category          String?
+  // Generic identifier — serial number for non-vehicles (generators, equipment).
+  serialNumber      String?
+  // Category-specific attributes (engine, fuel, dimensions, power, etc.) as JSON.
+  specs             Json?
+  // Warranty (non-vehicle assets)
+  warrantyExpiry    DateTime?
+  warrantyProvider  String?
+  plateNumber       String?
+  plateEmirate      String?   // DXB | AUH | SHJ | AJM | RAK | FUJ | UAQ
+  vinNumber         String?
+  purchaseDate      DateTime?
+  purchaseValue     Decimal?    @db.Decimal(15, 2)
+  currentValue      Decimal?    @db.Decimal(15, 2)
+  depreciation      Decimal?    @db.Decimal(5, 2)
+  condition         String      @default("GOOD") // EXCELLENT | GOOD | FAIR | POOR
+  status            AssetStatus @default(AVAILABLE)
+  photos            String[]
+  notes             String?
+  qrCode            String?     @unique
+
+  // Current readings (preventive maintenance)
+  currentOdometer    Int?
+  currentEngineHours Int?
+
+  // Registration & insurance
+  registrationExpiry  DateTime?
+  registrationDocUrl  String?   // Uploaded registration card / Mulkiya
+  insuranceExpiry     DateTime?
+  insurancePolicyRef  String?
+  insuranceDocUrl     String?   // Uploaded insurance certificate
+
+  // Trailer / caravan detailed specifications (stored as JSON)
+  trailerSpecs        Json?     // See TrailerSpecs shape in comments below
+
+  // Generator link (for trailers that use one)
+  linkedGeneratorId   String?
+  linkedGenerator     Asset?    @relation("TrailerGenerator", fields: [linkedGeneratorId], references: [id])
+  connectedTrailers   Asset[]   @relation("TrailerGenerator")
+
+  isActive Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bookingItems    BookingItem[]
+  maintenanceLogs MaintenanceLog[]
+  fuelLogs        FuelLog[]
+  damageReports   DamageReport[]
+  driverHistory   DriverJob[]
+  incidents       IncidentReport[]
+  vendorJobs      VendorMaintenanceJob[]
+  spareParts      SparePart[]
+  tireRecords     TireRecord[]
+  maintenancePlans MaintenancePlan[]
+  conditionReports ConditionReport[]
+  transportVehicle TransportVehicle? // SYS-12 transport wrapper when this in-house asset is used on a production
+
+  @@map("assets")
+}
+
+// ── Rental: Drivers ───────────────────────────────────────────────────────────
+
+model Driver {
+  id              String     @id @default(cuid())
+  fullName        String
+  driverType      DriverType @default(EMPLOYEE)
+  mobile          String?
+  email           String?
+  emiratesId      String?
+  emiratesIdExpiry DateTime?
+  passportNumber  String?
+  passportExpiry  DateTime?
+  licenseNumber   String?
+  licenseExpiry   DateTime?
+  licenseClass    String?
+  visaExpiry      DateTime?
+  bankName        String?
+  bankAccount     String?
+  iban            String?
+  dailyRate       Decimal?   @db.Decimal(10, 2)
+  weeklyRate      Decimal?   @db.Decimal(10, 2)
+  notes           String?
+  isActive        Boolean    @default(true)
+  photoUrl        String?
+
+  // Document uploads
+  emiratesIdDocUrl  String?   // Uploaded copy of Emirates ID
+  passportDocUrl    String?   // Uploaded passport copy
+  licenseDocUrl     String?   // Uploaded driving license copy
+
+  // Direct-hire link — set when this driver is also an Employee
+  employeeId String?  @unique
+  employee   Employee? @relation("EmployeeDriverRecord", fields: [employeeId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  jobs      DriverJob[]
+  incidents IncidentReport[]
+  contacts  Contact[]
+  payouts   DriverPayout[]
+  transportDriver TransportDriver? // SYS-12 transport wrapper when this in-house driver is used on a production
+
+  @@map("drivers")
+}
+
+// ── Freelance driver payouts (payables) ──────────────────────────────────────
+model DriverPayout {
+  id            String   @id @default(cuid())
+  payoutNumber  String   @unique
+  driverId      String
+  driver        Driver   @relation(fields: [driverId], references: [id])
+  status        String   @default("DRAFT") // DRAFT | APPROVED | PAID
+  jobIds        String[]
+  lineItems     Json?    // [{ jobId, bookingRef, rate, expenses, bonus, lineTotal }]
+  subtotal      Decimal  @db.Decimal(15, 2) @default(0)
+  total         Decimal  @db.Decimal(15, 2) @default(0)
+  currency      Currency @default(AED)
+  bankAccountId String?
+  paidAt        DateTime?
+  paymentRef    String?
+  notes         String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("driver_payouts")
+}
+
+model DriverJob {
+  id          String    @id @default(cuid())
+  bookingId   String
+  booking     RentalBooking @relation(fields: [bookingId], references: [id])
+  driverId    String
+  driver      Driver    @relation(fields: [driverId], references: [id])
+  assetId     String?
+  asset       Asset?    @relation(fields: [assetId], references: [id])
+
+  jobType     String    // "DELIVERY" | "PICKUP" | "TRANSFER"
+  status      JobStatus @default(ASSIGNED)
+  scheduledAt DateTime
+  startedAt   DateTime?
+  arrivedAt   DateTime?
+  completedAt DateTime?
+
+  pickupLocation    String?
+  dropoffLocation   String?
+  destinationUrl    String?   // Google Maps link for the drop-off / destination
+  bookingLocationId String?   // the scheduled site this leg moves the asset to
+  gpsOnArrival      String?
+  deliveryPhotos    String[]
+  pickupPhotos      String[]
+  driverNotes       String?
+
+  fuelExpense       Decimal? @db.Decimal(10, 2)
+  tollExpense       Decimal? @db.Decimal(10, 2)
+  parkingExpense    Decimal? @db.Decimal(10, 2)
+  foodAllowance     Decimal? @db.Decimal(10, 2)
+  otherExpense      Decimal? @db.Decimal(10, 2)
+
+  // Proof of work
+  signatureUrl      String?     // Client/site rep signature
+  receiptPhotoUrls  String[]    // Photos of receipts (fuel, toll, etc.)
+  equipmentChecklist Json?      // { itemName: boolean } checklist
+
+  // Bonus
+  bonusAmount       Decimal? @db.Decimal(10, 2)
+  bonusNotes        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("driver_jobs")
+}
+
+// ── Rental: Bookings ──────────────────────────────────────────────────────────
+
+model RentalBooking {
+  id              String        @id @default(cuid())
+  bookingNumber   String        @unique // e.g. RB-2024-0001
+  clientId        String
+  client          Client        @relation(fields: [clientId], references: [id])
+  quotationId     String?
+  quotation       Quotation?    @relation("BookingQuotation", fields: [quotationId], references: [id])
+  status          BookingStatus @default(INQUIRY)
+
+  // Dates
+  startDate       DateTime
+  endDate         DateTime
+  deliveryDate    DateTime?
+  pickupDate      DateTime?
+
+  // Location
+  deliveryAddress String?
+  deliveryCity    String?
+  deliveryLocationUrl String?   // Google Maps link / pin for the delivery site
+  deliveryNotes   String?
+  pickupAddress   String?
+
+  // Financials
+  currency        Currency      @default(AED)
+  subtotal        Decimal       @db.Decimal(15, 2) @default(0)
+  discountAmount  Decimal       @db.Decimal(15, 2) @default(0)
+  vatAmount       Decimal       @db.Decimal(15, 2) @default(0)
+  total           Decimal       @db.Decimal(15, 2) @default(0)
+  depositAmount   Decimal?      @db.Decimal(15, 2)
+
+  notes           String?
+  internalNotes   String?
+  poNumber        String?
+
+  createdById     String
+  createdBy       User          @relation("BookingCreatedBy", fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items        BookingItem[]
+  contract     RentalContract?
+  invoices     Invoice[]       @relation("BookingInvoices")
+  driverJobs   DriverJob[]
+  damageReports DamageReport[]
+  incidents    IncidentReport[]
+  conditionReports ConditionReport[]
+  locations    BookingLocation[]
+
+  @@map("rental_bookings")
+}
+
+model BookingItem {
+  id          String        @id @default(cuid())
+  bookingId   String
+  booking     RentalBooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  assetId     String
+  asset       Asset         @relation(fields: [assetId], references: [id])
+  sortOrder   Int           @default(0)
+
+  description String?
+  quantity    Int           @default(1)
+  unit        String        @default("day")
+  unitPrice   Decimal       @db.Decimal(15, 2)
+  days        Int           @default(1)
+  lineTotal   Decimal       @db.Decimal(15, 2)
+  taxAmount   Decimal       @db.Decimal(15, 2) @default(0)
+
+  @@map("booking_items")
+}
+
+// ── Rental: Contracts ─────────────────────────────────────────────────────────
+
+model RentalContract {
+  id              String         @id @default(cuid())
+  contractNumber  String         @unique // e.g. RC-2024-0001
+  bookingId       String         @unique
+  booking         RentalBooking  @relation(fields: [bookingId], references: [id])
+  status          ContractStatus @default(DRAFT)
+
+  // Content
+  terms           String?
+  cancellationPolicy  String?
+  liabilityClauses    String?
+  damageDepositClause String?
+  paymentTerms        String?
+
+  // Signing
+  sentAt          DateTime?
+  signedAt        DateTime?
+  signedByName    String?
+  signedPdfUrl    String?
+  signatureData   String?  // base64 or URL
+
+  expiresAt       DateTime?
+  notes           String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("rental_contracts")
+}
+
+// ── Rental: Maintenance ───────────────────────────────────────────────────────
+
+model MaintenanceLog {
+  id              String            @id @default(cuid())
+  assetId         String
+  asset           Asset             @relation(fields: [assetId], references: [id])
+  maintenanceType MaintenanceType   @default(PREVENTIVE)
+  status          MaintenanceStatus @default(REPORTED)
+
+  description     String
+  scheduledDate   DateTime
+  completedDate   DateTime?
+  cost            Decimal?          @db.Decimal(10, 2)
+  vendorName      String?
+  invoiceRef      String?
+  partsReplaced   String?
+  technicianNotes String?
+  nextServiceDate DateTime?
+  nextServiceKm   Int?
+  downTimeDays    Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("maintenance_logs")
+}
+
+// ── Rental: Fuel ──────────────────────────────────────────────────────────────
+
+model FuelLog {
+  id            String   @id @default(cuid())
+  // In-house fleet asset (optional — SYS-12.E broadened this to also cover hired
+  // production vehicles, which are not Assets).
+  assetId       String?
+  asset         Asset?   @relation(fields: [assetId], references: [id])
+
+  // SYS-12.E — production fuel on a hired TransportVehicle, scoped to a project,
+  // optionally attributed to a transport driver (for fuel-by-driver reporting).
+  transportVehicleId String?
+  transportVehicle   TransportVehicle? @relation(fields: [transportVehicleId], references: [id], onDelete: SetNull)
+  projectId          String?
+  project            ProductionProject? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  transportDriverId  String?
+  transportDriver    TransportDriver?  @relation(fields: [transportDriverId], references: [id], onDelete: SetNull)
+
+  logDate       DateTime @default(now())
+  litres        Decimal  @db.Decimal(8, 2)
+  costPerLitre  Decimal  @db.Decimal(6, 3)
+  totalCost     Decimal  @db.Decimal(10, 2)
+  odometer      Int?
+  runtimeHours  Decimal? @db.Decimal(8, 2) // for generators
+  receiptUrl    String?
+  notes         String?
+  bookingRef    String?
+
+  createdAt DateTime @default(now())
+
+  @@index([projectId])
+  @@index([transportVehicleId])
+  @@index([assetId])
+  @@index([transportDriverId])
+  @@map("fuel_logs")
+}
+
+// ── Rental: Damage ────────────────────────────────────────────────────────────
+
+model DamageReport {
+  id            String        @id @default(cuid())
+  reportNumber  String        @unique // DR-2024-0001
+  assetId       String
+  asset         Asset         @relation(fields: [assetId], references: [id])
+  bookingId     String?
+  booking       RentalBooking? @relation(fields: [bookingId], references: [id])
+
+  description   String
+  severity      String        @default("MINOR") // MINOR | MODERATE | SEVERE
+  reportedAt    DateTime      @default(now())
+  location      String?
+  gpsLocation   String?
+  photos        String[]
+  videos        String[]
+
+  // Resolution
+  clientLiable  Boolean       @default(false)
+  repairCost    Decimal?      @db.Decimal(10, 2)
+  insuranceClaim Boolean      @default(false)
+  claimRef      String?
+  resolvedAt    DateTime?
+  resolutionNotes String?
+
+  reportedById  String
+  reportedBy    User          @relation("DamageReportedBy", fields: [reportedById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("damage_reports")
+}
+
+// ── Rental: Incidents ─────────────────────────────────────────────────────────
+
+model IncidentReport {
+  id              String          @id @default(cuid())
+  incidentNumber  String          @unique // INC-2024-0001
+  incidentType    IncidentType
+  urgency         IncidentUrgency @default(MEDIUM)
+  status          IncidentStatus  @default(OPEN)
+
+  title           String
+  description     String
+  location        String?
+  gpsLocation     String?
+  occurredAt      DateTime        @default(now())
+  photos          String[]
+
+  // Links
+  driverId        String?
+  driver          Driver?         @relation(fields: [driverId], references: [id])
+  assetId         String?
+  asset           Asset?          @relation(fields: [assetId], references: [id])
+  bookingId       String?
+  booking         RentalBooking?  @relation(fields: [bookingId], references: [id])
+
+  // Resolution
+  resolvedAt      DateTime?
+  resolutionNotes String?
+  resolutionCost  Decimal?        @db.Decimal(10, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("incident_reports")
+}
+
+// ── Suppliers ─────────────────────────────────────────────────────────────────
+
+enum SupplierStatus {
+  ACTIVE
+  INACTIVE
+  BLACKLISTED
+}
+
+enum SupplierDocType {
+  TRADE_LICENSE
+  VAT_CERTIFICATE
+  INSURANCE
+  CONTRACT
+  BANK_DETAILS
+  QUOTATION
+  INVOICE
+  WARRANTY
+  OTHER
+}
+
+enum SupplierContactRole {
+  SALES
+  FINANCE
+  OPERATIONS
+  TECHNICAL
+  MANAGEMENT
+  EMERGENCY
+  OTHER
+}
+
+model Supplier {
+  id           String         @id @default(cuid())
+  supplierCode String?        @unique  // Auto-generated: SUP-0001
+  name         String
+  tradeName    String?
+  category     String?        // legacy single category (kept for compat)
+  categories   String[]       // multi-select: can be multiple from SUPPLIER_CATEGORIES
+
+  // Google Maps / location
+  googleMapsUrl   String?
+  gpsCoordinates  String?     // "lat,lng" or full Plus Code
+
+  // Link to a MaintenanceVendor when this supplier is also a workshop
+  vendorId  String?            @unique
+  vendor    MaintenanceVendor? @relation("SupplierVendorLink", fields: [vendorId], references: [id])
+
+  status       SupplierStatus @default(ACTIVE)
+  isActive     Boolean        @default(true)   // kept for backward compat (true when ACTIVE)
+
+  // UAE Tax & Compliance
+  trn                  String?
+  vatId                String?
+  trnCertificateUrl    String?
+  tradeLicenseNumber   String?
+  tradeLicenseExpiry   DateTime?
+  tradeLicenseUrl      String?
+  businessLicenseUrl   String?
+  insuranceDocUrl      String?
+  insuranceExpiry      DateTime?
+  contractExpiry       DateTime?
+
+  // Primary Contact (kept for quick display)
+  contactName  String?
+  email        String?
+  phone        String?
+  address      String?
+  city         String?
+  country      String   @default("UAE")
+  website      String?
+
+  // Banking
+  bankName        String?
+  bankAccount     String?
+  iban            String?
+  swiftCode       String?
+  bankBranch      String?
+  bankAddress     String?
+
+  // Terms & Financials
+  currency        Currency @default(AED)
+  paymentTermDays Int?
+  creditLimit     Decimal? @db.Decimal(15, 2)
+  notes           String?
+  blacklistReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Logistics vendor ranking (SYS-12)
+  ranking VendorRanking?
+
+  expenses  Expense[]
+  contacts  Contact[]          // global contact directory links
+  supplierContacts SupplierContact[]
+  documents        SupplierDocument[]
+  accommodationProperties AccommodationProperty[]
+  transportVehicles       TransportVehicle[] @relation("TransportVehicleSupplier")
+  transportDrivers        TransportDriver[]  @relation("TransportDriverSupplier")
+
+  @@map("suppliers")
+}
+
+model SupplierContact {
+  id         String              @id @default(cuid())
+  supplierId String
+  supplier   Supplier            @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  // Optional link to global Contact directory
+  globalContactId String?
+  globalContact   Contact? @relation("SupplierContactGlobal", fields: [globalContactId], references: [id])
+
+  fullName   String
+  role       SupplierContactRole @default(OTHER)
+  jobTitle   String?
+  department String?
+
+  mobile     String?
+  whatsapp   String?
+  email      String?
+  officePhone String?
+  preferredContact String?     // "mobile" | "whatsapp" | "email"
+
+  isPrimary  Boolean @default(false)
+  notes      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("supplier_contacts")
+}
+
+model SupplierDocument {
+  id         String          @id @default(cuid())
+  supplierId String
+  supplier   Supplier        @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  docType    SupplierDocType @default(OTHER)
+  name       String
+  fileUrl    String
+  expiryDate DateTime?
+  notes      String?
+
+  createdAt DateTime @default(now())
+
+  @@map("supplier_documents")
+}
+
+// ── Production: Enums ─────────────────────────────────────────────────────────
+
+enum ProductionStatus {
+  DEVELOPMENT
+  PRE_PRODUCTION
+  PRODUCTION
+  POST_PRODUCTION
+  DELIVERED
+  CANCELLED
+  ARCHIVED
+}
+
+enum BudgetVersionStatus {
+  DRAFT    // initial compilation stage
+  REVIEW   // V1, V2… submitted for approval
+  APPROVED // validated by Producer/Client
+  LOCKED   // frozen historical baseline (enforced read-only)
+  WORKING  // active working copy branched from a locked baseline
+}
+
+enum ProductionCrewRole {
+  EXECUTIVE_PRODUCER
+  PRODUCER
+  LINE_PRODUCER
+  DIRECTOR
+  ASSISTANT_DIRECTOR
+  DOP
+  CAMERA_OPERATOR
+  GAFFER
+  GRIP
+  SOUND
+  ART_DIRECTOR
+  STYLIST
+  MAKEUP
+  WARDROBE
+  EDITOR
+  COLORIST
+  VFX_ARTIST
+  MUSIC_COMPOSER
+  PRODUCTION_COORDINATOR
+  PRODUCTION_ASSISTANT
+  DRIVER
+  OTHER
+}
+
+// ── Production: Projects ──────────────────────────────────────────────────────
+
+model ProductionProject {
+  id            String           @id @default(cuid())
+  projectNumber String           @unique // PRD-2024-0001
+  title         String
+  clientId      String?
+  client        Client?          @relation(fields: [clientId], references: [id])
+  projectType   String           @default("TVC") // TVC | CORPORATE | DOCUMENTARY | FEATURE | SHORT | MUSIC_VIDEO | OTHER
+  status        ProductionStatus @default(DEVELOPMENT)
+
+  startDate      DateTime?
+  endDate        DateTime?
+  shootStartDate DateTime?
+  shootEndDate   DateTime?
+
+  currency    Currency @default(AED)
+  totalBudget Decimal? @db.Decimal(15, 2) // computed from active budget version
+
+  // Production jurisdiction — drives JurisdictionTaxRule resolution and AI context.
+  // Optional at DB level so `db push` works on existing data; MANDATORY at app level
+  // (DynamicContextService refuses to run without it; seed-jurisdiction.js backfills).
+  productionCountryId String?
+  productionCountry   GeoNode? @relation("ProjectProductionCountry", fields: [productionCountryId], references: [id])
+  emailSettings Json? // per-project email sender { enabled, smtp:{...} }
+  logoUrl     String? // project / studio logo (shown next to company logo on reports)
+
+  description String?
+  notes       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  budgetVersions BudgetVersion[]
+  crew           ProductionCrew[]
+  schedules      ProductionSchedule[]
+  callSheets     CallSheet[]
+  perDiems       PerDiem[]
+  overages       Overage[]
+  creditRoll     CreditRoll?
+  transactions   ProjectTransaction[]
+  vendors        ProductionVendor[]
+  purchaseOrders PurchaseOrder[]
+  costSnapshots  CostReportSnapshot[]
+  pettyCashFloats PettyCashFloat[]
+  strips         ProductionStrip[]
+  breakdownElements BreakdownElement[]
+  documents      ProjectDocument[]
+  laborConfig    ProjectLaborConfig?
+  projectRateRules ProjectRateRule[]
+  incentives     ProjectIncentive[]
+  incentiveClaims IncentiveClaim[]
+  timecards      Timecard[]
+  locations      Location[]
+  budgetTransfers BudgetTransfer[]
+  pendingVendors  PendingVendor[]
+  budgetLifecycleLogs BudgetLifecycleLog[]
+  globalsStaging      ProjectGlobalsStaging?
+  bankAccounts        BankAccount[] // dedicated production account(s) — audit trail
+  ledgerBankAccounts  LedgerBankAccount[] // reconciliation side of the dedicated account
+  roleAssignments     ProjectRoleAssignment[] // per-project authorization layer (V1.2)
+
+  // Per-diem rate defaults (project currency)
+  perDiemInternational Decimal? @db.Decimal(12, 2)
+  perDiemDomestic      Decimal? @db.Decimal(12, 2)
+
+  // The single corporate/house entity that owns standalone (project-less) postings.
+  isHouse Boolean @default(false)
+
+  // Travel / Contracts / Casting modules
+  trips             Trip[]
+  contracts         ProjectContract[]
+  castingCalls      CastingCall[]
+  characterProfiles CharacterProfile[]
+  consentLogs       ConsentLog[]
+  talentReviews     TalentPerformanceReview[]
+  accommodationAssignments AccommodationAssignment[]
+  transportVehicles        TransportVehicle[]
+  transportOrders          TransportOrder[]
+  shuttleRoutes            ShuttleRoute[]
+  arrivals                 TravelArrival[]
+  fuelLogs                 FuelLog[]
+
+  @@index([productionCountryId])
+  @@map("production_projects")
+}
+
+// ── Production Globals staging ─────────────────────────────────────────────────
+// Holding area for schedule/rate globals captured during setup or import.
+// Nothing here touches a budget version until an explicit, user-approved "push"
+// writes the values into the WORKING version's BudgetGlobals (LOCKED versions
+// are never written).
+model ProjectGlobalsStaging {
+  id        String            @id @default(cuid())
+  projectId String            @unique
+  project   ProductionProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  prepDays  Int?
+  shootDays Int?
+  wrapDays  Int?
+  crewCount Int?
+  eurToAed  Decimal? @db.Decimal(14, 6) // 1 EUR in AED
+  usdToAed  Decimal? @db.Decimal(14, 6) // 1 USD in AED
+
+  status            String    @default("DRAFT") // DRAFT | PUSHED
+  pushedAt          DateTime?
+  pushedToVersionId String? // BudgetVersion that received the values
+  doodTallies       Json? // aggregate DOOD counts per category { generatedAt, categories: { CAST: {elements, workDays, holdDays}, … } }
+  notes             String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("project_globals_staging")
+}
+
+// ── External CoA → Master Chart of Accounts mapping ────────────────────────────
+// Maps imported account codes (Movie Magic, legacy ledgers…) onto the enterprise
+// Master CoA so imports and AI suggestions always resolve to real account codes.
+model CoaMappingTable {
+  id            String  @id @default(cuid())
+  sourceSystem  String  @default("MOVIE_MAGIC") // MOVIE_MAGIC | LEGACY | OTHER
+  externalCode  String // the code as it appears in the import
+  externalLabel String? // description from the source file
+  masterCode    String // Master CoA account code (e.g. "1100", "2310")
+  masterTitle   String? // denormalised title for display / AI context
+  isActive      Boolean @default(true)
+  notes         String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([sourceSystem, externalCode])
+  @@index([masterCode])
+  @@map("coa_mapping_table")
+}
+
+enum LocationType {
+  INT
+  EXT
+  STUDIO
+  BACKLOT
+  OTHER
+}
+
+enum LocationStatus {
+  SCOUTING
+  OPTION
+  CONFIRMED
+  RELEASED
+}
+
+// ── SYS-07 Master Location Library ───────────────────────────────────────────
+// A MasterLocation is a permanent COMPANY asset (no projectId). Projects link to
+// it via the Location model (the per-project usage record). History accretes here.
+enum MasterLocationStatus {
+  PROSPECT // identified, not yet vetted
+  LIBRARY // vetted, available to link
+  PREFERRED // proven, go-to
+  RESTRICTED // usable with caveats
+  BLACKLISTED // do not use
+  ARCHIVED
+}
+
+model MasterLocation {
+  id      String               @id @default(cuid())
+  code    String?              @unique // optional human ref e.g. LOC-0001
+  name    String
+  aliases Json? // ["Old Souk", "Heritage Village"]
+  category LocationType        @default(EXT)
+  subType  String? // Villa | Warehouse | Desert | Mosque | Office | Beach …
+  status   MasterLocationStatus @default(LIBRARY)
+  summary  String? // short scouting description
+  tags     Json? // ["desert","period","sand-dunes","sunset"]
+
+  // Geography
+  country       String?  @default("United Arab Emirates")
+  region        String? // emirate / state / province
+  city          String?
+  district      String?
+  fullAddress   String?
+  lat           Decimal? @db.Decimal(10, 7)
+  lng           Decimal? @db.Decimal(10, 7)
+  googleMapsUrl String?
+  what3words    String?
+  timezone      String?
+
+  // Access & logistics (permanent attributes)
+  accessNotes    String?
+  parkingNotes   String?
+  basecampNotes  String?
+  nearestAirport String?
+  driveTimeNotes String?
+
+  // Technical (permanent attributes)
+  powerAvailable  Boolean? // mains power on site
+  powerNotes      String?
+  internetNotes   String?
+  cellularNotes   String?
+  waterAvailable  Boolean?
+  soundNotes      String? // ambient noise, flight paths, traffic
+  ceilingHeightM  Decimal? @db.Decimal(6, 2)
+  floorAreaSqm    Decimal? @db.Decimal(12, 2)
+
+  // Restrictions & ownership (permanent)
+  ownerName      String?
+  ownerCompany   String?
+  ownerPhone     String?
+  ownerEmail     String?
+  agentName      String?
+  agentPhone     String?
+  restrictions   String? // filming hours, no-fly, religious, heritage
+  permitAuthority String? // default permitting body for this place
+  standardFee    Decimal? @db.Decimal(14, 2)
+  feeCurrency    String   @default("AED")
+  feeNotes       String?
+
+  // Safety (permanent)
+  nearestHospitalName    String?
+  nearestHospitalAddress String?
+  nearestHospitalPhone   String?
+  safetyNotes            String?
+
+  // Aggregated production history (accreted from project usage)
+  timesUsed        Int      @default(0)
+  lastUsedAt       DateTime?
+  totalSpentToDate Decimal  @db.Decimal(16, 2) @default(0)
+  avgFeePerDay     Decimal? @db.Decimal(14, 2)
+  historyNotes     String? // recurring issues / lessons learned
+
+  notes String?
+
+  media     LocationMedia[]
+  usages    Location[] // per-project usage records linked back here
+
+  // SYS-07 slice 7 — operational records held DIRECTLY on the library asset
+  // (standalone module use, independent of any project).
+  documents LocationDocument[]
+  permits   LocationPermit[]
+  security  LocationSecurity[]
+  payments  LocationPayment[]
+
+  createdById String?
+  archivedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status])
+  @@index([country, region])
+  @@map("master_locations")
+}
+
+enum LocationMediaType {
+  PHOTO
+  VIDEO
+  PANO360
+  DRONE
+  FLOORPLAN
+  CAD
+  DOCUMENT
+}
+
+model LocationMedia {
+  id               String          @id @default(cuid())
+  masterLocationId String
+  masterLocation   MasterLocation  @relation(fields: [masterLocationId], references: [id], onDelete: Cascade)
+
+  type      LocationMediaType @default(PHOTO)
+  url       String // /uploads/<file> or external URL
+  thumbnailUrl String?
+  caption   String?
+  isPrimary Boolean @default(false)
+  sortOrder Int     @default(0)
+  capturedAt DateTime?
+  uploadedById String?
+  createdAt DateTime @default(now())
+
+  @@index([masterLocationId])
+  @@map("location_media")
+}
+
+model Location {
+  id        String            @id @default(cuid())
+  projectId String
+  project   ProductionProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  // SYS-07: link to the permanent master library asset (null = legacy/unlinked)
+  masterLocationId String?
+  masterLocation   MasterLocation? @relation(fields: [masterLocationId], references: [id])
+
+  // per-project usage detail
+  scenes    String? // scene numbers shot here
+  shootStart DateTime?
+  shootEnd   DateTime?
+
+  // SYS-07 slice 3 — assessment
+  techRecces  TechRecce[]
+  evaluations LocationEvaluation[]
+
+  // SYS-07 slice 4 — permits & risk
+  permits LocationPermit[]
+  risks   LocationRisk[]
+
+  // SYS-07 slice 6 — LM document vault & pipeline (from the location-manager mailbox study)
+  documents     LocationDocument[]
+  pipelineStage LocationStage @default(SOURCING)
+
+  // SYS-07 slice 7 — permits-as-workload, security, payments (mailbox evidence)
+  security LocationSecurity[]
+  payments LocationPayment[]
+
+  name   String
+  type   LocationType   @default(EXT)
+  status LocationStatus @default(SCOUTING)
+
+  // Geography (drives per-diem + call sheet)
+  country     String? @default("United Arab Emirates")
+  emirate     String? // Dubai, Abu Dhabi, Sharjah, Ajman, RAK, Fujairah, UAQ — or city
+  area        String?
+  fullAddress String?
+  lat         Decimal? @db.Decimal(10, 7)
+  lng         Decimal? @db.Decimal(10, 7)
+  googleMapsUrl String?
+  what3words  String?
+
+  // People
+  locationManagerId   String?
+  locationAssistantId String?
+  ownerContactName    String?
+  ownerPhone          String?
+  ownerEmail          String?
+
+  // Logistics
+  parkingNotes  String?
+  basecampNotes String?
+  accessNotes   String?
+  facilities    Json? // { power, water, toilets, wifi }
+  restrictions  String?
+
+  // Safety
+  nearestHospitalName    String?
+  nearestHospitalAddress String?
+  nearestHospitalPhone   String?
+
+  // Money & compliance
+  locationFeePerDay Decimal? @db.Decimal(14, 2)
+  currency          String   @default("AED")
+  permitRequired    Boolean  @default(false)
+  permitStatus      String? // NONE | APPLIED | APPROVED | REJECTED
+  permitNumber      String?
+  permitExpiry      DateTime?
+  permitDocUrl      String?
+
+  photoUrls    Json?
+  documentUrls Json?
+  notes        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+  @@index([masterLocationId])
+  @@map("locations")
+}
+
+// ── SYS-07 slice 2 — Scouting missions & field submissions ───────────────────
+enum ScoutAssignmentType {
+  INITIAL // first pass / general recon
+  PHOTO // photo scout
+  DIRECTOR // director scout
+  PRODUCER // producer scout
+  TECH_RECCE // technical recce
+  PERMIT // permit feasibility
+  FINAL // final lock
+}
+
+enum ScoutPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum ScoutAssignmentStatus {
+  OPEN
+  IN_PROGRESS
+  SUBMITTED // candidates submitted, awaiting decision
+  COMPLETED
+  CANCELLED
+}
+
+enum ScoutSubmissionStatus {
+  PENDING // awaiting review
+  SHORTLISTED
+  ACCEPTED // promoted to library / linked
+  REJECTED
+}
+
+// NB: projectId is a plain indexed FK (no Prisma relation) to keep ProductionProject
+// untouched this slice; projects are guarded against hard-delete anyway.
+model ScoutAssignment {
+  id          String              @id @default(cuid())
+  projectId   String
+  title       String
+  description String? // the brief — what we're looking for
+  sceneRefs   String? // scenes this should cover
+  visualRefs  Json? // mood-board image URLs / references
+  locationType LocationType       @default(EXT)
+  budgetTarget Decimal?           @db.Decimal(14, 2)
+  feeCurrency  String             @default("AED")
+  dueDate     DateTime?
+  priority    ScoutPriority       @default(MEDIUM)
+  type        ScoutAssignmentType @default(INITIAL)
+  status      ScoutAssignmentStatus @default(OPEN)
+
+  assignedToId   String? // user id of the scout
+  assignedToName String? // denormalized for display
+
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  submissions ScoutSubmission[]
+
+  @@index([projectId])
+  @@index([status])
+  @@map("scout_assignments")
+}
+
+model ScoutSubmission {
+  id           String          @id @default(cuid())
+  assignmentId String
+  assignment   ScoutAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  candidateName String
+  summary       String?
+  notes         String?
+
+  // geo captured in the field
+  lat           Decimal? @db.Decimal(10, 7)
+  lng           Decimal? @db.Decimal(10, 7)
+  fullAddress   String?
+  googleMapsUrl String?
+  what3words    String?
+
+  media       Json? // array of photo URLs captured on site
+  ownerName   String?
+  ownerPhone  String?
+  ownerEmail  String?
+
+  // weighted evaluation { visual, access, logistics, cost, safety, ... , overall }
+  evaluation  Json?
+  estFeePerDay Decimal? @db.Decimal(14, 2)
+
+  status                 ScoutSubmissionStatus @default(PENDING)
+  acceptedMasterLocationId String? // set when accepted → promoted into the library
+  reviewNotes            String?
+
+  submittedById String?
+  submittedByName String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([assignmentId])
+  @@index([status])
+  @@map("scout_submissions")
+}
+
+// ── SYS-07 slice 3 — Tech recces & weighted evaluation ───────────────────────
+enum RecceStatus {
+  PLANNED
+  DONE
+  CANCELLED
+}
+
+model TechRecce {
+  id         String      @id @default(cuid())
+  locationId String
+  location   Location    @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  reccedAt    DateTime?
+  conductedBy String?
+  attendees   String? // free-text list of who attended
+  summary     String?
+  status      RecceStatus @default(PLANNED)
+
+  notes     RecceNote[]
+  createdById String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([locationId])
+  @@map("tech_recces")
+}
+
+model RecceNote {
+  id          String    @id @default(cuid())
+  techRecceId String
+  techRecce   TechRecce @relation(fields: [techRecceId], references: [id], onDelete: Cascade)
+
+  department     String // CAMERA | GRIP | ELECTRIC | SOUND | ART | CONSTRUCTION | TRANSPORT | SECURITY | STUNTS | SFX | VFX | LOCATIONS | OTHER
+  risks          String?
+  equipmentNeeds String?
+  crewNeeds      String?
+  accessNotes    String?
+  safetyNotes    String?
+  powerNotes     String?
+  photos         Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([techRecceId])
+  @@map("recce_notes")
+}
+
+enum EvaluationRecommendation {
+  RECOMMENDED
+  ACCEPTABLE
+  NOT_RECOMMENDED
+}
+
+model LocationEvaluation {
+  id         String   @id @default(cuid())
+  locationId String
+  location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  // criterion scores 1-5: { visual, access, logistics, cost, safety,
+  //   productionValue, permitComplexity, feasibility, comfort, schedule }
+  scores         Json
+  weights        Json? // optional override; equal-weight if null
+  weightedScore  Decimal @db.Decimal(6, 3) @default(0) // 0..5, system-computed
+  recommendation EvaluationRecommendation @default(ACCEPTABLE)
+  notes          String?
+
+  evaluatedById   String?
+  evaluatedByName String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([locationId])
+  @@map("location_evaluations")
+}
+
+// ── SYS-07 slice 4 — Permits & risk ──────────────────────────────────────────
+enum PermitStatus {
+  NOT_REQUIRED
+  DRAFT
+  APPLIED
+  IN_REVIEW
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+// Typed permit categories — permits are ~88% of the LM's workload and span several
+// authorities (mailbox evidence). Free-text `type` kept for back-compat / detail.
+enum LocationPermitType {
+  GROUND_FILMING // twofour54 ground filming permit
+  DRONE_GCAA // drone / aerial (GCAA)
+  ROAD_TRAFFIC // road/lane use (RTA)
+  POLICE // police coordination / security clearance
+  AIRPORT // airport airside (ADAC)
+  HERITAGE_DCT // heritage / DCT site
+  PARKING // parking permit
+  MARINE // marine / coastguard
+  PYRO_SFX // pyrotechnics / special effects
+  FIREARMS // weapons / armoury
+  OTHER
+}
+
+model LocationPermit {
+  id         String    @id @default(cuid())
+  // Dual-target: a permit belongs to a project location OR a master library location.
+  locationId String?
+  location   Location? @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  masterLocationId String?
+  masterLocation   MasterLocation? @relation(fields: [masterLocationId], references: [id], onDelete: Cascade)
+
+  permitType      LocationPermitType @default(OTHER)
+  type            String? // free-text detail (legacy / specifics)
+  authorityId     String?
+  authorityRef    PermitAuthority? @relation(fields: [authorityId], references: [id])
+  authority       String? // denormalised issuing-body name (e.g. twofour54, RTA)
+  jurisdiction    String? // country / emirate / city
+  referenceNumber String?
+  status          PermitStatus @default(DRAFT)
+  applicationDate DateTime?
+  approvalDate    DateTime?
+  expiryDate      DateTime?
+  fee             Decimal? @db.Decimal(14, 2)
+  currency        String   @default("AED")
+  conditions      String? // conditions / restrictions attached to the permit
+  docUrl          String? // attached permit PDF/image
+  ocrData         Json? // raw OCR extraction for audit
+  notes           String?
+
+  // workflow routing available via WorkflowEntity.LOCATION
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([locationId])
+  @@index([masterLocationId])
+  @@index([status])
+  @@index([permitType])
+  @@map("location_permits")
+}
+
+// Reusable directory of issuing authorities (standalone, company-wide).
+model PermitAuthority {
+  id           String  @id @default(cuid())
+  name         String  @unique
+  category     String? // FILM_COMMISSION | AVIATION | ROADS | POLICE | AIRPORT | HERITAGE | MUNICIPALITY | OTHER
+  jurisdiction String? // emirate / country covered
+  contactName  String?
+  email        String?
+  phone        String?
+  portalUrl    String?
+  leadTimeDays Int? // typical processing lead time
+  notes        String?
+  permits      LocationPermit[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("permit_authorities")
+}
+
+enum RiskStatus {
+  OPEN
+  MITIGATED
+  CLOSED
+}
+
+model LocationRisk {
+  id         String   @id @default(cuid())
+  locationId String
+  location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  category   String // FIRE | WATER | HEIGHT | CROWD | WEATHER | TRAFFIC | SECURITY | WILDLIFE | ELECTRICAL | STRUCTURAL | HEAT | OTHER
+  hazard     String
+  likelihood Int     @default(1) // 1-5
+  impact     Int     @default(1) // 1-5
+  riskScore  Int     @default(1) // likelihood × impact (system-computed)
+  mitigation String?
+  owner      String? // who owns the mitigation
+  emergencyProcedure String?
+  nearestMedical     String?
+  evacuationNotes    String?
+  status     RiskStatus @default(OPEN)
+  notes      String?
+
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([locationId])
+  @@index([status])
+  @@map("location_risks")
+}
+
+// ── SYS-07 slice 6 — LM document vault & compliance ──────────────────────────
+// Modelled on the real location-manager workflow (NOCs, agreements/releases,
+// insurance, location guides, IDs, quotes) seen in the LM mailbox study.
+enum LocationDocCategory {
+  NOC // No Objection Certificate (often bilingual EN/AR) — the LM's #1 artifact
+  LOCATION_AGREEMENT // location agreement / contract
+  RELEASE // location release
+  INSURANCE // public-liability (PLL) / COI certificate
+  LOCATION_GUIDE // the per-location guide/pack issued to crew
+  RISK_ASSESSMENT // risk-assessment questionnaire
+  METHOD_STATEMENT // HSE method statement (pairs with risk assessment)
+  ID_DOCUMENT // owner/landlord EID / trade licence
+  QUOTE // rental quote / invoice
+  PERMIT_DOC // ground filming permit document
+  OTHER
+}
+
+enum LocationDocStatus {
+  DRAFT
+  REQUESTED // asked the owner/authority
+  RECEIVED // came back
+  SIGNED // executed
+  ISSUED // we issued it (e.g. NOC letter)
+  EXPIRED
+  VOID
+}
+
+enum DocLanguage {
+  EN
+  AR
+  BILINGUAL
+}
+
+enum LocationStage {
+  SOURCING
+  NOC_REQUESTED
+  AGREEMENT_SENT
+  PERMIT_APPLIED
+  INSURANCE_RECEIVED
+  CONFIRMED
+  WRAPPED
+}
+
+model LocationDocument {
+  id         String    @id @default(cuid())
+  // Dual-target: a document belongs to a project location OR a master library location.
+  locationId String?
+  location   Location? @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  masterLocationId String?
+  masterLocation   MasterLocation? @relation(fields: [masterLocationId], references: [id], onDelete: Cascade)
+
+  category   LocationDocCategory @default(OTHER)
+  title      String
+  status     LocationDocStatus   @default(DRAFT)
+  language   DocLanguage         @default(EN)
+
+  partyName   String? // owner / landlord / authority on the document
+  authority   String? // issuing body (Aldar, twofour54, RTA, municipality…)
+  refNumber   String?
+  issueDate   DateTime?
+  signedDate  DateTime?
+  expiryDate  DateTime? // drives insurance/NOC expiry alerts
+  amount      Decimal? @db.Decimal(14, 2) // coverage value or quote amount
+  currency    String   @default("AED")
+
+  fileUrl String? // uploaded PDF/image
+  ocrData Json? // raw OCR extraction (audit)
+  notes   String?
+
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([locationId])
+  @@index([masterLocationId])
+  @@index([category])
+  @@index([expiryDate])
+  @@map("location_documents")
+}
+
+// ── SYS-07 slice 7 — Security & marshals (2nd-biggest LM topic) ──────────────
+enum SecurityStatus {
+  PLANNED
+  CONFIRMED
+  ON_SITE
+  COMPLETED
+  CANCELLED
+}
+
+model LocationSecurity {
+  id         String    @id @default(cuid())
+  // Dual-target: project location OR master library location.
+  locationId String?
+  location   Location? @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  masterLocationId String?
+  masterLocation   MasterLocation? @relation(fields: [masterLocationId], references: [id], onDelete: Cascade)
+
+  company      String?
+  contactName  String?
+  contactPhone String?
+  guards       Int     @default(0)
+  marshals     Int     @default(0)
+  shiftStart   DateTime?
+  shiftEnd     DateTime?
+  days         Decimal  @db.Decimal(8, 2) @default(1)
+  ratePerGuard Decimal? @db.Decimal(12, 2)
+  totalCost    Decimal? @db.Decimal(14, 2)
+  currency     String   @default("AED")
+  status       SecurityStatus @default(PLANNED)
+  postedTxnId  String? // ledger transaction once posted as a cost
+  notes        String?
+
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([locationId])
+  @@index([masterLocationId])
+  @@map("location_security")
+}
+
+// ── SYS-07 slice 7 — Location payment schedule (quote → deposit → balance) ───
+enum LocationPaymentKind {
+  QUOTE
+  DEPOSIT
+  BALANCE
+  ADDITIONAL
+  REFUND
+}
+
+enum LocationPaymentStatus {
+  PENDING
+  INVOICED
+  PAID
+}
+
+model LocationPayment {
+  id         String    @id @default(cuid())
+  locationId String?
+  location   Location? @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  masterLocationId String?
+  masterLocation   MasterLocation? @relation(fields: [masterLocationId], references: [id], onDelete: Cascade)
+
+  kind        LocationPaymentKind @default(BALANCE)
+  description String?
+  amount      Decimal  @db.Decimal(14, 2) @default(0)
+  currency    String   @default("AED")
+  dueDate     DateTime?
+  paidDate    DateTime?
+  status      LocationPaymentStatus @default(PENDING)
+  invoiceRef  String?
+  payeeName   String? // location owner / landlord
+  postedTxnId String? // ledger transaction once paid
+  notes       String?
+
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([locationId])
+  @@index([masterLocationId])
+  @@index([status])
+  @@map("location_payments")
+}
+
+// ── Payroll timecards (cast/crew) → coded, fringed cost ──────────────────────────
+model Timecard {
+  id        String            @id @default(cuid())
+  projectId String
+  project   ProductionProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  name               String
+  role               String?
+  classificationCode String? // drives fringes (PERFORMER / IATSE-CREW / …)
+  accountCode        String? // budget cost center
+  accountTitle       String?
+  weekEnding         DateTime?
+
+  days        Decimal @db.Decimal(8, 2) @default(0)
+  dailyRate   Decimal @db.Decimal(12, 2) @default(0)
+  otHours     Decimal @db.Decimal(8, 2) @default(0)
+  otRate      Decimal @db.Decimal(12, 2) @default(0)
+  boxRental   Decimal @db.Decimal(12, 2) @default(0)
+  kitRental   Decimal @db.Decimal(12, 2) @default(0)
+  perDiemDays Decimal @db.Decimal(8, 2) @default(0)
+  perDiemRate Decimal @db.Decimal(12, 2) @default(0)
+  currency    String  @default("AED")
+
+  gross  Decimal @db.Decimal(15, 2) @default(0)
+  fringe Decimal @db.Decimal(15, 2) @default(0)
+  total  Decimal @db.Decimal(15, 2) @default(0)
+
+  status      String  @default("DRAFT") // DRAFT | APPROVED | POSTED
+  postedTxnId String?
+  notes       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+  @@map("timecards")
+}
+
+model ProjectDocument {
+  id        String            @id @default(cuid())
+  projectId String
+  project   ProductionProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  name       String
+  kind       String  @default("FILE") // FILE | LINK
+  provider   String  @default("UPLOAD") // UPLOAD | GDRIVE | DROPBOX | LINK
+  url        String // /uploads/<file> or external share URL
+  category   String? // "Contract", "Receipt", "Agreement", "Insurance", "Other"
+  mimeType   String?
+  sizeBytes  Int?
+
+  // Optional link to a specific record (PO, petty cash, deal memo, crew)
+  entityType String?
+  entityId   String?
+
+  uploadedById String?
+  createdAt    DateTime @default(now())
+
+  @@index([projectId])
+  @@map("project_documents")
+}
+
+enum StripIntExt {
+  INT
+  EXT
+  INT_EXT
+}
+
+enum StripDayNight {
+  DAY
+  NIGHT
+  DUSK
+  DAWN
+}
+
+model ProductionStrip {
+  id        String            @id @default(cuid())
+  projectId String
+  project   ProductionProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  sceneNumber String?
+  intExt      StripIntExt   @default(INT)
+  dayNight    StripDayNight @default(DAY)
+  setName     String?
+  location    String?
+  locationId  String? // link to a Location record (per-diem + grouping)
+  description String?
+  pages       Decimal       @db.Decimal(6, 3) @default(0) // 1.125 = 1 ⅛ pages
+  cast        Json? // array of cast names
+  estMinutes  Int?
+  shootDay    Int           @default(0) // 0 = unscheduled
+  sortOrder   Int           @default(0)
+  notes       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  elements BreakdownElement[]
+
+  @@index([projectId])
+  @@map("production_strips")
+}
+
+enum BreakdownCategory {
+  CAST
+  BACKGROUND
+  STUNTS
+  VEHICLES
+  ANIMALS
+  ANIMAL_WRANGLER // industry-standard MMS category (Master cost numbers doc)
+  PROPS
+  SET_DRESSING
+  WARDROBE
+  MAKEUP_HAIR
+  SFX
+  MECHANICAL_FX // physical built rigs — distinct from pyrotechnic SFX
+  VFX
+  SPECIAL_EQUIPMENT
+  CAMERA // camera bodies/lenses/specialty rigs as scheduled elements
+  ADDITIONAL_LABOR // day-player crew, standby labor, swing gang
+  SOUND_MUSIC
+  ART
+  GREENERY
+  SECURITY
+  OTHER
+}
+
+model BreakdownElement {
+  id        String            @id @default(cuid())
+  projectId String
+  project   ProductionProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  stripId   String
+  strip     ProductionStrip   @relation(fields: [stripId], references: [id], onDelete: Cascade)
+
+  category        BreakdownCategory
+  name            String
+  quantity        Int     @default(1)
+  costCenterCode  String?
+  costCenterTitle String?
+  estCost         Decimal @db.Decimal(15, 2) @default(0)
+  notes           String?
+
+  createdAt DateTime @default(now())
+
+  castingCalls      CastingCall[]
+  characterProfiles CharacterProfile[]
+
+  @@index([projectId])
+  @@index([stripId])
+  @@map("breakdown_elements")
+}
+
+// ── Per-Project Accounting Ledger (standalone production books) ────────────────
+
+enum ProjectTxnKind {
+  INCOME
+  COST
+  SALES_REVENUE      // distribution income: MGs, box office, licensing (7000 series)
+  CORPORATE_OVERHEAD // internal studio costs, separated from physical production (9000 series)
+}
+
+enum ProjectTxnStatus {
+  DRAFT
+  APPROVED
+  INVOICED
+  PAID
+  RECEIVED
+  VOID
+}
+
+model ProjectTransaction {
+  id        String            @id @default(cuid())
+  projectId String
+  project   ProductionProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  kind         ProjectTxnKind
+  date         DateTime          @default(now())
+  accountCode  String? // budget account code (for COSTs → Budget vs Actual)
+  accountTitle String?
+  category     String?
+  description  String
+  party        String? // client (income) or vendor (cost)
+  reference    String?
+
+  amount    Decimal  @db.Decimal(15, 2) @default(0)
+  taxAmount Decimal  @db.Decimal(15, 2) @default(0)
+  total     Decimal  @db.Decimal(15, 2) @default(0)
+  currency  Currency @default(AED)
+
+  status      ProjectTxnStatus @default(DRAFT)
+  createdById String?
+
+  // Accounts Payable (for COSTs treated as vendor invoices)
+  invoiceNumber String?
+  vendorId      String?
+  dueDate       DateTime?
+  paidDate      DateTime?
+  paidAmount    Decimal?  @db.Decimal(15, 2)
+  paidById      String? // who released the payment (segregation-of-duties audit)
+  approvedById  String? // who/which workflow approved it as an actual (audit)
+
+  // ── E-invoicing: KSA ZATCA Phase 2 (Fatoora) ─────────────────────────────────
+  // Populated by the clearance/reporting middleware response — never hand-entered.
+  // B2B/B2G = real-time CLEARANCE before issue · B2C (simplified) = REPORTED ≤24h.
+  invoiceClassification    InvoiceClassification?
+  zatcaUuid                String? // 36-char invoice UUID (unique across the ZATCA ecosystem)
+  zatcaIcv                 Int? // ICV — invoice counter value, strictly sequential per EGS unit
+  zatcaXmlHash             String? // hash of the signed UBL 2.1 XML (this invoice)
+  zatcaPreviousInvoiceHash String? // PIH — hash chain to the immediately preceding invoice
+  zatcaCryptographicStamp  String? // ECDSA stamp (simplified: device CSID stamp; standard: ZATCA stamp on clearance)
+  zatcaCsid                String? // Cryptographic Stamp Identifier used
+  zatcaQrCode              String? // base64 TLV QR (Phase 2: incl. stamp, public key, ECDSA signature)
+  zatcaClearanceStatus     String? // PENDING | CLEARED | REPORTED | REJECTED
+  zatcaClearedAt           DateTime?
+
+  // ── E-invoicing: Jordan JoFotara (ISTD) — UBL 2.1, clearance model ───────────
+  jordanFawateeryUuid String? // submission UUID returned by JoFotara
+  jordanFawateeryQR   String? // ISTD-issued QR after validation (must appear on the customer invoice)
+  ublStandardVersion  String? // payload dialect marker, e.g. "UBL 2.1"
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+  @@index([accountCode])
+  @@index([zatcaUuid])
+  @@map("project_transactions")
+}
+
+// ZATCA invoice classification — drives clearance (B2B/B2G) vs 24h reporting (B2C)
+enum InvoiceClassification {
+  B2B
+  B2C
+  B2G
+}
+
+// ── Accounting period close (lock a week/month for true 'as-of' reporting) ──────
+model AccountingPeriod {
+  id        String   @id @default(cuid())
+  projectId String
+  period    String // "2026-06" (month) — close granularity
+  status    String   @default("OPEN") // OPEN | CLOSED
+  closedAt  DateTime?
+  closedBy  String?
+  createdAt DateTime @default(now())
+
+  @@unique([projectId, period])
+  @@index([projectId])
+  @@map("accounting_periods")
+}
+
+// ── Production Cost Management (Vendors, POs, Cost Report) ─────────────────────
+
+enum PurchaseOrderStatus {
+  DRAFT
+  SUBMITTED // in the approval workflow — awaiting approvers
+  REJECTED  // an approver rejected it; revise → back to DRAFT
+  APPROVED
+  PARTIALLY_INVOICED
+  CLOSED
+  CANCELLED
+}
+
+model ProductionVendor {
+  id          String            @id @default(cuid())
+  projectId   String
+  project     ProductionProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  supplierId  String? // link to the company Supplier master (single source of truth)
+  name        String
+  category    String?
+  contactName String?
+  phone       String?
+  email       String?
+  trn         String?
+  notes       String?
+  createdAt   DateTime          @default(now())
+
+  purchaseOrders PurchaseOrder[]
+
+  @@index([projectId])
+  @@map("production_vendors")
+}
+
+enum PendingVendorStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// Staging table for vendor self-onboarding submissions (via a time-limited JWT link).
+// Approving one maps it into a Supplier master + a linked ProductionVendor.
+model PendingVendor {
+  id        String              @id @default(cuid())
+  projectId String
+  project   ProductionProject   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  status    PendingVendorStatus @default(PENDING)
+
+  name            String
+  tradeName       String?
+  category        String?
+  contactName     String?
+  phone           String?
+  email           String?
+  address         String?
+  city            String?
+  country         String? @default("United Arab Emirates")
+  trn             String?
+  vatId           String?
+  iban            String?
+  bankName        String?
+  bankAccount     String?
+  swiftCode       String?
+  trnCertUrl      String? // uploaded TRN certificate
+  tradeLicenseUrl String? // uploaded trade licence
+  notes           String?
+
+  submittedIp        String?
+  reviewedById       String?
+  reviewedAt         DateTime?
+  productionVendorId String? // set on approval
+  supplierId         String? // set on approval
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+  @@index([status])
+  @@map("pending_vendors")
+}
+
+model PurchaseOrder {
+  id        String            @id @default(cuid())
+  projectId String
+  project   ProductionProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  poNumber  String            @unique
+
+  vendorId        String?
+  vendor          ProductionVendor? @relation(fields: [vendorId], references: [id])
+  vendorName      String?
+  costCenterCode  String? // budget account code
+  costCenterTitle String?
+  description     String
+  date            DateTime          @default(now())
+  expectedDate    DateTime?
+
+  amount          Decimal @db.Decimal(15, 2) @default(0)
+  taxAmount       Decimal @db.Decimal(15, 2) @default(0)
+  total           Decimal @db.Decimal(15, 2) @default(0)
+  invoicedAmount  Decimal @db.Decimal(15, 2) @default(0)
+  currency        Currency @default(AED)
+
+  status      PurchaseOrderStatus @default(DRAFT)
+  notes       String?
+  createdById String?
+
+  // ── E-invoicing: KSA ZATCA Phase 2 (Fatoora) — same block as ProjectTransaction ──
+  invoiceClassification    InvoiceClassification?
+  zatcaUuid                String?
+  zatcaIcv                 Int?
+  zatcaXmlHash             String?
+  zatcaPreviousInvoiceHash String?
+  zatcaCryptographicStamp  String?
+  zatcaCsid                String?
+  zatcaQrCode              String?
+  zatcaClearanceStatus     String? // PENDING | CLEARED | REPORTED | REJECTED
+  zatcaClearedAt           DateTime?
+  // ── E-invoicing: Jordan JoFotara (ISTD) ──────────────────────────────────────
+  jordanFawateeryUuid String?
+  jordanFawateeryQR   String?
+  ublStandardVersion  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Travel / Contracts back-links (one-to-one)
+  itinerary Itinerary?
+  contract  ProjectContract?
+  transportVehicle TransportVehicle? @relation("TransportVehiclePO") // SYS-12 hired-vehicle commitment
+
+  @@index([projectId])
+  @@map("purchase_orders")
+}
+
+model CostReportSnapshot {
+  id        String            @id @default(cuid())
+  projectId String
+  project   ProductionProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  asOf      DateTime          @default(now())
+  label     String?
+  data      Json // full per-cost-center report
+  budget    Decimal @db.Decimal(15, 2) @default(0)
+  committed Decimal @db.Decimal(15, 2) @default(0)
+  actual    Decimal @db.Decimal(15, 2) @default(0)
+  efc       Decimal @db.Decimal(15, 2) @default(0)
+  variance  Decimal @db.Decimal(15, 2) @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([projectId])
+  @@map("cost_report_snapshots")
+}
+
+// ── Petty Cash / Float ────────────────────────────────────────────────────────
+
+enum PettyCashTxnType {
+  TOPUP
+  SPEND
+}
+
+model PettyCashFloat {
+  id        String            @id @default(cuid())
+  projectId String
+  project   ProductionProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  holder    String
+  openingAmount Decimal       @db.Decimal(15, 2) @default(0)
+  currency  Currency          @default(AED)
+  status    String            @default("OPEN") // OPEN | CLOSED
+  notes     String?
+  createdAt DateTime          @default(now())
+
+  transactions PettyCashTxn[]
+
+  @@index([projectId])
+  @@map("petty_cash_floats")
+}
+
+model PettyCashTxn {
+  id      String         @id @default(cuid())
+  floatId String
+  float   PettyCashFloat @relation(fields: [floatId], references: [id], onDelete: Cascade)
+
+  type           PettyCashTxnType
+  date           DateTime         @default(now())
+  description    String
+  costCenterCode String?
+  costCenterTitle String?
+  amount         Decimal          @db.Decimal(15, 2) @default(0)
+  ledgerTxnId    String? // linked project cost (for SPEND)
+  createdById    String?
+  createdAt      DateTime         @default(now())
+
+  @@index([floatId])
+  @@map("petty_cash_txns")
+}
+
+model CreditRoll {
+  id        String            @id @default(cuid())
+  projectId String            @unique
+  project   ProductionProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  title  String? // title-card text (defaults to project title)
+  blocks Json?   // [{ heading, lines: [{ role, name }] }]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("credit_rolls")
+}
+
+enum OverageStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Overage {
+  id           String        @id @default(cuid())
+  projectId    String
+  project      ProductionProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  accountCode  String?
+  accountTitle String?
+  description  String
+  amount       Decimal       @db.Decimal(15, 2) @default(0)
+  reason       String?
+  status       OverageStatus @default(PENDING)
+
+  requestedById String?
+  approvedById  String?
+  approvedAt    DateTime?
+  notes         String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+  @@map("overages")
+}
+
+// Budget reallocation: move money from one cost-center line to another.
+// Net effect on the grand total is zero; it reshapes the working budget per account.
+model BudgetTransfer {
+  id            String   @id @default(cuid())
+  projectId     String
+  project       ProductionProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  fromCode      String   // donor account code
+  fromTitle     String?
+  toCode        String   // recipient account code
+  toTitle       String?
+  amount        Decimal  @db.Decimal(15, 2) @default(0)
+  reason        String?
+  date          DateTime @default(now())
+
+  status        TransferStatus @default(PENDING)
+  createdById   String?
+  approvedById  String?
+  approvedAt    DateTime?
+
+  createdAt     DateTime @default(now())
+
+  @@index([projectId])
+  @@map("budget_transfers")
+}
+
+enum TransferStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum PerDiemStatus {
+  PENDING
+  APPROVED
+  PAID
+}
+
+model PerDiem {
+  id           String          @id @default(cuid())
+  projectId    String
+  project      ProductionProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignmentId String?
+  assignment   ProductionCrew? @relation(fields: [assignmentId], references: [id])
+
+  crewName   String
+  location   String?
+  ratePerDay Decimal       @db.Decimal(12, 2) @default(0)
+  days       Int           @default(1)
+  currency   Currency      @default(AED)
+  startDate  DateTime?
+  endDate    DateTime?
+  total      Decimal       @db.Decimal(14, 2) @default(0)
+  status     PerDiemStatus @default(PENDING)
+  notes      String?
+
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([projectId])
+  @@map("per_diems")
+}
+
+enum CallSheetStatus {
+  DRAFT
+  PUBLISHED
+}
+
+model CallSheet {
+  id        String            @id @default(cuid())
+  projectId String
+  project   ProductionProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  dayNumber Int             @default(1)
+  totalDays Int?
+  shootDate DateTime
+  status    CallSheetStatus @default(DRAFT)
+
+  // Call times
+  generalCall  String? // "06:00"
+  shootingCall String?
+  estWrap      String?
+
+  // Weather / daylight
+  weather  String?
+  tempHigh String?
+  tempLow  String?
+  sunrise  String?
+  sunset   String?
+
+  // Location
+  locationId      String? // link to a Location record
+  locationName    String?
+  locationAddress String?
+  locationMapUrl  String?
+  parkingNotes    String?
+  basecampNotes   String?
+
+  // Nearest hospital (safety)
+  hospitalName    String?
+  hospitalAddress String?
+  hospitalPhone   String?
+
+  // Structured blocks (editable arrays)
+  keyContacts     Json? // [{ role, name, phone }]
+  scheduleItems   Json? // [{ time, scene, intExt, description, pages, cast, location }]
+  castCalls       Json? // [{ cast, character, callTime, hmw, onSet, remarks }]
+  backgroundCalls Json? // [{ description, count, callTime, location }]
+  crewCalls       Json? // [{ department, name, role, callTime }]
+  advanceSchedule Json? // next-day: [{ time, scene, description, location }]
+
+  notes       String?
+  safetyNotes String?
+
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([projectId])
+  @@map("call_sheets")
+}
+
+// ── Inventory / Consumables ───────────────────────────────────────────────────
+
+enum StockMoveType {
+  IN
+  OUT
+  ADJUST
+}
+
+model InventoryItem {
+  id           String  @id @default(cuid())
+  sku          String? @unique // optional stock code
+  name         String
+  category     String? // "Gels", "Tape", "Batteries", "Hardware", "Expendables"
+  unit         String  @default("each") // each, roll, box, pack, metre, litre, set
+  unitCost     Decimal @db.Decimal(15, 2) @default(0)
+  quantity     Decimal @db.Decimal(15, 3) @default(0) // current on hand
+  reorderLevel Decimal @db.Decimal(15, 3) @default(0) // low-stock threshold
+  location     String? // store / shelf / bin
+  supplierId   String?
+  supplierName String?
+  notes        String?
+  isActive     Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  movements StockMovement[]
+
+  @@map("inventory_items")
+}
+
+model StockMovement {
+  id     String        @id @default(cuid())
+  itemId String
+  item   InventoryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  type         StockMoveType
+  quantity     Decimal       @db.Decimal(15, 3) // always positive; type drives direction
+  unitCost     Decimal?      @db.Decimal(15, 2)
+  reference    String? // rental booking id / production project id / PO number
+  reason       String? // "Consumed on shoot", "Stocktake", "Purchase"
+  notes        String?
+  balanceAfter Decimal       @db.Decimal(15, 3) @default(0)
+
+  createdById  String?
+  movementDate DateTime      @default(now())
+  createdAt    DateTime      @default(now())
+
+  @@index([itemId])
+  @@map("stock_movements")
+}
+
+// ── Accounting (General Ledger + Bank Reconciliation) ─────────────────────────
+
+enum GlAccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  INCOME
+  EXPENSE
+}
+
+enum JournalStatus {
+  DRAFT
+  POSTED
+  VOID
+}
+
+model GlAccount {
+  id          String        @id @default(cuid())
+  code        String        @unique // "1000", "4000"
+  name        String
+  type        GlAccountType
+  subtype     String? // "Current Asset", "Cost of Sales", "Operating Expense"
+  description String?
+  isBank      Boolean       @default(false) // cash/bank accounts (reconcilable)
+  isActive    Boolean       @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lines       JournalLine[]
+  bankAccount LedgerBankAccount?
+
+  @@map("gl_accounts")
+}
+
+model JournalEntry {
+  id          String        @id @default(cuid())
+  entryNumber String        @unique // JE-2026-0001
+  date        DateTime
+  memo        String?
+  reference   String?
+  source      String        @default("MANUAL") // MANUAL | SYSTEM
+  sourceType  String? // INVOICE | EXPENSE | PAYMENT (auto-posted)
+  sourceId    String?
+  status      JournalStatus @default(DRAFT)
+  postedAt    DateTime?
+  createdById String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sourceType, sourceId])
+
+  lines JournalLine[]
+
+  @@map("journal_entries")
+}
+
+model JournalLine {
+  id          String    @id @default(cuid())
+  entryId     String
+  entry       JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  accountId   String
+  account     GlAccount @relation(fields: [accountId], references: [id])
+  description String?
+  debit       Decimal   @db.Decimal(15, 2) @default(0)
+  credit      Decimal   @db.Decimal(15, 2) @default(0)
+  sortOrder   Int       @default(0)
+
+  // Bank reconciliation
+  reconciled   Boolean   @default(false)
+  reconciledAt DateTime?
+
+  @@index([entryId])
+  @@index([accountId])
+  @@map("journal_lines")
+}
+
+model LedgerBankAccount {
+  id            String    @id @default(cuid())
+  name          String
+  bankName      String?
+  accountNumber String?
+  currency      Currency  @default(AED)
+  glAccountId   String    @unique
+  glAccount     GlAccount @relation(fields: [glAccountId], references: [id])
+
+  // Dedicated production account (reconciliation side) — pairs with BankAccount.projectId
+  projectId String?
+  project   ProductionProject? @relation(fields: [projectId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  reconciliations BankReconciliation[]
+
+  @@map("ledger_bank_accounts")
+}
+
+model BankReconciliation {
+  id               String      @id @default(cuid())
+  bankAccountId    String
+  bankAccount      LedgerBankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  statementDate    DateTime
+  statementBalance Decimal     @db.Decimal(15, 2)
+  clearedBalance   Decimal     @db.Decimal(15, 2) @default(0)
+  status           String      @default("OPEN") // OPEN | COMPLETED
+  completedAt      DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@map("bank_reconciliations")
+}
+
+// ── Approval Routing (multi-step) ─────────────────────────────────────────────
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model ApprovalRequest {
+  id          String         @id @default(cuid())
+  entityType  String         // "EXPENSE"
+  entityId    String
+  title       String
+  amount      Decimal        @db.Decimal(15, 2) @default(0)
+  status      ApprovalStatus @default(PENDING)
+  currentStep Int            @default(0)
+  createdById String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  steps ApprovalStep[]
+
+  @@index([entityType, entityId])
+  @@map("approval_requests")
+}
+
+model ApprovalStep {
+  id        String          @id @default(cuid())
+  requestId String
+  request   ApprovalRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  stepOrder    Int
+  approverRole String         // expected approver (label)
+  status       ApprovalStatus @default(PENDING)
+  decidedById  String?
+  decidedByName String?
+  decidedAt    DateTime?
+  comment      String?
+
+  @@index([requestId])
+  @@map("approval_steps")
+}
+
+model BudgetVersion {
+  id          String              @id @default(cuid())
+  projectId   String
+  project     ProductionProject   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  versionName String // "Budget V1", "Working Copy — June Update"
+  status      BudgetVersionStatus @default(DRAFT)
+  isActive    Boolean             @default(false)
+  notes       String?
+  lockedAt    DateTime?
+
+  // Sequential lifecycle versioning (assigned when submitted for REVIEW: V1, V2 …)
+  versionSequence Int @default(0)
+  // Branching: a WORKING copy remembers which locked baseline it branched from
+  parentVersionId String?
+  parentVersion   BudgetVersion?  @relation("VersionBranching", fields: [parentVersionId], references: [id])
+  childVersions   BudgetVersion[] @relation("VersionBranching")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  globals       BudgetGlobal[]
+  sections      BudgetSection[]
+  fringes       FringeProfile[]
+  lifecycleLogs BudgetLifecycleLog[]
+
+  @@map("budget_versions")
+}
+
+// Audit trail for every budget lifecycle status change (who, what role, when, why)
+model BudgetLifecycleLog {
+  id              String            @id @default(cuid())
+  projectId       String
+  project         ProductionProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  budgetVersionId String
+  budgetVersion   BudgetVersion     @relation(fields: [budgetVersionId], references: [id], onDelete: Cascade)
+
+  fromStatus      BudgetVersionStatus
+  toStatus        BudgetVersionStatus
+  versionNameSnap String // what the version was called at that moment (e.g. "Budget V3")
+
+  changedById   String?
+  changedByRole String? // project crew role (or system role) at time of change
+  notes         String? // reason (e.g. "Client approved new BTL rebates")
+  createdAt     DateTime @default(now())
+
+  @@index([projectId])
+  @@index([budgetVersionId])
+  @@map("budget_lifecycle_logs")
+}
+
+model BudgetGlobal {
+  id              String        @id @default(cuid())
+  budgetVersionId String
+  budgetVersion   BudgetVersion @relation(fields: [budgetVersionId], references: [id], onDelete: Cascade)
+  key             String // "shoot_days", "prep_weeks"
+  label           String // "Shoot Days", "Prep Weeks"
+  value           Decimal       @db.Decimal(10, 3)
+  unit            String? // "days", "weeks"
+
+  @@unique([budgetVersionId, key])
+  @@map("budget_globals")
+}
+
+model FringeProfile {
+  id              String        @id @default(cuid())
+  budgetVersionId String
+  budgetVersion   BudgetVersion @relation(fields: [budgetVersionId], references: [id], onDelete: Cascade)
+  name            String // "UAE Crew", "Freelance"
+  percentage      Decimal       @db.Decimal(5, 2) // 18.00
+  description     String?
+
+  @@map("fringe_profiles")
+}
+
+model BudgetSection {
+  id              String        @id @default(cuid())
+  budgetVersionId String
+  budgetVersion   BudgetVersion @relation(fields: [budgetVersionId], references: [id], onDelete: Cascade)
+  code            String // "1000", "2000"
+  title           String // "Above The Line", "Production"
+  tier            String? // ATL | BTL | POST | OTHER (industry tiering)
+  sortOrder       Int           @default(0)
+  color           String? // optional color for UI
+
+  accounts BudgetAccount[]
+
+  @@map("budget_sections")
+}
+
+model BudgetAccount {
+  id        String        @id @default(cuid())
+  sectionId String
+  section   BudgetSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  code      String // "1100", "2100"
+  title     String // "Director", "Camera Department"
+  sortOrder Int           @default(0)
+  etcAmount Decimal?      @db.Decimal(15, 2) // manual Estimate-To-Complete override
+
+  lineItems BudgetLineItem[]
+
+  @@map("budget_accounts")
+}
+
+model BudgetLineItem {
+  id        String        @id @default(cuid())
+  accountId String
+  account   BudgetAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  sortOrder Int           @default(0)
+
+  code            String? // sub-account code e.g. "1210"
+  subTitle        String? // sub-account title e.g. "LINE PRODUCER"
+  description     String
+  quantityFormula String? // e.g. "shoot_days + prep_days" — references globals
+  quantity        Decimal @db.Decimal(10, 3) @default(1) // resolved value
+  units           String? // "days", "weeks", "hours", "units", "lump"
+  rate            Decimal @db.Decimal(15, 2) @default(0)
+
+  // Multi-currency
+  currency     Currency @default(AED)
+  exchangeRate Decimal  @db.Decimal(10, 4) @default(1)
+
+  // Fringe
+  fringeProfileId String?
+  fringePct       Decimal @db.Decimal(5, 2) @default(0)
+
+  // Labor classification (links line to applicable union/statutory rate rules)
+  classificationCode String? // e.g. "PERFORMER", "IATSE-LOCAL-600", "DIRECTOR"
+  fringeDetail       Json?   // computed per-rule burden breakdown [{rateRuleId, rateType, label, amount}]
+
+  // Cast performer link → auto-sets classificationCode 'PERFORMER' from the talent's union.
+  castTalentId String?
+  castTalent   GlobalTalentProfile? @relation("BudgetLineCastTalent", fields: [castTalentId], references: [id])
+
+  // Labour stage breakdown (prep/shoot/wrap/post) — rate per stage from the crew card
+  crewMemberId String? // link to Crew Directory for rate-card auto-fill
+  stages       Json?   // [{ stage:'PREP'|'SHOOT'|'WRAP'|'POST', qty, unit, rate, amount }]
+
+  // Provenance — where this line's numbers came from, and the original AI/import suggestion
+  origin              LineItemOrigin @default(MANUAL)
+  aiSuggestedRate     Decimal?       @db.Decimal(15, 2) // preserved when a human overrides
+  aiSuggestedQuantity Decimal?       @db.Decimal(10, 3) // preserved when a human overrides
+
+  // Computed totals (in project base currency)
+  subtotal     Decimal @db.Decimal(15, 2) @default(0) // qty * rate / exchangeRate
+  fringeAmount Decimal @db.Decimal(15, 2) @default(0) // subtotal * fringePct/100
+  total        Decimal @db.Decimal(15, 2) @default(0) // subtotal + fringeAmount
+
+  notes String?
+
+  contracts ProjectContract[]
+
+  @@map("budget_line_items")
+}
+
+enum LineItemOrigin {
+  MANUAL              // typed by a user
+  AI_GENERATED        // produced by an AI assistant
+  SCRIPT_IMPORT       // pulled from an imported script
+  AUTO_BREAKDOWN      // generated from the scene breakdown
+  MANUAL_OVERRIDE     // started as AI/import, then a human changed it (original kept in aiSuggested* fields)
+  MOVIE_MAGIC_IMPORT  // imported from a Movie Magic Budgeting (.mmb/.xml/.csv) file
+}
+
+model ProductionCrew {
+  id        String            @id @default(cuid())
+  projectId String
+  project   ProductionProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  name       String
+  role       ProductionCrewRole @default(OTHER)
+  department String? // film department (taxonomy)
+  roleTitle  String? // specific job title within the department (free text)
+  isInternal Boolean            @default(false)
+
+  // Driver licence (only when the person uses a production vehicle)
+  productionVehicle    Boolean   @default(false)
+  driverLicenseNumber  String?
+  driverLicenseExpiry  DateTime?
+  driverLicenseDocUrl  String?
+  userId     String?
+  email      String?
+  mobile     String?
+
+  // Link to Crew Directory (freelancer registry)
+  crewMemberId String?
+  crewMember   CrewMember? @relation(fields: [crewMemberId], references: [id])
+
+  // Assignment details
+  startDate DateTime?
+  endDate   DateTime?
+  location  String?
+
+  dailyRate  Decimal? @db.Decimal(10, 2)
+  weeklyRate Decimal? @db.Decimal(10, 2)
+  totalDays  Int?
+  totalPaid  Decimal? @db.Decimal(10, 2)
+  notes      String?
+
+  // Deal memo / contract tracking
+  dealMemoStatus String  @default("NOT_SENT") // NOT_SENT | SENT | SIGNED
+  ndaStatus      String  @default("NOT_REQUIRED") // NOT_REQUIRED | SENT | SIGNED
+  dealMemoUrl    String?
+  contractUrl    String?
+
+  createdAt DateTime @default(now())
+
+  perDiems PerDiem[]
+
+  contracts ProjectContract[]
+
+  @@map("production_crew")
+}
+
+model ProductionSchedule {
+  id        String            @id @default(cuid())
+  projectId String
+  project   ProductionProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  dayNumber Int
+  date      DateTime
+  location  String?
+  callTime  String?
+  wrapTime  String?
+  scenes    String?
+  notes     String?
+
+  @@map("production_schedules")
+}
+
+// ── Maintenance Vendors ───────────────────────────────────────────────────────
+
+enum VendorType {
+  AUTO_WORKSHOP
+  CARAVAN_REPAIR
+  GENERATOR_REPAIR
+  ELECTRICAL_REPAIR
+  AC_REPAIR
+  TIRE_SUPPLIER
+  SPARE_PARTS_SUPPLIER
+  STRUCTURAL_REPAIR
+  OTHER
+}
+
+enum VendorJobStatus {
+  PENDING
+  APPROVED
+  IN_PROGRESS
+  WAITING_FOR_PARTS
+  COMPLETED
+  CANCELLED
+}
+
+enum VendorJobPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum VendorDocType {
+  TRADE_LICENSE
+  VAT_CERTIFICATE
+  CONTRACT
+  INSURANCE
+  QUOTATION
+  INVOICE
+  INSPECTION_REPORT
+  OTHER
+}
+
+enum VendorInvoiceStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  PAID
+  DISPUTED
+  CANCELLED
+}
+
+enum VendorPaymentStatus {
+  PENDING
+  CLEARED
+  BOUNCED
+}
+
+model MaintenanceVendor {
+  id            String      @id @default(cuid())
+  name          String
+  vendorType    VendorType  @default(AUTO_WORKSHOP)
+  secondaryType VendorType?
+
+  // Contact
+  contactPerson String?
+  mobile        String?
+  whatsapp      String?
+  email         String?
+  website       String?
+  address       String?
+  city          String?
+  country       String?
+  googleMapsUrl String?
+  gpsCoordinates String?
+  notes         String?
+  isActive      Boolean @default(true)
+
+  // UAE compliance
+  trn                  String?
+  tradeLicenseNumber   String?
+  tradeLicenseExpiry   DateTime?
+
+  // Payment
+  currency        Currency @default(AED)
+  paymentTermDays Int      @default(30)
+  bankName        String?
+  bankAccountNo   String?
+  iban            String?
+  swiftCode       String?
+
+  // Back-link: set when this vendor was created from a Supplier profile
+  supplierId String? @unique
+  supplier   Supplier? @relation("SupplierVendorLink")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  documents VendorDocument[]
+  contacts  Contact[]
+  jobs      VendorMaintenanceJob[]
+  quotations VendorQuotation[]
+  invoices  VendorInvoice[]
+  payments  VendorPayment[]
+  spareParts SparePart[]
+  tireRecords TireRecord[]
+
+  @@map("maintenance_vendors")
+}
+
+model VendorDocument {
+  id       String        @id @default(cuid())
+  vendorId String
+  vendor   MaintenanceVendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  docType  VendorDocType @default(OTHER)
+  name     String
+  url      String
+  expiryDate DateTime?
+  notes    String?
+
+  createdAt DateTime @default(now())
+
+  @@map("vendor_documents")
+}
+
+model VendorMaintenanceJob {
+  id        String           @id @default(cuid())
+  jobNumber String           @unique // VJ-2024-0001
+  vendorId  String
+  vendor    MaintenanceVendor @relation(fields: [vendorId], references: [id])
+  assetId   String?
+  asset     Asset?           @relation(fields: [assetId], references: [id])
+
+  status    VendorJobStatus   @default(PENDING)
+  priority  VendorJobPriority @default(NORMAL)
+  category  String?           // "Engine", "AC", "Electrical", "Tyres", "Body", "Generator", etc.
+
+  problemDescription String
+  internalNotes      String?
+
+  openedAt             DateTime @default(now())
+  estimatedCompletion  DateTime?
+  actualCompletion     DateTime?
+
+  // Asset state at job open
+  currentOdometer Int?
+  currentHours    Decimal? @db.Decimal(10, 2)
+  assetLocation   String?
+
+  // Financials (filled as job progresses)
+  laborCost   Decimal? @db.Decimal(15, 2)
+  partsCost   Decimal? @db.Decimal(15, 2)
+  subtotal    Decimal? @db.Decimal(15, 2)
+  vatAmount   Decimal? @db.Decimal(15, 2)
+  totalCost   Decimal? @db.Decimal(15, 2)
+
+  photos      String[]
+  attachmentUrls String[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  spareParts SparePart[]
+  quotations VendorQuotation[]
+  invoices   VendorInvoice[]
+  tireRecords TireRecord[]
+
+  @@map("vendor_maintenance_jobs")
+}
+
+model SparePart {
+  id       String @id @default(cuid())
+  name     String
+  partNumber String?
+  manufacturer String?
+
+  vendorId String?
+  vendor   MaintenanceVendor? @relation(fields: [vendorId], references: [id])
+  assetId  String?
+  asset    Asset?  @relation(fields: [assetId], references: [id])
+  jobId    String?
+  job      VendorMaintenanceJob? @relation(fields: [jobId], references: [id])
+
+  // Purchase
+  purchaseDate   DateTime?
+  purchasePrice  Decimal?   @db.Decimal(12, 2)
+  vatAmount      Decimal?   @db.Decimal(12, 2)
+  invoiceUrl     String?
+
+  // Installation
+  installationDate DateTime?
+
+  // Warranty & lifecycle
+  warrantyStart          DateTime?
+  warrantyEnd            DateTime?
+  expectedLifespanYears  Decimal?  @db.Decimal(5, 2)
+  expectedLifespanKm     Int?
+  expectedLifespanHours  Int?
+
+  condition String?  @default("NEW") // NEW | GOOD | FAIR | WORN
+  notes     String?
+  isActive  Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("spare_parts")
+}
+
+model TireRecord {
+  id       String @id @default(cuid())
+  assetId  String
+  asset    Asset  @relation(fields: [assetId], references: [id])
+  vendorId String?
+  vendor   MaintenanceVendor? @relation(fields: [vendorId], references: [id])
+  jobId    String?
+  job      VendorMaintenanceJob? @relation(fields: [jobId], references: [id])
+
+  position     String   // FL | FR | RL | RR | SPARE | DUAL_RL | DUAL_RR
+  manufacturer String?
+  model        String?
+  size         String?  // e.g. "275/70R22.5"
+
+  purchaseDate    DateTime?
+  installationDate DateTime?
+  purchasePrice   Decimal?  @db.Decimal(12, 2)
+  invoiceUrl      String?
+
+  warrantyStart        DateTime?
+  warrantyEnd          DateTime?
+  expectedLifespanKm   Int?
+  expectedLifespanYears Decimal? @db.Decimal(5, 2)
+
+  odometerAtInstall Int?
+  currentOdometer   Int?
+
+  notes    String?
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("tire_records")
+}
+
+model VendorQuotation {
+  id              String @id @default(cuid())
+  quotationNumber String @unique // VQ-2024-0001
+  vendorId        String
+  vendor          MaintenanceVendor @relation(fields: [vendorId], references: [id])
+  jobId           String?
+  job             VendorMaintenanceJob? @relation(fields: [jobId], references: [id])
+
+  status    String   @default("PENDING") // PENDING | APPROVED | REJECTED | SUPERSEDED
+  issuedAt  DateTime @default(now())
+  validUntil DateTime?
+  approvedAt DateTime?
+
+  laborCost  Decimal? @db.Decimal(15, 2)
+  partsCost  Decimal? @db.Decimal(15, 2)
+  subtotal   Decimal  @db.Decimal(15, 2) @default(0)
+  vatAmount  Decimal  @db.Decimal(15, 2) @default(0)
+  total      Decimal  @db.Decimal(15, 2) @default(0)
+
+  vendorRef   String?   // Vendor's own quotation number
+  docUrl      String?
+  notes       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  invoices VendorInvoice[]
+
+  @@map("vendor_quotations")
+}
+
+model VendorInvoice {
+  id            String              @id @default(cuid())
+  invoiceNumber String              @unique // VIN-2024-0001
+  vendorId      String
+  vendor        MaintenanceVendor   @relation(fields: [vendorId], references: [id])
+  jobId         String?
+  job           VendorMaintenanceJob? @relation(fields: [jobId], references: [id])
+  quotationId   String?
+  quotation     VendorQuotation?    @relation(fields: [quotationId], references: [id])
+
+  status     VendorInvoiceStatus @default(SUBMITTED)
+  issuedAt   DateTime            @default(now())
+  dueDate    DateTime?
+  approvedAt DateTime?
+
+  laborCost   Decimal  @db.Decimal(15, 2) @default(0)
+  partsCost   Decimal  @db.Decimal(15, 2) @default(0)
+  subtotal    Decimal  @db.Decimal(15, 2) @default(0)
+  vatAmount   Decimal  @db.Decimal(15, 2) @default(0)
+  total       Decimal  @db.Decimal(15, 2) @default(0)
+  amountPaid  Decimal  @db.Decimal(15, 2) @default(0)
+  amountDue   Decimal  @db.Decimal(15, 2) @default(0)
+
+  vendorInvoiceRef String?  // Vendor's own invoice number
+  docUrl           String?
+  notes            String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  payments VendorPayment[]
+
+  @@map("vendor_invoices")
+}
+
+model VendorPayment {
+  id            String    @id @default(cuid())
+  paymentNumber String    @unique // VP-2024-0001
+  vendorId      String
+  vendor        MaintenanceVendor @relation(fields: [vendorId], references: [id])
+  invoiceId     String?
+  invoice       VendorInvoice? @relation(fields: [invoiceId], references: [id])
+
+  amount      Decimal            @db.Decimal(15, 2)
+  currency    Currency           @default(AED)
+  paymentDate DateTime           @default(now())
+  method      PaymentMethod      @default(BANK_TRANSFER)
+  status      VendorPaymentStatus @default(PENDING)
+  reference   String?
+  notes       String?
+  receiptUrl  String?
+
+  clearedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("vendor_payments")
+}
+
+// ── Contact Directory ─────────────────────────────────────────────────────────
+
+enum ContactType {
+  CREW_MEMBER
+  VENDOR_EMPLOYEE
+  CLIENT_EMPLOYEE
+  WORKSHOP_EMPLOYEE
+  DRIVER_CONTACT
+  SUPPLIER_EMPLOYEE
+  FREELANCER
+  OTHER
+}
+
+model Contact {
+  id          String      @id @default(cuid())
+  name        String
+  contactType ContactType @default(OTHER)
+  jobTitle    String?
+  department  String?
+  company     String?     // free-text (for workshop staff, independent, etc.)
+
+  // Communication
+  mobile    String?
+  whatsapp  String?
+  landline  String?     // UAE landline e.g. +971 2 xxx xxxx
+  email     String?
+
+  // Optional links to existing entities
+  clientId   String?
+  client     Client?            @relation(fields: [clientId], references: [id])
+  vendorId   String?
+  vendor     MaintenanceVendor? @relation(fields: [vendorId], references: [id])
+  supplierId String?
+  supplier   Supplier?          @relation(fields: [supplierId], references: [id])
+  driverId   String?
+  driver     Driver?            @relation(fields: [driverId], references: [id])
+
+  notes    String?
+  isActive Boolean @default(true)
+
+  // Reverse: SupplierContacts that point to this global Contact entry
+  supplierContactLinks SupplierContact[] @relation("SupplierContactGlobal")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("contacts")
+}
+
+// ── Company Settings (singleton) ─────────────────────────────────────────────
+
+model CompanySettings {
+  id              String   @id @default("singleton")
+
+  // Company Identity
+  name            String   @default("The Film Makers FZ LLC")
+  tradeName       String?
+  trn             String?   // UAE Tax Registration Number
+  address         String?
+  city            String?
+  country         String   @default("UAE")
+  phone           String?
+  email           String?
+  website         String?
+  logoUrl         String?
+
+  // Finance Defaults
+  defaultCurrency        String  @default("AED")
+  vatRate                Decimal @db.Decimal(5, 2) @default(5)
+  defaultPaymentTermDays Int     @default(30)
+  invoicePrefix          String  @default("INV")
+  quotationPrefix        String  @default("QT")
+  bookingPrefix          String  @default("RB")
+
+  // Default Bank Details (shown on invoices/quotations)
+  defaultBankName        String?
+  defaultBankAccount     String?
+  defaultBankIban        String?
+  defaultBankSwift       String?
+  defaultBankBranch      String?
+  defaultBankAddress     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("company_settings")
+}
+
+// ── Audit Trail ──────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  action     String   // "CREATE" | "UPDATE" | "DELETE" | "EXPORT" | "APPROVE"
+  resource   String   // "Invoice" | "Quotation" | etc.
+  resourceId String
+  oldValue   Json?
+  newValue   Json?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  @@index([resource, resourceId])
+  @@index([userId])
+  @@map("audit_logs")
+}
+
+// ── Global Status Change Log ──────────────────────────────────────────────────
+// Central audit trail for every status transition across all modules
+
+model StatusLog {
+  id             String    @id @default(cuid())
+  module         String    // "Invoice" | "Quotation" | "Booking" | "Asset" | "Maintenance" | "Expense"
+  recordId       String    // ID of the record whose status changed
+  recordRef      String?   // Human-readable ref (e.g. INV-2026-0001)
+  previousStatus String?   // null when record is first created
+  newStatus      String
+  changedById    String
+  changedBy      User      @relation("StatusChangedBy", fields: [changedById], references: [id])
+  changedAt      DateTime  @default(now())
+  notes          String?   // Optional comment explaining the change
+  isAutomatic    Boolean   @default(false) // true for system-triggered changes (e.g. overdue cron)
+  metadata       Json?     // Extra context (e.g. payment amount that triggered PAID)
+
+  @@index([module, recordId])
+  @@index([changedById])
+  @@index([changedAt])
+  @@map("status_logs")
+}
+
+// ============================================================
+// COMPANY MANAGEMENT MODULE
+// ============================================================
+
+model CompanyProfile {
+  id                    String   @id @default(cuid())
+  legalName             String
+  tradeName             String?
+  logoUrl               String?
+  stampUrl              String?
+  registrationNumber    String?
+  trn                   String?
+  corporateTaxNumber    String?
+  poBox                 String?
+  website               String?
+  mainEmail             String?
+  billingEmail          String?
+  mainPhone             String?
+  emergencyPhone        String?
+  address               String?
+  city                  String?
+  emirate               String?
+  country               String?  @default("United Arab Emirates")
+  timeZone              String?  @default("Asia/Dubai")
+  currency              String?  @default("AED")
+  language              String?  @default("English")
+  classification        String?  @default("Mainland")
+  licensingAuthority    String?
+  licenseType           String?
+  businessActivity      String?
+  tradeLicenseNumber    String?
+  licenseIssueDate      DateTime?
+  licenseExpiryDate     DateTime?
+  licenseStatus         String?  @default("Active")
+  mohreEstablishmentNumber       String?
+  labourFileNumber               String?
+  immigrationEstablishmentNumber String?
+  chamberOfCommerceNumber        String?
+  economicDeptRegistration       String?
+  freeZoneAuthority              String?
+  freeZoneRegistrationNumber     String?
+  establishmentCardNumber        String?
+  immigrationFileNumber          String?
+  vatStatus                      String?  @default("Registered")
+  vatRegistrationDate            DateTime?
+  defaultVatRate                 Float    @default(5)
+  corporateTaxStatus             String?  @default("Registered")
+  corporateTaxRegistrationDate   DateTime?
+  defaultCorporateTaxRate        Float    @default(9)
+  invoiceLogoUrl        String?
+  watermarkUrl          String?
+  emailSignature        String?
+  brandPrimaryColor     String?  @default("#0f172a")
+  brandSecondaryColor   String?  @default("#c3a56e")
+  brandAccentColor      String?  @default("#2563eb")
+  // Preferences / document numbering (consolidated from CompanySettings)
+  invoicePrefix          String?  @default("INV")
+  quotationPrefix        String?  @default("QT")
+  bookingPrefix          String?  @default("RB")
+  receiptPrefix          String?  @default("RCP")
+  defaultPaymentTermDays Int      @default(30)
+  dateFormat             String?  @default("DD/MM/YYYY")
+  // Invoice / quotation report appearance (colors, titles, column toggles, footer text…)
+  documentSettings       Json?
+  // SMTP + collections/dunning configuration (smtp, remindersEnabled, rules[], statementFooter)
+  emailSettings          Json?
+  setupComplete         Boolean  @default(false)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  bankAccounts          CompanyBankAccount[]
+  locations             CompanyLocation[]
+  documents             CompanyDocument[]
+
+  @@map("company_profiles")
+}
+
+model CompanyBankAccount {
+  id            String   @id @default(cuid())
+  companyId     String
+  company       CompanyProfile @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  accountName   String
+  bankName      String
+  branch        String?
+  accountNumber String?
+  iban          String?
+  swift         String?
+  currency      String?  @default("AED")
+  bankAddress   String?
+  isDefault     Boolean  @default(false)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("company_bank_accounts")
+}
+
+model CompanyLocation {
+  id            String   @id @default(cuid())
+  companyId     String
+  company       CompanyProfile @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name          String
+  type          String?  @default("Head Office")
+  address       String?
+  googleMapsUrl String?
+  gpsLat        Float?
+  gpsLng        Float?
+  contactNumber String?
+  manager       String?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("company_locations")
+}
+
+model CompanyDocument {
+  id          String   @id @default(cuid())
+  companyId   String
+  company     CompanyProfile @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  title       String
+  type        String?
+  fileUrl     String?
+  issueDate   DateTime?
+  expiryDate  DateTime?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("company_documents")
+}
+
+// ============================================================
+// HR & WORKFORCE MODULE
+// ============================================================
+
+model Employee {
+  id                String   @id @default(cuid())
+  employeeNumber    String?  @unique
+  firstName         String
+  middleName        String?
+  lastName          String?
+  displayName       String?
+  photoUrl          String?
+  gender            String?
+  dateOfBirth       DateTime?
+  nationality       String?
+  maritalStatus     String?
+  status            String   @default("Active")
+  mobile            String?
+  whatsapp          String?
+  email             String?
+  personalEmail     String?
+  homeAddress       String?
+  emergencyContactName         String?
+  emergencyContactNumber       String?
+  emergencyContactRelationship String?
+  department        String?
+  position          String?
+  jobTitle          String?
+  grade             String?
+  employmentType    String?  @default("FullTime")
+  joiningDate       DateTime?
+  probationStart    DateTime?
+  probationEnd      DateTime?
+  contractStart     DateTime?
+  contractEnd       DateTime?
+  resignationDate   DateTime?
+  terminationDate   DateTime?
+  reportingManagerId String?
+  manager           Employee?  @relation("ManagerReports", fields: [reportingManagerId], references: [id])
+  reports           Employee[] @relation("ManagerReports")
+  workLocation      String?
+  labourCardNumber     String?
+  workPermitNumber     String?
+  workPermitIssueDate  DateTime?
+  workPermitExpiryDate DateTime?
+  labourCardStatus     String?
+  employmentCardNumber     String?
+  employmentCardIssueDate  DateTime?
+  employmentCardExpiryDate DateTime?
+  employmentPermitInfo     String?
+  emiratesId        String?
+  emiratesIdExpiry  DateTime?
+  passportNumber    String?
+  passportExpiry    DateTime?
+  visaNumber        String?
+  visaExpiry        DateTime?
+  payStructure      String?  @default("Monthly")
+  basicSalary       Float    @default(0)
+  housingAllowance  Float    @default(0)
+  transportAllowance Float   @default(0)
+  foodAllowance     Float    @default(0)
+  mobileAllowance   Float    @default(0)
+  fuelAllowance     Float    @default(0)
+  otherAllowance    Float    @default(0)
+  dailyRate         Float    @default(0)
+  hourlyRate        Float    @default(0)
+  bankName          String?
+  bankAccountName   String?
+  iban              String?
+  accountNumber     String?
+  swift             String?
+  isDriver          Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  documents         EmployeeDocument[]
+  leaveRequests     LeaveRequest[]
+  assets            AssetAssignment[]
+  certifications    Certification[]
+  driverProfile     DriverProfile?
+  driverRecord      Driver?    @relation("EmployeeDriverRecord")
+  // 1:1 system user account (optional — created when system access is granted)
+  user              User?      @relation("EmployeeUser")
+
+  @@map("employees")
+}
+
+model EmployeeDocument {
+  id          String   @id @default(cuid())
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  type        String?
+  title       String
+  fileUrl     String?
+  issueDate   DateTime?
+  expiryDate  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("employee_documents")
+}
+
+model LeaveRequest {
+  id          String   @id @default(cuid())
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  type        String   @default("Annual")
+  startDate   DateTime
+  endDate     DateTime
+  days        Float    @default(0)
+  status      String   @default("Pending")
+  reason      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("leave_requests")
+}
+
+model AttendanceRecord {
+  id          String   @id @default(cuid())
+  employeeId  String
+  date        DateTime @default(now())
+  clockIn     DateTime?
+  clockOut    DateTime?
+  hours       Float    @default(0)
+  status      String   @default("Present")
+  createdAt   DateTime @default(now())
+
+  @@map("attendance_records")
+}
+
+model DriverProfile {
+  id                String   @id @default(cuid())
+  employeeId        String   @unique
+  employee          Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  driverType        String?  @default("EmployeeDriver")
+  licenseNumber     String?
+  licenseCategory   String?
+  licenseIssueDate  DateTime?
+  licenseExpiryDate DateTime?
+  driverStatus      String?  @default("Available")
+  rating            Float?
+  dailyRate         Float    @default(0)
+  tripRate          Float    @default(0)
+  overtimeRate      Float    @default(0)
+  paymentTerms      String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("driver_profiles")
+}
+
+model AssetAssignment {
+  id             String   @id @default(cuid())
+  employeeId     String
+  employee       Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  assetName      String
+  assetType      String?
+  assignmentDate DateTime?
+  returnDate     DateTime?
+  status         String   @default("Assigned")
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("asset_assignments")
+}
+
+model Certification {
+  id          String   @id @default(cuid())
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  name        String
+  issuingBody String?
+  issueDate   DateTime?
+  expiryDate  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("certifications")
+}
+
+// ── Preventive maintenance ───────────────────────────────────────────────────
+model MaintenancePlan {
+  id            String   @id @default(cuid())
+  assetId       String
+  asset         Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  taskName      String
+  intervalDays  Int?
+  intervalKm    Int?
+  intervalHours Int?
+  lastServiceDate     DateTime?
+  lastServiceOdometer Int?
+  lastServiceHours    Int?
+  notes         String?
+  isActive      Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("maintenance_plans")
+}
+
+// ── Delivery / return condition inspections ──────────────────────────────────
+model ConditionReport {
+  id            String        @id @default(cuid())
+  bookingId     String
+  booking       RentalBooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  assetId       String?
+  asset         Asset?        @relation(fields: [assetId], references: [id])
+  type          String        // DELIVERY | RETURN
+  inspectedAt   DateTime      @default(now())
+  inspectedBy   String?
+  odometer      Int?
+  fuelLevel     String?
+  checklist     Json?         // [{ item, ok, note }]
+  damageNotes   String?
+  photos        String[]
+  signatureName String?
+  notes         String?
+  createdAt DateTime @default(now())
+
+  @@map("condition_reports")
+}
+
+// ── Role-based access control ────────────────────────────────────────────────
+// One row per (role, module) with an access level: 0 none · 1 view · 2 edit · 3 manage
+model RolePermission {
+  id     String   @id @default(cuid())
+  role   UserRole
+  module String
+  level  Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@unique([role, module])
+  @@map("role_permissions")
+}
+
+// ── Collections: dunning / reminder audit log ────────────────────────────────
+model ReminderLog {
+  id        String   @id @default(cuid())
+  invoiceId String
+  clientId  String?
+  level     String   // rule level key, e.g. BEFORE_DUE / DUE / OVERDUE_7 / MANUAL
+  channel   String   @default("email")
+  to        String?
+  subject   String?
+  status    String   @default("SENT") // SENT | FAILED
+  error     String?
+  sentById  String?
+  sentAt    DateTime @default(now())
+
+  @@index([invoiceId])
+  @@map("reminder_logs")
+}
+
+// ── CRM: leads & sales pipeline ──────────────────────────────────────────────
+model Lead {
+  id             String   @id @default(cuid())
+  companyName    String?
+  contactName    String?
+  email          String?
+  phone          String?
+  source         String?  // Referral | Website | Walk-in | Repeat | Other
+  status         String   @default("NEW") // NEW | CONTACTED | QUALIFIED | CONVERTED | LOST
+  estimatedValue Decimal? @db.Decimal(15,

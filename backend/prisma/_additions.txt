@@ -1,0 +1,296 @@
+
+// ============================================================
+// COMPANY MANAGEMENT MODULE
+// ============================================================
+
+model CompanyProfile {
+  id                    String   @id @default(cuid())
+  legalName             String
+  tradeName             String?
+  logoUrl               String?
+  stampUrl              String?
+  registrationNumber    String?
+  trn                   String?
+  corporateTaxNumber    String?
+  poBox                 String?
+  website               String?
+  mainEmail             String?
+  billingEmail          String?
+  mainPhone             String?
+  emergencyPhone        String?
+  address               String?
+  city                  String?
+  emirate               String?
+  country               String?  @default("United Arab Emirates")
+  timeZone              String?  @default("Asia/Dubai")
+  currency              String?  @default("AED")
+  language              String?  @default("English")
+  classification        String?  @default("Mainland")
+  licensingAuthority    String?
+  licenseType           String?
+  businessActivity      String?
+  tradeLicenseNumber    String?
+  licenseIssueDate      DateTime?
+  licenseExpiryDate     DateTime?
+  licenseStatus         String?  @default("Active")
+  mohreEstablishmentNumber       String?
+  labourFileNumber               String?
+  immigrationEstablishmentNumber String?
+  chamberOfCommerceNumber        String?
+  economicDeptRegistration       String?
+  freeZoneAuthority              String?
+  freeZoneRegistrationNumber     String?
+  establishmentCardNumber        String?
+  immigrationFileNumber          String?
+  vatStatus                      String?  @default("Registered")
+  vatRegistrationDate            DateTime?
+  defaultVatRate                 Float    @default(5)
+  corporateTaxStatus             String?  @default("Registered")
+  corporateTaxRegistrationDate   DateTime?
+  defaultCorporateTaxRate        Float    @default(9)
+  invoiceLogoUrl        String?
+  watermarkUrl          String?
+  emailSignature        String?
+  brandPrimaryColor     String?  @default("#0f172a")
+  setupComplete         Boolean  @default(false)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  bankAccounts          CompanyBankAccount[]
+  locations             CompanyLocation[]
+  documents             CompanyDocument[]
+
+  @@map("company_profiles")
+}
+
+model CompanyBankAccount {
+  id            String   @id @default(cuid())
+  companyId     String
+  company       CompanyProfile @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  accountName   String
+  bankName      String
+  branch        String?
+  accountNumber String?
+  iban          String?
+  swift         String?
+  currency      String?  @default("AED")
+  bankAddress   String?
+  isDefault     Boolean  @default(false)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("company_bank_accounts")
+}
+
+model CompanyLocation {
+  id            String   @id @default(cuid())
+  companyId     String
+  company       CompanyProfile @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name          String
+  type          String?  @default("Head Office")
+  address       String?
+  googleMapsUrl String?
+  gpsLat        Float?
+  gpsLng        Float?
+  contactNumber String?
+  manager       String?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("company_locations")
+}
+
+model CompanyDocument {
+  id          String   @id @default(cuid())
+  companyId   String
+  company     CompanyProfile @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  title       String
+  type        String?
+  fileUrl     String?
+  issueDate   DateTime?
+  expiryDate  DateTime?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("company_documents")
+}
+
+// ============================================================
+// HR & WORKFORCE MODULE
+// ============================================================
+
+model Employee {
+  id                String   @id @default(cuid())
+  employeeNumber    String?  @unique
+  firstName         String
+  middleName        String?
+  lastName          String?
+  displayName       String?
+  photoUrl          String?
+  gender            String?
+  dateOfBirth       DateTime?
+  nationality       String?
+  maritalStatus     String?
+  status            String   @default("Active")
+  mobile            String?
+  whatsapp          String?
+  email             String?
+  personalEmail     String?
+  homeAddress       String?
+  emergencyContactName         String?
+  emergencyContactNumber       String?
+  emergencyContactRelationship String?
+  department        String?
+  position          String?
+  jobTitle          String?
+  grade             String?
+  employmentType    String?  @default("FullTime")
+  joiningDate       DateTime?
+  probationStart    DateTime?
+  probationEnd      DateTime?
+  contractStart     DateTime?
+  contractEnd       DateTime?
+  resignationDate   DateTime?
+  terminationDate   DateTime?
+  reportingManagerId String?
+  manager           Employee?  @relation("ManagerReports", fields: [reportingManagerId], references: [id])
+  reports           Employee[] @relation("ManagerReports")
+  workLocation      String?
+  labourCardNumber     String?
+  workPermitNumber     String?
+  workPermitIssueDate  DateTime?
+  workPermitExpiryDate DateTime?
+  labourCardStatus     String?
+  employmentCardNumber     String?
+  employmentCardIssueDate  DateTime?
+  employmentCardExpiryDate DateTime?
+  employmentPermitInfo     String?
+  emiratesId        String?
+  emiratesIdExpiry  DateTime?
+  passportNumber    String?
+  passportExpiry    DateTime?
+  visaNumber        String?
+  visaExpiry        DateTime?
+  payStructure      String?  @default("Monthly")
+  basicSalary       Float    @default(0)
+  housingAllowance  Float    @default(0)
+  transportAllowance Float   @default(0)
+  foodAllowance     Float    @default(0)
+  mobileAllowance   Float    @default(0)
+  fuelAllowance     Float    @default(0)
+  otherAllowance    Float    @default(0)
+  dailyRate         Float    @default(0)
+  hourlyRate        Float    @default(0)
+  bankName          String?
+  bankAccountName   String?
+  iban              String?
+  accountNumber     String?
+  swift             String?
+  isDriver          Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  documents         EmployeeDocument[]
+  leaveRequests     LeaveRequest[]
+  assets            AssetAssignment[]
+  certifications    Certification[]
+  driverProfile     DriverProfile?
+
+  @@map("employees")
+}
+
+model EmployeeDocument {
+  id          String   @id @default(cuid())
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  type        String?
+  title       String
+  fileUrl     String?
+  issueDate   DateTime?
+  expiryDate  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("employee_documents")
+}
+
+model LeaveRequest {
+  id          String   @id @default(cuid())
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  type        String   @default("Annual")
+  startDate   DateTime
+  endDate     DateTime
+  days        Float    @default(0)
+  status      String   @default("Pending")
+  reason      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("leave_requests")
+}
+
+model AttendanceRecord {
+  id          String   @id @default(cuid())
+  employeeId  String
+  date        DateTime @default(now())
+  clockIn     DateTime?
+  clockOut    DateTime?
+  hours       Float    @default(0)
+  status      String   @default("Present")
+  createdAt   DateTime @default(now())
+
+  @@map("attendance_records")
+}
+
+model DriverProfile {
+  id                String   @id @default(cuid())
+  employeeId        String   @unique
+  employee          Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  driverType        String?  @default("EmployeeDriver")
+  licenseNumber     String?
+  licenseCategory   String?
+  licenseIssueDate  DateTime?
+  licenseExpiryDate DateTime?
+  driverStatus      String?  @default("Available")
+  rating            Float?
+  dailyRate         Float    @default(0)
+  tripRate          Float    @default(0)
+  overtimeRate      Float    @default(0)
+  paymentTerms      String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("driver_profiles")
+}
+
+model AssetAssignment {
+  id             String   @id @default(cuid())
+  employeeId     String
+  employee       Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  assetName      String
+  assetType      String?
+  assignmentDate DateTime?
+  returnDate     DateTime?
+  status         String   @default("Assigned")
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("asset_assignments")
+}
+
+model Certification {
+  id          String   @id @default(cuid())
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  name        String
+  issuingBody String?
+  issueDate   DateTime?
+  expiryDate  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("certifications")
+}

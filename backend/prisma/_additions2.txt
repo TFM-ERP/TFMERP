@@ -1,0 +1,42 @@
+
+// ============================================================
+// PAYROLL MODULE
+// ============================================================
+
+model PayrollRun {
+  id          String   @id @default(cuid())
+  reference   String   @unique
+  periodMonth Int
+  periodYear  Int
+  status      String   @default("Draft") // Draft | Approved | Paid
+  notes       String?
+  totalGross  Float    @default(0)
+  totalDeductions Float @default(0)
+  totalNet    Float    @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  payslips    Payslip[]
+
+  @@unique([periodMonth, periodYear])
+  @@map("payroll_runs")
+}
+
+model Payslip {
+  id             String   @id @default(cuid())
+  payrollRunId   String
+  payrollRun     PayrollRun @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
+  employeeId     String
+  employeeName   String
+  basicSalary    Float    @default(0)
+  allowances     Float    @default(0)
+  overtimePay    Float    @default(0)
+  grossPay       Float    @default(0)
+  deductions     Float    @default(0)
+  deductionNotes String?
+  netPay         Float    @default(0)
+  bankName       String?
+  iban           String?
+  createdAt      DateTime @default(now())
+
+  @@map("payslips")
+}

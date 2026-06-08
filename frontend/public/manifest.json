@@ -1,0 +1,13 @@
+{
+  "name": "TFM Driver",
+  "short_name": "TFM Driver",
+  "description": "Jobs, navigation, inspections and fuel for TFM field staff",
+  "start_url": "/driver",
+  "scope": "/driver",
+  "display": "standalone",
+  "background_color": "#14213a",
+  "theme_color": "#14213a",
+  "icons": [
+    { "src": "/tfm-logo.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
