@@ -327,6 +327,7 @@ export const productionApi = {
     assignment: (id: string) => api.get(`/production/crew/assignment/${id}`),
     create: (data: any) => api.post('/production/crew', data),
     update: (id: string, data: any) => api.put(`/production/crew/${id}`, data),
+    setCostTreatment: (id: string, costTreatment: string) => api.put(`/production/crew/${id}/cost-treatment`, { costTreatment }),
     remove: (id: string) => api.delete(`/production/crew/${id}`),
   },
   // Schedule

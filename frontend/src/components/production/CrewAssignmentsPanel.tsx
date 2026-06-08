@@ -91,6 +91,21 @@ export default function CrewAssignmentsPanel({ projectId, currency = 'AED' }: { 
     setRows(rs => rs.map(r => r.id === id ? { ...r, [field]: value } : r));
   };
 
+  // Team & Access — flip cost treatment (Producer / Line Producer only; server-enforced).
+  const toggleCostTreatment = async (r: any) => {
+    const next = r.costTreatment === 'PROJECT_HIRE' ? 'COMPANY_OVERHEAD' : 'PROJECT_HIRE';
+    const note = next === 'COMPANY_OVERHEAD'
+      ? 'Set to Company overhead? This crew member will be HARD-BLOCKED from project payment.'
+      : 'Set to Project hire? This crew member becomes payable on this project.';
+    if (!confirm(note)) return;
+    try {
+      await productionApi.crew.setCostTreatment(r.id, next);
+      setRows(rs => rs.map(x => x.id === r.id ? { ...x, costTreatment: next } : x));
+    } catch (e: any) {
+      alert(e?.response?.data?.message || 'Only a Producer or Line Producer can change cost treatment.');
+    }
+  };
+
   const remove = async (id: string) => {
     if (!confirm('Remove this assignment?')) return;
     await productionApi.crew.remove(id);
@@ -171,7 +186,7 @@ export default function CrewAssignmentsPanel({ projectId, currency = 'AED' }: { 
                 <thead><tr className="text-[11px] text-slate-400 uppercase tracking-wide border-b border-slate-200">
                   <th className="px-4 py-2.5 text-left">Crew</th><th className="px-3 py-2.5 text-left">Role</th>
                   <th className="px-3 py-2.5 text-left">Dates</th><th className="px-3 py-2.5 text-left">Location</th>
-                  <th className="px-3 py-2.5 text-right">Rate</th><th className="px-3 py-2.5 text-left">Deal memo</th>
+                  <th className="px-3 py-2.5 text-right">Rate</th><th className="px-3 py-2.5 text-left">Cost</th><th className="px-3 py-2.5 text-left">Deal memo</th>
                   <th className="px-3 py-2.5 text-left">NDA</th><th className="px-3 py-2.5 text-right"></th>
                 </tr></thead>
                 <tbody>
@@ -204,6 +219,15 @@ export default function CrewAssignmentsPanel({ projectId, currency = 'AED' }: { 
                       <td className="px-3 py-2.5 text-right text-gray-700">
                         {r.dailyRate ? `${money(r.dailyRate)}/day` : r.weeklyRate ? `${money(r.weeklyRate)}/wk` : '—'}
                         {r.dailyRate && r.totalDays ? <div className="text-[10px] text-gray-400">×{r.totalDays} = {money(Number(r.dailyRate) * r.totalDays)}</div> : null}
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <button
+                          onClick={() => toggleCostTreatment(r)}
+                          title="Cost treatment — Producer / Line Producer can override"
+                          className={cn('text-[11px] rounded-full px-2 py-0.5 cursor-pointer',
+                            r.costTreatment === 'PROJECT_HIRE' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600')}>
+                          {r.costTreatment === 'PROJECT_HIRE' ? 'Project hire' : 'Overhead'}
+                        </button>
                       </td>
                       <td className="px-3 py-2.5">
                         <select value={r.dealMemoStatus || 'NOT_SENT'} onChange={e => setStatus(r.id, 'dealMemoStatus', e.target.value)}
