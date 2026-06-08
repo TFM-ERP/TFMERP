@@ -254,6 +254,7 @@ model ProjectRoleAssignment {
   templateId String
   template   PermissionTemplate @relation(fields: [templateId], references: [id])
   notes      String?
+  costTreatment String @default("COMPANY_OVERHEAD") // COMPANY_OVERHEAD (access only) | PROJECT_HIRE (cost on a budget line)
   createdAt  DateTime @default(now())
 
   @@unique([projectId, userId]) // one role per user per project
@@ -3248,6 +3249,7 @@ model ProductionCrew {
   department String? // film department (taxonomy)
   roleTitle  String? // specific job title within the department (free text)
   isInternal Boolean            @default(false)
+  costTreatment String @default("PROJECT_HIRE") // PROJECT_HIRE (payable, cost on project) | COMPANY_OVERHEAD (not charged/paid on this project)
 
   // Driver licence (only when the person uses a production vehicle)
   productionVehicle    Boolean   @default(false)

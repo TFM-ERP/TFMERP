@@ -51,6 +51,10 @@ export class PayrollService {
   }
 
   async create(projectId: string, data: any) {
+    if (data.crewId) {
+      const crew = await this.prisma.productionCrew.findUnique({ where: { id: data.crewId } });
+      if (crew?.costTreatment === 'COMPANY_OVERHEAD') throw new BadRequestException('This person is Company overhead — not payable on this project. A Producer / Line Producer can change this on their crew detail page.');
+    }
     const c = await this.withComputed(projectId, data);
     return this.prisma.timecard.create({
       data: {

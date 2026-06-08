@@ -1,15 +1,17 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Settings, Upload, X, ImageIcon, RefreshCw, ArrowLeftRight, Clapperboard, Download, Calendar, Users, Wallet, BarChart3 } from 'lucide-react';
+import { Settings, Upload, X, ImageIcon, RefreshCw, ArrowLeftRight, Clapperboard, Download, Calendar, Users, Wallet, BarChart3, Edit2, Mail } from 'lucide-react';
 import { productionApi, uploadFile, assetUrl, fxApi } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import CoaMappingReviewTable from './CoaMappingReviewTable';
+import ProjectGlobalsPanel from './ProjectGlobalsPanel';
+import ProjectEmailPanel from './ProjectEmailPanel';
 
 const CURRENCIES = ['AED', 'USD', 'EUR', 'GBP', 'CAD', 'SAR'];
 
-export default function ProjectSettingsPanel({ projectId, project, onChanged }:
-  { projectId: string; project: any; onChanged?: () => void }) {
+export default function ProjectSettingsPanel({ projectId, project, activeVersion, fringes = [], onChanged }:
+  { projectId: string; project: any; activeVersion?: any; fringes?: any[]; onChanged?: () => void }) {
   const current = project?.currency || 'AED';
   const [section, setSection] = useState('branding');
   const [logoUrl, setLogoUrl] = useState<string>(project?.logoUrl || '');
@@ -55,6 +57,9 @@ export default function ProjectSettingsPanel({ projectId, project, onChanged }:
   const [templates, setTemplates] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [newRole, setNewRole] = useState<{ userId: string; templateId: string }>({ userId: '', templateId: '' });
+  const [costOpen, setCostOpen] = useState(false);
+  const [cost, setCost] = useState<{ treatment: string; coaCode: string; dailyRate: string }>({ treatment: 'COMPANY_OVERHEAD', coaCode: '', dailyRate: '' });
+  const accounts: { code: string; title: string }[] = (activeVersion?.sections || []).flatMap((s: any) => (s.accounts || []).map((a: any) => ({ code: a.code, title: a.title })));
   const loadTeam = () => productionApi.projects.team(projectId).then(r => setTeam(r.data || [])).catch(() => {});
   useEffect(() => {
     loadTeam();
@@ -64,8 +69,21 @@ export default function ProjectSettingsPanel({ projectId, project, onChanged }:
   }, [projectId]);
   const assignRole = async () => {
     if (!newRole.userId || !newRole.templateId) return;
-    try { await productionApi.projects.assignRole(projectId, newRole); setNewRole({ userId: '', templateId: '' }); loadTeam(); }
-    catch (e: any) { alert(e.response?.data?.message || 'Could not assign the role.'); }
+    if (cost.treatment === 'PROJECT_HIRE' && !cost.coaCode) return;
+    const coaTitle = accounts.find(a => a.code === cost.coaCode)?.title;
+    try {
+      await productionApi.projects.assignRole(projectId, {
+        ...newRole,
+        costTreatment: cost.treatment,
+        coaCode: cost.treatment === 'PROJECT_HIRE' ? cost.coaCode : undefined,
+        coaTitle: cost.treatment === 'PROJECT_HIRE' ? coaTitle : undefined,
+        dailyRate: cost.treatment === 'PROJECT_HIRE' && cost.dailyRate ? Number(cost.dailyRate) : undefined,
+      });
+      setNewRole({ userId: '', templateId: '' });
+      setCost({ treatment: 'COMPANY_OVERHEAD', coaCode: '', dailyRate: '' });
+      setCostOpen(false);
+      loadTeam();
+    } catch (e: any) { alert(e.response?.data?.message || 'Could not assign the role.'); }
   };
   const removeRole = async (userId: string) => { await productionApi.projects.removeRole(projectId, userId).catch(() => {}); loadTeam(); };
 
@@ -177,9 +195,11 @@ export default function ProjectSettingsPanel({ projectId, project, onChanged }:
     ['branding', 'Identity & branding', ImageIcon],
     ['currency', 'Currency', ArrowLeftRight],
     ['schedule', 'Schedule', Calendar],
+    ['globals', 'Globals', Edit2],
     ['team', 'Team & access', Users],
     ['bank', 'Banking', Wallet],
     ['mm', 'Movie Magic', Clapperboard],
+    ['email', 'Email sender', Mail],
     ['dist', 'Distribution', BarChart3],
   ];
 
@@ -262,6 +282,8 @@ export default function ProjectSettingsPanel({ projectId, project, onChanged }:
             </div>
           )}
 
+          {section === 'globals' && <ProjectGlobalsPanel activeVersion={activeVersion} fringes={fringes} onChanged={onChanged} />}
+
           {section === 'team' && (
             <div className="card">
               <h4 className="text-xs font-semibold text-gray-600 uppercase mb-2">Project team &amp; access</h4>
@@ -276,6 +298,7 @@ export default function ProjectSettingsPanel({ projectId, project, onChanged }:
                       <span className="text-gray-800">{a.user?.fullName} <span className="text-[11px] text-gray-400">· {a.user?.email}</span></span>
                       <span className="flex items-center gap-2">
                         <span className="text-[11px] font-semibold bg-indigo-100 text-indigo-700 rounded px-2 py-0.5">{a.template?.name}</span>
+                        <span className={`text-[11px] font-semibold rounded px-2 py-0.5 ${a.costTreatment === 'PROJECT_HIRE' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`} title={a.costTreatment === 'PROJECT_HIRE' ? 'Cost charged to the project budget' : 'Company/HR overhead — not paid by this project'}>{a.costTreatment === 'PROJECT_HIRE' ? 'Project hire' : 'Overhead'}</span>
                         <button onClick={() => removeRole(a.userId)} className="text-gray-300 hover:text-red-500" title="Remove from project"><X size={14} /></button>
                       </span>
                     </div>
@@ -297,8 +320,49 @@ export default function ProjectSettingsPanel({ projectId, project, onChanged }:
                     {templates.map((t: any) => <option key={t.id} value={t.id}>{t.name}</option>)}
                   </select>
                 </div>
-                <button onClick={assignRole} disabled={!newRole.userId || !newRole.templateId} className="btn btn-primary text-xs">Assign</button>
+                <button onClick={() => setCostOpen(true)} disabled={!newRole.userId || !newRole.templateId} className="btn btn-primary text-xs">Assign</button>
               </div>
+
+              {costOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4" onClick={() => setCostOpen(false)}>
+                  <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl ring-1 ring-slate-900/5" onClick={e => e.stopPropagation()}>
+                    <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+                      <h2 className="font-semibold text-slate-900 text-sm">How is this person’s cost handled on this project?</h2>
+                      <button onClick={() => setCostOpen(false)} className="text-slate-400 hover:text-slate-700"><X size={18} /></button>
+                    </div>
+                    <div className="p-5 space-y-3">
+                      <label className="flex items-start gap-2 text-sm cursor-pointer">
+                        <input type="radio" name="treat" checked={cost.treatment === 'COMPANY_OVERHEAD'} onChange={() => setCost(v => ({ ...v, treatment: 'COMPANY_OVERHEAD' }))} className="mt-1" />
+                        <span><b>Company / HR overhead</b> — access only. Their cost stays with the company; <b>not</b> charged to this project and not payable from it.</span>
+                      </label>
+                      <label className="flex items-start gap-2 text-sm cursor-pointer">
+                        <input type="radio" name="treat" checked={cost.treatment === 'PROJECT_HIRE'} onChange={() => setCost(v => ({ ...v, treatment: 'PROJECT_HIRE' }))} className="mt-1" />
+                        <span><b>Project hire</b> — charge their cost to a budget line; payable as a crew hire on this project.</span>
+                      </label>
+                      {cost.treatment === 'PROJECT_HIRE' && (
+                        <div className="grid grid-cols-2 gap-2 pl-6">
+                          <div>
+                            <label className="label text-xs">Budget line (Master CoA)</label>
+                            <select className="input text-sm w-full" value={cost.coaCode} onChange={e => setCost(v => ({ ...v, coaCode: e.target.value }))}>
+                              <option value="">— select account —</option>
+                              {accounts.map(a => <option key={a.code} value={a.code}>{`${a.code} · ${a.title}`}</option>)}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="label text-xs">Daily rate</label>
+                            <input type="number" className="input text-sm w-full" value={cost.dailyRate} onChange={e => setCost(v => ({ ...v, dailyRate: e.target.value }))} />
+                          </div>
+                          {accounts.length === 0 && <p className="text-[11px] text-amber-600 col-span-2">No active budget version — create one first to charge a hire to a line.</p>}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-slate-100">
+                      <button onClick={() => setCostOpen(false)} className="btn btn-secondary text-xs">Cancel</button>
+                      <button onClick={assignRole} disabled={cost.treatment === 'PROJECT_HIRE' && !cost.coaCode} className="btn btn-primary text-xs">Add to project</button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -390,6 +454,8 @@ export default function ProjectSettingsPanel({ projectId, project, onChanged }:
               )}
             </div>
           )}
+
+          {section === 'email' && <ProjectEmailPanel projectId={projectId} />}
 
           {section === 'dist' && (
             <div className="card">

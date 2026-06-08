@@ -337,18 +337,41 @@ export class ProjectsService {
     });
   }
 
-  /** Assign (or re-assign) a user a per-project role. One role per user per project. */
-  async assignProjectRole(projectId: string, data: { userId: string; templateId: string; notes?: string }) {
+  /**
+   * Assign (or re-assign) a user a per-project role. One role per user per project.
+   * The cost question is captured here: COMPANY_OVERHEAD (access only, borne by the
+   * company/HR — not payable on this project) vs PROJECT_HIRE (cost charged to a budget
+   * line + rate → payable through the crew pipeline). The decision is mirrored onto a
+   * ProductionCrew record so the person has a crew detail page where a Producer/LP can
+   * later flip the treatment.
+   */
+  async assignProjectRole(projectId: string, data: { userId: string; templateId: string; notes?: string; costTreatment?: string; coaCode?: string; coaTitle?: string; roleTitle?: string; dailyRate?: number }) {
     await this.findOne(projectId);
     if (!data.userId || !data.templateId) throw new BadRequestException('userId and templateId are required.');
     const u = await this.prisma.user.findUnique({ where: { id: data.userId } });
     if (!u || !u.isActive) throw new BadRequestException('Active parent user required.');
-    return this.prisma.projectRoleAssignment.upsert({
+    const treatment = data.costTreatment === 'PROJECT_HIRE' ? 'PROJECT_HIRE' : 'COMPANY_OVERHEAD';
+    if (treatment === 'PROJECT_HIRE' && !data.coaCode) throw new BadRequestException('A project hire needs a budget line (Master CoA account) to charge to.');
+
+    const assignment = await this.prisma.projectRoleAssignment.upsert({
       where: { projectId_userId: { projectId, userId: data.userId } },
-      update: { templateId: data.templateId, notes: data.notes || null },
-      create: { projectId, userId: data.userId, templateId: data.templateId, notes: data.notes || null },
+      update: { templateId: data.templateId, notes: data.notes || null, costTreatment: treatment },
+      create: { projectId, userId: data.userId, templateId: data.templateId, notes: data.notes || null, costTreatment: treatment },
       include: { user: { select: { id: true, fullName: true, email: true } }, template: { select: { key: true, name: true } } },
     });
+
+    // Mirror onto a ProductionCrew record (one per user per project).
+    const existingCrew = await this.prisma.productionCrew.findFirst({ where: { projectId, userId: data.userId } });
+    const crewData: any = {
+      name: u.fullName, email: u.email, userId: u.id, isInternal: true, costTreatment: treatment,
+      roleTitle: treatment === 'PROJECT_HIRE' ? (data.coaTitle || data.roleTitle || existingCrew?.roleTitle || null) : (existingCrew?.roleTitle || null),
+      notes: treatment === 'PROJECT_HIRE' && data.coaCode ? `Charge to ${data.coaCode}${data.coaTitle ? ' · ' + data.coaTitle : ''}` : (existingCrew?.notes || null),
+    };
+    if (treatment === 'PROJECT_HIRE' && data.dailyRate != null) crewData.dailyRate = Number(data.dailyRate);
+    if (existingCrew) await this.prisma.productionCrew.update({ where: { id: existingCrew.id }, data: crewData });
+    else await this.prisma.productionCrew.create({ data: { projectId, ...crewData } });
+
+    return assignment;
   }
 
   async removeProjectRole(projectId: string, userId: string) {

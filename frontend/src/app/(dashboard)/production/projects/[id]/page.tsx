@@ -167,7 +167,7 @@ const TAB_GROUPS: { key: string; label: string; tabs: Tab[] }[] = [
   { key: 'workforce', label: 'Workforce', tabs: ['crew', 'perdiem'] },
   { key: 'locations', label: 'Locations', tabs: ['locations'] },
   { key: 'engagements', label: 'Engagements', tabs: ['travel', 'contracts', 'casting', 'accommodation', 'transport', 'shuttle', 'arrivals', 'fuel', 'logistics'] },
-  { key: 'setup', label: 'Setup & Output', tabs: ['settings', 'labor', 'globals', 'documents', 'projectemail', 'credits'] },
+  { key: 'setup', label: 'Setup & Output', tabs: ['settings', 'labor', 'documents', 'credits'] },
 ];
 
 const STATUS_COLORS: Record<string, string> = {
@@ -1133,7 +1133,7 @@ export default function ProjectDetailPage() {
       {tab === 'documents' && <DocumentsPanel projectId={id} />}
 
       {/* ── Project Settings (logo + currency convert) ─────────────────────────── */}
-      {tab === 'settings' && <ProjectSettingsPanel projectId={id} project={project} onChanged={reload} />}
+      {tab === 'settings' && <ProjectSettingsPanel projectId={id} project={project} activeVersion={activeVersion} fringes={fringes} onChanged={reload} />}
 
       {/* ── Project Email Sender ───────────────────────────────────────────────── */}
       {tab === 'projectemail' && <ProjectEmailPanel projectId={id} />}
