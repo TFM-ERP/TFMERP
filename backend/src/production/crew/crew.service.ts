@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
 // Crew lifecycle from contract dates vs today (V1.2 §5 foundation — no schema change).
@@ -73,10 +73,39 @@ export class CrewService {
     const DATE_FIELDS = ['startDate', 'endDate'];
     const out: any = { ...data };
     delete out.projectId; delete out.id; delete out.crewMember; delete out.createdAt;
+    // costTreatment is a controlled field — only the guarded override can change it.
+    delete out.costTreatment;
     for (const f of DATE_FIELDS) {
       if (out[f] !== undefined) out[f] = out[f] ? new Date(out[f]) : null;
     }
     return out;
+  }
+
+  /**
+   * Cost-treatment override (Team & Access). A crew member set to COMPANY_OVERHEAD is hard-blocked
+   * from project payment (payroll guard). Only a Producer / Line Producer on that project may flip
+   * the treatment — surfaced on the crew detail page.
+   */
+  async setCostTreatment(crewId: string, treatment: string, userId?: string) {
+    const VALID = ['PROJECT_HIRE', 'COMPANY_OVERHEAD'];
+    if (!VALID.includes(treatment)) throw new BadRequestException('Invalid cost treatment.');
+    const crew = await this.prisma.productionCrew.findUnique({ where: { id: crewId }, select: { id: true, projectId: true } });
+    if (!crew) throw new NotFoundException('Crew assignment not found.');
+    if (!(await this.isProducer(crew.projectId, userId))) {
+      throw new ForbiddenException('Only a Producer or Line Producer can change a crew member’s cost treatment.');
+    }
+    return this.prisma.productionCrew.update({ where: { id: crewId }, data: { costTreatment: treatment } });
+  }
+
+  /** True if the user holds a Producer / Line Producer project role on this project. */
+  private async isProducer(projectId: string, userId?: string): Promise<boolean> {
+    if (!userId) return false;
+    const a = await this.prisma.projectRoleAssignment.findUnique({
+      where: { projectId_userId: { projectId, userId } },
+      include: { template: { select: { name: true, key: true } } },
+    });
+    const tag = `${a?.template?.key || ''} ${a?.template?.name || ''}`.toLowerCase();
+    return tag.includes('producer'); // covers PRODUCER / LINE_PRODUCER (key or name)
   }
 
   async create(data: {

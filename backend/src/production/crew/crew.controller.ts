@@ -35,6 +35,12 @@ export class CrewController {
   @Put(':id')
   update(@Param('id') id: string, @Body() body: any) { return this.service.update(id, body); }
 
+  // Team & Access — cost-treatment override (Producer / Line Producer only)
+  @Put(':id/cost-treatment')
+  setCostTreatment(@Param('id') id: string, @Body() body: any, @Req() req: any) {
+    return this.service.setCostTreatment(id, body?.costTreatment, req.user?.id);
+  }
+
   @Delete(':id')
   remove(@Param('id') id: string) { return this.service.remove(id); }
 
