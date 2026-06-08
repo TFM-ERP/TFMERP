@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { productionApi } from '@/lib/api';
-import { MapPin, Search, ChevronRight, Film, Users, Printer, FileText, Loader2, Package } from 'lucide-react';
+import { MapPin, Search, ChevronRight, Film, Users, Printer, FileText, Loader2, Package, Mail, Share2 } from 'lucide-react';
+import { SendEmailModal, ShareModal } from './BreakdownsTab';
 
 const catLabel = (c: string) => c.replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
 const sdLabel = (d: number) => (d > 0 ? `SD ${d}` : '—');
@@ -13,6 +14,8 @@ export default function LocationBreakdownPanel({ projectId }: { projectId: strin
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [email, setEmail] = useState<{ subject: string; body: string } | null>(null);
+  const [share, setShare] = useState<{ kind: string; refKey?: string; title: string } | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -58,6 +61,8 @@ export default function LocationBreakdownPanel({ projectId }: { projectId: strin
             <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search location, set, cast…" className="rounded-xl border border-slate-200 pl-8 pr-3 py-1.5 text-sm w-56 focus:border-[#0f172a] outline-none" />
           </div>
           <button onClick={() => setExpanded(allExpanded ? new Set() : new Set(filtered.map((l: any) => l.location)))} className="text-xs rounded-lg border border-slate-200 px-3 py-1.5 text-slate-600 hover:border-[#0f172a]">{allExpanded ? 'Collapse all' : 'Expand all'}</button>
+          <button onClick={() => setShare({ kind: 'REPORT', title: 'Location Breakdown' })} className="text-xs inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-slate-600 hover:border-[#0f172a]"><Share2 size={13} /> Share</button>
+          <button onClick={() => setEmail({ subject: 'Location Breakdown', body: locationsBody(filtered) })} className="text-xs inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-slate-600 hover:border-[#0f172a]"><Mail size={13} /> Email</button>
           <button onClick={printAll} className="text-xs inline-flex items-center gap-1.5 rounded-lg bg-slate-900 text-white px-3 py-1.5"><Printer size={13} /> PDF report</button>
         </div>
       </div>
@@ -85,6 +90,8 @@ export default function LocationBreakdownPanel({ projectId }: { projectId: strin
                 <div className="flex items-center gap-2 shrink-0 text-[11px] text-slate-500">
                   <span>{loc.sceneCount} scene{loc.sceneCount === 1 ? '' : 's'}</span>
                   <span className="font-medium text-slate-700">{loc.shootingDays.map(sdLabel).join(', ') || '—'}</span>
+                  <button onClick={() => setShare({ kind: 'LOCATION', refKey: loc.location, title: `Location call sheet — ${loc.location}` })} title="Share with project users" className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-slate-600 hover:border-[#0f172a]"><Share2 size={12} /> Share</button>
+                  <button onClick={() => setEmail({ subject: `Location call sheet — ${loc.location}`, body: locationsBody([loc]) })} title="Email this location" className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-slate-600 hover:border-[#0f172a]"><Mail size={12} /> Email</button>
                   <button onClick={() => printOne(loc)} title="Location call sheet" className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-slate-600 hover:border-[#0f172a]"><FileText size={12} /> Call sheet</button>
                 </div>
               </div>
@@ -145,8 +152,28 @@ export default function LocationBreakdownPanel({ projectId }: { projectId: strin
           );
         })}
       </div>
+      {email && <SendEmailModal projectId={projectId} subject={email.subject} body={email.body} onClose={() => setEmail(null)} />}
+      {share && <ShareModal projectId={projectId} kind={share.kind} refKey={share.refKey} title={share.title} onClose={() => setShare(null)} />}
     </div>
   );
+}
+
+// Inline-styled location section(s) — reused by the email body (the project sender wraps it).
+function locationsBody(locations: any[]) {
+  const esc = (s: any) => String(s ?? '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' } as any)[c]);
+  const cat = (c: string) => c.replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
+  return locations.map((loc) => `
+    <section style="margin-bottom:18px;page-break-inside:avoid;border:1px solid #e2e8f0;border-radius:8px;padding:12px">
+      <h2 style="font-size:14px;margin:0 0 4px">${esc(loc.location)} <span style="font-weight:400;color:#64748b;font-size:11px">${esc(loc.intExt.join(' / '))} · ${loc.sceneCount} scene(s) · ${loc.shootingDays.map((d: number) => 'SD ' + d).join(', ') || '—'}</span></h2>
+      ${loc.sets.length ? `<div style="font-size:11px;color:#334155;margin:2px 0"><b>Sets:</b> ${esc(loc.sets.join(', '))}</div>` : ''}
+      <div style="font-size:11px;color:#334155;margin:2px 0"><b>Cast needed:</b> ${esc(loc.cast.join(', ') || 'None specified')}</div>
+      ${loc.elementsByCategory.length ? `<div style="font-size:11px;color:#334155;margin:2px 0"><b>Needed on location:</b> ${loc.elementsByCategory.map((c: any) => `${esc(cat(c.category))}: ${esc(c.items.map((i: any) => i.name + (i.quantity > 1 ? ' ×' + i.quantity : '')).join(', '))}`).join(' | ')}</div>` : ''}
+      <table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:11px">
+        <thead><tr style="border-bottom:1px solid #cbd5e1;text-align:left;color:#64748b">
+          <th style="padding:3px">SD</th><th>Scene</th><th>Set</th><th>D/N</th><th>I/E</th><th>Cast</th><th style="text-align:right">Pages</th></tr></thead>
+        <tbody>${loc.scenes.map((s: any) => `<tr style="border-bottom:1px solid #eef2f7"><td style="padding:3px">${s.shootDay || '—'}</td><td>${esc(s.sceneNumber)}</td><td>${esc(s.set)}</td><td>${esc(s.dayNight)}</td><td>${esc(s.intExt)}</td><td>${esc(s.cast.join(', '))}</td><td style="text-align:right">${s.pages ? s.pages.toFixed(2) : ''}</td></tr>`).join('')}</tbody>
+      </table>
+    </section>`).join('');
 }
 
 // Build a clean standalone printable doc (browser → Save as PDF).

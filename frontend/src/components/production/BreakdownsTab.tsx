@@ -316,7 +316,7 @@ function printElements(title: string, categories: any[]) { openPrint(title, elem
 function printDays(title: string, days: any[]) { openPrint(title, daysBody(days)); }
 
 // Email-to-team modal — recipients are the project's assigned users (PII stays in-system).
-function SendEmailModal({ projectId, subject, body, onClose }:
+export function SendEmailModal({ projectId, subject, body, onClose }:
   { projectId: string; subject: string; body: string; onClose: () => void }) {
   const [team, setTeam] = useState<any[]>([]);
   const [sel, setSel] = useState<Set<string>>(new Set());
@@ -385,7 +385,7 @@ function SendEmailModal({ projectId, subject, body, onClose }:
 }
 
 // In-app share modal — pick project users; they see it in the "Shared with you" strip.
-function ShareModal({ projectId, kind, refKey, title, onClose }:
+export function ShareModal({ projectId, kind, refKey, title, onClose }:
   { projectId: string; kind: string; refKey?: string; title: string; onClose: () => void }) {
   const [team, setTeam] = useState<any[]>([]);
   const [sel, setSel] = useState<Set<string>>(new Set());
