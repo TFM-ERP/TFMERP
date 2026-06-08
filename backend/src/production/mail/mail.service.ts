@@ -161,4 +161,16 @@ export class MailService {
     if (a.dealMemoStatus === 'NOT_SENT') await this.prisma.productionCrew.update({ where: { id: assignmentId }, data: { dealMemoStatus: 'SENT' } });
     return { sent: 1, recipients };
   }
+
+  /** Send a breakdown / call-sheet report (HTML built client-side) to selected recipients via the project sender. */
+  async sendBreakdown(projectId: string, body: { subject?: string; html?: string; recipients?: any; message?: string }) {
+    const recipients = toList(body.recipients);
+    if (!recipients) throw new BadRequestException('No recipients selected.');
+    if (!body.html) throw new BadRequestException('Nothing to send.');
+    const project = await this.prisma.productionProject.findUnique({ where: { id: projectId }, select: { title: true } });
+    const subject = body.subject || `Breakdown — ${project?.title || ''}`;
+    const html = shell(subject, `${body.message ? `<p>${body.message}</p>` : ''}${body.html}`, `${APP_URL}/production/projects/${projectId}`, 'Open in TFM');
+    await this.sendMail(recipients, subject, html, projectId);
+    return { sent: recipients.split(',').filter(Boolean).length, recipients };
+  }
 }

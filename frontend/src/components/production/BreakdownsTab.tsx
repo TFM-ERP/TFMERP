@@ -10,8 +10,8 @@
  */
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { productionApi } from '@/lib/api';
-import { Loader2, Layers, MapPin, CalendarDays, ListChecks, Printer, Users, Package, Clapperboard } from 'lucide-react';
-import { PanelHeader, StatRow, Tabs, ClusterCard, Chip, DataTable, EmptyState, SectionLabel, Btn } from './ui';
+import { Loader2, Layers, MapPin, CalendarDays, ListChecks, Printer, Users, Package, Clapperboard, Search, FileText, Mail, X } from 'lucide-react';
+import { PanelHeader, StatRow, Tabs, ClusterCard, Chip, DataTable, EmptyState, SectionLabel, Btn, inputCls } from './ui';
 import BreakdownPanel from './BreakdownPanel';
 import LocationBreakdownPanel from './LocationBreakdownPanel';
 
@@ -66,11 +66,15 @@ function ElementBreakdownView({ projectId }: { projectId: string }) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [cat, setCat] = useState('ALL');
+  const [search, setSearch] = useState('');
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [email, setEmail] = useState<{ subject: string; body: string } | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
     productionApi.breakdown.categoryBreakdown(projectId)
-      .then((r) => setData(r.data)).catch(() => setData(false)).finally(() => setLoading(false));
+      .then((r) => { setData(r.data); setExpanded(new Set((r.data?.categories || []).map((c: any) => c.category))); })
+      .catch(() => setData(false)).finally(() => setLoading(false));
   }, [projectId]);
   useEffect(() => { load(); }, [load]);
 
@@ -79,20 +83,34 @@ function ElementBreakdownView({ projectId }: { projectId: string }) {
   const categories: any[] = data.categories || [];
   if (categories.length === 0) return <EmptyState icon={Package}>No elements tagged yet. Import a script on the Scenes tab — elements are pulled automatically.</EmptyState>;
 
-  const shown = cat === 'ALL' ? categories : categories.filter((c) => c.category === cat);
+  const q = search.toLowerCase();
+  const matchCat = (c: any) => !q || c.category.toLowerCase().includes(q)
+    || c.items.some((it: any) => it.name.toLowerCase().includes(q)
+      || it.scenes.some((s: string) => s.toLowerCase().includes(q))
+      || it.costCenters.some((cc: string) => cc.toLowerCase().includes(q)));
+  const filtered = (cat === 'ALL' ? categories : categories.filter((c) => c.category === cat)).filter(matchCat);
+  const allOpen = filtered.length > 0 && filtered.every((c) => expanded.has(c.category));
+  const toggle = (k: string) => setExpanded((p) => { const n = new Set(p); n.has(k) ? n.delete(k) : n.add(k); return n; });
   const catTabs: [string, string][] = [['ALL', `All (${data.totalElements})`], ...categories.map((c) => [c.category, `${catLabel(c.category)} ${c.itemCount}`] as [string, string])];
 
   return (
     <div>
       <StatRow stats={[['Categories', data.categoryCount], ['Distinct elements', data.totalElements], ['Total quantity', categories.reduce((n, c) => n + c.totalQty, 0)]]} />
+      <BreakdownToolbar search={search} onSearch={setSearch} allOpen={allOpen}
+        onToggleAll={() => setExpanded(allOpen ? new Set() : new Set(filtered.map((c) => c.category)))}
+        onPrint={() => printElements('Element Breakdown', filtered)}
+        onEmail={() => setEmail({ subject: 'Element Breakdown', body: elementsBody(filtered) })}
+        placeholder="Search element, scene, cost center…" />
       <Tabs active={cat} onChange={setCat} tabs={catTabs} />
       <div className="space-y-2">
-        {shown.map((c) => (
+        {filtered.map((c) => (
           <ClusterCard
             key={c.category}
-            defaultOpen={shown.length <= 3}
+            open={expanded.has(c.category)}
+            onToggle={() => toggle(c.category)}
             title={<span className="inline-flex items-center gap-2">{catLabel(c.category)} <Chip tone={CAT_TONE[c.category] || 'slate'}>{c.itemCount} item{c.itemCount === 1 ? '' : 's'}</Chip></span>}
             meta={<span>qty {c.totalQty}{c.estCost ? ` · est. ${currencyLabel(c.estCost)}` : ''}</span>}
+            right={<button onClick={() => printElements(`${catLabel(c.category)} — pull list`, [c])} title="Print this category" className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-slate-600 hover:border-slate-900"><Printer size={12} /> Print</button>}
           >
             <DataTable
               cols={['Element', 'Qty', 'Scenes', 'Shoot days', 'Cost center', 'Est. cost']}
@@ -108,7 +126,9 @@ function ElementBreakdownView({ projectId }: { projectId: string }) {
             />
           </ClusterCard>
         ))}
+        {filtered.length === 0 && <p className="text-xs text-slate-400 py-6 text-center">No elements match “{search}”.</p>}
       </div>
+      {email && <SendEmailModal projectId={projectId} subject={email.subject} body={email.body} onClose={() => setEmail(null)} />}
     </div>
   );
 }
@@ -117,11 +137,15 @@ function ElementBreakdownView({ projectId }: { projectId: string }) {
 function DayRollupView({ projectId }: { projectId: string }) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  const [email, setEmail] = useState<{ subject: string; body: string } | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
     productionApi.breakdown.dayRollup(projectId)
-      .then((r) => setData(r.data)).catch(() => setData(false)).finally(() => setLoading(false));
+      .then((r) => { setData(r.data); setExpanded(new Set((r.data?.days || []).map((d: any) => d.day))); })
+      .catch(() => setData(false)).finally(() => setLoading(false));
   }, [projectId]);
   useEffect(() => { load(); }, [load]);
 
@@ -136,6 +160,15 @@ function DayRollupView({ projectId }: { projectId: string }) {
   );
 
   const fmtDate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : null);
+  const q = search.toLowerCase();
+  const matchDay = (d: any) => !q || String(d.day).includes(q) || (d.date || '').includes(q)
+    || d.locations.some((l: string) => l.toLowerCase().includes(q))
+    || d.sets.some((s: string) => s.toLowerCase().includes(q))
+    || d.cast.some((c: string) => c.toLowerCase().includes(q))
+    || d.scenes.some((s: any) => String(s.sceneNumber).toLowerCase().includes(q));
+  const filtered = days.filter(matchDay);
+  const allOpen = filtered.length > 0 && filtered.every((d) => expanded.has(d.day));
+  const toggle = (k: number) => setExpanded((p) => { const n = new Set(p); n.has(k) ? n.delete(k) : n.add(k); return n; });
 
   return (
     <div>
@@ -144,17 +177,24 @@ function DayRollupView({ projectId }: { projectId: string }) {
         ['Scenes scheduled', days.reduce((n, d) => n + d.sceneCount, 0)],
         ['Unscheduled', data.unscheduledCount],
       ]} />
-      <div className="flex justify-end mb-3">
-        <Btn variant="primary" onClick={() => printDays(`Call-sheet rollup`, days)}><Printer size={13} /> Print rollup</Btn>
-      </div>
+      <BreakdownToolbar search={search} onSearch={setSearch} allOpen={allOpen}
+        onToggleAll={() => setExpanded(allOpen ? new Set() : new Set(filtered.map((d) => d.day)))}
+        onPrint={() => printDays('Call-sheet rollup', filtered)}
+        onEmail={() => setEmail({ subject: 'Call-sheet rollup', body: daysBody(filtered) })}
+        placeholder="Search day, date, location, cast…" />
       <div className="space-y-2">
-        {days.map((d) => (
+        {filtered.map((d) => (
           <ClusterCard
             key={d.day}
-            defaultOpen={days.length <= 2}
+            open={expanded.has(d.day)}
+            onToggle={() => toggle(d.day)}
             title={<span className="inline-flex items-center gap-2"><Clapperboard size={14} className="text-slate-400" /> Day {d.day}{d.date ? <span className="text-slate-400 font-normal text-[13px]">· {fmtDate(d.date)}</span> : null}</span>}
             badges={d.locations.map((l: string) => <Chip key={l} tone="link">{l}</Chip>)}
             meta={<span>{d.sceneCount} scene{d.sceneCount === 1 ? '' : 's'} · {d.pages.toFixed(1)} pg</span>}
+            right={<>
+              <button onClick={() => setEmail({ subject: `Call sheet — Day ${d.day}`, body: daysBody([d]) })} title="Email this day's call sheet" className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-slate-600 hover:border-slate-900"><Mail size={12} /> Email</button>
+              <button onClick={() => printDays(`Call sheet — Day ${d.day}`, [d])} title="Print this day's call sheet" className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-slate-600 hover:border-slate-900"><FileText size={12} /> Call sheet</button>
+            </>}
           >
             <div>
               <SectionLabel icon={Users}>Cast needed ({d.cast.length})</SectionLabel>
@@ -177,9 +217,7 @@ function DayRollupView({ projectId }: { projectId: string }) {
                   {d.elementsByCategory.map((c: any) => (
                     <div key={c.category} className="rounded-xl bg-slate-50 p-2.5">
                       <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1">{catLabel(c.category)}</div>
-                      <div className="flex flex-wrap gap-1">
-                        {c.items.map((it: any) => <span key={it.name} className="text-[11px] text-slate-600">{it.name}{it.quantity > 1 ? ` ×${it.quantity}` : ''}</span>).reduce((acc: any[], el: any, i: number) => (i ? [...acc, <span key={`s${i}`} className="text-slate-300">·</span>, el] : [el]), [])}
-                      </div>
+                      <div className="text-[11px] text-slate-600">{c.items.map((it: any) => `${it.name}${it.quantity > 1 ? ` ×${it.quantity}` : ''}`).join(' · ')}</div>
                     </div>
                   ))}
                 </div>
@@ -187,6 +225,7 @@ function DayRollupView({ projectId }: { projectId: string }) {
             )}
           </ClusterCard>
         ))}
+        {filtered.length === 0 && <p className="text-xs text-slate-400 py-6 text-center">No days match “{search}”.</p>}
       </div>
 
       {data.unscheduledCount > 0 && (
@@ -194,34 +233,144 @@ function DayRollupView({ projectId }: { projectId: string }) {
           <CalendarDays size={12} /> {data.unscheduledCount} scene{data.unscheduledCount === 1 ? '' : 's'} not yet assigned to a shoot day.
         </p>
       )}
+      {email && <SendEmailModal projectId={projectId} subject={email.subject} body={email.body} onClose={() => setEmail(null)} />}
     </div>
   );
 }
 
 function currencyLabel(n: number) { return `AED ${Number(n).toLocaleString()}`; }
 
-// Lightweight print of the day rollup (mirrors the Location Breakdown print helper).
-function printDays(title: string, days: any[]) {
-  const esc = (s: any) => String(s ?? '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' } as any)[c]);
-  const body = days.map((d) => `
+// Shared toolbar across the cluster-card breakdown views (Elements, By Day) — mirrors
+// the Locations panel's search · expand/collapse · print controls so the chrome matches.
+function BreakdownToolbar({ search, onSearch, allOpen, onToggleAll, onPrint, onEmail, placeholder }:
+  { search: string; onSearch: (v: string) => void; allOpen: boolean; onToggleAll: () => void; onPrint: () => void; onEmail?: () => void; placeholder: string }) {
+  return (
+    <div className="flex items-center gap-2 mb-3 flex-wrap">
+      <div className="relative">
+        <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+        <input value={search} onChange={(e) => onSearch(e.target.value)} placeholder={placeholder}
+          className="rounded-xl border border-slate-200 pl-8 pr-3 py-1.5 text-sm w-60 focus:border-slate-900 outline-none" />
+      </div>
+      <Btn variant="secondary" onClick={onToggleAll}>{allOpen ? 'Collapse all' : 'Expand all'}</Btn>
+      <div className="flex-1" />
+      {onEmail && <Btn variant="secondary" onClick={onEmail}><Mail size={13} /> Email</Btn>}
+      <Btn variant="primary" onClick={onPrint}><Printer size={13} /> Print report</Btn>
+    </div>
+  );
+}
+
+const escHtml = (s: any) => String(s ?? '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' } as any)[c]);
+const moneyHtml = (n: any) => `AED ${Number(n).toLocaleString()}`;
+
+// Inner-HTML builders — shared by browser print and email so both render identically.
+function elementsBody(categories: any[]) {
+  return categories.map((c) => `
+    <section style="margin-bottom:18px;page-break-inside:avoid">
+      <h2 style="font-size:14px;margin:0 0 4px">${escHtml(catLabel(c.category))} <span style="font-weight:400;color:#64748b">(${c.itemCount} items · qty ${c.totalQty}${c.estCost ? ` · est. ${moneyHtml(c.estCost)}` : ''})</span></h2>
+      <table style="width:100%;border-collapse:collapse;font-size:11px">
+        <thead><tr style="border-bottom:1px solid #cbd5e1;text-align:left;color:#64748b">
+          <th style="padding:3px">Element</th><th style="text-align:right">Qty</th><th>Scenes</th><th>Shoot days</th><th>Cost center</th><th style="text-align:right">Est. cost</th></tr></thead>
+        <tbody>${c.items.map((it: any) => `<tr style="border-bottom:1px solid #eef2f7">
+          <td style="padding:3px">${escHtml(it.name)}</td><td style="text-align:right">${it.qty}</td><td>${escHtml(it.scenes.join(', ') || '—')}</td>
+          <td>${escHtml(it.days.map((d: number) => (d > 0 ? `SD ${d}` : '—')).join(', ') || '—')}</td><td>${escHtml(it.costCenters.join('; ') || '—')}</td>
+          <td style="text-align:right">${it.estCost ? moneyHtml(it.estCost) : '—'}</td></tr>`).join('')}</tbody>
+      </table>
+    </section>`).join('');
+}
+function daysBody(days: any[]) {
+  return days.map((d) => `
     <section style="margin-bottom:22px;page-break-inside:avoid">
-      <h2 style="font-size:15px;margin:0 0 4px">Day ${d.day}${d.date ? ` — ${esc(new Date(d.date).toDateString())}` : ''}</h2>
-      <div style="font-size:11px;color:#475569;margin-bottom:6px">${d.sceneCount} scenes · ${Number(d.pages).toFixed(1)} pages · Locations: ${esc(d.locations.join(', ') || '—')}</div>
-      <div style="font-size:11px;margin-bottom:6px"><b>Cast:</b> ${esc(d.cast.join(', ') || '—')}</div>
+      <h2 style="font-size:15px;margin:0 0 4px">Day ${d.day}${d.date ? ` — ${escHtml(new Date(d.date).toDateString())}` : ''}</h2>
+      <div style="font-size:11px;color:#475569;margin-bottom:6px">${d.sceneCount} scenes · ${Number(d.pages).toFixed(1)} pages · Locations: ${escHtml(d.locations.join(', ') || '—')}</div>
+      <div style="font-size:11px;margin-bottom:6px"><b>Cast:</b> ${escHtml(d.cast.join(', ') || '—')}</div>
       <table style="width:100%;border-collapse:collapse;font-size:11px">
         <thead><tr style="border-bottom:1px solid #cbd5e1;text-align:left;color:#64748b">
           <th style="padding:3px">Scene</th><th>Set</th><th>I/E</th><th>D/N</th><th>Cast</th><th style="text-align:right">Pages</th></tr></thead>
         <tbody>${d.scenes.map((s: any) => `<tr style="border-bottom:1px solid #eef2f7">
-          <td style="padding:3px">${esc(s.sceneNumber || '—')}</td><td>${esc(s.set || s.location || '—')}</td><td>${esc(s.intExt || '—')}</td>
-          <td>${esc(s.dayNight || '—')}</td><td>${esc((s.cast || []).join(', ') || '—')}</td><td style="text-align:right">${Number(s.pages || 0).toFixed(2)}</td></tr>`).join('')}</tbody>
+          <td style="padding:3px">${escHtml(s.sceneNumber || '—')}</td><td>${escHtml(s.set || s.location || '—')}</td><td>${escHtml(s.intExt || '—')}</td>
+          <td>${escHtml(s.dayNight || '—')}</td><td>${escHtml((s.cast || []).join(', ') || '—')}</td><td style="text-align:right">${Number(s.pages || 0).toFixed(2)}</td></tr>`).join('')}</tbody>
       </table>
-      ${d.elementsByCategory.length ? `<div style="font-size:11px;margin-top:6px">${d.elementsByCategory.map((c: any) => `<div><b>${esc(catLabel(c.category))}:</b> ${esc(c.items.map((i: any) => i.name + (i.quantity > 1 ? ` ×${i.quantity}` : '')).join(', '))}</div>`).join('')}</div>` : ''}
+      ${d.elementsByCategory.length ? `<div style="font-size:11px;margin-top:6px">${d.elementsByCategory.map((c: any) => `<div><b>${escHtml(catLabel(c.category))}:</b> ${escHtml(c.items.map((i: any) => i.name + (i.quantity > 1 ? ` ×${i.quantity}` : '')).join(', '))}</div>`).join('')}</div>` : ''}
     </section>`).join('');
+}
+function openPrint(title: string, body: string) {
   const w = window.open('', '_blank');
   if (!w) return;
-  w.document.write(`<html><head><title>${esc(title)}</title></head><body style="font-family:Inter,Arial,sans-serif;color:#0f172a;padding:24px">
-    <h1 style="font-size:18px;margin:0 0 16px">${esc(title)}</h1>${body}</body></html>`);
+  w.document.write(`<html><head><title>${escHtml(title)}</title></head><body style="font-family:Inter,Arial,sans-serif;color:#0f172a;padding:24px"><h1 style="font-size:18px;margin:0 0 16px">${escHtml(title)}</h1>${body}</body></html>`);
   w.document.close();
   w.focus();
   w.print();
+}
+// Email body = a titled report fragment; the project sender wraps it in the branded shell.
+function reportEmailHtml(title: string, body: string) { return `<h2 style="font-size:15px;margin:0 0 10px;color:#0f172a">${escHtml(title)}</h2>${body}`; }
+function printElements(title: string, categories: any[]) { openPrint(title, elementsBody(categories)); }
+function printDays(title: string, days: any[]) { openPrint(title, daysBody(days)); }
+
+// Email-to-team modal — recipients are the project's assigned users (PII stays in-system).
+function SendEmailModal({ projectId, subject, body, onClose }:
+  { projectId: string; subject: string; body: string; onClose: () => void }) {
+  const [team, setTeam] = useState<any[]>([]);
+  const [sel, setSel] = useState<Set<string>>(new Set());
+  const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState<string | null>(null);
+
+  useEffect(() => {
+    productionApi.projects.team(projectId).then((r) => {
+      const people = (Array.isArray(r.data) ? r.data : [])
+        .map((t: any) => ({ id: t.user?.id, name: t.user?.fullName, email: t.user?.email }))
+        .filter((p: any) => p.email);
+      setTeam(people);
+    }).catch(() => setTeam([]));
+  }, [projectId]);
+
+  const toggle = (email: string) => setSel((p) => { const n = new Set(p); n.has(email) ? n.delete(email) : n.add(email); return n; });
+  const send = async () => {
+    if (sel.size === 0) return;
+    setBusy(true);
+    try {
+      const r = await productionApi.mail.sendBreakdown(projectId, { subject, html: reportEmailHtml(subject, body), recipients: Array.from(sel), message: message || undefined });
+      setDone(`Sent to ${r.data?.sent ?? sel.size} recipient(s).`);
+    } catch (e: any) {
+      setDone(e?.response?.data?.message || 'Send failed — check the project’s email settings (Setup → Email).');
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl ring-1 ring-slate-900/5" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+          <h2 className="font-semibold text-slate-900 inline-flex items-center gap-2 text-sm"><Mail size={16} className="text-slate-900" /> Email — {subject}</h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-700"><X size={18} /></button>
+        </div>
+        <div className="p-5 space-y-3 max-h-[60vh] overflow-y-auto">
+          <div>
+            <SectionLabel icon={Users}>Recipients · project team</SectionLabel>
+            {team.length === 0 ? <p className="text-xs text-slate-400">No team members with an email on file. Add them under the project’s Setup → Team.</p> : (
+              <div className="space-y-1">
+                {team.map((p) => (
+                  <label key={p.id || p.email} className="flex items-center gap-2 text-sm text-slate-700">
+                    <input type="checkbox" checked={sel.has(p.email)} onChange={() => toggle(p.email)} />
+                    <span>{p.name || p.email}</span><span className="text-[11px] text-slate-400">{p.email}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+          <div>
+            <SectionLabel>Message (optional)</SectionLabel>
+            <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={3} className={inputCls} placeholder="A note to include above the report…" />
+          </div>
+          {done && <p className="text-xs text-emerald-700">{done}</p>}
+        </div>
+        <div className="flex items-center justify-between px-5 py-4 border-t border-slate-100">
+          <span className="text-[11px] text-slate-400">{sel.size} selected · sends via the project email sender</span>
+          <div className="flex gap-2">
+            <Btn variant="secondary" onClick={onClose}>Close</Btn>
+            <Btn variant="primary" onClick={send} disabled={busy || sel.size === 0}>{busy ? <Loader2 size={14} className="animate-spin" /> : <Mail size={14} />} Send</Btn>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }

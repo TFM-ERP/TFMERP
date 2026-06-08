@@ -96,13 +96,15 @@ export function SectionLabel({ icon: Icon, children, className = '' }: { icon?: 
 }
 
 /** Expandable group card — the core "clustering" unit used across every breakdown/roster. */
-export function ClusterCard({ title, meta, badges, right, defaultOpen = false, children }:
-  { title: ReactNode; meta?: ReactNode; badges?: ReactNode; right?: ReactNode; defaultOpen?: boolean; children: ReactNode }) {
-  const [open, setOpen] = useState(defaultOpen);
+export function ClusterCard({ title, meta, badges, right, defaultOpen = false, open: openProp, onToggle, children }:
+  { title: ReactNode; meta?: ReactNode; badges?: ReactNode; right?: ReactNode; defaultOpen?: boolean; open?: boolean; onToggle?: () => void; children: ReactNode }) {
+  const [openState, setOpenState] = useState(defaultOpen);
+  const open = openProp !== undefined ? openProp : openState;          // controlled when `open` is supplied
+  const toggle = () => (onToggle ? onToggle() : setOpenState((o) => !o));
   return (
     <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden mb-2">
       <div className="flex items-center gap-2.5 px-3 py-2.5">
-        <button onClick={() => setOpen((o) => !o)} className="flex-1 flex items-center gap-2.5 text-left min-w-0">
+        <button onClick={toggle} className="flex-1 flex items-center gap-2.5 text-left min-w-0">
           <ChevronRight size={15} className={`text-slate-300 transition shrink-0 ${open ? 'rotate-90' : ''}`} />
           <span className="font-medium text-slate-900 text-[15px] truncate">{title}</span>
           {badges}

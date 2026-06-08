@@ -433,6 +433,7 @@ export const productionApi = {
     callsheet: (id: string, data: any) => api.post(`/production/mail/callsheet/${id}`, data),
     costReport: (projectId: string, data: any) => api.post(`/production/mail/cost-report/${projectId}`, data),
     dealMemo: (assignmentId: string, data: any) => api.post(`/production/mail/deal-memo/${assignmentId}`, data),
+    sendBreakdown: (projectId: string, data: { subject?: string; html?: string; recipients?: string[]; message?: string }) => api.post(`/production/mail/send-breakdown/${projectId}`, data),
   },
   // Document vault
   documents: {

@@ -23,4 +23,5 @@ export class MailController {
   @Post('callsheet/:id') callsheet(@Param('id') id: string, @Body() body: any) { return this.service.sendCallSheet(id, body); }
   @Post('cost-report/:projectId') costReport(@Param('projectId') projectId: string, @Body() body: any) { return this.service.sendCostReport(projectId, body); }
   @Post('deal-memo/:assignmentId') dealMemo(@Param('assignmentId') assignmentId: string, @Body() body: any) { return this.service.sendDealMemo(assignmentId, body); }
+  @Post('send-breakdown/:projectId') sendBreakdown(@Param('projectId') projectId: string, @Body() body: any) { return this.service.sendBreakdown(projectId, body); }
 }
