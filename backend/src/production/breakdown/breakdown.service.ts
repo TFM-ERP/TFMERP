@@ -412,4 +412,145 @@ export class BreakdownService {
       byCostCenter: Object.values(byCostCenter).sort((a, b) => a.code.localeCompare(b.code)),
     };
   }
+
+  /**
+   * Element Breakdown (computed) — every tagged element grouped by category, then by
+   * element name, with the scenes and shooting days it appears in, cost centers and
+   * est. cost. Drives the per-category inner tabs under the Breakdowns hub.
+   */
+  async categoryBreakdown(projectId: string) {
+    const strips = await this.prisma.productionStrip.findMany({
+      where: { projectId },
+      include: { elements: { orderBy: [{ category: 'asc' }, { name: 'asc' }] } },
+      orderBy: [{ shootDay: 'asc' }, { sortOrder: 'asc' }, { sceneNumber: 'asc' }],
+    });
+
+    const cats = new Map<string, Map<string, any>>();
+    for (const s of strips) {
+      for (const e of s.elements) {
+        const cat = String(e.category);
+        if (!cats.has(cat)) cats.set(cat, new Map());
+        const m = cats.get(cat)!;
+        let it = m.get(e.name);
+        if (!it) { it = { name: e.name, qty: 0, estCost: 0, scenes: new Set<string>(), days: new Set<number>(), costCenters: new Set<string>() }; m.set(e.name, it); }
+        it.qty += e.quantity || 1;
+        it.estCost += Number(e.estCost || 0);
+        if (s.sceneNumber) it.scenes.add(String(s.sceneNumber));
+        if (s.shootDay && s.shootDay > 0) it.days.add(s.shootDay);
+        if (e.costCenterCode) it.costCenters.add(`${e.costCenterCode}${e.costCenterTitle ? ' · ' + e.costCenterTitle : ''}`);
+      }
+    }
+
+    const categories = Array.from(cats.entries()).map(([category, m]) => {
+      const items = Array.from(m.values()).map((it: any) => ({
+        name: it.name,
+        qty: it.qty,
+        estCost: Number(it.estCost.toFixed(2)),
+        scenes: Array.from(it.scenes),
+        days: Array.from(it.days).sort((a: number, b: number) => a - b),
+        costCenters: Array.from(it.costCenters),
+      })).sort((a: any, b: any) => b.qty - a.qty || a.name.localeCompare(b.name));
+      return {
+        category,
+        itemCount: items.length,
+        totalQty: items.reduce((n: number, i: any) => n + i.qty, 0),
+        estCost: Number(items.reduce((n: number, i: any) => n + i.estCost, 0).toFixed(2)),
+        items,
+      };
+    }).sort((a, b) => a.category.localeCompare(b.category));
+
+    return {
+      projectId,
+      categoryCount: categories.length,
+      totalElements: categories.reduce((n, c) => n + c.itemCount, 0),
+      categories,
+    };
+  }
+
+  /**
+   * Per-day rollup (computed) — the call-sheet view. Groups scheduled scenes by shoot
+   * day and rolls up locations, sets, cast and elements-by-category for each day.
+   * When the project has a shootStartDate, each day is mapped to a real calendar date
+   * (start + day - 1). Unscheduled scenes (shootDay 0) are returned separately so the
+   * coordinator can see what still needs a day before call sheets are generated.
+   */
+  async dayRollup(projectId: string) {
+    const project = await this.prisma.productionProject.findUnique({
+      where: { id: projectId },
+      select: { id: true, title: true, shootStartDate: true, startDate: true },
+    });
+    const strips = await this.prisma.productionStrip.findMany({
+      where: { projectId },
+      include: { elements: { orderBy: [{ category: 'asc' }, { name: 'asc' }] } },
+      orderBy: [{ shootDay: 'asc' }, { sortOrder: 'asc' }, { sceneNumber: 'asc' }],
+    });
+
+    const asArray = (v: any): string[] => (Array.isArray(v) ? v.map(String) : typeof v === 'string' && v ? v.split(',').map((s) => s.trim()) : []).filter(Boolean);
+    const anchor = project?.shootStartDate || project?.startDate || null;
+    const dateForDay = (day: number): string | null => {
+      if (!anchor || day <= 0) return null;
+      const d = new Date(anchor);
+      d.setDate(d.getDate() + (day - 1));
+      return d.toISOString().slice(0, 10);
+    };
+
+    const days = new Map<number, any>();
+    const unscheduled: any[] = [];
+
+    for (const s of strips) {
+      const day = s.shootDay && s.shootDay > 0 ? s.shootDay : 0;
+      const sceneRow = {
+        stripId: s.id, sceneNumber: s.sceneNumber || '', set: s.setName || '', location: s.location || '',
+        intExt: String(s.intExt || ''), dayNight: String(s.dayNight || ''), synopsis: s.description || '',
+        cast: asArray(s.cast), pages: Number(s.pages || 0), estMinutes: s.estMinutes || null,
+      };
+      if (day === 0) { unscheduled.push(sceneRow); continue; }
+
+      let g = days.get(day);
+      if (!g) {
+        g = { day, date: dateForDay(day), locations: new Set<string>(), sets: new Set<string>(), intExt: new Set<string>(), cast: new Set<string>(), scenes: [] as any[], elements: new Map<string, Map<string, number>>(), pages: 0, estMinutes: 0 };
+        days.set(day, g);
+      }
+      if (s.location) g.locations.add(s.location);
+      if (s.setName) g.sets.add(s.setName);
+      if (s.intExt) g.intExt.add(String(s.intExt));
+      sceneRow.cast.forEach((c) => g.cast.add(c));
+      g.pages += Number(s.pages || 0);
+      g.estMinutes += Number(s.estMinutes || 0);
+      g.scenes.push(sceneRow);
+      for (const e of s.elements) {
+        const cat = String(e.category);
+        if (!g.elements.has(cat)) g.elements.set(cat, new Map());
+        const mm = g.elements.get(cat)!;
+        mm.set(e.name, (mm.get(e.name) || 0) + (e.quantity || 1));
+      }
+    }
+
+    const out = Array.from(days.values()).map((g) => ({
+      day: g.day,
+      date: g.date,
+      locations: Array.from(g.locations),
+      sets: Array.from(g.sets),
+      intExt: Array.from(g.intExt),
+      cast: Array.from(g.cast).sort(),
+      sceneCount: g.scenes.length,
+      pages: Number(g.pages.toFixed(3)),
+      estMinutes: g.estMinutes,
+      scenes: g.scenes,
+      elementsByCategory: Array.from(g.elements.entries()).map(([category, names]: any) => ({
+        category,
+        items: Array.from(names.entries()).map(([name, quantity]: any) => ({ name, quantity })),
+      })).sort((a: any, b: any) => a.category.localeCompare(b.category)),
+    })).sort((a, b) => a.day - b.day);
+
+    return {
+      projectId,
+      shootStartDate: anchor,
+      hasSchedule: out.length > 0,
+      dayCount: out.length,
+      unscheduledCount: unscheduled.length,
+      days: out,
+      unscheduled,
+    };
+  }
 }

@@ -24,6 +24,8 @@ export class BreakdownController {
   @Get('sheet/:stripId') sheet(@Param('stripId') stripId: string) { return this.service.sheet(stripId); }
   @Get('summary/:projectId') summary(@Param('projectId') projectId: string) { return this.service.summary(projectId); }
   @Get('location-breakdown/:projectId') locationBreakdown(@Param('projectId') projectId: string) { return this.service.locationBreakdown(projectId); }
+  @Get('category-breakdown/:projectId') categoryBreakdown(@Param('projectId') projectId: string) { return this.service.categoryBreakdown(projectId); }
+  @Get('day-rollup/:projectId') dayRollup(@Param('projectId') projectId: string) { return this.service.dayRollup(projectId); }
   @Post('push-to-budget/:projectId') pushToBudget(@Param('projectId') projectId: string) { return this.service.pushToBudget(projectId); }
   @Get('budget-preview/:projectId') budgetPreview(@Param('projectId') projectId: string) { return this.service.budgetPreview(projectId); }
   @Get('mapping-preview/:projectId') mappingPreview(@Param('projectId') projectId: string) { return this.service.mappingPreview(projectId); }

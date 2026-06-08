@@ -36,7 +36,7 @@ import ShuttlePanel from '@/components/production/ShuttlePanel';
 import ArrivalsPanel from '@/components/production/ArrivalsPanel';
 import LogisticsReportsPanel from '@/components/production/LogisticsReportsPanel';
 import FuelPanel from '@/components/production/FuelPanel';
-import LocationBreakdownPanel from '@/components/production/LocationBreakdownPanel';
+import BreakdownsTab from '@/components/production/BreakdownsTab';
 
 // Stored section tier wins; fallback follows the industry numbering (1=ATL, 2–4=BTL, 5=POST, 6+=OTHER)
 const tierOf = (code?: string, tier?: string | null) => tier || (!code ? 'OTHER' : code.startsWith('1') ? 'ATL' : ['2', '3', '4'].includes(code[0]) ? 'BTL' : code.startsWith('5') ? 'POST' : 'OTHER');
@@ -122,7 +122,7 @@ import {
   Plane, FileSignature, Clapperboard, BedDouble, Car, Bus, Droplet,
 } from 'lucide-react';
 
-type Tab = 'settings' | 'overview' | 'budget' | 'topsheet' | 'actual' | 'costreport' | 'purchasing' | 'accounting' | 'cash' | 'callsheets' | 'globals' | 'crew' | 'perdiem' | 'overages' | 'credits' | 'schedule' | 'documents' | 'projectemail' | 'labor' | 'fringe' | 'incentives' | 'locations' | 'travel' | 'contracts' | 'casting' | 'accommodation' | 'transport' | 'shuttle' | 'arrivals' | 'fuel' | 'logistics' | 'locationbreakdown';
+type Tab = 'settings' | 'overview' | 'budget' | 'topsheet' | 'actual' | 'costreport' | 'purchasing' | 'accounting' | 'cash' | 'callsheets' | 'globals' | 'crew' | 'perdiem' | 'overages' | 'credits' | 'schedule' | 'documents' | 'projectemail' | 'labor' | 'fringe' | 'incentives' | 'locations' | 'travel' | 'contracts' | 'casting' | 'accommodation' | 'transport' | 'shuttle' | 'arrivals' | 'fuel' | 'logistics' | 'breakdowns';
 
 const TAB_META: Record<string, { label: string; icon: any }> = {
   overview: { label: 'Overview', icon: LayoutDashboard },
@@ -139,7 +139,7 @@ const TAB_META: Record<string, { label: string; icon: any }> = {
   labor: { label: 'Labor & Union', icon: Scale },
   globals: { label: 'Globals', icon: Edit2 },
   schedule: { label: 'Schedule', icon: Calendar },
-  locationbreakdown: { label: 'Location Breakdown', icon: MapPin },
+  breakdowns: { label: 'Breakdowns', icon: Layers },
   callsheets: { label: 'Call Sheets', icon: ClipboardList },
   locations: { label: 'Locations', icon: MapPin },
   travel: { label: 'Travel & Visas', icon: Plane },
@@ -165,7 +165,7 @@ const TAB_GROUPS: { key: string; label: string; tabs: Tab[] }[] = [
   { key: 'money', label: 'Budget & Cost', tabs: ['budget', 'topsheet', 'fringe', 'incentives', 'overages'] },
   { key: 'acct', label: 'Accounting', tabs: ['actual', 'costreport', 'purchasing', 'accounting', 'cash'] },
   { key: 'workforce', label: 'Workforce', tabs: ['crew', 'perdiem'] },
-  { key: 'locations', label: 'Locations', tabs: ['locations', 'locationbreakdown'] },
+  { key: 'locations', label: 'Locations', tabs: ['locations', 'breakdowns'] },
   { key: 'engagements', label: 'Engagements', tabs: ['travel', 'contracts', 'casting', 'accommodation', 'transport', 'shuttle', 'arrivals', 'fuel', 'logistics'] },
   { key: 'setup', label: 'Setup & Output', tabs: ['settings', 'labor', 'globals', 'documents', 'projectemail', 'credits'] },
 ];
@@ -999,7 +999,10 @@ export default function ProjectDetailPage() {
       {tab === 'arrivals' && <ArrivalsPanel projectId={id} />}
       {tab === 'fuel' && <FuelPanel projectId={id} />}
       {tab === 'logistics' && <LogisticsReportsPanel projectId={id} />}
-      {tab === 'locationbreakdown' && <LocationBreakdownPanel projectId={id} />}
+      {tab === 'breakdowns' && (
+        <BreakdownsTab projectId={id} currency={cur}
+          accounts={(activeVersion?.sections || []).flatMap((s: any) => s.accounts.map((a: any) => ({ code: a.code, title: a.title })))} />
+      )}
 
       {/* ── Globals ────────────────────────────────────────────────────────────── */}
       {tab === 'globals' && activeVersion && (
