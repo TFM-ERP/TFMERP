@@ -10,7 +10,7 @@
  */
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { productionApi } from '@/lib/api';
-import { Loader2, Layers, MapPin, CalendarDays, ListChecks, Printer, Users, Package, Clapperboard, Search, FileText, Mail, X } from 'lucide-react';
+import { Loader2, Layers, MapPin, CalendarDays, ListChecks, Printer, Users, Package, Clapperboard, Search, FileText, Mail, X, Share2, Inbox } from 'lucide-react';
 import { PanelHeader, StatRow, Tabs, ClusterCard, Chip, DataTable, EmptyState, SectionLabel, Btn, inputCls } from './ui';
 import BreakdownPanel from './BreakdownPanel';
 import LocationBreakdownPanel from './LocationBreakdownPanel';
@@ -45,6 +45,7 @@ export default function BreakdownsTab({ projectId, currency = 'AED', accounts = 
         title="Breakdowns"
         subtitle="Scene, element, location and day views — all generated from the AI script breakdown."
       />
+      <SharedWithYou projectId={projectId} />
       <Tabs
         active={inner}
         onChange={setInner}
@@ -69,6 +70,7 @@ function ElementBreakdownView({ projectId }: { projectId: string }) {
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [email, setEmail] = useState<{ subject: string; body: string } | null>(null);
+  const [share, setShare] = useState<{ kind: string; title: string } | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -100,6 +102,7 @@ function ElementBreakdownView({ projectId }: { projectId: string }) {
         onToggleAll={() => setExpanded(allOpen ? new Set() : new Set(filtered.map((c) => c.category)))}
         onPrint={() => printElements('Element Breakdown', filtered)}
         onEmail={() => setEmail({ subject: 'Element Breakdown', body: elementsBody(filtered) })}
+        onShare={() => setShare({ kind: 'ELEMENTS', title: 'Element Breakdown' })}
         placeholder="Search element, scene, cost center…" />
       <Tabs active={cat} onChange={setCat} tabs={catTabs} />
       <div className="space-y-2">
@@ -129,6 +132,7 @@ function ElementBreakdownView({ projectId }: { projectId: string }) {
         {filtered.length === 0 && <p className="text-xs text-slate-400 py-6 text-center">No elements match “{search}”.</p>}
       </div>
       {email && <SendEmailModal projectId={projectId} subject={email.subject} body={email.body} onClose={() => setEmail(null)} />}
+      {share && <ShareModal projectId={projectId} kind={share.kind} title={share.title} onClose={() => setShare(null)} />}
     </div>
   );
 }
@@ -140,6 +144,7 @@ function DayRollupView({ projectId }: { projectId: string }) {
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [email, setEmail] = useState<{ subject: string; body: string } | null>(null);
+  const [share, setShare] = useState<{ kind: string; refKey?: string; title: string } | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -181,6 +186,7 @@ function DayRollupView({ projectId }: { projectId: string }) {
         onToggleAll={() => setExpanded(allOpen ? new Set() : new Set(filtered.map((d) => d.day)))}
         onPrint={() => printDays('Call-sheet rollup', filtered)}
         onEmail={() => setEmail({ subject: 'Call-sheet rollup', body: daysBody(filtered) })}
+        onShare={() => setShare({ kind: 'REPORT', title: 'Call-sheet rollup' })}
         placeholder="Search day, date, location, cast…" />
       <div className="space-y-2">
         {filtered.map((d) => (
@@ -192,6 +198,7 @@ function DayRollupView({ projectId }: { projectId: string }) {
             badges={d.locations.map((l: string) => <Chip key={l} tone="link">{l}</Chip>)}
             meta={<span>{d.sceneCount} scene{d.sceneCount === 1 ? '' : 's'} · {d.pages.toFixed(1)} pg</span>}
             right={<>
+              <button onClick={() => setShare({ kind: 'DAY', refKey: String(d.day), title: `Call sheet — Day ${d.day}` })} title="Share this day with project users" className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-slate-600 hover:border-slate-900"><Share2 size={12} /> Share</button>
               <button onClick={() => setEmail({ subject: `Call sheet — Day ${d.day}`, body: daysBody([d]) })} title="Email this day's call sheet" className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-slate-600 hover:border-slate-900"><Mail size={12} /> Email</button>
               <button onClick={() => printDays(`Call sheet — Day ${d.day}`, [d])} title="Print this day's call sheet" className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-slate-600 hover:border-slate-900"><FileText size={12} /> Call sheet</button>
             </>}
@@ -234,6 +241,7 @@ function DayRollupView({ projectId }: { projectId: string }) {
         </p>
       )}
       {email && <SendEmailModal projectId={projectId} subject={email.subject} body={email.body} onClose={() => setEmail(null)} />}
+      {share && <ShareModal projectId={projectId} kind={share.kind} refKey={share.refKey} title={share.title} onClose={() => setShare(null)} />}
     </div>
   );
 }
@@ -242,8 +250,8 @@ function currencyLabel(n: number) { return `AED ${Number(n).toLocaleString()}`; 
 
 // Shared toolbar across the cluster-card breakdown views (Elements, By Day) — mirrors
 // the Locations panel's search · expand/collapse · print controls so the chrome matches.
-function BreakdownToolbar({ search, onSearch, allOpen, onToggleAll, onPrint, onEmail, placeholder }:
-  { search: string; onSearch: (v: string) => void; allOpen: boolean; onToggleAll: () => void; onPrint: () => void; onEmail?: () => void; placeholder: string }) {
+function BreakdownToolbar({ search, onSearch, allOpen, onToggleAll, onPrint, onEmail, onShare, placeholder }:
+  { search: string; onSearch: (v: string) => void; allOpen: boolean; onToggleAll: () => void; onPrint: () => void; onEmail?: () => void; onShare?: () => void; placeholder: string }) {
   return (
     <div className="flex items-center gap-2 mb-3 flex-wrap">
       <div className="relative">
@@ -253,6 +261,7 @@ function BreakdownToolbar({ search, onSearch, allOpen, onToggleAll, onPrint, onE
       </div>
       <Btn variant="secondary" onClick={onToggleAll}>{allOpen ? 'Collapse all' : 'Expand all'}</Btn>
       <div className="flex-1" />
+      {onShare && <Btn variant="secondary" onClick={onShare}><Share2 size={13} /> Share</Btn>}
       {onEmail && <Btn variant="secondary" onClick={onEmail}><Mail size={13} /> Email</Btn>}
       <Btn variant="primary" onClick={onPrint}><Printer size={13} /> Print report</Btn>
     </div>
@@ -370,6 +379,97 @@ function SendEmailModal({ projectId, subject, body, onClose }:
             <Btn variant="primary" onClick={send} disabled={busy || sel.size === 0}>{busy ? <Loader2 size={14} className="animate-spin" /> : <Mail size={14} />} Send</Btn>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// In-app share modal — pick project users; they see it in the "Shared with you" strip.
+function ShareModal({ projectId, kind, refKey, title, onClose }:
+  { projectId: string; kind: string; refKey?: string; title: string; onClose: () => void }) {
+  const [team, setTeam] = useState<any[]>([]);
+  const [sel, setSel] = useState<Set<string>>(new Set());
+  const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState<string | null>(null);
+
+  useEffect(() => {
+    productionApi.projects.team(projectId).then((r) => {
+      setTeam((Array.isArray(r.data) ? r.data : [])
+        .map((t: any) => ({ id: t.user?.id, name: t.user?.fullName, email: t.user?.email }))
+        .filter((p: any) => p.id));
+    }).catch(() => setTeam([]));
+  }, [projectId]);
+
+  const toggle = (id: string) => setSel((p) => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const submit = async () => {
+    if (sel.size === 0) return;
+    setBusy(true);
+    try {
+      const r = await productionApi.breakdown.shareBreakdown({ projectId, kind, refKey, title, message: message || undefined, toUserIds: Array.from(sel) });
+      setDone(`Shared with ${r.data?.shared ?? sel.size} user(s) — they’ll see it on this project’s Breakdowns tab.`);
+    } catch (e: any) {
+      setDone(e?.response?.data?.message || 'Share failed.');
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl ring-1 ring-slate-900/5" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+          <h2 className="font-semibold text-slate-900 inline-flex items-center gap-2 text-sm"><Share2 size={16} className="text-slate-900" /> Share — {title}</h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-700"><X size={18} /></button>
+        </div>
+        <div className="p-5 space-y-3 max-h-[60vh] overflow-y-auto">
+          <div>
+            <SectionLabel icon={Users}>Share with · project team</SectionLabel>
+            {team.length === 0 ? <p className="text-xs text-slate-400">No team members on this project yet. Add them under the project’s Setup → Team.</p> : (
+              <div className="space-y-1">
+                {team.map((p) => (
+                  <label key={p.id} className="flex items-center gap-2 text-sm text-slate-700">
+                    <input type="checkbox" checked={sel.has(p.id)} onChange={() => toggle(p.id)} />
+                    <span>{p.name || p.email}</span>{p.email && <span className="text-[11px] text-slate-400">{p.email}</span>}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+          <div>
+            <SectionLabel>Note (optional)</SectionLabel>
+            <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={2} className={inputCls} placeholder="Add a note…" />
+          </div>
+          {done && <p className="text-xs text-emerald-700">{done}</p>}
+        </div>
+        <div className="flex items-center justify-between px-5 py-4 border-t border-slate-100">
+          <span className="text-[11px] text-slate-400">{sel.size} selected · in-app, no email sent</span>
+          <div className="flex gap-2">
+            <Btn variant="secondary" onClick={onClose}>Close</Btn>
+            <Btn variant="primary" onClick={submit} disabled={busy || sel.size === 0}>{busy ? <Loader2 size={14} className="animate-spin" /> : <Share2 size={14} />} Share</Btn>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Strip at the top of the Breakdowns tab showing items shared with the current user on this project.
+function SharedWithYou({ projectId }: { projectId: string }) {
+  const [rows, setRows] = useState<any[]>([]);
+  const load = useCallback(() => { productionApi.breakdown.myShares(projectId).then((r) => setRows(Array.isArray(r.data) ? r.data : [])).catch(() => {}); }, [projectId]);
+  useEffect(() => { load(); }, [load]);
+  if (rows.length === 0) return null;
+  const unread = rows.filter((r) => !r.readAt).length;
+  const dismiss = async (id: string) => { await productionApi.breakdown.markShareRead(id); load(); };
+  return (
+    <div className="mb-4 rounded-2xl border border-blue-100 bg-blue-50/60 p-3">
+      <SectionLabel icon={Inbox}><span className="inline-flex items-center gap-2">Shared with you {unread > 0 && <Chip tone="link">{unread} new</Chip>}</span></SectionLabel>
+      <div className="space-y-1">
+        {rows.slice(0, 6).map((s) => (
+          <div key={s.id} className={`flex items-center justify-between text-sm rounded-lg px-2 py-1 ${s.readAt ? 'text-slate-500' : 'text-slate-800 font-medium'}`}>
+            <span className="truncate"><Share2 size={12} className="inline text-slate-400 mr-1.5" />{s.title}<span className="text-[11px] text-slate-400 ml-1.5">from {s.sharedBy?.fullName || '—'}{s.message ? ` · ${s.message}` : ''}</span></span>
+            {!s.readAt && <button onClick={() => dismiss(s.id)} className="text-[11px] text-blue-700 hover:underline shrink-0">Mark read</button>}
+          </div>
+        ))}
       </div>
     </div>
   );

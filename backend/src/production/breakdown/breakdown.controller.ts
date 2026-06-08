@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, Request, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { BreakdownService } from './breakdown.service';
 import { ScriptImportService } from './script-import.service';
@@ -33,6 +33,9 @@ export class BreakdownController {
   applyMapping(@Param('projectId') projectId: string, @Body() body: any) { return this.service.applyMapping(projectId, body?.mappings || []); }
   @Post('budget-generate/:projectId') @RequirePermission('production', 2)
   budgetGenerate(@Param('projectId') projectId: string, @Body() body: any) { return this.service.budgetFromBreakdown(projectId, body?.rateCard || {}); }
+  @Post('share') share(@Request() req: any, @Body() body: any) { return this.service.shareBreakdown(req.user?.id, body); }
+  @Get('shares/:projectId') myShares(@Request() req: any, @Param('projectId') projectId: string) { return this.service.mySharesForProject(req.user?.id, projectId); }
+  @Post('shares/:id/read') markShareRead(@Request() req: any, @Param('id') id: string) { return this.service.markShareRead(req.user?.id, id); }
   @Post() create(@Body() body: any) { return this.service.create(body); }
   @Put(':id') update(@Param('id') id: string, @Body() body: any) { return this.service.update(id, body); }
   @Delete(':id') remove(@Param('id') id: string) { return this.service.remove(id); }

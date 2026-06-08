@@ -553,4 +553,34 @@ export class BreakdownService {
       unscheduled,
     };
   }
+
+  // ── In-app sharing — "share to selected project users" (read-only) ──────────────
+  async shareBreakdown(userId: string, dto: { projectId: string; kind?: string; refKey?: string; title: string; message?: string; toUserIds: string[] }) {
+    if (!userId) throw new BadRequestException('No sender.');
+    const ids = Array.from(new Set((dto.toUserIds || []).filter(Boolean)));
+    if (!dto.projectId || !dto.title || ids.length === 0) throw new BadRequestException('Project, title and at least one recipient are required.');
+    await this.prisma.breakdownShare.createMany({
+      data: ids.map((to) => ({
+        projectId: dto.projectId, kind: dto.kind || 'REPORT', refKey: dto.refKey || null,
+        title: dto.title, message: dto.message || null, sharedById: userId, sharedToId: to,
+      })),
+    });
+    return { shared: ids.length };
+  }
+
+  /** Shares addressed to the current user for one project (most recent first). */
+  mySharesForProject(userId: string, projectId: string) {
+    if (!userId) return [];
+    return this.prisma.breakdownShare.findMany({
+      where: { sharedToId: userId, projectId },
+      include: { sharedBy: { select: { fullName: true } } },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+  }
+
+  async markShareRead(userId: string, id: string) {
+    await this.prisma.breakdownShare.updateMany({ where: { id, sharedToId: userId }, data: { readAt: new Date() } });
+    return { ok: true };
+  }
 }
