@@ -111,6 +111,14 @@ export default function CallSheetsPanel({ projectId }: { projectId: string }) {
     await openSheet(sheet.id);
   };
 
+  const autofillDaylight = async () => {
+    if (!sheet) return;
+    if (!sheet.locationId) { alert('Link a location to this call sheet first, then autofill daylight.'); return; }
+    await productionApi.callsheets.update(sheet.id, sheet); // keep current edits
+    try { await productionApi.callsheets.autofillDaylight(sheet.id); await openSheet(sheet.id); }
+    catch (e: any) { alert(e?.response?.data?.message || 'Could not compute sun-path (location may have no coordinates).'); }
+  };
+
   const remove = async (id: string) => {
     if (!confirm('Delete this call sheet?')) return;
     await productionApi.callsheets.remove(id);
@@ -173,6 +181,7 @@ export default function CallSheetsPanel({ projectId }: { projectId: string }) {
                 <Chip tone={sheet.status === 'PUBLISHED' ? 'money' : 'slate'}>{sheet.status}</Chip>
                 <Btn variant="danger" onClick={() => remove(sheet.id)}><Trash2 size={12} /></Btn>
                 <Btn variant="secondary" onClick={pullSchedule} title="Auto-fill scenes & cast from the stripboard"><CalendarCheck size={12} /> Pull schedule</Btn>
+                <Btn variant="secondary" onClick={autofillDaylight} title="Compute sunrise/sunset/golden hour from the linked location"><CalendarCheck size={12} /> Autofill daylight</Btn>
                 <Btn variant="secondary" onClick={() => window.open(`/print/callsheet/${sheet.id}`, '_blank')}><Printer size={12} /> Print / PDF</Btn>
                 <Btn variant="secondary" onClick={emailCrew}><Mail size={12} /> Email crew</Btn>
                 <Btn variant="secondary" onClick={publish}><Send size={12} /> Publish</Btn>
@@ -192,6 +201,8 @@ export default function CallSheetsPanel({ projectId }: { projectId: string }) {
                 <Field label="Est. wrap"><input className={inputCls} value={sheet.estWrap || ''} onChange={e => set('estWrap', e.target.value)} placeholder="19:00" /></Field>
                 <Field label="Sunrise"><input className={inputCls} value={sheet.sunrise || ''} onChange={e => set('sunrise', e.target.value)} /></Field>
                 <Field label="Sunset"><input className={inputCls} value={sheet.sunset || ''} onChange={e => set('sunset', e.target.value)} /></Field>
+                <Field label="Golden AM"><input className={inputCls} value={sheet.goldenHourAm || ''} onChange={e => set('goldenHourAm', e.target.value)} placeholder="auto" /></Field>
+                <Field label="Golden PM"><input className={inputCls} value={sheet.goldenHourPm || ''} onChange={e => set('goldenHourPm', e.target.value)} placeholder="auto" /></Field>
                 <Field label="Weather"><input className={inputCls} value={sheet.weather || ''} onChange={e => set('weather', e.target.value)} placeholder="Sunny, light wind" /></Field>
                 <Field label="Temp high"><input className={inputCls} value={sheet.tempHigh || ''} onChange={e => set('tempHigh', e.target.value)} placeholder="38°C" /></Field>
                 <Field label="Temp low"><input className={inputCls} value={sheet.tempLow || ''} onChange={e => set('tempLow', e.target.value)} placeholder="27°C" /></Field>

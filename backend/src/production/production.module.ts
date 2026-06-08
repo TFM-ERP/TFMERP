@@ -29,6 +29,18 @@ import { PayrollController } from './payroll/payroll.controller';
 import { PayrollService } from './payroll/payroll.service';
 import { LocationsController } from './locations/locations.controller';
 import { LocationsService } from './locations/locations.service';
+import { LocationNeedsController } from './locations/location-needs.controller';
+import { LocationNeedsService } from './locations/location-needs.service';
+import { ScoutVisitsController } from './locations/scout-visits.controller';
+import { ScoutVisitsService } from './locations/scout-visits.service';
+import { ClearancePacksController, ClearancePacksPublicController } from './locations/clearance-packs.controller';
+import { ClearancePacksService } from './locations/clearance-packs.service';
+import { LocationReportsController } from './locations/location-reports.controller';
+import { LocationReportsService } from './locations/location-reports.service';
+import { SunPathController } from './locations/sun-path.controller';
+import { SunPathService } from './locations/sun-path.service';
+import { ScriptReadinessController } from './locations/script-readiness.controller';
+import { ScriptReadinessService } from './locations/script-readiness.service';
 import { DocumentsController } from './documents/documents.controller';
 import { DocumentsService } from './documents/documents.service';
 import { MailController } from './mail/mail.controller';
@@ -63,8 +75,8 @@ import { LogisticsReportsService } from './logistics/logistics-reports.service';
 
 @Module({
   imports: [PrismaModule, WorkflowModule, LocationsLibraryModule],
-  controllers: [ProjectsController, BudgetController, CrewController, CallSheetsController, PerDiemController, OveragesController, CreditsController, LedgerController, CostingController, SchedulingController, BreakdownController, DocumentsController, MailController, PayrollController, LocationsController, VendorOnboardingController, VendorOnboardingPublicController, MovieMagicController, TravelController, ContractsController, ContractsWebhookController, CastingController, CastingPublicController, AccommodationController, TransportController, ShuttleController, ArrivalController, LogisticsReportsController],
-  providers: [ProjectsService, BudgetService, CrewService, CallSheetsService, PerDiemService, OveragesService, CreditsService, LedgerService, CostingService, SchedulingService, DoodCalculationService, CalendarAnchoringService, BreakdownService, ScriptImportService, DocumentsService, MailService, EmailService, PayrollService, LocationsService, VendorOnboardingService, MovieMagicService, DynamicContextService, AiMappingService, TravelService, AmadeusService, ConcurService, ContractsService, CastingService, AccommodationService, TransportService, ShuttleService, ArrivalService, LogisticsReportsService],
+  controllers: [ProjectsController, BudgetController, CrewController, CallSheetsController, PerDiemController, OveragesController, CreditsController, LedgerController, CostingController, SchedulingController, BreakdownController, DocumentsController, MailController, PayrollController, LocationsController, LocationNeedsController, ScoutVisitsController, ClearancePacksController, ClearancePacksPublicController, LocationReportsController, SunPathController, ScriptReadinessController, VendorOnboardingController, VendorOnboardingPublicController, MovieMagicController, TravelController, ContractsController, ContractsWebhookController, CastingController, CastingPublicController, AccommodationController, TransportController, ShuttleController, ArrivalController, LogisticsReportsController],
+  providers: [ProjectsService, BudgetService, CrewService, CallSheetsService, PerDiemService, OveragesService, CreditsService, LedgerService, CostingService, SchedulingService, DoodCalculationService, CalendarAnchoringService, BreakdownService, ScriptImportService, DocumentsService, MailService, EmailService, PayrollService, LocationsService, LocationNeedsService, ScoutVisitsService, ClearancePacksService, LocationReportsService, SunPathService, ScriptReadinessService, VendorOnboardingService, MovieMagicService, DynamicContextService, AiMappingService, TravelService, AmadeusService, ConcurService, ContractsService, CastingService, AccommodationService, TransportService, ShuttleService, ArrivalService, LogisticsReportsService],
   exports: [DynamicContextService, AiMappingService],
 })
 export class ProductionModule {}

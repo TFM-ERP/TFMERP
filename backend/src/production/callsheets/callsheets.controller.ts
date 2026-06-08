@@ -45,6 +45,11 @@ export class CallSheetsController {
     return this.service.pullFromSchedule(id);
   }
 
+  @Post(':id/autofill-daylight')
+  autofillDaylight(@Param('id') id: string, @Body() body: any) {
+    return this.service.autofillDaylight(id, body?.tz ? Number(body.tz) : 240);
+  }
+
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.service.remove(id);

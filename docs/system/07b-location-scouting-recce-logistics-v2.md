@@ -182,17 +182,54 @@ crew/vendor directory by region; versioned reports.
 
 - **S1 — Needs spine.** `LocationNeed` + `LocationNeedOption`; sync from breakdown; Options
   panel + Lock (writes `strip.locationId`) in the project Locations tab. Dual-target stubs.
-- **S2 — Scout Visit + party.** `ScoutVisit` / `ScoutVisitStop` / `ScoutVisitMember`;
-  scout call-sheet print; dual-target.
-- **S3 — Clearance pack.** Crew consent flag; pack builder (link-with-expiry + PDF);
-  share/email out; audit.
-- **S4 — Transport request.** Visit → transport request → Transport module + notify.
-- **S5 — Department recce notes.** `RecceNote` department structure + checklists + rollup.
-- **S6 — Photo plates + Location Report v2.** Tagged plates; report/lookbook; option
-  comparison deck + sign-off.
-- **S7 — Sun-path + schedule gating + call-sheet autofill.**
-- **S8 — Scene-change requests** (script loop) + readiness board.
-- **S9 — Master-module parity polish** (standalone Scout Visit, available crew/fleet).
+- **S2 — Scout Visit + party.** [DONE] `ScoutVisit` / `ScoutVisitStop` / `ScoutVisitMember`;
+  multi-stop route editor, party picker (pulls from project crew, lead flag), printable
+  scout call-sheet; headcount endpoint (transport hook); dual-target (projectId null = master).
+  Surfaced as the "Scout visits" inner tab on the project Locations tab.
+- **S3 — Clearance pack.** [DONE] Crew `idShareConsent` flag + ID-doc fields (passport /
+  Emirates ID / photo). `ClearancePack` / `ClearancePackMember` (consent-gated doc snapshot) /
+  `ClearancePackAccess` (audit). Builder pulls a scout visit's party, includes only consenting
+  members, sets a link expiry; share emails the secure link only (never PII inline); printable
+  pack; revoke; refresh-consent. Public `/clearance/[token]` page resolves the time-limited link
+  (logs a VIEWED access, blocks expired/revoked). "Clearance packs" inner tab on Locations.
+- **S4 — Transport request.** [DONE] `ScoutVisit.transportOrderId` link. Visit party headcount
+  raises a REQUESTED `TransportOrder` (CREW_SHUTTLE; party in `passengerNote`; from = meeting
+  point; scheduled = visit date) — the request the transport team accepts on their movement
+  board (cleaner audit than a silent order). Visit card shows status + assigned vehicle/driver,
+  flags re-size when the party changes, and can cancel. Re-requesting re-sizes the live order.
+- **S5 — Department recce notes.** [DONE] `RecceNote` extended (note, severity INFO→BLOCKER,
+  actionItem, resolved, checklist Json) — additive, legacy free-text fields kept. HOD taxonomy
+  (Director/1stAD/DoP/Gaffer/Grip/Sound/SFX/Stunts/Art-PD/Costume-Makeup/Producer/LM/Transport/
+  Safety…). Per-department concern checklists. `recceRollup(locationId)` groups notes by dept +
+  severity tally + open action items + blockers → READY/OUTSTANDING/BLOCKED readiness (feeds S8).
+  Assess modal RecceCard gains severity/checklist/action-item/resolve; readiness rollup strip.
+- **S6 — Photo plates + Location Report v2.** [DONE] `PhotoPlate` (purpose APPROACH/WIDE/
+  FEATURE/SIGHTLINE/INFRASTRUCTURE/PROBLEM/AMBIENT/REFERENCE, scene/shot refs, timeOfDay,
+  dept, lat/lng; plain-FK, dual-target) + `LocationNeed` sign-off fields. location-reports
+  service/controller: plate CRUD + image upload (multer), `report(locationId)` (plates-by-purpose
+  + recce blockers/actions + logistics + permits/risks), `lookbook`/`storyboard` (scene-tagged
+  plates), `compareNeed` (ranked options deck w/ thumbnails+scores+blockers), `signOffNeed`.
+  Frontend: "Report & plates" tab (upload, tag, printable Report, Lookbook export) + option
+  comparison & director sign-off on each Need in the Breakdown & options tab.
+- **S7 — Sun-path + schedule gating + call-sheet autofill.** [DONE] `SunPathService` — pure
+  NOAA solar math (no dep): sunrise/sunset/solar-noon/civil-twilight/golden-hour + day length +
+  sun az/elev at any time, local HH:MM via tz offset (default +240 Asia/Dubai). Endpoints:
+  by lat/lng, position, by Location, and `gating/:locationId` (availability window + permit
+  validity + sun window → cleared/gated). CallSheet `goldenHourAm/Pm` fields + `autofillDaylight`
+  (writes sunrise/sunset/golden from the linked location + shoot date). Frontend: sun-path &
+  gating strip on Report & plates tab; "Autofill daylight" button + golden-hour fields on the call sheet.
+- **S8 — Scene-change requests** (script loop) + readiness board. [DONE] `SceneChangeRequest`
+  (plain-FK to location/need/visit/recceNote; sceneRefs; priority; OPEN→RESOLVED/REJECTED with
+  resolution). `script-readiness` service/controller: request CRUD + `readinessBoard(projectId)`
+  that fuses each location's recce blockers/actions (S5) + Need sign-off (S6) + permit/availability
+  gating (S7) + open scene-changes into READY/OUTSTANDING/BLOCKED. Frontend: "Readiness" inner tab
+  — producer board (DataTable) + scene-change raise/track/resolve.
+- **S9 — Master-module parity polish** (standalone Scout Visit, available crew/fleet). [DONE]
+  `scout-visits/master-options` = crew directory + available house vehicles/drivers + master-library
+  candidates. `MasterScoutVisitsPanel` + standalone `/locations/scout-visits` page (sidebar link):
+  project-less scout visits (route from library candidates as labelled stops, party from the crew
+  directory, per-visit clearance-pack build, available-options feed). ScoutVisit/Clearance/Transport
+  were already dual-target (`projectId` null = master), so master visits never touch a project.
 
 Each slice: `prisma db push` + `generate` + `tsc` (both ends) + smoke + commit before the next.
 

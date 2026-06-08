@@ -487,6 +487,84 @@ export const productionApi = {
     setPeriod: (projectId: string, period: string, status: 'OPEN' | 'CLOSED') => api.post(`/production/ledger/periods/${projectId}`, { period, status }),
   },
   // Locations
+  locationNeeds: {
+    list: (projectId: string) => api.get(`/production/location-needs/${projectId}`),
+    sync: (projectId: string) => api.post(`/production/location-needs/sync/${projectId}`),
+    updateNeed: (id: string, data: any) => api.put(`/production/location-needs/need/${id}`, data),
+    addOption: (needId: string, data: { locationId: string; optionStatus?: string; notes?: string }) => api.post(`/production/location-needs/need/${needId}/options`, data),
+    updateOption: (id: string, data: any) => api.put(`/production/location-needs/options/${id}`, data),
+    removeOption: (id: string) => api.delete(`/production/location-needs/options/${id}`),
+    lock: (needId: string, optionId: string) => api.post(`/production/location-needs/need/${needId}/lock/${optionId}`),
+    unlock: (needId: string) => api.post(`/production/location-needs/need/${needId}/unlock`),
+  },
+  scoutVisits: {
+    list: (projectId?: string) => api.get(`/production/scout-visits${projectId ? `?projectId=${projectId}` : ''}`),
+    get: (id: string) => api.get(`/production/scout-visits/${id}`),
+    callSheet: (id: string) => api.get(`/production/scout-visits/${id}/call-sheet`),
+    crewPool: (projectId: string) => api.get(`/production/scout-visits/crew-pool/${projectId}`),
+    masterOptions: () => api.get(`/production/scout-visits/master-options`),
+    create: (data: any) => api.post(`/production/scout-visits`, data),
+    update: (id: string, data: any) => api.put(`/production/scout-visits/${id}`, data),
+    remove: (id: string) => api.delete(`/production/scout-visits/${id}`),
+    addStop: (id: string, data: any) => api.post(`/production/scout-visits/${id}/stops`, data),
+    updateStop: (stopId: string, data: any) => api.put(`/production/scout-visits/stops/${stopId}`, data),
+    removeStop: (stopId: string) => api.delete(`/production/scout-visits/stops/${stopId}`),
+    reorderStops: (id: string, ids: string[]) => api.post(`/production/scout-visits/${id}/stops/reorder`, { ids }),
+    addMember: (id: string, data: any) => api.post(`/production/scout-visits/${id}/members`, data),
+    updateMember: (memberId: string, data: any) => api.put(`/production/scout-visits/members/${memberId}`, data),
+    removeMember: (memberId: string) => api.delete(`/production/scout-visits/members/${memberId}`),
+    transportStatus: (id: string) => api.get(`/production/scout-visits/${id}/transport`),
+    requestTransport: (id: string, data: any = {}) => api.post(`/production/scout-visits/${id}/transport`, data),
+    cancelTransport: (id: string) => api.delete(`/production/scout-visits/${id}/transport`),
+  },
+  clearancePacks: {
+    list: (projectId?: string) => api.get(`/production/clearance-packs${projectId ? `?projectId=${projectId}` : ''}`),
+    get: (id: string) => api.get(`/production/clearance-packs/${id}`),
+    buildFromVisit: (visitId: string, data: any) => api.post(`/production/clearance-packs/from-visit/${visitId}`, data),
+    update: (id: string, data: any) => api.put(`/production/clearance-packs/${id}`, data),
+    refresh: (id: string) => api.post(`/production/clearance-packs/${id}/refresh`),
+    remove: (id: string) => api.delete(`/production/clearance-packs/${id}`),
+    setConsent: (crewId: string, consent: boolean) => api.post(`/production/clearance-packs/consent/${crewId}`, { consent }),
+    share: (id: string, data: any) => api.post(`/production/clearance-packs/${id}/share`, data),
+    revoke: (id: string) => api.post(`/production/clearance-packs/${id}/revoke`),
+    logDownload: (id: string) => api.post(`/production/clearance-packs/${id}/log-download`),
+    // public — venue link (no auth)
+    resolvePublic: (token: string) => api.get(`/public/clearance/${token}`),
+  },
+  locationReports: {
+    plates: (params: { locationId?: string; visitId?: string; projectId?: string }) => {
+      const q = new URLSearchParams(params as any).toString();
+      return api.get(`/production/location-reports/plates${q ? `?${q}` : ''}`);
+    },
+    createPlate: (data: any) => api.post(`/production/location-reports/plates`, data),
+    uploadPlate: (formData: FormData) => api.post(`/production/location-reports/plates/upload`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+    updatePlate: (id: string, data: any) => api.put(`/production/location-reports/plates/${id}`, data),
+    removePlate: (id: string) => api.delete(`/production/location-reports/plates/${id}`),
+    reorderPlates: (ids: string[]) => api.post(`/production/location-reports/plates/reorder`, { ids }),
+    report: (locationId: string) => api.get(`/production/location-reports/report/${locationId}`),
+    lookbook: (params: { locationId?: string; projectId?: string }) => {
+      const q = new URLSearchParams(params as any).toString();
+      return api.get(`/production/location-reports/lookbook${q ? `?${q}` : ''}`);
+    },
+    storyboard: (params: { locationId?: string; projectId?: string; sceneRef?: string }) => {
+      const q = new URLSearchParams(params as any).toString();
+      return api.get(`/production/location-reports/storyboard${q ? `?${q}` : ''}`);
+    },
+    compareNeed: (needId: string) => api.get(`/production/location-reports/compare-need/${needId}`),
+    signOff: (needId: string, data: any) => api.post(`/production/location-reports/sign-off/${needId}`, data),
+  },
+  sunPath: {
+    compute: (lat: number, lng: number, date: string, tz?: number) => api.get(`/production/sun-path?lat=${lat}&lng=${lng}&date=${date}${tz ? `&tz=${tz}` : ''}`),
+    forLocation: (id: string, date: string, tz?: number) => api.get(`/production/sun-path/location/${id}?date=${date}${tz ? `&tz=${tz}` : ''}`),
+    gating: (locationId: string, date: string, tz?: number) => api.get(`/production/sun-path/gating/${locationId}?date=${date}${tz ? `&tz=${tz}` : ''}`),
+  },
+  scriptReadiness: {
+    board: (projectId: string) => api.get(`/production/script-readiness/board/${projectId}`),
+    requests: (projectId: string, status?: string) => api.get(`/production/script-readiness/requests/${projectId}${status ? `?status=${status}` : ''}`),
+    createRequest: (projectId: string, data: any) => api.post(`/production/script-readiness/requests/${projectId}`, data),
+    updateRequest: (id: string, data: any) => api.put(`/production/script-readiness/requests/${id}`, data),
+    removeRequest: (id: string) => api.delete(`/production/script-readiness/requests/${id}`),
+  },
   locations: {
     list: (projectId: string) => api.get(`/production/locations/${projectId}`),
     get: (id: string) => api.get(`/production/locations/item/${id}`),
@@ -574,6 +652,7 @@ export const productionApi = {
     update: (id: string, data: any) => api.put(`/production/callsheets/${id}`, data),
     publish: (id: string) => api.patch(`/production/callsheets/${id}/publish`),
     pullSchedule: (id: string) => api.post(`/production/callsheets/${id}/pull-schedule`),
+    autofillDaylight: (id: string, tz?: number) => api.post(`/production/callsheets/${id}/autofill-daylight`, tz ? { tz } : {}),
     remove: (id: string) => api.delete(`/production/callsheets/${id}`),
   },
 };
@@ -1315,6 +1394,9 @@ export const assessmentApi = {
   updateRecce:  (id: string, data: any) => api.put(`/location-assessment/recces/${id}`, data),
   upsertNote:   (recceId: string, data: any) => api.post(`/location-assessment/recces/${recceId}/notes`, data),
   removeNote:   (id: string) => api.delete(`/location-assessment/notes/${id}`),
+  toggleNote:   (id: string, resolved: boolean) => api.post(`/location-assessment/notes/${id}/toggle`, { resolved }),
+  rollup:       (locationId: string) => api.get(`/location-assessment/rollup/${locationId}`),
+  checklist:    (department?: string) => api.get(`/location-assessment/checklist${department ? `?department=${department}` : ''}`),
   evaluations:  (locationId: string) => api.get(`/location-assessment/evaluations/${locationId}`),
   upsertEval:   (locationId: string, data: any) => api.post(`/location-assessment/evaluations/${locationId}`, data),
   compare:      (projectId: string) => api.get(`/location-assessment/compare/${projectId}`),

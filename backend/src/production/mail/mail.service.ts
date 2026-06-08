@@ -173,4 +173,26 @@ export class MailService {
     await this.sendMail(recipients, subject, html, projectId);
     return { sent: recipients.split(',').filter(Boolean).length, recipients };
   }
+
+  /**
+   * SYS-07 V2 · Slice 3 — email a clearance pack to a venue/authority.
+   * Sends the time-limited secure LINK only — identity docs are never embedded in the email.
+   */
+  async sendClearancePack(packId: string, body: { recipients?: any; message?: string } = {}) {
+    const pack = await this.prisma.clearancePack.findUnique({ where: { id: packId } });
+    if (!pack) throw new NotFoundException('Clearance pack not found');
+    const recipients = toList(body.recipients) || pack.recipientEmail || '';
+    if (!recipients) throw new BadRequestException('No recipient email for this clearance pack.');
+    const expiry = pack.expiresAt ? new Date(pack.expiresAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'no expiry';
+    const link = `${APP_URL}/clearance/${pack.token}`;
+    const html = shell(pack.title || 'Crew Clearance Pack',
+      `<p>${body.message ? body.message + '<br\><br\>' : ''}${pack.recipientName ? `Dear ${pack.recipientName},<br\><br\>` : ''}
+       Please find the crew clearance pack for the upcoming visit${pack.recipientOrg ? ` to <b>${pack.recipientOrg}</b>` : ''}.</p>
+       <p>The secure link below contains the scouting party's identity documents for pre-clearance.
+       It is time-limited and access is logged.</p>
+       <p style="color:#888;font-size:12px">Link expires: <b>${expiry}</b></p>`,
+      link, 'Open secure clearance pack');
+    await this.sendMail(recipients, pack.title || 'Crew Clearance Pack', html, pack.projectId || undefined);
+    return { sent: recipients.split(',').filter(Boolean).length, recipients };
+  }
 }

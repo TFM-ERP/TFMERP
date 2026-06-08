@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, Req, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { AssessmentService } from './assessment.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -23,6 +23,12 @@ export class AssessmentController {
   upsertNote(@Param('id') id: string, @Body() b: any) { return this.service.upsertNote(id, b); }
   @Delete('notes/:id') @RequirePermission('production', 2)
   removeNote(@Param('id') id: string) { return this.service.removeNote(id); }
+  @Post('notes/:id/toggle') @RequirePermission('production', 2)
+  toggleNote(@Param('id') id: string, @Body() b: any) { return this.service.toggleNote(id, !!b?.resolved); }
+
+  // Department recce rollup + checklist template (SYS-07 V2 · Slice 5)
+  @Get('rollup/:locationId') rollup(@Param('locationId') locationId: string) { return this.service.recceRollup(locationId); }
+  @Get('checklist') checklist(@Query('department') department?: string) { return this.service.checklistTemplate(department); }
 
   // Evaluations
   @Get('evaluations/:locationId') listEvals(@Param('locationId') locationId: string) { return this.service.listEvaluations(locationId); }

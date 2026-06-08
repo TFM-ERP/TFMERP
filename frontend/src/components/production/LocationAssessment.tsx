@@ -12,7 +12,39 @@ const projectOps = (lc: any): OpsAdapter => ({
   listPayments: lc.payments, paySummary: lc.paySummary, addPayment: lc.addPayment, updPayment: lc.updPayment, delPayment: lc.delPayment, payPayment: lc.payPayment,
 });
 
-const DEPARTMENTS = ['CAMERA', 'GRIP', 'ELECTRIC', 'SOUND', 'ART', 'CONSTRUCTION', 'TRANSPORT', 'SECURITY', 'STUNTS', 'SFX', 'VFX', 'LOCATIONS', 'OTHER'];
+// HOD-style recce taxonomy (SYS-07 V2 · Slice 5) + legacy departments kept for back-compat.
+const DEPARTMENTS = ['DIRECTOR', 'FIRST_AD', 'DOP', 'GAFFER', 'GRIP', 'SOUND', 'SFX', 'STUNTS', 'ART_PD', 'COSTUME_MAKEUP', 'PRODUCER', 'LM', 'TRANSPORT', 'SAFETY', 'CAMERA', 'ELECTRIC', 'ART', 'CONSTRUCTION', 'SECURITY', 'VFX', 'LOCATIONS', 'OTHER'];
+const DEPT_LABEL: Record<string, string> = { FIRST_AD: '1st AD', ART_PD: 'Art / PD', COSTUME_MAKEUP: 'Costume & Makeup', LM: 'Location Mgr', DOP: 'DoP' };
+const deptLabel = (d: string) => DEPT_LABEL[d] || d.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
+const SEVERITIES: { key: string; label: string; cls: string }[] = [
+  { key: 'INFO', label: 'Info', cls: 'bg-slate-100 text-slate-600' },
+  { key: 'LOW', label: 'Low', cls: 'bg-sky-100 text-sky-700' },
+  { key: 'MEDIUM', label: 'Medium', cls: 'bg-amber-100 text-amber-700' },
+  { key: 'HIGH', label: 'High', cls: 'bg-orange-100 text-orange-700' },
+  { key: 'BLOCKER', label: 'Blocker', cls: 'bg-rose-100 text-rose-700' },
+];
+const sevCls = (s: string) => SEVERITIES.find((x) => x.key === s)?.cls || SEVERITIES[0].cls;
+
+// Department concern checklists — generic items + per-department prompts.
+const CHECKLIST_GENERIC: [string, string][] = [
+  ['access', 'Access & approach for unit/trucks'], ['parking', 'Parking & holding / basecamp'],
+  ['hazards', 'Hazards & clearances'], ['hospital', 'Nearest hospital / medical'], ['restore', 'Set restoration / make-good'],
+];
+const CHECKLIST_BY_DEPT: Record<string, [string, string][]> = {
+  DOP: [['light', 'Light direction & sun-path'], ['power', 'Power vs generator'], ['sightlines', 'Sightlines & camera positions']],
+  GAFFER: [['power', 'Power vs generator + genny placement'], ['rig', 'Rig points & distribution'], ['light', 'Ambient / practical light']],
+  GRIP: [['rig', 'Rig points & mounting'], ['craneTrack', 'Crane / track / dolly run']],
+  SOUND: [['ambient', 'Ambient / background noise'], ['flightPath', 'Flight path / traffic / AC hum']],
+  SFX: [['hazards', 'Pyro / atmos clearances'], ['water', 'Water / fire safety']],
+  STUNTS: [['hazards', 'Stunt hazards & rigging'], ['safety', 'Safety perimeter & padding']],
+  ART_PD: [['dressing', 'Set dressing scope'], ['restore', 'Restore / make-good']],
+  FIRST_AD: [['holding', 'Holding / crowd / extras'], ['truckCount', 'Truck count & unit base']],
+  TRANSPORT: [['truckCount', 'Truck count & turnaround'], ['parking', 'Parking & route']],
+  SAFETY: [['hospital', 'Nearest hospital'], ['hazards', 'Hazard register'], ['fire', 'Fire / evac route']],
+  LM: [['permit', 'Permit feasibility'], ['neighbours', 'Neighbours / noise window']],
+};
+const checklistFor = (dept: string): [string, string][] => [...CHECKLIST_GENERIC, ...(CHECKLIST_BY_DEPT[dept] || [])];
 
 const CRITERIA: { key: string; label: string; hint?: string }[] = [
   { key: 'visual', label: 'Visual / look' },
@@ -453,16 +485,50 @@ function EvaluationTab({ locationId }: { locationId: string }) {
 
 function RecceTab({ locationId }: { locationId: string }) {
   const [recces, setRecces] = useState<any[]>([]);
+  const [rollup, setRollup] = useState<any>(null);
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState<any>({ reccedAt: '', conductedBy: '', attendees: '', summary: '', status: 'PLANNED' });
 
-  const load = useCallback(() => { assessmentApi.recces(locationId).then((r) => setRecces(r.data || [])); }, [locationId]);
+  const load = useCallback(() => {
+    assessmentApi.recces(locationId).then((r) => setRecces(r.data || []));
+    assessmentApi.rollup(locationId).then((r) => setRollup(r.data)).catch(() => setRollup(null));
+  }, [locationId]);
   useEffect(() => { load(); }, [load]);
 
   const createRecce = async () => { await assessmentApi.createRecce(locationId, form); setForm({ reccedAt: '', conductedBy: '', attendees: '', summary: '', status: 'PLANNED' }); setCreating(false); load(); };
 
+  const READY_TONE: Record<string, string> = { READY: 'bg-emerald-100 text-emerald-700', OUTSTANDING: 'bg-amber-100 text-amber-700', BLOCKED: 'bg-rose-100 text-rose-700' };
+
   return (
     <div className="space-y-4">
+      {/* Readiness rollup across all recce notes */}
+      {rollup && rollup.noteCount > 0 && (
+        <div className="border rounded-lg p-3 bg-gray-50">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium flex items-center gap-2"><ClipboardCheck size={15} /> Department rollup
+              <span className={`text-[11px] px-2 py-0.5 rounded-full ${READY_TONE[rollup.readiness] || ''}`}>{rollup.readiness}</span>
+            </span>
+            <span className="text-xs text-gray-400">{rollup.noteCount} notes · {rollup.departments.length} depts</span>
+          </div>
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {SEVERITIES.map((s) => (rollup.severityTally[s.key] ? <span key={s.key} className={`text-[11px] px-2 py-0.5 rounded-full ${s.cls}`}>{s.label}: {rollup.severityTally[s.key]}</span> : null))}
+          </div>
+          {rollup.blockers.length > 0 && (
+            <div className="mb-1.5">
+              <p className="text-[11px] uppercase tracking-wide text-rose-500 font-semibold mb-1">Blockers</p>
+              {rollup.blockers.map((b: any) => <div key={b.id} className="text-xs text-gray-700 flex items-center gap-1.5"><AlertTriangle size={12} className="text-rose-500" /> <b>{deptLabel(b.department)}</b>: {b.note || b.actionItem || '—'}</div>)}
+            </div>
+          )}
+          {rollup.openActions.length > 0 && (
+            <div>
+              <p className="text-[11px] uppercase tracking-wide text-amber-600 font-semibold mb-1">Open action items</p>
+              {rollup.openActions.map((a: any) => <div key={a.id} className="text-xs text-gray-700">• <b>{deptLabel(a.department)}</b>: {a.actionItem}</div>)}
+            </div>
+          )}
+          {rollup.blockers.length === 0 && rollup.openActions.length === 0 && <p className="text-xs text-emerald-600">All department concerns resolved — location is recce-ready.</p>}
+        </div>
+      )}
+
       {!creating && <button onClick={() => setCreating(true)} className="text-sm inline-flex items-center gap-1 text-[#8a6d2f]"><Plus size={14} /> New recce</button>}
       {creating && (
         <div className="border rounded-lg p-3 space-y-2">
@@ -483,13 +549,16 @@ function RecceTab({ locationId }: { locationId: string }) {
 }
 
 function RecceCard({ recce, onChanged }: { recce: any; onChanged: () => void }) {
-  const [dept, setDept] = useState('CAMERA');
+  const [dept, setDept] = useState('DOP');
   const existing = (recce.notes || []).find((n: any) => n.department === dept);
   const [note, setNote] = useState<any>({});
   useEffect(() => { setNote(existing || {}); }, [dept, recce.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const saveNote = async () => { await assessmentApi.upsertNote(recce.id, { department: dept, ...note }); onChanged(); };
-  const setN = (k: string, v: string) => setNote((x: any) => ({ ...x, [k]: v }));
+  const setN = (k: string, v: any) => setNote((x: any) => ({ ...x, [k]: v }));
+  const checklist = note.checklist || {};
+  const toggleCheck = (k: string) => setNote((x: any) => ({ ...x, checklist: { ...(x.checklist || {}), [k]: !(x.checklist || {})[k] } }));
+  const toggleResolved = async (n: any) => { await assessmentApi.toggleNote(n.id, !n.resolved); onChanged(); };
 
   return (
     <div className="border rounded-lg p-3">
@@ -498,16 +567,50 @@ function RecceCard({ recce, onChanged }: { recce: any; onChanged: () => void }) 
         <span className="text-xs text-gray-400">{recce.conductedBy}{recce.notes?.length ? ` · ${recce.notes.length} dept notes` : ''}</span>
       </div>
       {recce.summary && <p className="text-sm text-gray-600 mb-2">{recce.summary}</p>}
+
+      {/* Existing department notes — chips with severity + resolve toggle */}
+      {(recce.notes || []).length > 0 && (
+        <div className="space-y-1 mb-2">
+          {recce.notes.map((n: any) => (
+            <div key={n.id} className={`flex items-center gap-2 text-xs rounded-lg border px-2 py-1.5 ${n.resolved ? 'opacity-60' : ''}`}>
+              <span className="font-medium w-28 shrink-0">{deptLabel(n.department)}</span>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${sevCls(n.severity || 'INFO')}`}>{(n.severity || 'INFO')}</span>
+              <span className="flex-1 truncate text-gray-600">{n.note || n.actionItem || n.risks || '—'}</span>
+              {n.actionItem && <button onClick={() => toggleResolved(n)} title="Toggle resolved" className={`shrink-0 ${n.resolved ? 'text-emerald-600' : 'text-gray-300 hover:text-emerald-600'}`}><CheckCircle2 size={14} /></button>}
+              <button onClick={() => setDept(n.department)} className="shrink-0 text-gray-400 hover:text-gray-700">Edit</button>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="bg-gray-50 rounded-lg p-2">
-        <select value={dept} onChange={(e) => setDept(e.target.value)} className="border rounded-lg px-2 py-1 text-sm mb-2">{DEPARTMENTS.map((d) => <option key={d}>{d}</option>)}</select>
+        <div className="flex items-center gap-2 mb-2">
+          <select value={dept} onChange={(e) => setDept(e.target.value)} className="border rounded-lg px-2 py-1 text-sm">{DEPARTMENTS.map((d) => <option key={d} value={d}>{deptLabel(d)}</option>)}</select>
+          <select value={note.severity || 'INFO'} onChange={(e) => setN('severity', e.target.value)} className="border rounded-lg px-2 py-1 text-sm">{SEVERITIES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}</select>
+          {existing && <span className="text-[11px] text-gray-400">editing existing note</span>}
+        </div>
+        <textarea className="w-full border rounded-lg px-2 py-1 text-xs mb-2" rows={2} placeholder={`${deptLabel(dept)} concern / observation`} value={note.note || ''} onChange={(e) => setN('note', e.target.value)} />
+
+        {/* Department checklist */}
+        <div className="grid grid-cols-2 gap-x-3 gap-y-1 mb-2">
+          {checklistFor(dept).map(([k, label]) => (
+            <label key={k} className="flex items-center gap-1.5 text-[11px] text-gray-600">
+              <input type="checkbox" checked={!!checklist[k]} onChange={() => toggleCheck(k)} /> {label}
+            </label>
+          ))}
+        </div>
+
         <div className="grid grid-cols-2 gap-2">
           <textarea className="border rounded-lg px-2 py-1 text-xs" rows={2} placeholder="Risks" value={note.risks || ''} onChange={(e) => setN('risks', e.target.value)} />
           <textarea className="border rounded-lg px-2 py-1 text-xs" rows={2} placeholder="Equipment needs" value={note.equipmentNeeds || ''} onChange={(e) => setN('equipmentNeeds', e.target.value)} />
           <textarea className="border rounded-lg px-2 py-1 text-xs" rows={2} placeholder="Crew needs" value={note.crewNeeds || ''} onChange={(e) => setN('crewNeeds', e.target.value)} />
           <textarea className="border rounded-lg px-2 py-1 text-xs" rows={2} placeholder="Access / power" value={note.accessNotes || ''} onChange={(e) => setN('accessNotes', e.target.value)} />
-          <textarea className="border rounded-lg px-2 py-1 text-xs col-span-2" rows={2} placeholder="Safety notes" value={note.safetyNotes || ''} onChange={(e) => setN('safetyNotes', e.target.value)} />
+          <input className="border rounded-lg px-2 py-1 text-xs col-span-2" placeholder="Action item (what must happen before shoot)" value={note.actionItem || ''} onChange={(e) => setN('actionItem', e.target.value)} />
         </div>
-        <button onClick={saveNote} className="mt-2 text-xs bg-gray-900 text-white px-3 py-1.5 rounded-lg inline-flex items-center gap-1"><Save size={12} /> Save {dept} note</button>
+        <div className="flex items-center gap-3 mt-2">
+          <button onClick={saveNote} className="text-xs bg-gray-900 text-white px-3 py-1.5 rounded-lg inline-flex items-center gap-1"><Save size={12} /> Save {deptLabel(dept)} note</button>
+          <label className="flex items-center gap-1.5 text-[11px] text-gray-600"><input type="checkbox" checked={!!note.resolved} onChange={(e) => setN('resolved', e.target.checked)} /> Resolved</label>
+        </div>
       </div>
     </div>
   );

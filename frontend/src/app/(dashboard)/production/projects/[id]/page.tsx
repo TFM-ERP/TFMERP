@@ -23,7 +23,7 @@ import ProjectLaborPanel from '@/components/production/ProjectLaborPanel';
 import FringeDetailPanel from '@/components/production/FringeDetailPanel';
 import IncentivesPanel from '@/components/production/IncentivesPanel';
 import WorkflowChecklist from '@/components/production/WorkflowChecklist';
-import LocationsPanel from '@/components/production/LocationsPanel';
+import LocationsTab from '@/components/production/LocationsTab';
 import LaborBlockEditor from '@/components/production/LaborBlockEditor';
 import ProjectSettingsPanel from '@/components/production/ProjectSettingsPanel';
 import TopsheetComparisonPanel from '@/components/production/TopsheetComparisonPanel';
@@ -987,7 +987,7 @@ export default function ProjectDetailPage() {
       {tab === 'callsheets' && <CallSheetsPanel projectId={id} />}
 
       {/* ── Locations ──────────────────────────────────────────────────────────── */}
-      {tab === 'locations' && <LocationsPanel projectId={id} currency={cur} />}
+      {tab === 'locations' && <LocationsTab projectId={id} currency={cur} />}
 
       {/* ── Engagements: Travel / Contracts / Casting (this project only) ───────── */}
       {tab === 'travel' && <TravelPanel projectId={id} />}

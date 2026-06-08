@@ -83,6 +83,7 @@ const MODULES: Module[] = [
     { label: 'Library', href: '/locations' },
     { label: 'Map', href: '/locations/map' },
     { label: 'Scouting', href: '/locations/scouting' },
+    { label: 'Scout Visits', href: '/locations/scout-visits' },
     { label: 'Permit Authorities', href: '/locations/authorities' },
   ]},
   { key: 'travel', label: 'Travel & Visas', icon: Plane, pages: [

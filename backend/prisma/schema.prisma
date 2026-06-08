@@ -1795,6 +1795,186 @@ model Location {
   @@map("locations")
 }
 
+// â”€â”€ SYS-07 V2 slice 1 â€” Location Needs (script location) â†’ candidate Options â†’ Lock â”€â”€
+// projectId is a plain indexed FK (no Prisma relation), mirroring ScoutAssignment, so
+// ProductionProject/Location stay untouched. null projectId = master/library scope (S9).
+model LocationNeed {
+  id               String   @id @default(cuid())
+  projectId        String?
+  name             String   // the script location string — join key to ProductionStrip.location
+  intExt           String?
+  sceneRefs        String?  // denormalized scene numbers (from the breakdown)
+  brief            String?
+  visualRefs       Json?    // mood-board image URLs / references
+  requiredBy       DateTime?
+  status           String   @default("SOURCING") // SOURCING | OPTIONS | LOCKED
+  selectedOptionId String?
+  // SYS-07 V2 Slice 6 — director sign-off on the option-comparison deck (gate before LOCK)
+  signOffStatus    String   @default("PENDING") // PENDING | APPROVED | REJECTED
+  signOffBy        String?
+  signOffAt        DateTime?
+  signOffNote      String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  options          LocationNeedOption[]
+
+  @@index([projectId])
+  @@map("location_needs")
+}
+
+model LocationNeedOption {
+  id           String       @id @default(cuid())
+  needId       String
+  need         LocationNeed @relation(fields: [needId], references: [id], onDelete: Cascade)
+  locationId   String       // plain FK to Location (resolved in service; keeps Location untouched)
+  optionStatus String       @default("PROPOSED") // PROPOSED | SCOUTING | RECCED | SHORTLISTED | APPROVED | REJECTED
+  rank         Int?
+  notes        String?
+  isSelected   Boolean      @default(false)
+  createdAt    DateTime     @default(now())
+
+  @@index([needId])
+  @@index([locationId])
+  @@map("location_need_options")
+}
+
+// -- SYS-07 V2 . Slice 2 -- Scout Visit (field event + scout call sheet) --
+// Generalizes per-location TechRecce into a multi-stop day. Dual-target:
+// projectId null = master/library-scope visit. Plain-FK pattern (no Prisma
+// relation to Project/Location/Crew) to keep those big models untouched.
+model ScoutVisit {
+  id                 String   @id @default(cuid())
+  projectId          String?  // null = master / library-scope visit
+  masterLocationId   String?  // optional library anchor for master-scope visits
+  title              String
+  type               String   @default("RECON") // RECON | PRELIMINARY | TECH_RECCE
+  purpose            String?
+  date               DateTime?
+  callTime           String?  // crew call / meet time (free text e.g. "06:30")
+  meetingPoint       String?  // unit base / rendezvous
+  status             String   @default("PLANNED") // PLANNED | CONFIRMED | IN_PROGRESS | DONE | CANCELLED
+  notes              String?
+  transportRequested Boolean  @default(false) // S4: a transport request has been raised
+  transportOrderId   String?  // S4: plain FK to the created TransportOrder (status read-back)
+  clearancePackId    String?  // S3 hook
+  createdById        String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  stops              ScoutVisitStop[]
+  members            ScoutVisitMember[]
+
+  @@index([projectId])
+  @@index([masterLocationId])
+  @@map("scout_visits")
+}
+
+model ScoutVisitStop {
+  id          String     @id @default(cuid())
+  visitId     String
+  visit       ScoutVisit @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  needId      String?    // plain FK to LocationNeed (what we're scouting for)
+  locationId  String?    // plain FK to Location (the candidate place to visit)
+  label       String?    // free text if neither need/location resolves
+  ordering    Int        @default(0) // route order
+  arriveAt    String?    // per-stop arrival window (free text)
+  departAt    String?
+  notes       String?
+  techRecceId String?    // a stop can spawn/attach a TechRecce result
+  createdAt   DateTime   @default(now())
+
+  @@index([visitId])
+  @@index([needId])
+  @@index([locationId])
+  @@map("scout_visit_stops")
+}
+
+model ScoutVisitMember {
+  id         String     @id @default(cuid())
+  visitId    String
+  visit      ScoutVisit @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  crewId     String?    // plain FK to ProductionCrew
+  userId     String?    // plain FK to User (system-user scout)
+  name       String     // denormalized display name
+  department String?
+  roleTitle  String?
+  phone      String?
+  email      String?
+  isLead     Boolean    @default(false) // scout lead / LM
+  createdAt  DateTime   @default(now())
+
+  @@index([visitId])
+  @@index([crewId])
+  @@map("scout_visit_members")
+}
+
+// -- SYS-07 V2 . Slice 3 -- Clearance pack (send party IDs to venues/authorities ahead) --
+// Compiles consenting party members' identity docs into a time-limited shareable link (or
+// printable pack) for venue management/security. PII controls: per-crew consent, link expiry,
+// full access audit. Dual-target via projectId. Plain-FK pattern (crewId / visitId resolved).
+model ClearancePack {
+  id             String   @id @default(cuid())
+  projectId      String?
+  visitId        String?  // the scout visit this pack was built for (optional)
+  title          String
+  purpose        String?
+  recipientName  String?  // venue management / security contact
+  recipientOrg   String?
+  recipientEmail String?
+  token          String   @unique @default(cuid()) // time-limited public link key
+  expiresAt      DateTime?
+  status         String   @default("DRAFT") // DRAFT | SHARED | EXPIRED | REVOKED
+  sharedAt       DateTime?
+  message        String?
+  createdById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  members  ClearancePackMember[]
+  accesses ClearancePackAccess[]
+
+  @@index([projectId])
+  @@index([visitId])
+  @@index([token])
+  @@map("clearance_packs")
+}
+
+model ClearancePackMember {
+  id            String        @id @default(cuid())
+  packId        String
+  pack          ClearancePack @relation(fields: [packId], references: [id], onDelete: Cascade)
+  crewId        String?       // plain FK to ProductionCrew
+  name          String
+  roleTitle     String?
+  department    String?
+  // snapshot of the docs included at build time (later crew edits don't change what was shared)
+  passportUrl   String?
+  emiratesIdUrl String?
+  photoUrl      String?
+  otherDocs     Json?         // [{ label, url }]
+  consentGiven  Boolean       @default(false)
+  createdAt     DateTime      @default(now())
+
+  @@index([packId])
+  @@index([crewId])
+  @@map("clearance_pack_members")
+}
+
+model ClearancePackAccess {
+  id        String        @id @default(cuid())
+  packId    String
+  pack      ClearancePack @relation(fields: [packId], references: [id], onDelete: Cascade)
+  event     String        // SHARED | VIEWED | DOWNLOADED | REVOKED | EXPIRED
+  actor     String?       // user id/name, or "venue link"
+  detail    String?
+  ip        String?
+  createdAt DateTime      @default(now())
+
+  @@index([packId])
+  @@map("clearance_pack_accesses")
+}
+
 // â”€â”€ SYS-07 slice 2 â€” Scouting missions & field submissions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 enum ScoutAssignmentType {
   INITIAL // first pass / general recon
@@ -1930,7 +2110,7 @@ model RecceNote {
   techRecceId String
   techRecce   TechRecce @relation(fields: [techRecceId], references: [id], onDelete: Cascade)
 
-  department     String // CAMERA | GRIP | ELECTRIC | SOUND | ART | CONSTRUCTION | TRANSPORT | SECURITY | STUNTS | SFX | VFX | LOCATIONS | OTHER
+  department     String // DIRECTOR | FIRST_AD | DOP | GAFFER | GRIP | SOUND | SFX | STUNTS | ART_PD | COSTUME_MAKEUP | PRODUCER | LM | TRANSPORT | SAFETY | CAMERA | ELECTRIC | ART | CONSTRUCTION | SECURITY | VFX | LOCATIONS | OTHER
   risks          String?
   equipmentNeeds String?
   crewNeeds      String?
@@ -1938,6 +2118,13 @@ model RecceNote {
   safetyNotes    String?
   powerNotes     String?
   photos         Json?
+
+  // SYS-07 V2 Slice 5 — department-structured concern + triage + checklist
+  note       String?  // the HOD's headline concern / observation
+  severity   String   @default("INFO") // INFO | LOW | MEDIUM | HIGH | BLOCKER
+  actionItem String?  // what must happen before shoot
+  resolved   Boolean  @default(false)
+  checklist  Json?    // { key: boolean } ticks against the department checklist template
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1972,6 +2159,67 @@ model LocationEvaluation {
 
   @@index([locationId])
   @@map("location_evaluations")
+}
+
+// -- SYS-07 V2 . Slice 6 -- Photo plates (the tagged Location Report / lookbook asset) --
+// Purpose-tagged field photos per Location (and optionally per scout visit). Scene/shot refs
+// make a plate a reusable previs/storyboard reference. Plain-FK pattern; dual-target.
+model PhotoPlate {
+  id           String   @id @default(cuid())
+  projectId    String?
+  locationId   String?  // plain FK to Location
+  visitId      String?  // plain FK to ScoutVisit (capture context)
+  url          String
+  thumbnailUrl String?
+  purpose      String   @default("WIDE") // APPROACH | WIDE | FEATURE | SIGHTLINE | INFRASTRUCTURE | PROBLEM | AMBIENT | REFERENCE
+  caption      String?
+  department   String?
+  timeOfDay    String?  // morning | midday | afternoon | goldenHour | night
+  sceneRef     String?
+  shotRef      String?
+  lat          Decimal? @db.Decimal(10, 7)
+  lng          Decimal? @db.Decimal(10, 7)
+  sortOrder    Int      @default(0)
+  capturedAt   DateTime?
+  uploadedById String?
+  createdAt    DateTime @default(now())
+
+  @@index([projectId])
+  @@index([locationId])
+  @@index([visitId])
+  @@map("photo_plates")
+}
+
+// -- SYS-07 V2 . Slice 8 -- Scene-change request (the script feedback loop) --
+// Raised from a PRELIMINARY/TECH_RECCE note against specific scenes ("rewrite to fit the
+// venue"); routed to writer/script dept, tracked to resolution, reflected back in the breakdown.
+// Plain-FK pattern; project-scoped.
+model SceneChangeRequest {
+  id           String   @id @default(cuid())
+  projectId    String
+  locationId   String?  // the location that triggered it
+  needId       String?  // the LocationNeed
+  visitId      String?  // raised from a scout visit / recce
+  recceNoteId  String?  // raised from a specific department recce note
+  sceneRefs    String?  // affected scene numbers (denormalized)
+  title        String
+  detail       String?  // what needs to change
+  reason       String?  // why (venue constraint)
+  department   String?  // which dept raised it
+  raisedBy     String?
+  raisedByName String?
+  priority     String   @default("MEDIUM") // LOW | MEDIUM | HIGH | URGENT
+  status       String   @default("OPEN")   // OPEN | ACK | IN_PROGRESS | RESOLVED | REJECTED
+  resolution   String?
+  resolvedBy   String?
+  resolvedAt   DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([projectId])
+  @@index([locationId])
+  @@index([status])
+  @@map("scene_change_requests")
 }
 
 // â”€â”€ SYS-07 slice 4 â€” Permits & risk â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -2834,6 +3082,8 @@ model CallSheet {
   tempLow  String?
   sunrise  String?
   sunset   String?
+  goldenHourAm String? // SYS-07 V2 S7 — morning golden-hour end (sunrise → +6° elevation)
+  goldenHourPm String? // evening golden-hour start (+6° elevation → sunset)
 
   // Location
   locationId      String? // link to a Location record
@@ -3280,6 +3530,15 @@ model ProductionCrew {
   ndaStatus      String  @default("NOT_REQUIRED") // NOT_REQUIRED | SENT | SIGNED
   dealMemoUrl    String?
   contractUrl    String?
+
+  // SYS-07 V2 Slice 3 — identity docs + venue-share consent (for scout clearance packs)
+  idShareConsent   Boolean   @default(false) // "OK to share my ID with venues/authorities"
+  idShareConsentAt DateTime?
+  passportUrl      String?
+  passportExpiry   DateTime?
+  emiratesIdUrl    String?
+  emiratesIdExpiry DateTime?
+  idPhotoUrl       String?   // headshot for the gate/security pass
 
   createdAt DateTime @default(now())
 

@@ -1,5 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { SunPathService } from '../locations/sun-path.service';
 
 const ROLE_LABEL: Record<string, string> = {
   DIRECTOR: 'Director', DOP: 'Director of Photography', PRODUCER: 'Producer',
@@ -21,7 +22,24 @@ const KEY_ROLES = ['DIRECTOR', 'PRODUCER', 'LINE_PRODUCER', 'ASSISTANT_DIRECTOR'
 
 @Injectable()
 export class CallSheetsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private sunPath: SunPathService) {}
+
+  /**
+   * SYS-07 V2 · Slice 7 — autofill the call sheet's daylight block from its linked location's
+   * coordinates + shoot date (sunrise/sunset/golden hour). No-op-safe if no coords.
+   */
+  async autofillDaylight(id: string, tzMin = 240) {
+    const cs = await this.prisma.callSheet.findUnique({ where: { id } });
+    if (!cs) throw new NotFoundException('Call sheet not found');
+    if (!cs.locationId) throw new BadRequestException('Link a location to this call sheet first.');
+    const loc = await this.prisma.location.findUnique({ where: { id: cs.locationId }, select: { lat: true, lng: true } });
+    if (!loc || loc.lat == null || loc.lng == null) throw new BadRequestException('The linked location has no coordinates to compute sun-path.');
+    const sun = this.sunPath.compute(Number(loc.lat), Number(loc.lng), cs.shootDate.toISOString(), tzMin);
+    return this.prisma.callSheet.update({
+      where: { id },
+      data: { sunrise: sun.sunrise, sunset: sun.sunset, goldenHourAm: sun.goldenHourAm, goldenHourPm: sun.goldenHourPm },
+    });
+  }
 
   async list(projectId: string) {
     return this.prisma.callSheet.findMany({
