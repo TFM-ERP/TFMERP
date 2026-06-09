@@ -7,12 +7,12 @@ const DB_NAME = 'tfm-offline';
 const STORE = 'queue';
 const VERSION = 1;
 
-export type QueueKind = 'pettyTxn' | 'location' | 'scoutSubmission';
+export type QueueKind = 'pettyTxn' | 'location' | 'scoutSubmission' | 'scriptAnnotation';
 
 export interface QueueItem {
   id: string;                 // client cuid — also used as the server record id (idempotent retries)
   kind: QueueKind;
-  payload: any;               // pettyTxn: { floatId, data } | location: { projectId, data } | scoutSubmission: { assignmentId, data }
+  payload: any;               // pettyTxn: { floatId, data } | location: { projectId, data } | scoutSubmission: { assignmentId, data } | scriptAnnotation: { data }
   label: string;              // human summary for the queue UI
   status: 'pending' | 'error';
   error?: string;

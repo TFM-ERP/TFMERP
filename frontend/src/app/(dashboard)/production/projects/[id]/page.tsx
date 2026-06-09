@@ -37,6 +37,7 @@ import ArrivalsPanel from '@/components/production/ArrivalsPanel';
 import LogisticsReportsPanel from '@/components/production/LogisticsReportsPanel';
 import FuelPanel from '@/components/production/FuelPanel';
 import BreakdownsTab from '@/components/production/BreakdownsTab';
+import ScriptHubPanel from '@/components/production/ScriptHubPanel';
 
 // Stored section tier wins; fallback follows the industry numbering (1=ATL, 2–4=BTL, 5=POST, 6+=OTHER)
 const tierOf = (code?: string, tier?: string | null) => tier || (!code ? 'OTHER' : code.startsWith('1') ? 'ATL' : ['2', '3', '4'].includes(code[0]) ? 'BTL' : code.startsWith('5') ? 'POST' : 'OTHER');
@@ -122,7 +123,7 @@ import {
   Plane, FileSignature, Clapperboard, BedDouble, Car, Bus, Droplet,
 } from 'lucide-react';
 
-type Tab = 'settings' | 'overview' | 'budget' | 'topsheet' | 'actual' | 'costreport' | 'purchasing' | 'accounting' | 'cash' | 'callsheets' | 'globals' | 'crew' | 'perdiem' | 'overages' | 'credits' | 'schedule' | 'documents' | 'projectemail' | 'labor' | 'fringe' | 'incentives' | 'locations' | 'travel' | 'contracts' | 'casting' | 'accommodation' | 'transport' | 'shuttle' | 'arrivals' | 'fuel' | 'logistics' | 'breakdowns';
+type Tab = 'settings' | 'overview' | 'budget' | 'topsheet' | 'actual' | 'costreport' | 'purchasing' | 'accounting' | 'cash' | 'callsheets' | 'globals' | 'crew' | 'perdiem' | 'overages' | 'credits' | 'schedule' | 'documents' | 'projectemail' | 'labor' | 'fringe' | 'incentives' | 'locations' | 'travel' | 'contracts' | 'casting' | 'accommodation' | 'transport' | 'shuttle' | 'arrivals' | 'fuel' | 'logistics' | 'breakdowns' | 'script';
 
 const TAB_META: Record<string, { label: string; icon: any }> = {
   overview: { label: 'Overview', icon: LayoutDashboard },
@@ -140,6 +141,7 @@ const TAB_META: Record<string, { label: string; icon: any }> = {
   globals: { label: 'Globals', icon: Edit2 },
   schedule: { label: 'Schedule', icon: Calendar },
   breakdowns: { label: 'Breakdowns', icon: Layers },
+  script: { label: 'Script', icon: Film },
   callsheets: { label: 'Call Sheets', icon: ClipboardList },
   locations: { label: 'Locations', icon: MapPin },
   travel: { label: 'Travel & Visas', icon: Plane },
@@ -161,7 +163,7 @@ const TAB_META: Record<string, { label: string; icon: any }> = {
 // Domain-aligned grouping (SYS-06): each group = a business system, not a loose tab bin.
 const TAB_GROUPS: { key: string; label: string; tabs: Tab[] }[] = [
   { key: 'overview', label: 'Overview', tabs: ['overview'] },
-  { key: 'planning', label: 'Planning', tabs: ['schedule', 'breakdowns', 'callsheets'] },
+  { key: 'planning', label: 'Planning', tabs: ['schedule', 'breakdowns', 'script', 'callsheets'] },
   { key: 'money', label: 'Budget & Cost', tabs: ['budget', 'topsheet', 'fringe', 'incentives', 'overages'] },
   { key: 'acct', label: 'Accounting', tabs: ['actual', 'costreport', 'purchasing', 'accounting', 'cash'] },
   { key: 'workforce', label: 'Workforce', tabs: ['crew', 'perdiem'] },
@@ -1003,6 +1005,7 @@ export default function ProjectDetailPage() {
         <BreakdownsTab projectId={id} currency={cur}
           accounts={(activeVersion?.sections || []).flatMap((s: any) => s.accounts.map((a: any) => ({ code: a.code, title: a.title })))} />
       )}
+      {tab === 'script' && <ScriptHubPanel projectId={id} />}
 
       {/* ── Globals ────────────────────────────────────────────────────────────── */}
       {tab === 'globals' && activeVersion && (

@@ -12,6 +12,8 @@ async function pushItem(item: QueueItem): Promise<void> {
     await productionApi.locations.create(item.payload.projectId, item.payload.data);
   } else if (item.kind === 'scoutSubmission') {
     await scoutingApi.submit(item.payload.assignmentId, item.payload.data);
+  } else if (item.kind === 'scriptAnnotation') {
+    await productionApi.scriptAnnotations.create(item.payload.data); // clientId makes the re-send idempotent
   }
 }
 
@@ -99,7 +101,14 @@ export function useOfflineSync(onSynced?: () => void) {
     return id;
   }, [refresh]);
 
+  const queueScriptAnnotation = useCallback(async (data: any, label: string) => {
+    const id = cuidLike();
+    await enqueue({ id, kind: 'scriptAnnotation', payload: { data: { ...data, clientId: id } }, label, status: 'pending', createdAt: Date.now() });
+    await refresh();
+    return id;
+  }, [refresh]);
+
   const dismissError = useCallback(async (id: string) => { await dequeue(id); await refresh(); }, [refresh]);
 
-  return { online, pending, errors, syncing, flush, refresh, queuePetty, queueLocation, queueScoutSubmission, dismissError };
+  return { online, pending, errors, syncing, flush, refresh, queuePetty, queueLocation, queueScoutSubmission, queueScriptAnnotation, dismissError };
 }

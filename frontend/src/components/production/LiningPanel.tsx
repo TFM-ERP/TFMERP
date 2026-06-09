@@ -1,0 +1,175 @@
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import { productionApi } from '@/lib/api';
+import { Clapperboard, X, Plus, Trash2, Loader2, CircleDot, Timer, Flag, Coins } from 'lucide-react';
+import { Btn, Chip } from './ui';
+
+const inp = 'rounded-lg border border-slate-200 px-2 py-1 text-xs focus:border-slate-900 outline-none';
+const money = (n: any, c = 'AED') => `${c} ${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+const TAKE_TONE: Record<string, string> = { OK: 'slate', REJECT: 'risk', CIRCLE: 'money' };
+
+/**
+ * SYS-13 · D6 — Lining & Hot Cost. Log coverage + takes per scene (the digital tramline record),
+ * wrap takes to stamp out-times, and watch the live Hot Cost monitor → push the day's accrual.
+ */
+export default function LiningPanel({ projectId, revision, onClose }: { projectId: string; revision: any; onClose: () => void }) {
+  const scenes = revision?.scenes || [];
+  const [sceneId, setSceneId] = useState(scenes[0]?.id || '');
+  const [coverage, setCoverage] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [cov, setCov] = useState<any>({ slate: '', cameraSetup: 'A_CAM', description: '', isOffScreen: false });
+
+  // Hot Cost monitor
+  const [hc, setHc] = useState<any>({ callTime: '06:00', targetWrap: '19:00', actualWrap: '', shootDate: '' });
+  const [calc, setCalc] = useState<any>(null);
+  const [accruals, setAccruals] = useState<any[]>([]);
+
+  const load = useCallback(() => {
+    setLoading(true);
+    productionApi.lining.list(revision.id).then((r) => setCoverage(Array.isArray(r.data) ? r.data : [])).finally(() => setLoading(false));
+    productionApi.lining.accruals(projectId).then((r) => setAccruals(Array.isArray(r.data) ? r.data : []));
+  }, [revision.id, projectId]);
+  useEffect(() => { load(); }, [load]);
+
+  const sceneCoverage = coverage.filter((c) => c.sceneId === sceneId);
+
+  const addCoverage = async () => {
+    if (!sceneId) return;
+    await productionApi.lining.addCoverage(sceneId, cov);
+    setCov({ slate: '', cameraSetup: 'A_CAM', description: '', isOffScreen: false }); load();
+  };
+  const removeCoverage = async (id: string) => { await productionApi.lining.removeCoverage(id); load(); };
+  const addTake = async (coverageId: string) => { await productionApi.lining.addTake(coverageId, {}); load(); };
+  const setTakeStatus = async (id: string, status: string) => { await productionApi.lining.updateTake(id, { status }); load(); };
+  const wrapTake = async (id: string) => { await productionApi.lining.wrapTake(id); load(); };
+  const removeTake = async (id: string) => { await productionApi.lining.removeTake(id); load(); };
+
+  const compute = useCallback(async () => {
+    const r = await productionApi.lining.hotCost(projectId, hc);
+    setCalc(r.data);
+  }, [projectId, hc]);
+  useEffect(() => { compute(); }, [compute]);
+
+  const push = async () => {
+    await productionApi.lining.pushHotCost(projectId, { ...hc, force: true });
+    productionApi.lining.accruals(projectId).then((r) => setAccruals(r.data || []));
+    alert('Accrual pushed to Hot Cost.');
+  };
+  const removeAccrual = async (id: string) => { await productionApi.lining.removeAccrual(id); productionApi.lining.accruals(projectId).then((r) => setAccruals(r.data || [])); };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="border-b border-slate-100 px-5 py-3 flex items-center justify-between sticky top-0 bg-white">
+          <h2 className="font-semibold text-sm inline-flex items-center gap-2"><Clapperboard size={16} /> Lining & Hot Cost — {revision?.revisionLabel}</h2>
+          <button onClick={onClose}><X size={18} /></button>
+        </div>
+
+        <div className="p-5 grid grid-cols-1 lg:grid-cols-2 gap-5">
+          {/* ── Lining (coverage + takes) ── */}
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <select className={`${inp} flex-1`} value={sceneId} onChange={(e) => setSceneId(e.target.value)}>
+                {scenes.map((s: any) => <option key={s.id} value={s.id}>Sc {s.sceneNumber || '•'} — {s.slugline}</option>)}
+              </select>
+            </div>
+
+            {/* add coverage */}
+            <div className="rounded-xl border border-slate-200 p-2.5 mb-3 space-y-2">
+              <div className="grid grid-cols-3 gap-1.5">
+                <input className={inp} placeholder="Slate" value={cov.slate} onChange={(e) => setCov({ ...cov, slate: e.target.value })} />
+                <input className={inp} placeholder="Camera (A_CAM)" value={cov.cameraSetup} onChange={(e) => setCov({ ...cov, cameraSetup: e.target.value })} />
+                <input className={inp} placeholder="Desc (CU Jane)" value={cov.description} onChange={(e) => setCov({ ...cov, description: e.target.value })} />
+              </div>
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] text-slate-500 inline-flex items-center gap-1.5"><input type="checkbox" checked={cov.isOffScreen} onChange={(e) => setCov({ ...cov, isOffScreen: e.target.checked })} /> Off-screen (wavy tramline)</label>
+                <Btn variant="secondary" onClick={addCoverage}><Plus size={12} /> Add coverage</Btn>
+              </div>
+            </div>
+
+            {loading ? <Loader2 className="animate-spin text-slate-300 mx-auto my-6" /> : sceneCoverage.length === 0 ? (
+              <p className="text-xs text-slate-400">No coverage logged for this scene yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {sceneCoverage.map((c) => (
+                  <div key={c.id} className="rounded-xl border border-slate-200 p-2.5">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <Chip tone="slate">Slate {c.slate || '—'}</Chip>
+                      <span className="text-xs text-slate-500">{c.cameraSetup} · {c.description}</span>
+                      {c.isOffScreen && <span className="text-[10px] text-slate-400">off-screen</span>}
+                      <div className="ml-auto flex items-center gap-1.5">
+                        <button onClick={() => addTake(c.id)} className="text-[11px] text-slate-500 hover:text-slate-900 inline-flex items-center gap-0.5"><Plus size={11} /> take</button>
+                        <button onClick={() => removeCoverage(c.id)} className="text-slate-300 hover:text-rose-500"><Trash2 size={13} /></button>
+                      </div>
+                    </div>
+                    {(c.takes || []).length > 0 && (
+                      <div className="space-y-1">
+                        {c.takes.map((t: any) => (
+                          <div key={t.id} className="flex items-center gap-2 text-xs">
+                            <span className="w-12 text-slate-500">Take {t.takeNumber}</span>
+                            <button onClick={() => setTakeStatus(t.id, 'CIRCLE')} title="Circle (print)" className={t.status === 'CIRCLE' ? 'text-emerald-600' : 'text-slate-300 hover:text-emerald-600'}><CircleDot size={14} /></button>
+                            <select className={inp} value={t.status} onChange={(e) => setTakeStatus(t.id, e.target.value)}>
+                              <option value="OK">OK</option><option value="REJECT">Reject</option><option value="CIRCLE">Circle</option>
+                            </select>
+                            <span className="text-slate-400 flex-1">{t.inAt || '—'} → {t.outAt || (t.wrapTimestamp ? new Date(t.wrapTimestamp).toTimeString().slice(0, 5) : '…')}</span>
+                            {!t.wrapTimestamp && <button onClick={() => wrapTake(t.id)} className="text-[11px] text-slate-500 hover:text-slate-900 inline-flex items-center gap-0.5"><Flag size={11} /> wrap</button>}
+                            <button onClick={() => removeTake(t.id)} className="text-slate-300 hover:text-rose-500"><Trash2 size={12} /></button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* ── Hot Cost monitor ── */}
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-2 inline-flex items-center gap-1"><Timer size={12} /> Hot Cost monitor</p>
+            <div className="rounded-2xl border border-slate-200 p-3 space-y-2">
+              <div className="grid grid-cols-3 gap-1.5">
+                <div><label className="text-[10px] text-slate-400">Call</label><input className={`${inp} w-full`} value={hc.callTime} onChange={(e) => setHc({ ...hc, callTime: e.target.value })} placeholder="06:00" /></div>
+                <div><label className="text-[10px] text-slate-400">Target wrap</label><input className={`${inp} w-full`} value={hc.targetWrap} onChange={(e) => setHc({ ...hc, targetWrap: e.target.value })} placeholder="19:00" /></div>
+                <div><label className="text-[10px] text-slate-400">Actual wrap</label><input className={`${inp} w-full`} value={hc.actualWrap} onChange={(e) => setHc({ ...hc, actualWrap: e.target.value })} placeholder="19:42" /></div>
+              </div>
+              {calc && (
+                <>
+                  <div className="flex items-center gap-2 pt-1">
+                    <Chip tone={calc.otMinutes > 0 ? 'risk' : 'money'}>{calc.otMinutes > 0 ? `+${calc.otMinutes} min OT` : 'On schedule'}</Chip>
+                    <span className="text-[11px] text-slate-400">{calc.crewCount} crew · avg {money(calc.avgDayRate, calc.currency)}/day</span>
+                  </div>
+                  <div className="text-xs space-y-1 border-t border-slate-100 pt-2">
+                    <div className="flex justify-between"><span className="text-slate-500">Base payroll</span><span className="font-medium">{money(calc.baseAmount, calc.currency)}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Overtime (×1.5)</span><span className="font-medium text-amber-700">{money(calc.otAmount, calc.currency)}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Meal penalty ({calc.forcedCallCount} heads)</span><span className="font-medium text-amber-700">{money(calc.mealPenaltyAmount, calc.currency)}</span></div>
+                    <div className="flex justify-between border-t border-slate-100 pt-1"><span className="font-semibold">Day total</span><span className="font-semibold">{money(calc.total, calc.currency)}</span></div>
+                  </div>
+                  <Btn variant="primary" onClick={push} className="w-full justify-center"><Coins size={13} /> Push accrual to Hot Cost</Btn>
+                </>
+              )}
+            </div>
+
+            {accruals.length > 0 && (
+              <div className="mt-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-1.5">Pushed accruals</p>
+                <div className="space-y-1.5">
+                  {accruals.map((a) => (
+                    <div key={a.id} className="flex items-center gap-2 text-xs rounded-lg border border-slate-200 px-2.5 py-1.5">
+                      <Chip tone="money">{a.status}</Chip>
+                      <span className="text-slate-500">{a.shootDate ? new Date(a.shootDate).toLocaleDateString('en-GB') : new Date(a.createdAt).toLocaleDateString('en-GB')}</span>
+                      <span className="text-slate-400">+{a.otMinutes}m OT</span>
+                      <span className="ml-auto font-medium">{money(Number(a.baseAmount) + Number(a.otAmount) + Number(a.mealPenaltyAmount), a.currency)}</span>
+                      <button onClick={() => removeAccrual(a.id)} className="text-slate-300 hover:text-rose-500"><Trash2 size={12} /></button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

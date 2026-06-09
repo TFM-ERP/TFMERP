@@ -195,4 +195,27 @@ export class MailService {
     await this.sendMail(recipients, pack.title || 'Crew Clearance Pack', html, pack.projectId || undefined);
     return { sent: recipients.split(',').filter(Boolean).length, recipients };
   }
+
+  /**
+   * SYS-13 · D5 — email each recipient their watermarked sides. Each gets only their own
+   * personalised PDF link (leak-tracing); recipients with no email are skipped.
+   */
+  async sendSides(jobId: string) {
+    const job = await this.prisma.sidesJob.findUnique({ where: { id: jobId } });
+    if (!job) throw new NotFoundException('Sides job not found');
+    const project = await this.prisma.productionProject.findUnique({ where: { id: job.projectId }, select: { title: true } });
+    const date = job.shootDate ? new Date(job.shootDate).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' }) : '';
+    let sent = 0;
+    for (const r of (job.recipients as any[]) || []) {
+      if (!r.email || !r.outputUrl) continue;
+      const link = `${APP_URL.replace(/:3000$/, ':3001')}${r.outputUrl}`; // served by the API
+      const html = shell(`Sides — ${project?.title || ''}${date ? ` · ${date}` : ''}`,
+        `<p>Hi ${r.name || ''},</p><p>Your sides for the next shoot day are ready. This copy is watermarked to you and for your eyes only — please do not forward.</p>`,
+        link, 'Open your sides (PDF)');
+      await this.sendMail(r.email, `Sides — ${project?.title || ''}${date ? ` · ${date}` : ''}`, html, job.projectId);
+      sent++;
+    }
+    await this.prisma.sidesJob.update({ where: { id: jobId }, data: { status: 'SHARED' } });
+    return { sent };
+  }
 }
