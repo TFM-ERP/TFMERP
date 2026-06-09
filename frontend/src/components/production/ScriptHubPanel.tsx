@@ -8,10 +8,11 @@ import ScriptViewer from './ScriptViewer';
 import AnnotationOverlay, { type Tool } from './AnnotationOverlay';
 import SidesGenerator from './SidesGenerator';
 import LiningPanel from './LiningPanel';
+import ProcurementStagingPanel from './ProcurementStagingPanel';
 import { useOfflineSync } from '@/lib/useOfflineSync';
 import { cacheRevision, getCachedRevision, mergeCachedRevision, fetchPdfBytes } from '@/lib/script-offline';
 import { assetUrl } from '@/lib/api';
-import { Wifi, WifiOff, Download } from 'lucide-react';
+import { Wifi, WifiOff, Download, ShoppingCart } from 'lucide-react';
 
 const TOOLS: { key: Tool; icon: any; label: string }[] = [
   { key: 'CURSOR', icon: MousePointer2, label: 'Select' },
@@ -48,6 +49,7 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
   const [settingsLayer, setSettingsLayer] = useState<any>(null);
   const [sidesOpen, setSidesOpen] = useState(false);
   const [liningOpen, setLiningOpen] = useState(false);
+  const [procOpen, setProcOpen] = useState(false);
   const [shares, setShares] = useState<any[]>([]);
   const [templates, setTemplates] = useState<any[]>([]);
   const [shareDraft, setShareDraft] = useState<any>({ templateKey: '', department: '', access: 'VIEW' });
@@ -260,6 +262,7 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
             )}
             {activeRev && <Btn variant="secondary" onClick={exportPdf} disabled={exporting} title="Export your visible layers as a watermarked PDF">{exporting ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />} Export</Btn>}
             {activeRev && <Btn variant="secondary" onClick={() => setLiningOpen(true)} title="Script-supervisor lining + Hot Cost"><Clapperboard size={13} /> Lining</Btn>}
+            {activeRev && <Btn variant="secondary" onClick={() => setProcOpen(true)} title="Stage prop tags into budget lines"><ShoppingCart size={13} /> Procurement</Btn>}
             {activeRev && <Btn variant="secondary" onClick={() => setSidesOpen(true)} title="Generate sides for a shoot day"><Scissors size={13} /> Sides</Btn>}
             <input ref={fileRef} type="file" accept="application/pdf" className="hidden" onChange={(e) => uploadRevision(e.target.files?.[0] || null)} />
             <Btn variant="primary" onClick={() => fileRef.current?.click()} disabled={uploading}>{uploading ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />} Upload revision</Btn>
@@ -267,6 +270,7 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
         </div>
         {sidesOpen && activeRev && <SidesGenerator projectId={projectId} revision={activeRev} onClose={() => setSidesOpen(false)} />}
         {liningOpen && activeRev && <LiningPanel projectId={projectId} revision={activeRev} onClose={() => setLiningOpen(false)} />}
+        {procOpen && activeRev && <ProcurementStagingPanel projectId={projectId} revision={activeRev} onClose={() => setProcOpen(false)} />}
 
         {activeRev ? (
           <>

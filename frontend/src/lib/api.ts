@@ -594,6 +594,11 @@ export const productionApi = {
     placeOrphan: (id: string, data: any) => api.put(`/production/script-annotations/orphans/${id}/place`, data),
     compare: (revA: string, revB: string) => api.get(`/production/script-annotations/compare/${revA}/${revB}`),
     exportPdf: (revisionId: string, layerIds: string[]) => api.post(`/production/script-annotations/export/${revisionId}`, { layerIds }),
+    procAccounts: (projectId: string) => api.get(`/production/script-annotations/procurement/accounts/${projectId}`),
+    procStaging: (revisionId: string) => api.get(`/production/script-annotations/procurement/staging/${revisionId}`),
+    procStage: (annotationId: string, data: any) => api.post(`/production/script-annotations/procurement/${annotationId}/stage`, data),
+    procConfirm: (annotationId: string) => api.post(`/production/script-annotations/procurement/${annotationId}/confirm`),
+    procUnstage: (annotationId: string) => api.delete(`/production/script-annotations/procurement/${annotationId}/stage`),
   },
   sides: {
     list: (projectId: string) => api.get(`/production/sides/project/${projectId}`),
@@ -1438,6 +1443,22 @@ export const scoutingApi = {
 };
 
 // ── Location assessment: tech recces + weighted evaluation (SYS-07 slice 3) ───
+// SYS-13 · D10 — email-OTP PII reveal
+export const otpApi = {
+  request: (data: { entityType: string; entityId: string; fields: string[] }) => api.post('/security/otp/request', data),
+  verify: (challengeId: string, code: string) => api.post('/security/otp/verify', { challengeId, code }),
+};
+
+// Personal Identity & Security — self-service account area
+export const accountApi = {
+  profile:       () => api.get('/account/profile'),
+  updateProfile: (data: { preferredName?: string; legalName?: string }) => api.patch('/account/profile', data),
+  uploadAvatar:  (file: File) => { const fd = new FormData(); fd.append('file', file); return api.post('/account/avatar', fd, { headers: { 'Content-Type': 'multipart/form-data' } }); },
+  sessions:      () => api.get('/account/sessions'),
+  revokeSession: (id: string) => api.delete(`/account/sessions/${id}`),
+  revokeOthers:  () => api.delete('/account/sessions/others'),
+};
+
 export const assessmentApi = {
   recces:       (locationId: string) => api.get(`/location-assessment/recces/${locationId}`),
   createRecce:  (locationId: string, data: any) => api.post(`/location-assessment/recces/${locationId}`, data),

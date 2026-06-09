@@ -167,6 +167,10 @@ model User {
   lastLoginAt      DateTime?
   approvalLimit    Decimal?  @db.Decimal(15, 2)
   avatarUrl        String?
+  legalName         String?  // full legal name (HR/Finance-of-record); preferredName is the display name
+  preferredName     String?
+  legalNameProposed String?  // a self-service legal-name change parked here until HR/Finance verify docs
+  legalNamePending  Boolean  @default(false) // true while legalNameProposed awaits sign-off
 
   // 1:1 link to the HR employee record (single source of truth for personnel data)
   employeeId       String?   @unique
@@ -186,6 +190,7 @@ model User {
   createdBookings    RentalBooking[] @relation("BookingCreatedBy")
   damageReports      DamageReport[]  @relation("DamageReportedBy")
   loginHistory       LoginHistory[]
+  sessions           UserSession[]
   auditLogs          AuditLog[]
   statusChanges      StatusLog[]     @relation("StatusChangedBy")
   crewLinks          CrewMember[]    @relation("CrewParentUser") // crew rows mapped to this ERP user
@@ -202,6 +207,20 @@ model User {
   breakdownSharesTo   BreakdownShare[] @relation("BreakdownShareTo")
 
   @@map("users")
+}
+
+// â”€â”€ Active sessions â€” one row per signed-in device; revoking deletes the row â†’ that token 401s â”€â”€
+model UserSession {
+  id           String    @id @default(cuid()) // == the `sid` claim baked into the JWT
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceInfo   String?   // raw User-Agent
+  ipAddress    String?
+  lastSeenAt   DateTime  @default(now())
+  createdAt    DateTime  @default(now())
+
+  @@index([userId])
+  @@map("user_sessions")
 }
 
 // â”€â”€ Breakdown sharing â€” in-app "share to selected project users" (read-only) â”€â”€
@@ -272,6 +291,26 @@ model LoginHistory {
   createdAt DateTime @default(now())
 
   @@map("login_history")
+}
+
+// -- SYS-13 . D10 -- Email-OTP challenge for revealing masked PII (no SMS gateway) --
+model OtpChallenge {
+  id            String    @id @default(cuid())
+  purpose       String    @default("PII_REVEAL")
+  entityType    String    // employee | crewMember
+  entityId      String
+  fields        String[]  @default([]) // requested field keys (whitelisted server-side)
+  target        String    // email the code was sent to (returned masked)
+  codeHash      String
+  expiresAt     DateTime
+  attempts      Int       @default(0)
+  maxAttempts   Int       @default(5)
+  verifiedAt    DateTime?
+  requestedById String?
+  createdAt     DateTime  @default(now())
+
+  @@index([entityType, entityId])
+  @@map("otp_challenges")
 }
 
 // â”€â”€ Core: Clients (CRM) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -3691,6 +3730,10 @@ model BudgetLineItem {
 
   notes String?
 
+  // SYS-13 D9 — prop → draft budget line bridge (staged from a script TAG annotation)
+  isDraft            Boolean @default(false)
+  sourceAnnotationId String?
+
   contracts ProjectContract[]
 
   @@map("budget_line_items")
@@ -3700,6 +3743,7 @@ enum LineItemOrigin {
   MANUAL              // typed by a user
   AI_GENERATED        // produced by an AI assistant
   SCRIPT_IMPORT       // pulled from an imported script
+  SCRIPT_TAG          // staged from a script prop/tag annotation (SYS-13 D9)
   AUTO_BREAKDOWN      // generated from the scene breakdown
   MANUAL_OVERRIDE     // started as AI/import, then a human changed it (original kept in aiSuggested* fields)
   MOVIE_MAGIC_IMPORT  // imported from a Movie Magic Budgeting (.mmb/.xml/.csv) file

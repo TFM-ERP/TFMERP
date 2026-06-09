@@ -26,7 +26,7 @@ export class AuthService {
     return user;
   }
 
-  async login(dto: LoginDto, ipAddress?: string) {
+  async login(dto: LoginDto, ipAddress?: string, userAgent?: string) {
     const user = await this.validateUser(dto.email, dto.password);
 
     // 2FA check
@@ -54,7 +54,12 @@ export class AuthService {
       data: { lastLoginAt: new Date() },
     });
 
-    const payload = { sub: user.id, email: user.email, role: user.role };
+    // Mint an active-session row; its id rides in the JWT as `sid`, so revoking the row 401s the token.
+    const session = await this.prisma.userSession.create({
+      data: { userId: user.id, ipAddress, deviceInfo: userAgent || null },
+    });
+
+    const payload = { sub: user.id, email: user.email, role: user.role, sid: session.id };
     return {
       access_token: this.jwtService.sign(payload),
       user: {

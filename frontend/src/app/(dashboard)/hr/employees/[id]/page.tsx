@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import EmailInput from '@/components/EmailInput';
 import PhoneInput from '@/components/PhoneInput';
+import PiiReveal, { maskPii } from '@/components/PiiReveal';
 
 type TabKey = 'overview' | 'compliance' | 'payroll' | 'documents' | 'assets' | 'certifications' | 'driver';
 
@@ -261,19 +262,31 @@ export default function EmployeeDetail() {
               <F label="Employment Card Expiry" k="employmentCardExpiryDate" form={form} set={set} type="date" />
             </div>
           ) : (
-            <div className="grid grid-cols-3 gap-y-4 gap-x-6">
-              <View label="Emirates ID" value={emp.emiratesId} />
-              <View label="Emirates ID Expiry" value={emp.emiratesIdExpiry?.slice(0,10)} />
-              <View label="Passport" value={emp.passportNumber} />
-              <View label="Passport Expiry" value={emp.passportExpiry?.slice(0,10)} />
-              <View label="Visa" value={emp.visaNumber} />
-              <View label="Visa Expiry" value={emp.visaExpiry?.slice(0,10)} />
-              <View label="Labour Card #" value={emp.labourCardNumber} />
-              <View label="Work Permit #" value={emp.workPermitNumber} />
-              <View label="Work Permit Expiry" value={emp.workPermitExpiryDate?.slice(0,10)} />
-              <View label="Employment Card #" value={emp.employmentCardNumber} />
-              <View label="Employment Card Expiry" value={emp.employmentCardExpiryDate?.slice(0,10)} />
-            </div>
+            <>
+              <div className="grid grid-cols-3 gap-y-4 gap-x-6">
+                <View label="Emirates ID" value={maskPii(emp.emiratesId)} />
+                <View label="Emirates ID Expiry" value={emp.emiratesIdExpiry?.slice(0,10)} />
+                <View label="Passport" value={maskPii(emp.passportNumber)} />
+                <View label="Passport Expiry" value={emp.passportExpiry?.slice(0,10)} />
+                <View label="Visa" value={maskPii(emp.visaNumber)} />
+                <View label="Visa Expiry" value={emp.visaExpiry?.slice(0,10)} />
+                <View label="Labour Card #" value={emp.labourCardNumber} />
+                <View label="Work Permit #" value={emp.workPermitNumber} />
+                <View label="Work Permit Expiry" value={emp.workPermitExpiryDate?.slice(0,10)} />
+                <View label="Employment Card #" value={emp.employmentCardNumber} />
+                <View label="Employment Card Expiry" value={emp.employmentCardExpiryDate?.slice(0,10)} />
+              </div>
+              <div className="mt-4 max-w-md">
+                <PiiReveal entityType="employee" entityId={id} title="Reveal protected identity & bank details"
+                  fields={[
+                    { key: 'passportNumber', label: 'Passport' },
+                    { key: 'emiratesId', label: 'Emirates ID' },
+                    { key: 'visaNumber', label: 'Visa' },
+                    { key: 'iban', label: 'IBAN' },
+                    { key: 'swiftCode', label: 'SWIFT' },
+                  ]} />
+              </div>
+            </>
           )}
         </div>
       )}
@@ -307,7 +320,7 @@ export default function EmployeeDetail() {
               <View label="Gross (Monthly)" value={`AED ${gross.toLocaleString()}`} />
               <View label="Daily Rate" value={emp.dailyRate ? `AED ${emp.dailyRate.toLocaleString()}` : '—'} />
               <View label="Bank" value={emp.bankName} />
-              <View label="IBAN" value={emp.iban} />
+              <View label="IBAN" value={maskPii(emp.iban)} />
             </div>
           )}
         </div>

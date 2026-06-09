@@ -35,6 +35,8 @@ import { FxModule } from './fx/fx.module';
 import { LaborModule } from './labor/labor.module';
 import { WorkflowModule } from './workflow/workflow.module';
 import { LocationsLibraryModule } from './locations-library/locations-library.module';
+import { OtpModule } from './security/otp.module';
+import { AccountModule } from './account/account.module';
 
 @Module({
   imports: [
@@ -74,6 +76,8 @@ import { LocationsLibraryModule } from './locations-library/locations-library.mo
     LaborModule,
     WorkflowModule,
     LocationsLibraryModule,
+    OtpModule,
+    AccountModule,
   ],
 })
 export class AppModule {}

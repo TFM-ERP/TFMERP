@@ -1,0 +1,34 @@
+feat(account): Personal Identity & Security + Option A grouped sidebar
+
+NAV — master sidebar redesign (Option A)
+- Regroup the module rail into 7 captioned sections (Workspace, Creative &
+  planning, People, Logistics & assets, Finance, Insights, Admin); empty groups
+  auto-hide by permission. Preserves Cmd-K palette, pins/recents, collapse, sub-tabs.
+- Theme-following skin via a `pal` palette: neutral white rail in light mode,
+  charcoal (#0F172A) in dark mode; logo inverts only in dark.
+- Rail search pill opens the command palette.
+- Footer avatar becomes an account menu: Personal identity & security + Sign out.
+- Global identity: rail avatar now renders User.avatarUrl + preferred name,
+  re-pulled on a `tfm:profile-updated` event.
+
+ACCOUNT — Personal Identity & Security (Phase 1: avatar + names + sessions)
+schema
+- User.legalName / preferredName / legalNameProposed / legalNamePending.
+- UserSession model (id == JWT `sid`, deviceInfo, ipAddress, lastSeenAt), cascade.
+backend
+- Login mints a UserSession; its id rides in the JWT as `sid`.
+- JwtStrategy validates the session still exists (revoke -> next request 401);
+  legacy tokens without a sid still accepted. Best-effort lastSeenAt heartbeat.
+- account module: GET/PATCH profile, POST avatar (multer, 5 MB images),
+  GET sessions, DELETE sessions/:id, DELETE sessions/others.
+- Preferred name edits apply instantly; legal-name changes park in
+  legalNameProposed + legalNamePending until HR/Finance clear them
+  (PATCH /account/:userId/legal-name/clear, role-gated to HR/Finance/Admin).
+frontend
+- /account/security page: avatar upload, names (with pending-verification
+  banner), active-sessions list with device/IP/last-seen + revoke / sign-out-others,
+  2FA Phase-2 teaser. accountApi client.
+
+2FA (TOTP) intentionally deferred to Phase 2.
+
+No third-party APIs added.

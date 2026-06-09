@@ -12,7 +12,7 @@ export class AuthController {
   @Post('login')
   @ApiOperation({ summary: 'Login with email + password (+ optional 2FA code)' })
   login(@Body() dto: LoginDto, @Request() req) {
-    return this.authService.login(dto, req.ip);
+    return this.authService.login(dto, req.ip, req.headers?.['user-agent']);
   }
 
   @Get('me')

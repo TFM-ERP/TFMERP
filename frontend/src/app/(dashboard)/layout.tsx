@@ -4,14 +4,14 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   Home, DollarSign, Truck, Building2, Film, Users, BarChart2, Settings, ShieldCheck, Target, Wrench,
-  Search, Plus, Star, ChevronLeft, ChevronRight, ChevronDown,
+  Search, Plus, Star, ChevronLeft, ChevronRight, ChevronDown, ChevronUp,
   LogOut, X, Clock, ArrowRight, Sun, Moon, MapPin, Plane, FileSignature, Clapperboard, BedDouble, Car,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import SetupGate from '@/components/SetupGate';
 import NotificationBell from '@/components/NotificationBell';
 import PwaRegister from '@/components/PwaRegister';
-import { settingsApi, statusApi, permissionsApi } from '@/lib/api';
+import { settingsApi, statusApi, permissionsApi, accountApi, assetUrl } from '@/lib/api';
 
 type Page = { label: string; href: string; divider?: boolean };
 type Module = { key: string; label: string; icon: any; pages: Page[] };
@@ -135,8 +135,16 @@ const MODULES: Module[] = [
   ]},
 ];
 
-const RAIL_PRIMARY = ['home', 'finance', 'crm', 'rentals', 'maintenance', 'partners', 'production', 'locations', 'travel', 'contracts', 'casting', 'accommodation', 'transport', 'hr', 'compliance'];
-const RAIL_SECONDARY = ['reports', 'setup'];
+// Option A — grouped sections (the master sidebar). Ordered; empty groups (by permission) hide.
+const GROUPS: { caption: string; keys: string[] }[] = [
+  { caption: 'Workspace', keys: ['home', 'production'] },
+  { caption: 'Creative & planning', keys: ['casting', 'locations', 'contracts'] },
+  { caption: 'People', keys: ['hr', 'travel', 'partners'] },
+  { caption: 'Logistics & assets', keys: ['accommodation', 'transport', 'rentals', 'maintenance'] },
+  { caption: 'Finance', keys: ['finance', 'compliance'] },
+  { caption: 'Insights', keys: ['crm', 'reports'] },
+  { caption: 'Admin', keys: ['setup'] },
+];
 // Sections that don't have their own permission key piggyback on another module's access.
 const PERM_ALIAS: Record<string, string> = { maintenance: 'rentals', locations: 'production', travel: 'production', contracts: 'production', casting: 'production', accommodation: 'production', transport: 'production' };
 
@@ -148,8 +156,6 @@ const NEW_ROUTES: Record<string, { label: string; href: string }> = {
 };
 
 const GOLD = '#0f172a';
-const RAIL_BG = '#2B2E31';
-const RAIL_BORDER = '#3D4045';
 
 const API_ROOT = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1').replace('/api/v1', '');
 const fileSrc = (v?: string) => (!v ? '' : (v.startsWith('http') || v.startsWith('data:')) ? v : `${API_ROOT}${v}`);
@@ -179,7 +185,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   const router = useRouter();
 
-  const [user, setUser] = useState<{ fullName: string; role: string } | null>(null);
+  const [user, setUser] = useState<{ fullName: string; role: string; avatarUrl?: string | null; preferredName?: string | null } | null>(null);
   const [company, setCompany] = useState<{ name?: string; logoUrl?: string } | null>(null);
   const [expanded, setExpanded] = useState(true);
   const [showAll, setShowAll] = useState(false);
@@ -190,6 +196,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const [acctOpen, setAcctOpen] = useState(false);
   // Dark mode — class on <html>, persisted; applied in an effect so SSR markup never differs
   const [darkMode, setDarkMode] = useState(false);
   useEffect(() => {
@@ -234,6 +241,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       setCounts(c);
     }).catch(() => {});
   }, [router]);
+
+  // Global identity — hydrate avatar + preferred name, and re-pull when the Account page edits them
+  useEffect(() => {
+    const sync = () => accountApi.profile()
+      .then(r => setUser({
+        fullName: r.data.fullName,
+        role: r.data.role,
+        avatarUrl: r.data.avatarUrl,
+        preferredName: r.data.preferredName,
+      }))
+      .catch(() => {});
+    sync();
+    window.addEventListener('tfm:profile-updated', sync);
+    return () => window.removeEventListener('tfm:profile-updated', sync);
+  }, []);
 
   // track recents + last tab on navigation
   useEffect(() => {
@@ -294,29 +316,41 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const RAIL_W = expanded ? 220 : 60;
   const logoSrc = fileSrc(company?.logoUrl);
 
+  // Theme-following rail palette — neutral in light, charcoal brand in dark.
+  const pal = darkMode ? {
+    bg: '#0f172a', border: 'rgba(255,255,255,0.08)', cap: '#5b6b85', brand: '#f1f5f9', brandSub: '#5b6b85',
+    item: '#94a3b8', itemHover: '#1e293b', itemHoverText: '#f1f5f9', activeBg: '#1e293b', activeText: '#ffffff',
+    searchBg: '#0b1322', searchBorder: 'rgba(255,255,255,0.09)', searchText: '#5b6b85',
+    footerText: '#f1f5f9', footerSub: '#5b6b85', avBg: '#1e293b', avText: '#ffffff', menuBg: '#1e293b',
+  } : {
+    bg: '#ffffff', border: '#e8eaed', cap: '#94a3b8', brand: '#0f172a', brandSub: '#94a3b8',
+    item: '#475569', itemHover: '#f1f5f9', itemHoverText: '#0f172a', activeBg: '#e6f1fb', activeText: '#185fa5',
+    searchBg: '#ffffff', searchBorder: '#e8eaed', searchText: '#94a3b8',
+    footerText: '#0f172a', footerSub: '#94a3b8', avBg: '#e6f1fb', avText: '#185fa5', menuBg: '#ffffff',
+  };
+
   const railBtn = (m: Module) => {
     const on = m.key === activeMkey;
     const badge = badges[m.key];
     return (
       <button key={m.key} onClick={() => goModule(m)} title={m.label} aria-label={m.label}
-        className="relative flex items-center rounded-md mx-1.5 my-0.5 transition-all"
+        className="relative flex items-center rounded-md mx-1.5 my-0.5 transition-colors"
         style={{
-          padding: expanded ? '9px 11px' : '10px 0',
+          padding: expanded ? '7px 10px' : '10px 0',
           justifyContent: expanded ? 'flex-start' : 'center',
           gap: 10,
-          background: on ? 'rgba(195,165,110,0.18)' : 'transparent',
-          color: on ? GOLD : '#b0b3b8',
-          borderLeft: `2px solid ${on ? GOLD : 'transparent'}`,
-          fontWeight: on ? 600 : 400,
+          background: on ? pal.activeBg : 'transparent',
+          color: on ? pal.activeText : pal.item,
+          fontWeight: on ? 500 : 400,
         }}
-        onMouseEnter={e => { if (!on) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)'; }}
-        onMouseLeave={e => { if (!on) (e.currentTarget as HTMLElement).style.background = ''; }}
+        onMouseEnter={e => { if (!on) { (e.currentTarget as HTMLElement).style.background = pal.itemHover; (e.currentTarget as HTMLElement).style.color = pal.itemHoverText; } }}
+        onMouseLeave={e => { if (!on) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = pal.item; } }}
       >
-        <m.icon size={18} style={{ opacity: on ? 1 : 0.8, flexShrink: 0 }} />
+        <m.icon size={18} style={{ flexShrink: 0 }} />
         {expanded && <span className="text-[13px] truncate">{m.label}</span>}
         {badge > 0 && (
           <span className="absolute flex items-center justify-center text-[9px] font-bold text-white rounded-full"
-            style={{ top: 5, right: expanded ? 9 : 7, minWidth: 15, height: 15, padding: '0 3px', background: '#e24b4a' }}>
+            style={{ top: 4, right: expanded ? 8 : 6, minWidth: 15, height: 15, padding: '0 3px', background: '#e24b4a' }}>
             {badge}
           </span>
         )}
@@ -336,49 +370,84 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: '#F4F5F7' }}>
 
-      {/* ── Rail ── */}
-      <aside className="flex flex-col shrink-0 transition-all" style={{ width: RAIL_W, background: RAIL_BG, borderRight: `1px solid ${RAIL_BORDER}` }}>
-        {/* Logo + toggle */}
-        <div className="flex items-center gap-2 px-2.5 py-3" style={{ borderBottom: `1px solid ${RAIL_BORDER}`, justifyContent: expanded ? 'space-between' : 'center' }}>
+      {/* ── Rail (Option A — grouped, theme-following) ── */}
+      <aside className="flex flex-col shrink-0 transition-all" style={{ width: RAIL_W, background: pal.bg, borderRight: `1px solid ${pal.border}` }}>
+        {/* Brand header */}
+        <div className="flex items-center gap-2 px-2.5 py-3" style={{ borderBottom: `1px solid ${pal.border}`, justifyContent: expanded ? 'space-between' : 'center' }}>
           {expanded ? (
             logoSrc
               ? <div className="bg-white rounded-md px-2 py-1.5 flex items-center justify-center flex-1 mr-1"><img src={logoSrc} alt={company?.name || 'Company'} className="h-8 w-auto max-w-[140px] object-contain" /></div>
-              : <img src="/tfm-logo.svg" alt="Company" className="h-7 w-auto brightness-0 invert opacity-90 ml-1" />
+              : <img src="/tfm-logo.svg" alt="Company" className="h-7 w-auto ml-1" style={{ filter: darkMode ? 'brightness(0) invert(1)' : 'none', opacity: 0.9 }} />
           ) : (
             logoSrc
               ? <div className="bg-white rounded-md p-1 flex items-center justify-center"><img src={logoSrc} alt="" className="h-6 w-6 object-contain" /></div>
-              : <img src="/tfm-logo.svg" alt="" className="h-6 w-auto brightness-0 invert opacity-90" />
+              : <img src="/tfm-logo.svg" alt="" className="h-6 w-auto" style={{ filter: darkMode ? 'brightness(0) invert(1)' : 'none', opacity: 0.9 }} />
           )}
-          <button onClick={toggleExpanded} aria-label="Toggle navigation" className="text-[#9fb0d0] hover:text-white shrink-0" style={{ color: '#8a8d90' }}>
+          <button onClick={toggleExpanded} aria-label="Toggle navigation" className="shrink-0" style={{ color: pal.searchText }}>
             {expanded ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}
           </button>
         </div>
 
-        {/* Modules */}
-        <nav className="flex-1 overflow-y-auto py-2" style={{ scrollbarWidth: 'none' }}>
-          {RAIL_PRIMARY.filter(canSee).map(k => railBtn(MODULES.find(m => m.key === k)!))}
-          <div style={{ height: 1, background: RAIL_BORDER, margin: '8px 14px' }} />
-          {RAIL_SECONDARY.filter(canSee).map(k => railBtn(MODULES.find(m => m.key === k)!))}
+        {/* Search (opens ⌘K palette) */}
+        <div className="px-1.5 pt-2">
+          <button onClick={() => { setPaletteOpen(true); setQuery(''); }} aria-label="Search"
+            className="flex items-center gap-2 w-full rounded-md transition-colors"
+            style={{ padding: expanded ? '7px 9px' : '9px 0', justifyContent: expanded ? 'flex-start' : 'center', border: `1px solid ${pal.searchBorder}`, background: pal.searchBg, color: pal.searchText }}>
+            <Search size={15} className="shrink-0" />
+            {expanded && <><span className="text-[12.5px]">Search…</span><span className="ml-auto text-[10.5px] rounded px-1.5 py-0.5" style={{ border: `1px solid ${pal.searchBorder}` }}>⌘K</span></>}
+          </button>
+        </div>
+
+        {/* Grouped modules */}
+        <nav className="flex-1 overflow-y-auto py-1.5" style={{ scrollbarWidth: 'none' }}>
+          {GROUPS.map(g => {
+            const keys = g.keys.filter(canSee);
+            if (!keys.length) return null;
+            return (
+              <div key={g.caption}>
+                {expanded && <div className="px-3.5 pt-3 pb-1 text-[10.5px]" style={{ color: pal.cap, letterSpacing: '.04em' }}>{g.caption}</div>}
+                {keys.map(k => railBtn(MODULES.find(m => m.key === k)!))}
+              </div>
+            );
+          })}
         </nav>
 
-        {/* Footer: help + user */}
-        <div className="px-1.5 py-2" style={{ borderTop: `1px solid ${RAIL_BORDER}` }}>
-          <button onClick={handleLogout} title="Log out" aria-label="Log out"
-            className="flex items-center w-full rounded-md transition-all"
-            style={{ padding: expanded ? '8px 9px' : '9px 0', gap: 9, justifyContent: expanded ? 'flex-start' : 'center', color: '#b0b3b8' }}
-            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
-            onMouseLeave={e => (e.currentTarget.style.background = '')}
-          >
-            <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0" style={{ background: 'rgba(195,165,110,0.25)', color: GOLD }}>
-              {user?.fullName?.[0]?.toUpperCase() || 'A'}
+        {/* Account footer + menu */}
+        <div className="relative px-1.5 py-2" style={{ borderTop: `1px solid ${pal.border}` }}>
+          {acctOpen && expanded && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setAcctOpen(false)} />
+              <div className="absolute z-50 left-1.5 right-1.5 rounded-md overflow-hidden" style={{ bottom: 'calc(100% - 2px)', background: pal.menuBg, border: `1px solid ${pal.border}` }}>
+                <Link href="/account/security" onClick={() => setAcctOpen(false)} className="flex items-center gap-2.5 px-3 py-2 text-[12.5px]" style={{ color: pal.footerText }}
+                  onMouseEnter={e => (e.currentTarget.style.background = pal.itemHover)} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                  <ShieldCheck size={15} /> Personal identity &amp; security
+                </Link>
+                <div style={{ height: 1, background: pal.border }} />
+                <button onClick={handleLogout} className="flex items-center gap-2.5 w-full text-left px-3 py-2 text-[12.5px]" style={{ color: '#e24b4a' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = pal.itemHover)} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                  <LogOut size={15} /> Sign out
+                </button>
+              </div>
+            </>
+          )}
+          <button onClick={() => expanded ? setAcctOpen(o => !o) : router.push('/account/security')} aria-label="Account menu"
+            className="flex items-center w-full rounded-md transition-colors"
+            style={{ padding: expanded ? '7px 9px' : '9px 0', gap: 9, justifyContent: expanded ? 'flex-start' : 'center' }}
+            onMouseEnter={e => (e.currentTarget.style.background = pal.itemHover)} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+            <div className="w-7 h-7 rounded-full overflow-hidden flex items-center justify-center text-xs font-bold shrink-0" style={{ background: pal.avBg, color: pal.avText }}>
+              {user?.avatarUrl
+                ? <img src={assetUrl(user.avatarUrl)} alt="" className="w-full h-full object-cover" />
+                : (user?.preferredName || user?.fullName)?.[0]?.toUpperCase() || 'A'}
             </div>
             {expanded && (
-              <div className="text-left flex-1 min-w-0">
-                <p className="text-[12px] font-medium truncate" style={{ color: '#e0d5c5' }}>{user?.fullName || 'Administrator'}</p>
-                <p className="text-[10px] truncate" style={{ color: '#737679' }}>{(user?.role || 'SYSTEM_ADMIN').replace(/_/g, ' ')}</p>
-              </div>
+              <>
+                <div className="text-left flex-1 min-w-0">
+                  <p className="text-[12px] font-medium truncate" style={{ color: pal.footerText }}>{user?.preferredName || user?.fullName || 'Administrator'}</p>
+                  <p className="text-[10px] truncate" style={{ color: pal.footerSub }}>{(user?.role || 'SYSTEM_ADMIN').replace(/_/g, ' ')}</p>
+                </div>
+                <ChevronUp size={14} className="shrink-0" style={{ color: pal.footerSub, transform: acctOpen ? 'rotate(180deg)' : 'none' }} />
+              </>
             )}
-            {expanded && <LogOut size={13} className="shrink-0 group-hover:text-red-400" style={{ color: '#6a6d70' }} />}
           </button>
         </div>
       </aside>
