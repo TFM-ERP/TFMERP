@@ -77,6 +77,8 @@ export class PronunciationController {
 export class RenderController {
   constructor(private render: RenderService) {}
   @Post('render/estimate/:revisionId') estimate(@Param('revisionId') id: string, @Body() b: any) { return this.render.estimateForRevision(id, b); }
+  /** Live line synthesis for the Reader/transport — cached, billed to the ledger, quota-guarded. */
+  @Post('speak/:revisionId') speak(@Param('revisionId') id: string, @Body() b: any, @Req() req: any) { return this.render.speakLine(id, b, req.user?.id); }
   @Post('render/:revisionId') @RequirePermission('production', 2) queue(@Param('revisionId') id: string, @Body() b: any, @Req() req: any) { return this.render.queue(id, b, req.user?.id); }
   @Post('render/run/:jobId') @RequirePermission('production', 2) run(@Param('jobId') id: string) { return this.render.run(id); }
   @Get('render/plan/:revisionId') plan(@Param('revisionId') id: string) { return this.render.renderPlan(id); }

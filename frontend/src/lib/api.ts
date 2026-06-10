@@ -1455,6 +1455,7 @@ export const scriptAudioApi = {
   removePronunciation:(id: string) => api.delete(`/production/audio/pronunciation/${id}`),
   // render + library
   estimate:      (revisionId: string, opts: any = {}) => api.post(`/production/audio/render/estimate/${revisionId}`, opts),
+  speak:         (revisionId: string, data: any) => api.post(`/production/audio/speak/${revisionId}`, data),
   render:        (revisionId: string, opts: any = {}) => api.post(`/production/audio/render/${revisionId}`, opts),
   runJob:        (jobId: string) => api.post(`/production/audio/render/run/${jobId}`),
   renderPlan:    (revisionId: string) => api.get(`/production/audio/render/plan/${revisionId}`),

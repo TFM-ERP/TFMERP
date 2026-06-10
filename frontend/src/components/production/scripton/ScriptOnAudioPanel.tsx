@@ -20,24 +20,57 @@ export default function ScriptOnAudioPanel({ revision, projectId, onClose }: { r
   const [nowPlaying, setNowPlaying] = useState('Nothing playing');
   const planRef = useRef<any>(null); const idxRef = useRef(0);
 
-  // ── Browser-tier live playback (speechSynthesis) ──────────────────────────────
-  const stop = useCallback(() => { try { window.speechSynthesis?.cancel(); } catch {} setPlaying(false); }, []);
+  // ── Live playback: Browser ($0, speechSynthesis) or Studio (per-line ElevenLabs/OpenAI) ──
+  const [liveStudio, setLiveStudio] = useState(false);   // transport voice source
+  const [liveCost, setLiveCost] = useState(0);           // session spend (cache hits are free)
+  const audioElRef = useRef<HTMLAudioElement | null>(null);
+  const synthCacheRef = useRef<Map<string, Promise<any>>>(new Map());
+
+  const stop = useCallback(() => {
+    try { window.speechSynthesis?.cancel(); } catch {}
+    try { audioElRef.current?.pause(); } catch {}
+    setPlaying(false);
+  }, []);
+
+  const synthSeg = useCallback((s: any) => {
+    const key = s.id || `${s.character || ''}|${s.text}`;
+    let p = synthCacheRef.current.get(key);
+    if (!p) {
+      p = scriptAudioApi.speak(revision.id, { text: s.text, character: s.character, kind: s.kind }).then((r) => r.data);
+      synthCacheRef.current.set(key, p);
+    }
+    return p;
+  }, [revision.id]);
+
   const playPlan = useCallback((plan: any) => {
-    if (!plan?.segments?.length || !window.speechSynthesis) return;
+    if (!plan?.segments?.length) return;
     planRef.current = plan; idxRef.current = 0; setPlaying(true);
-    const voices = window.speechSynthesis.getVoices();
+    let useLive = liveStudio; // drops to browser voices mid-run if the engine fails
+    const voices = window.speechSynthesis?.getVoices() || [];
+    const speakBrowser = (s: any, next: () => void) => {
+      if (!window.speechSynthesis) { next(); return; }
+      const u = new SpeechSynthesisUtterance(s.text);
+      u.rate = Number(s.voice?.rate || 1); u.pitch = Number(s.voice?.pitch || 1);
+      if (voices.length) u.voice = voices[(s.character || 'N').charCodeAt(0) % voices.length];
+      u.onend = next; u.onerror = next; window.speechSynthesis.speak(u);
+    };
     const speakNext = () => {
       const segs = planRef.current?.segments || [];
       if (idxRef.current >= segs.length) { setPlaying(false); setNowPlaying('Finished'); return; }
       const s = segs[idxRef.current++];
       setNowPlaying(`${s.character || 'Narrator'} — ${s.text.slice(0, 60)}`);
-      const u = new SpeechSynthesisUtterance(s.text);
-      u.rate = Number(s.voice?.rate || 1); u.pitch = Number(s.voice?.pitch || 1);
-      if (voices.length) u.voice = voices[(s.character || 'N').charCodeAt(0) % voices.length];
-      u.onend = speakNext; window.speechSynthesis.speak(u);
+      if (!useLive) { speakBrowser(s, speakNext); return; }
+      synthSeg(s).then((r: any) => {
+        const nxt = segs[idxRef.current]; if (nxt) synthSeg(nxt); // prefetch while this line plays
+        if (!r.cached) setLiveCost((c) => c + Number(r.cost || 0));
+        const a = new Audio(assetUrl(r.url));
+        a.playbackRate = Number(s.voice?.rate || 1); audioElRef.current = a;
+        a.onended = speakNext; a.onerror = speakNext;
+        a.play().catch(speakNext);
+      }).catch(() => { useLive = false; setNowPlaying('Studio voices unavailable — continuing with browser voices.'); speakBrowser(s, speakNext); });
     };
     speakNext();
-  }, []);
+  }, [liveStudio, synthSeg]);
   useEffect(() => () => stop(), [stop]);
 
   const togglePlay = async () => {
@@ -64,7 +97,7 @@ export default function ScriptOnAudioPanel({ revision, projectId, onClose }: { r
             <SonTabs tabs={TABS} active={tab} onChange={setTab} />
 
             <div className="son-content" style={{ position: 'relative' }}>
-              {tab === 'voices' && <Voices revision={revision} projectId={projectId} />}
+              {tab === 'voices' && <Voices revision={revision} projectId={projectId} onCastingChanged={() => { planRef.current = null; }} />}
               {tab === 'pronounce' && <Pronounce revision={revision} projectId={projectId} />}
               {tab === 'render' && <Render revision={revision} projectId={projectId} onPlayPlan={playPlan} />}
               {tab === 'library' && <Library projectId={projectId} />}
@@ -73,8 +106,12 @@ export default function ScriptOnAudioPanel({ revision, projectId, onClose }: { r
 
             <div className="son-transport">
               <button className="son-tbtn is-play" onClick={togglePlay}>{playing ? <Pause size={17} /> : <Play size={17} />}</button>
-              <div className="son-tinfo"><div className="t1">{nowPlaying}</div><div className="t2">{playing ? 'Playing (browser voices)' : 'Paused'}</div></div>
-              <span className="son-pill son-hide-compact">Browser · $0</span>
+              <div className="son-tinfo"><div className="t1">{nowPlaying}</div><div className="t2">{playing ? (liveStudio ? 'Playing live (studio voices)' : 'Playing (browser voices)') : 'Paused'}</div></div>
+              <button className="son-pill son-hide-compact" style={liveStudio ? { borderColor: 'var(--son-info)', color: 'var(--son-info)' } : undefined}
+                title="Toggle the live voice source: free browser voices, or the cast ElevenLabs/OpenAI voices spoken live (per-line, cached)"
+                onClick={() => { stop(); setLiveStudio((v) => !v); }}>
+                {liveStudio ? `✨ Studio live${liveCost > 0 ? ` · ≈$${liveCost.toFixed(2)}` : ''}` : 'Browser · $0'}
+              </button>
             </div>
             <nav className="son-bottomnav">{TABS.map(t => <button key={t.key} className={`son-bn ${tab === t.key ? 'is-active' : ''}`} onClick={() => setTab(t.key)}>{t.label.split(' ')[0]}</button>)}</nav>
           </SonShell>
@@ -85,12 +122,12 @@ export default function ScriptOnAudioPanel({ revision, projectId, onClose }: { r
 }
 
 /* ---------------- Voices ---------------- */
-function Voices({ revision, projectId }: any) {
+function Voices({ revision, projectId, onCastingChanged }: any) {
   const [data, setData] = useState<any>(null); const [busy, setBusy] = useState(false);
   const [engines, setEngines] = useState<any[]>([]);
   const [editing, setEditing] = useState<string | null>(null); // characterName being edited
   const [castMsg, setCastMsg] = useState('');
-  const load = useCallback(() => { scriptAudioApi.detect(revision.id).then(r => setData(r.data)).catch(() => setData({ characters: [] })); }, [revision.id]);
+  const load = useCallback(() => { onCastingChanged?.(); scriptAudioApi.detect(revision.id).then(r => setData(r.data)).catch(() => setData({ characters: [] })); }, [revision.id, onCastingChanged]);
   useEffect(() => { load(); scriptAudioApi.engines().then(r => setEngines((r.data || []).filter((e: any) => e.enabled))).catch(() => {}); }, [load]);
   const autoCast = async () => {
     setBusy(true); setCastMsg('');
@@ -139,9 +176,26 @@ function Voices({ revision, projectId }: any) {
   );
 }
 
+// Generic fallbacks, used only when the engine's library carries no labels of its own
 const GENDERS = ['male', 'female', 'neutral'];
-const AGE_RANGES = ['child', 'teen', '20s', '30s', '40s', '50s', '60s+', 'elderly'];
+const AGE_RANGES = ['young', 'middle_aged', 'old'];
 const STYLES = ['calm', 'warm', 'intense', 'authoritative', 'playful', 'sarcastic', 'soft', 'energetic'];
+
+// Module-level field components: stable types so inputs keep focus across re-renders
+const FieldText = ({ label, value, ph, onChange }: any) => (
+  <label className="son-faint" style={{ fontSize: 11 }}>{label}
+    <input className="son-input" style={{ width: '100%', marginTop: 2 }} value={value} placeholder={ph} onChange={(e) => onChange(e.target.value)} />
+  </label>
+);
+const FieldSel = ({ label, value, options, onChange }: any) => (
+  <label className="son-faint" style={{ fontSize: 11 }}>{label}
+    <select className="son-input" style={{ width: '100%', marginTop: 2 }} value={value} onChange={(e) => onChange(e.target.value)}>
+      <option value="">any</option>
+      {value && !options.includes(value) && <option value={value}>{value}</option>}
+      {options.map((o: string) => <option key={o} value={o}>{o}</option>)}
+    </select>
+  </label>
+);
 
 function VoiceEditor({ revision, projectId, character, engines, onSaved }: any) {
   const v = character.voice || {};
@@ -170,12 +224,30 @@ function VoiceEditor({ revision, projectId, character, engines, onSaved }: any) 
       .catch((e) => setVoicesMsg(e?.response?.data?.message || 'Could not load voices — enter the id manually.'));
   }, [f.engineKey]);
 
-  // Selecting a library voice fills the id and back-fills empty trait fields from its labels
+  // Dropdown options = the distinct label values the engine's library actually uses
+  const uniq = (k: string) => [...new Set(voices.map((x: any) => String(x[k] || '')).filter(Boolean))].sort();
+  const or = (a: string[], b: string[]) => (a.length ? a : b);
+  const opts = {
+    gender: or(uniq('gender'), GENDERS),
+    age: or(uniq('age'), AGE_RANGES),
+    accent: uniq('accent'),
+    language: uniq('language'),
+    style: or(uniq('description').filter((s) => s.length <= 24), STYLES),
+  };
+
+  // Trait dropdowns filter the voice list (only when the value is one of the library's own labels)
+  const match = (val: string, voiceVal: string | undefined, options: string[]) => !val || !options.includes(val) || voiceVal === val;
+  const filtered = voices.filter((vo: any) =>
+    match(f.gender, vo.gender, opts.gender) && match(f.ageRange, vo.age, opts.age) &&
+    match(f.accent, vo.accent, opts.accent) && match(f.nativeLanguage, vo.language, opts.language));
+
+  // Selecting a library voice sets the id and syncs the trait fields to that voice's labels
   const pickVoice = (id: string) => {
     if (id === '__manual__') { setManualId(true); return; }
     const vo = voices.find((x) => x.id === id);
     setF((p: any) => ({ ...p, externalVoiceId: id,
-      gender: p.gender || vo?.gender || '', ageRange: p.ageRange || vo?.age || '', accent: p.accent || vo?.accent || '' }));
+      gender: vo?.gender || p.gender, ageRange: vo?.age || p.ageRange,
+      accent: vo?.accent || p.accent, nativeLanguage: vo?.language || p.nativeLanguage }));
   };
   const selected = voices.find((x) => x.id === f.externalVoiceId);
   const preview = () => {
@@ -186,51 +258,48 @@ function VoiceEditor({ revision, projectId, character, engines, onSaved }: any) 
 
   const save = async () => {
     let profileId = character.voice?.id;
-    const payload = { ...f, scope: 'PROJECT', projectId, name: `${character.characterName} — ${selected?.name || f.engineKey}` };
+    const payload = { ...f, scope: 'PROJECT', projectId,
+      name: `${character.characterName} — ${selected?.name || f.engineKey}`,
+      sampleUrl: selected?.previewUrl || null }; // keep Audition in sync with the chosen voice
     if (profileId) await scriptAudioApi.updateProfile(profileId, payload);
     else { const r = await scriptAudioApi.createProfile(payload); profileId = r.data.id; }
     await scriptAudioApi.assign(revision.id, character.characterName, { voiceProfileId: profileId });
     onSaved();
   };
 
-  const F = ({ label, k, ph }: any) => (<label className="son-faint" style={{ fontSize: 11 }}>{label}<input className="son-input" style={{ width: '100%', marginTop: 2 }} value={f[k]} placeholder={ph} onChange={(e) => set(k, e.target.value)} /></label>);
-  // Dropdown that still shows a saved value not in the canned list
-  const Sel = ({ label, k, options }: any) => (
-    <label className="son-faint" style={{ fontSize: 11 }}>{label}
-      <select className="son-input" style={{ width: '100%', marginTop: 2 }} value={f[k]} onChange={(e) => set(k, e.target.value)}>
-        <option value="">—</option>
-        {f[k] && !options.includes(f[k]) && <option value={f[k]}>{f[k]}</option>}
-        {options.map((o: string) => <option key={o} value={o}>{o}</option>)}
-      </select>
-    </label>
-  );
   const voiceLabel = (vo: any) => [vo.name, [vo.gender, vo.age, vo.accent].filter(Boolean).join(', ')].filter(Boolean).join(' — ');
+  const hasLib = voices.length > 0;
 
   return (
     <SonCard style={{ padding: 12, marginTop: -4, marginBottom: 4 }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 10 }}>
         <label className="son-faint" style={{ fontSize: 11 }}>Engine<select className="son-input" style={{ width: '100%', marginTop: 2 }} value={f.engineKey} onChange={(e) => { setManualId(false); set('engineKey', e.target.value); }}>{engines.map((e: any) => <option key={e.key} value={e.key}>{e.displayName}</option>)}{!engines.length && <option value="BROWSER">Browser (free)</option>}</select></label>
-        {voices.length && !manualId ? (
-          <label className="son-faint" style={{ fontSize: 11 }}>Voice
+        {hasLib && !manualId ? (
+          <label className="son-faint" style={{ fontSize: 11 }}>Voice ({filtered.length}{filtered.length !== voices.length ? ` of ${voices.length}` : ''})
             <div style={{ display: 'flex', gap: 4, marginTop: 2 }}>
               <select className="son-input" style={{ flex: 1, minWidth: 0 }} value={f.externalVoiceId} onChange={(e) => pickVoice(e.target.value)}>
                 <option value="">— pick a voice —</option>
                 {f.externalVoiceId && !selected && <option value={f.externalVoiceId}>{f.externalVoiceId} (current)</option>}
-                {voices.map((vo: any) => <option key={vo.id} value={vo.id}>{voiceLabel(vo)}</option>)}
+                {selected && !filtered.includes(selected) && <option value={selected.id}>{voiceLabel(selected)} (current)</option>}
+                {filtered.map((vo: any) => <option key={vo.id} value={vo.id}>{voiceLabel(vo)}</option>)}
                 <option value="__manual__">Custom voice id…</option>
               </select>
               {selected?.previewUrl && <button className="son-iconbtn" title="Preview voice" onClick={preview}><Play size={13} /></button>}
             </div>
           </label>
         ) : (
-          <F label="Voice ID / name" k="externalVoiceId" ph="ElevenLabs voice id" />
+          <FieldText label="Voice ID / name" value={f.externalVoiceId} ph="ElevenLabs voice id" onChange={(val: string) => set('externalVoiceId', val)} />
         )}
-        <Sel label="Gender" k="gender" options={GENDERS} />
-        <Sel label="Age range" k="ageRange" options={AGE_RANGES} />
-        <F label="Nationality" k="nationality" ph="French" />
-        <F label="Native language" k="nativeLanguage" ph="French" />
-        <F label="Accent" k="accent" ph="French-English" />
-        <Sel label="Style" k="style" options={STYLES} />
+        <FieldSel label="Gender" value={f.gender} options={opts.gender} onChange={(val: string) => set('gender', val)} />
+        <FieldSel label="Age" value={f.ageRange} options={opts.age} onChange={(val: string) => set('ageRange', val)} />
+        {opts.accent.length
+          ? <FieldSel label="Accent" value={f.accent} options={opts.accent} onChange={(val: string) => set('accent', val)} />
+          : <FieldText label="Accent" value={f.accent} ph="French-English" onChange={(val: string) => set('accent', val)} />}
+        {opts.language.length
+          ? <FieldSel label="Language" value={f.nativeLanguage} options={opts.language} onChange={(val: string) => set('nativeLanguage', val)} />
+          : <FieldText label="Native language" value={f.nativeLanguage} ph="French" onChange={(val: string) => set('nativeLanguage', val)} />}
+        {!hasLib && <FieldText label="Nationality" value={f.nationality} ph="French" onChange={(val: string) => set('nationality', val)} />}
+        <FieldSel label="Style" value={f.style} options={opts.style} onChange={(val: string) => set('style', val)} />
         <label className="son-faint" style={{ fontSize: 11 }}>Speed<input className="son-input" type="number" step="0.05" style={{ width: '100%', marginTop: 2 }} value={f.defaultRate} onChange={(e) => set('defaultRate', Number(e.target.value))} /></label>
       </div>
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 10 }}>
@@ -238,7 +307,7 @@ function VoiceEditor({ revision, projectId, character, engines, onSaved }: any) 
         <SonBtn primary onClick={save}>Save voice</SonBtn>
       </div>
       {voicesMsg && <p className="son-faint" style={{ fontSize: 11, marginTop: 8 }}>{voicesMsg}</p>}
-      <p className="son-faint" style={{ fontSize: 11, marginTop: 8 }}>Voices load straight from the engine&apos;s library (e.g. your ElevenLabs account). Accent/native-language drive how non-native lines are spoken.</p>
+      <p className="son-faint" style={{ fontSize: 11, marginTop: 8 }}>Gender/age/accent come from the engine&apos;s own voice labels and filter the voice list — pick traits first, then choose from the matching voices.</p>
     </SonCard>
   );
 }

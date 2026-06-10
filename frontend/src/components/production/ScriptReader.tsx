@@ -5,6 +5,7 @@ import {
   X, Play, Pause, Square, RotateCcw, Highlighter, Eye, EyeOff, Type as TypeIcon,
   Volume2, Mic, Video, ChevronDown, Users, BookOpen,
 } from 'lucide-react';
+import { scriptAudioApi, assetUrl } from '@/lib/api';
 
 /**
  * SYS-13b · P1 — Reader & Actor pack.
@@ -100,6 +101,29 @@ export default function ScriptReader({ revision, onClose }: { revision: any; onC
   const playRef = useRef(false);
   const bodyRef = useRef<HTMLDivElement>(null);
 
+  // Live studio voices (ElevenLabs/OpenAI via the cast voices from Audio Studio → Voices)
+  const [studio, setStudio] = useState(false);
+  const [studioMsg, setStudioMsg] = useState('');
+  const [sessionCost, setSessionCost] = useState(0);
+  const [cachedLines, setCachedLines] = useState(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const synthRef = useRef<Map<number, Promise<any>>>(new Map());
+
+  /** Fetch (and memoize) the synthesized audio for one element — used for play + prefetch. */
+  const synthFor = useCallback((idx: number) => {
+    const e = els[idx];
+    let p = synthRef.current.get(idx);
+    if (!p) {
+      p = scriptAudioApi.speak(revision.id, {
+        text: e.text,
+        character: e.type === 'dialogue' ? e.character : undefined,
+        kind: e.type === 'dialogue' ? 'dialogue' : 'narration',
+      }).then((r) => r.data);
+      synthRef.current.set(idx, p);
+    }
+    return p;
+  }, [els, revision?.id]);
+
   // Record
   const [recOpen, setRecOpen] = useState(false);
 
@@ -122,35 +146,77 @@ export default function ScriptReader({ revision, onClose }: { revision: any; onC
   };
 
   // Speak from a starting element index, advancing through els.
+  // Browser path: speechSynthesis. Studio path: live per-line ElevenLabs/OpenAI synthesis
+  // (cast voices), with the next lines prefetched while the current one plays.
   const run = useCallback((startAt: number) => {
-    if (!speak) return;
+    if (!speak && !studio) return;
     playRef.current = true; setPlaying(true);
     let i = startAt;
+    let useStudio = studio; // local: drops to browser voices mid-run if the engine fails
+
+    const advance = (delayMs = 0) => {
+      i++;
+      if (delayMs) setTimeout(() => { if (playRef.current) step(); }, delayMs);
+      else if (playRef.current) step();
+    };
+    const speakBrowser = (e: El) => {
+      if (!speak) { advance(); return; }
+      const u = new SpeechSynthesisUtterance(e.type === 'character' ? `${e.text}.` : e.text);
+      u.rate = rate; u.pitch = 1;
+      const v = voiceFor(e.type === 'dialogue' || e.type === 'character' ? e.character : '_narrator');
+      if (v) u.voice = v;
+      u.onend = () => advance(); u.onerror = () => advance();
+      speak.speak(u);
+    };
+
     const step = () => {
       if (!playRef.current) return;
       if (i >= els.length) { setPlaying(false); setCursor(-1); return; }
       const e = els[i];
       setCursor(i); scrollTo(i);
       const isMine = mode === 'rehearse' && actor && e.character === actor && (e.type === 'dialogue' || e.type === 'character');
-      const speakable = e.type === 'scene' || e.type === 'action' || e.type === 'character' || e.type === 'dialogue';
       if (isMine) {
         // Your line — stay silent, hold for the gap so you can deliver it, then continue.
-        i++; setTimeout(() => { if (playRef.current) step(); }, Math.max(0.5, gap) * 1000);
+        advance(Math.max(0.5, gap) * 1000);
         return;
       }
-      if (!speakable || !e.text) { i++; step(); return; }
-      const u = new SpeechSynthesisUtterance(e.type === 'character' ? `${e.text}.` : e.text);
-      u.rate = rate; u.pitch = 1;
-      const v = voiceFor(e.type === 'dialogue' || e.type === 'character' ? e.character : '_narrator');
-      if (v) u.voice = v;
-      u.onend = () => { i++; if (playRef.current) step(); };
-      u.onerror = () => { i++; if (playRef.current) step(); };
-      speak.speak(u);
+      // Studio mode skips character cues (the voice change identifies the speaker).
+      const speakable = useStudio
+        ? (e.type === 'scene' || e.type === 'action' || e.type === 'dialogue')
+        : (e.type === 'scene' || e.type === 'action' || e.type === 'character' || e.type === 'dialogue');
+      if (!speakable || !e.text) { advance(); return; }
+      if (!useStudio) { speakBrowser(e); return; }
+
+      const cur = i;
+      synthFor(cur).then((r: any) => {
+        if (!playRef.current) return;
+        // prefetch the next two speakable lines while this one plays
+        for (let j = cur + 1, found = 0; j < els.length && found < 2; j++) {
+          const n = els[j];
+          const nMine = mode === 'rehearse' && actor && n.character === actor && n.type === 'dialogue';
+          if (!nMine && (n.type === 'scene' || n.type === 'action' || n.type === 'dialogue') && n.text) { synthFor(j); found++; }
+        }
+        if (r.cached) setCachedLines((c) => c + 1); else setSessionCost((c) => c + Number(r.cost || 0));
+        const a = new Audio(assetUrl(r.url));
+        a.playbackRate = rate; audioRef.current = a;
+        a.onended = () => advance(); a.onerror = () => advance();
+        a.play().catch(() => advance());
+      }).catch((err: any) => {
+        synthRef.current.delete(cur);
+        setStudioMsg(err?.response?.data?.message || 'Live studio voices unavailable — continuing with browser voices.');
+        useStudio = false; setStudio(false);
+        speakBrowser(e); // finish this line with the browser voice so playback never stalls
+      });
     };
     step();
-  }, [els, mode, actor, gap, rate, voiceFor]);
+  }, [els, mode, actor, gap, rate, voiceFor, studio, synthFor]);
 
-  const stop = () => { playRef.current = false; try { speak?.cancel(); } catch {} setPlaying(false); setCursor(-1); };
+  const stop = () => {
+    playRef.current = false;
+    try { speak?.cancel(); } catch {}
+    try { audioRef.current?.pause(); } catch {}
+    setPlaying(false); setCursor(-1);
+  };
   const togglePlay = () => {
     if (playing) { stop(); return; }
     run(cursor >= 0 ? cursor : 0);
@@ -251,7 +317,11 @@ export default function ScriptReader({ revision, onClose }: { revision: any; onC
             <button onClick={() => setMode('read')} className={`px-2.5 py-1 ${mode === 'read' ? 'bg-slate-900 text-white' : 'text-slate-600'}`}>Read aloud</button>
             <button onClick={() => setMode('rehearse')} className={`px-2.5 py-1 ${mode === 'rehearse' ? 'bg-slate-900 text-white' : 'text-slate-600'}`}>Rehearse</button>
           </div>
-          <button onClick={togglePlay} disabled={!speak} className="inline-flex items-center gap-1 rounded-lg bg-slate-900 text-white px-3 py-1.5 disabled:opacity-50">
+          <div className="inline-flex rounded-lg border border-slate-300 overflow-hidden bg-white" title="Studio = live ElevenLabs/OpenAI with the cast voices from Audio Studio → Voices">
+            <button onClick={() => setStudio(false)} className={`px-2.5 py-1 ${!studio ? 'bg-slate-900 text-white' : 'text-slate-600'}`}>Browser</button>
+            <button onClick={() => { setStudio(true); setStudioMsg(''); }} className={`px-2.5 py-1 ${studio ? 'bg-indigo-600 text-white' : 'text-slate-600'}`}>Studio ✨</button>
+          </div>
+          <button onClick={togglePlay} disabled={!speak && !studio} className="inline-flex items-center gap-1 rounded-lg bg-slate-900 text-white px-3 py-1.5 disabled:opacity-50">
             {playing ? <Pause size={13} /> : <Play size={13} />} {playing ? 'Pause' : 'Play'}
           </button>
           <button onClick={stop} className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-slate-600"><Square size={12} /> Stop</button>
@@ -264,10 +334,17 @@ export default function ScriptReader({ revision, onClose }: { revision: any; onC
               <input type="range" min={0.5} max={8} step={0.5} value={gap} onChange={(e) => setGap(Number(e.target.value))} className="w-20" /> {gap}s
             </label>
           )}
+          {studio && (
+            <span className="text-indigo-600">
+              {sessionCost > 0 ? `≈ $${sessionCost.toFixed(2)} this session` : 'cast voices · live'}{cachedLines > 0 ? ` · ${cachedLines} cached (free)` : ''}
+            </span>
+          )}
+          {studioMsg && <span className="text-amber-600">{studioMsg}</span>}
           <div className="relative">
             <button onClick={() => setShowVoices((s) => !s)} className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-slate-600"><Volume2 size={12} /> Voices <ChevronDown size={12} /></button>
             {showVoices && (
               <div className="absolute right-0 mt-1 z-10 w-72 max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl p-2 space-y-1">
+                {studio && <p className="text-[11px] text-indigo-600 p-1">Studio mode uses the cast voices from Audio Studio → Voices. These browser-voice picks apply to Browser mode only.</p>}
                 {['_narrator', ...characters].map((c) => (
                   <div key={c} className="flex items-center gap-2">
                     <span className="text-[11px] text-slate-600 w-28 truncate">{c === '_narrator' ? 'Narrator' : c}</span>

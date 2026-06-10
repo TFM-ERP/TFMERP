@@ -176,6 +176,68 @@ export class RenderService implements OnModuleInit {
     return createHash('sha256').update(`${engineKey}|${voiceSig}|${seg.character || 'NARR'}|${seg.text}`).digest('hex');
   }
 
+  // ── Live line synthesis (Reader / transport) ─────────────────────────────────────
+  /**
+   * One line in → audio URL out, using the character's cast studio voice. Powers LIVE
+   * reading (Reader playback + Audio Studio transport) — no render job, no export.
+   * Same LineSynthesisCache + usage ledger + quota as renders, so replays are free
+   * and every paid character is accounted for.
+   */
+  async speakLine(revisionId: string, b: { text?: string; character?: string; kind?: string }, userId?: string) {
+    const fs = await import('fs');
+    const text0 = String(b?.text || '').trim();
+    if (!text0) throw new BadRequestException('text is required.');
+    if (text0.length > 1500) throw new BadRequestException('Line too long for live synthesis.');
+    const doc = await this.prisma.scriptDocument.findFirst({ where: { revisions: { some: { id: revisionId } } }, select: { projectId: true } });
+    const projectId = doc?.projectId || undefined;
+
+    // Engine: the character's cast profile engine when it's an enabled studio engine, else resolved TTS routing.
+    const isNarr = b?.kind === 'narration' || !b?.character;
+    const { profile } = await this.voiceFor(revisionId, b?.character, isNarr);
+    let engineRow = profile?.engineKey && profile.engineKey !== 'BROWSER'
+      ? await this.prisma.audioEngine.findUnique({ where: { key: profile.engineKey } })
+      : null;
+    if (!engineRow || !engineRow.enabled) {
+      const resolved = await this.engines.resolve('TTS', projectId).catch(() => null);
+      engineRow = resolved?.engine?.key && resolved.engine.key !== 'BROWSER'
+        ? await this.prisma.audioEngine.findUnique({ where: { key: resolved.engine.key } })
+        : null;
+    }
+    if (!engineRow || !engineRow.enabled) throw new BadRequestException('No studio TTS engine enabled — use browser voices.');
+    const adapter = buildAdapter(engineRow);
+    if (!adapter.synthesize) throw new BadRequestException('Engine has no server-side TTS.');
+
+    const dict = await this.pron.resolveMap({ projectId, revisionId });
+    const text = this.pron.applyTo(text0, dict);
+    const seg: Segment = { id: 'live', kind: isNarr ? 'narration' : 'dialogue', character: b?.character, text };
+    const key = this.cacheKey(seg, engineRow.key, profile?.externalVoiceId || '');
+    const currency = (engineRow.costModel as any)?.currency || 'USD';
+
+    // Cache hit → free replay
+    const hit = await this.prisma.lineSynthesisCache.findUnique({ where: { cacheKey: key } }).catch(() => null);
+    if (hit && fs.existsSync(this.absPath(hit.url))) {
+      await this.prisma.lineSynthesisCache.update({ where: { id: hit.id }, data: { hitCount: { increment: 1 }, lastUsedAt: new Date() } });
+      return { url: hit.url, cached: true, cost: 0, currency, engineKey: engineRow.key };
+    }
+
+    // Quota hard stop before paid synthesis
+    const quota = await this.getQuota('PROJECT', projectId).catch(() => null);
+    if (quota?.hardStop && quota.costLimit != null && Number(quota.usedCost) >= Number(quota.costLimit)) {
+      throw new BadRequestException('Project audio quota reached (hard stop) — live studio reading paused.');
+    }
+
+    const cfg = { externalVoiceId: profile?.externalVoiceId || undefined, rate: Number(profile?.defaultRate ?? 1) };
+    const res = await adapter.synthesize(seg, cfg);
+    const fn = `tts-${key.slice(0, 24)}.mp3`;
+    fs.writeFileSync(this.absPath(fn), res.audio);
+    await this.prisma.lineSynthesisCache.create({ data: { cacheKey: key, engineKey: engineRow.key, url: `/uploads/${fn}`, charsBilled: res.charsBilled } });
+    const rate = Number((engineRow.costModel as any)?.tts?.rate || 0);
+    const lineCost = Math.round(res.charsBilled * rate * 10000) / 10000;
+    await this.prisma.voiceUsageRecord.create({ data: { engineKey: engineRow.key, capability: 'LIVE_READ', projectId: projectId || null, userId: userId || null, charsBilled: res.charsBilled, unitCost: rate, totalCost: lineCost, currency, cacheHit: false } });
+    await this.debitQuota(projectId, res.charsBilled, lineCost);
+    return { url: `/uploads/${fn}`, cached: false, cost: lineCost, currency, engineKey: engineRow.key };
+  }
+
   async run(jobId: string) {
     const fs = await import('fs');
     const job = await this.prisma.audioRenderJob.findUnique({ where: { id: jobId } });
