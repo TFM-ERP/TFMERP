@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { accountApi, assetUrl } from '@/lib/api';
+import { accountApi, twoFactorApi, assetUrl } from '@/lib/api';
 import {
   ShieldCheck, Camera, Loader2, Check, Monitor, Smartphone, Tablet,
   LogOut, AlertTriangle, User, Lock,
@@ -65,6 +65,7 @@ export default function AccountSecurityPage() {
   const [savingNames, setSavingNames] = useState(false);
   const [savedNames, setSavedNames] = useState(false);
   const [avatarBusy, setAvatarBusy] = useState(false);
+  const [avatarErr, setAvatarErr] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = async () => {
@@ -76,11 +77,15 @@ export default function AccountSecurityPage() {
 
   const onAvatar = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]; if (!f) return;
+    setAvatarErr('');
+    if (f.size > 5 * 1024 * 1024) { setAvatarErr('Image must be under 5 MB.'); if (fileRef.current) fileRef.current.value = ''; return; }
     setAvatarBusy(true);
     try {
       const r = await accountApi.uploadAvatar(f);
       setP((prev) => prev ? { ...prev, avatarUrl: r.data.avatarUrl } : prev);
       window.dispatchEvent(new Event('tfm:profile-updated')); // nudge the navbar avatar
+    } catch (err: any) {
+      setAvatarErr(err?.response?.data?.message || 'Upload failed. Use a JPG, PNG or WebP under 5 MB.');
     } finally { setAvatarBusy(false); if (fileRef.current) fileRef.current.value = ''; }
   };
 
@@ -105,6 +110,7 @@ export default function AccountSecurityPage() {
 
   const initial = (p?.preferredName || p?.fullName || 'A').trim()[0]?.toUpperCase() || 'A';
   const otherCount = sessions.filter((s) => !s.current).length;
+  const namesDirty = !!p && (preferred !== (p.preferredName || '') || legal !== (p.legalName || ''));
 
   if (loading) return <div className="flex items-center justify-center py-24 text-slate-400"><Loader2 className="animate-spin" /></div>;
 
@@ -142,6 +148,9 @@ export default function AccountSecurityPage() {
             </div>
           </div>
         </div>
+        <p className={`mt-3 text-[11px] ${avatarErr ? 'text-rose-600' : 'text-slate-400'}`}>
+          {avatarErr || 'Click the camera to change your photo — JPG, PNG or WebP, up to 5 MB.'}
+        </p>
       </section>
 
       {/* Names */}
@@ -170,8 +179,8 @@ export default function AccountSecurityPage() {
         )}
 
         <div className="mt-4 flex items-center gap-3">
-          <button onClick={saveNames} disabled={savingNames}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 text-white text-sm px-4 py-2 disabled:opacity-50">
+          <button onClick={saveNames} disabled={savingNames || !namesDirty}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 text-white text-sm px-4 py-2 disabled:opacity-40">
             {savingNames ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} Save
           </button>
           {savedNames && <span className="text-xs text-emerald-600 inline-flex items-center gap-1"><Check size={13} /> Saved</span>}
@@ -201,7 +210,7 @@ export default function AccountSecurityPage() {
                     {label}
                     {s.current && <span className="ml-2 text-[10px] rounded-full bg-emerald-100 text-emerald-700 px-1.5 py-0.5 align-middle">This device</span>}
                   </p>
-                  <p className="text-[11px] text-slate-400 truncate">{s.ipAddress || 'IP unknown'} · last active {fmtWhen(s.lastSeenAt)}</p>
+                  <p className="text-[11px] text-slate-400 truncate" title={fmtWhen(s.lastSeenAt)}>{s.ipAddress || 'IP unknown'} · active {fmtAgo(s.lastSeenAt)}</p>
                 </div>
                 {s.current ? (
                   <span className="text-[11px] text-slate-400 px-2">Current</span>
@@ -215,14 +224,161 @@ export default function AccountSecurityPage() {
         </div>
       </section>
 
-      {/* 2FA — Phase 2 teaser */}
-      <section className={`${card} p-5 opacity-90`}>
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-slate-800 inline-flex items-center gap-1.5"><Lock size={15} /> Two-factor authentication</h2>
-          <span className="text-[11px] rounded-full bg-slate-100 text-slate-500 px-2 py-0.5">{p?.twoFactorEnabled ? 'Enabled' : 'Coming soon'}</span>
-        </div>
-        <p className="text-xs text-slate-500 mt-1">An authenticator-app second step for sensitive actions. Setup arrives in the next release.</p>
-      </section>
+      {/* 2FA */}
+      <TwoFactorSection enabled={!!p?.twoFactorEnabled} onChanged={load} />
     </div>
+  );
+}
+
+/** Authenticator-app 2FA: enrol (QR + verify) when off, disable / recovery codes when on. */
+function TwoFactorSection({ enabled, onChanged }: { enabled: boolean; onChanged: () => void }) {
+  const [stage, setStage] = useState<'idle' | 'enrolling' | 'disabling' | 'regenerating'>('idle');
+  const [qr, setQr] = useState(''); const [secret, setSecret] = useState('');
+  const [code, setCode] = useState(''); const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
+  const [codes, setCodes] = useState<string[] | null>(null);   // shown ONCE after enable/regenerate
+  const [remaining, setRemaining] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (enabled) twoFactorApi.backupStatus().then((r) => setRemaining(r.data.remaining)).catch(() => {});
+    else setRemaining(null);
+  }, [enabled]);
+
+  const numericCode = (e: React.ChangeEvent<HTMLInputElement>) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6));
+  const recoveryCode = (e: React.ChangeEvent<HTMLInputElement>) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 11));
+
+  const begin = async () => {
+    setBusy(true); setErr('');
+    try { const r = await twoFactorApi.setup(); setQr(r.data.qrDataUrl); setSecret(r.data.secret); setStage('enrolling'); setCode(''); }
+    catch (e: any) { setErr(e?.response?.data?.message || 'Could not start enrolment.'); }
+    finally { setBusy(false); }
+  };
+  const confirm = async () => {
+    setBusy(true); setErr('');
+    try { const r = await twoFactorApi.enable(code.trim()); setCodes(r.data.backupCodes || []); setStage('idle'); setCode(''); onChanged(); }
+    catch (e: any) { setErr(e?.response?.data?.message || 'Invalid code.'); }
+    finally { setBusy(false); }
+  };
+  const disable = async () => {
+    setBusy(true); setErr('');
+    try { await twoFactorApi.disable(code.trim()); setStage('idle'); setCode(''); setCodes(null); onChanged(); }
+    catch (e: any) { setErr(e?.response?.data?.message || 'Invalid code.'); }
+    finally { setBusy(false); }
+  };
+  const regenerate = async () => {
+    setBusy(true); setErr('');
+    try { const r = await twoFactorApi.regenerateBackup(code.trim()); setCodes(r.data.backupCodes || []); setStage('idle'); setCode(''); twoFactorApi.backupStatus().then((s) => setRemaining(s.data.remaining)).catch(() => {}); }
+    catch (e: any) { setErr(e?.response?.data?.message || 'Invalid code.'); }
+    finally { setBusy(false); }
+  };
+  const reset = () => { setStage('idle'); setCode(''); setErr(''); setQr(''); setSecret(''); };
+
+  const copyCodes = () => { if (codes) navigator.clipboard?.writeText(codes.join('\n')).catch(() => {}); };
+  const downloadCodes = () => {
+    if (!codes) return;
+    const blob = new Blob([`TFM ERP — two-factor recovery codes\nKeep these safe. Each works once.\n\n${codes.join('\n')}\n`], { type: 'text/plain' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'tfm-recovery-codes.txt'; a.click(); URL.revokeObjectURL(a.href);
+  };
+
+  return (
+    <section className={`${card} p-5`}>
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-slate-800 inline-flex items-center gap-1.5"><Lock size={15} /> Two-factor authentication</h2>
+        <span className={`text-[11px] rounded-full px-2 py-0.5 ${enabled ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{enabled ? 'Enabled' : 'Off'}</span>
+      </div>
+      <p className="text-xs text-slate-500 mt-1">An authenticator-app code (Google Authenticator, 1Password, Authy…) is required for sensitive actions like releasing payments.</p>
+
+      {/* Recovery codes — shown once after enable/regenerate */}
+      {codes && (
+        <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+          <p className="flex items-start gap-2 text-[12px] text-emerald-900 font-medium"><ShieldCheck size={14} className="mt-0.5 shrink-0" /> Save your recovery codes</p>
+          <p className="text-[11px] text-emerald-800/80 mt-1">Each code works once if you lose your authenticator. This is the only time they're shown.</p>
+          <div className="mt-3 grid grid-cols-2 gap-1.5">
+            {codes.map((c) => <code key={c} className="text-[12px] font-mono bg-white border border-emerald-200 rounded px-2 py-1 text-slate-700 text-center">{c}</code>)}
+          </div>
+          <div className="mt-3 flex gap-2">
+            <button onClick={copyCodes} className="text-xs rounded-lg border border-emerald-300 bg-white px-2.5 py-1.5 text-emerald-800 hover:border-emerald-500">Copy</button>
+            <button onClick={downloadCodes} className="text-xs rounded-lg border border-emerald-300 bg-white px-2.5 py-1.5 text-emerald-800 hover:border-emerald-500">Download .txt</button>
+            <button onClick={() => setCodes(null)} className="text-xs rounded-lg bg-emerald-600 text-white px-3 py-1.5 ml-auto">I've saved them</button>
+          </div>
+        </div>
+      )}
+
+      {/* OFF → enrol */}
+      {!enabled && stage === 'idle' && !codes && (
+        <button onClick={begin} disabled={busy} className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-slate-900 text-white text-sm px-4 py-2 disabled:opacity-50">
+          {busy ? <Loader2 size={14} className="animate-spin" /> : <ShieldCheck size={14} />} Set up two-factor
+        </button>
+      )}
+
+      {/* enrolling */}
+      {stage === 'enrolling' && (
+        <div className="mt-4 rounded-xl border border-slate-200 p-4">
+          <p className="text-xs text-slate-600 mb-3">1. Scan this with your authenticator app, then enter the 6-digit code it shows.</p>
+          <div className="flex flex-col sm:flex-row gap-4 items-start">
+            {qr && <img src={qr} alt="2FA QR code" className="w-40 h-40 rounded-lg border border-slate-200" />}
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] text-slate-400">Can't scan? Enter this key manually:</p>
+              <code className="block mt-1 text-[11px] font-mono break-all bg-slate-50 border border-slate-200 rounded px-2 py-1.5 text-slate-700">{secret}</code>
+              <div className="mt-3 flex items-center gap-2">
+                <input value={code} onChange={numericCode} onKeyDown={(e) => e.key === 'Enter' && code.length === 6 && confirm()}
+                  inputMode="numeric" maxLength={6} placeholder="——————"
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-center tracking-widest font-mono w-32 focus:border-slate-900 outline-none" />
+                <button onClick={confirm} disabled={busy || code.length < 6} className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 text-white text-sm px-3 py-2 disabled:opacity-50">
+                  {busy ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} Verify &amp; enable
+                </button>
+                <button onClick={reset} className="text-xs text-slate-400 hover:text-slate-700">Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ON → recovery status + actions */}
+      {enabled && stage === 'idle' && !codes && (
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          {remaining !== null && (
+            <span className={`text-[12px] inline-flex items-center gap-1.5 ${remaining <= 2 ? 'text-amber-700' : 'text-slate-500'}`}>
+              {remaining <= 2 && <AlertTriangle size={13} />} {remaining} recovery code{remaining === 1 ? '' : 's'} left
+            </span>
+          )}
+          <button onClick={() => { setStage('regenerating'); setCode(''); setErr(''); }} className="text-xs rounded-lg border border-slate-200 px-2.5 py-1.5 text-slate-600 hover:border-slate-400">Regenerate recovery codes</button>
+          <button onClick={() => { setStage('disabling'); setCode(''); setErr(''); }} className="text-xs rounded-lg border border-slate-200 px-2.5 py-1.5 text-slate-600 hover:border-rose-400 hover:text-rose-600 ml-auto">Disable two-factor</button>
+        </div>
+      )}
+
+      {/* regenerate — needs a current code */}
+      {stage === 'regenerating' && (
+        <div className="mt-4 rounded-xl border border-slate-200 p-4">
+          <p className="text-[12px] text-slate-600">Enter a current authenticator (or recovery) code to issue a fresh set. The old codes stop working.</p>
+          <div className="mt-3 flex items-center gap-2">
+            <input value={code} onChange={recoveryCode} onKeyDown={(e) => e.key === 'Enter' && code.length >= 6 && regenerate()}
+              maxLength={11} placeholder="code"
+              className="rounded-lg border border-slate-200 px-3 py-2 text-center tracking-widest font-mono w-40 focus:border-slate-900 outline-none" />
+            <button onClick={regenerate} disabled={busy || code.length < 6} className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 text-white text-sm px-3 py-2 disabled:opacity-50">
+              {busy ? <Loader2 size={14} className="animate-spin" /> : null} Regenerate
+            </button>
+            <button onClick={reset} className="text-xs text-slate-400 hover:text-slate-700">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* disable — accepts a TOTP or recovery code */}
+      {stage === 'disabling' && (
+        <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <p className="flex items-start gap-2 text-[12px] text-amber-800"><AlertTriangle size={14} className="mt-0.5 shrink-0" /> Enter a current authenticator code (or a recovery code) to turn 2FA off.</p>
+          <div className="mt-3 flex items-center gap-2">
+            <input value={code} onChange={recoveryCode} onKeyDown={(e) => e.key === 'Enter' && code.length >= 6 && disable()}
+              maxLength={11} placeholder="code"
+              className="rounded-lg border border-amber-300 px-3 py-2 text-center tracking-widest font-mono w-40 focus:border-amber-500 outline-none bg-white" />
+            <button onClick={disable} disabled={busy || code.length < 6} className="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 text-white text-sm px-3 py-2 disabled:opacity-50">
+              {busy ? <Loader2 size={14} className="animate-spin" /> : null} Disable
+            </button>
+            <button onClick={reset} className="text-xs text-amber-700 hover:text-amber-900">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {err && <p className="text-[11px] text-rose-600 mt-2">{err}</p>}
+    </section>
   );
 }

@@ -5,6 +5,7 @@ import { Plus, Trash2, TrendingUp, TrendingDown, Wallet, RefreshCw, ArrowDownLef
 import { productionApi, uploadFile, assetUrl } from '@/lib/api';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import { StatRow, Btn, Chip, inputCls } from './ui';
+import TwoFactorPrompt from '../TwoFactorPrompt';
 
 const STATUS_BY_KIND: Record<string, string[]> = {
   INCOME: ['DRAFT', 'INVOICED', 'RECEIVED', 'VOID'],
@@ -320,14 +321,36 @@ function PayablesView({ projectId, currency, reload }: { projectId: string; curr
   const load = useCallback(() => { productionApi.ledger.apAging(projectId).then(r => setData(r.data)).catch(() => setData(null)); }, [projectId]);
   useEffect(() => { load(); }, [load]);
 
+  const [twoFa, setTwoFa] = useState(false);          // step-up modal open
+  const [twoFaBusy, setTwoFaBusy] = useState(false);
+  const [twoFaErr, setTwoFaErr] = useState('');
+
   const toggle = (id: string) => setSel(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+
+  // Pay release is @Require2FA()-guarded: a 401 with TWO_FACTOR_* means we need a step-up code.
+  const runPay = async (code?: string) => {
+    const r = await productionApi.ledger.pay(projectId, [...sel], undefined, code);
+    alert(`Paid ${r.data.paid} invoice(s): ${money(r.data.totalPaid)}.`);
+    setSel(new Set()); setTwoFa(false); load(); reload();
+  };
   const pay = async () => {
     if (!sel.size) return;
     if (!confirm(`Mark ${sel.size} invoice(s) as paid?`)) return;
     setBusy(true);
-    try { const r = await productionApi.ledger.pay(projectId, [...sel]); alert(`Paid ${r.data.paid} invoice(s): ${money(r.data.totalPaid)}.`); setSel(new Set()); load(); reload(); }
-    catch (e: any) { alert(e.response?.data?.message || 'Payment failed.'); }
+    try { await runPay(); }
+    catch (e: any) {
+      const c = e.response?.data?.code;
+      if (e.response?.status === 401 && (c === 'TWO_FACTOR_REQUIRED' || c === 'TWO_FACTOR_INVALID')) {
+        setTwoFaErr(''); setTwoFa(true);                // ask for the authenticator code, then retry
+      } else { alert(e.response?.data?.message || 'Payment failed.'); }
+    }
     finally { setBusy(false); }
+  };
+  const payWithCode = async (code: string) => {
+    setTwoFaBusy(true); setTwoFaErr('');
+    try { await runPay(code); }
+    catch (e: any) { setTwoFaErr(e.response?.data?.message || 'Invalid code. Try again.'); }
+    finally { setTwoFaBusy(false); }
   };
   if (!data) return <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-gray-400 text-sm">Loading payables…</div>;
   const B = data.buckets || {};
@@ -335,6 +358,12 @@ function PayablesView({ projectId, currency, reload }: { projectId: string; curr
 
   return (
     <>
+      <TwoFactorPrompt
+        open={twoFa} busy={twoFaBusy} error={twoFaErr}
+        title="Confirm payment release"
+        message={`Releasing ${sel.size} payment(s) needs two-factor confirmation. Enter your authenticator code.`}
+        onVerify={payWithCode} onClose={() => { setTwoFa(false); setTwoFaErr(''); }}
+      />
       <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
         {[['Current', B.current], ['1–30', B.d1_30], ['31–60', B.d31_60], ['61–90', B.d61_90], ['90+', B.d90], ['Total open', data.totalOpen]].map(([l, v]: any, i) => (
           <div key={l} className={cn('rounded-2xl border border-slate-200 bg-white p-3.5', i === 5 && 'bg-brand-50')}><p className="text-[10px] text-gray-400 uppercase font-semibold">{l}</p><p className={cn('text-base font-bold', i >= 2 && i <= 4 && Number(v) > 0 ? 'text-red-600' : 'text-gray-900')}>{money(v || 0)}</p></div>

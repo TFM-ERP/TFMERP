@@ -36,4 +36,28 @@ export class AuthController {
   enable2FA(@Request() req, @Body('code') code: string) {
     return this.authService.enable2FA(req.user.id, code);
   }
+
+  @Post('2fa/disable')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Disable 2FA (accepts a TOTP or recovery code)' })
+  disable2FA(@Request() req, @Body('code') code: string) {
+    return this.authService.disable2FA(req.user.id, code);
+  }
+
+  @Get('2fa/backup-codes')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Remaining recovery-code count' })
+  backupCodesStatus(@Request() req) {
+    return this.authService.backupCodesStatus(req.user.id);
+  }
+
+  @Post('2fa/backup-codes/regenerate')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Re-issue recovery codes (requires a current code)' })
+  regenerateBackupCodes(@Request() req, @Body('code') code: string) {
+    return this.authService.regenerateBackupCodes(req.user.id, code);
+  }
 }

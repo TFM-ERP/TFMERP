@@ -16,6 +16,9 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error,        setError]        = useState('');
   const [loading,      setLoading]      = useState(false);
+  const [needs2FA,     setNeeds2FA]     = useState(false);
+  const [totpCode,     setTotpCode]     = useState('');
+  const [useRecovery,  setUseRecovery]  = useState(false);
 
   useEffect(() => {
     const saved      = localStorage.getItem(SAVED_EMAIL_KEY);
@@ -28,7 +31,9 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     try {
-      const res = await api.post('/auth/login', { email, password });
+      const res = await api.post('/auth/login', { email, password, totpCode: totpCode || undefined });
+      // Account has 2FA on but no code yet → reveal the code field and wait for the second step.
+      if (res.data?.requires2FA) { setNeeds2FA(true); setLoading(false); return; }
       const { access_token, user } = res.data;
       localStorage.setItem('tfm_token', access_token);
       localStorage.setItem('tfm_user', JSON.stringify(user));
@@ -152,6 +157,36 @@ export default function LoginPage() {
                 </div>
               </div>
 
+              {/* Two-factor code (second step) */}
+              {needs2FA && (
+                <div>
+                  <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: '#8a7355' }}>
+                    {useRecovery ? 'Recovery code' : 'Authenticator code'}
+                  </label>
+                  <input
+                    type="text" inputMode={useRecovery ? 'text' : 'numeric'} maxLength={useRecovery ? 11 : 6} autoFocus
+                    placeholder={useRecovery ? 'XXXXX-XXXXX' : '——————'}
+                    value={totpCode}
+                    onChange={e => setTotpCode(useRecovery
+                      ? e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 11)
+                      : e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    className="w-full h-9 px-3 text-sm text-center tracking-[0.3em] font-mono rounded-md outline-none transition-all"
+                    style={{ background: '#1e2022', border: '1px solid #3D4045', color: '#e0d5c5' }}
+                    onFocus={e => { e.currentTarget.style.borderColor = '#0f172a'; }}
+                    onBlur={e  => { e.currentTarget.style.borderColor = '#3D4045'; }}
+                  />
+                  <div className="flex items-center justify-between mt-1.5">
+                    <p className="text-[11px]" style={{ color: '#737679' }}>
+                      {useRecovery ? 'Enter one of your saved recovery codes.' : 'Enter the 6-digit code from your authenticator app.'}
+                    </p>
+                    <button type="button" onClick={() => { setUseRecovery(v => !v); setTotpCode(''); }}
+                      className="text-[11px] underline" style={{ color: '#8a7355' }}>
+                      {useRecovery ? 'Use authenticator' : 'Use a recovery code'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Remember me */}
               <label className="flex items-center gap-2.5 cursor-pointer select-none pt-1">
                 <input
@@ -173,7 +208,7 @@ export default function LoginPage() {
                 onMouseEnter={e => { if (!loading) (e.currentTarget.style.background = '#b8954a'); }}
                 onMouseLeave={e => { if (!loading) (e.currentTarget.style.background = '#0f172a'); }}
               >
-                {loading ? 'Signing in…' : 'Sign in'}
+                {loading ? 'Signing in…' : needs2FA ? 'Verify & continue' : 'Sign in'}
               </button>
             </form>
           </div>

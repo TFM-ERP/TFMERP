@@ -4,10 +4,12 @@ import { LedgerService } from './ledger.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../permissions/permissions.guard';
 import { RequirePermission } from '../../permissions/require-permission.decorator';
+import { TwoFactorGuard } from '../../auth/guards/two-factor.guard';
+import { Require2FA } from '../../auth/require-2fa.decorator';
 
 @ApiTags('Production')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard, TwoFactorGuard)
 @RequirePermission('production', 1)
 @Controller('production/ledger')
 export class LedgerController {
@@ -22,7 +24,7 @@ export class LedgerController {
   // Accounts Payable
   @Get('ap-aging/:projectId') apAging(@Param('projectId') projectId: string) { return this.service.apAging(projectId); }
   @Get('paid/:projectId') paidRegister(@Param('projectId') projectId: string, @Query() q: any) { return this.service.paidRegister(projectId, q); }
-  @Post('pay/:projectId') @RequirePermission('production', 2) pay(@Param('projectId') projectId: string, @Body() b: any, @Req() req: any) { return this.service.paySelected(projectId, b?.ids || [], b?.paidDate, req.user?.id); }
+  @Post('pay/:projectId') @RequirePermission('production', 2) @Require2FA() pay(@Param('projectId') projectId: string, @Body() b: any, @Req() req: any) { return this.service.paySelected(projectId, b?.ids || [], b?.paidDate, req.user?.id); }
 
   // Cost coding / account drill-down
   @Get('by-account/:projectId') byAccount(@Param('projectId') projectId: string) { return this.service.byAccount(projectId); }

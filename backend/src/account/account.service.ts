@@ -62,6 +62,18 @@ export class AccountService {
     return { ...updated, legalNameQueued };
   }
 
+  /** Everyone with a legal-name change awaiting HR/Finance sign-off. */
+  async pendingLegalNames() {
+    return this.prisma.user.findMany({
+      where: { legalNamePending: true },
+      orderBy: { updatedAt: 'desc' },
+      select: {
+        id: true, fullName: true, email: true, department: true, jobTitle: true,
+        legalName: true, legalNameProposed: true, updatedAt: true,
+      },
+    });
+  }
+
   /** HR/Finance sign-off: promote the parked legal name to the record (or reject it). */
   async clearLegalName(userId: string, approve: boolean) {
     const u = await this.prisma.user.findUnique({

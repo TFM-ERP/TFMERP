@@ -74,7 +74,16 @@ export class AccountController {
     return this.account.revokeSession(req.user.id, id);
   }
 
-  // HR / Finance only: confirm or reject a parked legal-name change for any user.
+  // HR / Finance only: review queue + confirm/reject parked legal-name changes.
+  @Get('legal-name/pending')
+  @ApiOperation({ summary: 'HR/Finance: list users with a pending legal-name change' })
+  pendingLegalNames(@Request() req) {
+    if (!LEGAL_NAME_CLEARERS.includes(req.user.role)) {
+      throw new ForbiddenException('Only HR or Finance can review legal-name changes');
+    }
+    return this.account.pendingLegalNames();
+  }
+
   @Patch(':userId/legal-name/clear')
   @ApiOperation({ summary: 'HR/Finance: approve or reject a pending legal-name change' })
   clearLegalName(@Request() req, @Param('userId') userId: string, @Body('approve') approve: boolean) {
