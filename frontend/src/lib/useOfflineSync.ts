@@ -35,6 +35,11 @@ export function useOfflineSync(onSynced?: () => void) {
   const [errors, setErrors] = useState<QueueItem[]>([]);
   const [syncing, setSyncing] = useState(false);
   const flushing = useRef(false);
+  // Keep the latest onSynced without making it a dependency — an inline callback from the
+  // caller would otherwise change flush's identity every render and re-fire the boot effect,
+  // toggling `syncing` on/off in a loop (the flickering "Syncing…" chip).
+  const onSyncedRef = useRef(onSynced);
+  useEffect(() => { onSyncedRef.current = onSynced; }, [onSynced]);
 
   const refresh = useCallback(async () => {
     const q = await allQueued();
@@ -45,9 +50,11 @@ export function useOfflineSync(onSynced?: () => void) {
   const flush = useCallback(async () => {
     if (flushing.current) return;
     if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+    const q = await allQueued();
+    const toPush = q.filter(i => i.status !== 'error'); // 'error' items need manual attention
+    if (toPush.length === 0) { await refresh(); return; } // nothing to send — don't flash the chip
     flushing.current = true; setSyncing(true);
     let didWork = false;
-    const q = await allQueued();
     for (const item of q) {
       if (item.status === 'error') continue; // needs manual attention; don't auto-retry
       try {
@@ -66,8 +73,8 @@ export function useOfflineSync(onSynced?: () => void) {
     }
     await refresh();
     flushing.current = false; setSyncing(false);
-    if (didWork) onSynced?.();
-  }, [refresh, onSynced]);
+    if (didWork) onSyncedRef.current?.();
+  }, [refresh]);
 
   useEffect(() => {
     setOnline(typeof navigator === 'undefined' ? true : navigator.onLine);

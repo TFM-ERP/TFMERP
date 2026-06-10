@@ -196,6 +196,19 @@ export class MailService {
     return { sent: recipients.split(',').filter(Boolean).length, recipients };
   }
 
+  /** SYS-13c — email a secure listen link for a rendered audio mix (link only, never the file). */
+  async sendAudioShare(token: string, body: { title?: string; recipients?: any; message?: string; projectId?: string } = {}) {
+    const recipients = toList(body.recipients);
+    if (!recipients) throw new BadRequestException('No recipient email for this share link.');
+    const link = `${APP_URL}/listen/${token}`;
+    const html = shell(body.title || 'Audio for review',
+      `<p>${body.message ? body.message + '<br\><br\>' : ''}You have been sent audio to listen to.</p>
+       <p>Use the secure link below — it opens an in-browser player and may be time-limited.</p>`,
+      link, 'Listen now');
+    await this.sendMail(recipients, body.title || 'Audio for review', html, body.projectId);
+    return { sent: recipients.split(',').filter(Boolean).length, recipients };
+  }
+
   /**
    * SYS-13 · D5 — email each recipient their watermarked sides. Each gets only their own
    * personalised PDF link (leak-tracing); recipients with no email are skipped.

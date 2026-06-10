@@ -39,13 +39,15 @@ export default function NotificationBell() {
 
   return (
     <div className="relative" ref={ref}>
-      <button onClick={() => setOpen(o => !o)} className="relative text-gray-400 hover:text-gray-600" aria-label="Notifications">
-        <Bell size={17} />
-        {visible.length > 0 && (
-          <span className="absolute -top-1.5 -right-1.5 min-w-[15px] h-[15px] px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
-            {visible.length}
-          </span>
-        )}
+      <button onClick={() => setOpen(o => !o)} className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-50" aria-label="Notifications">
+        <span className="relative inline-flex">
+          <Bell size={16} />
+          {visible.length > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 min-w-[15px] h-[15px] px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
+              {visible.length}
+            </span>
+          )}
+        </span>
       </button>
 
       {open && (

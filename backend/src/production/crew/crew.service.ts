@@ -129,11 +129,51 @@ export class CrewService {
         if (data.dailyRate === undefined && m.dayRateAed != null) data.dailyRate = Number(m.dayRateAed);
         if (data.weeklyRate === undefined && m.weeklyRateAed != null) data.weeklyRate = Number(m.weeklyRateAed);
       }
+    } else if (!data.isInternal && data.name && data.name !== 'Unnamed') {
+      // A project hire is a Crew Directory person: ensure a directory identity exists so the crew
+      // member always has a crewMemberId (and the budget line can be linked). Internal staff skip this.
+      const where: any = data.email ? { OR: [{ email: data.email }, { name: data.name }] } : { name: data.name };
+      let m = await this.prisma.crewMember.findFirst({ where });
+      if (!m) m = await this.prisma.crewMember.create({ data: { name: data.name, email: data.email || null, department: (data as any).department || null, role: (data as any).roleTitle || null } });
+      data.crewMemberId = m.id;
     }
     if (!data.name) data.name = 'Unnamed';
     // clean() strips projectId (it's shared with update, where projectId must never
     // change) — re-attach it here, create requires the FK.
-    return this.prisma.productionCrew.create({ data: { ...this.clean(data), projectId: data.projectId } });
+    const created = await this.prisma.productionCrew.create({ data: { ...this.clean(data), projectId: data.projectId } });
+    // Auto-link directory freelancers to their matching budget labour line (rate-card connection).
+    try { await this.autoLinkBudgetLines(created.projectId, created.crewMemberId, created.roleTitle || created.role); } catch { /* non-fatal */ }
+    return created;
+  }
+
+  /**
+   * When a Crew Directory freelancer is assigned to a project (ANY project), back-link them to
+   * their matching budget labour line(s) — i.e. set BudgetLineItem.crewMemberId — so the budget
+   * shows the assignee and the rate-card connection is live. Only applies to directory crew
+   * (a crewMemberId is required). Non-destructive: only fills lines with no assignee yet.
+   * Matches by role/title — exact match preferred, single closest keyword match otherwise.
+   */
+  private async autoLinkBudgetLines(projectId: string, crewMemberId?: string | null, role?: string | null): Promise<number> {
+    if (!crewMemberId || !projectId) return 0; // freelancers (directory) only
+    const norm = (s: any) => String(s || '').toUpperCase().replace(/[^A-Z0-9 ]/g, '').trim();
+    const key = norm(role);
+    if (!key) return 0;
+    const versions = await this.prisma.budgetVersion.findMany({ where: { projectId }, select: { id: true } });
+    if (!versions.length) return 0;
+    const sections = await this.prisma.budgetSection.findMany({ where: { budgetVersionId: { in: versions.map((v) => v.id) } }, select: { id: true } });
+    const accounts = await this.prisma.budgetAccount.findMany({ where: { sectionId: { in: sections.map((s) => s.id) }, code: { not: '1400' } }, select: { id: true } });
+    if (!accounts.length) return 0;
+    const lines = await this.prisma.budgetLineItem.findMany({ where: { accountId: { in: accounts.map((a) => a.id) }, crewMemberId: null } });
+    const cand = lines.filter((l) => l.classificationCode !== 'PERFORMER');
+    const exact = cand.filter((l) => norm(l.subTitle || l.description) === key);
+    let targets = exact;
+    if (!targets.length) {
+      const partial = cand.find((l) => { const k = norm(l.subTitle || l.description); return k && (k.includes(key) || key.includes(k)); });
+      targets = partial ? [partial] : [];
+    }
+    if (!targets.length) return 0;
+    await this.prisma.budgetLineItem.updateMany({ where: { id: { in: targets.map((t) => t.id) } }, data: { crewMemberId } });
+    return targets.length;
   }
 
   async findAssignment(id: string) {
@@ -147,7 +187,10 @@ export class CrewService {
   }
 
   async update(id: string, data: any) {
-    return this.prisma.productionCrew.update({ where: { id }, data: this.clean(data) });
+    const updated = await this.prisma.productionCrew.update({ where: { id }, data: this.clean(data) });
+    // If now linked to the directory + has a role, ensure the budget line is connected.
+    try { if (updated.crewMemberId) await this.autoLinkBudgetLines(updated.projectId, updated.crewMemberId, updated.roleTitle || updated.role); } catch { /* non-fatal */ }
+    return updated;
   }
 
   async remove(id: string) {
