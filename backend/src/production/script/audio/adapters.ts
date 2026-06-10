@@ -73,7 +73,7 @@ export class ElevenLabsAdapter implements AudioProviderAdapter {
 
   /** Voices in the account's library (premade + cloned). Powers the casting dropdown. */
   async listVoices(): Promise<VoiceOption[]> {
-    const r = await fetch('https://api.elevenlabs.io/v1/voices', { headers: { 'xi-api-key': this.apiKey() } });
+    const r = await fetch('https://api.elevenlabs.io/v1/voices', { headers: { 'xi-api-key': this.apiKey() }, signal: AbortSignal.timeout(30_000) });
     if (!r.ok) throw new Error(`ElevenLabs voices ${r.status}: ${await r.text().catch(() => '')}`);
     const data: any = await r.json();
     return ((data?.voices || []) as any[]).map((v) => ({
@@ -91,16 +91,25 @@ export class ElevenLabsAdapter implements AudioProviderAdapter {
 
   async synthesize(seg: Segment, cfg: VoiceConfig): Promise<SynthResult> {
     const voice = cfg.externalVoiceId; if (!voice) throw new Error('No ElevenLabs voice id on this assignment.');
-    const model = cfg.model || this.defaultModel || 'eleven_multilingual_v2';
-    // v3 models take inline audio tags ([excited] …); v2 models take voice_settings modulation.
+    // STRICT v3 default — expressive audio-tag model, no per-line language drift knobs needed.
+    const model = cfg.model || this.defaultModel || 'eleven_v3';
     const isV3 = /v3/i.test(model);
+    // v3: emotion rides as an inline audio tag; voice_settings only accepts quantized
+    // stability (0 creative · 0.5 natural · 1 robust) — style/speed are v2-only.
     const text = isV3 && cfg.emotionTag ? `[${cfg.emotionTag}] ${seg.text}` : seg.text;
-    const vs: any = { stability: cfg.stability ?? 0.5, similarity_boost: cfg.similarity ?? 0.75, style: cfg.styleAmount ?? 0, use_speaker_boost: true };
-    if (cfg.speed && !isV3) vs.speed = Math.min(1.2, Math.max(0.7, cfg.speed));
+    let vs: any;
+    if (isV3) {
+      const s = cfg.stability ?? 0.5;
+      vs = { stability: s <= 0.35 ? 0.0 : s >= 0.85 ? 1.0 : 0.5, similarity_boost: cfg.similarity ?? 0.75, use_speaker_boost: true };
+    } else {
+      vs = { stability: cfg.stability ?? 0.5, similarity_boost: cfg.similarity ?? 0.75, style: cfg.styleAmount ?? 0, use_speaker_boost: true };
+      if (cfg.speed) vs.speed = Math.min(1.2, Math.max(0.7, cfg.speed));
+    }
     const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}`, {
       method: 'POST',
       headers: { 'xi-api-key': this.apiKey(), 'Content-Type': 'application/json', accept: 'audio/mpeg' },
       body: JSON.stringify({ text, model_id: model, voice_settings: vs }),
+      signal: AbortSignal.timeout(90_000), // a stalled connection must not hang a whole render
     });
     if (!r.ok) throw new Error(`ElevenLabs TTS ${r.status}: ${await r.text().catch(() => '')}`);
     return { audio: Buffer.from(await r.arrayBuffer()), mime: 'audio/mpeg', charsBilled: seg.text.length };
@@ -149,6 +158,7 @@ export class OpenAiAdapter implements AudioProviderAdapter {
     const r = await fetch('https://api.openai.com/v1/audio/speech', {
       method: 'POST', headers: { Authorization: `Bearer ${this.apiKey()}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(90_000),
     });
     if (!r.ok) throw new Error(`OpenAI TTS ${r.status}: ${await r.text().catch(() => '')}`);
     return { audio: Buffer.from(await r.arrayBuffer()), mime: 'audio/mpeg', charsBilled: seg.text.length };

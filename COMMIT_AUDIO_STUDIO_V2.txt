@@ -1,0 +1,32 @@
+feat(scripton-audio): SAUDIO-11 — Audio Studio overhaul to the approved mockup (S1+S2)
+
+Tabs now match the design: Reader · Voices · Pronounce · Performance · Layers · Library
+(Reader is the default tab — the studio opens reading, not configuring.)
+
+S1 — Performance model (backend)
+- Pace / Confidence / Tension sliders (0–10) per character, stored on
+  VoiceProfile.emotionalRange, translated to standing eleven_v3 audio tags
+  ([tense], [confident], [hesitant], [fast-paced], [drawn out]) and layered with
+  parenthetical hints (the hint always leads). Applied in live reading AND renders;
+  cache keys include the full tag line so slider changes re-perform lines.
+- Strict eleven_v3 default model (quantized v3 voice_settings; emotion via audio
+  tags; model in cache key so v2 audio is replaced, not replayed).
+
+S2 — UI overhaul (ScriptOnAudioPanel)
+- NEW Studio Reader (3-pane, per mockup): scene rail (number · slugline · cast ·
+  estimated duration) · karaoke reader (screenplay-formatted, live line highlight,
+  auto-scroll, per-scene Read with v3 voices + prefetch + session cost) · NOW CASTING
+  inspector (active character's voice card: nationality/native/accent/style,
+  live Pace/Confidence/Tension sliders saving to the profile, Edit voice jumps to
+  the Voices tab with that character open).
+- Performance tab: render profiles (Table read · Full mix · Dialogue only ·
+  Narration only) driving scope + layer mixing; custom scope still available;
+  cost card + Recent renders kept.
+- Layers tab: scene TIMELINE with colored lanes (Ambience/SFX/Foley/Music),
+  cues as positioned blocks (drag to set start time), auto-suggested cues drawn
+  dashed-amber with ✦, grid ruler, per-scene duration estimate. Detailed cue list
+  retained below for fine control (volume, duck, upload, approve).
+- Voice editor: performance sliders added (same emotionalRange store).
+
+Next (S3/S4): scene rendering via the v3 Text-to-Dialogue API (true multi-speaker
+interplay) and Eleven Music / SFX cue preview generation in the Layers tab.

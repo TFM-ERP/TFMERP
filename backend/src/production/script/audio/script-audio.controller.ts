@@ -84,7 +84,8 @@ export class RenderController {
   @Get('render/plan/:revisionId') plan(@Param('revisionId') id: string) { return this.render.renderPlan(id); }
   @Get('jobs/:projectId') jobs(@Param('projectId') id: string) { return this.render.listJobs(id); }
   @Get('job/:id') job(@Param('id') id: string) { return this.render.getJob(id); }
-  @Get('library/:projectId') library(@Param('projectId') id: string) { return this.render.listAssets(id); }
+  @Get('jobs-for-revision/:revisionId') jobsForRevision(@Param('revisionId') id: string) { return this.render.jobsForRevision(id); }
+  @Get('library/:projectId') library(@Param('projectId') id: string, @Query('revisionId') revisionId?: string) { return this.render.listAssets(id, revisionId); }
   @Post('library/:id/archive') @RequirePermission('production', 2) archive(@Param('id') id: string) { return this.render.archiveAsset(id); }
   @Get('usage/:projectId') usage(@Param('projectId') id: string) { return this.render.usageSummary(id); }
   @Get('quota/:projectId') quota(@Param('projectId') id: string) { return this.render.getQuota('PROJECT', id); }

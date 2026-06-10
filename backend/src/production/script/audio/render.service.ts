@@ -49,6 +49,15 @@ export class RenderService implements OnModuleInit {
 
   getJob(id: string) { return this.prisma.audioRenderJob.findUnique({ where: { id } }); }
 
+  /** Recent jobs for a revision WITH their output assets — the can't-miss render list. */
+  async jobsForRevision(revisionId: string) {
+    const jobs = await this.prisma.audioRenderJob.findMany({ where: { revisionId }, orderBy: { createdAt: 'desc' }, take: 8 });
+    const ids = jobs.map((j) => j.outputAssetId).filter(Boolean) as string[];
+    const assets = ids.length ? await this.prisma.audioAsset.findMany({ where: { id: { in: ids } } }) : [];
+    const aById = new Map(assets.map((a) => [a.id, a]));
+    return jobs.map((j) => ({ ...j, asset: j.outputAssetId ? aById.get(j.outputAssetId) || null : null }));
+  }
+
   private readonly CUE_RE = /^\s*([A-Z][A-Z0-9 .'\-]{1,30})(\s*\((?:V\.?O\.?|O\.?S\.?|CONT'?D)\.?\))?\s*$/;
   private readonly SLUG_RE = /^\s*(INT\.?\/EXT\.?|I\/E\.?|INT\.?|EXT\.?)\b/i;
   private absPath(name: string) { return join(process.cwd(), 'uploads', basename(name)); }
@@ -256,6 +265,25 @@ export class RenderService implements OnModuleInit {
     return this.runFfmpeg(['-y', '-i', inAbs, '-af', filter, '-codec:a', 'libmp3lame', '-q:a', '4', outAbs]);
   }
 
+  /**
+   * Performance sliders (Pace / Confidence / Tension, 0–10, stored on the voice
+   * profile's emotionalRange) → v3 audio-tag baseline. A line's parenthetical
+   * hint always leads; sliders add the character's standing delivery.
+   */
+  private deliveryTags(profile: any, hintKey?: string): string | undefined {
+    const er = (profile?.emotionalRange as any) || {};
+    const tags: string[] = [];
+    if (hintKey) tags.push(hintKey);
+    else {
+      if (Number(er.tension) >= 7) tags.push('tense');
+      if (Number(er.confidence) >= 8) tags.push('confident');
+      else if (er.confidence !== undefined && Number(er.confidence) <= 3) tags.push('hesitant');
+    }
+    if (Number(er.pace) >= 8) tags.push('fast-paced');
+    else if (er.pace !== undefined && Number(er.pace) <= 2) tags.push('drawn out');
+    return tags.length ? tags.join('] [') : undefined; // adapter wraps: "[tense] [fast-paced]"
+  }
+
   /** In-memory engine voice-library cache (10 min) for default-voice picks. */
   private voiceLibCache = new Map<string, { at: number; voices: any[] }>();
   private async engineVoicesCached(engineKey: string): Promise<any[]> {
@@ -309,15 +337,17 @@ export class RenderService implements OnModuleInit {
     let voiceId = profile?.externalVoiceId || await this.defaultVoiceId(engineRow.key, b?.character, isNarr);
     if (!voiceId) throw new BadRequestException(`No voice for "${b?.character || 'NARRATOR'}" — cast it in Audio Studio → Voices (or check the ${engineRow.displayName} API key).`);
 
-    // Delivery: explicit emotion hint (parenthetical/punctuation) > the profile's baseline style.
+    // Delivery: explicit emotion hint (parenthetical/punctuation) > the profile's baseline style,
+    // PLUS the character's performance sliders (pace/confidence/tension) as standing tags.
     // The same hint can also carry an audio EFFECT — "(angry, over radio)" applies both.
     const emo = this.emotionSettings(b?.emotion || (!isNarr ? profile?.style || undefined : undefined));
+    const tagLine = this.deliveryTags(profile, emo?.key);
     const fx = this.effectFor(b?.emotion);
 
     const dict = await this.pron.resolveMap({ projectId, revisionId });
     const text = this.pron.applyTo(text0, dict);
     const seg: Segment = { id: 'live', kind: isNarr ? 'narration' : 'dialogue', character: b?.character, text };
-    const key = this.cacheKey(seg, engineRow.key, `${voiceId}|${emo?.key || ''}|${fx?.key || ''}`); // same line, different delivery/effect = different cache entry
+    const key = this.cacheKey(seg, engineRow.key, `${voiceId}|${tagLine || ''}|${fx?.key || ''}|${engineRow.defaultModel || 'eleven_v3'}`); // delivery/effect/MODEL all key the cache — switching models re-renders lines
     const currency = (engineRow.costModel as any)?.currency || 'USD';
 
     // Cache hit → free replay
@@ -335,7 +365,7 @@ export class RenderService implements OnModuleInit {
 
     const cfg = {
       externalVoiceId: voiceId, rate: Number(profile?.defaultRate ?? 1),
-      stability: emo?.stability, styleAmount: emo?.style, speed: emo?.speed, emotionTag: emo?.key,
+      stability: emo?.stability, styleAmount: emo?.style, speed: emo?.speed, emotionTag: tagLine,
     };
     let res;
     try { res = await adapter.synthesize(seg, cfg); }
@@ -347,7 +377,12 @@ export class RenderService implements OnModuleInit {
       const fxName = `tts-${key.slice(0, 24)}-${fx.key}.mp3`;
       if (await this.applyFx(this.absPath(fn), this.absPath(fxName), fx.filter)) fn = fxName;
     }
-    await this.prisma.lineSynthesisCache.create({ data: { cacheKey: key, engineKey: engineRow.key, url: `/uploads/${fn}`, charsBilled: res.charsBilled } });
+    // upsert: concurrent synth of the same line (render vs live prefetch, double-fire) must never throw
+    await this.prisma.lineSynthesisCache.upsert({
+      where: { cacheKey: key },
+      update: { url: `/uploads/${fn}`, hitCount: { increment: 1 }, lastUsedAt: new Date() },
+      create: { cacheKey: key, engineKey: engineRow.key, url: `/uploads/${fn}`, charsBilled: res.charsBilled },
+    });
     const rate = Number((engineRow.costModel as any)?.tts?.rate || 0);
     const lineCost = Math.round(res.charsBilled * rate * 10000) / 10000;
     await this.prisma.voiceUsageRecord.create({ data: { engineKey: engineRow.key, capability: 'LIVE_READ', projectId: projectId || null, userId: userId || null, charsBilled: res.charsBilled, unitCost: rate, totalCost: lineCost, currency, cacheHit: false } });
@@ -370,30 +405,44 @@ export class RenderService implements OnModuleInit {
     const rate = Number((engineRow.costModel as any)?.tts?.rate || 0);
     const currency = (engineRow.costModel as any)?.currency || 'USD';
 
-    const buffers: Buffer[] = []; let billed = 0; let cost = 0;
+    const buffers: Buffer[] = []; let billed = 0; let cost = 0; let done = 0;
+    const tick = async () => {
+      done += 1;
+      if (done % 3 === 0 || done === segments.length) {
+        await this.prisma.audioRenderJob.update({ where: { id: jobId }, data: { progress: Math.round((done / segments.length) * 90) } }).catch(() => {});
+      }
+    };
     for (const seg of segments) {
       const isNarr = seg.kind === 'narration';
       const { profile } = await this.voiceFor(job.revisionId, seg.character, isNarr);
       // Voice: cast profile's id, else the same default pick live reading uses (never fails on uncast speakers).
       const voiceId = profile?.externalVoiceId || await this.defaultVoiceId(engineRow.key, seg.character, isNarr);
       if (!voiceId) throw new BadRequestException(`No voice for "${seg.character || 'NARRATOR'}" — cast it in Voices, or check the ${engineRow.displayName} API key.`);
-      // Parenthetical-driven delivery + audio effect, same as live reading.
+      // Parenthetical-driven delivery + performance sliders + audio effect, same as live reading.
       const emo = this.emotionSettings(seg.hint || (!isNarr ? profile?.style || undefined : undefined));
+      const tagLine = this.deliveryTags(profile, emo?.key);
       const fx = this.effectFor(seg.hint);
       const cfg = {
         externalVoiceId: voiceId, rate: Number(profile?.defaultRate ?? 1),
-        stability: emo?.stability, styleAmount: emo?.style, speed: emo?.speed, emotionTag: emo?.key,
+        stability: emo?.stability, styleAmount: emo?.style, speed: emo?.speed, emotionTag: tagLine,
       };
       const text = this.pron.applyTo(seg.text, dict);
-      const key = this.cacheKey({ ...seg, text }, engineRow.key, `${voiceId}|${emo?.key || ''}|${fx?.key || ''}`);
+      const key = this.cacheKey({ ...seg, text }, engineRow.key, `${voiceId}|${tagLine || ''}|${fx?.key || ''}|${engineRow.defaultModel || 'eleven_v3'}`);
       const hit = await this.prisma.lineSynthesisCache.findUnique({ where: { cacheKey: key } }).catch(() => null);
       if (hit && fs.existsSync(this.absPath(hit.url))) {
         buffers.push(fs.readFileSync(this.absPath(hit.url)));
         await this.prisma.lineSynthesisCache.update({ where: { id: hit.id }, data: { hitCount: { increment: 1 }, lastUsedAt: new Date() } });
         await this.prisma.voiceUsageRecord.create({ data: { jobId, engineKey: engineRow.key, projectId: job.projectId, userId: job.requestedById, charsBilled: 0, totalCost: 0, currency, cacheHit: true } });
+        await tick();
         continue;
       }
-      const res = await adapter.synthesize({ ...seg, text }, cfg);
+      // One retry on timeout / transient provider error (rate limits, blips).
+      let res;
+      try { res = await adapter.synthesize({ ...seg, text }, cfg); }
+      catch {
+        await new Promise((r) => setTimeout(r, 2500));
+        res = await adapter.synthesize({ ...seg, text }, cfg);
+      }
       let fn = `tts-${key.slice(0, 24)}.mp3`;
       fs.writeFileSync(this.absPath(fn), res.audio);
       if (fx) {
@@ -401,10 +450,17 @@ export class RenderService implements OnModuleInit {
         if (await this.applyFx(this.absPath(fn), this.absPath(fxName), fx.filter)) fn = fxName;
       }
       buffers.push(fs.readFileSync(this.absPath(fn)));
-      await this.prisma.lineSynthesisCache.create({ data: { cacheKey: key, engineKey: engineRow.key, url: `/uploads/${fn}`, charsBilled: res.charsBilled } });
+      // upsert: a row may already exist (live reading synthesized the same line, or a
+      // previous run wrote it after this run's cache lookup) — never fail the render on it
+      await this.prisma.lineSynthesisCache.upsert({
+        where: { cacheKey: key },
+        update: { url: `/uploads/${fn}`, hitCount: { increment: 1 }, lastUsedAt: new Date() },
+        create: { cacheKey: key, engineKey: engineRow.key, url: `/uploads/${fn}`, charsBilled: res.charsBilled },
+      });
       const lineCost = Math.round(res.charsBilled * rate * 100) / 100;
       billed += res.charsBilled; cost += lineCost;
       await this.prisma.voiceUsageRecord.create({ data: { jobId, engineKey: engineRow.key, projectId: job.projectId, userId: job.requestedById, charsBilled: res.charsBilled, unitCost: rate, totalCost: lineCost, currency, cacheHit: false } });
+      await tick();
     }
 
     // Dialogue stem = sequential concat of mp3 segments.
@@ -505,7 +561,14 @@ export class RenderService implements OnModuleInit {
 
   // ── Library + jobs + quota ──────────────────────────────────────────────────────
   listJobs(projectId: string) { return this.prisma.audioRenderJob.findMany({ where: { projectId }, orderBy: { createdAt: 'desc' }, take: 50 }); }
-  listAssets(projectId: string) { return this.prisma.audioAsset.findMany({ where: { projectId, status: { not: 'DELETED' } }, orderBy: { generatedAt: 'desc' } }); }
+  /** Library listing: match by project OR by any of the script's revisions — assets
+   *  rendered when the project couldn't be resolved (null projectId) still show up. */
+  listAssets(projectId: string, revisionId?: string) {
+    const where: any = { status: { not: 'DELETED' } };
+    where.OR = [{ projectId }];
+    if (revisionId) where.OR.push({ revisionId });
+    return this.prisma.audioAsset.findMany({ where, orderBy: { generatedAt: 'desc' } });
+  }
   archiveAsset(id: string) { return this.prisma.audioAsset.update({ where: { id }, data: { status: 'ARCHIVED' } }); }
 
   async getQuota(scope: string, projectId?: string, userId?: string) {

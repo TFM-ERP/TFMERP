@@ -25,11 +25,11 @@ export class AudioEnginesService {
     }
     // pre-seed disabled studio engines so admins just add a key + enable
     for (const e of [
-      { key: 'ELEVENLABS', displayName: 'ElevenLabs', caps: { tts: true, sfx: true, music: true, dubbing: true }, cloning: true, credentialRef: 'ELEVENLABS_API_KEY' },
+      { key: 'ELEVENLABS', displayName: 'ElevenLabs', caps: { tts: true, sfx: true, music: true, dubbing: true }, cloning: true, credentialRef: 'ELEVENLABS_API_KEY', defaultModel: 'eleven_v3' },
       { key: 'OPENAI', displayName: 'OpenAI', caps: { tts: true, sfx: false, music: false, dubbing: false }, cloning: false, credentialRef: 'OPENAI_API_KEY' },
     ]) {
       const r = await this.prisma.audioEngine.findUnique({ where: { key: e.key } });
-      if (!r) await this.prisma.audioEngine.create({ data: { key: e.key, displayName: e.displayName, tier: 'STUDIO', enabled: false, supportsCloning: e.cloning, credentialRef: e.credentialRef, capabilities: e.caps, costModel: { tts: { unit: 'CHAR', rate: e.key === 'ELEVENLABS' ? 0.00018 : 0.000015 }, sfx: { unit: 'GENERATION', rate: 0.08 }, music: { unit: 'GENERATION', rate: 0.2 }, currency: 'USD' } } });
+      if (!r) await this.prisma.audioEngine.create({ data: { key: e.key, displayName: e.displayName, tier: 'STUDIO', enabled: false, supportsCloning: e.cloning, credentialRef: e.credentialRef, defaultModel: (e as any).defaultModel || null, capabilities: e.caps, costModel: { tts: { unit: 'CHAR', rate: e.key === 'ELEVENLABS' ? 0.00018 : 0.000015 }, sfx: { unit: 'GENERATION', rate: 0.08 }, music: { unit: 'GENERATION', rate: 0.2 }, currency: 'USD' } } });
     }
     return this.listEngines();
   }
