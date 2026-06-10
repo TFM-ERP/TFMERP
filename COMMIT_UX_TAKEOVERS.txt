@@ -1,0 +1,16 @@
+feat(ux): SYS-14 step 4 — ScriptON surface tabs + single-takeover model
+
+ScriptHubPanel binder
+- The 9-button toolbar becomes ONE surface tab row:
+  Pages · Reader · Tags · Lining · Sides · Analyze · Audio Studio ♪
+  Each tab is a full-page takeover; closing any surface returns to Pages.
+- ONE `surface` state replaces 8 independent open/closed booleans — overlays can
+  no longer stack on each other (the old 8-chrome-row worst case is gone).
+- Secondary actions move out of the toolbar into a "⋯ More" menu:
+  upload-as revision color, Transfer notes, Compare with…, Export visible layers,
+  Page maker (facing pages), Voice memos, Procurement staging.
+- Toolbar keeps only what's daily: theme toggle, revision picker, Upload, ⋯ More.
+- Per the IA map: voice memos and procurement are demoted from toolbar buttons to
+  menu items (procurement stages FROM tags; memos pair with Reader/Audio Studio).
+
+Completes the four SYS-14 slices: phases → tokens/dark → shell → takeovers.

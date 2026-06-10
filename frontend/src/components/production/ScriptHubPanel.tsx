@@ -63,17 +63,12 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
   const [placingId, setPlacingId] = useState<string | null>(null);
   const [compare, setCompare] = useState<any>(null); // { other, data } when compare modal open
   const [settingsLayer, setSettingsLayer] = useState<any>(null);
-  const [sidesOpen, setSidesOpen] = useState(false);
-  const [pagesOpen, setPagesOpen] = useState(false);
+  // SYS-14 takeover model: ONE surface open at a time — overlays can no longer stack.
+  const [surface, setSurface] = useState<'reader' | 'tags' | 'lining' | 'sides' | 'analyze' | 'audiostudio' | 'memos' | 'procurement' | null>(null);
+  const [moreOpen, setMoreOpen] = useState(false);        // "⋯ More" actions menu
+  const [pagesOpen, setPagesOpen] = useState(false);      // Page-maker modal (lives in ⋯ More)
   const [pageOpts, setPageOpts] = useState({ style: 'LINED', side: 'BEFORE' });
   const [pagesBusy, setPagesBusy] = useState(false);
-  const [liningOpen, setLiningOpen] = useState(false);
-  const [procOpen, setProcOpen] = useState(false);
-  const [readerOpen, setReaderOpen] = useState(false);
-  const [tagsOpen, setTagsOpen] = useState(false);
-  const [analyzeOpen, setAnalyzeOpen] = useState(false);
-  const [audioOpen, setAudioOpen] = useState(false);
-  const [audioStudioOpen, setAudioStudioOpen] = useState(false);
   const [shares, setShares] = useState<any[]>([]);
   const [templates, setTemplates] = useState<any[]>([]);
   const [shareDraft, setShareDraft] = useState<any>({ templateKey: '', department: '', access: 'VIEW' });
@@ -170,6 +165,15 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
   // Keep the offline cache fresh while online.
   useEffect(() => { if (online && activeRev) mergeCachedRevision(activeRev.id, { annotations: annos }); }, [annos, online, activeRev]);
   useEffect(() => { if (online && activeRev) mergeCachedRevision(activeRev.id, { layers }); }, [layers, online, activeRev]);
+
+  // Who am I? (JWT payload) — used to allow editing/deleting only YOUR notes.
+  const meId = (() => {
+    try { const t = typeof window !== 'undefined' ? localStorage.getItem('tfm_token') : null;
+      if (!t) return null; const p = JSON.parse(atob(t.split('.')[1] || ''));
+      return p?.sub || p?.id || p?.userId || null; } catch { return null; }
+  })();
+  /** Mine = I created it, it lives on my own layer, or it predates author tracking. */
+  const canModify = (a: any) => !a?.createdById || !meId || a.createdById === meId || a?.layer?.ownerUserId === meId;
 
   // ── Undo / redo history (online actions) ──────────────────────────────────────
   const undoRef = useRef<any[]>([]); const redoRef = useRef<any[]>([]);
@@ -377,30 +381,62 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
                 {openDoc.revisions.map((rv: any) => <option key={rv.id} value={rv.id}>{rv.revisionLabel} · {new Date(rv.createdAt).toLocaleDateString('en-GB')}</option>)}
               </select>
             )}
-            <select className={inp} value={revLabel} onChange={(e) => setRevLabel(e.target.value)}>
-              {REV_PRESETS.map((c) => <option key={c} value={c}>{c} pages</option>)}
-            </select>
-            {prevRevision() && <Btn variant="secondary" onClick={doTransfer} title="Re-anchor notes from the previous revision"><ArrowRightLeft size={13} /> Transfer notes</Btn>}
-            {(openDoc.revisions?.length || 0) > 1 && (
-              <select className={inp} value="" onChange={(e) => e.target.value && openCompare(e.target.value)}>
-                <option value="">Compare with…</option>
-                {openDoc.revisions.filter((r: any) => r.id !== activeRev?.id).map((r: any) => <option key={r.id} value={r.id}>{r.revisionLabel}</option>)}
-              </select>
-            )}
-            {activeRev && <Btn variant="secondary" onClick={exportPdf} disabled={exporting} title="Export your visible layers as a watermarked PDF">{exporting ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />} Export</Btn>}
-            {activeRev && <Btn variant="secondary" onClick={() => setReaderOpen(true)} title="Reader, read-aloud, rehearse & self-tape"><BookOpen size={13} /> Reader</Btn>}
-            {activeRev && <Btn variant="secondary" onClick={() => setTagsOpen(true)} title="Tag categories, auto-tag cast, element report, scene tags"><Tags size={13} /> Tags</Btn>}
-            {activeRev && <Btn variant="secondary" onClick={() => setAnalyzeOpen(true)} title="Local script breakdown — scenes, characters, locations (no external AI)"><BarChart3 size={13} /> Analyze</Btn>}
-            {activeRev && <Btn variant="secondary" onClick={() => setAudioOpen(true)} title="Record &amp; play voice memos for this revision"><Mic size={13} /> Audio</Btn>}
-            {activeRev && <Btn variant="primary" onClick={() => setAudioStudioOpen(true)} title="ScriptON Audio — voices, table read, render, layers"><Music size={13} /> Audio Studio</Btn>}
-            {activeRev && <Btn variant="secondary" onClick={() => setLiningOpen(true)} title="Script-supervisor lining + Hot Cost"><Clapperboard size={13} /> Lining</Btn>}
-            {activeRev && <Btn variant="secondary" onClick={() => setProcOpen(true)} title="Stage prop tags into budget lines"><ShoppingCart size={13} /> Procurement</Btn>}
-            {activeRev && <Btn variant="secondary" onClick={() => setPagesOpen(true)} title="Page Maker — facing note pages"><StickyNote size={13} /> Pages</Btn>}
-            {activeRev && <Btn variant="secondary" onClick={() => setSidesOpen(true)} title="Generate sides for a shoot day"><Scissors size={13} /> Sides</Btn>}
             <input ref={fileRef} type="file" accept="application/pdf,.pdf,.fdx" className="hidden" onChange={(e) => uploadRevision(e.target.files?.[0] || null)} />
-            <Btn variant="primary" onClick={() => fileRef.current?.click()} disabled={uploading}>{uploading ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />} Upload revision</Btn>
+            <Btn variant="primary" onClick={() => fileRef.current?.click()} disabled={uploading}>{uploading ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />} Upload</Btn>
+
+            {/* ⋯ More — secondary actions live here, not in the toolbar */}
+            <div className="relative">
+              <Btn variant="secondary" onClick={() => setMoreOpen((o) => !o)} title="More actions">⋯ More</Btn>
+              {moreOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setMoreOpen(false)} />
+                  <div className="absolute right-0 z-50 mt-1 w-64 rounded-xl border border-slate-200 bg-white shadow-xl p-2 space-y-1.5">
+                    <label className="block text-[10px] uppercase tracking-wide text-slate-400 px-1">Upload as</label>
+                    <select className={`${inp} w-full`} value={revLabel} onChange={(e) => setRevLabel(e.target.value)}>
+                      {REV_PRESETS.map((c) => <option key={c} value={c}>{c} pages</option>)}
+                    </select>
+                    {prevRevision() && <button className="flex items-center gap-2 w-full text-left text-xs px-2 py-1.5 rounded-lg hover:bg-slate-50 text-slate-700" onClick={() => { setMoreOpen(false); doTransfer(); }}><ArrowRightLeft size={13} /> Transfer notes from previous</button>}
+                    {(openDoc.revisions?.length || 0) > 1 && (
+                      <select className={`${inp} w-full`} value="" onChange={(e) => { if (e.target.value) { setMoreOpen(false); openCompare(e.target.value); } }}>
+                        <option value="">Compare with…</option>
+                        {openDoc.revisions.filter((r: any) => r.id !== activeRev?.id).map((r: any) => <option key={r.id} value={r.id}>{r.revisionLabel}</option>)}
+                      </select>
+                    )}
+                    {activeRev && <button className="flex items-center gap-2 w-full text-left text-xs px-2 py-1.5 rounded-lg hover:bg-slate-50 text-slate-700" onClick={() => { setMoreOpen(false); exportPdf(); }} disabled={exporting}>{exporting ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />} Export visible layers (PDF)</button>}
+                    {activeRev && <button className="flex items-center gap-2 w-full text-left text-xs px-2 py-1.5 rounded-lg hover:bg-slate-50 text-slate-700" onClick={() => { setMoreOpen(false); setPagesOpen(true); }}><StickyNote size={13} /> Page maker (facing pages)</button>}
+                    {activeRev && <button className="flex items-center gap-2 w-full text-left text-xs px-2 py-1.5 rounded-lg hover:bg-slate-50 text-slate-700" onClick={() => { setMoreOpen(false); setSurface('memos'); }}><Mic size={13} /> Voice memos</button>}
+                    {activeRev && <button className="flex items-center gap-2 w-full text-left text-xs px-2 py-1.5 rounded-lg hover:bg-slate-50 text-slate-700" onClick={() => { setMoreOpen(false); setSurface('procurement'); }}><ShoppingCart size={13} /> Procurement staging</button>}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
+
+        {/* SYS-14: the SURFACE TAB ROW — one row replaces the 9-button toolbar.
+            Each tab is a full-page takeover; only one can be open. */}
+        {activeRev && (
+          <div className="flex items-center gap-0.5 mb-3 border-b border-slate-200 flex-wrap">
+            {([
+              ['pages', 'Pages', 'Annotate the script — notes, layers, bookmarks'],
+              ['reader', 'Reader', 'Read-aloud, rehearse & self-tape'],
+              ['tags', 'Tags', 'Tag categories, auto-tag cast, element report'],
+              ['lining', 'Lining', 'Script-supervisor lining + hot cost'],
+              ['sides', 'Sides', 'Generate sides for a shoot day'],
+              ['analyze', 'Analyze', 'Local script breakdown'],
+              ['audiostudio', 'Audio Studio ♪', 'Voices, live table read, render, layers'],
+            ] as const).map(([k, label, tip]) => (
+              <button key={k} title={tip}
+                onClick={() => setSurface(k === 'pages' ? null : (surface === k ? null : k as any))}
+                className={`px-3.5 py-2 text-[13px] border-b-2 -mb-px transition-colors ${
+                  (k === 'pages' ? surface === null : surface === k)
+                    ? 'border-slate-900 text-slate-900 font-semibold'
+                    : 'border-transparent text-slate-500 hover:text-slate-900'}`}>
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
         {pagesOpen && activeRev && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" onClick={() => setPagesOpen(false)}>
             <div className="bg-white rounded-2xl w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
@@ -431,14 +467,15 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
             </div>
           </div>
         )}
-        {sidesOpen && activeRev && <SidesGenerator projectId={projectId} revision={activeRev} onClose={() => setSidesOpen(false)} />}
-        {liningOpen && activeRev && <LiningPanel projectId={projectId} revision={activeRev} onClose={() => setLiningOpen(false)} />}
-        {procOpen && activeRev && <ProcurementStagingPanel projectId={projectId} revision={activeRev} onClose={() => setProcOpen(false)} />}
-        {readerOpen && activeRev && <ScriptReader revision={activeRev} onClose={() => setReaderOpen(false)} />}
-        {tagsOpen && activeRev && <TagToolsPanel projectId={projectId} revision={activeRev} onChanged={() => loadAnnos(activeRev.id)} onClose={() => setTagsOpen(false)} />}
-        {analyzeOpen && activeRev && <ScriptAnalyzePanel revision={activeRev} onClose={() => setAnalyzeOpen(false)} />}
-        {audioOpen && activeRev && <AudioNotesPanel revision={activeRev} onClose={() => setAudioOpen(false)} />}
-        {audioStudioOpen && activeRev && <ScriptOnAudioPanel revision={activeRev} projectId={projectId} onClose={() => setAudioStudioOpen(false)} />}
+        {/* SYS-14 takeovers — exactly one surface; closing returns to Pages */}
+        {surface === 'sides' && activeRev && <SidesGenerator projectId={projectId} revision={activeRev} onClose={() => setSurface(null)} />}
+        {surface === 'lining' && activeRev && <LiningPanel projectId={projectId} revision={activeRev} onClose={() => setSurface(null)} />}
+        {surface === 'procurement' && activeRev && <ProcurementStagingPanel projectId={projectId} revision={activeRev} onClose={() => setSurface(null)} />}
+        {surface === 'reader' && activeRev && <ScriptReader revision={activeRev} onClose={() => setSurface(null)} />}
+        {surface === 'tags' && activeRev && <TagToolsPanel projectId={projectId} revision={activeRev} onChanged={() => loadAnnos(activeRev.id)} onClose={() => setSurface(null)} />}
+        {surface === 'analyze' && activeRev && <ScriptAnalyzePanel revision={activeRev} onClose={() => setSurface(null)} />}
+        {surface === 'memos' && activeRev && <AudioNotesPanel revision={activeRev} onClose={() => setSurface(null)} />}
+        {surface === 'audiostudio' && activeRev && <ScriptOnAudioPanel revision={activeRev} projectId={projectId} onClose={() => setSurface(null)} />}
 
         {activeRev ? (
           <>
@@ -472,7 +509,7 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
                     <FileText size={28} className="mx-auto text-slate-300" />
                     <p className="mt-3 text-sm font-semibold text-slate-700">Final Draft (.fdx) revision</p>
                     <p className="mt-1 text-xs text-slate-500">FDX scripts have no page image to mark up. Scenes, characters and dialogue are parsed for the Reader, Audio Studio and Lining.</p>
-                    <Btn variant="primary" className="mt-4" onClick={() => setReaderOpen(true)}><BookOpen size={13} /> Open Reader</Btn>
+                    <Btn variant="primary" className="mt-4" onClick={() => setSurface('reader')}><BookOpen size={13} /> Open Reader</Btn>
                   </div>
                 ) : (
                 <ScriptViewer
@@ -489,6 +526,7 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
                       onCreate={createAnno}
                       onDelete={deleteAnno}
                       onUpdate={updateAnno}
+                      canModify={canModify}
                       placingId={placingId}
                       onPlace={placeOrphanAt}
                       tagCategory={tagCats.find((c) => c.key === activeTagCatKey) || null}
