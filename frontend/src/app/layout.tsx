@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import './scripton-ds.css';
 
 export const metadata: Metadata = {
   title: 'TFM ERP — The Film Makers FZ LLC',

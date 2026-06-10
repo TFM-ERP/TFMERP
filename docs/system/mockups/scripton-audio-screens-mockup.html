@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ScriptON Audio — screens (adaptive, light/dark)</title>
+<style>
+  :root{
+    --accent:#0f172a; --accent-ink:#fff; --bg:#f1f5f9; --surface:#fff; --surface-2:#f8fafc;
+    --rail:#0f172a; --rail-ink:#cbd5e1; --rail-ink-active:#fff; --text:#0f172a; --muted:#64748b;
+    --faint:#94a3b8; --border:#e2e8f0; --hi:#fde68a; --ok:#10b981; --info:#0ea5e9; --warn:#f59e0b; --violet:#7c3aed;
+    --radius:16px; --tap:44px; --shadow:0 1px 2px rgba(15,23,42,.06),0 10px 28px rgba(15,23,42,.07);
+  }
+  .dark{
+    --accent:#38bdf8; --accent-ink:#04222e; --bg:#0b1120; --surface:#1e293b; --surface-2:#172033;
+    --rail:#0b1120; --rail-ink:#94a3b8; --rail-ink-active:#fff; --text:#e2e8f0; --muted:#94a3b8;
+    --faint:#64748b; --border:#334155; --hi:#3b3a22; --shadow:0 1px 2px rgba(0,0,0,.4),0 12px 30px rgba(0,0,0,.4);
+  }
+  *{box-sizing:border-box} html,body{margin:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,sans-serif;background:#0b1120;color:#e2e8f0;-webkit-font-smoothing:antialiased}
+  .harness{max-width:1400px;margin:0 auto;padding:18px 18px 48px}
+  .harness h1{font-size:18px;font-weight:650;margin:2px 0 2px}
+  .harness p.sub{color:#94a3b8;font-size:13px;margin:0 0 14px}
+  .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px}
+  .seg{display:inline-flex;background:#1e293b;border:1px solid #334155;border-radius:12px;padding:3px;flex-wrap:wrap}
+  .seg button{border:0;background:transparent;color:#94a3b8;font:inherit;font-size:13px;padding:8px 13px;border-radius:9px;cursor:pointer;min-height:38px}
+  .seg button.on{background:#38bdf8;color:#04222e;font-weight:600}
+  .spacer{flex:1}
+  .stage{display:flex;justify-content:center}
+  .device{width:1280px;max-width:100%;transition:width .35s;background:var(--bg);border-radius:22px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.45);border:1px solid #0a0f1a}
+  .device[data-vw="tablet"]{width:834px}.device[data-vw="mobile"]{width:390px}
+  .vwtag{text-align:center;color:#64748b;font-size:12px;margin-top:10px}
+
+  .app{container-type:inline-size;background:var(--bg);color:var(--text);height:780px;display:flex;flex-direction:column;overflow:hidden}
+  .app-body{flex:1;display:flex;min-height:0}
+  .rail{background:var(--rail);width:74px;flex:0 0 74px;display:flex;flex-direction:column;align-items:center;gap:4px;padding:14px 0}
+  .rail .logo{width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg,#38bdf8,#6366f1);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;margin-bottom:10px}
+  .rail .item{width:56px;min-height:52px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:10px;color:var(--rail-ink);cursor:pointer}
+  .rail .item svg{width:20px;height:20px}.rail .item.active{background:rgba(255,255,255,.10);color:var(--rail-ink-active)}
+  .main{flex:1;display:flex;flex-direction:column;min-width:0}
+  .topbar{display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--surface);border-bottom:1px solid var(--border)}
+  .crumb{font-size:11px;color:var(--faint)} .h-title{font-size:clamp(15px,1.2cqi + 12px,19px);font-weight:650}
+  .grow{flex:1;min-width:0}
+  .btn{border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:10px;padding:8px 12px;font:inherit;font-size:13px;cursor:pointer;min-height:var(--tap);display:inline-flex;align-items:center;gap:7px}
+  .btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+  .btn svg{width:15px;height:15px}
+  .pill{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);background:var(--surface-2);border:1px solid var(--border);padding:5px 10px;border-radius:999px}
+  .tabs{display:flex;gap:2px;padding:0 16px;background:var(--surface);border-bottom:1px solid var(--border);overflow-x:auto}
+  .tabs .tab{padding:11px 13px;font-size:13px;color:var(--muted);border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;min-height:var(--tap)}
+  .tabs .tab.active{color:var(--text);border-color:var(--accent);font-weight:600}
+  .screen{flex:1;min-height:0;overflow:auto;display:none}.screen.show{display:block}
+  .sec{padding:14px 16px}.sec h3{font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--faint);margin:0 0 10px;font-weight:700}
+  .chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);background:var(--surface-2);border:1px solid var(--border);border-radius:999px;padding:4px 9px}
+  .dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow)}
+  .avatar{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;flex:0 0 auto}
+
+  /* transport */
+  .transport{background:var(--surface);border-top:1px solid var(--border);padding:9px 14px;display:flex;align-items:center;gap:12px}
+  .tbtn{width:var(--tap);height:var(--tap);border-radius:50%;border:1px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text);flex:0 0 auto}
+  .tbtn.play{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);width:48px;height:48px}.tbtn svg{width:17px;height:17px}
+  .tinfo{min-width:0;flex:1}.tinfo .t1{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tinfo .t2{font-size:11px;color:var(--faint)}
+  .scrub{height:6px;border-radius:999px;background:var(--surface-2);position:relative;margin-top:6px}.scrub i{position:absolute;left:0;top:0;bottom:0;width:34%;background:var(--accent);border-radius:999px}.scrub b{position:absolute;left:34%;top:50%;width:12px;height:12px;border-radius:50%;background:var(--accent);transform:translate(-50%,-50%)}
+  .speed{font-size:12px;border:1px solid var(--border);border-radius:8px;padding:7px 9px;color:var(--muted);min-height:var(--tap);display:flex;align-items:center}
+  .bottomnav{display:none;background:var(--surface);border-top:1px solid var(--border);padding:6px;justify-content:space-around}
+  .bottomnav .bn{flex:1;min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:10px;color:var(--muted)}
+  .bottomnav .bn svg{width:20px;height:20px}.bottomnav .bn.active{color:var(--accent)}
+
+  /* ===== VOICES ===== */
+  .vgrid{display:grid;gap:12px;padding:14px 16px}
+  .vrow{display:flex;gap:12px;align-items:center;padding:12px;cursor:pointer}
+  .vrow.active{outline:2px solid color-mix(in srgb,var(--info) 45%,transparent)}
+  .vrow .name{font-weight:650;font-size:14px}.vrow .role{font-size:11px;color:var(--faint)}
+  .ids{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+  .vmeta{flex:1;min-width:0}
+  .audition{margin-left:auto}
+  .veditor{padding:14px 16px;border-left:1px solid var(--border);background:var(--surface)}
+  .field{margin-bottom:10px}.field label{font-size:11px;color:var(--muted);display:block;margin-bottom:4px}
+  .field select,.field input{width:100%;border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:9px;padding:9px;font:inherit;font-size:13px;min-height:var(--tap)}
+  .slider{height:6px;border-radius:999px;background:var(--surface-2);position:relative;margin:6px 0 12px}.slider i{position:absolute;left:0;top:0;bottom:0;border-radius:999px;background:var(--accent)}.slider b{position:absolute;top:50%;width:13px;height:13px;border-radius:50%;background:#fff;border:2px solid var(--accent);transform:translate(-50%,-50%)}
+  .lab{display:flex;justify-content:space-between;font-size:11px;color:var(--muted)}
+
+  /* ===== RENDER ===== */
+  .render{display:grid;gap:16px;padding:16px}
+  .profiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+  .profile{padding:12px;cursor:pointer;border-radius:13px}
+  .profile.sel{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 30%,transparent)}
+  .profile .pn{font-weight:650;font-size:13px;margin-bottom:6px}.profile .pl{font-size:11px;color:var(--muted);line-height:1.5}
+  .chips{display:flex;flex-wrap:wrap;gap:7px}
+  .togbtn{border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:9px;padding:8px 12px;font-size:12px;cursor:pointer;min-height:var(--tap)}
+  .togbtn.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+  .cost{padding:14px;align-self:start;position:sticky;top:14px}
+  .cost .big{font-size:26px;font-weight:750;margin:6px 0}
+  .route{display:flex;justify-content:space-between;font-size:12px;padding:6px 0;border-top:1px dashed var(--border)}.route span:first-child{color:var(--muted)}
+  .quota{height:8px;border-radius:999px;background:var(--surface-2);overflow:hidden;margin:8px 0}.quota i{display:block;height:100%;width:62%;background:linear-gradient(90deg,var(--ok),var(--warn))}
+  .lock{font-size:11px;color:var(--faint);display:inline-flex;gap:5px;align-items:center}
+
+  /* ===== LIBRARY ===== */
+  .libbar{display:flex;flex-wrap:wrap;gap:8px;padding:14px 16px 4px;align-items:center}
+  .search{flex:1;min-width:160px;display:flex;align-items:center;gap:8px;border:1px solid var(--border);background:var(--surface);border-radius:10px;padding:0 10px;min-height:var(--tap)}
+  .search input{border:0;background:transparent;color:var(--text);font:inherit;font-size:13px;flex:1;outline:none;padding:10px 0}
+  .libgrid{display:grid;gap:12px;padding:10px 16px 16px;grid-template-columns:repeat(3,1fr)}
+  .asset{padding:12px;display:flex;flex-direction:column;gap:8px}
+  .asset .art{height:64px;border-radius:10px;background:linear-gradient(135deg,#0ea5e9,#6366f1);display:flex;align-items:flex-end;padding:8px;color:#fff}
+  .asset .wave{display:flex;gap:2px;align-items:flex-end;height:26px}
+  .asset .wave i{width:3px;background:rgba(255,255,255,.85);border-radius:2px}
+  .asset .at{font-weight:650;font-size:13px}.asset .am{font-size:11px;color:var(--faint)}
+  .asset .acts{display:flex;gap:6px;flex-wrap:wrap}
+  .iconbtn{width:36px;height:36px;border-radius:9px;border:1px solid var(--border);background:var(--surface);color:var(--muted);display:flex;align-items:center;justify-content:center;cursor:pointer}.iconbtn svg{width:15px;height:15px}
+
+  /* ===== LAYERS ===== */
+  .layers{padding:14px 16px}
+  .laneswrap{overflow-x:auto;border:1px solid var(--border);border-radius:14px;background:var(--surface)}
+  .lane{display:grid;grid-template-columns:120px 1fr;border-bottom:1px solid var(--border);min-width:560px}
+  .lane:last-child{border-bottom:0}
+  .laneh{padding:10px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:7px;border-right:1px solid var(--border);color:var(--muted)}
+  .track{position:relative;height:46px;background:repeating-linear-gradient(90deg,transparent,transparent 59px,var(--border) 59px,var(--border) 60px)}
+  .cue{position:absolute;top:7px;height:32px;border-radius:8px;display:flex;align-items:center;padding:0 8px;font-size:11px;color:#fff;font-weight:600;white-space:nowrap;overflow:hidden}
+  .cue.sugg{outline:2px dashed var(--warn);background:color-mix(in srgb,var(--warn) 70%,#000)!important}
+  .cuebar{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+  .mini{font-size:11px;border:1px solid var(--border);background:var(--surface);color:var(--muted);border-radius:8px;padding:6px 9px;cursor:pointer;min-height:38px}
+  .mini.ok{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 45%,var(--border))}
+  .mini.no{color:#ef4444}
+
+  /* ====== CONTAINER QUERIES ====== */
+  @container (max-width:700px){
+    .rail{display:none} .bottomnav{display:flex} .speed{display:none}
+    .vgrid{grid-template-columns:1fr} .veditor{display:none}
+    .render{grid-template-columns:1fr} .cost{position:static}
+    .libgrid{grid-template-columns:1fr}
+    .topbar .desk-only{display:none}
+  }
+  @container (min-width:701px) and (max-width:1023px){
+    .vgrid{grid-template-columns:1fr} .veditor{display:none}
+    .render{grid-template-columns:1fr} .cost{position:static}
+    .libgrid{grid-template-columns:repeat(2,1fr)}
+    .content-2{grid-template-columns:1fr}
+  }
+  @container (min-width:1024px){
+    .voices-wrap{display:grid;grid-template-columns:1fr 320px}
+    .render{grid-template-columns:1.4fr .9fr}
+    .libgrid{grid-template-columns:repeat(3,1fr)}
+  }
+</style>
+</head>
+<body>
+<div class="harness">
+  <h1>ScriptON Audio — screen set (adaptive · light/dark)</h1>
+  <p class="sub">Same container-query shell as the Reader. Switch screen, device, and theme to see clustering hold up everywhere.</p>
+  <div class="toolbar">
+    <div class="seg" id="screenseg">
+      <button data-s="voices" class="on">Voices</button>
+      <button data-s="render">Render</button>
+      <button data-s="library">Library</button>
+      <button data-s="layers">Layers</button>
+    </div>
+    <div class="seg" id="vw">
+      <button data-w="desktop" class="on">Desktop</button>
+      <button data-w="tablet">Tablet</button>
+      <button data-w="mobile">Mobile</button>
+    </div>
+    <button class="seg" style="padding:0"><span id="theme" style="padding:8px 13px;color:#94a3b8;cursor:pointer;font-size:13px">◐ Light / Dark</span></button>
+    <div class="spacer"></div>
+  </div>
+
+  <div class="stage">
+   <div class="device" id="device" data-vw="desktop">
+    <div class="app" id="app">
+      <div class="app-body">
+        <nav class="rail">
+          <div class="logo">S</div>
+          <div class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>Projects</div>
+          <div class="item active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M8 8h8M8 12h8"/></svg>ScriptON</div>
+          <div class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>Casting</div>
+          <div class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M2 12h20"/></svg>Library</div>
+        </nav>
+
+        <div class="main">
+          <div class="topbar">
+            <div class="grow"><div class="crumb">JASON QUICK · White Draft · ScriptON Audio</div><div class="h-title" id="scTitle">Voice Casting</div></div>
+            <span class="pill desk-only" id="scPill">8 / 11 cast</span>
+            <button class="btn primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l4-4m-4 4l-4-4"/><path d="M4 21h16"/></svg> Studio Render</button>
+          </div>
+          <div class="tabs">
+            <div class="tab">Reader</div><div class="tab active" id="t-voices">Voices</div><div class="tab">Pronounce</div><div class="tab">Performance</div><div class="tab" id="t-layers">Layers</div><div class="tab" id="t-library">Library</div>
+          </div>
+
+          <!-- ============ VOICES ============ -->
+          <section class="screen show" data-screen="voices">
+            <div class="voices-wrap">
+              <div class="vgrid">
+                <div class="card vrow active">
+                  <div class="avatar" style="background:#0ea5e9">J</div>
+                  <div class="vmeta"><div class="name">JASON <span class="chip" style="margin-left:6px"><span class="dot" style="background:var(--ok)"></span>Cast</span></div><div class="role">Lead · 312 lines · ElevenLabs “Hudson”</div>
+                    <div class="ids"><span class="chip">🇺🇸 American</span><span class="chip">Native: English</span><span class="chip">Accent: Neutral US</span></div></div>
+                  <button class="btn audition"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Audition</button>
+                </div>
+                <div class="card vrow">
+                  <div class="avatar" style="background:#f97316">M</div>
+                  <div class="vmeta"><div class="name">MARIE <span class="chip" style="margin-left:6px"><span class="dot" style="background:var(--ok)"></span>Cast</span></div><div class="role">Supporting · 188 lines · ElevenLabs “Amélie”</div>
+                    <div class="ids"><span class="chip">🇫🇷 French</span><span class="chip">Native: French</span><span class="chip">Speaks: EN, FR</span><span class="chip">Accent: French-English</span></div></div>
+                  <button class="btn audition"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Audition</button>
+                </div>
+                <div class="card vrow">
+                  <div class="avatar" style="background:#a855f7">L</div>
+                  <div class="vmeta"><div class="name">LI WEI <span class="chip" style="margin-left:6px"><span class="dot" style="background:var(--ok)"></span>Cast</span></div><div class="role">Supporting · 96 lines · ElevenLabs “Chen”</div>
+                    <div class="ids"><span class="chip">🇨🇳 Chinese</span><span class="chip">Native: Mandarin</span><span class="chip">Speaks: EN, ZH</span><span class="chip">Accent: Chinese-English</span></div></div>
+                  <button class="btn audition"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Audition</button>
+                </div>
+                <div class="card vrow">
+                  <div class="avatar" style="background:#64748b">A</div>
+                  <div class="vmeta"><div class="name">AHMED <span class="chip" style="margin-left:6px"><span class="dot" style="background:var(--warn)"></span>Uncast</span></div><div class="role">Supporting · 74 lines · choose a voice…</div>
+                    <div class="ids"><span class="chip">🇦🇪 Emirati</span><span class="chip">Native: Arabic</span><span class="chip">Speaks: EN, AR</span><span class="chip">Accent: Arabic-English</span></div></div>
+                  <button class="btn primary audition"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg> Cast</button>
+                </div>
+                <div class="card vrow">
+                  <div class="avatar" style="background:#111827">N</div>
+                  <div class="vmeta"><div class="name">NARRATOR</div><div class="role">Scene headings · action · transitions · ElevenLabs “Sterling”</div>
+                    <div class="ids"><span class="chip">Style: Cinematic</span><span class="chip">Emotion: Adaptive</span></div></div>
+                  <button class="btn audition"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Audition</button>
+                </div>
+              </div>
+
+              <div class="veditor">
+                <h3 style="font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--faint);margin:0 0 10px;font-weight:700">Editing · MARIE</h3>
+                <div class="field"><label>Engine</label><select><option>ElevenLabs (Studio)</option><option>OpenAI (Studio)</option><option>Browser (free)</option></select></div>
+                <div class="field"><label>Voice</label><select><option>Amélie — warm, mid</option><option>Colette — bright</option></select></div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                  <div class="field"><label>Nationality</label><select><option>French</option></select></div>
+                  <div class="field"><label>Native language</label><select><option>French</option></select></div>
+                  <div class="field"><label>Accent</label><select><option>French-English</option><option>Neutral</option></select></div>
+                  <div class="field"><label>Speaks</label><select><option>EN, FR</option></select></div>
+                </div>
+                <div class="lab"><span>Pace</span><span>6</span></div><div class="slider"><i style="width:60%"></i><b style="left:60%"></b></div>
+                <div class="lab"><span>Confidence</span><span>8</span></div><div class="slider"><i style="width:80%"></i><b style="left:80%"></b></div>
+                <div class="lab"><span>Emotional volatility</span><span>5</span></div><div class="slider"><i style="width:50%"></i><b style="left:50%"></b></div>
+                <button class="btn primary" style="width:100%;justify-content:center;margin-top:4px">Save voice</button>
+                <p style="font-size:11px;color:var(--faint);margin-top:10px">Saved to this revision; "Save to library" makes it reusable across projects.</p>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============ RENDER ============ -->
+          <section class="screen" data-screen="render">
+            <div class="render">
+              <div>
+                <div class="sec" style="padding:0 0 14px"><h3>Production profile</h3>
+                  <div class="profiles">
+                    <div class="card profile"><div class="pn">Basic reading</div><div class="pl">Voices · no narrator · no layers</div></div>
+                    <div class="card profile sel"><div class="pn">Table read</div><div class="pl">Voices + narrator · no music/SFX</div></div>
+                    <div class="card profile"><div class="pn">Producer review</div><div class="pl">+ light ambience</div></div>
+                    <div class="card profile"><div class="pn">Investor</div><div class="pl">+ light music · selective ambience</div></div>
+                    <div class="card profile"><div class="pn">Cinematic</div><div class="pl">All layers · foley · music</div></div>
+                  </div>
+                </div>
+                <div class="sec" style="padding:0 0 14px"><h3>Scope</h3>
+                  <div class="chips"><span class="togbtn on">Entire script</span><span class="togbtn">By act</span><span class="togbtn">Selected scenes</span><span class="togbtn">Table read</span><span class="togbtn">Dialogue only</span></div>
+                </div>
+                <div class="sec" style="padding:0 0 14px"><h3>Format</h3>
+                  <div class="chips"><span class="togbtn on">MP3</span><span class="togbtn">WAV</span><span class="togbtn">AAC</span><span class="togbtn">M4A</span></div>
+                </div>
+                <div class="sec" style="padding:0"><h3>Include</h3>
+                  <div class="chips"><span class="togbtn">Character names</span><span class="togbtn on">Narration</span><span class="togbtn on">Scene numbers</span><span class="togbtn">Title page</span><span class="togbtn">Spoken metadata</span><span class="togbtn">Stems</span></div>
+                </div>
+              </div>
+
+              <div class="card cost">
+                <h3 style="font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--faint);margin:0 0 4px;font-weight:700">Cost preview</h3>
+                <div class="big">≈ $4.80</div>
+                <div style="font-size:11px;color:var(--ok);margin-bottom:8px">▼ 38% saved — 11,210 cached lines reused</div>
+                <div class="route"><span>Voices</span><span>ElevenLabs <span class="lock">🔒</span></span></div>
+                <div class="route"><span>Narrator</span><span>ElevenLabs</span></div>
+                <div class="route"><span>SFX / ambience</span><span>—</span></div>
+                <div class="route"><span>Music</span><span>—</span></div>
+                <div class="route"><span>Est. length</span><span>~42 min</span></div>
+                <div class="route"><span>Billable chars</span><span>18,420</span></div>
+                <div style="font-size:11px;color:var(--muted);margin-top:12px">Project quota — June</div>
+                <div class="quota"><i></i></div>
+                <div style="font-size:11px;color:var(--faint)">$31 of $50 used</div>
+                <button class="btn primary" style="width:100%;justify-content:center;margin-top:12px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l4-4m-4 4l-4-4"/><path d="M4 21h16"/></svg> Queue render</button>
+                <p class="lock" style="margin-top:8px">🔒 Engine set by admin routing policy · per-render override off</p>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============ LIBRARY ============ -->
+          <section class="screen" data-screen="library">
+            <div class="libbar">
+              <div class="search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--faint)"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg><input placeholder="Search audio…"/></div>
+              <span class="togbtn on">All</span><span class="togbtn">Table reads</span><span class="togbtn">Scenes</span><span class="togbtn">Stems</span>
+            </div>
+            <div class="libgrid">
+              <div class="card asset"><div class="art"><div class="wave"><i style="height:40%"></i><i style="height:80%"></i><i style="height:55%"></i><i style="height:95%"></i><i style="height:30%"></i><i style="height:70%"></i><i style="height:50%"></i><i style="height:88%"></i><i style="height:42%"></i></div></div>
+                <div><div class="at">Full Table Read</div><div class="am">White Draft · 41:52 · 38 MB · ElevenLabs</div></div>
+                <div class="acts"><button class="iconbtn">▶</button><button class="iconbtn">⤓</button><button class="iconbtn">⇪</button><button class="iconbtn">⟳</button><button class="iconbtn">🗄</button></div></div>
+              <div class="card asset"><div class="art" style="background:linear-gradient(135deg,#f97316,#db2777)"><div class="wave"><i style="height:60%"></i><i style="height:30%"></i><i style="height:85%"></i><i style="height:45%"></i><i style="height:70%"></i><i style="height:38%"></i><i style="height:92%"></i><i style="height:50%"></i></div></div>
+                <div><div class="at">Sc 12 · Warehouse</div><div class="am">Producer Review · 2:18 · 2.1 MB</div></div>
+                <div class="acts"><button class="iconbtn">▶</button><button class="iconbtn">⤓</button><button class="iconbtn">⇪</button><button class="iconbtn">⟳</button></div></div>
+              <div class="card asset"><div class="art" style="background:linear-gradient(135deg,#0ea5e9,#10b981)"><div class="wave"><i style="height:50%"></i><i style="height:75%"></i><i style="height:40%"></i><i style="height:90%"></i><i style="height:60%"></i><i style="height:35%"></i><i style="height:80%"></i></div></div>
+                <div><div class="at">MARIE — dialogue stem</div><div class="am">White Draft · 6:04 · 5.5 MB</div></div>
+                <div class="acts"><button class="iconbtn">▶</button><button class="iconbtn">⤓</button><button class="iconbtn">⇪</button></div></div>
+              <div class="card asset"><div class="art" style="background:linear-gradient(135deg,#7c3aed,#2563eb)"><div class="wave"><i style="height:35%"></i><i style="height:65%"></i><i style="height:48%"></i><i style="height:82%"></i><i style="height:55%"></i><i style="height:70%"></i></div></div>
+                <div><div class="at">Investor Cut</div><div class="am">Blue Draft · 12:30 · 11 MB · shared ×3</div></div>
+                <div class="acts"><button class="iconbtn">▶</button><button class="iconbtn">⤓</button><button class="iconbtn">⇪</button><button class="iconbtn">⟳</button></div></div>
+            </div>
+          </section>
+
+          <!-- ============ LAYERS ============ -->
+          <section class="screen" data-screen="layers">
+            <div class="layers">
+              <div class="sec" style="padding:0 0 12px;display:flex;align-items:center;gap:10px"><h3 style="margin:0">Sc 12 · INT. WAREHOUSE – NIGHT</h3><span class="chip">2:18</span><span class="spacer"></span><button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3l14 9-14 9z"/></svg> Auto-suggest</button></div>
+              <div class="laneswrap">
+                <div class="lane"><div class="laneh"><span class="dot" style="background:#0ea5e9"></span>Dialogue</div><div class="track"><div class="cue" style="left:0;width:120px;background:#0ea5e9">JASON</div><div class="cue" style="left:130px;width:150px;background:#f97316">MARIE (Fr)</div><div class="cue" style="left:290px;width:90px;background:#0ea5e9">JASON</div></div></div>
+                <div class="lane"><div class="laneh"><span class="dot" style="background:#111827"></span>Narrator</div><div class="track"><div class="cue" style="left:0;width:110px;background:#475569">Action</div><div class="cue" style="left:385px;width:120px;background:#475569">Action</div></div></div>
+                <div class="lane"><div class="laneh"><span class="dot" style="background:#10b981"></span>Ambience</div><div class="track"><div class="cue" style="left:0;width:500px;background:#10b981">Rain on skylights</div></div></div>
+                <div class="lane"><div class="laneh"><span class="dot" style="background:#f59e0b"></span>SFX</div><div class="track"><div class="cue sugg" style="left:60px;width:70px">Thunder ✦</div><div class="cue sugg" style="left:430px;width:80px">Vault/land ✦</div></div></div>
+                <div class="lane"><div class="laneh"><span class="dot" style="background:#7c3aed"></span>Foley</div><div class="track"><div class="cue" style="left:20px;width:120px;background:#7c3aed">Footsteps (gantry)</div></div></div>
+                <div class="lane"><div class="laneh"><span class="dot" style="background:#db2777"></span>Music</div><div class="track"><div class="cue sugg" style="left:200px;width:300px">Tension bed ✦</div></div></div>
+              </div>
+              <div class="cuebar">
+                <span style="font-size:12px;color:var(--muted);align-self:center">✦ 3 auto-suggested cues:</span>
+                <button class="mini ok">✓ Approve all</button><button class="mini">⟲ Replace</button><button class="mini no">✕ Remove</button>
+                <span class="spacer"></span><button class="mini">Duck music under dialogue ✓</button>
+              </div>
+            </div>
+          </section>
+
+          <!-- transport (persistent) -->
+          <div class="transport">
+            <button class="tbtn"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zM20 6l-9 6 9 6z"/></svg></button>
+            <button class="tbtn play" id="playmini"><svg id="pic" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>
+            <button class="tbtn"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 6h-2v12h2zM4 6l9 6-9 6z"/></svg></button>
+            <div class="tinfo"><div class="t1">Sc 12 · INT. WAREHOUSE – NIGHT</div><div class="t2"><span id="ct">0:48</span> / 2:18</div><div class="scrub"><i id="sf"></i><b id="sk"></b></div></div>
+            <div class="speed">1.0×</div>
+          </div>
+          <nav class="bottomnav">
+            <div class="bn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M8 8h8M8 12h8"/></svg>Read</div>
+            <div class="bn active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>Voices</div>
+            <div class="bn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l4-4m-4 4l-4-4"/><path d="M4 21h16"/></svg>Render</div>
+            <div class="bn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M2 12h20"/></svg>Library</div>
+          </nav>
+        </div>
+      </div>
+    </div>
+   </div>
+  </div>
+  <div class="vwtag" id="vwtag">Voices · Desktop · 1280px</div>
+</div>
+
+<script>
+  const device=document.getElementById('device'),vwtag=document.getElementById('vwtag');
+  const titles={voices:'Voice Casting',render:'Studio Render',library:'Audio Library',layers:'Sound Layers'};
+  const pills={voices:'8 / 11 cast',render:'Table read · MP3',library:'24 assets · 1.2 GB',layers:'3 suggested cues'};
+  let screen='voices',vw='desktop';
+  function upd(){vwtag.textContent=titles[screen]+' · '+vw[0].toUpperCase()+vw.slice(1)+' · '+({desktop:'1280px',tablet:'834px',mobile:'390px'}[vw]);
+    document.getElementById('scTitle').textContent=titles[screen];document.getElementById('scPill').textContent=pills[screen];}
+  document.querySelectorAll('#screenseg button').forEach(b=>b.onclick=()=>{
+    document.querySelectorAll('#screenseg button').forEach(x=>x.classList.remove('on'));b.classList.add('on');
+    screen=b.dataset.s;document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('show',s.dataset.screen===screen));upd();});
+  document.querySelectorAll('#vw button').forEach(b=>b.onclick=()=>{
+    document.querySelectorAll('#vw button').forEach(x=>x.classList.remove('on'));b.classList.add('on');vw=b.dataset.w;device.dataset.vw=vw;upd();});
+  document.getElementById('theme').onclick=()=>document.getElementById('app').classList.toggle('dark');
+  // playback sim
+  let playing=false,t=48,timer=null;const total=138;const sf=document.getElementById('sf'),sk=document.getElementById('sk'),ct=document.getElementById('ct'),pic=document.getElementById('pic');
+  const fmt=s=>Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0');
+  function tick(){t=(t+1)%total;const p=t/total*100;sf.style.width=p+'%';sk.style.left=p+'%';ct.textContent=fmt(t);}
+  document.getElementById('playmini').onclick=()=>{playing=!playing;pic.innerHTML=playing?'<rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/>':'<path d="M8 5v14l11-7z"/>';playing?timer=setInterval(tick,1000):clearInterval(timer);};
+  upd();
+</script>
+</body>
+</html>

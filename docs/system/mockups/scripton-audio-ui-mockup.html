@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ScriptON Audio — adaptive UI mockup</title>
+<style>
+  /* ============ DESIGN TOKENS ============ */
+  :root{
+    --accent:#0f172a; --accent-ink:#ffffff;
+    --bg:#f1f5f9; --surface:#ffffff; --surface-2:#f8fafc; --rail:#0f172a; --rail-ink:#cbd5e1; --rail-ink-active:#ffffff;
+    --text:#0f172a; --muted:#64748b; --faint:#94a3b8; --border:#e2e8f0; --border-2:#eef2f6;
+    --hi:#fde68a; --hi-edge:#f59e0b; --ok:#10b981; --info:#0ea5e9; --warn:#f59e0b;
+    --radius:16px; --radius-sm:10px; --shadow:0 1px 2px rgba(15,23,42,.06),0 8px 24px rgba(15,23,42,.06);
+    --tap:44px;
+    --fs-title:clamp(15px,1.4cqi + 12px,20px);
+    --fs-body:clamp(13px,0.6cqi + 11px,15px);
+  }
+  .dark{
+    --accent:#38bdf8; --accent-ink:#04222e;
+    --bg:#0b1120; --surface:#1e293b; --surface-2:#172033; --rail:#0b1120; --rail-ink:#94a3b8; --rail-ink-active:#ffffff;
+    --text:#e2e8f0; --muted:#94a3b8; --faint:#64748b; --border:#334155; --border-2:#1e293b;
+    --hi:#3b3a22; --hi-edge:#eab308; --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,sans-serif;background:#0b1120;color:var(--text);-webkit-font-smoothing:antialiased}
+
+  /* ============ MOCKUP HARNESS (not part of the product) ============ */
+  .harness{max-width:1400px;margin:0 auto;padding:18px 18px 40px}
+  .harness h1{color:#e2e8f0;font-size:18px;font-weight:650;margin:4px 0 2px}
+  .harness p.sub{color:#94a3b8;font-size:13px;margin:0 0 14px}
+  .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:16px}
+  .seg{display:inline-flex;background:#1e293b;border:1px solid #334155;border-radius:12px;padding:3px}
+  .seg button{appearance:none;border:0;background:transparent;color:#94a3b8;font:inherit;font-size:13px;padding:8px 14px;border-radius:9px;cursor:pointer;min-height:38px}
+  .seg button.on{background:#38bdf8;color:#04222e;font-weight:600}
+  .toolbar .spacer{flex:1}
+  .ghost{appearance:none;border:1px solid #334155;background:#1e293b;color:#cbd5e1;border-radius:10px;padding:8px 12px;font:inherit;font-size:13px;cursor:pointer;min-height:38px}
+
+  .stage{display:flex;justify-content:center}
+  .device{width:1280px;max-width:100%;transition:width .35s ease;background:var(--bg);border-radius:22px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.45);border:1px solid #0a0f1a}
+  .device[data-vw="tablet"]{width:834px}
+  .device[data-vw="mobile"]{width:390px}
+  .vwtag{text-align:center;color:#64748b;font-size:12px;margin-top:10px}
+
+  /* ============ PRODUCT SHELL — container-query driven ============ */
+  .app{container-type:inline-size;background:var(--bg);color:var(--text);height:760px;display:flex;flex-direction:column;position:relative;overflow:hidden}
+  .app-body{flex:1;display:flex;min-height:0}
+
+  /* Nav rail (desktop/tablet) */
+  .rail{background:var(--rail);width:74px;flex:0 0 74px;display:flex;flex-direction:column;align-items:center;gap:4px;padding:14px 0;color:var(--rail-ink)}
+  .rail .logo{width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg,#38bdf8,#6366f1);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;margin-bottom:10px;font-size:15px}
+  .rail .item{width:56px;min-height:52px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:10px;color:var(--rail-ink);cursor:pointer}
+  .rail .item svg{width:20px;height:20px}
+  .rail .item.active{background:rgba(255,255,255,.10);color:var(--rail-ink-active)}
+  .rail .item:hover{color:#fff}
+
+  /* Main column */
+  .main{flex:1;display:flex;flex-direction:column;min-width:0}
+  .topbar{display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--surface);border-bottom:1px solid var(--border)}
+  .crumb{font-size:11px;color:var(--faint)}
+  .h-title{font-size:var(--fs-title);font-weight:650;line-height:1.1}
+  .topbar .grow{flex:1;min-width:0}
+  .pill{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);background:var(--surface-2);border:1px solid var(--border);padding:5px 10px;border-radius:999px}
+  .btn{appearance:none;border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:10px;padding:8px 12px;font:inherit;font-size:13px;cursor:pointer;min-height:var(--tap);display:inline-flex;align-items:center;gap:7px}
+  .btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+  .btn svg{width:15px;height:15px}
+
+  .tabs{display:flex;gap:2px;padding:0 16px;background:var(--surface);border-bottom:1px solid var(--border);overflow-x:auto}
+  .tabs .tab{padding:11px 14px;font-size:13px;color:var(--muted);border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;min-height:var(--tap)}
+  .tabs .tab.active{color:var(--text);border-color:var(--accent);font-weight:600}
+
+  /* List-detail content */
+  .content{flex:1;display:grid;grid-template-columns:1fr;min-height:0}
+  .pane{min-height:0;overflow:auto}
+  .list{border-right:1px solid var(--border);background:var(--surface)}
+  .detail{background:var(--bg)}
+  .inspector{border-left:1px solid var(--border);background:var(--surface);display:none}
+
+  .sec{padding:12px 14px}
+  .sec h3{font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--faint);margin:0 0 8px;font-weight:700}
+  .scene{display:flex;gap:10px;align-items:center;padding:10px;border-radius:12px;cursor:pointer;min-height:var(--tap)}
+  .scene:hover{background:var(--surface-2)}
+  .scene.active{background:color-mix(in srgb,var(--info) 12%,transparent);outline:1px solid color-mix(in srgb,var(--info) 35%,transparent)}
+  .scene .no{width:30px;height:30px;border-radius:8px;background:var(--surface-2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--muted);flex:0 0 auto}
+  .scene .meta{min-width:0;flex:1}
+  .scene .slug{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .scene .row{display:flex;gap:6px;align-items:center;margin-top:3px}
+  .dot{width:14px;height:14px;border-radius:50%;flex:0 0 auto}
+  .scene .dur{font-size:11px;color:var(--faint);margin-left:auto}
+
+  /* Reader (detail) */
+  .reader{max-width:680px;margin:0 auto;padding:22px clamp(14px,3cqi,40px)}
+  .reader .slugline{font-weight:700;letter-spacing:.02em;margin:18px 0 8px;font-size:var(--fs-body)}
+  .reader .action{color:var(--muted);font-size:var(--fs-body);line-height:1.6;margin:8px 0}
+  .reader .cue{font-weight:700;text-align:center;margin:14px 0 2px;font-size:var(--fs-body)}
+  .reader .dlg{max-width:62%;margin:0 auto 10px;text-align:center;font-size:var(--fs-body);line-height:1.55}
+  .reader .line.now{background:var(--hi);box-shadow:0 0 0 6px var(--hi);border-radius:4px}
+  .reader .speakerchip{display:inline-flex;gap:6px;align-items:center;font-size:11px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:3px 9px}
+
+  /* Inspector (voice now-casting) */
+  .vcard{border:1px solid var(--border);border-radius:14px;padding:12px;background:var(--surface)}
+  .vhead{display:flex;gap:10px;align-items:center;margin-bottom:10px}
+  .avatar{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700}
+  .kv{display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-top:1px dashed var(--border)}
+  .kv span:first-child{color:var(--muted)}
+  .slider{height:6px;border-radius:999px;background:var(--surface-2);position:relative;margin:7px 0 12px}
+  .slider i{position:absolute;left:0;top:0;bottom:0;border-radius:999px;background:var(--accent)}
+  .slider b{position:absolute;top:50%;width:14px;height:14px;border-radius:50%;background:#fff;border:2px solid var(--accent);transform:translate(-50%,-50%)}
+  .lab{display:flex;justify-content:space-between;font-size:11px;color:var(--muted)}
+
+  /* Transport / mini-player — persistent */
+  .transport{background:var(--surface);border-top:1px solid var(--border);padding:10px 14px;display:flex;align-items:center;gap:12px}
+  .tbtn{width:var(--tap);height:var(--tap);border-radius:50%;border:1px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text);flex:0 0 auto}
+  .tbtn.play{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);width:50px;height:50px}
+  .tbtn svg{width:18px;height:18px}
+  .tinfo{min-width:0;flex:1}
+  .tinfo .t1{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tinfo .t2{font-size:11px;color:var(--faint)}
+  .scrub{height:6px;border-radius:999px;background:var(--surface-2);position:relative;margin-top:7px;cursor:pointer}
+  .scrub i{position:absolute;left:0;top:0;bottom:0;background:var(--accent);border-radius:999px;width:34%}
+  .scrub b{position:absolute;left:34%;top:50%;width:13px;height:13px;border-radius:50%;background:var(--accent);transform:translate(-50%,-50%)}
+  .tmeta{display:flex;align-items:center;gap:10px}
+  .speed{font-size:12px;border:1px solid var(--border);border-radius:8px;padding:7px 9px;color:var(--muted);cursor:pointer;min-height:var(--tap)}
+
+  /* Bottom nav (mobile only) */
+  .bottomnav{display:none;background:var(--surface);border-top:1px solid var(--border);padding:6px 6px calc(6px + env(safe-area-inset-bottom));justify-content:space-around}
+  .bottomnav .bn{flex:1;min-height:54px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:10px;color:var(--muted);border-radius:12px}
+  .bottomnav .bn svg{width:21px;height:21px}
+  .bottomnav .bn.active{color:var(--accent)}
+
+  .callout{position:absolute;right:14px;bottom:88px;max-width:240px;background:color-mix(in srgb,var(--info) 14%,var(--surface));border:1px solid color-mix(in srgb,var(--info) 40%,transparent);color:var(--text);border-radius:12px;padding:10px 12px;font-size:11px;line-height:1.45;box-shadow:var(--shadow)}
+  .callout b{color:var(--info)}
+
+  /* ====== CONTAINER QUERIES: the single component adapts by its own width ====== */
+  /* MOBILE (compact): single pane (reader), bottom nav, list & inspector hidden */
+  @container (max-width: 700px){
+    .list{display:none}
+    .inspector{display:none}
+    .rail{display:none}
+    .bottomnav{display:flex}
+    .reader .dlg{max-width:88%}
+    .tmeta .speed{display:none}
+    .topbar .desk-only{display:none}
+  }
+  /* TABLET (medium): icon rail + list-detail (2 panes), inspector folds away */
+  @container (min-width: 701px) and (max-width: 1023px){
+    .content{grid-template-columns:300px 1fr}
+    .inspector{display:none}
+  }
+  /* DESKTOP (expanded): rail + list + detail + inspector (3 panes) */
+  @container (min-width: 1024px){
+    .content{grid-template-columns:320px 1fr 300px}
+    .inspector{display:block}
+  }
+</style>
+</head>
+<body>
+<div class="harness">
+  <h1>ScriptON Audio — one component, three form factors</h1>
+  <p class="sub">The same screen reflows by <em>container width</em> (not just viewport), so web, tablet, mobile and a future native app share one codebase. Toggle the device to watch the list-detail layout, navigation, and the persistent transport bar adapt.</p>
+
+  <div class="toolbar">
+    <div class="seg" id="vw">
+      <button data-w="desktop" class="on">Desktop</button>
+      <button data-w="tablet">Tablet</button>
+      <button data-w="mobile">Mobile</button>
+    </div>
+    <button class="ghost" id="theme">◐ Theme</button>
+    <button class="ghost" id="playbtn">▶ Simulate playback</button>
+    <div class="spacer"></div>
+    <span style="color:#64748b;font-size:12px">Reader surface · list-detail canonical layout</span>
+  </div>
+
+  <div class="stage">
+    <div class="device" id="device" data-vw="desktop">
+      <div class="app" id="app">
+        <div class="app-body">
+
+          <!-- NAV RAIL -->
+          <nav class="rail">
+            <div class="logo">S</div>
+            <div class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>Projects</div>
+            <div class="item active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>ScriptON</div>
+            <div class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>Casting</div>
+            <div class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>Schedule</div>
+            <div class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 100 20 10 10 0 000-20z"/><path d="M2 12h20"/></svg>Library</div>
+          </nav>
+
+          <!-- MAIN -->
+          <div class="main">
+            <div class="topbar">
+              <div class="grow">
+                <div class="crumb">JASON QUICK · White Draft</div>
+                <div class="h-title">ScriptON Audio</div>
+              </div>
+              <span class="pill desk-only"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M5 8l7-7 7 7"/></svg> 8 voices cast</span>
+              <button class="btn desk-only"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg> ~42 min</button>
+              <button class="btn primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l4-4m-4 4l-4-4"/><path d="M4 21h16"/></svg> Studio Render</button>
+            </div>
+
+            <div class="tabs">
+              <div class="tab active">Reader</div>
+              <div class="tab">Voices</div>
+              <div class="tab">Pronounce</div>
+              <div class="tab">Performance</div>
+              <div class="tab">Layers</div>
+              <div class="tab">Library</div>
+            </div>
+
+            <div class="content">
+              <!-- LIST PANE -->
+              <div class="pane list">
+                <div class="sec">
+                  <h3>Scenes · 24</h3>
+                  <div class="scene active">
+                    <div class="no">12</div>
+                    <div class="meta"><div class="slug">INT. WAREHOUSE – NIGHT</div>
+                      <div class="row"><span class="dot" style="background:#0ea5e9"></span><span class="dot" style="background:#f97316"></span><span style="font-size:11px;color:var(--faint)">JASON, MARIE</span><span class="dur">2:18</span></div>
+                    </div>
+                  </div>
+                  <div class="scene">
+                    <div class="no">13</div>
+                    <div class="meta"><div class="slug">EXT. ROOFTOP – NIGHT</div>
+                      <div class="row"><span class="dot" style="background:#0ea5e9"></span><span style="font-size:11px;color:var(--faint)">JASON</span><span class="dur">1:04</span></div>
+                    </div>
+                  </div>
+                  <div class="scene">
+                    <div class="no">14</div>
+                    <div class="meta"><div class="slug">INT. CAFÉ – DAY</div>
+                      <div class="row"><span class="dot" style="background:#a855f7"></span><span class="dot" style="background:#22c55e"></span><span style="font-size:11px;color:var(--faint)">LI WEI, AHMED</span><span class="dur">3:40</span></div>
+                    </div>
+                  </div>
+                  <div class="scene">
+                    <div class="no">15</div>
+                    <div class="meta"><div class="slug">INT. CAR – CONTINUOUS</div>
+                      <div class="row"><span class="dot" style="background:#0ea5e9"></span><span class="dot" style="background:#f97316"></span><span style="font-size:11px;color:var(--faint)">JASON, MARIE</span><span class="dur">2:02</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- DETAIL PANE (reader) -->
+              <div class="pane detail">
+                <div class="reader">
+                  <span class="speakerchip"><span class="dot" style="background:#f97316;width:10px;height:10px"></span> Now reading · MARIE · ElevenLabs “Amélie” (Fr-accent)</span>
+                  <div class="slugline">INT. WAREHOUSE – NIGHT</div>
+                  <div class="action line">Rain hammers the skylights. JASON edges along a gantry, gun low. A shape moves below.</div>
+                  <div class="cue">JASON</div>
+                  <div class="dlg line">Marie — tell me you’re already outside.</div>
+                  <div class="cue">MARIE</div>
+                  <div class="dlg line now">Bientôt. Two minutes. Don’t do anything stupide.</div>
+                  <div class="cue">JASON</div>
+                  <div class="dlg line">Stupid is the plan.</div>
+                  <div class="action line">A beat. Thunder. He vaults the rail.</div>
+                </div>
+              </div>
+
+              <!-- INSPECTOR (desktop) -->
+              <div class="pane inspector">
+                <div class="sec">
+                  <h3>Now casting</h3>
+                  <div class="vcard">
+                    <div class="vhead">
+                      <div class="avatar" style="background:#f97316">M</div>
+                      <div><div style="font-weight:650;font-size:14px">MARIE</div><div style="font-size:11px;color:var(--muted)">ElevenLabs · “Amélie”</div></div>
+                    </div>
+                    <div class="kv"><span>Nationality</span><span>French</span></div>
+                    <div class="kv"><span>Native</span><span>French</span></div>
+                    <div class="kv"><span>Speaks</span><span>English, French</span></div>
+                    <div class="kv"><span>Accent</span><span>French-English</span></div>
+                    <div style="margin-top:12px">
+                      <div class="lab"><span>Pace</span><span>6</span></div><div class="slider"><i style="width:60%"></i><b style="left:60%"></b></div>
+                      <div class="lab"><span>Confidence</span><span>8</span></div><div class="slider"><i style="width:80%"></i><b style="left:80%"></b></div>
+                      <div class="lab"><span>Tension</span><span>7</span></div><div class="slider"><i style="width:70%"></i><b style="left:70%"></b></div>
+                    </div>
+                    <button class="btn" style="width:100%;justify-content:center;margin-top:6px">Edit voice</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- TRANSPORT (persistent) -->
+            <div class="transport">
+              <button class="tbtn"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zM20 6l-9 6 9 6z"/></svg></button>
+              <button class="tbtn play" id="playmini"><svg id="playicon" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>
+              <button class="tbtn"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 6h-2v12h2zM4 6l9 6-9 6z"/></svg></button>
+              <div class="tinfo">
+                <div class="t1">Sc 12 · INT. WAREHOUSE – NIGHT · MARIE</div>
+                <div class="t2"><span id="ct">0:48</span> / 2:18</div>
+                <div class="scrub" id="scrub"><i id="scrubfill"></i><b id="scrubknob"></b></div>
+              </div>
+              <div class="tmeta">
+                <span class="speed">1.0×</span>
+                <button class="btn desk-only"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12h16M4 6h16M4 18h10"/></svg> Table read</button>
+              </div>
+            </div>
+
+            <!-- BOTTOM NAV (mobile) -->
+            <nav class="bottomnav">
+              <div class="bn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M8 8h8M8 12h8"/></svg>Read</div>
+              <div class="bn active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>Voices</div>
+              <div class="bn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l4-4m-4 4l-4-4"/><path d="M4 21h16"/></svg>Render</div>
+              <div class="bn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M2 12h20"/></svg>Library</div>
+            </nav>
+          </div>
+        </div>
+
+        <div class="callout" id="callout"><b>Adaptive:</b> desktop shows 3 panes (list · reader · voice inspector). Tablet drops to 2. Mobile becomes a single reader with bottom-nav — the transport bar stays persistent on all three.</div>
+      </div>
+    </div>
+  </div>
+  <div class="vwtag" id="vwtag">Desktop · 1280px · navigation rail + list-detail + inspector</div>
+</div>
+
+<script>
+  const device=document.getElementById('device'), vwtag=document.getElementById('vwtag'), callout=document.getElementById('callout');
+  const tags={desktop:'Desktop · 1280px · navigation rail + list-detail + inspector',tablet:'Tablet · 834px · icon rail + list-detail (inspector folds away)',mobile:'Mobile · 390px · single reader + bottom navigation + mini-transport'};
+  document.querySelectorAll('#vw button').forEach(b=>b.onclick=()=>{
+    document.querySelectorAll('#vw button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+    const w=b.dataset.w; device.dataset.vw=w; vwtag.textContent=tags[w];
+    callout.style.display = w==='desktop' ? 'block':'none';
+  });
+  document.getElementById('theme').onclick=()=>document.getElementById('app').classList.toggle('dark');
+  // playback sim
+  let playing=false,t=48,timer=null; const total=138;
+  const fill=document.getElementById('scrubfill'),knob=document.getElementById('scrubknob'),ct=document.getElementById('ct'),icon=document.getElementById('playicon');
+  const fmt=s=>Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0');
+  function tick(){t=(t+1)%total;const p=(t/total*100);fill.style.width=p+'%';knob.style.left=p+'%';ct.textContent=fmt(t);}
+  function toggle(){playing=!playing;icon.innerHTML=playing?'<rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/>':'<path d="M8 5v14l11-7z"/>';if(playing){timer=setInterval(tick,1000)}else{clearInterval(timer)}}
+  document.getElementById('playmini').onclick=toggle; document.getElementById('playbtn').onclick=toggle;
+</script>
+</body>
+</html>

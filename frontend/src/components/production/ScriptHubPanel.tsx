@@ -2,17 +2,23 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { productionApi } from '@/lib/api';
-import { FileText, Plus, Upload, Trash2, Loader2, ChevronLeft, Layers, MousePointer2, Highlighter, PenLine, Type, StickyNote, Tag, Eye, EyeOff, ArrowRightLeft, X, GitCompare, MapPin, Settings2, Lock, Scissors, Clapperboard } from 'lucide-react';
-import { PanelHeader, StatRow, Btn, EmptyState, Chip } from './ui';
+import { FileText, Plus, Upload, Trash2, Loader2, ChevronLeft, Layers, MousePointer2, Highlighter, PenLine, Type, StickyNote, Tag, Eye, EyeOff, ArrowRightLeft, X, GitCompare, MapPin, Settings2, Lock, Scissors, Clapperboard, BookOpen, Bookmark, Tags } from 'lucide-react';
+import { Btn, EmptyState, Chip } from './ui';
 import ScriptViewer from './ScriptViewer';
 import AnnotationOverlay, { type Tool } from './AnnotationOverlay';
 import SidesGenerator from './SidesGenerator';
 import LiningPanel from './LiningPanel';
 import ProcurementStagingPanel from './ProcurementStagingPanel';
+import ScriptReader from './ScriptReader';
+import TagToolsPanel from './TagToolsPanel';
+import ScriptAnalyzePanel from './ScriptAnalyzePanel';
+import AudioNotesPanel from './AudioNotesPanel';
+import { SonRoot, SonShell, SonThemeToggle, SonBtn } from './scripton/Son';
+import ScriptOnAudioPanel from './scripton/ScriptOnAudioPanel';
 import { useOfflineSync } from '@/lib/useOfflineSync';
 import { cacheRevision, getCachedRevision, mergeCachedRevision, fetchPdfBytes } from '@/lib/script-offline';
 import { assetUrl } from '@/lib/api';
-import { Wifi, WifiOff, Download, ShoppingCart } from 'lucide-react';
+import { Wifi, WifiOff, Download, ShoppingCart, Link2, ArrowUpFromLine, ArrowDownToLine, Library, BarChart3, Mic, Music } from 'lucide-react';
 
 const TOOLS: { key: Tool; icon: any; label: string }[] = [
   { key: 'CURSOR', icon: MousePointer2, label: 'Select' },
@@ -41,6 +47,16 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
   // Annotation state (D2)
   const [layers, setLayers] = useState<any[]>([]);
   const [annos, setAnnos] = useState<any[]>([]);
+  const [bookmarks, setBookmarks] = useState<any[]>([]);
+  const loadBookmarks = useCallback((revisionId: string) => {
+    productionApi.scriptAnnotations.bookmarks(revisionId).then((r) => setBookmarks(Array.isArray(r.data) ? r.data : [])).catch(() => setBookmarks([]));
+  }, []);
+  const [tagCats, setTagCats] = useState<any[]>([]);
+  const [activeTagCatKey, setActiveTagCatKey] = useState('');
+  const loadTagCats = useCallback(() => {
+    productionApi.scriptAnnotations.tagCategories(projectId).then((r) => setTagCats((r.data || []).filter((c: any) => !c.hidden))).catch(() => {});
+  }, [projectId]);
+  useEffect(() => { loadTagCats(); }, [loadTagCats]);
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [activeLayerId, setActiveLayerId] = useState('');
   const [tool, setTool] = useState<Tool>('CURSOR');
@@ -48,11 +64,23 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
   const [compare, setCompare] = useState<any>(null); // { other, data } when compare modal open
   const [settingsLayer, setSettingsLayer] = useState<any>(null);
   const [sidesOpen, setSidesOpen] = useState(false);
+  const [pagesOpen, setPagesOpen] = useState(false);
+  const [pageOpts, setPageOpts] = useState({ style: 'LINED', side: 'BEFORE' });
+  const [pagesBusy, setPagesBusy] = useState(false);
   const [liningOpen, setLiningOpen] = useState(false);
   const [procOpen, setProcOpen] = useState(false);
+  const [readerOpen, setReaderOpen] = useState(false);
+  const [tagsOpen, setTagsOpen] = useState(false);
+  const [analyzeOpen, setAnalyzeOpen] = useState(false);
+  const [audioOpen, setAudioOpen] = useState(false);
+  const [audioStudioOpen, setAudioStudioOpen] = useState(false);
   const [shares, setShares] = useState<any[]>([]);
   const [templates, setTemplates] = useState<any[]>([]);
   const [shareDraft, setShareDraft] = useState<any>({ templateKey: '', department: '', access: 'VIEW' });
+  // P5 — library link/promote/pull
+  const [libOpen, setLibOpen] = useState(false);
+  const [libList, setLibList] = useState<any[]>([]);
+  const [libBusy, setLibBusy] = useState(false);
 
   useEffect(() => { productionApi.projects.permissionTemplates().then((r) => setTemplates(r.data || [])).catch(() => {}); }, []);
 
@@ -78,6 +106,29 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
     const r = await productionApi.script.createDocument(projectId, { title });
     setTitle(''); setCreating(false); load();
     openDocument(r.data.id);
+  };
+
+  // P5 — link a library master into this project as a new document
+  const openLibrary = async () => {
+    setLibOpen(true);
+    try { const r = await productionApi.script.libraryList(); setLibList(Array.isArray(r.data) ? r.data : []); } catch { setLibList([]); }
+  };
+  const linkMaster = async (masterId: string) => {
+    setLibBusy(true);
+    try { const r = await productionApi.script.linkMaster(masterId, projectId); setLibOpen(false); load(); if (r.data?.id) openDocument(r.data.id); }
+    catch (e: any) { alert(e?.response?.data?.message || 'Link failed.'); }
+    finally { setLibBusy(false); }
+  };
+  const promoteToLibrary = async () => {
+    if (!openDoc) return;
+    if (!confirm('Promote this script (active revision) into the company library?')) return;
+    try { await productionApi.script.promoteToLibrary(openDoc.id, { title: openDoc.title }); openDocument(openDoc.id); alert('Promoted to the Script Library. This document is now linked.'); }
+    catch (e: any) { alert(e?.response?.data?.message || 'Promote failed.'); }
+  };
+  const pullLatest = async () => {
+    if (!openDoc) return;
+    try { await productionApi.script.pullLatest(openDoc.id); openDocument(openDoc.id); alert('Pulled the latest library revision. Use “Transfer notes” to re-anchor your annotations.'); }
+    catch (e: any) { alert(e?.response?.data?.message || 'Pull failed.'); }
   };
 
   const openDocument = async (id: string) => {
@@ -115,6 +166,7 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
   }, []);
   useEffect(() => { if (openDoc) loadLayers(openDoc.id); }, [openDoc, loadLayers]);
   useEffect(() => { if (activeRev) loadAnnos(activeRev.id); }, [activeRev, loadAnnos]);
+  useEffect(() => { if (activeRev) loadBookmarks(activeRev.id); }, [activeRev, loadBookmarks]);
   // Keep the offline cache fresh while online.
   useEffect(() => { if (online && activeRev) mergeCachedRevision(activeRev.id, { annotations: annos }); }, [annos, online, activeRev]);
   useEffect(() => { if (online && activeRev) mergeCachedRevision(activeRev.id, { layers }); }, [layers, online, activeRev]);
@@ -160,6 +212,18 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
     finally { setExporting(false); }
   };
 
+  // P4 — Page Maker: interleave blank note pages and download.
+  const makeFacing = async () => {
+    if (!activeRev) return;
+    setPagesBusy(true);
+    try {
+      const r = await productionApi.sides.facing(activeRev.id, pageOpts);
+      window.open(assetUrl(r.data.url), '_blank');
+      setPagesOpen(false);
+    } catch (e: any) { alert(e?.response?.data?.message || 'Page Maker failed.'); }
+    finally { setPagesBusy(false); }
+  };
+
   // D3 — transfer notes from the previous revision into the active one
   const prevRevision = () => {
     const revs = openDoc?.revisions || [];
@@ -172,7 +236,8 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
     if (!confirm(`Transfer notes from "${prev.revisionLabel}" into "${activeRev.revisionLabel}"? Matched notes re-anchor to their text; unmatched land in the orphans tray.`)) return;
     const r = await productionApi.scriptAnnotations.transfer(prev.id, activeRev.id);
     await loadAnnos(activeRev.id);
-    alert(`Transferred ${r.data.transferred}/${r.data.total} notes. ${r.data.orphaned} need manual placement.`);
+    loadBookmarks(activeRev.id);
+    alert(`Transfer complete — ${r.data.transferred}/${r.data.total} notes re-anchored · ${r.data.orphaned} need placement · ${r.data.bookmarksMoved || 0} bookmarks carried forward.`);
   };
   const placeOrphanAt = async (id: string, pos: { page: number; x: number; y: number }) => {
     await productionApi.scriptAnnotations.placeOrphan(id, pos);
@@ -229,7 +294,7 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
   // ── Binder view (a document is open) ──────────────────────────────────────────
   if (openDoc) {
     return (
-      <div className="font-sans">
+      <SonRoot className="font-sans">
         <div className="flex items-center justify-between gap-2 mb-4 flex-wrap">
           <div className="flex items-center gap-2">
             <button onClick={() => { setOpenDoc(null); setActiveRev(null); }} className="p-1.5 rounded-lg border border-slate-200 hover:border-slate-900"><ChevronLeft size={15} /></button>
@@ -237,6 +302,10 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
               <h3 className="text-base font-semibold text-slate-900">{openDoc.title}</h3>
               <p className="text-[11px] text-slate-400">{openDoc.revisions?.length || 0} revision{openDoc.revisions?.length === 1 ? '' : 's'}</p>
             </div>
+            {openDoc.masterScriptId
+              ? <span className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full bg-indigo-50 text-indigo-700" title="Linked to a Script Library master"><Link2 size={11} /> Library-linked</span>
+              : <Btn variant="secondary" onClick={promoteToLibrary} title="Promote this script into the company library"><ArrowUpFromLine size={13} /> Promote to library</Btn>}
+            {openDoc.masterScriptId && <Btn variant="secondary" onClick={pullLatest} title="Pull the latest revision from the library"><ArrowDownToLine size={13} /> Pull latest</Btn>}
             <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full ${online ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`} title={online ? 'Online — changes sync live' : 'Offline — changes saved locally'}>
               {online ? <Wifi size={12} /> : <WifiOff size={12} />}
               {online ? (syncing ? 'Syncing…' : 'Online') : 'Offline'}
@@ -244,6 +313,7 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
             </span>
           </div>
           <div className="flex items-center gap-2">
+            <SonThemeToggle />
             {/* Version dropdown */}
             {openDoc.revisions?.length > 0 && (
               <select className={inp} value={activeRev?.id || ''} onChange={(e) => setActive(e.target.value)}>
@@ -261,16 +331,57 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
               </select>
             )}
             {activeRev && <Btn variant="secondary" onClick={exportPdf} disabled={exporting} title="Export your visible layers as a watermarked PDF">{exporting ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />} Export</Btn>}
+            {activeRev && <Btn variant="secondary" onClick={() => setReaderOpen(true)} title="Reader, read-aloud, rehearse & self-tape"><BookOpen size={13} /> Reader</Btn>}
+            {activeRev && <Btn variant="secondary" onClick={() => setTagsOpen(true)} title="Tag categories, auto-tag cast, element report, scene tags"><Tags size={13} /> Tags</Btn>}
+            {activeRev && <Btn variant="secondary" onClick={() => setAnalyzeOpen(true)} title="Local script breakdown — scenes, characters, locations (no external AI)"><BarChart3 size={13} /> Analyze</Btn>}
+            {activeRev && <Btn variant="secondary" onClick={() => setAudioOpen(true)} title="Record &amp; play voice memos for this revision"><Mic size={13} /> Audio</Btn>}
+            {activeRev && <Btn variant="primary" onClick={() => setAudioStudioOpen(true)} title="ScriptON Audio — voices, table read, render, layers"><Music size={13} /> Audio Studio</Btn>}
             {activeRev && <Btn variant="secondary" onClick={() => setLiningOpen(true)} title="Script-supervisor lining + Hot Cost"><Clapperboard size={13} /> Lining</Btn>}
             {activeRev && <Btn variant="secondary" onClick={() => setProcOpen(true)} title="Stage prop tags into budget lines"><ShoppingCart size={13} /> Procurement</Btn>}
+            {activeRev && <Btn variant="secondary" onClick={() => setPagesOpen(true)} title="Page Maker — facing note pages"><StickyNote size={13} /> Pages</Btn>}
             {activeRev && <Btn variant="secondary" onClick={() => setSidesOpen(true)} title="Generate sides for a shoot day"><Scissors size={13} /> Sides</Btn>}
-            <input ref={fileRef} type="file" accept="application/pdf" className="hidden" onChange={(e) => uploadRevision(e.target.files?.[0] || null)} />
+            <input ref={fileRef} type="file" accept="application/pdf,.pdf,.fdx" className="hidden" onChange={(e) => uploadRevision(e.target.files?.[0] || null)} />
             <Btn variant="primary" onClick={() => fileRef.current?.click()} disabled={uploading}>{uploading ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />} Upload revision</Btn>
           </div>
         </div>
+        {pagesOpen && activeRev && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" onClick={() => setPagesOpen(false)}>
+            <div className="bg-white rounded-2xl w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+              <div className="border-b border-slate-100 px-5 py-3 flex items-center justify-between">
+                <h2 className="font-semibold text-sm inline-flex items-center gap-2"><StickyNote size={16} /> Page Maker — {activeRev.revisionLabel}</h2>
+                <button onClick={() => setPagesOpen(false)}><X size={18} /></button>
+              </div>
+              <div className="p-5 space-y-3">
+                <p className="text-xs text-slate-500">Builds a printable PDF with a blank note page interleaved against every script page — a facing-page notebook for set notes.</p>
+                <div>
+                  <label className="text-[10px] uppercase tracking-wide text-slate-400">Note page</label>
+                  <div className="grid grid-cols-4 gap-1.5 mt-1">
+                    {['LINED', 'DOT', 'GRID', 'PLAIN'].map((s) => (
+                      <button key={s} onClick={() => setPageOpts({ ...pageOpts, style: s })} className={`text-[11px] rounded-lg border px-2 py-1.5 ${pageOpts.style === s ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 text-slate-600'}`}>{s[0] + s.slice(1).toLowerCase()}</button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase tracking-wide text-slate-400">Position</label>
+                  <div className="grid grid-cols-2 gap-1.5 mt-1">
+                    {[['BEFORE', 'Before each page'], ['AFTER', 'After each page']].map(([v, lbl]) => (
+                      <button key={v} onClick={() => setPageOpts({ ...pageOpts, side: v })} className={`text-[11px] rounded-lg border px-2 py-1.5 ${pageOpts.side === v ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 text-slate-600'}`}>{lbl}</button>
+                    ))}
+                  </div>
+                </div>
+                <Btn variant="primary" onClick={makeFacing} disabled={pagesBusy} className="w-full justify-center">{pagesBusy ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />} Build & open PDF</Btn>
+              </div>
+            </div>
+          </div>
+        )}
         {sidesOpen && activeRev && <SidesGenerator projectId={projectId} revision={activeRev} onClose={() => setSidesOpen(false)} />}
         {liningOpen && activeRev && <LiningPanel projectId={projectId} revision={activeRev} onClose={() => setLiningOpen(false)} />}
         {procOpen && activeRev && <ProcurementStagingPanel projectId={projectId} revision={activeRev} onClose={() => setProcOpen(false)} />}
+        {readerOpen && activeRev && <ScriptReader revision={activeRev} onClose={() => setReaderOpen(false)} />}
+        {tagsOpen && activeRev && <TagToolsPanel projectId={projectId} revision={activeRev} onChanged={() => loadAnnos(activeRev.id)} onClose={() => setTagsOpen(false)} />}
+        {analyzeOpen && activeRev && <ScriptAnalyzePanel revision={activeRev} onClose={() => setAnalyzeOpen(false)} />}
+        {audioOpen && activeRev && <AudioNotesPanel revision={activeRev} onClose={() => setAudioOpen(false)} />}
+        {audioStudioOpen && activeRev && <ScriptOnAudioPanel revision={activeRev} projectId={projectId} onClose={() => setAudioStudioOpen(false)} />}
 
         {activeRev ? (
           <>
@@ -299,6 +410,14 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
 
             <div className="flex gap-3">
               <div className="flex-1 min-w-0">
+                {activeRev.pdfUrl && !/\.pdf$/i.test(activeRev.pdfUrl) ? (
+                  <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center">
+                    <FileText size={28} className="mx-auto text-slate-300" />
+                    <p className="mt-3 text-sm font-semibold text-slate-700">Final Draft (.fdx) revision</p>
+                    <p className="mt-1 text-xs text-slate-500">FDX scripts have no page image to mark up. Scenes, characters and dialogue are parsed for the Reader, Audio Studio and Lining.</p>
+                    <Btn variant="primary" className="mt-4" onClick={() => setReaderOpen(true)}><BookOpen size={13} /> Open Reader</Btn>
+                  </div>
+                ) : (
                 <ScriptViewer
                   pdfUrl={activeRev.pdfUrl}
                   pdfData={pdfBytes}
@@ -314,9 +433,11 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
                       onDelete={deleteAnno}
                       placingId={placingId}
                       onPlace={placeOrphanAt}
+                      tagCategory={tagCats.find((c) => c.key === activeTagCatKey) || null}
                     />
                   )}
                 />
+                )}
               </div>
 
               {/* Right rail — tools + layers */}
@@ -331,6 +452,12 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
                       </button>
                     ))}
                   </div>
+                  {tool === 'TAG' && (
+                    <select className={`${inp} w-full mt-2 text-xs`} value={activeTagCatKey} onChange={(e) => setActiveTagCatKey(e.target.value)}>
+                      <option value="">Tag category: free text</option>
+                      {tagCats.map((c) => <option key={c.id} value={c.key}>{c.label}</option>)}
+                    </select>
+                  )}
                   <p className="text-[10px] text-slate-400 mt-2">Double-click a note to delete it.</p>
                 </div>
 
@@ -353,6 +480,36 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
                     ))}
                   </div>
                   <p className="text-[10px] text-slate-400 mt-2">New notes go to the <b>{activeLayer?.name || '—'}</b> layer.</p>
+                </div>
+
+                {/* Bookmarks (P2) — carry forward on transfer */}
+                <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 inline-flex items-center gap-1"><Bookmark size={12} /> Bookmarks</p>
+                  </div>
+                  {(activeRev.scenes?.length || 0) > 0 && (
+                    <select className={`${inp} w-full mb-2 text-xs`} value="" onChange={async (e) => {
+                      const sc = (activeRev.scenes || []).find((s: any) => s.id === e.target.value);
+                      if (!sc) return;
+                      await productionApi.scriptAnnotations.addBookmark(activeRev.id, { page: sc.pageStart || 1, sceneNumber: sc.sceneNumber || null, label: sc.slugline || `Scene ${sc.sceneNumber || ''}`.trim() });
+                      loadBookmarks(activeRev.id);
+                    }}>
+                      <option value="">+ Bookmark a scene…</option>
+                      {(activeRev.scenes || []).map((s: any) => <option key={s.id} value={s.id}>{s.sceneNumber ? `${s.sceneNumber} · ` : ''}{(s.slugline || '').slice(0, 40)}</option>)}
+                    </select>
+                  )}
+                  <div className="space-y-1 max-h-44 overflow-y-auto">
+                    {bookmarks.length === 0 && <p className="text-[10px] text-slate-400">No bookmarks yet.</p>}
+                    {bookmarks.map((b) => (
+                      <div key={b.id} className="flex items-center gap-1.5 text-xs">
+                        <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ background: b.color || '#0ea5e9' }} />
+                        <span className="flex-1 truncate text-slate-600" title={b.label}>{b.label}</span>
+                        <span className="text-[10px] text-slate-400 shrink-0">p.{b.page}</span>
+                        <button onClick={async () => { await productionApi.scriptAnnotations.removeBookmark(b.id); loadBookmarks(activeRev.id); }} className="text-slate-300 hover:text-rose-500 shrink-0"><Trash2 size={11} /></button>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-2">Bookmarks ride forward to the new draft on Transfer.</p>
                 </div>
               </div>
             </div>
@@ -454,25 +611,58 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
             </div>
           </div>
         )}
-      </div>
+      </SonRoot>
     );
   }
 
   // ── Document list ─────────────────────────────────────────────────────────────
   return (
-    <div className="font-sans">
-      <PanelHeader
-        icon={FileText}
-        title="Script & document hub"
-        subtitle="Upload script revisions, browse scenes, and (next slices) annotate, transfer notes, generate sides."
-        actions={<Btn variant="primary" onClick={() => setCreating((c) => !c)}><Plus size={13} /> New script</Btn>}
-      />
+    <SonRoot className="font-sans">
+    <SonShell>
+      <div className="son-topbar">
+        <div className="son-grow">
+          <div className="son-crumb">Script &amp; audio</div>
+          <div className="son-title">ScriptON</div>
+        </div>
+        <SonThemeToggle />
+        <SonBtn onClick={openLibrary} title="Link a script from the company library"><Library size={14} /> Use library script</SonBtn>
+        <SonBtn primary onClick={() => setCreating((c) => !c)}><Plus size={14} /> New script</SonBtn>
+      </div>
+      <div className="son-sec">
+        <p className="son-faint" style={{ fontSize: 12, marginTop: -2, marginBottom: 12 }}>Upload revisions, browse scenes, annotate, read &amp; rehearse, tag, line, and generate audio.</p>
 
       {creating && (
-        <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 mb-3 flex items-center gap-2">
-          <input className={`${inp} flex-1`} placeholder="Script title (e.g. Episode 101)" value={title} onChange={(e) => setTitle(e.target.value)} />
-          <Btn variant="primary" onClick={createDoc} disabled={!title.trim()}>Create</Btn>
-          <Btn variant="secondary" onClick={() => setCreating(false)}>Cancel</Btn>
+        <div className="son-card" style={{ padding: 14, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <input className="son-input" style={{ flex: 1 }} placeholder="Script title (e.g. Episode 101)" value={title} onChange={(e) => setTitle(e.target.value)} />
+          <SonBtn primary onClick={createDoc} disabled={!title.trim()}>Create</SonBtn>
+          <SonBtn onClick={() => setCreating(false)}>Cancel</SonBtn>
+        </div>
+      )}
+
+      {libOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4" onClick={() => setLibOpen(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-lg max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="border-b border-slate-100 px-5 py-3 flex items-center justify-between">
+              <h3 className="font-semibold text-sm inline-flex items-center gap-2"><Library size={16} /> Link a library script</h3>
+              <button onClick={() => setLibOpen(false)}><X size={18} /></button>
+            </div>
+            <div className="p-4 overflow-y-auto">
+              {libList.length === 0 ? <p className="text-sm text-slate-400">No library scripts found. Create one in the Script Library, or promote a project script.</p> : (
+                <div className="space-y-2">
+                  {libList.map((m) => (
+                    <div key={m.id} className="flex items-center gap-3 rounded-xl border border-slate-200 p-3">
+                      <FileText size={16} className="text-slate-400" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-800 truncate">{m.title}</p>
+                        <p className="text-[11px] text-slate-400">{m.kind} · {m._count?.revisions || 0} revisions · {m._count?.linkedDocs || 0} linked</p>
+                      </div>
+                      <Btn variant="primary" onClick={() => linkMaster(m.id)} disabled={libBusy}><Link2 size={12} /> Link</Btn>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
@@ -480,25 +670,30 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
         <EmptyState icon={FileText}>No scripts yet. Create one, then upload its PDF revision.</EmptyState>
       ) : (
         <>
-          <StatRow stats={[['Scripts', docs.length], ['Revisions', docs.reduce((t, d) => t + (d.revisions?.length || 0), 0)]]} />
-          <div className="space-y-2">
+          <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+            <span className="son-chip">{docs.length} script{docs.length === 1 ? '' : 's'}</span>
+            <span className="son-chip">{docs.reduce((t, d) => t + (d.revisions?.length || 0), 0)} revisions</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {docs.map((d) => (
-              <div key={d.id} className="rounded-2xl border border-slate-200 bg-white p-3.5 flex items-center gap-3 hover:border-slate-300">
-                <FileText size={18} className="text-slate-400 shrink-0" />
-                <button onClick={() => openDocument(d.id)} className="flex-1 text-left min-w-0">
-                  <span className="font-medium text-slate-800">{d.title}</span>
-                  <span className="block text-[11px] text-slate-400 flex items-center gap-1"><Layers size={11} /> {d.revisions?.length || 0} revision{d.revisions?.length === 1 ? '' : 's'}
+              <div key={d.id} className="son-card son-row">
+                <FileText size={18} className="son-faint shrink-0" />
+                <button onClick={() => openDocument(d.id)} className="flex-1 text-left min-w-0" style={{ background: 'none', border: 0, cursor: 'pointer', padding: 0 }}>
+                  <span style={{ fontWeight: 600 }}>{d.title}</span>
+                  <span className="son-faint" style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11 }}><Layers size={11} /> {d.revisions?.length || 0} revision{d.revisions?.length === 1 ? '' : 's'}
                     {d.revisions?.[0] && <> · latest {d.revisions[0].revisionLabel}</>}</span>
                 </button>
                 <div className="flex items-center gap-1.5">
-                  {(d.revisions || []).slice(0, 5).map((rv: any) => <span key={rv.id} title={rv.revisionLabel} className="inline-block w-3 h-3 rounded-full border border-slate-200" style={{ background: rv.colorCode || '#e2e8f0' }} />)}
+                  {(d.revisions || []).slice(0, 5).map((rv: any) => <span key={rv.id} title={rv.revisionLabel} className="son-dot" style={{ width: 12, height: 12, border: '1px solid var(--son-border)', background: rv.colorCode || 'var(--son-surface-2)' }} />)}
                 </div>
-                <button onClick={() => removeDoc(d.id)} className="text-slate-300 hover:text-rose-500"><Trash2 size={14} /></button>
+                <button onClick={() => removeDoc(d.id)} className="son-faint" style={{ background: 'none', border: 0, cursor: 'pointer' }}><Trash2 size={14} /></button>
               </div>
             ))}
           </div>
         </>
       )}
-    </div>
+      </div>
+    </SonShell>
+    </SonRoot>
   );
 }

@@ -224,30 +224,30 @@
    touching components. Print pages keep their own light styling.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* Warm graphite — brown-tinted darks in the same family as the TFM gold */
+/* Slate charcoal — one family with the icon rail (#0F172A). Depth: page ‹ rail ‹ card. */
 html.dark {
-  --page-bg:        #191714;
-  --card-bg:        #23201C;
-  --card-border:    #3B3630;
-  --text-primary:   #EAE6DF;
-  --text-secondary: #B3AB9E;
-  --text-muted:     #7A7265;
-  --divider:        #2E2A25;
-  --sidebar-bg:     #211E1A;
-  --sidebar-hover:  #2B2722;
-  --sidebar-active: #322D27;
-  --sidebar-border: #322D27;
+  --page-bg:        #0B1120;
+  --card-bg:        #1E293B;
+  --card-border:    #2A3A52;
+  --text-primary:   #F1F5F9;
+  --text-secondary: #94A3B8;
+  --text-muted:     #64748B;
+  --divider:        #243349;
+  --sidebar-bg:     #0F172A;
+  --sidebar-hover:  #1E293B;
+  --sidebar-active: #1E293B;
+  --sidebar-border: #243349;
 }
 html.dark body { background-color: var(--page-bg); color: var(--text-primary); }
-html.dark ::-webkit-scrollbar-thumb { background: #4A443B; }
+html.dark ::-webkit-scrollbar-thumb { background: #334155; }
 
 /* (2) raw Tailwind utility remap — scoped to dark, print excluded */
 @media not print {
   html.dark .bg-white { background-color: var(--card-bg) !important; }
   html.dark .bg-gray-50, html.dark .bg-gray-100, html.dark .bg-gray-50\/60,
-  html.dark .bg-gray-100\/70, html.dark .bg-gray-50\/40 { background-color: #2B2722 !important; }
+  html.dark .bg-gray-100\/70, html.dark .bg-gray-50\/40 { background-color: #172132 !important; }
   html.dark .hover\:bg-gray-50:hover, html.dark .hover\:bg-gray-100:hover,
-  html.dark .hover\:bg-gray-50\/60:hover { background-color: #322D27 !important; }
+  html.dark .hover\:bg-gray-50\/60:hover { background-color: #243349 !important; }
   html.dark .bg-blue-50 { background-color: #1B2735 !important; }
   html.dark .bg-amber-50 { background-color: #2E2718 !important; }
   html.dark .bg-sky-50 { background-color: #182832 !important; }
@@ -259,7 +259,7 @@ html.dark ::-webkit-scrollbar-thumb { background: #4A443B; }
   html.dark .text-gray-900, html.dark .text-gray-800 { color: var(--text-primary) !important; }
   html.dark .text-gray-700, html.dark .text-gray-600 { color: var(--text-secondary) !important; }
   html.dark .text-gray-500, html.dark .text-gray-400 { color: var(--text-muted) !important; }
-  html.dark .text-gray-300 { color: #5E574C !important; }
+  html.dark .text-gray-300 { color: #475569 !important; }
 
   html.dark .border-gray-100, html.dark .border-gray-200, html.dark .border-gray-50,
   html.dark .divide-gray-100 > *, html.dark .border-blue-100, html.dark .border-sky-100,
@@ -283,20 +283,20 @@ html.dark ::-webkit-scrollbar-thumb { background: #4A443B; }
   html.dark .text-sky-700, html.dark .text-sky-600 { color: #6CB8DD !important; }
   html.dark .bg-cyan-100 { background-color: #14333A !important; }
   html.dark .text-cyan-700 { color: #5BC6DC !important; }
-  html.dark .text-brand-600, html.dark .text-brand-700 { color: #D4BC8B !important; }
-  html.dark .bg-brand-100 { background-color: #3A3220 !important; }
+  html.dark .text-brand-600, html.dark .text-brand-700 { color: #CBD5E1 !important; }
+  html.dark .bg-brand-100 { background-color: #243349 !important; }
 
   /* form controls */
   html.dark .input, html.dark select.input, html.dark textarea.input {
-    background-color: #2B2722; color: var(--text-primary); border-color: var(--card-border);
+    background-color: #0F172A; color: var(--text-primary); border-color: var(--card-border);
   }
   html.dark .input::placeholder { color: var(--text-muted); }
   html.dark input[type='checkbox'] { color-scheme: dark; }
   html.dark input[type='date'] { color-scheme: dark; }
 
   /* remaining tints & neutrals seen across pages */
-  html.dark .bg-gray-200 { background-color: #3B362F !important; }
-  html.dark .bg-slate-50 { background-color: #272320 !important; }
+  html.dark .bg-gray-200 { background-color: #334155 !important; }
+  html.dark .bg-slate-50 { background-color: #172132 !important; }
   html.dark .bg-orange-50 { background-color: #2E2114 !important; }
   html.dark .bg-orange-100 { background-color: #3A2A16 !important; }
   html.dark .text-orange-700, html.dark .text-orange-600 { color: #EFA45C !important; }
@@ -305,30 +305,30 @@ html.dark ::-webkit-scrollbar-thumb { background: #4A443B; }
   html.dark .bg-blue-50\/40 { background-color: #1B2735 !important; }
   html.dark .bg-amber-50\/40 { background-color: #2E2718 !important; }
   html.dark .bg-red-50\/40 { background-color: #2E1B1B !important; }
-  html.dark .bg-brand-50\/40 { background-color: #2A2620 !important; }
+  html.dark .bg-brand-50\/40 { background-color: #1E293B !important; }
   html.dark .bg-purple-50, html.dark .bg-violet-50 { background-color: #232136 !important; }
   html.dark .bg-cyan-50 { background-color: #14333A !important; }
   html.dark .bg-emerald-50 { background-color: #18291E !important; }
   html.dark .bg-pink-50, html.dark .bg-rose-50 { background-color: #2E1A22 !important; }
-  html.dark .hover\:bg-gray-200:hover { background-color: #443E36 !important; }
-  html.dark .hover\:bg-brand-50:hover { background-color: #2A2620 !important; }
-  html.dark .bg-brand-50 { background-color: #2A2620 !important; }
+  html.dark .hover\:bg-gray-200:hover { background-color: #3A4D6B !important; }
+  html.dark .hover\:bg-brand-50:hover { background-color: #1E293B !important; }
+  html.dark .bg-brand-50 { background-color: #1E293B !important; }
   html.dark .border-amber-200, html.dark .border-blue-200, html.dark .border-red-200,
-  html.dark .border-indigo-300, html.dark .border-brand-300, html.dark .border-green-200 { border-color: #4A443B !important; }
+  html.dark .border-indigo-300, html.dark .border-brand-300, html.dark .border-green-200 { border-color: #334155 !important; }
   /* modals / popovers built on plain bg-white are covered by the .bg-white rule;
      shadows read harsh on dark — soften */
   html.dark .shadow-xl, html.dark .shadow-md, html.dark .shadow-sm { box-shadow: 0 4px 16px rgba(0,0,0,.5) !important; }
   /* sticky table headers inside scroll panes */
   html.dark thead tr { background-color: var(--card-bg); }
-  html.dark .table-th { background-color: #2B2722; }
+  html.dark .table-th { background-color: #172132; }
 
   /* component classes whose light colors are inlined via @apply */
-  html.dark .btn-secondary { background-color: #2B2722; color: var(--text-secondary); border-color: var(--card-border); }
-  html.dark .btn-secondary:hover:not(:disabled) { background-color: #322D27; border-color: #4A443B; }
+  html.dark .btn-secondary { background-color: #1E293B; color: var(--text-secondary); border-color: var(--card-border); }
+  html.dark .btn-secondary:hover:not(:disabled) { background-color: #243349; border-color: #334155; }
   html.dark .btn-ghost { color: var(--text-secondary); }
-  html.dark .btn-ghost:hover:not(:disabled) { background-color: #2B2722; color: var(--text-primary); }
-  html.dark .table-row:hover { background-color: #2B2722; }
-  html.dark .table-row:nth-child(even) { background-color: #211E1A; }
+  html.dark .btn-ghost:hover:not(:disabled) { background-color: #1E293B; color: var(--text-primary); }
+  html.dark .table-row:hover { background-color: #243349; }
+  html.dark .table-row:nth-child(even) { background-color: #16202F; }
   html.dark .page-header { background: var(--card-bg); }
-  html.dark .input:hover { border-color: #4A443B; }
+  html.dark .input:hover { border-color: #334155; }
 }
