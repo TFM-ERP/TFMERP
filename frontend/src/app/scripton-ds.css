@@ -24,11 +24,13 @@
   color:var(--son-text);
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,sans-serif;
 }
-.son.son-dark, .son .son-dark{
+/* SYS-14: ScriptON now FOLLOWS the global dark mode (html.dark) automatically;
+   .son-dark stays as a per-surface override. Muted/faint lifted for AA contrast. */
+.son.son-dark, .son .son-dark, html.dark .son{
   --son-accent:#38bdf8; --son-accent-ink:#04222e;
   --son-bg:#0b1120; --son-surface:#1e293b; --son-surface-2:#172033;
-  --son-rail:#0b1120; --son-rail-ink:#94a3b8; --son-rail-ink-active:#ffffff;
-  --son-text:#e2e8f0; --son-muted:#94a3b8; --son-faint:#64748b;
+  --son-rail:#0b1120; --son-rail-ink:#9fb0c2; --son-rail-ink-active:#ffffff;
+  --son-text:#e6ebf2; --son-muted:#9fb0c2; --son-faint:#7c8aa0;
   --son-border:#334155; --son-hi:#3b3a22;
   --son-shadow:0 1px 2px rgba(0,0,0,.4),0 12px 30px rgba(0,0,0,.4);
 }

@@ -1,0 +1,27 @@
+feat(ux): SYS-14 step 2 — semantic token sheet + dark-mode migration
+
+Token sheet (globals.css :root)
+- New semantic tokens as the single source of truth: surface-0/1/2, text-1/2/3,
+  border-1/2, accent (+soft), ok/warn/danger (+softs). All legacy variables
+  (--page-bg, --card-bg, --text-primary, …) now ALIAS into them, so every existing
+  component follows automatically.
+
+Dark mode — readability fixes (the "text not readable" bug class)
+- Dark values set on the semantic tokens; secondary/muted text deliberately lifted:
+  text-2 #9FB0C2 (6.2:1) and text-3 #7C8AA0 (4.5:1 AA) on cards — the old
+  #94A3B8/#64748B failed contrast.
+- SLATE family remap added (bg/text/border/hover/divide/placeholder variants).
+  The Script*/production panels are built on slate-* utilities which the original
+  dark remap never covered — this was the main source of unreadable dark UI.
+- Active chips/buttons built on bg-slate-900/text-white become accent fills
+  (#3E6CD6, AA with white) instead of navy-on-navy.
+- .btn-primary and bg-brand-600 get a readable accent fill in dark (previously
+  near-invisible brand-navy on the dark page background).
+
+ScriptON design system
+- .son surfaces now FOLLOW global dark mode (html.dark .son) automatically;
+  the per-surface .son-dark toggle remains as an override. Son muted/faint
+  tokens lifted to the same AA values.
+
+No component files touched — this is a pure token/remap layer. Next slice:
+shell breadcrumb + single context row.
