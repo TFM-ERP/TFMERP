@@ -87,7 +87,25 @@ export class ScriptTransferService {
         },
       });
     }
-    return { total: annos.length, transferred, orphaned, matchThreshold: this.THRESHOLD };
+    // Carry bookmarks forward — re-home each to the same scene number's page in the new draft.
+    const [srcBookmarks, tgtScenes] = await Promise.all([
+      this.prisma.scriptBookmark.findMany({ where: { revisionId: sourceRevisionId } }),
+      this.prisma.scriptScene.findMany({ where: { revisionId: targetRevisionId }, select: { sceneNumber: true, pageStart: true } }),
+    ]);
+    let bookmarksMoved = 0;
+    for (const bm of srcBookmarks) {
+      let page = bm.page;
+      if (bm.sceneNumber) {
+        const sc = tgtScenes.find((s) => s.sceneNumber === bm.sceneNumber);
+        if (sc?.pageStart) page = sc.pageStart;
+      }
+      await this.prisma.scriptBookmark.create({
+        data: { revisionId: targetRevisionId, page, sceneNumber: bm.sceneNumber, label: bm.label, note: bm.note, color: bm.color, createdById: userId || bm.createdById },
+      });
+      bookmarksMoved++;
+    }
+
+    return { total: annos.length, transferred, orphaned, bookmarksMoved, matchThreshold: this.THRESHOLD };
   }
 
   /** Orphans on a revision — transferred notes that didn't find their text. */
