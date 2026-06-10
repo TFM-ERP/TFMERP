@@ -142,7 +142,7 @@ const MODULES: Module[] = [
 
 // Option A — grouped sections (the master sidebar). Ordered; empty groups (by permission) hide.
 const GROUPS: { caption: string; keys: string[] }[] = [
-  { caption: 'Workspace', keys: ['home', 'production'] },
+  { caption: 'Workspace', keys: ['home', 'production', 'scripts'] },
   { caption: 'Creative & planning', keys: ['casting', 'locations', 'contracts'] },
   { caption: 'People', keys: ['hr', 'travel', 'partners'] },
   { caption: 'Logistics & assets', keys: ['accommodation', 'transport', 'rentals', 'maintenance'] },
@@ -151,7 +151,7 @@ const GROUPS: { caption: string; keys: string[] }[] = [
   { caption: 'Admin', keys: ['setup'] },
 ];
 // Sections that don't have their own permission key piggyback on another module's access.
-const PERM_ALIAS: Record<string, string> = { maintenance: 'rentals', locations: 'production', travel: 'production', contracts: 'production', casting: 'production', accommodation: 'production', transport: 'production' };
+const PERM_ALIAS: Record<string, string> = { maintenance: 'rentals', locations: 'production', travel: 'production', contracts: 'production', casting: 'production', accommodation: 'production', transport: 'production', scripts: 'production' };
 
 // Pages that have a "+ New" route (only verified routes — avoids 404s)
 const NEW_ROUTES: Record<string, { label: string; href: string }> = {

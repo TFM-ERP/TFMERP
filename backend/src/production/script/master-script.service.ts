@@ -76,13 +76,13 @@ export class MasterScriptService {
   async addRevision(masterScriptId: string, fileUrl: string, absPath: string, body: any, userId?: string) {
     const master = await this.prisma.masterScript.findUnique({ where: { id: masterScriptId } });
     if (!master) throw new NotFoundException('Master script not found.');
-    const { pages, scenes } = await this.script.extractAndParse(absPath);
+    const { pages, scenes, viewPdfUrl } = await this.script.extractAndParse(absPath);
     const rev = await this.prisma.masterScriptRevision.create({
       data: {
         masterScriptId,
         revisionLabel: body?.revisionLabel || 'Draft',
         colorCode: body?.colorCode || null,
-        pdfUrl: fileUrl,
+        pdfUrl: viewPdfUrl || fileUrl,
         pageCount: pages.length,
         pageText: pages.map((text, i) => ({ page: i + 1, text })),
         scenes,
