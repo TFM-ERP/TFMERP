@@ -159,16 +159,18 @@ const TAB_META: Record<string, { label: string; icon: any }> = {
   projectemail: { label: 'Email Sender', icon: Mail },
   settings: { label: 'Project Settings', icon: Edit2 },
 };
-// Domain-aligned grouping (SYS-06): each group = a business system, not a loose tab bin.
+// SYS-14 UX redesign: groups follow the PRODUCTION LIFECYCLE (Develop → Plan → Budget →
+// Shoot → Account → Deliver), so the nav narrates how a production actually runs.
+// Overview = the project landing (worklist); ⚙ Settings is config, not a phase.
 const TAB_GROUPS: { key: string; label: string; tabs: Tab[] }[] = [
   { key: 'overview', label: 'Overview', tabs: ['overview'] },
-  { key: 'planning', label: 'Planning', tabs: ['schedule', 'breakdowns', 'script', 'callsheets'] },
-  { key: 'money', label: 'Budget & Cost', tabs: ['budget', 'topsheet', 'fringe', 'incentives', 'overages'] },
-  { key: 'acct', label: 'Accounting', tabs: ['actual', 'costreport', 'purchasing', 'accounting', 'cash'] },
-  { key: 'workforce', label: 'Workforce', tabs: ['crew', 'perdiem'] },
-  { key: 'locations', label: 'Locations', tabs: ['locations'] },
-  { key: 'engagements', label: 'Engagements', tabs: ['travel', 'contracts', 'casting', 'accommodation', 'transport', 'shuttle', 'arrivals', 'fuel', 'logistics'] },
-  { key: 'setup', label: 'Setup & Output', tabs: ['settings', 'labor', 'documents', 'credits'] },
+  { key: 'develop', label: 'Develop', tabs: ['script'] },
+  { key: 'plan', label: 'Plan', tabs: ['schedule', 'breakdowns', 'locations', 'casting', 'crew', 'contracts', 'travel', 'accommodation', 'transport'] },
+  { key: 'budget', label: 'Budget', tabs: ['budget', 'topsheet', 'fringe', 'incentives'] },
+  { key: 'shoot', label: 'Shoot', tabs: ['callsheets', 'perdiem', 'shuttle', 'arrivals', 'fuel', 'logistics', 'overages'] },
+  { key: 'account', label: 'Account', tabs: ['actual', 'costreport', 'purchasing', 'accounting', 'cash'] },
+  { key: 'deliver', label: 'Deliver', tabs: ['credits', 'documents'] },
+  { key: 'setup', label: '⚙ Settings', tabs: ['settings', 'labor'] },
 ];
 
 const STATUS_COLORS: Record<string, string> = {
@@ -444,13 +446,16 @@ export default function ProjectDetailPage() {
         const activeGroup = TAB_GROUPS.find(g => g.tabs.includes(tab)) || TAB_GROUPS[0];
         return (
           <>
-            <div className="flex gap-1 mb-2 flex-wrap">
-              {TAB_GROUPS.map(g => (
-                <button key={g.key} onClick={() => setTab(g.tabs[0])}
-                  className={cn('px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors',
-                    activeGroup.key === g.key ? 'bg-brand-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200')}>
-                  {g.label}
-                </button>
+            <div className="flex gap-1 mb-2 flex-wrap items-center">
+              {TAB_GROUPS.map((g, gi) => (
+                <span key={g.key} className="inline-flex items-center">
+                  <button onClick={() => setTab(g.tabs[0])}
+                    className={cn('px-3.5 py-1.5 text-[13px] font-semibold rounded-lg transition-colors',
+                      activeGroup.key === g.key ? 'bg-brand-600 text-white' : 'text-gray-600 hover:bg-gray-100')}>
+                    {g.label}
+                  </button>
+                  {gi > 0 && gi < TAB_GROUPS.length - 2 && <span className="text-gray-300 mx-0.5 select-none">›</span>}
+                </span>
               ))}
             </div>
             {activeGroup.tabs.length > 1 && (

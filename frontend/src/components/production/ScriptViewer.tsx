@@ -59,14 +59,19 @@ export default function ScriptViewer({ pdfUrl, pdfData, scenes = [], page, onPag
     try {
       const p = await pdf.getPage(cur);
       // Honour the page's own /Rotate, then add the user's correction.
-      const viewport = p.getViewport({ scale, rotation: (((p.rotate || 0) + rotation) % 360 + 360) % 360 });
+      const rot = (((p.rotate || 0) + rotation) % 360 + 360) % 360;
+      const viewport = p.getViewport({ scale, rotation: rot });
+      // Render at device-pixel resolution (≥2×) and display at logical size — keeps the
+      // page razor-sharp on HiDPI screens instead of a blurry 1× upscale.
+      const dpr = Math.min(3, Math.max(2, (typeof window !== 'undefined' && window.devicePixelRatio) || 1));
+      const vpHD = p.getViewport({ scale: scale * dpr, rotation: rot });
       // Render to an OFF-SCREEN canvas (never mounted in the DOM) so no global/extension CSS
       // transform can mirror or flip it, then hand the result to an <img>.
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
-      canvas.width = viewport.width; canvas.height = viewport.height;
+      canvas.width = vpHD.width; canvas.height = vpHD.height;
       setDims({ width: viewport.width, height: viewport.height });
-      await p.render({ canvasContext: ctx, viewport }).promise;
+      await p.render({ canvasContext: ctx, viewport: vpHD }).promise;
       setImgSrc(canvas.toDataURL('image/png'));
       // Text items mapped to viewport (top-left) coords — fuels anchor capture (D2/D3).
       // convertToViewportPoint respects rotation so anchors stay aligned at any orientation.
@@ -85,7 +90,16 @@ export default function ScriptViewer({ pdfUrl, pdfData, scenes = [], page, onPag
   }, [pdf, cur, scale, rotation, renderOverlay]);
   useEffect(() => { renderPage(); }, [renderPage]);
 
-  const go = (p: number) => { const n = Math.max(1, Math.min(numPages || 1, p)); setCur(n); onPageChange?.(n); };
+  // Scene-only mode: clicking a scene isolates its page range (click again / "show all" to exit)
+  const [sceneOnly, setSceneOnly] = useState<{ start: number; end: number; num?: string; slug?: string } | null>(null);
+  const lo = sceneOnly ? Math.max(1, sceneOnly.start) : 1;
+  const hi = sceneOnly ? Math.min(numPages || sceneOnly.end, sceneOnly.end) : (numPages || 1);
+  const go = (p: number) => { const n = Math.max(lo, Math.min(hi, p)); setCur(n); onPageChange?.(n); };
+  const pickScene = (s: any) => {
+    if (sceneOnly && sceneOnly.start === s.pageStart && sceneOnly.end === s.pageEnd) { setSceneOnly(null); return; }
+    setSceneOnly({ start: s.pageStart, end: s.pageEnd, num: s.sceneNumber, slug: s.slugline });
+    const n = Math.max(1, Math.min(numPages || 1, s.pageStart)); setCur(n); onPageChange?.(n);
+  };
 
   if (error === 'NOT_INSTALLED') return (
     <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-800">
@@ -106,12 +120,16 @@ export default function ScriptViewer({ pdfUrl, pdfData, scenes = [], page, onPag
         <div className="overflow-y-auto p-2">
           {side === 'scenes' ? (
             scenes.length === 0 ? <p className="text-[11px] text-slate-400 p-2">No scenes parsed.</p> :
-            scenes.map((s) => (
-              <button key={s.id} onClick={() => go(s.pageStart)} className={`block w-full text-left px-2 py-1.5 rounded-lg text-xs mb-0.5 ${cur >= s.pageStart && cur <= s.pageEnd ? 'bg-slate-100 font-medium text-slate-900' : 'text-slate-600 hover:bg-slate-50'}`}>
-                <span className="text-slate-400">{s.sceneNumber || '•'}</span> {s.slugline || '—'}
-                <span className="block text-[10px] text-slate-400">p.{s.pageStart}{s.pageEnd > s.pageStart ? `–${s.pageEnd}` : ''}</span>
-              </button>
-            ))
+            scenes.map((s) => {
+              const isolated = sceneOnly && sceneOnly.start === s.pageStart && sceneOnly.end === s.pageEnd;
+              return (
+                <button key={s.id} onClick={() => pickScene(s)} title={isolated ? 'Click to show the whole script again' : 'Show only this scene'}
+                  className={`block w-full text-left px-2 py-1.5 rounded-lg text-xs mb-0.5 ${isolated ? 'bg-amber-100 font-medium text-amber-900 ring-1 ring-amber-300' : cur >= s.pageStart && cur <= s.pageEnd ? 'bg-slate-100 font-medium text-slate-900' : 'text-slate-600 hover:bg-slate-50'}`}>
+                  <span className="text-slate-400">{s.sceneNumber || '•'}</span> {s.slugline || '—'}
+                  <span className="block text-[10px] text-slate-400">p.{s.pageStart}{s.pageEnd > s.pageStart ? `–${s.pageEnd}` : ''}{isolated ? ' · isolated' : ''}</span>
+                </button>
+              );
+            })
           ) : (
             <div className="grid grid-cols-3 gap-1.5">
               {Array.from({ length: numPages }, (_, i) => i + 1).map((n) => (
@@ -126,9 +144,15 @@ export default function ScriptViewer({ pdfUrl, pdfData, scenes = [], page, onPag
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2 mb-2">
           <div className="inline-flex items-center gap-1">
-            <button onClick={() => go(cur - 1)} disabled={cur <= 1} className="p-1.5 rounded-lg border border-slate-200 disabled:opacity-40 hover:border-slate-900"><ChevronLeft size={15} /></button>
+            <button onClick={() => go(cur - 1)} disabled={cur <= lo} className="p-1.5 rounded-lg border border-slate-200 disabled:opacity-40 hover:border-slate-900"><ChevronLeft size={15} /></button>
             <span className="text-xs text-slate-500 px-1">Page {cur} / {numPages || '…'}</span>
-            <button onClick={() => go(cur + 1)} disabled={cur >= numPages} className="p-1.5 rounded-lg border border-slate-200 disabled:opacity-40 hover:border-slate-900"><ChevronRight size={15} /></button>
+            <button onClick={() => go(cur + 1)} disabled={cur >= hi} className="p-1.5 rounded-lg border border-slate-200 disabled:opacity-40 hover:border-slate-900"><ChevronRight size={15} /></button>
+            {sceneOnly && (
+              <span className="inline-flex items-center gap-1.5 ml-1 text-[11px] px-2 py-1 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
+                Scene {sceneOnly.num || ''} only · p.{sceneOnly.start}{sceneOnly.end > sceneOnly.start ? `–${sceneOnly.end}` : ''}
+                <button onClick={() => setSceneOnly(null)} className="underline hover:no-underline">show all</button>
+              </span>
+            )}
           </div>
           <div className="inline-flex items-center gap-1">
             <button onClick={() => setRotation((r) => (r + 90) % 360)} title="Rotate 90° (fix a flipped script)" className="p-1.5 rounded-lg border border-slate-200 hover:border-slate-900"><RotateCw size={15} /></button>

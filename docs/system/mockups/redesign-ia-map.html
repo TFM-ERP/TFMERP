@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TFM — IA consolidation map (research)</title>
+<style>
+  :root{
+    --surface-0:#f6f7f9; --surface-1:#ffffff; --surface-2:#eef0f3;
+    --text-1:#16202e; --text-2:#51606f; --text-3:#8a96a3;
+    --border-1:#d4dae1; --border-2:#b9c2cc;
+    --accent:#2563eb; --accent-soft:#e8effd; --accent-soft-text:#1d4ed8;
+    --keep:#15803d; --keep-soft:#e8f6ee;
+    --move:#1d4ed8; --move-soft:#e8effd;
+    --merge:#b45309; --merge-soft:#fdf3e3;
+    --kill:#b91c1c; --kill-soft:#fdecec;
+    --r-sm:4px; --r-md:6px; --r-lg:10px;
+  }
+  html.dark{
+    --surface-0:#0d1320; --surface-1:#161e2e; --surface-2:#202a3c;
+    --text-1:#e6ebf2; --text-2:#9fb0c2; --text-3:#67768a;
+    --border-1:#2b3850; --border-2:#3d4d6a;
+    --accent:#5b8def; --accent-soft:#1d2c4d; --accent-soft-text:#9db9f5;
+    --keep:#4ade80; --keep-soft:#10301f;
+    --move:#7da8f7; --move-soft:#1d2c4d;
+    --merge:#fbbf24; --merge-soft:#33270e;
+    --kill:#f87171; --kill-soft:#3a1414;
+  }
+  *{box-sizing:border-box;margin:0}
+  body{font:400 14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--surface-0);color:var(--text-1);padding:28px 20px 80px}
+  .wrap{max-width:1060px;margin:0 auto}
+  h1{font-size:24px;font-weight:600}
+  h2{font-size:17px;font-weight:600;margin:34px 0 12px}
+  .sub{color:var(--text-2);font-size:13px}
+  .card{background:var(--surface-1);border:1px solid var(--border-1);border-radius:var(--r-lg);padding:16px 18px}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:16px}
+  .stat{background:var(--surface-1);border:1px solid var(--border-1);border-radius:var(--r-lg);padding:14px 16px}
+  .stat .n{font-size:22px;font-weight:600}
+  .stat .l{font-size:12px;color:var(--text-2);margin-top:2px}
+  .pill{display:inline-block;font-size:11px;font-weight:600;border-radius:999px;padding:2px 9px;letter-spacing:.02em}
+  .p-keep{background:var(--keep-soft);color:var(--keep)} .p-move{background:var(--move-soft);color:var(--move)}
+  .p-merge{background:var(--merge-soft);color:var(--merge)} .p-kill{background:var(--kill-soft);color:var(--kill)}
+  .hubs{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
+  .hub{background:var(--surface-1);border:1px solid var(--border-1);border-radius:var(--r-lg);padding:14px 16px}
+  .hub .t{font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px}
+  .hub .ico{width:28px;height:28px;border-radius:var(--r-md);background:var(--accent-soft);color:var(--accent-soft-text);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600}
+  .hub ul{margin:8px 0 0;padding-left:0;list-style:none}
+  .hub li{font-size:12.5px;color:var(--text-2);padding:2px 0}
+  .hub li b{color:var(--text-1);font-weight:500}
+  .controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+  .controls input{flex:1;min-width:220px;height:36px;border:1px solid var(--border-1);border-radius:var(--r-md);background:var(--surface-1);color:var(--text-1);padding:0 12px;font:inherit;outline:none}
+  .controls input:focus{border-color:var(--accent)}
+  .fbtn{border:1px solid var(--border-1);border-radius:999px;background:var(--surface-1);color:var(--text-2);font:500 12px/1 inherit;padding:8px 13px;cursor:pointer}
+  .fbtn.on{background:var(--accent-soft);color:var(--accent-soft-text);border-color:transparent}
+  table{width:100%;border-collapse:collapse;font-size:13px;background:var(--surface-1);border:1px solid var(--border-1);border-radius:var(--r-lg);overflow:hidden}
+  th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-2);font-weight:600;padding:10px 12px;border-bottom:1px solid var(--border-1);background:var(--surface-2)}
+  td{padding:9px 12px;border-bottom:1px solid var(--border-1);vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  td .from{color:var(--text-3);font-size:11.5px}
+  .arrow{color:var(--text-3)}
+  .phases{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}
+  .phase{background:var(--surface-1);border:1px solid var(--border-1);border-radius:var(--r-lg);padding:12px 14px}
+  .phase .t{font-weight:600;font-size:13px;color:var(--accent-soft-text);background:var(--accent-soft);display:inline-block;border-radius:var(--r-sm);padding:2px 8px;margin-bottom:8px}
+  .phase .chip{display:inline-block;background:var(--surface-2);border-radius:var(--r-sm);font-size:11.5px;color:var(--text-2);padding:2px 7px;margin:0 3px 4px 0}
+  .steps{counter-reset:s;display:flex;flex-direction:column;gap:0}
+  .step{display:flex;gap:14px;padding:12px 0;border-bottom:1px dashed var(--border-1)}
+  .step:last-child{border-bottom:none}
+  .step::before{counter-increment:s;content:counter(s);width:26px;height:26px;border-radius:50%;background:var(--accent-soft);color:var(--accent-soft-text);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0}
+  .toggle{position:fixed;top:16px;right:16px;width:38px;height:38px;border-radius:50%;border:1px solid var(--border-1);background:var(--surface-1);color:var(--text-2);cursor:pointer;font-size:15px}
+  .empty{padding:18px;text-align:center;color:var(--text-3);font-size:13px}
+</style>
+</head>
+<body>
+<button class="toggle" onclick="document.documentElement.classList.toggle('dark')" title="Light / dark">◐</button>
+<div class="wrap">
+  <h1>IA consolidation map</h1>
+  <p class="sub" style="margin-top:4px">Research proposal — nothing implemented. Companion: <code>redesign-shell-mockup.html</code> (the clickable shell). Merged pages become tabs or filters; Ctrl-K reaches everything by name.</p>
+
+  <div class="stats">
+    <div class="stat"><div class="n">18 → 7</div><div class="l">modules → hubs</div></div>
+    <div class="stat"><div class="n">~107 → ~62</div><div class="l">pages → destinations</div></div>
+    <div class="stat"><div class="n">34 → 6+1</div><div class="l">project tabs → phases + settings</div></div>
+    <div class="stat"><div class="n">8 → 2</div><div class="l">chrome rows at max depth</div></div>
+  </div>
+
+  <h2>The 7 hubs</h2>
+  <div class="hubs">
+    <div class="hub"><div class="t"><span class="ico">⌂</span>Home</div><ul><li><b>My Day</b> — worklist + ALL approvals (production + finance)</li><li>Executive view (role-gated)</li></ul></div>
+    <div class="hub"><div class="t"><span class="ico">▶</span>Production</div><ul><li><b>Projects</b> (6-phase workspace)</li><li>Script Library · Crew · Talent</li><li>Locations Library (list / map / scouting)</li></ul></div>
+    <div class="hub"><div class="t"><span class="ico">$</span>Finance</div><ul><li>Sales · Payables · Ledger</li><li>Approvals view · Compliance (VAT, e-Invoicing)</li></ul></div>
+    <div class="hub"><div class="t"><span class="ico">♟</span>People</div><ul><li>Employees · Payroll</li><li><b>Partners</b> (one page, type chips)</li><li>Travel & visas</li></ul></div>
+    <div class="hub"><div class="t"><span class="ico">⛟</span>Assets</div><ul><li>Fleet & rentals · Drivers</li><li>Maintenance · Operations (incidents, fuel)</li><li>Properties</li></ul></div>
+    <div class="hub"><div class="t"><span class="ico">∿</span>Insights</div><ul><li><b>Reports</b> (Browse · Design — one page)</li><li><b>CRM</b> (Pipeline / Leads toggle)</li></ul></div>
+    <div class="hub"><div class="t"><span class="ico">⚙</span>Setup</div><ul><li>Company · Users (+identity queue) · Roles</li><li>Master data (labor, rates, COA, permit authorities)</li><li>Integrations & engines (incl. audio) · Email (single source) · Templates · Audit · Backups</li></ul></div>
+  </div>
+
+  <h2>Every page, mapped</h2>
+  <div class="controls">
+    <input id="q" placeholder="Search pages… e.g. “audio”, “drivers”, “email”" oninput="draw()">
+    <button class="fbtn on" data-f="all" onclick="setF('all')">All <span id="c-all"></span></button>
+    <button class="fbtn" data-f="keep" onclick="setF('keep')">Keep <span id="c-keep"></span></button>
+    <button class="fbtn" data-f="move" onclick="setF('move')">Move <span id="c-move"></span></button>
+    <button class="fbtn" data-f="merge" onclick="setF('merge')">Merge <span id="c-merge"></span></button>
+    <button class="fbtn" data-f="kill" onclick="setF('kill')">Kill <span id="c-kill"></span></button>
+  </div>
+  <table>
+    <thead><tr><th style="width:34%">Today</th><th style="width:10%">Action</th><th style="width:34%">Proposed home</th><th>Why</th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+
+  <h2>Project workspace: 34 tabs → landing + 6 phases + ⚙</h2>
+  <div class="card" style="margin-bottom:10px"><b style="font-size:13px">Landing (not a phase):</b> <span class="sub">Overview becomes the project worklist — “what needs attention”, checklist, recent activity.</span></div>
+  <div class="phases">
+    <div class="phase"><span class="t">Develop</span><br><span class="chip">script / ScriptON</span></div>
+    <div class="phase"><span class="t">Plan</span><br><span class="chip">schedule</span><span class="chip">breakdowns</span><span class="chip">locations</span><span class="chip">casting</span><span class="chip">crew</span><span class="chip">contracts</span><span class="chip">travel</span><span class="chip">accommodation</span><span class="chip">transport</span></div>
+    <div class="phase"><span class="t">Budget</span><br><span class="chip">budget</span><span class="chip">topsheet</span><span class="chip">fringe</span><span class="chip">incentives</span></div>
+    <div class="phase"><span class="t">Shoot</span><br><span class="chip">callsheets</span><span class="chip">perdiem</span><span class="chip">shuttle</span><span class="chip">arrivals</span><span class="chip">fuel</span><span class="chip">logistics</span><span class="chip">overages</span></div>
+    <div class="phase"><span class="t">Account</span><br><span class="chip">actual (BVA)</span><span class="chip">cost report</span><span class="chip">purchasing</span><span class="chip">accounting</span><span class="chip">cash</span></div>
+    <div class="phase"><span class="t">Deliver</span><br><span class="chip">credits</span><span class="chip">documents</span><span class="chip">exports</span></div>
+    <div class="phase"><span class="t">⚙ Settings</span><br><span class="chip">settings</span><span class="chip">labor matrix</span></div>
+  </div>
+
+  <h2>ScriptON: 11 toolbar buttons → 8 tabs + actions menu</h2>
+  <table>
+    <thead><tr><th style="width:38%">Today (toolbar button)</th><th>Proposed</th></tr></thead>
+    <tbody>
+      <tr><td>Viewer · Reader · Tags · Lining · Sides · Analyze · Audio Studio</td><td><span class="pill p-keep">KEEP</span> become the context-row tabs (Audio Studio swaps in its own 5 tabs on entry)</td></tr>
+      <tr><td>Audio (voice memos)</td><td><span class="pill p-merge">MERGE</span> record-note inside Reader; memos listed in Audio Studio Library</td></tr>
+      <tr><td>Pages (facing-page maker)</td><td><span class="pill p-merge">MERGE</span> into Sides (it is a sides-style output)</td></tr>
+      <tr><td>Procurement</td><td><span class="pill p-merge">MERGE</span> into Tags (it stages FROM tags) + “send to Budget” action</td></tr>
+      <tr><td>Upload revision · Library link · Export</td><td><span class="pill p-move">MOVE</span> “⋯ Actions” menu + Ctrl-K actions</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Migration order (lowest risk first)</h2>
+  <div class="card">
+    <div class="steps">
+      <div class="step"><div><b>Token sheet + dark-mode migration.</b> <span class="sub">~20 semantic tokens, AA-checked both modes. Kills the unreadable-text bug class. Zero IA change.</span></div></div>
+      <div class="step"><div><b>New shell.</b> <span class="sub">Rail + breadcrumb + single context row, wrapping existing pages unchanged.</span></div></div>
+      <div class="step"><div><b>Project workspace regroup.</b> <span class="sub">34 tabs → landing + 6 phases + ⚙. Pure regrouping; no page rewrites.</span></div></div>
+      <div class="step"><div><b>ScriptON takeovers.</b> <span class="sub">Toolbar → context tabs; overlays-on-overlays become full-page takeovers.</span></div></div>
+      <div class="step"><div><b>Hub consolidation moves.</b> <span class="sub">The table above, with old URLs redirecting.</span></div></div>
+      <div class="step"><div><b>Kill duplicates.</b> <span class="sub">Only after redirects prove nothing references them.</span></div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const D = [
+  ["Home / Dashboard","keep","Home / My Day","Personal worklist becomes the landing"],
+  ["Home / Executive","keep","Home / Executive (role-gated)",""],
+  ["Home / Workflow & KPIs","merge","Home / My Day + Insights","Widgets fold into worklist & reports"],
+  ["Production / My Approvals","move","Home / My Day → Approvals","All approvals in ONE inbox"],
+  ["Finance / Approvals","move","Home / My Day → Approvals (finance filter)","Same inbox, scoped view stays linkable"],
+  ["Production / Dashboard","keep","Production hub overview",""],
+  ["Production / Projects + [id]","keep","Production / Projects (6-phase workspace)","See phases section below"],
+  ["Production / Crew Directory","keep","Production / Crew","Company library"],
+  ["Production / Email Sender","move","Setup / Email & Notifications","Admin config, not daily work"],
+  ["Production / Labor & Fringe Master","move","Setup / Master data",""],
+  ["Production / Rate Approvals","move","Setup / Master data (+ My Day feed)",""],
+  ["ScriptON / Script Library","keep","Production / Script Library","Company library"],
+  ["ScriptON / Audio Engines","move","Setup / Integrations & engines","Admin config"],
+  ["Locations / Library","keep","Production / Locations","One page, view switcher"],
+  ["Locations / Map","merge","Production / Locations (map view)",""],
+  ["Locations / Scouting","merge","Production / Locations (scouting tab)",""],
+  ["Locations / Scout Visits","merge","Production / Locations (scouting tab)",""],
+  ["Locations / Permit Authorities","move","Setup / Master data",""],
+  ["Casting / Dashboard","kill","— (stats move into Talent header)","Thin dashboard"],
+  ["Casting / Talent Database","keep","Production / Talent","Company library"],
+  ["Contracts / Dashboard","kill","— (list IS the page)","Thin dashboard"],
+  ["Contracts / Templates","move","Setup / Templates",""],
+  ["Finance / Dashboard","keep","Finance hub overview",""],
+  ["Finance / Quotations","keep","Finance / Sales",""],
+  ["Finance / Invoices","keep","Finance / Sales",""],
+  ["Finance / Collections","keep","Finance / Sales",""],
+  ["Finance / Payments","keep","Finance / Payables",""],
+  ["Finance / Expenses","keep","Finance / Payables",""],
+  ["Finance / COA","keep","Finance / Ledger",""],
+  ["Finance / Journals","keep","Finance / Ledger",""],
+  ["Finance / Trial Balance","keep","Finance / Ledger",""],
+  ["Finance / Bank Reconciliation","keep","Finance / Ledger",""],
+  ["Compliance / VAT Return","move","Finance / Compliance",""],
+  ["Compliance / e-Invoicing","move","Finance / Compliance",""],
+  ["Compliance / Renewals","move","People (staff licences) / Assets (vehicles)","Split by record type"],
+  ["HR / Dashboard","keep","People / Employees",""],
+  ["HR / Employees","keep","People / Employees",""],
+  ["HR / Attendance","keep","People / Employees",""],
+  ["HR / Leave","keep","People / Employees",""],
+  ["HR / Payroll","keep","People / Payroll",""],
+  ["Partners / All Partners","keep","People / Partners (one page)","Type chips replace 5 pages"],
+  ["Partners / Clients","merge","People / Partners (chip: clients)",""],
+  ["Partners / Suppliers","merge","People / Partners (chip: suppliers)",""],
+  ["Partners / Vendors & Workshops","merge","People / Partners (chip: vendors)",""],
+  ["Partners / Contacts","merge","People / Partners (chip: contacts)",""],
+  ["Travel / Dashboard","kill","— (travelers list IS the page)","Thin dashboard"],
+  ["Travel / Travelers","keep","People / Travel & visas",""],
+  ["Rentals / Dashboard","keep","Assets / Fleet & rentals",""],
+  ["Rentals / Bookings","keep","Assets / Fleet & rentals",""],
+  ["Rentals / Availability","merge","Assets / Fleet — calendar view","Availability + Utilization = one view"],
+  ["Rentals / Utilization","merge","Assets / Fleet — insights view",""],
+  ["Rentals / Assets","keep","Assets / Fleet & rentals",""],
+  ["Rentals / Inventory","keep","Assets / Fleet & rentals",""],
+  ["Rentals / Services","keep","Assets / Fleet & rentals",""],
+  ["Rentals / Drivers","keep","Assets / Drivers",""],
+  ["Rentals / Driver Approvals","merge","Assets / Drivers (approvals tab)",""],
+  ["Rentals / Incidents","keep","Assets / Operations",""],
+  ["Rentals / Fuel","keep","Assets / Operations",""],
+  ["Maintenance / Records","merge","Assets / Maintenance (records+jobs)",""],
+  ["Maintenance / Jobs","merge","Assets / Maintenance (records+jobs)",""],
+  ["Maintenance / PM Schedule","keep","Assets / Maintenance",""],
+  ["Maintenance / Damage","keep","Assets / Maintenance",""],
+  ["Maintenance / Tires","merge","Assets / Maintenance (parts & tires)",""],
+  ["Maintenance / Parts","merge","Assets / Maintenance (parts & tires)",""],
+  ["Transport / Vehicles & Drivers","merge","Assets / Fleet","Duplicates rentals fleet concepts"],
+  ["Transport / Logistics Dashboard","move","Project Shoot phase (+ Assets/Operations)","Company view stays under Assets"],
+  ["Accommodation / Properties","keep","Assets / Properties",""],
+  ["Reports / Center","keep","Insights / Reports — Browse tab",""],
+  ["Reports / Designer","merge","Insights / Reports — Design tab",""],
+  ["Reports / Builder","merge","Insights / Reports — Design tab",""],
+  ["CRM / Pipeline","keep","Insights / CRM (pipeline view)",""],
+  ["CRM / Leads","merge","Insights / CRM (leads view)",""],
+  ["Setup / Company · Users · Roles · Workflows · Integrations · Audit · Currencies · Backups","keep","Setup (unchanged)",""],
+  ["Setup / Identity Changes","merge","Setup / Users (review-queue tab)","Kill duplicate path from Account/Security"],
+  ["Setup / Email & Notifications","keep","Setup / Email — SINGLE source","Kill /production/settings/email"],
+];
+let F = 'all';
+const $ = (id) => document.getElementById(id);
+function setF(f){ F = f; document.querySelectorAll('.fbtn').forEach(b=>b.classList.toggle('on', b.dataset.f===f)); draw(); }
+function draw(){
+  const q = $('q').value.toLowerCase();
+  const rows = D.filter(r => (F==='all'||r[1]===F) && (!q || r.join(' ').toLowerCase().includes(q)));
+  $('rows').innerHTML = rows.map(r => `<tr>
+    <td>${r[0]}</td>
+    <td><span class="pill p-${r[1]}">${r[1].toUpperCase()}</span></td>
+    <td>${r[2]} </td>
+    <td class="from">${r[3]}</td>
+  </tr>`).join('') || `<tr><td colspan="4" class="empty">No matches</td></tr>`;
+  const c = { all:D.length, keep:0, move:0, merge:0, kill:0 };
+  D.forEach(r => c[r[1]]++);
+  for (const k of ['all','keep','move','merge','kill']) $('c-'+k).textContent = `· ${c[k]}`;
+}
+draw();
+</script>
+</body>
+</html>

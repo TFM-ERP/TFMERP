@@ -18,7 +18,7 @@ import ScriptOnAudioPanel from './scripton/ScriptOnAudioPanel';
 import { useOfflineSync } from '@/lib/useOfflineSync';
 import { cacheRevision, getCachedRevision, mergeCachedRevision, fetchPdfBytes } from '@/lib/script-offline';
 import { assetUrl } from '@/lib/api';
-import { Wifi, WifiOff, Download, ShoppingCart, Link2, ArrowUpFromLine, ArrowDownToLine, Library, BarChart3, Mic, Music } from 'lucide-react';
+import { Wifi, WifiOff, Download, ShoppingCart, Link2, ArrowUpFromLine, ArrowDownToLine, Library, BarChart3, Mic, Music, Undo2, Redo2 } from 'lucide-react';
 
 const TOOLS: { key: Tool; icon: any; label: string }[] = [
   { key: 'CURSOR', icon: MousePointer2, label: 'Select' },
@@ -171,6 +171,13 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
   useEffect(() => { if (online && activeRev) mergeCachedRevision(activeRev.id, { annotations: annos }); }, [annos, online, activeRev]);
   useEffect(() => { if (online && activeRev) mergeCachedRevision(activeRev.id, { layers }); }, [layers, online, activeRev]);
 
+  // ── Undo / redo history (online actions) ──────────────────────────────────────
+  const undoRef = useRef<any[]>([]); const redoRef = useRef<any[]>([]);
+  const [histVer, setHistVer] = useState(0); // bumps to refresh button disabled states
+  const pushUndo = (action: any) => { undoRef.current.push(action); if (undoRef.current.length > 100) undoRef.current.shift(); redoRef.current = []; setHistVer((v) => v + 1); };
+  /** The fields needed to faithfully recreate a deleted annotation. */
+  const annoBody = (a: any) => ({ tool: a.tool, page: a.page, x: a.x, y: a.y, w: a.w, h: a.h, payload: a.payload, anchorText: a.anchorText, surroundingContext: a.surroundingContext, layerId: a.layerId, revisionId: a.revisionId });
+
   const createAnno = async (a: any) => {
     if (!activeLayerId || !activeRev) { alert('Pick a layer first.'); return; }
     const base = { ...a, layerId: activeLayerId, revisionId: activeRev.id };
@@ -183,13 +190,63 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
       return;
     }
     try {
-      await productionApi.scriptAnnotations.create(base);
+      const r = await productionApi.scriptAnnotations.create(base);
+      if (r.data?.id) pushUndo({ kind: 'create', anno: { ...base, id: r.data.id } });
       loadAnnos(activeRev.id);
     } catch (e: any) {
       alert(e?.response?.data?.message || 'You do not have edit access to this layer.');
     }
   };
-  const deleteAnno = async (id: string) => { await productionApi.scriptAnnotations.remove(id); if (activeRev) loadAnnos(activeRev.id); };
+  const deleteAnno = async (id: string) => {
+    const anno = annos.find((x) => x.id === id);
+    await productionApi.scriptAnnotations.remove(id);
+    if (anno && online) pushUndo({ kind: 'delete', anno });
+    if (activeRev) loadAnnos(activeRev.id);
+  };
+  const updateAnno = async (id: string, patch: any) => {
+    const before = annos.find((x) => x.id === id);
+    if (!before || !activeRev) return;
+    const prev: any = {}; for (const k of Object.keys(patch)) prev[k] = before[k];
+    try {
+      await productionApi.scriptAnnotations.update(id, patch);
+      pushUndo({ kind: 'update', id, before: prev, after: patch });
+      loadAnnos(activeRev.id);
+    } catch (e: any) { alert(e?.response?.data?.message || 'Could not update the note.'); }
+  };
+
+  const undo = async () => {
+    const a = undoRef.current.pop(); setHistVer((v) => v + 1);
+    if (!a || !activeRev) return;
+    try {
+      if (a.kind === 'create') { await productionApi.scriptAnnotations.remove(a.anno.id); redoRef.current.push(a); }
+      else if (a.kind === 'delete') { const r = await productionApi.scriptAnnotations.create(annoBody(a.anno)); redoRef.current.push({ kind: 'delete', anno: { ...annoBody(a.anno), id: r.data?.id } }); }
+      else { await productionApi.scriptAnnotations.update(a.id, a.before); redoRef.current.push(a); }
+      loadAnnos(activeRev.id);
+    } catch { /* server refused — drop the action */ }
+  };
+  const redo = async () => {
+    const a = redoRef.current.pop(); setHistVer((v) => v + 1);
+    if (!a || !activeRev) return;
+    try {
+      if (a.kind === 'create') { const r = await productionApi.scriptAnnotations.create(annoBody(a.anno)); undoRef.current.push({ kind: 'create', anno: { ...annoBody(a.anno), id: r.data?.id } }); }
+      else if (a.kind === 'delete') { await productionApi.scriptAnnotations.remove(a.anno.id); undoRef.current.push(a); }
+      else { await productionApi.scriptAnnotations.update(a.id, a.after); undoRef.current.push(a); }
+      loadAnnos(activeRev.id);
+    } catch { /* drop */ }
+  };
+  // Ctrl/Cmd+Z = undo · Ctrl+Y / Ctrl+Shift+Z = redo (ignored while typing in a field)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target as HTMLElement)?.isContentEditable) return;
+      const k = e.key.toLowerCase();
+      if (k === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+      else if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); redo(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
   const toggleLayer = (id: string) => setHidden((h) => { const n = new Set(h); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const addLayer = async () => {
     const name = prompt('New layer name (e.g. Art Department)'); if (!name) return;
@@ -431,6 +488,7 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
                       layerVisible={(lid) => !hidden.has(lid)}
                       onCreate={createAnno}
                       onDelete={deleteAnno}
+                      onUpdate={updateAnno}
                       placingId={placingId}
                       onPlace={placeOrphanAt}
                       tagCategory={tagCats.find((c) => c.key === activeTagCatKey) || null}
@@ -443,7 +501,15 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
               {/* Right rail — tools + layers */}
               <div className="w-48 shrink-0 space-y-3">
                 <div className="rounded-2xl border border-slate-200 bg-white p-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-2">Tools</p>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Tools</p>
+                    <div className="inline-flex gap-1">
+                      <button onClick={undo} disabled={!undoRef.current.length} title="Undo (Ctrl+Z)"
+                        className="p-1 rounded-md border border-slate-200 text-slate-500 hover:border-slate-900 disabled:opacity-30"><Undo2 size={13} /></button>
+                      <button onClick={redo} disabled={!redoRef.current.length} title="Redo (Ctrl+Y)"
+                        className="p-1 rounded-md border border-slate-200 text-slate-500 hover:border-slate-900 disabled:opacity-30"><Redo2 size={13} /></button>
+                    </div>
+                  </div>
                   <div className="grid grid-cols-3 gap-1.5">
                     {TOOLS.map((t) => (
                       <button key={t.key} onClick={() => setTool(t.key)} title={t.label}

@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TFM — Shell redesign mockup (research)</title>
+<style>
+  /* ── Token sheet (the proposed design law) ─────────────────────────────── */
+  :root{
+    --surface-0:#f6f7f9;   /* page */
+    --surface-1:#ffffff;   /* cards, bars */
+    --surface-2:#eef0f3;   /* wells, hovers */
+    --text-1:#16202e;      /* primary — AA on surface-1 */
+    --text-2:#51606f;      /* secondary — AA on surface-1 */
+    --text-3:#8a96a3;      /* metadata only */
+    --border-1:#d4dae1;    /* structural */
+    --border-2:#b9c2cc;    /* emphasis */
+    --accent:#2563eb; --accent-text:#ffffff; --accent-soft:#e8effd; --accent-soft-text:#1d4ed8;
+    --ok:#15803d; --ok-soft:#e8f6ee; --warn:#b45309; --warn-soft:#fdf3e3; --danger:#b91c1c;
+    --r-sm:4px; --r-md:6px; --r-lg:10px;
+    --fs-0:12px; --fs-1:13px; --fs-2:14px; --fs-3:16px; --fs-4:20px;
+    --rail-w:56px; --bar-h:46px; --ctx-h:42px;
+  }
+  html.dark{
+    --surface-0:#0d1320; --surface-1:#161e2e; --surface-2:#202a3c;
+    --text-1:#e6ebf2; --text-2:#9fb0c2; --text-3:#67768a;
+    --border-1:#2b3850; --border-2:#3d4d6a;
+    --accent:#5b8def; --accent-text:#0b1120; --accent-soft:#1d2c4d; --accent-soft-text:#9db9f5;
+    --ok:#4ade80; --ok-soft:#10301f; --warn:#fbbf24; --warn-soft:#33270e; --danger:#f87171;
+  }
+  *{box-sizing:border-box; margin:0}
+  body{font:400 var(--fs-2)/1.45 system-ui,-apple-system,"Segoe UI",sans-serif; background:var(--surface-0); color:var(--text-1); height:100vh; overflow:hidden}
+  button{font:inherit; color:inherit; background:none; border:none; cursor:pointer}
+
+  /* ── Shell: rail + (topbar + context row + workspace) ──────────────────── */
+  .shell{display:grid; grid-template-columns:var(--rail-w) 1fr; height:100vh}
+
+  .rail{background:var(--surface-1); border-right:1px solid var(--border-1); display:flex; flex-direction:column; align-items:center; padding:10px 0; gap:4px}
+  .rail .logo{width:32px;height:32px;border-radius:var(--r-md);background:var(--accent);color:var(--accent-text);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:var(--fs-1);margin-bottom:10px}
+  .rail button{width:40px;height:40px;border-radius:var(--r-md);display:flex;align-items:center;justify-content:center;color:var(--text-2);position:relative}
+  .rail button:hover{background:var(--surface-2);color:var(--text-1)}
+  .rail button.on{background:var(--accent-soft);color:var(--accent-soft-text)}
+  .rail button .tip{position:absolute;left:50px;top:50%;transform:translateY(-50%);background:var(--text-1);color:var(--surface-1);font-size:var(--fs-0);padding:4px 9px;border-radius:var(--r-sm);white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .12s}
+  .rail button:hover .tip{opacity:1}
+  .rail .spacer{flex:1}
+  .rail svg{width:19px;height:19px;stroke:currentColor;stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round}
+
+  .main{display:flex;flex-direction:column;min-width:0}
+
+  .topbar{height:var(--bar-h);background:var(--surface-1);border-bottom:1px solid var(--border-1);display:flex;align-items:center;gap:8px;padding:0 14px;flex-shrink:0}
+  .crumb{display:flex;align-items:center;gap:2px;min-width:0;overflow:hidden}
+  .crumb button{padding:5px 8px;border-radius:var(--r-sm);font-size:var(--fs-2);color:var(--text-2);white-space:nowrap}
+  .crumb button:hover{background:var(--surface-2);color:var(--text-1)}
+  .crumb .here{color:var(--text-1);font-weight:500}
+  .crumb .sep{color:var(--text-3);font-size:var(--fs-1)}
+  .kbtn{margin-left:auto;display:flex;align-items:center;gap:8px;border:1px solid var(--border-1);border-radius:var(--r-md);padding:5px 10px;color:var(--text-2);font-size:var(--fs-1)}
+  .kbtn:hover{border-color:var(--border-2);color:var(--text-1)}
+  .kbtn kbd{font:500 var(--fs-0)/1 inherit;background:var(--surface-2);border-radius:3px;padding:2px 5px;color:var(--text-2)}
+  .iconbtn{width:32px;height:32px;border-radius:var(--r-md);display:flex;align-items:center;justify-content:center;color:var(--text-2)}
+  .iconbtn:hover{background:var(--surface-2);color:var(--text-1)}
+  .iconbtn svg{width:17px;height:17px;stroke:currentColor;stroke-width:1.7;fill:none;stroke-linecap:round}
+  .chromebadge{font-size:var(--fs-0);color:var(--text-3);border:1px dashed var(--border-2);border-radius:999px;padding:2px 9px;white-space:nowrap}
+
+  .ctx{height:var(--ctx-h);background:var(--surface-1);border-bottom:1px solid var(--border-1);display:flex;align-items:center;gap:2px;padding:0 14px;overflow-x:auto;flex-shrink:0}
+  .ctx button{padding:6px 12px;border-radius:var(--r-md);font-size:var(--fs-2);color:var(--text-2);white-space:nowrap}
+  .ctx button:hover{background:var(--surface-2);color:var(--text-1)}
+  .ctx button.on{background:var(--accent-soft);color:var(--accent-soft-text);font-weight:500}
+  .ctx .label{font-size:var(--fs-0);color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;margin-right:8px;white-space:nowrap}
+  .ctx .right{margin-left:auto;display:flex;gap:6px}
+  .ctx .right button{border:1px solid var(--border-1)}
+
+  .work{flex:1;overflow:auto;padding:18px;min-height:0}
+
+  /* ── Content primitives ────────────────────────────────────────────────── */
+  .card{background:var(--surface-1);border:1px solid var(--border-1);border-radius:var(--r-lg);padding:14px 16px}
+  h1{font-size:var(--fs-4);font-weight:600}
+  h2{font-size:var(--fs-3);font-weight:600}
+  .sub{color:var(--text-2);font-size:var(--fs-1)}
+  .meta{color:var(--text-3);font-size:var(--fs-0)}
+  .grid{display:grid;gap:12px}
+  .pill{display:inline-flex;align-items:center;gap:5px;font-size:var(--fs-0);font-weight:500;border-radius:999px;padding:3px 10px}
+  .pill.ok{background:var(--ok-soft);color:var(--ok)}
+  .pill.warn{background:var(--warn-soft);color:var(--warn)}
+  .pill.acc{background:var(--accent-soft);color:var(--accent-soft-text)}
+  .tile{display:flex;flex-direction:column;gap:6px;text-align:left;background:var(--surface-1);border:1px solid var(--border-1);border-radius:var(--r-lg);padding:14px 16px;transition:border-color .12s}
+  .tile:hover{border-color:var(--accent)}
+  .tile .t{font-size:var(--fs-2);font-weight:600}
+  table{width:100%;border-collapse:collapse;font-size:var(--fs-1)}
+  th{text-align:left;color:var(--text-2);font-weight:500;font-size:var(--fs-0);text-transform:uppercase;letter-spacing:.05em;padding:7px 10px;border-bottom:1px solid var(--border-1)}
+  td{padding:8px 10px;border-bottom:1px solid var(--border-1)}
+  tr:last-child td{border-bottom:none}
+
+  /* ── ⌘K palette ────────────────────────────────────────────────────────── */
+  .scrim{position:fixed;inset:0;background:rgba(8,12,22,.45);display:none;align-items:flex-start;justify-content:center;padding-top:14vh;z-index:50}
+  .scrim.open{display:flex}
+  .palette{width:560px;max-width:92vw;background:var(--surface-1);border:1px solid var(--border-2);border-radius:var(--r-lg);overflow:hidden;box-shadow:0 18px 50px rgba(0,0,0,.35)}
+  .palette input{width:100%;border:none;outline:none;background:transparent;color:var(--text-1);font:inherit;font-size:var(--fs-3);padding:14px 16px;border-bottom:1px solid var(--border-1)}
+  .palette .list{max-height:330px;overflow:auto;padding:6px}
+  .palette .item{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:9px 11px;border-radius:var(--r-md);font-size:var(--fs-2);color:var(--text-1)}
+  .palette .item .path{margin-left:auto;color:var(--text-3);font-size:var(--fs-0)}
+  .palette .item.sel,.palette .item:hover{background:var(--accent-soft);color:var(--accent-soft-text)}
+  .palette .hint{padding:8px 14px;border-top:1px solid var(--border-1);color:var(--text-3);font-size:var(--fs-0);display:flex;gap:14px}
+
+  /* ── Right tool dock (deep surfaces) ───────────────────────────────────── */
+  .dock{position:absolute;right:12px;top:12px;display:flex;flex-direction:column;gap:4px;background:var(--surface-1);border:1px solid var(--border-1);border-radius:var(--r-lg);padding:6px}
+  .dock button{width:36px;height:36px;border-radius:var(--r-md);display:flex;align-items:center;justify-content:center;color:var(--text-2);position:relative}
+  .dock button:hover{background:var(--surface-2);color:var(--text-1)}
+  .dock button.on{background:var(--accent-soft);color:var(--accent-soft-text)}
+  .dock button .tip{position:absolute;right:46px;top:50%;transform:translateY(-50%);background:var(--text-1);color:var(--surface-1);font-size:var(--fs-0);padding:4px 9px;border-radius:var(--r-sm);white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .12s}
+  .dock button:hover .tip{opacity:1}
+  .dock svg{width:17px;height:17px;stroke:currentColor;stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round}
+
+  .pagebox{position:relative;background:var(--surface-1);border:1px solid var(--border-1);border-radius:var(--r-lg);height:100%;min-height:420px;display:flex;align-items:center;justify-content:center}
+  .sheet{width:430px;max-width:70%;background:#fff;color:#1a1a1a;border:1px solid var(--border-1);border-radius:2px;padding:34px 38px;font-family:"Courier New",monospace;font-size:12px;line-height:1.7;box-shadow:0 6px 24px rgba(0,0,0,.12)}
+  html.dark .sheet{box-shadow:0 6px 24px rgba(0,0,0,.5)}
+  .transport{position:absolute;left:12px;bottom:12px;right:64px;background:var(--surface-1);border:1px solid var(--border-1);border-radius:var(--r-lg);display:flex;align-items:center;gap:12px;padding:8px 12px}
+  .playbtn{width:34px;height:34px;border-radius:50%;background:var(--accent);color:var(--accent-text);display:flex;align-items:center;justify-content:center;font-size:13px}
+</style>
+</head>
+<body>
+<div class="shell">
+  <nav class="rail" aria-label="Hubs">
+    <div class="logo">T</div>
+    <button data-hub="home"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8M5 9v11h14V9"/></svg><span class="tip">Home</span></button>
+    <button data-hub="production" class="on"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3"/></svg><span class="tip">Production — projects, scripts, crew, logistics</span></button>
+    <button data-hub="finance"><svg viewBox="0 0 24 24"><path d="M12 2v20M7 6h7a3 3 0 110 6H8a3 3 0 100 6h9"/></svg><span class="tip">Finance — invoices, ledger, compliance</span></button>
+    <button data-hub="people"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.5 3-5.5 6.5-5.5s6.5 2 6.5 5.5M16 4a3.5 3.5 0 010 7M17.5 14.6c2.4.6 4 2.2 4 5.4"/></svg><span class="tip">People — HR, partners, travel</span></button>
+    <button data-hub="assets"><svg viewBox="0 0 24 24"><path d="M5 8h14l2 4v6h-2a2 2 0 11-4 0H9a2 2 0 11-4 0H3v-6z"/></svg><span class="tip">Assets — rentals, fleet, maintenance</span></button>
+    <button data-hub="insights"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span class="tip">Insights — reports, CRM</span></button>
+    <div class="spacer"></div>
+    <button data-hub="setup"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.1-1.2l2-1.5-2-3.4-2.3 1a7 7 0 00-2-1.2L14.2 3h-4l-.4 2.7a7 7 0 00-2 1.2l-2.3-1-2 3.4 2 1.5A7 7 0 005 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-1a7 7 0 002 1.2l.4 2.7h4l.4-2.7a7 7 0 002-1.2l2.3 1 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/></svg><span class="tip">Setup (admins)</span></button>
+  </nav>
+
+  <div class="main">
+    <header class="topbar">
+      <div class="crumb" id="crumb"></div>
+      <button class="kbtn" onclick="openK()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg> Jump anywhere <kbd>Ctrl K</kbd></button>
+      <span class="chromebadge" id="chromebadge">chrome: 2 rows</span>
+      <button class="iconbtn" onclick="toggleDark()" title="Light / dark"><svg viewBox="0 0 24 24"><path d="M21 13A9 9 0 1111 3a7 7 0 0010 10z"/></svg></button>
+      <div style="width:30px;height:30px;border-radius:50%;background:var(--accent-soft);color:var(--accent-soft-text);display:flex;align-items:center;justify-content:center;font-size:var(--fs-0);font-weight:600">QQ</div>
+    </header>
+
+    <nav class="ctx" id="ctx" aria-label="Context"></nav>
+
+    <main class="work" id="work"></main>
+  </div>
+</div>
+
+<div class="scrim" id="scrim" onclick="if(event.target===this)closeK()">
+  <div class="palette">
+    <input id="kinput" placeholder="Type a page, project, or action…  e.g. “audio”, “call sheet”, “invoice”" oninput="renderK()" onkeydown="kKeys(event)">
+    <div class="list" id="klist"></div>
+    <div class="hint"><span>↑↓ navigate</span><span>↵ open</span><span>esc close</span><span style="margin-left:auto">every page in the system is reachable from here — tabs are just shortcuts</span></div>
+  </div>
+</div>
+
+<script>
+/* ── State machine: view = where you are; breadcrumb + ctx derive from it ── */
+const PHASES = ['Develop','Plan','Budget','Shoot','Account','Deliver'];
+const PLAN_SURFACES = [
+  { k:'schedule',  t:'Schedule',     d:'Stripboard, shooting days, DOOD' },
+  { k:'breakdown', t:'Breakdown',    d:'Scenes, elements, auto-tagging' },
+  { k:'scripton',  t:'ScriptON',     d:'Script hub — read, note, line, hear it' },
+  { k:'callsheets',t:'Call sheets',  d:'Daily call sheets + distribution' },
+];
+const SCRIPT_TABS = ['Pages','Reader','Notes & layers','Tags','Lining','Sides','Analyze','Audio Studio'];
+const AUDIO_TABS = ['Voices','Pronounce','Render','Library','Sound layers'];
+
+let view = { level:'project', phase:'Plan', surface:null, tab:null };
+let dark = false;
+
+const $ = (id) => document.getElementById(id);
+
+function setView(v){ view = { ...view, ...v }; render(); }
+
+function goProject(){ setView({ level:'project', surface:null, tab:null }); }
+function goPhase(p){ setView({ level:'project', phase:p, surface:null, tab:null }); }
+function goScripton(tab){ setView({ level:'scripton', surface:'scripton', tab: tab||'Reader' }); }
+function goAudio(tab){ setView({ level:'audio', surface:'audio', tab: tab||'Voices' }); }
+
+function crumbHtml(){
+  const parts = [
+    `<button onclick="goProject()">Production</button><span class="sep">/</span>`,
+    `<button onclick="goProject()">The Misfits <span class="meta">· Golden draft</span></button>`,
+  ];
+  if (view.level==='scripton' || view.level==='audio') parts.push(`<span class="sep">/</span><button onclick="goScripton()">ScriptON</button>`);
+  if (view.level==='audio') parts.push(`<span class="sep">/</span><span class="here" style="padding:5px 8px">Audio Studio</span>`);
+  else if (view.level==='scripton') parts.push(`<span class="sep">/</span><span class="here" style="padding:5px 8px">${view.tab}</span>`);
+  else parts.push(`<span class="sep">/</span><span class="here" style="padding:5px 8px">${view.phase}</span>`);
+  return parts.join('');
+}
+
+function ctxHtml(){
+  if (view.level==='project'){
+    return `<span class="label">Phases</span>` + PHASES.map(p =>
+      `<button class="${p===view.phase?'on':''}" onclick="goPhase('${p}')">${p}</button>`).join('')
+      + `<div class="right"><button onclick="alert('mock')">＋ New</button></div>`;
+  }
+  if (view.level==='scripton'){
+    return `<span class="label">ScriptON</span>` + SCRIPT_TABS.map(t =>
+      t==='Audio Studio'
+      ? `<button onclick="goAudio()">${t} ♪</button>`
+      : `<button class="${t===view.tab?'on':''}" onclick="setView({tab:'${t}'})">${t}</button>`).join('')
+      + `<div class="right"><button onclick="alert('mock')">⌄ Draft · 10/06</button><button onclick="alert('mock')">↥ Upload</button></div>`;
+  }
+  return `<span class="label">Audio Studio</span>` + AUDIO_TABS.map(t =>
+    `<button class="${t===view.tab?'on':''}" onclick="setView({tab:'${t}'})">${t}</button>`).join('')
+    + `<div class="right"><button onclick="alert('mock')">Browser · $0 ▾</button></div>`;
+}
+
+function workHtml(){
+  if (view.level==='project' && view.phase==='Plan'){
+    return `
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));margin-bottom:14px">
+      ${PLAN_SURFACES.map(s => `
+        <button class="tile" onclick="${s.k==='scripton' ? 'goScripton()' : 'alert(\'mock — opens '+s.t+' full-page, same pattern\')'}">
+          <span class="t">${s.t}</span><span class="sub">${s.d}</span>
+          <span class="meta">${s.k==='scripton' ? '1 script · 404 notes · audio ready' : s.k==='schedule' ? '24 shoot days · 183 scenes boarded' : s.k==='breakdown' ? '183 scenes · 12 categories' : '0 issued'}</span>
+        </button>`).join('')}
+    </div>
+    <div class="card">
+      <h2 style="margin-bottom:4px">Plan — what needs attention</h2>
+      <p class="sub" style="margin-bottom:10px">The phase page is a worklist, not a dashboard of widgets. One glance = what's blocking the schedule.</p>
+      <table>
+        <tr><th>Item</th><th>Where</th><th>Status</th></tr>
+        <tr><td>Scene 47 has no location yet</td><td class="sub">Breakdown</td><td><span class="pill warn">blocking board</span></td></tr>
+        <tr><td>Blue pages arrived — 12 notes need re-anchoring</td><td class="sub">ScriptON</td><td><span class="pill warn">review</span></td></tr>
+        <tr><td>Voice cast complete — table read ready</td><td class="sub">ScriptON · Audio</td><td><span class="pill ok">ready</span></td></tr>
+        <tr><td>Day 3 call sheet draft</td><td class="sub">Call sheets</td><td><span class="pill acc">draft</span></td></tr>
+      </table>
+    </div>`;
+  }
+  if (view.level==='project'){
+    return `<div class="card"><h1 style="margin-bottom:6px">${view.phase}</h1>
+      <p class="sub">Mock — each phase gets the same treatment as Plan: a few surface tiles + a worklist. The 34 old tabs live inside these six phases; anything can also be reached instantly via <b>Ctrl K</b>.</p></div>`;
+  }
+  if (view.level==='scripton'){
+    return `
+    <div class="pagebox">
+      <div class="sheet">
+        <div style="text-align:center">47 &nbsp; INT. KITCHEN — NIGHT &nbsp; 47</div><br>
+        <div>&nbsp;&nbsp;&nbsp;Maya stares at the kettle. It refuses to boil.</div><br>
+        <div style="text-align:center">MAYA</div>
+        <div style="text-align:center;font-style:italic">(bored)</div>
+        <div style="text-align:center">Watched pots. Classic.</div><br>
+        <div>&nbsp;&nbsp;&nbsp;The radio CRACKLES to life on the counter.</div><br>
+        <div style="text-align:center">JONES (V.O.)</div>
+        <div style="text-align:center;font-style:italic">(over radio)</div>
+        <div style="text-align:center">You forgot the leaves again.</div>
+      </div>
+      <div class="dock" aria-label="Tools">
+        <button class="on"><svg viewBox="0 0 24 24"><path d="M4 20l4.5-1L20 7.5 16.5 4 5 15.5z"/></svg><span class="tip">Select / annotate</span></button>
+        <button><svg viewBox="0 0 24 24"><path d="M3 12h18M3 6h18M3 18h12"/></svg><span class="tip">Highlight</span></button>
+        <button><svg viewBox="0 0 24 24"><path d="M12 19l7-7-4-4-7 7v4z"/></svg><span class="tip">Pen</span></button>
+        <button><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M14 4v6h6"/></svg><span class="tip">Sticky note</span></button>
+        <button><svg viewBox="0 0 24 24"><path d="M20 12l-8 8H4v-8l8-8z"/></svg><span class="tip">Tag element</span></button>
+        <button><svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4zM15 9a4 4 0 010 6"/></svg><span class="tip">Hear it (live voices)</span></button>
+      </div>
+    </div>`;
+  }
+  /* audio */
+  return `
+  <div class="pagebox">
+    <div style="width:min(560px,80%)">
+      ${['MAYA — Rachel · ElevenLabs · 30s · warm','JONES — Marcus · ElevenLabs · 50s · gravel','NARRATOR — Atlas · narration-suited'].map((v,i)=>`
+      <div class="card" style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+        <div style="width:34px;height:34px;border-radius:50%;background:var(--accent-soft);color:var(--accent-soft-text);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:var(--fs-1)">${v[0]}</div>
+        <div style="flex:1;min-width:0"><div style="font-weight:500">${v.split(' — ')[0]}</div><div class="meta">${v.split(' — ')[1]}</div></div>
+        <span class="pill ok">cast</span>
+        <button style="border:1px solid var(--border-1);border-radius:var(--r-md);padding:5px 10px;font-size:var(--fs-1)">▷ Audition</button>
+      </div>`).join('')}
+      <p class="meta" style="text-align:center;margin-top:4px">mock — Voices tab. Note: ONE context row above, full-height content, transport pinned below.</p>
+    </div>
+    <div class="transport">
+      <button class="playbtn">▶</button>
+      <div style="flex:1;min-width:0"><div style="font-size:var(--fs-1);font-weight:500">MAYA — “Watched pots. Classic.”</div><div class="meta">Studio live · ≈$0.14 session · 38 lines cached</div></div>
+      <span class="pill acc">✨ Studio</span>
+    </div>
+  </div>`;
+}
+
+function chromeRows(){ return 2; } /* always: topbar + context — that's the whole point */
+
+function render(){
+  $('crumb').innerHTML = crumbHtml();
+  $('ctx').innerHTML = ctxHtml();
+  $('work').innerHTML = workHtml();
+  $('chromebadge').textContent = `chrome: ${chromeRows()} rows — at every depth`;
+}
+
+/* ── ⌘K palette ── */
+const DEST = [
+  ['Project — Plan phase','Production / The Misfits', ()=>goPhase('Plan')],
+  ['Project — Budget phase','Production / The Misfits', ()=>goPhase('Budget')],
+  ['Project — Shoot phase','Production / The Misfits', ()=>goPhase('Shoot')],
+  ['ScriptON — Reader','The Misfits / ScriptON', ()=>goScripton('Reader')],
+  ['ScriptON — Notes & layers','The Misfits / ScriptON', ()=>goScripton('Notes & layers')],
+  ['ScriptON — Lining','The Misfits / ScriptON', ()=>goScripton('Lining')],
+  ['Audio Studio — Voices','ScriptON / Audio', ()=>goAudio('Voices')],
+  ['Audio Studio — Render','ScriptON / Audio', ()=>goAudio('Render')],
+  ['Audio Studio — Sound layers','ScriptON / Audio', ()=>goAudio('Sound layers')],
+  ['Call sheets','The Misfits / Plan', ()=>goPhase('Plan')],
+  ['Crew directory','Production', ()=>alert('mock')],
+  ['Invoices','Finance', ()=>alert('mock')],
+  ['New sticky note on current page','action', ()=>alert('mock action')],
+  ['Queue studio render — table read','action', ()=>alert('mock action')],
+];
+let ksel = 0;
+function openK(){ $('scrim').classList.add('open'); $('kinput').value=''; ksel=0; renderK(); $('kinput').focus(); }
+function closeK(){ $('scrim').classList.remove('open'); }
+function kMatches(){ const q=$('kinput').value.toLowerCase(); return DEST.filter(d=>!q||d[0].toLowerCase().includes(q)||d[1].toLowerCase().includes(q)); }
+function renderK(){
+  const m = kMatches(); if (ksel >= m.length) ksel = Math.max(0, m.length-1);
+  $('klist').innerHTML = m.map((d,i)=>`<button class="item ${i===ksel?'sel':''}" onclick="pickK(${i})"><span>${d[0]}</span><span class="path">${d[1]}</span></button>`).join('') || `<div style="padding:14px;color:var(--text-3);font-size:var(--fs-1)">No matches</div>`;
+}
+function pickK(i){ const m=kMatches(); closeK(); m[i] && m[i][2](); }
+function kKeys(e){
+  const m = kMatches();
+  if (e.key==='ArrowDown'){ ksel=Math.min(m.length-1,ksel+1); renderK(); e.preventDefault(); }
+  else if (e.key==='ArrowUp'){ ksel=Math.max(0,ksel-1); renderK(); e.preventDefault(); }
+  else if (e.key==='Enter'){ pickK(ksel); }
+  else if (e.key==='Escape'){ closeK(); }
+}
+window.addEventListener('keydown',(e)=>{ if ((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){ e.preventDefault(); $('scrim').classList.contains('open')?closeK():openK(); } });
+
+/* hubs (rail) — mock: only Production is wired */
+document.querySelectorAll('.rail [data-hub]').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.rail [data-hub]').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');
+  if (b.dataset.hub!=='production') { $('work').innerHTML = `<div class="card"><h1 style="margin-bottom:6px">${b.dataset.hub[0].toUpperCase()+b.dataset.hub.slice(1)} hub</h1><p class="sub">Mock — same shell: this hub's surfaces appear in the context row, content fills the page. 18 modules become 7 rail icons.</p></div>`; $('crumb').innerHTML = `<span class="here" style="padding:5px 8px">${b.dataset.hub[0].toUpperCase()+b.dataset.hub.slice(1)}</span>`; $('ctx').innerHTML = `<span class="label">${b.dataset.hub}</span><button class="on">Overview</button>`; }
+  else goProject();
+}));
+
+function toggleDark(){ dark=!dark; document.documentElement.classList.toggle('dark',dark); }
+
+render();
+</script>
+</body>
+</html>

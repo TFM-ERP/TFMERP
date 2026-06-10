@@ -1,0 +1,21 @@
+feat(ux): SYS-14 step 1 — project workspace regrouped into production lifecycle phases
+
+Per docs/system/14-ux-redesign-ia-map.md and docs/system/mockups/redesign-shell-mockup.html:
+
+- The 8 domain tab-groups (34 tabs) become: Overview (landing) · Develop › Plan ›
+  Budget › Shoot › Account › Deliver · ⚙ Settings — the nav now narrates how a
+  production runs instead of mirroring the database.
+  · Develop: ScriptON
+  · Plan: schedule, breakdowns, locations, casting, crew, contracts, travel,
+    accommodation, transport (booking-side work)
+  · Budget: budget, topsheet, fringe, incentives
+  · Shoot: callsheets, perdiem, shuttle, arrivals, fuel, logistics, overages (ops-side)
+  · Account: BVA, cost report, purchasing, ledger, cash
+  · Deliver: credits, documents
+  · ⚙ Settings: project settings, labor matrix
+- Phase row restyled: 13px, chevron separators between phases, ghost buttons (crisper).
+- No tab/panel was removed or rewritten — pure regrouping; all deep links (workflow
+  checklist onNavigate etc.) keep working since tab keys are unchanged.
+
+Next slices (not in this commit): semantic token sheet + dark-mode migration, shell
+breadcrumb + single context row, ScriptON full-page takeovers.
