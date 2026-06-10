@@ -11,7 +11,7 @@ export type Tool = 'CURSOR' | 'HIGHLIGHT' | 'PEN' | 'TEXT' | 'STICKY' | 'TAG';
  * pdfjs text items intersecting the mark (the seed for the D3 transfer algorithm).
  */
 export default function AnnotationOverlay({
-  ctx, annotations, tool, color, layerVisible, onCreate, onDelete, placingId, onPlace,
+  ctx, annotations, tool, color, layerVisible, onCreate, onDelete, placingId, onPlace, tagCategory,
 }: {
   ctx: OverlayCtx;
   annotations: any[];               // for the current page
@@ -22,6 +22,7 @@ export default function AnnotationOverlay({
   onDelete: (id: string) => void;
   placingId?: string | null;        // D3 — an orphan armed for placement
   onPlace?: (id: string, pos: { page: number; x: number; y: number }) => void;
+  tagCategory?: { key: string; label: string; color: string } | null; // P3 — selected tag category
 }) {
   const { width, height, textItems, page } = ctx;
   const [drag, setDrag] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
@@ -55,11 +56,17 @@ export default function AnnotationOverlay({
     if (tool === 'PEN') { setPath([[x, y]]); return; }
     if (tool === 'HIGHLIGHT') { setDrag({ x0: x, y0: y, x1: x, y1: y }); return; }
     if (tool === 'TEXT' || tool === 'STICKY' || tool === 'TAG') {
-      const text = tool === 'TAG' ? prompt('Tag label (e.g. Prop: Vintage watch)') : prompt('Note text');
-      if (text == null) return;
+      const input = tool === 'TAG'
+        ? prompt(tagCategory ? `Tag (${tagCategory.label}) — element name:` : 'Tag label (e.g. Prop: Vintage watch)')
+        : prompt('Note text');
+      if (input == null) return;
       const w = tool === 'TAG' ? 14 : 4, h = tool === 'TAG' ? 14 : 4; // anchor footprint
       const anc = captureAnchor(x, y, 80, 16);
-      onCreate({ tool, page, ...norm(x, y, w, h), payload: { text, color, tagKey: tool === 'TAG' ? (text.split(':')[0] || 'tag') : undefined }, ...anc });
+      const useCat = tool === 'TAG' && !!tagCategory;
+      const tagKey = tool === 'TAG' ? (tagCategory?.key || (input.split(':')[0] || 'tag')) : undefined;
+      const tagColor = useCat ? tagCategory!.color : color;
+      const text = useCat ? `${tagCategory!.label}: ${input}` : input;
+      onCreate({ tool, page, ...norm(x, y, w, h), payload: { text, color: tagColor, tagKey }, ...anc });
     }
   };
   const move = (e: React.MouseEvent) => {

@@ -35,6 +35,22 @@ export class AnnotationsController {
   @Put('orphans/:id/place') @RequirePermission('production', 2) placeOrphan(@Param('id') id: string, @Body() b: any) { return this.transfer.placeOrphan(id, b); }
   @Get('compare/:revA/:revB') compare(@Param('revA') revA: string, @Param('revB') revB: string) { return this.transfer.compare(revA, revB); }
 
+  // Bookmarks (P2)
+  @Get('bookmarks/:revisionId') bookmarks(@Param('revisionId') r: string) { return this.service.listBookmarks(r); }
+  @Post('bookmarks/:revisionId') @RequirePermission('production', 2) addBookmark(@Param('revisionId') r: string, @Body() b: any, @Req() req: any) { return this.service.createBookmark(r, b, req.user?.id); }
+  @Put('bookmark/:id') @RequirePermission('production', 2) editBookmark(@Param('id') id: string, @Body() b: any) { return this.service.updateBookmark(id, b); }
+  @Delete('bookmark/:id') @RequirePermission('production', 2) removeBookmark(@Param('id') id: string) { return this.service.deleteBookmark(id); }
+
+  // Tag categories + Auto-Tag + reports + scene special tags (P3)
+  @Get('tag-categories/:projectId') tagCategories(@Param('projectId') p: string) { return this.service.listTagCategories(p); }
+  @Post('tag-categories/:projectId') @RequirePermission('production', 2) addTagCategory(@Param('projectId') p: string, @Body() b: any) { return this.service.createTagCategory(p, b); }
+  @Put('tag-category/:id') @RequirePermission('production', 2) editTagCategory(@Param('id') id: string, @Body() b: any) { return this.service.updateTagCategory(id, b); }
+  @Delete('tag-category/:id') @RequirePermission('production', 2) removeTagCategory(@Param('id') id: string) { return this.service.deleteTagCategory(id); }
+  @Post('tag-categories/:projectId/reorder') @RequirePermission('production', 2) reorderTagCategories(@Body() b: any) { return this.service.reorderTagCategories(b?.ids || []); }
+  @Post('autotag-cast/:revisionId') @RequirePermission('production', 2) autoTagCast(@Param('revisionId') r: string, @Req() req: any) { return this.service.autoTagCast(r, req.user?.id); }
+  @Get('tag-report/:revisionId') tagReport(@Param('revisionId') r: string) { return this.service.tagReport(r); }
+  @Put('scene/:id') @RequirePermission('production', 2) updateScene(@Param('id') id: string, @Body() b: any) { return this.service.updateScene(id, b); }
+
   // Layers
   @Get('layers/:documentId') layers(@Param('documentId') documentId: string, @Req() req: any) { return this.service.listLayers(documentId, req.user?.id); }
   @Post('layers/:documentId') createLayer(@Param('documentId') documentId: string, @Body() b: any, @Req() req: any) { return this.service.createLayer(documentId, b, req.user?.id); }
