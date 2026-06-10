@@ -2,12 +2,16 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { productionApi } from '@/lib/api';
-import { Clapperboard, X, Plus, Trash2, Loader2, CircleDot, Timer, Flag, Coins } from 'lucide-react';
+import { Clapperboard, X, Plus, Trash2, Loader2, CircleDot, Timer, Flag, Coins, Camera, Sparkles } from 'lucide-react';
 import { Btn, Chip } from './ui';
 
 const inp = 'rounded-lg border border-slate-200 px-2 py-1 text-xs focus:border-slate-900 outline-none';
 const money = (n: any, c = 'AED') => `${c} ${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 const TAKE_TONE: Record<string, string> = { OK: 'slate', REJECT: 'risk', CIRCLE: 'money' };
+// SYS-13b P4 — default camera palette (A…Z); on-screen by default.
+const CAM_COLORS = ['#0ea5e9', '#f97316', '#22c55e', '#a855f7', '#ef4444', '#eab308', '#14b8a6', '#ec4899'];
+const nextCamLabel = (cams: any[]) => String.fromCharCode(65 + Math.min(25, cams.length)); // A, B, C…
+type Cam = { label: string; color: string; onScreen: boolean };
 
 /**
  * SYS-13 · D6 — Lining & Hot Cost. Log coverage + takes per scene (the digital tramline record),
@@ -18,7 +22,9 @@ export default function LiningPanel({ projectId, revision, onClose }: { projectI
   const [sceneId, setSceneId] = useState(scenes[0]?.id || '');
   const [coverage, setCoverage] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [cov, setCov] = useState<any>({ slate: '', cameraSetup: 'A_CAM', description: '', isOffScreen: false });
+  const [cov, setCov] = useState<any>({ slate: '', cameraSetup: 'A_CAM', description: '', isOffScreen: false, cameras: [{ label: 'A', color: CAM_COLORS[0], onScreen: true }] as Cam[], slateFormat: 'ALPHA' });
+  const [slateFormat, setSlateFormat] = useState('ALPHA');
+  const [autoBusy, setAutoBusy] = useState(false);
 
   // Hot Cost monitor
   const [hc, setHc] = useState<any>({ callTime: '06:00', targetWrap: '19:00', actualWrap: '', shootDate: '' });
@@ -36,10 +42,25 @@ export default function LiningPanel({ projectId, revision, onClose }: { projectI
 
   const addCoverage = async () => {
     if (!sceneId) return;
-    await productionApi.lining.addCoverage(sceneId, cov);
-    setCov({ slate: '', cameraSetup: 'A_CAM', description: '', isOffScreen: false }); load();
+    await productionApi.lining.addCoverage(sceneId, { ...cov, slateFormat });
+    setCov({ slate: '', cameraSetup: 'A_CAM', description: '', isOffScreen: false, cameras: [{ label: 'A', color: CAM_COLORS[0], onScreen: true }], slateFormat }); load();
   };
   const removeCoverage = async (id: string) => { await productionApi.lining.removeCoverage(id); load(); };
+
+  // P4 — multi-camera slate edits on the draft + on saved coverage.
+  const setDraftCams = (cams: Cam[]) => setCov({ ...cov, cameras: cams });
+  const addDraftCam = () => { const cams = cov.cameras || []; setDraftCams([...cams, { label: nextCamLabel(cams), color: CAM_COLORS[cams.length % CAM_COLORS.length], onScreen: true }]); };
+  const saveCams = async (c: any, cams: Cam[]) => { await productionApi.lining.updateCoverage(c.id, { cameras: cams }); load(); };
+
+  const autoCoverage = async () => {
+    setAutoBusy(true);
+    try {
+      const r = await productionApi.lining.autoCoverage(revision.id, { slateFormat });
+      load();
+      alert(`Auto-coverage: created ${r.data.created} master slate(s) across ${r.data.scenes} scene(s) (${r.data.skipped} already covered).`);
+    } catch (e: any) { alert(e?.response?.data?.message || 'Auto-coverage failed.'); }
+    finally { setAutoBusy(false); }
+  };
   const addTake = async (coverageId: string) => { await productionApi.lining.addTake(coverageId, {}); load(); };
   const setTakeStatus = async (id: string, status: string) => { await productionApi.lining.updateTake(id, { status }); load(); };
   const wrapTake = async (id: string) => { await productionApi.lining.wrapTake(id); load(); };
@@ -69,10 +90,21 @@ export default function LiningPanel({ projectId, revision, onClose }: { projectI
         <div className="p-5 grid grid-cols-1 lg:grid-cols-2 gap-5">
           {/* ── Lining (coverage + takes) ── */}
           <div>
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-2 mb-2">
               <select className={`${inp} flex-1`} value={sceneId} onChange={(e) => setSceneId(e.target.value)}>
                 {scenes.map((s: any) => <option key={s.id} value={s.id}>Sc {s.sceneNumber || '•'} — {s.slugline}</option>)}
               </select>
+            </div>
+            <div className="flex items-center gap-2 mb-3">
+              <label className="text-[10px] text-slate-400">Slate format</label>
+              <select className={inp} value={slateFormat} onChange={(e) => setSlateFormat(e.target.value)}>
+                <option value="ALPHA">Alpha (scene #)</option>
+                <option value="NUMERIC">Numeric (1, 2, 3…)</option>
+                <option value="DECIMAL">Decimal (1.1, 2.1…)</option>
+              </select>
+              <Btn variant="secondary" onClick={autoCoverage} className="ml-auto" disabled={autoBusy}>
+                {autoBusy ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />} Auto-coverage
+              </Btn>
             </div>
 
             {/* add coverage */}
@@ -81,6 +113,18 @@ export default function LiningPanel({ projectId, revision, onClose }: { projectI
                 <input className={inp} placeholder="Slate" value={cov.slate} onChange={(e) => setCov({ ...cov, slate: e.target.value })} />
                 <input className={inp} placeholder="Camera (A_CAM)" value={cov.cameraSetup} onChange={(e) => setCov({ ...cov, cameraSetup: e.target.value })} />
                 <input className={inp} placeholder="Desc (CU Jane)" value={cov.description} onChange={(e) => setCov({ ...cov, description: e.target.value })} />
+              </div>
+              {/* P4 — multi-camera slate */}
+              <div className="flex items-center flex-wrap gap-1.5">
+                <span className="text-[10px] text-slate-400 inline-flex items-center gap-1"><Camera size={11} /> Cameras</span>
+                {(cov.cameras || []).map((cam: Cam, i: number) => (
+                  <span key={i} className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] ${cam.onScreen ? 'border-slate-300' : 'border-dashed border-slate-300 opacity-60'}`} style={{ color: cam.color }}>
+                    <input type="color" value={cam.color} onChange={(e) => { const cams = [...cov.cameras]; cams[i] = { ...cam, color: e.target.value }; setDraftCams(cams); }} className="w-3.5 h-3.5 rounded-full border-0 p-0 bg-transparent cursor-pointer" />
+                    <button onClick={() => { const cams = [...cov.cameras]; cams[i] = { ...cam, onScreen: !cam.onScreen }; setDraftCams(cams); }} title={cam.onScreen ? 'On-screen' : 'Off-screen'} className="font-bold">{cam.label}</button>
+                    <button onClick={() => setDraftCams(cov.cameras.filter((_: any, j: number) => j !== i))} className="text-slate-300 hover:text-rose-500"><X size={9} /></button>
+                  </span>
+                ))}
+                {(cov.cameras || []).length < 26 && <button onClick={addDraftCam} className="text-slate-400 hover:text-slate-900"><Plus size={12} /></button>}
               </div>
               <div className="flex items-center justify-between">
                 <label className="text-[11px] text-slate-500 inline-flex items-center gap-1.5"><input type="checkbox" checked={cov.isOffScreen} onChange={(e) => setCov({ ...cov, isOffScreen: e.target.checked })} /> Off-screen (wavy tramline)</label>
@@ -96,7 +140,16 @@ export default function LiningPanel({ projectId, revision, onClose }: { projectI
                   <div key={c.id} className="rounded-xl border border-slate-200 p-2.5">
                     <div className="flex items-center gap-2 mb-1.5">
                       <Chip tone="slate">Slate {c.slate || '—'}</Chip>
-                      <span className="text-xs text-slate-500">{c.cameraSetup} · {c.description}</span>
+                      <span className="text-xs text-slate-500">{c.description}</span>
+                      {Array.isArray(c.cameras) && c.cameras.length > 0 ? (
+                        <span className="inline-flex items-center gap-1">
+                          {c.cameras.map((cam: Cam, i: number) => (
+                            <button key={i} onClick={() => saveCams(c, c.cameras.map((x: Cam, j: number) => j === i ? { ...x, onScreen: !x.onScreen } : x))}
+                              title={cam.onScreen ? 'On-screen — click for off-screen' : 'Off-screen'}
+                              className={`text-[10px] font-bold w-4 h-4 rounded-full text-white inline-flex items-center justify-center ${cam.onScreen ? '' : 'opacity-40 ring-1 ring-dashed'}`} style={{ background: cam.color }}>{cam.label}</button>
+                          ))}
+                        </span>
+                      ) : c.cameraSetup && <span className="text-[10px] text-slate-400">{c.cameraSetup}</span>}
                       {c.isOffScreen && <span className="text-[10px] text-slate-400">off-screen</span>}
                       <div className="ml-auto flex items-center gap-1.5">
                         <button onClick={() => addTake(c.id)} className="text-[11px] text-slate-500 hover:text-slate-900 inline-flex items-center gap-0.5"><Plus size={11} /> take</button>

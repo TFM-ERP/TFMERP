@@ -18,6 +18,7 @@ export class LiningController {
   @Post('scene/:sceneId') @RequirePermission('production', 2) addCoverage(@Param('sceneId') sceneId: string, @Body() b: any, @Req() req: any) { return this.service.addCoverage(sceneId, b, req.user?.id); }
   @Put('coverage/:id') @RequirePermission('production', 2) updateCoverage(@Param('id') id: string, @Body() b: any) { return this.service.updateCoverage(id, b); }
   @Delete('coverage/:id') @RequirePermission('production', 2) removeCoverage(@Param('id') id: string) { return this.service.removeCoverage(id); }
+  @Post('autocoverage/:revisionId') @RequirePermission('production', 2) autoCoverage(@Param('revisionId') revisionId: string, @Body() b: any, @Req() req: any) { return this.service.autoCoverage(revisionId, req.user?.id, b); }
 
   // Takes
   @Post('coverage/:id/takes') @RequirePermission('production', 2) addTake(@Param('id') id: string, @Body() b: any) { return this.service.addTake(id, b); }

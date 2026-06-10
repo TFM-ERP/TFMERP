@@ -24,6 +24,56 @@ export class SidesService {
   list(projectId: string) { return this.prisma.sidesJob.findMany({ where: { projectId }, orderBy: { createdAt: 'desc' } }); }
   remove(id: string) { return this.prisma.sidesJob.delete({ where: { id } }); }
 
+  /**
+   * SYS-13b · P4 — Page Maker (facing pages). Interleaves a blank note page (lined / dot-grid /
+   * grid / plain) before (or after) each script page so the printed/exported script reads as a
+   * facing-page notebook. No DB row — returns a one-off downloadable URL in /uploads.
+   */
+  async facingPages(revisionId: string, body: any) {
+    const { PDFDocument, rgb } = await this.lib();
+    const fs = await import('fs');
+
+    const rev = await this.prisma.scriptRevision.findUnique({ where: { id: revisionId }, select: { pdfUrl: true, documentId: true } });
+    if (!rev) throw new NotFoundException('Revision not found.');
+    const srcPath = this.absPath(rev.pdfUrl);
+    if (!fs.existsSync(srcPath)) throw new BadRequestException('Source script PDF not found on disk.');
+
+    const style: string = ['LINED', 'DOT', 'GRID', 'PLAIN'].includes(body?.style) ? body.style : 'LINED';
+    const side: 'BEFORE' | 'AFTER' = body?.side === 'AFTER' ? 'AFTER' : 'BEFORE';
+    const heading: boolean = body?.heading !== false;
+
+    const src = await PDFDocument.load(fs.readFileSync(srcPath));
+    const out = await PDFDocument.create();
+    const font = await out.embedFont((await this.lib()).StandardFonts.Helvetica);
+    const total = src.getPageCount();
+    const idxs = Array.from({ length: total }, (_, i) => i);
+    const copied = await out.copyPages(src, idxs);
+
+    const drawNote = (W: number, H: number, pageNum: number) => {
+      const note = out.addPage([W, H]);
+      const grey = rgb(0.82, 0.86, 0.9);
+      if (style === 'LINED') {
+        for (let y = H - 64; y > 48; y -= 26) note.drawLine({ start: { x: 40, y }, end: { x: W - 40, y }, thickness: 0.5, color: grey });
+      } else if (style === 'GRID' || style === 'DOT') {
+        for (let y = H - 48; y > 48; y -= 22) for (let x = 40; x < W - 32; x += 22) {
+          if (style === 'GRID') { note.drawLine({ start: { x, y }, end: { x: x + 22, y }, thickness: 0.3, color: grey }); note.drawLine({ start: { x, y }, end: { x, y: y - 22 }, thickness: 0.3, color: grey }); }
+          else note.drawCircle({ x, y, size: 0.6, color: grey });
+        }
+      }
+      if (heading) note.drawText(`Notes — page ${pageNum}`, { x: 40, y: H - 40, size: 9, font, color: rgb(0.6, 0.64, 0.7) });
+    };
+
+    copied.forEach((pg: any, i: number) => {
+      const { width: W, height: H } = pg.getSize();
+      if (side === 'BEFORE') { drawNote(W, H, i + 1); out.addPage(pg); }
+      else { out.addPage(pg); drawNote(W, H, i + 1); }
+    });
+
+    const fn = `facing-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.pdf`;
+    fs.writeFileSync(this.absPath(`/uploads/${fn}`), await out.save());
+    return { url: `/uploads/${fn}`, pageCount: out.getPageCount(), style, side };
+  }
+
   /** Build the sides for a revision's selected scenes + per-recipient watermarked copies. */
   async generate(revisionId: string, body: any, userId?: string) {
     const { PDFDocument, rgb, degrees, StandardFonts } = await this.lib();

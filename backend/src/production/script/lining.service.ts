@@ -32,17 +32,51 @@ export class LiningService {
         sceneId, revisionId: scene.revisionId,
         slate: body?.slate || null, cameraSetup: body?.cameraSetup || null, description: body?.description || null,
         isOffScreen: !!body?.isOffScreen, lineCoordinates: body?.lineCoordinates ?? null, createdById: userId || null,
+        cameras: body?.cameras ?? null, slateFormat: body?.slateFormat || null,
       },
     });
   }
 
   updateCoverage(id: string, data: any) {
     const d: any = {};
-    for (const k of ['slate', 'cameraSetup', 'description', 'lineCoordinates']) if (data?.[k] !== undefined) d[k] = data[k];
+    for (const k of ['slate', 'cameraSetup', 'description', 'lineCoordinates', 'cameras', 'slateFormat']) if (data?.[k] !== undefined) d[k] = data[k];
     if (data?.isOffScreen !== undefined) d.isOffScreen = !!data.isOffScreen;
     return this.prisma.scriptCoverage.update({ where: { id }, data: d });
   }
   removeCoverage(id: string) { return this.prisma.scriptCoverage.delete({ where: { id } }); }
+
+  /**
+   * SYS-13b · P4 — Auto-coverage. Creates a default "Master" slate for every scene on the
+   * revision that has no coverage yet. Slate label follows the chosen format (ALPHA = scene
+   * number, NUMERIC = sequential, DECIMAL = scene+sub). Idempotent: covered scenes are skipped.
+   */
+  async autoCoverage(revisionId: string, userId?: string, opts?: { slateFormat?: string }) {
+    const fmt = ['ALPHA', 'NUMERIC', 'DECIMAL'].includes(opts?.slateFormat || '') ? opts!.slateFormat! : 'ALPHA';
+    const scenes = await this.prisma.scriptScene.findMany({
+      where: { revisionId },
+      orderBy: { sortOrder: 'asc' },
+      select: { id: true, sceneNumber: true },
+    });
+    const covered = new Set(
+      (await this.prisma.scriptCoverage.findMany({ where: { revisionId }, select: { sceneId: true } })).map((c) => c.sceneId),
+    );
+    const cameras = [{ label: 'A', color: '#0ea5e9', onScreen: true }];
+    let created = 0, seq = 0;
+    for (const s of scenes) {
+      seq += 1;
+      if (covered.has(s.id)) continue;
+      const slate = fmt === 'NUMERIC' ? String(seq) : fmt === 'DECIMAL' ? `${s.sceneNumber || seq}.1` : (s.sceneNumber || String(seq));
+      await this.prisma.scriptCoverage.create({
+        data: {
+          sceneId: s.id, revisionId,
+          slate, cameraSetup: 'Master', description: 'Master', isOffScreen: false,
+          cameras, slateFormat: fmt, createdById: userId || null,
+        },
+      });
+      created += 1;
+    }
+    return { created, scenes: scenes.length, skipped: scenes.length - created, slateFormat: fmt };
+  }
 
   // ── Takes ─────────────────────────────────────────────────────────────────────
   async addTake(coverageId: string, body: any) {
