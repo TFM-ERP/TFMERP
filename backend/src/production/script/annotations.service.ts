@@ -304,7 +304,20 @@ export class AnnotationsService {
     });
   }
 
-  updateAnnotation(id: string, data: any) {
+  /** Only the note's author may change or delete it (your own layer's notes count as yours;
+   *  legacy unowned notes stay editable so old data isn't locked). */
+  private async assertOwn(id: string, userId?: string) {
+    const a = await this.prisma.annotation.findUnique({ where: { id }, include: { layer: { select: { ownerUserId: true } } } });
+    if (!a) throw new NotFoundException('Annotation not found.');
+    const owns = (a.createdById && userId && a.createdById === userId)
+      || (a.layer?.ownerUserId && a.layer.ownerUserId === userId)
+      || (!a.createdById && !a.layer?.ownerUserId);
+    if (!owns) throw new ForbiddenException('Only the author can edit or delete this note.');
+    return a;
+  }
+
+  async updateAnnotation(id: string, data: any, userId?: string) {
+    await this.assertOwn(id, userId);
     const d: any = {};
     if (data?.payload !== undefined) d.payload = data.payload;
     if (data?.layerId !== undefined) d.layerId = data.layerId;
@@ -314,5 +327,8 @@ export class AnnotationsService {
     return this.prisma.annotation.update({ where: { id }, data: d });
   }
 
-  removeAnnotation(id: string) { return this.prisma.annotation.delete({ where: { id } }); }
+  async removeAnnotation(id: string, userId?: string) {
+    await this.assertOwn(id, userId);
+    return this.prisma.annotation.delete({ where: { id } });
+  }
 }

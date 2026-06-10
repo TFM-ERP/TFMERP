@@ -14,33 +14,33 @@ import { scriptAudioApi, assetUrl } from '@/lib/api';
  * browser-native APIs (speechSynthesis, SpeechRecognition, MediaRecorder). No third-party services.
  */
 
-type El = { type: 'scene' | 'action' | 'character' | 'paren' | 'dialogue' | 'transition'; text: string; character?: string };
+type El = { type: 'scene' | 'action' | 'character' | 'paren' | 'dialogue' | 'transition'; text: string; character?: string; page?: number };
 
 const SCENE_RE = /^(\d+[A-Z]?\s+)?(INT|EXT|INT\.?\/EXT|I\/E)[\.\s]/i;
 const TRANS_RE = /(CUT TO:|FADE (IN|OUT)|DISSOLVE TO:|SMASH CUT|MATCH CUT)\s*$/i;
 const isUpper = (s: string) => s.length > 0 && s === s.toUpperCase() && /[A-Z]/.test(s);
 const cueName = (s: string) => s.replace(/\s*\((CONT'D|CONTD|V\.?O\.?|O\.?S\.?|O\.?C\.?|PRE-?LAP)\)\s*$/i, '').replace(/\s*\(.*\)\s*$/, '').trim();
 
-/** Heuristic screenplay parser from joined page text. */
+/** Heuristic screenplay parser from joined page text (keeps each element's source page). */
 function parseScript(pageText: { page: number; text: string }[]): El[] {
-  const lines: string[] = [];
-  for (const p of (pageText || [])) for (const ln of String(p.text || '').split('\n')) lines.push(ln.replace(/\s+$/, ''));
+  const lines: { t: string; page: number }[] = [];
+  for (const p of (pageText || [])) for (const ln of String(p.text || '').split('\n')) lines.push({ t: ln.replace(/\s+$/, ''), page: p.page });
   const els: El[] = [];
   let inDialogue = false; let cur = '';
   for (let i = 0; i < lines.length; i++) {
-    const raw = lines[i];
+    const { t: raw, page } = lines[i];
     const t = raw.trim();
     if (!t) { inDialogue = false; continue; }
-    if (SCENE_RE.test(t)) { els.push({ type: 'scene', text: t.toUpperCase() }); inDialogue = false; continue; }
-    if (TRANS_RE.test(t) && isUpper(t)) { els.push({ type: 'transition', text: t }); inDialogue = false; continue; }
-    if (t.startsWith('(') && inDialogue) { els.push({ type: 'paren', text: t, character: cur }); continue; }
+    if (SCENE_RE.test(t)) { els.push({ type: 'scene', text: t.toUpperCase(), page }); inDialogue = false; continue; }
+    if (TRANS_RE.test(t) && isUpper(t)) { els.push({ type: 'transition', text: t, page }); inDialogue = false; continue; }
+    if (t.startsWith('(') && inDialogue) { els.push({ type: 'paren', text: t, character: cur, page }); continue; }
     // Character cue: short UPPERCASE line, not a scene/transition, with dialogue likely following.
-    const next = (lines[i + 1] || '').trim();
+    const next = (lines[i + 1]?.t || '').trim();
     if (isUpper(t) && t.length <= 38 && /^[A-Z0-9 .,'()\-/&]+$/.test(t) && next && !SCENE_RE.test(next)) {
-      cur = cueName(t); els.push({ type: 'character', text: t, character: cur }); inDialogue = true; continue;
+      cur = cueName(t); els.push({ type: 'character', text: t, character: cur, page }); inDialogue = true; continue;
     }
-    if (inDialogue) { els.push({ type: 'dialogue', text: t, character: cur }); continue; }
-    els.push({ type: 'action', text: t });
+    if (inDialogue) { els.push({ type: 'dialogue', text: t, character: cur, page }); continue; }
+    els.push({ type: 'action', text: t, page });
   }
   return els;
 }
@@ -135,6 +135,11 @@ export default function ScriptReader({ revision, onClose }: { revision: any; onC
     return { sceneOf, dlgOf, counts };
   }, [els]);
   const eighths = (lineCount: number) => `~${Math.min(64, Math.max(1, Math.round((lineCount || 0) * 8 / 42)))}/8`;
+  const scenesList = useMemo(() => els.reduce<{ n: number; label: string }[]>((acc, e, i2) => {
+    if (e.type === 'scene') acc.push({ n: meta.sceneOf[i2], label: e.text.slice(0, 36) });
+    return acc;
+  }, []), [els, meta]);
+  const pageCount = useMemo(() => els.reduce((m, e) => Math.max(m, e.page || 1), 1), [els]);
   const tintFor = (code?: string | null): string => {
     if (!code) return '#ffffff';
     if (/^#[0-9a-f]{6}$/i.test(code)) return code + '14';
@@ -164,6 +169,13 @@ export default function ScriptReader({ revision, onClose }: { revision: any; onC
 
   // What gets read aloud (applies to Browser and Studio modes alike)
   const [readSet, setReadSet] = useState({ scene: true, action: true, character: false, dialogue: true });
+
+  // Play scope: whole script, one scene (optionally carrying into the next), or from a page
+  const [scope, setScope] = useState<'script' | 'scene' | 'page'>('script');
+  const [sceneSel, setSceneSel] = useState(1);
+  const [carryOn, setCarryOn] = useState(false);
+  const [fromPage, setFromPage] = useState(1);
+  const endRef = useRef<number | null>(null); // last element index to speak (null = to the end)
 
   /**
    * Delivery hint for a dialogue line: the parenthetical above it — (bored), (excited),
@@ -261,7 +273,7 @@ export default function ScriptReader({ revision, onClose }: { revision: any; onC
 
     const step = () => {
       if (!playRef.current) return;
-      if (i >= els.length) { setPlaying(false); setCursor(-1); return; }
+      if (i >= els.length || (endRef.current != null && i > endRef.current)) { setPlaying(false); setCursor(-1); return; }
       const e = els[i];
       setCursor(i); scrollTo(i);
       const isMine = mode === 'rehearse' && actor && e.character === actor && (e.type === 'dialogue' || e.type === 'character');
@@ -297,23 +309,44 @@ export default function ScriptReader({ revision, onClose }: { revision: any; onC
     step();
   }, [els, mode, actor, gap, rate, voiceFor, studio, synthFor, readSet, emotionFor]);
 
-  const stop = () => {
+  // Pause keeps the cursor (resume continues from the same line); Stop resets it.
+  const pause = () => {
     playRef.current = false;
     try { speak?.cancel(); } catch {}
     try { audioRef.current?.pause(); } catch {}
-    setPlaying(false); setCursor(-1);
+    setPlaying(false);
   };
+  const stop = () => { pause(); setCursor(-1); endRef.current = null; };
   const togglePlay = () => {
-    if (playing) { stop(); return; }
-    run(cursor >= 0 ? cursor : 0);
+    if (playing) { pause(); return; }
+    if (cursor >= 0) { run(cursor); return; } // resume where we paused
+    let start = 0; endRef.current = null;
+    if (scope === 'scene') {
+      const n = sceneSel || 1;
+      const s = meta.sceneOf.findIndex((x) => x === n);
+      start = s >= 0 ? s : 0;
+      if (!carryOn) endRef.current = meta.sceneOf.lastIndexOf(n); // stop at the scene's last line
+    } else if (scope === 'page') {
+      const s = els.findIndex((e) => (e.page || 1) >= fromPage);
+      start = s >= 0 ? s : 0;
+    }
+    run(start);
   };
+  const handleClose = () => { stop(); onClose(); };
+
+  // Kill ALL audio if the reader unmounts for any reason (close, navigation, hot reload).
+  useEffect(() => () => {
+    playRef.current = false;
+    try { speak?.cancel(); } catch {}
+    try { audioRef.current?.pause(); audioRef.current = null; } catch {}
+  }, []);
 
   // Highlight styling is class-driven (see RDR_CSS) — only blackout needs per-row logic.
   const isHidden = (e: El, idx: number) => blackout && actor && e.character === actor && e.type === 'dialogue' && !revealed.has(idx);
   const onReveal = useCallback((idx: number) => setRevealed((r) => new Set(r).add(idx)), []);
 
   return (
-    <div className="fixed inset-0 z-[80] bg-slate-900/50 flex items-stretch" onClick={onClose}>
+    <div className="fixed inset-0 z-[80] bg-slate-900/50 flex items-stretch" onClick={handleClose}>
       <div className={`son ${sonDark ? 'son-dark' : ''} ml-auto h-full w-full max-w-5xl bg-slate-50 shadow-2xl flex flex-col`} onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center gap-2 px-4 h-12 bg-white border-b border-slate-200 shrink-0">
@@ -325,7 +358,7 @@ export default function ScriptReader({ revision, onClose }: { revision: any; onC
               ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19"/></svg>
               : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg>}</button>
             <button onClick={() => setRecOpen(true)} className="text-xs inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-slate-600 hover:border-slate-900"><Video size={13} /> Self-tape</button>
-            <button onClick={onClose} className="text-slate-400 hover:text-slate-700 p-1"><X size={18} /></button>
+            <button onClick={handleClose} className="text-slate-400 hover:text-slate-700 p-1"><X size={18} /></button>
           </div>
         </div>
 
@@ -380,6 +413,31 @@ export default function ScriptReader({ revision, onClose }: { revision: any; onC
             <button onClick={() => setMode('read')} className={`px-2.5 py-1 ${mode === 'read' ? 'bg-slate-900 text-white' : 'text-slate-600'}`}>Read aloud</button>
             <button onClick={() => setMode('rehearse')} className={`px-2.5 py-1 ${mode === 'rehearse' ? 'bg-slate-900 text-white' : 'text-slate-600'}`}>Rehearse</button>
           </div>
+          <select value={scope} onChange={(e) => { stop(); setScope(e.target.value as any); }}
+            className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-slate-600" title="What to play">
+            <option value="script">Whole script</option>
+            <option value="scene">Scene…</option>
+            <option value="page">From page…</option>
+          </select>
+          {scope === 'scene' && (
+            <>
+              <select value={sceneSel} onChange={(e) => { stop(); setSceneSel(Number(e.target.value)); }}
+                className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-slate-600 max-w-[180px]">
+                {scenesList.map((s) => <option key={s.n} value={s.n}>#{s.n} {s.label}</option>)}
+                {scenesList.length === 0 && <option value={1}>No scenes detected</option>}
+              </select>
+              <label className="inline-flex items-center gap-1 text-slate-500" title="Keep playing into the following scenes instead of stopping at the scene end">
+                <input type="checkbox" checked={carryOn} onChange={(e) => { stop(); setCarryOn(e.target.checked); }} /> carry on
+              </label>
+            </>
+          )}
+          {scope === 'page' && (
+            <label className="inline-flex items-center gap-1 text-slate-500">p.
+              <input type="number" min={1} max={pageCount} value={fromPage}
+                onChange={(e) => { stop(); setFromPage(Math.max(1, Math.min(pageCount, Number(e.target.value) || 1))); }}
+                className="w-14 rounded-lg border border-slate-300 bg-white px-1.5 py-1" /> / {pageCount}
+            </label>
+          )}
           <div className="inline-flex rounded-lg border border-slate-300 overflow-hidden bg-white" title="Studio = live ElevenLabs/OpenAI with the cast voices from Audio Studio → Voices">
             <button onClick={() => setStudio(false)} className={`px-2.5 py-1 ${!studio ? 'bg-slate-900 text-white' : 'text-slate-600'}`}>Browser</button>
             <button onClick={() => { setStudio(true); setStudioMsg(''); }} className={`px-2.5 py-1 ${studio ? 'bg-indigo-600 text-white' : 'text-slate-600'}`}>Studio ✨</button>

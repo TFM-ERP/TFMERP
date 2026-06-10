@@ -266,6 +266,15 @@ export class RenderService implements OnModuleInit {
     return voices;
   }
 
+  /** Default voice for an uncast speaker: narration-suited pick for the narrator, stable per-name pick for characters. */
+  private async defaultVoiceId(engineKey: string, character: string | undefined, isNarr: boolean): Promise<string | null> {
+    const lib = await this.engineVoicesCached(engineKey);
+    if (!lib.length) return null;
+    if (isNarr) return (lib.find((v: any) => /narrat/i.test(`${v.useCase || ''} ${v.description || ''}`)) || lib[0]).id;
+    let h = 0; for (const ch of String(character || '')) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    return lib[h % lib.length].id;
+  }
+
   /**
    * One line in → audio URL out, using the character's cast studio voice. Powers LIVE
    * reading (Reader playback + Audio Studio transport) — no render job, no export.
@@ -296,19 +305,8 @@ export class RenderService implements OnModuleInit {
     const adapter = buildAdapter(engineRow);
     if (!adapter.synthesize) throw new BadRequestException('Engine has no server-side TTS.');
 
-    // Voice id: the cast profile's, else a stable default from the engine's own library
-    // (narrator → a narration-suited voice; characters → deterministic per-name pick).
-    let voiceId = profile?.externalVoiceId || null;
-    if (!voiceId) {
-      const lib = await this.engineVoicesCached(engineRow.key);
-      if (lib.length) {
-        if (isNarr) voiceId = (lib.find((v: any) => /narrat/i.test(`${v.useCase || ''} ${v.description || ''}`)) || lib[0]).id;
-        else {
-          let h = 0; for (const ch of String(b?.character || '')) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-          voiceId = lib[h % lib.length].id;
-        }
-      }
-    }
+    // Voice id: the cast profile's, else a stable default from the engine's own library.
+    let voiceId = profile?.externalVoiceId || await this.defaultVoiceId(engineRow.key, b?.character, isNarr);
     if (!voiceId) throw new BadRequestException(`No voice for "${b?.character || 'NARRATOR'}" — cast it in Audio Studio → Voices (or check the ${engineRow.displayName} API key).`);
 
     // Delivery: explicit emotion hint (parenthetical/punctuation) > the profile's baseline style.
@@ -374,16 +372,20 @@ export class RenderService implements OnModuleInit {
 
     const buffers: Buffer[] = []; let billed = 0; let cost = 0;
     for (const seg of segments) {
-      const { profile } = await this.voiceFor(job.revisionId, seg.character, seg.kind === 'narration');
+      const isNarr = seg.kind === 'narration';
+      const { profile } = await this.voiceFor(job.revisionId, seg.character, isNarr);
+      // Voice: cast profile's id, else the same default pick live reading uses (never fails on uncast speakers).
+      const voiceId = profile?.externalVoiceId || await this.defaultVoiceId(engineRow.key, seg.character, isNarr);
+      if (!voiceId) throw new BadRequestException(`No voice for "${seg.character || 'NARRATOR'}" — cast it in Voices, or check the ${engineRow.displayName} API key.`);
       // Parenthetical-driven delivery + audio effect, same as live reading.
-      const emo = this.emotionSettings(seg.hint || (seg.kind === 'dialogue' ? profile?.style || undefined : undefined));
+      const emo = this.emotionSettings(seg.hint || (!isNarr ? profile?.style || undefined : undefined));
       const fx = this.effectFor(seg.hint);
       const cfg = {
-        externalVoiceId: profile?.externalVoiceId || undefined, rate: Number(profile?.defaultRate ?? 1),
+        externalVoiceId: voiceId, rate: Number(profile?.defaultRate ?? 1),
         stability: emo?.stability, styleAmount: emo?.style, speed: emo?.speed, emotionTag: emo?.key,
       };
       const text = this.pron.applyTo(seg.text, dict);
-      const key = this.cacheKey({ ...seg, text }, engineRow.key, `${profile?.externalVoiceId || ''}|${emo?.key || ''}|${fx?.key || ''}`);
+      const key = this.cacheKey({ ...seg, text }, engineRow.key, `${voiceId}|${emo?.key || ''}|${fx?.key || ''}`);
       const hit = await this.prisma.lineSynthesisCache.findUnique({ where: { cacheKey: key } }).catch(() => null);
       if (hit && fs.existsSync(this.absPath(hit.url))) {
         buffers.push(fs.readFileSync(this.absPath(hit.url)));

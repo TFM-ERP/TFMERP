@@ -65,6 +65,6 @@ export class AnnotationsController {
   // Annotations
   @Get('revision/:revisionId') list(@Param('revisionId') revisionId: string, @Req() req: any) { return this.service.listAnnotations(revisionId, req.user?.id); }
   @Post() create(@Body() b: any, @Req() req: any) { return this.service.createAnnotation(b, req.user?.id); }
-  @Put(':id') update(@Param('id') id: string, @Body() b: any) { return this.service.updateAnnotation(id, b); }
-  @Delete(':id') remove(@Param('id') id: string) { return this.service.removeAnnotation(id); }
+  @Put(':id') update(@Param('id') id: string, @Body() b: any, @Req() req: any) { return this.service.updateAnnotation(id, b, req.user?.id); }
+  @Delete(':id') remove(@Param('id') id: string, @Req() req: any) { return this.service.removeAnnotation(id, req.user?.id); }
 }

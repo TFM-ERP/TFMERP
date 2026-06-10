@@ -80,7 +80,23 @@ export class ScriptService {
       include: { scenes: { orderBy: { sortOrder: 'asc' } } },
     });
     if (!rev) throw new NotFoundException('Revision not found.');
-    return rev;
+    return (await this.upgradeFdxView(rev)) || rev;
+  }
+
+  /** Self-heal revisions uploaded before FDX→PDF conversion existed: generate the
+   *  viewable screenplay PDF from the original .fdx on first open and persist it. */
+  private async upgradeFdxView(rev: any): Promise<any | null> {
+    if (!rev?.pdfUrl || !/\.fdx$/i.test(rev.pdfUrl)) return null;
+    try {
+      const fs = await import('fs');
+      const { join, basename } = await import('path');
+      const abs = join(process.cwd(), 'uploads', basename(rev.pdfUrl));
+      if (!fs.existsSync(abs)) return null; // original gone — keep the placeholder
+      const parsed = await this.extractAndParse(abs);
+      if (!parsed.viewPdfUrl) return null;
+      await this.prisma.scriptRevision.update({ where: { id: rev.id }, data: { pdfUrl: parsed.viewPdfUrl } });
+      return { ...rev, pdfUrl: parsed.viewPdfUrl };
+    } catch { return null; }
   }
 
   async setActiveRevision(documentId: string, revisionId: string) {
