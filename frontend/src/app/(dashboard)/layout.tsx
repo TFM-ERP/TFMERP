@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   Home, DollarSign, Truck, Building2, Film, Users, BarChart2, Settings, ShieldCheck, Target, Wrench,
   Search, Plus, Star, ChevronLeft, ChevronRight, ChevronDown, ChevronUp,
-  LogOut, X, Clock, ArrowRight, Sun, Moon, MapPin, Plane, FileSignature, Clapperboard, BedDouble, Car,
+  LogOut, X, Clock, ArrowRight, Sun, Moon, MapPin, Plane, FileSignature, Clapperboard, BedDouble, Car, ScrollText,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import SetupGate from '@/components/SetupGate';
@@ -79,6 +79,10 @@ const MODULES: Module[] = [
     { label: 'Labor & Fringe Master', href: '/setup/labor' },
     { label: 'Rate Approvals', href: '/setup/rate-approvals' },
   ]},
+  { key: 'scripts', label: 'ScriptON', icon: ScrollText, pages: [
+    { label: 'Script Library', href: '/scripts' },
+    { label: 'Audio Engines', href: '/setup/audio-engines' },
+  ]},
   { key: 'locations', label: 'Locations', icon: MapPin, pages: [
     { label: 'Library', href: '/locations' },
     { label: 'Map', href: '/locations/map' },
@@ -126,6 +130,7 @@ const MODULES: Module[] = [
     { label: 'Company Management', href: '/company' },
     { label: 'Users', href: '/users' },
     { label: 'Roles & Permissions', href: '/setup/roles' },
+    { label: 'Identity Changes', href: '/setup/identity-changes' },
     { label: 'Approval Workflows', href: '/setup/workflows' },
     { label: 'Email & Notifications', href: '/setup/email' },
     { label: 'Integrations', href: '/setup/integrations' },
@@ -216,6 +221,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const activeMkey = active?.mkey || 'home';
   const activeModule = MODULES.find(m => m.key === activeMkey)!;
   const activePage = active?.page;
+  // A record-detail route (e.g. /production/projects/[id]) sits one segment below its page.
+  // Those screens carry their own header/back, so we drop the module title, pins and sub-tabs there.
+  const isDetail = !!activePage && pathname.startsWith(activePage.href + '/');
 
   // boot
   useEffect(() => {
@@ -368,7 +376,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   };
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ background: '#F4F5F7' }}>
+    <div className="flex h-screen overflow-hidden" style={{ background: darkMode ? '#0B1120' : '#F4F5F7' }}>
 
       {/* ── Rail (Option A — grouped, theme-following) ── */}
       <aside className="flex flex-col shrink-0 transition-all" style={{ width: RAIL_W, background: pal.bg, borderRight: `1px solid ${pal.border}` }}>
@@ -388,17 +396,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </button>
         </div>
 
-        {/* Search (opens ⌘K palette) */}
-        <div className="px-1.5 pt-2">
-          <button onClick={() => { setPaletteOpen(true); setQuery(''); }} aria-label="Search"
-            className="flex items-center gap-2 w-full rounded-md transition-colors"
-            style={{ padding: expanded ? '7px 9px' : '9px 0', justifyContent: expanded ? 'flex-start' : 'center', border: `1px solid ${pal.searchBorder}`, background: pal.searchBg, color: pal.searchText }}>
-            <Search size={15} className="shrink-0" />
-            {expanded && <><span className="text-[12.5px]">Search…</span><span className="ml-auto text-[10.5px] rounded px-1.5 py-0.5" style={{ border: `1px solid ${pal.searchBorder}` }}>⌘K</span></>}
-          </button>
-        </div>
-
-        {/* Grouped modules */}
+        {/* Grouped modules (search lives in the top bar to avoid duplication) */}
         <nav className="flex-1 overflow-y-auto py-1.5" style={{ scrollbarWidth: 'none' }}>
           {GROUPS.map(g => {
             const keys = g.keys.filter(canSee);
@@ -456,7 +454,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className="flex-1 flex flex-col min-w-0">
 
         {/* Utility bar */}
-        <header className="flex items-center gap-3 px-5 h-12 bg-white shrink-0" style={{ borderBottom: '1px solid #e6e7ea' }}>
+        <header className="flex items-center gap-3 px-5 h-12 bg-white shrink-0" style={{ borderBottom: `1px solid ${darkMode ? '#243349' : '#e6e7ea'}` }}>
           <button onClick={() => { setPaletteOpen(true); setQuery(''); }}
             className="flex items-center gap-2 text-sm text-gray-400 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg px-3 h-8 transition-colors"
             style={{ maxWidth: 340, flex: 1 }}>
@@ -477,27 +475,29 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <NotificationBell />
         </header>
 
-        {/* Breadcrumb + title + action */}
-        <div className="flex items-center justify-between gap-3 px-5 pt-3 bg-white">
-          <div className="min-w-0">
-            <div className="text-[11.5px] text-gray-400 flex items-center gap-1">
-              <span>{activeModule.label}</span>
-              {activePage && <><ChevronRight size={11} /> <span>{activePage.label}</span></>}
-            </div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-[18px] font-bold text-gray-900 truncate">{activePage?.label || activeModule.label}</h1>
-              {activePage && (
-                <button onClick={togglePin} title={isPinned ? 'Unpin' : 'Pin'} aria-label="Pin page"
-                  className="text-gray-300 hover:text-amber-500" style={{ color: isPinned ? GOLD : undefined }}>
-                  <Star size={15} fill={isPinned ? GOLD : 'none'} />
-                </button>
-              )}
+        {/* Breadcrumb + title — hidden inside a record (it has its own header + back button) */}
+        {!isDetail && (
+          <div className="flex items-center justify-between gap-3 px-5 pt-3 bg-white">
+            <div className="min-w-0">
+              <div className="text-[11.5px] text-gray-400 flex items-center gap-1">
+                <span>{activeModule.label}</span>
+                {activePage && <><ChevronRight size={11} /> <span>{activePage.label}</span></>}
+              </div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-[18px] font-bold text-gray-900 truncate">{activePage?.label || activeModule.label}</h1>
+                {activePage && (
+                  <button onClick={togglePin} title={isPinned ? 'Unpin' : 'Pin'} aria-label="Pin page"
+                    className="text-gray-300 hover:text-amber-500" style={{ color: isPinned ? GOLD : undefined }}>
+                    <Star size={15} fill={isPinned ? GOLD : 'none'} />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Pinned + recents */}
-        {(pins.length > 0 || recents.length > 0) && (
+        {!isDetail && (pins.length > 0 || recents.length > 0) && (
           <div className="flex items-center gap-1.5 flex-wrap px-5 pt-2 pb-1 bg-white text-[11.5px]">
             {pins.length > 0 && <span className="text-gray-400">Pinned</span>}
             {pins.map(p => (
@@ -514,7 +514,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         )}
 
-        {/* Sub-tabs */}
+        {/* Sub-tabs — hidden on record-detail screens (they bring their own header) */}
+        {!isDetail && (
         <div className="flex items-stretch flex-wrap gap-0.5 px-4 bg-white" style={{ borderBottom: '1px solid #e6e7ea' }}>
           {visibleTabs.map(p => {
             if (p.divider) return (
@@ -539,6 +540,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </button>
           )}
         </div>
+        )}
 
         {/* Page content */}
         <main className="flex-1 overflow-y-auto">

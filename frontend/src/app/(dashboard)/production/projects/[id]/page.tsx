@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback, Fragment } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { productionApi, laborApi, castingApi } from '@/lib/api';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import CallSheetsPanel from '@/components/production/CallSheetsPanel';
@@ -141,7 +140,7 @@ const TAB_META: Record<string, { label: string; icon: any }> = {
   globals: { label: 'Globals', icon: Edit2 },
   schedule: { label: 'Schedule', icon: Calendar },
   breakdowns: { label: 'Breakdowns', icon: Layers },
-  script: { label: 'Script', icon: Film },
+  script: { label: 'ScriptON', icon: Film },
   callsheets: { label: 'Call Sheets', icon: ClipboardList },
   locations: { label: 'Locations', icon: MapPin },
   travel: { label: 'Travel & Visas', icon: Plane },
@@ -236,16 +235,20 @@ export default function ProjectDetailPage() {
     try {
       const r = await productionApi.projects.get(id);
       setProject(r.data);
-      // Find active budget version
+      // Budget is secondary — its own try/catch so a budget error never ejects you from the project.
       const active = r.data.budgetVersions?.find((v: any) => v.isActive) || r.data.budgetVersions?.[0];
       if (active) {
-        const vr = await productionApi.budget.getVersion(active.id);
-        setActiveVersion(vr.data);
-        const tr = await productionApi.budget.topSheet(active.id);
-        setTopSheet(tr.data);
+        try {
+          const vr = await productionApi.budget.getVersion(active.id);
+          setActiveVersion(vr.data);
+          const tr = await productionApi.budget.topSheet(active.id);
+          setTopSheet(tr.data);
+        } catch { /* keep the project open even if the budget fails to load */ }
       }
-    } catch {
-      router.push('/production/projects');
+    } catch (e: any) {
+      // Only leave the project if it genuinely doesn't exist. A transient/auth error on
+      // refresh must NOT bounce the user back to the list.
+      if (e?.response?.status === 404) router.push('/production/projects');
     } finally { setLoading(false); }
   }, [id, router]);
 
@@ -367,10 +370,13 @@ export default function ProjectDetailPage() {
 
   return (
     <div className="p-6 max-w-[1700px] mx-auto">
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-4">
-        <Link href="/production/projects" className="btn btn-secondary p-1.5"><ArrowLeft size={16} /></Link>
-        <div className="flex-1">
+      {/* Sticky header + tabs — stays pinned while the page content scrolls */}
+      <div className="sticky top-0 z-20 -mx-6 -mt-6 px-6 pt-5 pb-2 mb-4 border-b border-gray-200 shadow-sm [&>*:last-child]:mb-0" style={{ background: 'var(--page-bg)' }}>
+      {/* Header — project name, active budget, actions + total all on one row */}
+      <div className="flex items-center gap-x-3 gap-y-2 mb-4 flex-wrap">
+        <button onClick={() => { if (window.history.length > 1) router.back(); else router.push('/production/projects'); }}
+          title="Back" className="btn btn-secondary p-1.5"><ArrowLeft size={16} /></button>
+        <div>
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-xl font-bold text-gray-900">{project.title}</h1>
             <span className="text-sm text-gray-400">{project.projectNumber}</span>
@@ -380,51 +386,58 @@ export default function ProjectDetailPage() {
           </div>
           {project.client && <p className="text-sm text-gray-500">{project.client.companyName} · {project.projectType}</p>}
         </div>
+
+        {/* Active budget — beside the project name */}
+        {activeVersion && (
+          <div className="flex items-center gap-2 text-sm text-gray-600 pl-3 border-l border-gray-200">
+            <span className="text-gray-400">Active budget:</span>
+            <span className="font-medium">{activeVersion.versionName}</span>
+            <span className={cn('badge text-xs', activeVersion.status === 'LOCKED' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700')}>
+              {activeVersion.status}
+            </span>
+            {activeVersion.status !== 'LOCKED' ? (
+              <button onClick={async () => { if (confirm('Lock this budget? It becomes read-only — changes will require a working copy or an approved transfer.')) { await productionApi.budget.lockVersion(activeVersion.id); reload(); } }}
+                className="btn btn-secondary text-xs py-1 px-2">
+                <Lock size={11} className="mr-1" /> Lock baseline
+              </button>
+            ) : (
+              <button onClick={async () => {
+                const name = prompt('Name for the working copy:', `${activeVersion.versionName} (Working Copy)`);
+                if (name === null) return;
+                const r = await productionApi.budget.cloneVersion(activeVersion.id, name || undefined);
+                await productionApi.budget.activateVersion(r.data.id);
+                reload();
+              }} className="btn btn-primary text-xs py-1 px-2">
+                <Plus size={11} className="mr-1" /> Create working copy
+              </button>
+            )}
+            <button onClick={async () => { await productionApi.budget.recalculate(activeVersion.id); reload(); }}
+              className="btn btn-secondary text-xs py-1 px-2">
+              <RefreshCw size={11} className="mr-1" /> Recalc
+            </button>
+          </div>
+        )}
+
+        <div className="flex-1" />
+
+        {/* Export actions + total */}
+        {activeVersion && (
+          <>
+            <button onClick={exportCsv} className="btn btn-secondary text-xs py-1 px-2">
+              <FileDown size={11} className="mr-1" /> CSV
+            </button>
+            <button onClick={openPrint} className="btn btn-secondary text-xs py-1 px-2">
+              <Printer size={11} className="mr-1" /> Print / PDF
+            </button>
+          </>
+        )}
         {project.totalBudget && (
-          <div className="text-right">
+          <div className="text-right ml-1">
             <p className="text-xs text-gray-400">Total Budget</p>
             <p className="text-lg font-bold text-gray-900">{money(project.totalBudget)}</p>
           </div>
         )}
       </div>
-
-      {/* Budget version selector */}
-      {activeVersion && (
-        <div className="flex items-center gap-2 mb-4 text-sm text-gray-600">
-          <span className="text-gray-400">Active budget:</span>
-          <span className="font-medium">{activeVersion.versionName}</span>
-          <span className={cn('badge text-xs', activeVersion.status === 'LOCKED' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700')}>
-            {activeVersion.status}
-          </span>
-          {activeVersion.status !== 'LOCKED' ? (
-            <button onClick={async () => { if (confirm('Lock this budget? It becomes read-only — changes will require a working copy or an approved transfer.')) { await productionApi.budget.lockVersion(activeVersion.id); reload(); } }}
-              className="btn btn-secondary text-xs py-1 px-2 ml-2">
-              <Lock size={11} className="mr-1" /> Lock baseline
-            </button>
-          ) : (
-            <button onClick={async () => {
-              const name = prompt('Name for the working copy:', `${activeVersion.versionName} (Working Copy)`);
-              if (name === null) return;
-              const r = await productionApi.budget.cloneVersion(activeVersion.id, name || undefined);
-              await productionApi.budget.activateVersion(r.data.id);
-              reload();
-            }} className="btn btn-primary text-xs py-1 px-2 ml-2">
-              <Plus size={11} className="mr-1" /> Create working copy
-            </button>
-          )}
-          <button onClick={async () => { await productionApi.budget.recalculate(activeVersion.id); reload(); }}
-            className="btn btn-secondary text-xs py-1 px-2">
-            <RefreshCw size={11} className="mr-1" /> Recalc
-          </button>
-          <div className="flex-1" />
-          <button onClick={exportCsv} className="btn btn-secondary text-xs py-1 px-2">
-            <FileDown size={11} className="mr-1" /> CSV
-          </button>
-          <button onClick={openPrint} className="btn btn-secondary text-xs py-1 px-2">
-            <Printer size={11} className="mr-1" /> Print / PDF
-          </button>
-        </div>
-      )}
 
       {/* Tab groups */}
       {(() => {
@@ -454,10 +467,11 @@ export default function ProjectDetailPage() {
                 })}
               </div>
             )}
-            {activeGroup.tabs.length <= 1 && <div className="mb-6" />}
+            {activeGroup.tabs.length <= 1 && <div />}
           </>
         );
       })()}
+      </div>{/* /sticky header */}
 
       {/* ── Overview ───────────────────────────────────────────────────────────── */}
       {tab === 'overview' && (

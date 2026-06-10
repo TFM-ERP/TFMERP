@@ -17,7 +17,7 @@ const pdfUpload = {
   }),
   limits: { fileSize: 60 * 1024 * 1024 },
   fileFilter: (_r: any, file: any, cb: any) =>
-    /\.pdf$/i.test(extname(file.originalname)) ? cb(null, true) : cb(new BadRequestException('Only PDF scripts are supported.'), false),
+    /\.(pdf|fdx)$/i.test(extname(file.originalname)) ? cb(null, true) : cb(new BadRequestException('Upload a PDF or Final Draft (.fdx) script.'), false),
 };
 
 @ApiTags('Production')
