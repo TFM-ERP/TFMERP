@@ -1476,6 +1476,7 @@ export const scriptAudioApi = {
   layerAssets:   (params?: any) => api.get('/production/audio/layers/assets', { params }),
   uploadLayerAsset: (file: File, body: any = {}) => { const fd = new FormData(); fd.append('file', file); Object.entries(body).forEach(([k, v]) => fd.append(k, String(v ?? ''))); return api.post('/production/audio/layers/upload', fd, { headers: { 'Content-Type': 'multipart/form-data' } }); },
   uploadCueAudio:(cueId: string, file: File) => { const fd = new FormData(); fd.append('file', file); return api.post(`/production/audio/layers/cue/${cueId}/upload`, fd, { headers: { 'Content-Type': 'multipart/form-data' } }); },
+  generateCue:   (cueId: string) => api.post(`/production/audio/cue-generate/${cueId}`),
   // share & deliver
   shareLinks:    (assetId: string) => api.get(`/production/audio/share/asset/${assetId}`),
   createShare:   (data: any) => api.post('/production/audio/share', data),

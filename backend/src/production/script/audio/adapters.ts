@@ -25,6 +25,8 @@ export interface Segment {
   id: string; kind: 'dialogue' | 'narration'; character?: string; text: string;
   /** Delivery/effect hint from the script's parenthetical, e.g. "angry", "over radio". */
   hint?: string;
+  /** Scene ordinal (for scene-chunked dialogue rendering). */
+  scene?: number;
 }
 export interface SynthResult { audio: Buffer; mime: string; charsBilled: number; durationMs?: number; timings?: any[]; }
 export interface CostEstimate { charsBilled: number; unitCost: number; total: number; currency: string; }
@@ -113,6 +115,26 @@ export class ElevenLabsAdapter implements AudioProviderAdapter {
     });
     if (!r.ok) throw new Error(`ElevenLabs TTS ${r.status}: ${await r.text().catch(() => '')}`);
     return { audio: Buffer.from(await r.arrayBuffer()), mime: 'audio/mpeg', charsBilled: seg.text.length };
+  }
+
+  /**
+   * v3 Text-to-Dialogue: a whole scene as multi-speaker turns in ONE generation —
+   * natural interplay (interruptions, reactions) instead of stitched lines.
+   * Each turn's text may carry [audio tags]; voiceId selects the speaker.
+   */
+  async synthesizeDialogue(turns: { text: string; voiceId: string }[], modelId?: string): Promise<SynthResult> {
+    const r = await fetch('https://api.elevenlabs.io/v1/text-to-dialogue', {
+      method: 'POST',
+      headers: { 'xi-api-key': this.apiKey(), 'Content-Type': 'application/json', accept: 'audio/mpeg' },
+      body: JSON.stringify({
+        model_id: modelId || this.defaultModel || 'eleven_v3',
+        inputs: turns.map((t) => ({ text: t.text, voice_id: t.voiceId })),
+      }),
+      signal: AbortSignal.timeout(180_000), // whole-scene generations take longer than single lines
+    });
+    if (!r.ok) throw new Error(`ElevenLabs dialogue ${r.status}: ${await r.text().catch(() => '')}`);
+    const charsBilled = turns.reduce((t, x) => t + x.text.length, 0);
+    return { audio: Buffer.from(await r.arrayBuffer()), mime: 'audio/mpeg', charsBilled };
   }
 
   async generateSfx(prompt: string, opts: { durationMs?: number }): Promise<SynthResult> {

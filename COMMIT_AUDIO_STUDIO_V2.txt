@@ -28,5 +28,19 @@ S2 — UI overhaul (ScriptOnAudioPanel)
   retained below for fine control (volume, duck, upload, approve).
 - Voice editor: performance sliders added (same emotionalRange store).
 
-Next (S3/S4): scene rendering via the v3 Text-to-Dialogue API (true multi-speaker
-interplay) and Eleven Music / SFX cue preview generation in the Layers tab.
+S3 — Scene rendering via v3 Text-to-Dialogue
+- Studio renders on ElevenLabs v3 now send WHOLE SCENES as multi-speaker turns
+  (each turn = voice_id + tagged text) → natural interplay: interruptions,
+  reactions, conversational pacing — instead of stitched single lines.
+- Chunking: consecutive same-scene segments, ≤14 turns / ≤2400 chars per request;
+  chunk-level caching (free replays), per-chunk billing + progress.
+- Automatic per-line fallback: tiny chunks, lines carrying ffmpeg audio effects
+  (radio/phone), uncast speakers, or any dialogue-API error fall back to the
+  proven per-line path. options.dialogueMode=false forces per-line.
+
+S4 — Generate cue audio in the Layers tab
+- New POST production/audio/cue-generate/:cueId — SFX/ambience/foley via
+  ElevenLabs sound-generation (8–20s), MUSIC via Eleven Music (30s), billed per
+  generation + quota-debited, result attached to the cue (auditioned inline,
+  reused by render mixing — no regeneration cost).
+- ✨ Generate button on every cue row next to Upload.

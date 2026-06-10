@@ -816,6 +816,13 @@ function Layers({ revision }: any) {
     try { await scriptAudioApi.uploadCueAudio(cueId, file); setMsg('Sound attached to cue.'); load(); }
     catch (e: any) { setMsg(e?.response?.data?.message || 'Upload failed.'); }
   };
+  const [genBusy, setGenBusy] = useState<string | null>(null);
+  const generateCue = async (c: any) => {
+    setGenBusy(c.id); setMsg(`Generating “${c.genPrompt || c.layerType}”…`);
+    try { const r = await scriptAudioApi.generateCue(c.id); setMsg(`Generated${r.data?.cost ? ` · $${r.data.cost}` : ''} — play it on the cue.`); load(); }
+    catch (e: any) { setMsg(e?.response?.data?.message || 'Generation failed.'); }
+    finally { setGenBusy(null); }
+  };
   const TONE: Record<string, string> = { AMBIENCE: '#10b981', ROOMTONE: '#64748b', SFX: '#f59e0b', FOLEY: '#7c3aed', MUSIC: '#db2777' };
   const LTYPES = ['AMBIENCE', 'ROOMTONE', 'SFX', 'FOLEY', 'MUSIC'];
 
@@ -860,6 +867,10 @@ function Layers({ revision }: any) {
               <label className="son-faint" style={{ fontSize: 10, display: 'inline-flex', alignItems: 'center', gap: 4 }} title="Lower this layer under dialogue"><input type="checkbox" checked={!!c.duckDialogue} onChange={(e) => saveCue(c, { duckDialogue: e.target.checked })} /> duck</label>
               <SonChip color={c.status === 'APPROVED' ? 'var(--son-ok)' : c.status === 'SUGGESTED' ? 'var(--son-warn)' : '#94a3b8'}>{c.status}</SonChip>
               {c.status !== 'APPROVED' && <button className="son-iconbtn" title="Approve" onClick={() => setStatus(c.id, 'APPROVED')}>✓</button>}
+              <button className="son-iconbtn" title={c.layerType === 'MUSIC' ? 'Generate with Eleven Music' : 'Generate with ElevenLabs sound effects'}
+                onClick={() => generateCue(c)} disabled={genBusy === c.id}>
+                {genBusy === c.id ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+              </button>
               <label className="son-iconbtn" title="Upload your own sound for this cue" style={{ cursor: 'pointer' }}>
                 <Upload size={14} /><input type="file" accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac,.flac" hidden onChange={(e) => uploadToCue(c.id, e.target.files?.[0] || null)} />
               </label>

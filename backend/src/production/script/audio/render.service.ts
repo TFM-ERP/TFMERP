@@ -84,21 +84,22 @@ export class RenderService implements OnModuleInit {
 
     const segments: Segment[] = [];
     const speakers = new Set<string>();
-    let i = 0, speaker: string | null = null, pendingHint: string | null = null;
+    let i = 0, speaker: string | null = null, pendingHint: string | null = null, sceneIdx = 0;
     for (const pg of ((rev.pageText as any[]) || [])) {
       if (includedPages && !includedPages.has(pg.page)) { speaker = null; pendingHint = null; continue; }
       for (const raw of String(pg.text || '').split('\n')) {
         const line = raw.trim();
         if (!line) { speaker = null; pendingHint = null; continue; }
+        if (this.SLUG_RE.test(line)) sceneIdx += 1; // scene boundary — used for dialogue-chunk rendering
         const cue = line.match(this.CUE_RE);
         if (cue && line.split(' ').length <= 4 && !this.SLUG_RE.test(line)) { speaker = cue[1].trim().replace(/\s+/g, ' '); speakers.add(speaker); pendingHint = null; continue; }
         if (speaker) {
           // Parentheticals — (angry), (over radio) — aren't spoken; they steer the NEXT line's delivery/effect.
           const par = line.match(/^\((.{1,60})\)$/);
           if (par) { pendingHint = par[1].trim(); continue; }
-          if (!narratorOnly) { segments.push({ id: `s${i++}`, kind: 'dialogue', character: speaker, text: line, hint: pendingHint || undefined }); pendingHint = null; }
+          if (!narratorOnly) { segments.push({ id: `s${i++}`, kind: 'dialogue', character: speaker, text: line, hint: pendingHint || undefined, scene: sceneIdx }); pendingHint = null; }
         } else if (wantNarration && !dialogueOnly) {
-          segments.push({ id: `s${i++}`, kind: 'narration', text: line });
+          segments.push({ id: `s${i++}`, kind: 'narration', text: line, scene: sceneIdx });
         }
       }
       speaker = null; pendingHint = null;
@@ -412,7 +413,8 @@ export class RenderService implements OnModuleInit {
         await this.prisma.audioRenderJob.update({ where: { id: jobId }, data: { progress: Math.round((done / segments.length) * 90) } }).catch(() => {});
       }
     };
-    for (const seg of segments) {
+    // ── Per-line synthesis (cache → synth → fx). Also the fallback for dialogue chunks. ──
+    const synthLine = async (seg: Segment): Promise<void> => {
       const isNarr = seg.kind === 'narration';
       const { profile } = await this.voiceFor(job.revisionId, seg.character, isNarr);
       // Voice: cast profile's id, else the same default pick live reading uses (never fails on uncast speakers).
@@ -434,14 +436,14 @@ export class RenderService implements OnModuleInit {
         await this.prisma.lineSynthesisCache.update({ where: { id: hit.id }, data: { hitCount: { increment: 1 }, lastUsedAt: new Date() } });
         await this.prisma.voiceUsageRecord.create({ data: { jobId, engineKey: engineRow.key, projectId: job.projectId, userId: job.requestedById, charsBilled: 0, totalCost: 0, currency, cacheHit: true } });
         await tick();
-        continue;
+        return;
       }
       // One retry on timeout / transient provider error (rate limits, blips).
       let res;
-      try { res = await adapter.synthesize({ ...seg, text }, cfg); }
+      try { res = await adapter.synthesize!({ ...seg, text }, cfg); }
       catch {
         await new Promise((r) => setTimeout(r, 2500));
-        res = await adapter.synthesize({ ...seg, text }, cfg);
+        res = await adapter.synthesize!({ ...seg, text }, cfg);
       }
       let fn = `tts-${key.slice(0, 24)}.mp3`;
       fs.writeFileSync(this.absPath(fn), res.audio);
@@ -461,6 +463,70 @@ export class RenderService implements OnModuleInit {
       billed += res.charsBilled; cost += lineCost;
       await this.prisma.voiceUsageRecord.create({ data: { jobId, engineKey: engineRow.key, projectId: job.projectId, userId: job.requestedById, charsBilled: res.charsBilled, unitCost: rate, totalCost: lineCost, currency, cacheHit: false } });
       await tick();
+    };
+
+    // ── v3 Text-to-Dialogue: whole scenes as multi-speaker turns — natural interplay
+    //    (interruptions, reactions) instead of stitched single lines. ──────────────────
+    const canDialogue = engineRow.key === 'ELEVENLABS'
+      && /v3/i.test(engineRow.defaultModel || 'eleven_v3')
+      && typeof (adapter as any).synthesizeDialogue === 'function'
+      && (job.options as any)?.dialogueMode !== false;
+
+    if (!canDialogue) {
+      for (const seg of segments) await synthLine(seg);
+    } else {
+      // Chunk: consecutive segments of one scene, capped per request.
+      const chunks: Segment[][] = [];
+      let curC: Segment[] = []; let curChars = 0;
+      for (const seg of segments) {
+        const sameScene = !curC.length || curC[0].scene === seg.scene;
+        if (!sameScene || curC.length >= 14 || curChars + seg.text.length > 2400) { if (curC.length) chunks.push(curC); curC = []; curChars = 0; }
+        curC.push(seg); curChars += seg.text.length;
+      }
+      if (curC.length) chunks.push(curC);
+
+      for (const chunk of chunks) {
+        // Tiny chunks and audio-FX lines (radio/phone — per-line ffmpeg) render line-by-line.
+        if (chunk.length < 2 || chunk.some((s) => this.effectFor(s.hint))) { for (const seg of chunk) await synthLine(seg); continue; }
+        try {
+          const turns: { text: string; voiceId: string }[] = [];
+          for (const seg of chunk) {
+            const isNarr = seg.kind === 'narration';
+            const { profile } = await this.voiceFor(job.revisionId, seg.character, isNarr);
+            const voiceId = profile?.externalVoiceId || await this.defaultVoiceId(engineRow.key, seg.character, isNarr);
+            if (!voiceId) throw new Error('uncast speaker');
+            const emo = this.emotionSettings(seg.hint || (!isNarr ? profile?.style || undefined : undefined));
+            const tagLine = this.deliveryTags(profile, emo?.key);
+            const text = this.pron.applyTo(seg.text, dict);
+            turns.push({ voiceId, text: tagLine ? `[${tagLine}] ${text}` : text });
+          }
+          const chunkKey = createHash('sha256').update(`DLG|${engineRow.key}|${engineRow.defaultModel || 'eleven_v3'}|${JSON.stringify(turns)}`).digest('hex');
+          const hit = await this.prisma.lineSynthesisCache.findUnique({ where: { cacheKey: chunkKey } }).catch(() => null);
+          if (hit && fs.existsSync(this.absPath(hit.url))) {
+            buffers.push(fs.readFileSync(this.absPath(hit.url)));
+            await this.prisma.lineSynthesisCache.update({ where: { id: hit.id }, data: { hitCount: { increment: 1 }, lastUsedAt: new Date() } });
+            await this.prisma.voiceUsageRecord.create({ data: { jobId, engineKey: engineRow.key, projectId: job.projectId, userId: job.requestedById, charsBilled: 0, totalCost: 0, currency, cacheHit: true } });
+            for (let t = 0; t < chunk.length; t++) await tick();
+            continue;
+          }
+          const res = await (adapter as any).synthesizeDialogue(turns, engineRow.defaultModel || 'eleven_v3');
+          const fn = `dlg-${chunkKey.slice(0, 24)}.mp3`;
+          fs.writeFileSync(this.absPath(fn), res.audio);
+          buffers.push(res.audio);
+          await this.prisma.lineSynthesisCache.upsert({
+            where: { cacheKey: chunkKey },
+            update: { url: `/uploads/${fn}`, hitCount: { increment: 1 }, lastUsedAt: new Date() },
+            create: { cacheKey: chunkKey, engineKey: engineRow.key, url: `/uploads/${fn}`, charsBilled: res.charsBilled },
+          });
+          const cCost = Math.round(res.charsBilled * rate * 100) / 100;
+          billed += res.charsBilled; cost += cCost;
+          await this.prisma.voiceUsageRecord.create({ data: { jobId, engineKey: engineRow.key, projectId: job.projectId, userId: job.requestedById, charsBilled: res.charsBilled, unitCost: rate, totalCost: cCost, currency, cacheHit: false } });
+          for (let t = 0; t < chunk.length; t++) await tick();
+        } catch {
+          // dialogue API refused (plan access / payload) — per-line fallback for this chunk
+          for (const seg of chunk) await synthLine(seg);
+        }
+      }
     }
 
     // Dialogue stem = sequential concat of mp3 segments.
@@ -491,6 +557,38 @@ export class RenderService implements OnModuleInit {
     await this.prisma.audioRenderJob.update({ where: { id: jobId }, data: { status: 'DONE', progress: 100, costActual: cost, charsBilled: billed, outputAssetId: asset.id, finishedAt: new Date() } });
     await this.debitQuota(job.projectId || undefined, billed, cost);
     return this.prisma.audioRenderJob.findUnique({ where: { id: jobId } });
+  }
+
+  // ── S4: generate a cue's audio on demand (SFX / ambience / foley via sound-generation,
+  //        MUSIC via Eleven Music) so it can be auditioned in the Layers timeline. ──────
+  async generateCueAudio(cueId: string, userId?: string) {
+    const fs = await import('fs');
+    const cue = await this.prisma.sceneAudioCue.findUnique({ where: { id: cueId } });
+    if (!cue) throw new NotFoundException('Cue not found.');
+    if (!cue.genPrompt) throw new BadRequestException('Give the cue a prompt first — what should it sound like?');
+    const isMusic = cue.layerType === 'MUSIC';
+    const resolved = await this.engines.resolve(isMusic ? 'MUSIC' : 'SFX', undefined).catch(() => null);
+    let engineRow = resolved?.engine?.key && resolved.engine.key !== 'BROWSER'
+      ? await this.prisma.audioEngine.findUnique({ where: { key: resolved.engine.key } }) : null;
+    if (!engineRow || !engineRow.enabled) engineRow = await this.prisma.audioEngine.findUnique({ where: { key: 'ELEVENLABS' } });
+    if (!engineRow?.enabled) throw new BadRequestException('No studio engine enabled for sound generation.');
+    const adapter: any = buildAdapter(engineRow);
+    const gen = isMusic ? adapter.generateMusic?.bind(adapter) : adapter.generateSfx?.bind(adapter);
+    if (!gen) throw new BadRequestException('The engine cannot generate this layer type.');
+    const durationMs = isMusic ? 30000 : (cue.layerType === 'AMBIENCE' || cue.layerType === 'ROOMTONE') ? 20000 : 8000;
+    let res;
+    try { res = await gen(cue.genPrompt, { durationMs }); }
+    catch (e: any) { throw new BadRequestException(`Generation failed (${engineRow.displayName}): ${String(e?.message || e).slice(0, 200)}`); }
+    const fn = `cue-${cueId.slice(0, 12)}-${Date.now()}.mp3`;
+    fs.writeFileSync(this.absPath(fn), res.audio);
+    // bill per generation + debit project quota
+    const cm: any = engineRow.costModel || {};
+    const gCost = Number((isMusic ? cm.music : cm.sfx)?.rate || 0);
+    const doc = await this.prisma.scriptDocument.findFirst({ where: { revisions: { some: { id: cue.revisionId } } }, select: { projectId: true } });
+    await this.prisma.voiceUsageRecord.create({ data: { engineKey: engineRow.key, capability: isMusic ? 'MUSIC' : 'SFX', projectId: doc?.projectId || null, userId: userId || null, charsBilled: 0, totalCost: gCost, currency: cm.currency || 'USD', cacheHit: false } });
+    await this.debitQuota(doc?.projectId || undefined, 0, gCost);
+    const updated = await this.prisma.sceneAudioCue.update({ where: { id: cueId }, data: { uploadUrl: `/uploads/${fn}` } });
+    return { cue: updated, url: `/uploads/${fn}`, cost: gCost };
   }
 
   // ── Layer mixing (ffmpeg) ─────────────────────────────────────────────────────────
