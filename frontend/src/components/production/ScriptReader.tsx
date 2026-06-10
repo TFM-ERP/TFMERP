@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback, memo } from 'react';
 import {
   X, Play, Pause, Square, RotateCcw, Highlighter, Eye, EyeOff, Type as TypeIcon,
   Volume2, Mic, Video, ChevronDown, Users, BookOpen,
@@ -46,6 +46,36 @@ function parseScript(pageText: { page: number; text: string }[]): El[] {
 }
 
 const speak = typeof window !== 'undefined' ? window.speechSynthesis : null;
+
+const ROW_STYLE: Record<El['type'], React.CSSProperties> = {
+  scene: { fontWeight: 700, textTransform: 'uppercase', marginTop: 18 },
+  transition: { textAlign: 'right', fontWeight: 600 },
+  character: { textAlign: 'center', fontWeight: 600, marginTop: 10 },
+  paren: { textAlign: 'center', fontStyle: 'italic', color: '#64748b' },
+  dialogue: { maxWidth: '62%', margin: '0 auto' },
+  action: { marginTop: 8 },
+};
+
+/**
+ * One script line, memoized — large scripts have thousands of rows, so toolbar toggles
+ * and the moving playback cursor must only re-render the rows whose props changed.
+ */
+const Row = memo(function Row({ e, idx, bgColor, divide, sceneNo, eighthsLabel, dlgNo, hidden, onReveal }: {
+  e: El; idx: number; bgColor?: string; divide: boolean; sceneNo: number | null;
+  eighthsLabel: string | null; dlgNo: number | null; hidden: boolean; onReveal: (idx: number) => void;
+}) {
+  return (
+    <div data-el={idx}
+      style={{ ...ROW_STYLE[e.type], background: bgColor, borderRadius: 4, padding: bgColor ? '1px 4px' : undefined, borderTop: divide ? '1px solid #cbd5e1' : undefined, paddingTop: divide ? 12 : undefined }}>
+      {sceneNo != null && <span style={{ color: '#94a3b8', fontWeight: 700, marginRight: 8 }}>#{sceneNo}</span>}
+      {hidden
+        ? <button onClick={() => onReveal(idx)} className="inline-block bg-slate-900 text-slate-900 rounded select-none" style={{ minWidth: 120 }}>{e.text}</button>
+        : e.text}
+      {eighthsLabel && <span style={{ color: '#94a3b8', fontWeight: 400, marginLeft: 8, fontSize: '0.78em' }}>{eighthsLabel} pg</span>}
+      {dlgNo != null && <sup style={{ color: '#94a3b8', marginLeft: 4, fontSize: '0.66em' }}>{dlgNo}</sup>}
+    </div>
+  );
+});
 
 export default function ScriptReader({ revision, onClose }: { revision: any; onClose: () => void }) {
   const els = useMemo(() => parseScript(revision?.pageText || []), [revision]);
@@ -222,18 +252,7 @@ export default function ScriptReader({ revision, onClose }: { revision: any; onC
     run(cursor >= 0 ? cursor : 0);
   };
 
-  // Element styling + highlight logic
-  const elStyle = (e: El): React.CSSProperties => {
-    const base: React.CSSProperties = {};
-    if (e.type === 'scene') { base.fontWeight = 700; base.textTransform = 'uppercase'; base.marginTop = 18; }
-    if (e.type === 'transition') { base.textAlign = 'right'; base.fontWeight = 600; }
-    if (e.type === 'character') { base.textAlign = 'center'; base.fontWeight = 600; base.marginTop = 10; }
-    if (e.type === 'paren') { base.textAlign = 'center'; base.fontStyle = 'italic'; base.color = '#64748b'; }
-    if (e.type === 'dialogue') { base.maxWidth = '62%'; base.margin = '0 auto'; }
-    if (e.type === 'action') { base.marginTop = 8; }
-    return base;
-  };
-
+  // Highlight logic (row styling itself lives in the memoized Row component)
   const bg = (e: El, idx: number): string | undefined => {
     if (cursor === idx) return '#fde68a';
     if (hl.scene && e.type === 'scene') return '#fef9c3';
@@ -248,6 +267,7 @@ export default function ScriptReader({ revision, onClose }: { revision: any; onC
   };
 
   const isHidden = (e: El, idx: number) => blackout && actor && e.character === actor && e.type === 'dialogue' && !revealed.has(idx);
+  const onReveal = useCallback((idx: number) => setRevealed((r) => new Set(r).add(idx)), []);
 
   return (
     <div className="fixed inset-0 z-[80] bg-slate-900/50 flex items-stretch" onClick={onClose}>
@@ -366,20 +386,16 @@ export default function ScriptReader({ revision, onClose }: { revision: any; onC
           <div className="mx-auto shadow-sm rounded-md px-8 sm:px-14 py-10 max-w-3xl"
             style={{ fontFamily: serif ? 'Georgia, serif' : 'ui-monospace, Menlo, monospace', fontSize: font, lineHeight: 1.5, background: info.tint ? tintFor(revision?.colorCode) : '#ffffff' }}>
             {els.length === 0 && <p className="text-slate-400 text-sm">No extractable text in this revision. (Scanned PDFs have no text layer.)</p>}
-            {els.map((e, idx) => {
-              const divide = info.dividers && e.type === 'scene' && idx > 0;
-              return (
-                <div key={idx} data-el={idx}
-                  style={{ ...elStyle(e), background: bg(e, idx), borderRadius: 4, padding: bg(e, idx) ? '1px 4px' : undefined, borderTop: divide ? '1px solid #cbd5e1' : undefined, paddingTop: divide ? 12 : undefined }}>
-                  {e.type === 'scene' && info.sceneNo && <span style={{ color: '#94a3b8', fontWeight: 700, marginRight: 8 }}>#{meta.sceneOf[idx]}</span>}
-                  {isHidden(e, idx)
-                    ? <button onClick={() => setRevealed((r) => new Set(r).add(idx))} className="inline-block bg-slate-900 text-slate-900 rounded select-none" style={{ minWidth: 120 }}>{e.text}</button>
-                    : e.text}
-                  {e.type === 'scene' && info.eighths && <span style={{ color: '#94a3b8', fontWeight: 400, marginLeft: 8, fontSize: '0.78em' }}>{eighths(meta.counts[meta.sceneOf[idx]])} pg</span>}
-                  {e.type === 'dialogue' && info.dialogueNo && meta.dlgOf[idx] != null && <sup style={{ color: '#94a3b8', marginLeft: 4, fontSize: '0.66em' }}>{meta.dlgOf[idx]}</sup>}
-                </div>
-              );
-            })}
+            {els.map((e, idx) => (
+              <Row key={idx} e={e} idx={idx}
+                bgColor={bg(e, idx)}
+                divide={info.dividers && e.type === 'scene' && idx > 0}
+                sceneNo={e.type === 'scene' && info.sceneNo ? meta.sceneOf[idx] : null}
+                eighthsLabel={e.type === 'scene' && info.eighths ? eighths(meta.counts[meta.sceneOf[idx]]) : null}
+                dlgNo={e.type === 'dialogue' && info.dialogueNo ? meta.dlgOf[idx] : null}
+                hidden={!!isHidden(e, idx)}
+                onReveal={onReveal} />
+            ))}
           </div>
         </div>
       </div>

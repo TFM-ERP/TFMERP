@@ -177,6 +177,16 @@ export class RenderService implements OnModuleInit {
   }
 
   // ── Live line synthesis (Reader / transport) ─────────────────────────────────────
+  /** In-memory engine voice-library cache (10 min) for default-voice picks. */
+  private voiceLibCache = new Map<string, { at: number; voices: any[] }>();
+  private async engineVoicesCached(engineKey: string): Promise<any[]> {
+    const hit = this.voiceLibCache.get(engineKey);
+    if (hit && Date.now() - hit.at < 10 * 60 * 1000) return hit.voices;
+    const voices = await this.engines.listEngineVoices(engineKey).catch(() => [] as any[]);
+    this.voiceLibCache.set(engineKey, { at: Date.now(), voices });
+    return voices;
+  }
+
   /**
    * One line in → audio URL out, using the character's cast studio voice. Powers LIVE
    * reading (Reader playback + Audio Studio transport) — no render job, no export.
@@ -207,10 +217,25 @@ export class RenderService implements OnModuleInit {
     const adapter = buildAdapter(engineRow);
     if (!adapter.synthesize) throw new BadRequestException('Engine has no server-side TTS.');
 
+    // Voice id: the cast profile's, else a stable default from the engine's own library
+    // (narrator → a narration-suited voice; characters → deterministic per-name pick).
+    let voiceId = profile?.externalVoiceId || null;
+    if (!voiceId) {
+      const lib = await this.engineVoicesCached(engineRow.key);
+      if (lib.length) {
+        if (isNarr) voiceId = (lib.find((v: any) => /narrat/i.test(`${v.useCase || ''} ${v.description || ''}`)) || lib[0]).id;
+        else {
+          let h = 0; for (const ch of String(b?.character || '')) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+          voiceId = lib[h % lib.length].id;
+        }
+      }
+    }
+    if (!voiceId) throw new BadRequestException(`No voice for "${b?.character || 'NARRATOR'}" — cast it in Audio Studio → Voices (or check the ${engineRow.displayName} API key).`);
+
     const dict = await this.pron.resolveMap({ projectId, revisionId });
     const text = this.pron.applyTo(text0, dict);
     const seg: Segment = { id: 'live', kind: isNarr ? 'narration' : 'dialogue', character: b?.character, text };
-    const key = this.cacheKey(seg, engineRow.key, profile?.externalVoiceId || '');
+    const key = this.cacheKey(seg, engineRow.key, voiceId);
     const currency = (engineRow.costModel as any)?.currency || 'USD';
 
     // Cache hit → free replay
@@ -226,8 +251,10 @@ export class RenderService implements OnModuleInit {
       throw new BadRequestException('Project audio quota reached (hard stop) — live studio reading paused.');
     }
 
-    const cfg = { externalVoiceId: profile?.externalVoiceId || undefined, rate: Number(profile?.defaultRate ?? 1) };
-    const res = await adapter.synthesize(seg, cfg);
+    const cfg = { externalVoiceId: voiceId, rate: Number(profile?.defaultRate ?? 1) };
+    let res;
+    try { res = await adapter.synthesize(seg, cfg); }
+    catch (e: any) { throw new BadRequestException(`Live synthesis failed (${engineRow.displayName}): ${String(e?.message || e).slice(0, 200)}`); }
     const fn = `tts-${key.slice(0, 24)}.mp3`;
     fs.writeFileSync(this.absPath(fn), res.audio);
     await this.prisma.lineSynthesisCache.create({ data: { cacheKey: key, engineKey: engineRow.key, url: `/uploads/${fn}`, charsBilled: res.charsBilled } });
