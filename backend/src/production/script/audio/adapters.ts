@@ -15,9 +15,17 @@ export interface VoiceConfig {
   language?: string;
   stability?: number;
   similarity?: number;
+  /** Emotion-driven delivery (from script parentheticals / punctuation). */
+  styleAmount?: number;   // ElevenLabs style exaggeration 0..1
+  speed?: number;         // ElevenLabs voice_settings.speed (~0.7–1.2)
+  emotionTag?: string;    // normalized label, e.g. "excited" — v3 audio tag / OpenAI instructions
 }
 
-export interface Segment { id: string; kind: 'dialogue' | 'narration'; character?: string; text: string; }
+export interface Segment {
+  id: string; kind: 'dialogue' | 'narration'; character?: string; text: string;
+  /** Delivery/effect hint from the script's parenthetical, e.g. "angry", "over radio". */
+  hint?: string;
+}
 export interface SynthResult { audio: Buffer; mime: string; charsBilled: number; durationMs?: number; timings?: any[]; }
 export interface CostEstimate { charsBilled: number; unitCost: number; total: number; currency: string; }
 
@@ -83,13 +91,16 @@ export class ElevenLabsAdapter implements AudioProviderAdapter {
 
   async synthesize(seg: Segment, cfg: VoiceConfig): Promise<SynthResult> {
     const voice = cfg.externalVoiceId; if (!voice) throw new Error('No ElevenLabs voice id on this assignment.');
+    const model = cfg.model || this.defaultModel || 'eleven_multilingual_v2';
+    // v3 models take inline audio tags ([excited] …); v2 models take voice_settings modulation.
+    const isV3 = /v3/i.test(model);
+    const text = isV3 && cfg.emotionTag ? `[${cfg.emotionTag}] ${seg.text}` : seg.text;
+    const vs: any = { stability: cfg.stability ?? 0.5, similarity_boost: cfg.similarity ?? 0.75, style: cfg.styleAmount ?? 0, use_speaker_boost: true };
+    if (cfg.speed && !isV3) vs.speed = Math.min(1.2, Math.max(0.7, cfg.speed));
     const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}`, {
       method: 'POST',
       headers: { 'xi-api-key': this.apiKey(), 'Content-Type': 'application/json', accept: 'audio/mpeg' },
-      body: JSON.stringify({
-        text: seg.text, model_id: cfg.model || this.defaultModel || 'eleven_multilingual_v2',
-        voice_settings: { stability: cfg.stability ?? 0.5, similarity_boost: cfg.similarity ?? 0.75, style: 0, use_speaker_boost: true },
-      }),
+      body: JSON.stringify({ text, model_id: model, voice_settings: vs }),
     });
     if (!r.ok) throw new Error(`ElevenLabs TTS ${r.status}: ${await r.text().catch(() => '')}`);
     return { audio: Buffer.from(await r.arrayBuffer()), mime: 'audio/mpeg', charsBilled: seg.text.length };
@@ -133,9 +144,11 @@ export class OpenAiAdapter implements AudioProviderAdapter {
   }
 
   async synthesize(seg: Segment, cfg: VoiceConfig): Promise<SynthResult> {
+    const body: any = { model: cfg.model || this.defaultModel || 'gpt-4o-mini-tts', voice: cfg.externalVoiceId || 'alloy', input: seg.text, response_format: 'mp3', speed: cfg.rate ?? 1 };
+    if (cfg.emotionTag) body.instructions = `Deliver the line in a ${cfg.emotionTag} tone.`; // supported by gpt-4o-mini-tts
     const r = await fetch('https://api.openai.com/v1/audio/speech', {
       method: 'POST', headers: { Authorization: `Bearer ${this.apiKey()}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: cfg.model || this.defaultModel || 'gpt-4o-mini-tts', voice: cfg.externalVoiceId || 'alloy', input: seg.text, response_format: 'mp3', speed: cfg.rate ?? 1 }),
+      body: JSON.stringify(body),
     });
     if (!r.ok) throw new Error(`OpenAI TTS ${r.status}: ${await r.text().catch(() => '')}`);
     return { audio: Buffer.from(await r.arrayBuffer()), mime: 'audio/mpeg', charsBilled: seg.text.length };

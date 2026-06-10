@@ -75,21 +75,24 @@ export class RenderService implements OnModuleInit {
 
     const segments: Segment[] = [];
     const speakers = new Set<string>();
-    let i = 0, speaker: string | null = null;
+    let i = 0, speaker: string | null = null, pendingHint: string | null = null;
     for (const pg of ((rev.pageText as any[]) || [])) {
-      if (includedPages && !includedPages.has(pg.page)) { speaker = null; continue; }
+      if (includedPages && !includedPages.has(pg.page)) { speaker = null; pendingHint = null; continue; }
       for (const raw of String(pg.text || '').split('\n')) {
         const line = raw.trim();
-        if (!line) { speaker = null; continue; }
+        if (!line) { speaker = null; pendingHint = null; continue; }
         const cue = line.match(this.CUE_RE);
-        if (cue && line.split(' ').length <= 4 && !this.SLUG_RE.test(line)) { speaker = cue[1].trim().replace(/\s+/g, ' '); speakers.add(speaker); continue; }
+        if (cue && line.split(' ').length <= 4 && !this.SLUG_RE.test(line)) { speaker = cue[1].trim().replace(/\s+/g, ' '); speakers.add(speaker); pendingHint = null; continue; }
         if (speaker) {
-          if (!narratorOnly) { segments.push({ id: `s${i++}`, kind: 'dialogue', character: speaker, text: line }); }
+          // Parentheticals — (angry), (over radio) — aren't spoken; they steer the NEXT line's delivery/effect.
+          const par = line.match(/^\((.{1,60})\)$/);
+          if (par) { pendingHint = par[1].trim(); continue; }
+          if (!narratorOnly) { segments.push({ id: `s${i++}`, kind: 'dialogue', character: speaker, text: line, hint: pendingHint || undefined }); pendingHint = null; }
         } else if (wantNarration && !dialogueOnly) {
           segments.push({ id: `s${i++}`, kind: 'narration', text: line });
         }
       }
-      speaker = null;
+      speaker = null; pendingHint = null;
     }
     return { segments, speakers };
   }
@@ -177,6 +180,82 @@ export class RenderService implements OnModuleInit {
   }
 
   // ── Live line synthesis (Reader / transport) ─────────────────────────────────────
+  /** Emotion label → delivery settings (ElevenLabs stability/style/speed; tag for v3/OpenAI). */
+  private static readonly EMO: Record<string, { stability: number; style: number; speed?: number }> = {
+    excited:    { stability: 0.25, style: 0.70, speed: 1.07 },
+    happy:      { stability: 0.35, style: 0.55, speed: 1.03 },
+    joking:     { stability: 0.35, style: 0.55 },
+    angry:      { stability: 0.20, style: 0.75, speed: 1.05 },
+    shouting:   { stability: 0.20, style: 0.80, speed: 1.07 },
+    shocked:    { stability: 0.25, style: 0.70 },
+    sad:        { stability: 0.50, style: 0.45, speed: 0.93 },
+    crying:     { stability: 0.35, style: 0.60, speed: 0.90 },
+    bored:      { stability: 0.80, style: 0.10, speed: 0.88 },
+    tired:      { stability: 0.75, style: 0.15, speed: 0.88 },
+    whispering: { stability: 0.60, style: 0.35, speed: 0.95 },
+    calm:       { stability: 0.75, style: 0.15 },
+    nervous:    { stability: 0.30, style: 0.60, speed: 1.06 },
+    scared:     { stability: 0.25, style: 0.65, speed: 1.05 },
+    sarcastic:  { stability: 0.40, style: 0.55, speed: 0.97 },
+    hesitant:   { stability: 0.45, style: 0.40, speed: 0.90 },
+    explaining: { stability: 0.65, style: 0.20, speed: 0.96 },
+    intense:    { stability: 0.25, style: 0.70 },
+  };
+  private static readonly EMO_ALIAS: Record<string, string> = {
+    exited: 'excited', thrilled: 'excited', mad: 'angry', furious: 'angry', yelling: 'shouting',
+    screaming: 'shouting', screams: 'shouting', whisper: 'whispering', whispers: 'whispering',
+    quietly: 'whispering', softly: 'whispering', deadpan: 'bored', flat: 'bored', shrug: 'bored',
+    smiling: 'happy', smile: 'happy', grinning: 'happy', laughing: 'joking', laughs: 'joking',
+    joke: 'joking', kidding: 'joking', teasing: 'joking', beat: 'hesitant', pause: 'hesitant',
+    unsure: 'hesitant', confused: 'hesitant', sigh: 'tired', sighs: 'tired', sighing: 'tired',
+    sleepy: 'tired', exhausted: 'tired', panicked: 'scared', panic: 'scared', terrified: 'scared',
+    anxious: 'nervous', worried: 'nervous', annoyed: 'sarcastic', dry: 'sarcastic', dumb: 'joking',
+  };
+  /** Normalize a parenthetical/punctuation hint to delivery settings; unknown labels get a mild expressive bump. */
+  private emotionSettings(raw?: string): ({ key: string; stability: number; style: number; speed?: number } | null) {
+    if (!raw) return null;
+    const t = String(raw).toLowerCase().replace(/[^a-z ]/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!t) return null;
+    for (const w of [t, ...t.split(' ')]) {
+      const k = RenderService.EMO[w] ? w : RenderService.EMO_ALIAS[w];
+      if (k && RenderService.EMO[k]) return { key: k, ...RenderService.EMO[k] };
+    }
+    return { key: t.slice(0, 30), stability: 0.4, style: 0.45 };
+  }
+
+  /** Audio-effect parentheticals → ffmpeg filter chains (applied per line when ffmpeg is on PATH). */
+  private static readonly FX: Record<string, string> = {
+    radio:     'highpass=f=400,lowpass=f=2800,acompressor=ratio=8:threshold=-18dB,volume=1.3',
+    phone:     'highpass=f=300,lowpass=f=3400,volume=1.1',
+    tv:        'highpass=f=150,lowpass=f=5000',
+    megaphone: 'highpass=f=500,lowpass=f=4000,acompressor=ratio=12:threshold=-15dB,aecho=0.8:0.5:30:0.2,volume=1.4',
+    echo:      'aecho=0.8:0.7:60|130:0.35|0.25',
+    muffled:   'lowpass=f=700,volume=0.9',
+  };
+  private static readonly FX_ALIAS: Record<string, string> = {
+    'walkie': 'radio', 'static': 'radio', 'comms': 'radio', 'dispatch': 'radio', 'headset': 'radio',
+    'intercom': 'megaphone', 'p.a.': 'megaphone', 'pa system': 'megaphone', 'loudspeaker': 'megaphone',
+    'bullhorn': 'megaphone', 'announcement': 'megaphone', 'tannoy': 'megaphone',
+    'phone': 'phone', 'telephone': 'phone', 'voicemail': 'phone', 'speakerphone': 'phone', 'cell': 'phone',
+    'television': 'tv', 'on tv': 'tv', 'broadcast': 'tv', 'newscast': 'tv',
+    'reverb': 'echo', 'cave': 'echo', 'cathedral': 'echo', 'echoing': 'echo', 'hallway': 'echo',
+    'through the wall': 'muffled', 'through the door': 'muffled', 'next room': 'muffled',
+    'behind the door': 'muffled', 'mask': 'muffled', 'underwater': 'muffled',
+  };
+  /** Detect an audio effect in a parenthetical hint ("over radio", "on the phone", …). */
+  private effectFor(raw?: string): { key: string; filter: string } | null {
+    if (!raw) return null;
+    const t = String(raw).toLowerCase();
+    for (const k of Object.keys(RenderService.FX)) if (t.includes(k)) return { key: k, filter: RenderService.FX[k] };
+    for (const [a, k] of Object.entries(RenderService.FX_ALIAS)) if (t.includes(a)) return { key: k, filter: RenderService.FX[k] };
+    return null;
+  }
+  /** Run a line through an ffmpeg filter chain. False (= keep the dry audio) if ffmpeg is missing or fails. */
+  private async applyFx(inAbs: string, outAbs: string, filter: string): Promise<boolean> {
+    if (!(await this.ffmpegAvailable())) return false;
+    return this.runFfmpeg(['-y', '-i', inAbs, '-af', filter, '-codec:a', 'libmp3lame', '-q:a', '4', outAbs]);
+  }
+
   /** In-memory engine voice-library cache (10 min) for default-voice picks. */
   private voiceLibCache = new Map<string, { at: number; voices: any[] }>();
   private async engineVoicesCached(engineKey: string): Promise<any[]> {
@@ -193,7 +272,7 @@ export class RenderService implements OnModuleInit {
    * Same LineSynthesisCache + usage ledger + quota as renders, so replays are free
    * and every paid character is accounted for.
    */
-  async speakLine(revisionId: string, b: { text?: string; character?: string; kind?: string }, userId?: string) {
+  async speakLine(revisionId: string, b: { text?: string; character?: string; kind?: string; emotion?: string }, userId?: string) {
     const fs = await import('fs');
     const text0 = String(b?.text || '').trim();
     if (!text0) throw new BadRequestException('text is required.');
@@ -232,10 +311,15 @@ export class RenderService implements OnModuleInit {
     }
     if (!voiceId) throw new BadRequestException(`No voice for "${b?.character || 'NARRATOR'}" — cast it in Audio Studio → Voices (or check the ${engineRow.displayName} API key).`);
 
+    // Delivery: explicit emotion hint (parenthetical/punctuation) > the profile's baseline style.
+    // The same hint can also carry an audio EFFECT — "(angry, over radio)" applies both.
+    const emo = this.emotionSettings(b?.emotion || (!isNarr ? profile?.style || undefined : undefined));
+    const fx = this.effectFor(b?.emotion);
+
     const dict = await this.pron.resolveMap({ projectId, revisionId });
     const text = this.pron.applyTo(text0, dict);
     const seg: Segment = { id: 'live', kind: isNarr ? 'narration' : 'dialogue', character: b?.character, text };
-    const key = this.cacheKey(seg, engineRow.key, voiceId);
+    const key = this.cacheKey(seg, engineRow.key, `${voiceId}|${emo?.key || ''}|${fx?.key || ''}`); // same line, different delivery/effect = different cache entry
     const currency = (engineRow.costModel as any)?.currency || 'USD';
 
     // Cache hit → free replay
@@ -251,18 +335,26 @@ export class RenderService implements OnModuleInit {
       throw new BadRequestException('Project audio quota reached (hard stop) — live studio reading paused.');
     }
 
-    const cfg = { externalVoiceId: voiceId, rate: Number(profile?.defaultRate ?? 1) };
+    const cfg = {
+      externalVoiceId: voiceId, rate: Number(profile?.defaultRate ?? 1),
+      stability: emo?.stability, styleAmount: emo?.style, speed: emo?.speed, emotionTag: emo?.key,
+    };
     let res;
     try { res = await adapter.synthesize(seg, cfg); }
     catch (e: any) { throw new BadRequestException(`Live synthesis failed (${engineRow.displayName}): ${String(e?.message || e).slice(0, 200)}`); }
-    const fn = `tts-${key.slice(0, 24)}.mp3`;
+    let fn = `tts-${key.slice(0, 24)}.mp3`;
     fs.writeFileSync(this.absPath(fn), res.audio);
+    // Audio effect (radio/phone/megaphone/echo/muffled/tv) — ffmpeg per line; dry audio if unavailable.
+    if (fx) {
+      const fxName = `tts-${key.slice(0, 24)}-${fx.key}.mp3`;
+      if (await this.applyFx(this.absPath(fn), this.absPath(fxName), fx.filter)) fn = fxName;
+    }
     await this.prisma.lineSynthesisCache.create({ data: { cacheKey: key, engineKey: engineRow.key, url: `/uploads/${fn}`, charsBilled: res.charsBilled } });
     const rate = Number((engineRow.costModel as any)?.tts?.rate || 0);
     const lineCost = Math.round(res.charsBilled * rate * 10000) / 10000;
     await this.prisma.voiceUsageRecord.create({ data: { engineKey: engineRow.key, capability: 'LIVE_READ', projectId: projectId || null, userId: userId || null, charsBilled: res.charsBilled, unitCost: rate, totalCost: lineCost, currency, cacheHit: false } });
     await this.debitQuota(projectId, res.charsBilled, lineCost);
-    return { url: `/uploads/${fn}`, cached: false, cost: lineCost, currency, engineKey: engineRow.key };
+    return { url: `/uploads/${fn}`, cached: false, cost: lineCost, currency, engineKey: engineRow.key, effect: fx?.key };
   }
 
   async run(jobId: string) {
@@ -283,9 +375,15 @@ export class RenderService implements OnModuleInit {
     const buffers: Buffer[] = []; let billed = 0; let cost = 0;
     for (const seg of segments) {
       const { profile } = await this.voiceFor(job.revisionId, seg.character, seg.kind === 'narration');
-      const cfg = { externalVoiceId: profile?.externalVoiceId || undefined, rate: Number(profile?.defaultRate ?? 1) };
+      // Parenthetical-driven delivery + audio effect, same as live reading.
+      const emo = this.emotionSettings(seg.hint || (seg.kind === 'dialogue' ? profile?.style || undefined : undefined));
+      const fx = this.effectFor(seg.hint);
+      const cfg = {
+        externalVoiceId: profile?.externalVoiceId || undefined, rate: Number(profile?.defaultRate ?? 1),
+        stability: emo?.stability, styleAmount: emo?.style, speed: emo?.speed, emotionTag: emo?.key,
+      };
       const text = this.pron.applyTo(seg.text, dict);
-      const key = this.cacheKey({ ...seg, text }, engineRow.key, profile?.externalVoiceId || '');
+      const key = this.cacheKey({ ...seg, text }, engineRow.key, `${profile?.externalVoiceId || ''}|${emo?.key || ''}|${fx?.key || ''}`);
       const hit = await this.prisma.lineSynthesisCache.findUnique({ where: { cacheKey: key } }).catch(() => null);
       if (hit && fs.existsSync(this.absPath(hit.url))) {
         buffers.push(fs.readFileSync(this.absPath(hit.url)));
@@ -294,9 +392,13 @@ export class RenderService implements OnModuleInit {
         continue;
       }
       const res = await adapter.synthesize({ ...seg, text }, cfg);
-      const fn = `tts-${key.slice(0, 24)}.mp3`;
+      let fn = `tts-${key.slice(0, 24)}.mp3`;
       fs.writeFileSync(this.absPath(fn), res.audio);
-      buffers.push(res.audio);
+      if (fx) {
+        const fxName = `tts-${key.slice(0, 24)}-${fx.key}.mp3`;
+        if (await this.applyFx(this.absPath(fn), this.absPath(fxName), fx.filter)) fn = fxName;
+      }
+      buffers.push(fs.readFileSync(this.absPath(fn)));
       await this.prisma.lineSynthesisCache.create({ data: { cacheKey: key, engineKey: engineRow.key, url: `/uploads/${fn}`, charsBilled: res.charsBilled } });
       const lineCost = Math.round(res.charsBilled * rate * 100) / 100;
       billed += res.charsBilled; cost += lineCost;

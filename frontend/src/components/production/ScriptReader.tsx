@@ -47,32 +47,55 @@ function parseScript(pageText: { page: number; text: string }[]): El[] {
 
 const speak = typeof window !== 'undefined' ? window.speechSynthesis : null;
 
-const ROW_STYLE: Record<El['type'], React.CSSProperties> = {
-  scene: { fontWeight: 700, textTransform: 'uppercase', marginTop: 18 },
-  transition: { textAlign: 'right', fontWeight: 600 },
-  character: { textAlign: 'center', fontWeight: 600, marginTop: 10 },
-  paren: { textAlign: 'center', fontStyle: 'italic', color: '#64748b' },
-  dialogue: { maxWidth: '62%', margin: '0 auto' },
-  action: { marginTop: 8 },
+// Browser-voice emotion tweaks: emotion → [rate multiplier, pitch]
+const EMO_TWEAK: Record<string, [number, number]> = {
+  excited: [1.15, 1.2], happy: [1.05, 1.15], angry: [1.1, 0.9], shouting: [1.15, 1.05],
+  shocked: [1.1, 1.25], sad: [0.9, 0.9], bored: [0.85, 0.9], tired: [0.85, 0.85],
+  whispering: [0.95, 0.8], nervous: [1.1, 1.1], hesitant: [0.88, 1], calm: [0.95, 1],
 };
 
 /**
- * One script line, memoized — large scripts have thousands of rows, so toolbar toggles
- * and the moving playback cursor must only re-render the rows whose props changed.
+ * All highlight / info-layer / actor styling is CLASS-driven, keyed off classes on the
+ * page container — so toggling a toolbar option changes one container attribute and
+ * re-renders zero rows. Inline styles on rows never change after mount.
  */
-const Row = memo(function Row({ e, idx, bgColor, divide, sceneNo, eighthsLabel, dlgNo, hidden, onReveal }: {
-  e: El; idx: number; bgColor?: string; divide: boolean; sceneNo: number | null;
+const RDR_CSS = `
+.rdr .rdr-sceneno,.rdr .rdr-8ths,.rdr .rdr-dlgno{display:none}
+.rdr.rdr-info-sceneno .rdr-sceneno{display:inline}
+.rdr.rdr-info-8ths .rdr-8ths{display:inline}
+.rdr.rdr-info-dlgno .rdr-dlgno{display:inline}
+.rdr.rdr-info-div .rdr-scene:not(:first-child){border-top:1px solid #cbd5e1;padding-top:12px}
+.rdr.rdr-hl-scene .rdr-scene{background:#fef9c3;border-radius:4px;padding:1px 4px}
+.rdr.rdr-hl-action .rdr-action{background:#dbeafe;border-radius:4px;padding:1px 4px}
+.rdr.rdr-hl-character .rdr-character{background:#ede9fe;border-radius:4px;padding:1px 4px}
+.rdr.rdr-hl-dialogue .rdr-dialogue{background:#dcfce7;border-radius:4px;padding:1px 4px}
+.rdr.rdr-am-name .rdr-mine.rdr-character,.rdr.rdr-am-both .rdr-mine.rdr-character{background:#bbf7d0;border-radius:4px;padding:1px 4px}
+.rdr.rdr-am-dialogue .rdr-mine.rdr-dialogue,.rdr.rdr-am-both .rdr-mine.rdr-dialogue{background:#bbf7d0;border-radius:4px;padding:1px 4px}
+.rdr .rdr-active{background:#fde68a !important;border-radius:4px;padding:1px 4px}
+.rdr-scene{font-weight:700;text-transform:uppercase;margin-top:18px}
+.rdr-transition{text-align:right;font-weight:600}
+.rdr-character{text-align:center;font-weight:600;margin-top:10px}
+.rdr-paren{text-align:center;font-style:italic;color:#64748b}
+.rdr-dialogue{max-width:62%;margin:0 auto}
+.rdr-action{margin-top:8px}
+.rdr-sceneno{color:#94a3b8;font-weight:700;margin-right:8px}
+.rdr-8ths{color:#94a3b8;font-weight:400;margin-left:8px;font-size:.78em}
+.rdr-dlgno{color:#94a3b8;margin-left:4px;font-size:.66em}
+`;
+
+/** One script line, memoized — its props only change for cursor moves, actor change, or blackout. */
+const Row = memo(function Row({ e, idx, mine, active, sceneNo, eighthsLabel, dlgNo, hidden, onReveal }: {
+  e: El; idx: number; mine: boolean; active: boolean; sceneNo: number | null;
   eighthsLabel: string | null; dlgNo: number | null; hidden: boolean; onReveal: (idx: number) => void;
 }) {
   return (
-    <div data-el={idx}
-      style={{ ...ROW_STYLE[e.type], background: bgColor, borderRadius: 4, padding: bgColor ? '1px 4px' : undefined, borderTop: divide ? '1px solid #cbd5e1' : undefined, paddingTop: divide ? 12 : undefined }}>
-      {sceneNo != null && <span style={{ color: '#94a3b8', fontWeight: 700, marginRight: 8 }}>#{sceneNo}</span>}
+    <div data-el={idx} className={`rdr-${e.type}${mine ? ' rdr-mine' : ''}${active ? ' rdr-active' : ''}`}>
+      {sceneNo != null && <span className="rdr-sceneno">#{sceneNo}</span>}
       {hidden
         ? <button onClick={() => onReveal(idx)} className="inline-block bg-slate-900 text-slate-900 rounded select-none" style={{ minWidth: 120 }}>{e.text}</button>
         : e.text}
-      {eighthsLabel && <span style={{ color: '#94a3b8', fontWeight: 400, marginLeft: 8, fontSize: '0.78em' }}>{eighthsLabel} pg</span>}
-      {dlgNo != null && <sup style={{ color: '#94a3b8', marginLeft: 4, fontSize: '0.66em' }}>{dlgNo}</sup>}
+      {eighthsLabel && <span className="rdr-8ths">{eighthsLabel} pg</span>}
+      {dlgNo != null && <sup className="rdr-dlgno">{dlgNo}</sup>}
     </div>
   );
 });
@@ -139,6 +162,36 @@ export default function ScriptReader({ revision, onClose }: { revision: any; onC
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const synthRef = useRef<Map<number, Promise<any>>>(new Map());
 
+  // What gets read aloud (applies to Browser and Studio modes alike)
+  const [readSet, setReadSet] = useState({ scene: true, action: true, character: false, dialogue: true });
+
+  /**
+   * Delivery hint for a dialogue line: the parenthetical above it — (bored), (excited),
+   * (dumb joke)… — else punctuation cues: "?!" shocked, "!" excited, "…" hesitant,
+   * ALL-CAPS shouting. The engine turns this into voice settings (or browser rate/pitch).
+   */
+  const emotionFor = useCallback((idx: number): string | undefined => {
+    const e = els[idx];
+    if (e.type !== 'dialogue') return undefined;
+    for (let j = idx - 1; j >= 0; j--) {
+      const p = els[j];
+      if (p.type === 'paren' && p.character === e.character) {
+        const t = p.text.replace(/[()]/g, '').trim();
+        if (t && t.length <= 40) return t;
+        break;
+      }
+      if (p.type === 'dialogue' && p.character === e.character) continue;
+      break;
+    }
+    const t = e.text;
+    if (/(\?!|!\?)\s*$/.test(t)) return 'shocked';
+    if (/!\s*$/.test(t)) return 'excited';
+    if (/(\.\.\.|…)\s*$/.test(t)) return 'hesitant';
+    const caps = t.split(/\s+/).filter((w) => w.length > 2 && w === w.toUpperCase() && /[A-Z]/.test(w));
+    if (caps.length >= 2) return 'shouting';
+    return undefined;
+  }, [els]);
+
   /** Fetch (and memoize) the synthesized audio for one element — used for play + prefetch. */
   const synthFor = useCallback((idx: number) => {
     const e = els[idx];
@@ -148,11 +201,12 @@ export default function ScriptReader({ revision, onClose }: { revision: any; onC
         text: e.text,
         character: e.type === 'dialogue' ? e.character : undefined,
         kind: e.type === 'dialogue' ? 'dialogue' : 'narration',
+        emotion: emotionFor(idx),
       }).then((r) => r.data);
       synthRef.current.set(idx, p);
     }
     return p;
-  }, [els, revision?.id]);
+  }, [els, revision?.id, emotionFor]);
 
   // Record
   const [recOpen, setRecOpen] = useState(false);
@@ -189,10 +243,16 @@ export default function ScriptReader({ revision, onClose }: { revision: any; onC
       if (delayMs) setTimeout(() => { if (playRef.current) step(); }, delayMs);
       else if (playRef.current) step();
     };
-    const speakBrowser = (e: El) => {
+    // Honour the "Read:" toggles — same filter for Browser and Studio.
+    const canSpeak = (x: El) => !!x.text && (
+      (x.type === 'scene' && readSet.scene) || (x.type === 'action' && readSet.action) ||
+      (x.type === 'character' && readSet.character) || (x.type === 'dialogue' && readSet.dialogue));
+
+    const speakBrowser = (e: El, emotion?: string) => {
       if (!speak) { advance(); return; }
       const u = new SpeechSynthesisUtterance(e.type === 'character' ? `${e.text}.` : e.text);
-      u.rate = rate; u.pitch = 1;
+      const tw = emotion ? (EMO_TWEAK[emotion] || Object.entries(EMO_TWEAK).find(([k]) => emotion.includes(k))?.[1]) : undefined;
+      u.rate = rate * (tw?.[0] ?? 1); u.pitch = tw?.[1] ?? 1;
       const v = voiceFor(e.type === 'dialogue' || e.type === 'character' ? e.character : '_narrator');
       if (v) u.voice = v;
       u.onend = () => advance(); u.onerror = () => advance();
@@ -210,12 +270,8 @@ export default function ScriptReader({ revision, onClose }: { revision: any; onC
         advance(Math.max(0.5, gap) * 1000);
         return;
       }
-      // Studio mode skips character cues (the voice change identifies the speaker).
-      const speakable = useStudio
-        ? (e.type === 'scene' || e.type === 'action' || e.type === 'dialogue')
-        : (e.type === 'scene' || e.type === 'action' || e.type === 'character' || e.type === 'dialogue');
-      if (!speakable || !e.text) { advance(); return; }
-      if (!useStudio) { speakBrowser(e); return; }
+      if (!canSpeak(e)) { advance(); return; }
+      if (!useStudio) { speakBrowser(e, e.type === 'dialogue' ? emotionFor(i) : undefined); return; }
 
       const cur = i;
       synthFor(cur).then((r: any) => {
@@ -223,8 +279,8 @@ export default function ScriptReader({ revision, onClose }: { revision: any; onC
         // prefetch the next two speakable lines while this one plays
         for (let j = cur + 1, found = 0; j < els.length && found < 2; j++) {
           const n = els[j];
-          const nMine = mode === 'rehearse' && actor && n.character === actor && n.type === 'dialogue';
-          if (!nMine && (n.type === 'scene' || n.type === 'action' || n.type === 'dialogue') && n.text) { synthFor(j); found++; }
+          const nMine = mode === 'rehearse' && actor && n.character === actor && (n.type === 'dialogue' || n.type === 'character');
+          if (!nMine && canSpeak(n)) { synthFor(j); found++; }
         }
         if (r.cached) setCachedLines((c) => c + 1); else setSessionCost((c) => c + Number(r.cost || 0));
         const a = new Audio(assetUrl(r.url));
@@ -239,7 +295,7 @@ export default function ScriptReader({ revision, onClose }: { revision: any; onC
       });
     };
     step();
-  }, [els, mode, actor, gap, rate, voiceFor, studio, synthFor]);
+  }, [els, mode, actor, gap, rate, voiceFor, studio, synthFor, readSet, emotionFor]);
 
   const stop = () => {
     playRef.current = false;
@@ -252,20 +308,7 @@ export default function ScriptReader({ revision, onClose }: { revision: any; onC
     run(cursor >= 0 ? cursor : 0);
   };
 
-  // Highlight logic (row styling itself lives in the memoized Row component)
-  const bg = (e: El, idx: number): string | undefined => {
-    if (cursor === idx) return '#fde68a';
-    if (hl.scene && e.type === 'scene') return '#fef9c3';
-    if (hl.action && e.type === 'action') return '#dbeafe';
-    if (hl.character && e.type === 'character') return '#ede9fe';
-    if (hl.dialogue && e.type === 'dialogue') return '#dcfce7';
-    if (actor && e.character === actor) {
-      if (e.type === 'character' && (actorMode === 'name' || actorMode === 'both')) return '#bbf7d0';
-      if (e.type === 'dialogue' && (actorMode === 'dialogue' || actorMode === 'both')) return '#bbf7d0';
-    }
-    return undefined;
-  };
-
+  // Highlight styling is class-driven (see RDR_CSS) — only blackout needs per-row logic.
   const isHidden = (e: El, idx: number) => blackout && actor && e.character === actor && e.type === 'dialogue' && !revealed.has(idx);
   const onReveal = useCallback((idx: number) => setRevealed((r) => new Set(r).add(idx)), []);
 
@@ -354,6 +397,13 @@ export default function ScriptReader({ revision, onClose }: { revision: any; onC
               <input type="range" min={0.5} max={8} step={0.5} value={gap} onChange={(e) => setGap(Number(e.target.value))} className="w-20" /> {gap}s
             </label>
           )}
+          <span className="w-px h-4 bg-slate-200" />
+          <span className="text-[10px] uppercase tracking-wide text-slate-400">Read</span>
+          {([['scene', 'Scenes'], ['action', 'Action'], ['character', 'Names'], ['dialogue', 'Dialogue']] as const).map(([k, lbl]) => (
+            <button key={k} onClick={() => setReadSet((s) => ({ ...s, [k]: !s[k] }))}
+              title={`Read ${lbl.toLowerCase()} aloud`}
+              className={`px-2 py-0.5 rounded-full border ${readSet[k] ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-slate-200 text-slate-500'}`}>{lbl}</button>
+          ))}
           {studio && (
             <span className="text-indigo-600">
               {sessionCost > 0 ? `≈ $${sessionCost.toFixed(2)} this session` : 'cast voices · live'}{cachedLines > 0 ? ` · ${cachedLines} cached (free)` : ''}
@@ -382,17 +432,25 @@ export default function ScriptReader({ revision, onClose }: { revision: any; onC
         </div>
 
         {/* Script body */}
+        <style>{RDR_CSS}</style>
         <div ref={bodyRef} className="flex-1 overflow-y-auto bg-slate-200/60 px-4 py-6">
-          <div className="mx-auto shadow-sm rounded-md px-8 sm:px-14 py-10 max-w-3xl"
+          <div className={[
+              'rdr mx-auto shadow-sm rounded-md px-8 sm:px-14 py-10 max-w-3xl',
+              hl.scene ? 'rdr-hl-scene' : '', hl.action ? 'rdr-hl-action' : '',
+              hl.character ? 'rdr-hl-character' : '', hl.dialogue ? 'rdr-hl-dialogue' : '',
+              info.sceneNo ? 'rdr-info-sceneno' : '', info.dividers ? 'rdr-info-div' : '',
+              info.dialogueNo ? 'rdr-info-dlgno' : '', info.eighths ? 'rdr-info-8ths' : '',
+              actor ? `rdr-am-${actorMode}` : '',
+            ].filter(Boolean).join(' ')}
             style={{ fontFamily: serif ? 'Georgia, serif' : 'ui-monospace, Menlo, monospace', fontSize: font, lineHeight: 1.5, background: info.tint ? tintFor(revision?.colorCode) : '#ffffff' }}>
             {els.length === 0 && <p className="text-slate-400 text-sm">No extractable text in this revision. (Scanned PDFs have no text layer.)</p>}
             {els.map((e, idx) => (
               <Row key={idx} e={e} idx={idx}
-                bgColor={bg(e, idx)}
-                divide={info.dividers && e.type === 'scene' && idx > 0}
-                sceneNo={e.type === 'scene' && info.sceneNo ? meta.sceneOf[idx] : null}
-                eighthsLabel={e.type === 'scene' && info.eighths ? eighths(meta.counts[meta.sceneOf[idx]]) : null}
-                dlgNo={e.type === 'dialogue' && info.dialogueNo ? meta.dlgOf[idx] : null}
+                mine={!!actor && e.character === actor && (e.type === 'character' || e.type === 'dialogue')}
+                active={cursor === idx}
+                sceneNo={e.type === 'scene' ? meta.sceneOf[idx] : null}
+                eighthsLabel={e.type === 'scene' ? eighths(meta.counts[meta.sceneOf[idx]]) : null}
+                dlgNo={e.type === 'dialogue' ? meta.dlgOf[idx] : null}
                 hidden={!!isHidden(e, idx)}
                 onReveal={onReveal} />
             ))}
