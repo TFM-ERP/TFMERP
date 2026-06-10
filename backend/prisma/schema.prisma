@@ -191,6 +191,7 @@ model User {
   damageReports      DamageReport[]  @relation("DamageReportedBy")
   loginHistory       LoginHistory[]
   sessions           UserSession[]
+  backupCodes        TwoFactorBackupCode[]
   auditLogs          AuditLog[]
   statusChanges      StatusLog[]     @relation("StatusChangedBy")
   crewLinks          CrewMember[]    @relation("CrewParentUser") // crew rows mapped to this ERP user
@@ -221,6 +222,19 @@ model UserSession {
 
   @@index([userId])
   @@map("user_sessions")
+}
+
+// â”€â”€ 2FA recovery codes â€” single-use, stored only as sha256 hashes â”€â”€
+model TwoFactorBackupCode {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash  String    // sha256 of the normalised code (uppercase, no dashes)
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@map("two_factor_backup_codes")
 }
 
 // â”€â”€ Breakdown sharing â€” in-app "share to selected project users" (read-only) â”€â”€
@@ -2656,15 +2670,382 @@ model ScriptDocument {
   title            String   // e.g. "Episode 101"
   kind             String   @default("SCRIPT") // SCRIPT | SIDES | ONELINER | OTHER
   activeRevisionId String?  // the revision currently shown
+  masterScriptId   String?  // SYS-13b P5 — optional link to a library MasterScript
   createdById      String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  revisions ScriptRevision[]
-  layers    AnnotationLayer[]
+  revisions    ScriptRevision[]
+  layers       AnnotationLayer[]
+  masterScript MasterScript? @relation(fields: [masterScriptId], references: [id], onDelete: SetNull)
 
   @@index([projectId])
+  @@index([masterScriptId])
   @@map("script_documents")
+}
+
+// SYS-13b P5 — Standalone Script Library master (mirrors MasterLocation → Location).
+// A company-level script linkable into many projects; carries reusable palettes.
+model MasterScript {
+  id           String   @id @default(cuid())
+  code         String?  @unique // optional human ref e.g. SCR-0001
+  title        String
+  logline      String?
+  kind         String   @default("FEATURE") // FEATURE | SERIES | SHORT | OTHER
+  writer       String?
+  status       String   @default("DEVELOPMENT") // DEVELOPMENT | ACTIVE | ARCHIVED
+  summary      String?
+  tags         Json? // ["action","period"]
+  tagPalette   Json? // reusable TagCategory seed [{ key,label,color,sortOrder,breakdownCategory,budgetCode }]
+  voicePalette Json? // saved character voices [{ character, voiceURI, rate, pitch }]
+  timesUsed    Int      @default(0)
+  createdById  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  revisions  MasterScriptRevision[]
+  linkedDocs ScriptDocument[]
+
+  @@map("master_scripts")
+}
+
+model MasterScriptRevision {
+  id             String       @id @default(cuid())
+  masterScriptId String
+  masterScript   MasterScript @relation(fields: [masterScriptId], references: [id], onDelete: Cascade)
+  revisionLabel  String       // "White" | "Blue" | "v3"…
+  colorCode      String?
+  pdfUrl         String       // /uploads/<file>
+  pageCount      Int          @default(0)
+  pageText       Json?        // [{ page, text }]
+  scenes         Json?        // [{ sceneNumber, slugline, intExt, dayNight, pageStart, pageEnd, charStart }]
+  uploadedById   String?
+  createdAt      DateTime     @default(now())
+
+  @@index([masterScriptId])
+  @@map("master_script_revisions")
+}
+
+// SYS-13b P6 — browser-recorded voice memos attached to a revision (optionally a page).
+model ScriptAudioNote {
+  id          String   @id @default(cuid())
+  revisionId  String
+  page        Int?
+  label       String?
+  audioUrl    String // /uploads/<file>
+  durationSec Int?
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@index([revisionId])
+  @@map("script_audio_notes")
+}
+
+// ============================================================================
+// SYS-13c — ScriptON Audio (AI Script Reader / Table Read / Audio Production)
+// MVP. Plain-indexed-FK pattern (engine/ids carried as strings/ids, no relations
+// onto large models). Every new table is additive & nullable-friendly.
+// ============================================================================
+model AudioEngine {
+  id           String   @id @default(cuid())
+  key          String   @unique // BROWSER | ELEVENLABS | OPENAI | AZURE | …
+  displayName  String
+  tier         String   @default("STUDIO") // LIVE | STUDIO
+  enabled      Boolean  @default(false)
+  credentialRef String? // secret-manager handle / env var name; never the raw key
+  capabilities Json? // { tts, sfx, music, dubbing }
+  defaultModel String?
+  supportsCloning Boolean @default(false)
+  costModel    Json? // { tts:{unit,rate}, sfx:{unit,rate}, music:{unit,rate}, currency, minCharge }
+  rateLimit    Json?
+  roleAllowList Json? // roles permitted to use this engine (null = all)
+  status       String   @default("ACTIVE")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("audio_engines")
+}
+
+model AudioRoutingPolicy {
+  id                    String   @id @default(cuid())
+  scope                 String   @default("ORG") // ORG | PROJECT
+  projectId             String?
+  capability            String // LIVE_READ | TTS | SFX | MUSIC | DUBBING
+  defaultEngineId       String?
+  allowedEngineIds      Json? // string[]
+  fallbackChain         Json? // string[]
+  projectOverrideAllowed Boolean @default(false)
+  userMayOverride       Boolean  @default(false)
+  updatedById           String?
+  updatedAt             DateTime @updatedAt
+
+  @@unique([scope, projectId, capability])
+  @@index([projectId])
+  @@map("audio_routing_policies")
+}
+
+model VoiceProfile {
+  id              String   @id @default(cuid())
+  scope           String   @default("PROJECT") // GLOBAL | MASTER | PROJECT
+  projectId       String?
+  masterScriptId  String?
+  ownerId         String?
+  name            String
+  engineKey       String // AudioEngine.key
+  externalVoiceId String?
+  gender          String?
+  ageRange        String?
+  nationality     String?
+  nativeLanguage  String?
+  spokenLanguages Json? // string[]
+  accent          String?
+  style           String?
+  defaultRate     Decimal? @default(1)
+  defaultPitch    Decimal? @default(1)
+  emotionalRange  Json?
+  clonedFromTalentId String?
+  sampleUrl       String?
+  createdById     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([scope, projectId])
+  @@index([masterScriptId])
+  @@map("voice_profiles")
+}
+
+model CharacterVoiceAssignment {
+  id                 String   @id @default(cuid())
+  revisionId         String?
+  masterScriptId     String?
+  characterName      String
+  voiceProfileId     String?
+  talentId           String?
+  speakCharacterName Boolean  @default(false)
+  overrides          Json? // { rate, pitch, accent, style }
+  languageMap        Json? // { "fr": voiceProfileId|cfg }
+  isNarrator         Boolean  @default(false)
+  sortOrder          Int      @default(0)
+  createdById        String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([revisionId, characterName])
+  @@index([masterScriptId])
+  @@map("character_voice_assignments")
+}
+
+model PronunciationEntry {
+  id             String   @id @default(cuid())
+  scope          String   @default("PROJECT") // GLOBAL | MASTER | PROJECT | SCRIPT
+  projectId      String?
+  masterScriptId String?
+  revisionId     String?
+  term           String
+  alias          String? // plain respelling, e.g. "Kais"
+  ipa            String?
+  ssmlPhoneme    String?
+  locale         String?
+  category       String   @default("OTHER") // NAME|LOCATION|BRAND|COMPANY|FANTASY|FOREIGN|HISTORICAL|OTHER
+  caseSensitive  Boolean  @default(false)
+  createdById    String?
+  createdAt      DateTime @default(now())
+
+  @@index([scope, projectId])
+  @@index([revisionId])
+  @@map("pronunciation_entries")
+}
+
+model AudioRenderJob {
+  id            String    @id @default(cuid())
+  projectId     String?
+  scriptId      String?
+  revisionId    String
+  profileId     String?
+  scope         String    @default("TABLE_READ")
+  selection     Json?
+  engineKey     String?
+  format        String    @default("MP3")
+  options       Json?
+  status        String    @default("QUEUED") // QUEUED|ESTIMATING|AWAITING_APPROVAL|SYNTHESIZING|MIXING|ENCODING|DONE|FAILED|CANCELLED
+  progress      Int       @default(0)
+  costEstimate  Decimal?
+  costActual    Decimal?
+  currency      String?   @default("USD")
+  charsBilled   Int?
+  durationSec   Int?
+  requestedById String?
+  approvedById  String?
+  error         String?
+  outputAssetId String?
+  createdAt     DateTime  @default(now())
+  startedAt     DateTime?
+  finishedAt    DateTime?
+
+  @@index([projectId, status])
+  @@index([revisionId])
+  @@map("audio_render_jobs")
+}
+
+model AudioAsset {
+  id                  String   @id @default(cuid())
+  projectId           String?
+  scriptId            String?
+  revisionId          String?
+  scriptVersionLabel  String?
+  jobId               String?
+  kind                String   @default("FULL_MIX") // FULL_MIX|DIALOGUE_STEM|NARRATION_STEM|CHARACTER_STEM|SCENE_CLIP|LAYER_STEM
+  characterName       String?
+  title               String
+  url                 String
+  format              String?
+  durationSec         Int?
+  fileSizeBytes       BigInt?
+  checksum            String?
+  voiceConfigSnapshot Json?
+  exportConfigSnapshot Json?
+  engineKey           String?
+  generatedById       String?
+  generatedAt         DateTime @default(now())
+  status              String   @default("ACTIVE") // ACTIVE|ARCHIVED|DELETED
+  storageTier         String   @default("HOT")
+
+  @@index([projectId, status])
+  @@index([revisionId, kind])
+  @@index([jobId])
+  @@map("audio_assets")
+}
+
+model VoiceUsageRecord {
+  id          String   @id @default(cuid())
+  jobId       String?
+  engineKey   String
+  capability  String   @default("TTS")
+  projectId   String?
+  userId      String?
+  charsBilled Int      @default(0)
+  seconds     Decimal?
+  unitCost    Decimal?
+  totalCost   Decimal? @default(0)
+  currency    String?  @default("USD")
+  cacheHit    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([projectId, createdAt])
+  @@index([userId, createdAt])
+  @@index([engineKey, createdAt])
+  @@map("voice_usage_records")
+}
+
+model UsageQuota {
+  id                String   @id @default(cuid())
+  scope             String   @default("PROJECT") // ORG | PROJECT | USER
+  projectId         String?
+  userId            String?
+  period            String   @default("MONTH") // MONTH | TOTAL
+  charLimit         Int?
+  secondLimit       Int?
+  costLimit         Decimal?
+  storageQuotaBytes BigInt?
+  usedChars         Int      @default(0)
+  usedSeconds       Decimal  @default(0)
+  usedCost          Decimal  @default(0)
+  usedStorageBytes  BigInt   @default(0)
+  resetsAt          DateTime?
+  hardStop          Boolean  @default(true)
+  updatedAt         DateTime @updatedAt
+
+  @@unique([scope, projectId, userId, period])
+  @@map("usage_quotas")
+}
+
+model LineSynthesisCache {
+  id          String   @id @default(cuid())
+  cacheKey    String   @unique // sha256(text + voiceConfig + pronunciationVersion + engineKey)
+  engineKey   String
+  url         String
+  durationMs  Int?
+  charsBilled Int      @default(0)
+  hitCount    Int      @default(0)
+  createdAt   DateTime @default(now())
+  lastUsedAt  DateTime @default(now())
+
+  @@index([cacheKey])
+  @@map("line_synthesis_cache")
+}
+
+// SYS-13c — optional sound layers (ambience / room-tone / SFX / foley / music)
+model AudioLayerAsset {
+  id          String   @id @default(cuid())
+  scope       String   @default("PROJECT") // GLOBAL | PROJECT
+  projectId   String?
+  type        String // AMBIENCE | ROOMTONE | SFX | FOLEY | MUSIC
+  category    String?
+  name        String
+  url         String
+  durationMs  Int?
+  tags        Json?
+  source      String   @default("LIBRARY") // LIBRARY | UPLOAD | GENERATED
+  engineKey   String?
+  genPrompt   String?
+  genParams   Json?
+  license     Json?
+  loopable    Boolean  @default(false)
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@index([type, category])
+  @@index([scope, projectId])
+  @@map("audio_layer_assets")
+}
+
+model SceneAudioCue {
+  id           String   @id @default(cuid())
+  revisionId   String
+  sceneNumber  String?
+  layerType    String // AMBIENCE | ROOMTONE | SFX | FOLEY | MUSIC
+  layerAssetId String?
+  uploadUrl    String?
+  genPrompt    String?
+  startMs      Int      @default(0)
+  endMs        Int?
+  volumeDb     Float    @default(0)
+  fadeInMs     Int      @default(0)
+  fadeOutMs    Int      @default(0)
+  duckDialogue Boolean  @default(true)
+  source       String   @default("MANUAL") // AUTO | MANUAL
+  status       String   @default("SUGGESTED") // SUGGESTED | APPROVED | REMOVED
+  confidence   Float?
+  createdById  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([revisionId, sceneNumber])
+  @@index([revisionId, layerType])
+  @@map("scene_audio_cues")
+}
+
+// SYS-13c — secure, time-limited share links for rendered audio (review/deliver without auth)
+model AudioShareLink {
+  id            String    @id @default(cuid())
+  token         String    @unique
+  assetId       String
+  projectId     String?
+  title         String?
+  note          String?
+  passcode      String? // optional gate; compared plain (low-stakes review links)
+  allowDownload Boolean   @default(false)
+  expiresAt     DateTime?
+  maxViews      Int?
+  views         Int       @default(0)
+  lastViewedAt  DateTime?
+  revoked       Boolean   @default(false)
+  createdById   String?
+  createdAt     DateTime  @default(now())
+
+  @@index([assetId])
+  @@index([projectId])
+  @@map("audio_share_links")
 }
 
 model ScriptRevision {
@@ -2679,10 +3060,46 @@ model ScriptRevision {
   uploadedById  String?
   createdAt     DateTime       @default(now())
 
-  scenes ScriptScene[]
+  scenes    ScriptScene[]
+  bookmarks ScriptBookmark[]
 
   @@index([documentId])
   @@map("script_revisions")
+}
+
+// SYS-13b P2 — bookmarks that carry forward across revisions (matched by sceneNumber)
+model ScriptBookmark {
+  id          String         @id @default(cuid())
+  revisionId  String
+  revision    ScriptRevision @relation(fields: [revisionId], references: [id], onDelete: Cascade)
+  page        Int            @default(1)
+  sceneNumber String?        // anchor for carry-forward into a new revision
+  label       String
+  note        String?
+  color       String?        @default("#0ea5e9")
+  createdById String?
+  createdAt   DateTime       @default(now())
+
+  @@index([revisionId])
+  @@map("script_bookmarks")
+}
+
+// SYS-13b P3 — custom tagging categories (per project). Plain-FK to avoid touching ProductionProject.
+model TagCategory {
+  id                String   @id @default(cuid())
+  projectId         String
+  key               String   // slug, e.g. "PROPS"
+  label             String
+  color             String   @default("#0ea5e9")
+  sortOrder         Int      @default(0)
+  hidden            Boolean  @default(false)
+  breakdownCategory String?  // optional map to a BreakdownCategory enum value
+  budgetCode        String?  // optional default budget account code
+  createdAt         DateTime @default(now())
+
+  @@unique([projectId, key])
+  @@index([projectId])
+  @@map("tag_categories")
 }
 
 model ScriptScene {
@@ -2699,6 +3116,10 @@ model ScriptScene {
   charStart         Int?           // char offset of the slugline within the page text
   productionStripId String?        // optional link to the scheduling ProductionStrip (same scene #)
   sortOrder         Int            @default(0)
+  // SYS-13b P3 — special tags (scene-level)
+  description       String?        // one-line scene synopsis
+  storyDay          String?        // story-day label, e.g. "DAY 1"
+  tagNote           String?        // free scene note
   createdAt         DateTime       @default(now())
 
   coverage ScriptCoverage[]
@@ -2718,6 +3139,8 @@ model ScriptCoverage {
   description     String?     // "Wide", "CU Jane"…
   lineCoordinates Json?       // tramline geometry [{ page, x, y0, y1 }] (canvas render later)
   isOffScreen     Boolean     @default(false) // straight (on-screen) vs wavy/dashed (off-screen)
+  cameras         Json?       // SYS-13b P4 — multi-camera slate [{ label, color, onScreen }] (≤26)
+  slateFormat     String?     // ALPHA | NUMERIC | DECIMAL
   createdById     String?
   createdAt       DateTime    @default(now())
 
@@ -3715,7 +4138,7 @@ model BudgetLineItem {
   castTalent   GlobalTalentProfile? @relation("BudgetLineCastTalent", fields: [castTalentId], references: [id])
 
   // Labour stage breakdown (prep/shoot/wrap/post) â€” rate per stage from the crew card
-  crewMemberId String? // link to Crew Directory for rate-card auto-fill
+  crewMemberId String? // link to Crew Directory (freelancer) for rate-card auto-fill + assignee
   stages       Json?   // [{ stage:'PREP'|'SHOOT'|'WRAP'|'POST', qty, unit, rate, amount }]
 
   // Provenance â€” where this line's numbers came from, and the original AI/import suggestion

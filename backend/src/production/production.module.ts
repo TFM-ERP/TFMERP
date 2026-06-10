@@ -52,6 +52,17 @@ import { SidesController } from './script/sides.controller';
 import { SidesService } from './script/sides.service';
 import { LiningController } from './script/lining.controller';
 import { LiningService } from './script/lining.service';
+import { MasterScriptController } from './script/master-script.controller';
+import { MasterScriptService } from './script/master-script.service';
+import { ScriptAnalyzeController } from './script/script-analyze.controller';
+import { ScriptAnalyzeService } from './script/script-analyze.service';
+import { AudioEnginesController, VoiceCastingController, PronunciationController, RenderController, LayersController, AudioShareController, AudioSharePublicController } from './script/audio/script-audio.controller';
+import { AudioEnginesService } from './script/audio/audio-engines.service';
+import { VoiceCastingService } from './script/audio/voice-casting.service';
+import { PronunciationService } from './script/audio/pronunciation.service';
+import { RenderService } from './script/audio/render.service';
+import { LayersService } from './script/audio/layers.service';
+import { AudioShareService } from './script/audio/audio-share.service';
 import { DocumentsController } from './documents/documents.controller';
 import { DocumentsService } from './documents/documents.service';
 import { MailController } from './mail/mail.controller';
@@ -86,8 +97,8 @@ import { LogisticsReportsService } from './logistics/logistics-reports.service';
 
 @Module({
   imports: [PrismaModule, WorkflowModule, LocationsLibraryModule],
-  controllers: [ProjectsController, BudgetController, CrewController, CallSheetsController, PerDiemController, OveragesController, CreditsController, LedgerController, CostingController, SchedulingController, BreakdownController, DocumentsController, MailController, PayrollController, LocationsController, LocationNeedsController, ScoutVisitsController, ClearancePacksController, ClearancePacksPublicController, LocationReportsController, SunPathController, ScriptReadinessController, ScriptController, AnnotationsController, SidesController, LiningController, VendorOnboardingController, VendorOnboardingPublicController, MovieMagicController, TravelController, ContractsController, ContractsWebhookController, CastingController, CastingPublicController, AccommodationController, TransportController, ShuttleController, ArrivalController, LogisticsReportsController],
-  providers: [ProjectsService, BudgetService, CrewService, CallSheetsService, PerDiemService, OveragesService, CreditsService, LedgerService, CostingService, SchedulingService, DoodCalculationService, CalendarAnchoringService, BreakdownService, ScriptImportService, DocumentsService, MailService, EmailService, PayrollService, LocationsService, LocationNeedsService, ScoutVisitsService, ClearancePacksService, LocationReportsService, SunPathService, ScriptReadinessService, ScriptService, AnnotationsService, ScriptTransferService, ScriptExportService, ScriptProcurementService, SidesService, LiningService, VendorOnboardingService, MovieMagicService, DynamicContextService, AiMappingService, TravelService, AmadeusService, ConcurService, ContractsService, CastingService, AccommodationService, TransportService, ShuttleService, ArrivalService, LogisticsReportsService],
+  controllers: [ProjectsController, BudgetController, CrewController, CallSheetsController, PerDiemController, OveragesController, CreditsController, LedgerController, CostingController, SchedulingController, BreakdownController, DocumentsController, MailController, PayrollController, LocationsController, LocationNeedsController, ScoutVisitsController, ClearancePacksController, ClearancePacksPublicController, LocationReportsController, SunPathController, ScriptReadinessController, ScriptController, AnnotationsController, SidesController, LiningController, MasterScriptController, ScriptAnalyzeController, AudioEnginesController, VoiceCastingController, PronunciationController, RenderController, LayersController, AudioShareController, AudioSharePublicController, VendorOnboardingController, VendorOnboardingPublicController, MovieMagicController, TravelController, ContractsController, ContractsWebhookController, CastingController, CastingPublicController, AccommodationController, TransportController, ShuttleController, ArrivalController, LogisticsReportsController],
+  providers: [ProjectsService, BudgetService, CrewService, CallSheetsService, PerDiemService, OveragesService, CreditsService, LedgerService, CostingService, SchedulingService, DoodCalculationService, CalendarAnchoringService, BreakdownService, ScriptImportService, DocumentsService, MailService, EmailService, PayrollService, LocationsService, LocationNeedsService, ScoutVisitsService, ClearancePacksService, LocationReportsService, SunPathService, ScriptReadinessService, ScriptService, AnnotationsService, ScriptTransferService, ScriptExportService, ScriptProcurementService, SidesService, LiningService, MasterScriptService, ScriptAnalyzeService, AudioEnginesService, VoiceCastingService, PronunciationService, RenderService, LayersService, AudioShareService, VendorOnboardingService, MovieMagicService, DynamicContextService, AiMappingService, TravelService, AmadeusService, ConcurService, ContractsService, CastingService, AccommodationService, TransportService, ShuttleService, ArrivalService, LogisticsReportsService],
   exports: [DynamicContextService, AiMappingService],
 })
 export class ProductionModule {}

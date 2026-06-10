@@ -478,7 +478,8 @@ export const productionApi = {
     remove: (id: string) => api.delete(`/production/ledger/${id}`),
     // Accounts payable
     apAging: (projectId: string) => api.get(`/production/ledger/ap-aging/${projectId}`),
-    pay: (projectId: string, ids: string[], paidDate?: string) => api.post(`/production/ledger/pay/${projectId}`, { ids, paidDate }),
+    pay: (projectId: string, ids: string[], paidDate?: string, twoFactorCode?: string) =>
+      api.post(`/production/ledger/pay/${projectId}`, { ids, paidDate }, twoFactorCode ? { headers: { 'x-2fa-code': twoFactorCode } } : undefined),
     // Cost coding / drill-down + reports
     byAccount: (projectId: string) => api.get(`/production/ledger/by-account/${projectId}`),
     accountLedger: (projectId: string, code: string) => api.get(`/production/ledger/account/${projectId}/${encodeURIComponent(code)}`),
@@ -575,6 +576,16 @@ export const productionApi = {
     setActive: (documentId: string, revisionId: string) => api.put(`/production/script/document/${documentId}/active/${revisionId}`),
     removeRevision: (id: string) => api.delete(`/production/script/revision/${id}`),
     removeDocument: (id: string) => api.delete(`/production/script/document/${id}`),
+    // P5 — library link/promote/pull from inside a project
+    promoteToLibrary: (documentId: string, data: any = {}) => api.post(`/production/master-scripts/promote/${documentId}`, data),
+    pullLatest: (documentId: string) => api.post(`/production/master-scripts/pull/${documentId}`),
+    linkMaster: (masterScriptId: string, projectId: string) => api.post(`/production/master-scripts/${masterScriptId}/link/${projectId}`),
+    libraryList: (params?: any) => api.get(`/production/master-scripts`, { params }),
+    // P6 — Analyze (local heuristic) + audio notes
+    analyze: (revisionId: string) => api.get(`/production/script-analyze/revision/${revisionId}`),
+    audioList: (revisionId: string) => api.get(`/production/script-analyze/audio/${revisionId}`),
+    addAudio: (revisionId: string, formData: FormData) => api.post(`/production/script-analyze/audio/${revisionId}`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+    removeAudio: (id: string) => api.delete(`/production/script-analyze/audio/${id}`),
   },
   scriptAnnotations: {
     layers: (documentId: string) => api.get(`/production/script-annotations/layers/${documentId}`),
@@ -593,6 +604,20 @@ export const productionApi = {
     orphans: (revisionId: string) => api.get(`/production/script-annotations/orphans/${revisionId}`),
     placeOrphan: (id: string, data: any) => api.put(`/production/script-annotations/orphans/${id}/place`, data),
     compare: (revA: string, revB: string) => api.get(`/production/script-annotations/compare/${revA}/${revB}`),
+    // P2 — bookmarks (carry forward on transfer)
+    bookmarks: (revisionId: string) => api.get(`/production/script-annotations/bookmarks/${revisionId}`),
+    addBookmark: (revisionId: string, data: any) => api.post(`/production/script-annotations/bookmarks/${revisionId}`, data),
+    editBookmark: (id: string, data: any) => api.put(`/production/script-annotations/bookmark/${id}`, data),
+    removeBookmark: (id: string) => api.delete(`/production/script-annotations/bookmark/${id}`),
+    // P3 — tag categories / auto-tag / reports / scene special tags
+    tagCategories: (projectId: string) => api.get(`/production/script-annotations/tag-categories/${projectId}`),
+    addTagCategory: (projectId: string, data: any) => api.post(`/production/script-annotations/tag-categories/${projectId}`, data),
+    editTagCategory: (id: string, data: any) => api.put(`/production/script-annotations/tag-category/${id}`, data),
+    removeTagCategory: (id: string) => api.delete(`/production/script-annotations/tag-category/${id}`),
+    reorderTagCategories: (projectId: string, ids: string[]) => api.post(`/production/script-annotations/tag-categories/${projectId}/reorder`, { ids }),
+    autoTagCast: (revisionId: string) => api.post(`/production/script-annotations/autotag-cast/${revisionId}`),
+    tagReport: (revisionId: string) => api.get(`/production/script-annotations/tag-report/${revisionId}`),
+    updateScene: (id: string, data: any) => api.put(`/production/script-annotations/scene/${id}`, data),
     exportPdf: (revisionId: string, layerIds: string[]) => api.post(`/production/script-annotations/export/${revisionId}`, { layerIds }),
     procAccounts: (projectId: string) => api.get(`/production/script-annotations/procurement/accounts/${projectId}`),
     procStaging: (revisionId: string) => api.get(`/production/script-annotations/procurement/staging/${revisionId}`),
@@ -603,6 +628,7 @@ export const productionApi = {
   sides: {
     list: (projectId: string) => api.get(`/production/sides/project/${projectId}`),
     generate: (revisionId: string, data: any) => api.post(`/production/sides/generate/${revisionId}`, data),
+    facing: (revisionId: string, data: any) => api.post(`/production/sides/facing/${revisionId}`, data),
     email: (id: string) => api.post(`/production/sides/${id}/email`),
     remove: (id: string) => api.delete(`/production/sides/${id}`),
   },
@@ -611,6 +637,7 @@ export const productionApi = {
     addCoverage: (sceneId: string, data: any) => api.post(`/production/lining/scene/${sceneId}`, data),
     updateCoverage: (id: string, data: any) => api.put(`/production/lining/coverage/${id}`, data),
     removeCoverage: (id: string) => api.delete(`/production/lining/coverage/${id}`),
+    autoCoverage: (revisionId: string, data: any) => api.post(`/production/lining/autocoverage/${revisionId}`, data),
     addTake: (coverageId: string, data: any) => api.post(`/production/lining/coverage/${coverageId}/takes`, data),
     updateTake: (id: string, data: any) => api.put(`/production/lining/takes/${id}`, data),
     wrapTake: (id: string) => api.post(`/production/lining/takes/${id}/wrap`),
@@ -1387,6 +1414,74 @@ export const collectionsApi = {
   testEmail:      (to: string) => api.post('/finance/collections/test-email', { to }),
 };
 
+// ── Master Script Library (SYS-13b P5) ───────────────────────────────────────
+export const masterScriptApi = {
+  list:          (params?: any) => api.get('/production/master-scripts', { params }),
+  stats:         () => api.get('/production/master-scripts/stats'),
+  get:           (id: string) => api.get(`/production/master-scripts/${id}`),
+  create:        (data: any) => api.post('/production/master-scripts', data),
+  update:        (id: string, data: any) => api.put(`/production/master-scripts/${id}`, data),
+  remove:        (id: string) => api.delete(`/production/master-scripts/${id}`),
+  addRevision:   (id: string, formData: FormData) => api.post(`/production/master-scripts/${id}/revision`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  removeRevision:(id: string) => api.delete(`/production/master-scripts/revision/${id}`),
+  setPalette:    (id: string, data: any) => api.put(`/production/master-scripts/${id}/palette`, data),
+  link:          (id: string, projectId: string) => api.post(`/production/master-scripts/${id}/link/${projectId}`),
+};
+
+// ── ScriptON Audio (SYS-13c) ─────────────────────────────────────────────────
+export const scriptAudioApi = {
+  // engines + routing (admin)
+  engines:       () => api.get('/production/audio/engines'),
+  engineVoices:  (key: string) => api.get(`/production/audio/engines/${encodeURIComponent(key)}/voices`),
+  seedEngines:   () => api.post('/production/audio/engines/seed'),
+  createEngine:  (data: any) => api.post('/production/audio/engines', data),
+  updateEngine:  (id: string, data: any) => api.put(`/production/audio/engines/${id}`, data),
+  routing:       (scope = 'ORG', projectId?: string) => api.get('/production/audio/routing', { params: { scope, projectId } }),
+  setRouting:    (capability: string, data: any) => api.put(`/production/audio/routing/${capability}`, data),
+  routingResolved: (projectId?: string) => api.get('/production/audio/routing-resolved', { params: { projectId } }),
+  // casting + profiles
+  detect:        (revisionId: string) => api.get(`/production/audio/casting/${revisionId}`),
+  autoCast:      (revisionId: string, projectId?: string) => api.post(`/production/audio/casting/${revisionId}/autocast`, { projectId }),
+  assign:        (revisionId: string, name: string, data: any) => api.put(`/production/audio/casting/${revisionId}/character/${encodeURIComponent(name)}`, data),
+  unassign:      (id: string) => api.delete(`/production/audio/casting/assignment/${id}`),
+  voiceProfiles: (params?: any) => api.get('/production/audio/voice-profiles', { params }),
+  createProfile: (data: any) => api.post('/production/audio/voice-profiles', data),
+  updateProfile: (id: string, data: any) => api.put(`/production/audio/voice-profiles/${id}`, data),
+  removeProfile: (id: string) => api.delete(`/production/audio/voice-profiles/${id}`),
+  // pronunciation
+  pronunciation:    (params?: any) => api.get('/production/audio/pronunciation', { params }),
+  addPronunciation: (data: any) => api.post('/production/audio/pronunciation', data),
+  editPronunciation:(id: string, data: any) => api.put(`/production/audio/pronunciation/${id}`, data),
+  removePronunciation:(id: string) => api.delete(`/production/audio/pronunciation/${id}`),
+  // render + library
+  estimate:      (revisionId: string, opts: any = {}) => api.post(`/production/audio/render/estimate/${revisionId}`, opts),
+  render:        (revisionId: string, opts: any = {}) => api.post(`/production/audio/render/${revisionId}`, opts),
+  runJob:        (jobId: string) => api.post(`/production/audio/render/run/${jobId}`),
+  renderPlan:    (revisionId: string) => api.get(`/production/audio/render/plan/${revisionId}`),
+  jobs:          (projectId: string) => api.get(`/production/audio/jobs/${projectId}`),
+  job:           (id: string) => api.get(`/production/audio/job/${id}`),
+  library:       (projectId: string) => api.get(`/production/audio/library/${projectId}`),
+  archiveAsset:  (id: string) => api.post(`/production/audio/library/${id}/archive`),
+  usage:         (projectId: string) => api.get(`/production/audio/usage/${projectId}`),
+  quota:         (projectId: string) => api.get(`/production/audio/quota/${projectId}`),
+  // layers
+  cues:          (revisionId: string) => api.get(`/production/audio/layers/cues/${revisionId}`),
+  suggestCues:   (revisionId: string) => api.post(`/production/audio/layers/suggest/${revisionId}`),
+  upsertCue:     (data: any) => api.post('/production/audio/layers/cue', data),
+  cueStatus:     (id: string, status: string) => api.put(`/production/audio/layers/cue/${id}/status`, { status }),
+  approveAllCues:(revisionId: string) => api.post(`/production/audio/layers/approve-all/${revisionId}`),
+  removeCue:     (id: string) => api.delete(`/production/audio/layers/cue/${id}`),
+  layerAssets:   (params?: any) => api.get('/production/audio/layers/assets', { params }),
+  uploadLayerAsset: (file: File, body: any = {}) => { const fd = new FormData(); fd.append('file', file); Object.entries(body).forEach(([k, v]) => fd.append(k, String(v ?? ''))); return api.post('/production/audio/layers/upload', fd, { headers: { 'Content-Type': 'multipart/form-data' } }); },
+  uploadCueAudio:(cueId: string, file: File) => { const fd = new FormData(); fd.append('file', file); return api.post(`/production/audio/layers/cue/${cueId}/upload`, fd, { headers: { 'Content-Type': 'multipart/form-data' } }); },
+  // share & deliver
+  shareLinks:    (assetId: string) => api.get(`/production/audio/share/asset/${assetId}`),
+  createShare:   (data: any) => api.post('/production/audio/share', data),
+  revokeShare:   (id: string) => api.post(`/production/audio/share/${id}/revoke`),
+  emailShare:    (id: string, data: any) => api.post(`/production/audio/share/${id}/email`, data),
+  resolveShare:  (token: string, passcode?: string) => api.get(`/public/audio-share/${token}`, { params: passcode ? { passcode } : {} }),
+};
+
 // ── Master Location Library (SYS-07) ─────────────────────────────────────────
 export const locationLibraryApi = {
   list:        (params?: any) => api.get('/locations-library', { params }),
@@ -1457,6 +1552,18 @@ export const accountApi = {
   sessions:      () => api.get('/account/sessions'),
   revokeSession: (id: string) => api.delete(`/account/sessions/${id}`),
   revokeOthers:  () => api.delete('/account/sessions/others'),
+  // HR/Finance review queue for legal-name changes
+  pendingLegalNames: () => api.get('/account/legal-name/pending'),
+  clearLegalName: (userId: string, approve: boolean) => api.patch(`/account/${userId}/legal-name/clear`, { approve }),
+};
+
+// Two-factor (TOTP) — authenticator-app enrol / confirm / disable
+export const twoFactorApi = {
+  setup:   () => api.post('/auth/2fa/setup'),
+  enable:  (code: string) => api.post('/auth/2fa/enable', { code }),
+  disable: (code: string) => api.post('/auth/2fa/disable', { code }),
+  backupStatus:     () => api.get('/auth/2fa/backup-codes'),
+  regenerateBackup: (code: string) => api.post('/auth/2fa/backup-codes/regenerate', { code }),
 };
 
 export const assessmentApi = {

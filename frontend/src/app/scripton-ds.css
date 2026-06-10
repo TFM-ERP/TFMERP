@@ -1,0 +1,199 @@
+/* ============================================================================
+   ScriptON Design System (SON-DS)
+   The approved "one component, three form factors" language.
+   Scoped under .son so it can be adopted incrementally (ScriptON + ScriptON
+   Audio now; platform-wide later). Light is default; add .son-dark for dark.
+   Everything is container-query driven so the same markup adapts by its own
+   width — web, tablet, mobile, and a future native shell share one codebase.
+   ============================================================================ */
+
+.son{
+  /* tokens — light */
+  --son-accent:#0f172a; --son-accent-ink:#ffffff;
+  --son-bg:#f1f5f9; --son-surface:#ffffff; --son-surface-2:#f8fafc;
+  --son-rail:#0f172a; --son-rail-ink:#cbd5e1; --son-rail-ink-active:#ffffff;
+  --son-text:#0f172a; --son-muted:#64748b; --son-faint:#94a3b8;
+  --son-border:#e2e8f0; --son-hi:#fde68a; --son-ok:#10b981; --son-info:#0ea5e9;
+  --son-warn:#f59e0b; --son-danger:#ef4444; --son-violet:#7c3aed;
+  --son-radius:16px; --son-radius-sm:10px; --son-tap:44px;
+  --son-shadow:0 1px 2px rgba(15,23,42,.06),0 10px 28px rgba(15,23,42,.07);
+  --son-fs-title:clamp(15px,1.2cqi + 12px,20px);
+  --son-fs-body:clamp(13px,0.6cqi + 11px,15px);
+
+  container-type:inline-size;
+  color:var(--son-text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,sans-serif;
+}
+.son.son-dark, .son .son-dark{
+  --son-accent:#38bdf8; --son-accent-ink:#04222e;
+  --son-bg:#0b1120; --son-surface:#1e293b; --son-surface-2:#172033;
+  --son-rail:#0b1120; --son-rail-ink:#94a3b8; --son-rail-ink-active:#ffffff;
+  --son-text:#e2e8f0; --son-muted:#94a3b8; --son-faint:#64748b;
+  --son-border:#334155; --son-hi:#3b3a22;
+  --son-shadow:0 1px 2px rgba(0,0,0,.4),0 12px 30px rgba(0,0,0,.4);
+}
+
+/* shell ---------------------------------------------------------------------*/
+.son-shell{background:var(--son-bg);border-radius:var(--son-radius);overflow:hidden;display:flex;flex-direction:column;min-height:0}
+.son-topbar{display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--son-surface);border-bottom:1px solid var(--son-border)}
+.son-crumb{font-size:11px;color:var(--son-faint)}
+.son-title{font-size:var(--son-fs-title);font-weight:650;line-height:1.1}
+.son-grow{flex:1;min-width:0}
+
+/* tabs ----------------------------------------------------------------------*/
+.son-tabs{display:flex;gap:2px;padding:0 16px;background:var(--son-surface);border-bottom:1px solid var(--son-border);overflow-x:auto}
+.son-tab{padding:11px 13px;font-size:13px;color:var(--son-muted);border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;min-height:var(--son-tap);background:none;border-top:0;border-left:0;border-right:0;font:inherit}
+.son-tab.is-active{color:var(--son-text);border-bottom-color:var(--son-accent);font-weight:600}
+
+/* list-detail ---------------------------------------------------------------*/
+.son-content{flex:1;display:grid;grid-template-columns:1fr;min-height:0}
+.son-pane{min-height:0;overflow:auto}
+.son-list{border-right:1px solid var(--son-border);background:var(--son-surface)}
+.son-detail{background:var(--son-bg)}
+.son-inspector{border-left:1px solid var(--son-border);background:var(--son-surface);display:none}
+
+/* primitives ----------------------------------------------------------------*/
+.son-card{background:var(--son-surface);border:1px solid var(--son-border);border-radius:14px;box-shadow:var(--son-shadow)}
+.son-chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--son-muted);background:var(--son-surface-2);border:1px solid var(--son-border);border-radius:999px;padding:4px 9px}
+.son-dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto;display:inline-block}
+.son-btn{border:1px solid var(--son-border);background:var(--son-surface);color:var(--son-text);border-radius:10px;padding:8px 12px;font:inherit;font-size:13px;cursor:pointer;min-height:var(--son-tap);display:inline-flex;align-items:center;gap:7px}
+.son-btn:hover{border-color:var(--son-accent)}
+.son-btn.is-primary{background:var(--son-accent);color:var(--son-accent-ink);border-color:var(--son-accent);font-weight:600}
+.son-btn svg{width:15px;height:15px}
+.son-iconbtn{width:36px;height:36px;border-radius:9px;border:1px solid var(--son-border);background:var(--son-surface);color:var(--son-muted);display:flex;align-items:center;justify-content:center;cursor:pointer}
+.son-pill{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--son-muted);background:var(--son-surface-2);border:1px solid var(--son-border);padding:5px 10px;border-radius:999px}
+.son-sec{padding:14px 16px}
+.son-sec h3,.son-h3{font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--son-faint);margin:0 0 10px;font-weight:700}
+.son-input{border:1px solid var(--son-border);background:var(--son-surface);color:var(--son-text);border-radius:9px;padding:9px;font:inherit;font-size:13px;min-height:var(--son-tap)}
+
+/* list row ------------------------------------------------------------------*/
+.son-row{display:flex;gap:10px;align-items:center;padding:10px;border-radius:12px;cursor:pointer;min-height:var(--son-tap)}
+.son-row:hover{background:var(--son-surface-2)}
+.son-row.is-active{background:color-mix(in srgb,var(--son-info) 12%,transparent);outline:1px solid color-mix(in srgb,var(--son-info) 35%,transparent)}
+
+/* transport / mini-player (persistent) -------------------------------------*/
+.son-transport{background:var(--son-surface);border-top:1px solid var(--son-border);padding:9px 14px;display:flex;align-items:center;gap:12px}
+.son-tbtn{width:var(--son-tap);height:var(--son-tap);border-radius:50%;border:1px solid var(--son-border);background:var(--son-surface);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--son-text);flex:0 0 auto}
+.son-tbtn.is-play{background:var(--son-accent);border-color:var(--son-accent);color:var(--son-accent-ink);width:48px;height:48px}
+.son-tbtn svg{width:17px;height:17px}
+.son-tinfo{min-width:0;flex:1}
+.son-tinfo .t1{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.son-tinfo .t2{font-size:11px;color:var(--son-faint)}
+.son-scrub{height:6px;border-radius:999px;background:var(--son-surface-2);position:relative;margin-top:6px;cursor:pointer}
+.son-scrub i{position:absolute;left:0;top:0;bottom:0;background:var(--son-accent);border-radius:999px}
+.son-scrub b{position:absolute;top:50%;width:12px;height:12px;border-radius:50%;background:var(--son-accent);transform:translate(-50%,-50%)}
+
+/* bottom nav (mobile) -------------------------------------------------------*/
+.son-bottomnav{display:none;background:var(--son-surface);border-top:1px solid var(--son-border);padding:6px;justify-content:space-around}
+.son-bn{flex:1;min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:10px;color:var(--son-muted);background:none;border:0;cursor:pointer}
+.son-bn svg{width:20px;height:20px}
+.son-bn.is-active{color:var(--son-accent)}
+
+/* utility text --------------------------------------------------------------*/
+.son-muted{color:var(--son-muted)} .son-faint{color:var(--son-faint)}
+.son-surface{background:var(--son-surface)} .son-bg{background:var(--son-bg)}
+
+/* ===== container-query breakpoints (component adapts by its own width) =====*/
+@container (max-width:700px){
+  .son-list{display:none}
+  .son-inspector{display:none}
+  .son-bottomnav{display:flex}
+  .son-hide-compact{display:none !important}
+}
+@container (min-width:701px) and (max-width:1023px){
+  .son-content.has-list{grid-template-columns:300px 1fr}
+  .son-inspector{display:none}
+}
+@container (min-width:1024px){
+  .son-content.has-list{grid-template-columns:320px 1fr}
+  .son-content.has-list.has-inspector{grid-template-columns:320px 1fr 300px}
+  .son-inspector{display:block}
+}
+
+/* ===== ScriptON Audio screens ===== */
+.son-chips{display:flex;flex-wrap:wrap;gap:7px}
+.son-togbtn{border:1px solid var(--son-border);background:var(--son-surface);color:var(--son-text);border-radius:9px;padding:8px 12px;font:inherit;font-size:12px;cursor:pointer;min-height:var(--son-tap)}
+.son-togbtn.is-on{background:var(--son-accent);color:var(--son-accent-ink);border-color:var(--son-accent)}
+.son-field{margin-bottom:10px}
+.son-field label{font-size:11px;color:var(--son-muted);display:block;margin-bottom:4px}
+.son-field select,.son-field input{width:100%;border:1px solid var(--son-border);background:var(--son-surface);color:var(--son-text);border-radius:9px;padding:9px;font:inherit;font-size:13px;min-height:var(--son-tap)}
+.son-slider{height:6px;border-radius:999px;background:var(--son-surface-2);position:relative;margin:6px 0 12px}
+.son-slider i{position:absolute;left:0;top:0;bottom:0;border-radius:999px;background:var(--son-accent)}
+.son-slider b{position:absolute;top:50%;width:13px;height:13px;border-radius:50%;background:#fff;border:2px solid var(--son-accent);transform:translate(-50%,-50%)}
+.son-lab{display:flex;justify-content:space-between;font-size:11px;color:var(--son-muted)}
+.son-avatar{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;flex:0 0 auto}
+
+/* voices */
+.son-voices{display:grid;grid-template-columns:1fr}
+.son-vgrid{display:grid;gap:12px;padding:14px 16px}
+.son-veditor{padding:14px 16px;border-left:1px solid var(--son-border);background:var(--son-surface);display:none}
+.son-ids{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+
+/* render */
+.son-render{display:grid;gap:16px;padding:16px;grid-template-columns:1fr}
+.son-profiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.son-profile{padding:12px;cursor:pointer;border-radius:13px}
+.son-profile.is-sel{border-color:var(--son-accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--son-accent) 30%,transparent)}
+.son-cost{padding:14px;align-self:start}
+.son-route{display:flex;justify-content:space-between;font-size:12px;padding:6px 0;border-top:1px dashed var(--son-border)}
+.son-route span:first-child{color:var(--son-muted)}
+.son-quota{height:8px;border-radius:999px;background:var(--son-surface-2);overflow:hidden;margin:8px 0}
+.son-quota i{display:block;height:100%;background:linear-gradient(90deg,var(--son-ok),var(--son-warn))}
+
+/* library */
+.son-libbar{display:flex;flex-wrap:wrap;gap:8px;padding:14px 16px 4px;align-items:center}
+.son-search{flex:1;min-width:160px;display:flex;align-items:center;gap:8px;border:1px solid var(--son-border);background:var(--son-surface);border-radius:10px;padding:0 10px;min-height:var(--son-tap)}
+.son-search input{border:0;background:transparent;color:var(--son-text);font:inherit;font-size:13px;flex:1;outline:none;padding:10px 0}
+.son-libgrid{display:grid;gap:12px;padding:10px 16px 16px;grid-template-columns:1fr}
+.son-asset{padding:12px;display:flex;flex-direction:column;gap:8px}
+.son-art{height:64px;border-radius:10px;display:flex;align-items:flex-end;padding:8px}
+.son-wave{display:flex;gap:2px;align-items:flex-end;height:26px}
+.son-wave i{width:3px;background:rgba(255,255,255,.85);border-radius:2px}
+
+/* layers timeline */
+.son-laneswrap{overflow-x:auto;border:1px solid var(--son-border);border-radius:14px;background:var(--son-surface)}
+.son-lane{display:grid;grid-template-columns:120px 1fr;border-bottom:1px solid var(--son-border);min-width:560px}
+.son-lane:last-child{border-bottom:0}
+.son-laneh{padding:10px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:7px;border-right:1px solid var(--son-border);color:var(--son-muted)}
+.son-track{position:relative;height:46px;background:repeating-linear-gradient(90deg,transparent,transparent 59px,var(--son-border) 59px,var(--son-border) 60px)}
+.son-cue{position:absolute;top:7px;height:32px;border-radius:8px;display:flex;align-items:center;padding:0 8px;font-size:11px;color:#fff;font-weight:600;white-space:nowrap;overflow:hidden}
+.son-cue.is-sugg{outline:2px dashed var(--son-warn)}
+.son-mini{font-size:11px;border:1px solid var(--son-border);background:var(--son-surface);color:var(--son-muted);border-radius:8px;padding:6px 9px;cursor:pointer;min-height:38px}
+
+@container (min-width:1024px){
+  .son-voices{grid-template-columns:1fr 320px}
+  .son-veditor{display:block}
+  .son-render{grid-template-columns:1.4fr .9fr}
+  .son-cost{position:sticky;top:14px}
+  .son-libgrid{grid-template-columns:repeat(3,1fr)}
+}
+@container (min-width:701px) and (max-width:1023px){
+  .son-libgrid{grid-template-columns:repeat(2,1fr)}
+}
+
+/* ===== Tailwind compatibility shim =====
+   Re-points the neutral slate/white utilities used by the legacy ScriptON
+   binder + Reader onto SON tokens, scoped to .son, so those surfaces inherit
+   the design system (incl. dark mode) without a full markup rewrite. Accent /
+   colored / overlay utilities are intentionally left untouched. */
+.son .bg-white{background:var(--son-surface)!important}
+.son .bg-slate-50,.son .bg-slate-50\/60,.son .bg-slate-50\/40,.son .bg-slate-100,.son .bg-gray-50{background:var(--son-surface-2)!important}
+.son .text-slate-900,.son .text-slate-800,.son .text-slate-700,.son .text-gray-900,.son .text-gray-800{color:var(--son-text)!important}
+.son .text-slate-600,.son .text-slate-500,.son .text-gray-600,.son .text-gray-500{color:var(--son-muted)!important}
+.son .text-slate-400,.son .text-slate-300,.son .text-gray-400{color:var(--son-faint)!important}
+.son .border-slate-200,.son .border-slate-100,.son .border-gray-200,.son .border-gray-100,.son .border{border-color:var(--son-border)!important}
+.son .hover\:border-slate-300:hover,.son .hover\:border-slate-900:hover{border-color:var(--son-accent)!important}
+.son .divide-slate-100>*+*,.son .divide-slate-200>*+*{border-color:var(--son-border)!important}
+.son input,.son textarea,.son select{color:var(--son-text)}
+/* legacy ui-kit buttons pick up tokens in dark too */
+.son .btn-secondary{background:var(--son-surface)!important;color:var(--son-text)!important;border-color:var(--son-border)!important}
+.son .btn-primary{background:var(--son-accent)!important;color:var(--son-accent-ink)!important;border-color:var(--son-accent)!important}
+/* sub-panel / modal pass — interactive states + the ui-kit's bg-slate-900 strong tone */
+.son .bg-slate-900{background:var(--son-accent)!important;color:var(--son-accent-ink)!important}
+.son .hover\:bg-slate-800:hover{background:var(--son-accent)!important;filter:brightness(.96)}
+.son .hover\:bg-slate-50:hover,.son .hover\:bg-slate-100:hover,.son .hover\:bg-slate-200:hover{background:var(--son-surface-2)!important}
+.son ::placeholder{color:var(--son-faint)}
+.son .focus\:border-slate-900:focus{border-color:var(--son-accent)!important}
+.son .bg-slate-50\/60,.son .bg-slate-50\/40{background:var(--son-surface-2)!important}
+/* keep modal scrims dark regardless of theme (they sit above the surface) */
+.son .bg-black\/40,.son .bg-black\/30,.son .bg-slate-900\/50{background:rgba(2,6,23,.55)!important}
