@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   Home, DollarSign, Truck, Building2, Film, Users, BarChart2, Settings, ShieldCheck, Target, Wrench,
   Search, Plus, Star, ChevronLeft, ChevronRight, ChevronDown, ChevronUp,
-  LogOut, X, Clock, ArrowRight, Sun, Moon, MapPin, Plane, FileSignature, Clapperboard, BedDouble, Car, ScrollText,
+  LogOut, X, ArrowRight, Sun, Moon, MapPin, Plane, FileSignature, Clapperboard, BedDouble, Car, ScrollText,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import SetupGate from '@/components/SetupGate';
@@ -317,7 +317,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const actions = Object.values(NEW_ROUTES).map(a => ({ label: a.label, href: a.href, kind: 'action' as const }));
     const pages = ALL_PAGES.map(p => ({ label: `${p.module} › ${p.label}`, href: p.href, kind: 'page' as const }));
     const all = [...actions, ...pages];
-    if (!q) return pages.slice(0, 8);
+    if (!q) {
+      // SYS-14: empty palette = your pinned + recent pages (replaces the old chip rows)
+      const quick = [
+        ...pins.map(p => ({ label: `★ ${p.label}`, href: p.href, kind: 'page' as const })),
+        ...recents.slice(0, 5).map(p => ({ label: `${p.label} · recent`, href: p.href, kind: 'page' as const })),
+      ];
+      const seen = new Set(quick.map(x => x.href));
+      return [...quick, ...pages.filter(p => !seen.has(p.href))].slice(0, 10);
+    }
     return all.filter(r => r.label.toLowerCase().includes(q)).slice(0, 10);
   })();
 
@@ -453,16 +461,34 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* ── Main column ── */}
       <div className="flex-1 flex flex-col min-w-0">
 
-        {/* Utility bar */}
-        <header className="flex items-center gap-3 px-5 h-12 bg-white shrink-0" style={{ borderBottom: `1px solid ${darkMode ? '#243349' : '#e6e7ea'}` }}>
+        {/* ── SYS-14 shell: TOPBAR (row 1 of 2) — breadcrumb IS the page title.
+             The old big-title block + pinned/recents rows are gone; pins and
+             recents live in the ⌘K palette. ─────────────────────────────────── */}
+        <header className="flex items-center gap-2 px-4 h-12 bg-white shrink-0" style={{ borderBottom: `1px solid ${darkMode ? '#243349' : '#e6e7ea'}` }}>
+          <nav className="flex items-center gap-0.5 min-w-0" aria-label="Breadcrumb">
+            <Link href={activeModule.pages.find(p => !p.divider)?.href || '/'}
+              className="text-[13px] text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-md px-2 py-1 whitespace-nowrap transition-colors">
+              {activeModule.label}
+            </Link>
+            {activePage && (
+              <>
+                <ChevronRight size={13} className="text-gray-300 shrink-0" />
+                <span className="text-[13px] font-semibold text-gray-900 px-1.5 py-1 truncate">{activePage.label}</span>
+                <button onClick={togglePin} title={isPinned ? 'Unpin' : 'Pin'} aria-label="Pin page"
+                  className="text-gray-300 hover:text-amber-500 p-1 shrink-0" style={{ color: isPinned ? GOLD : undefined }}>
+                  <Star size={13} fill={isPinned ? GOLD : 'none'} />
+                </button>
+              </>
+            )}
+            {isDetail && <><ChevronRight size={13} className="text-gray-300 shrink-0" /><span className="text-[12px] text-gray-400 px-1 whitespace-nowrap">record</span></>}
+          </nav>
+          <div className="flex-1" />
           <button onClick={() => { setPaletteOpen(true); setQuery(''); }}
-            className="flex items-center gap-2 text-sm text-gray-400 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg px-3 h-8 transition-colors"
-            style={{ maxWidth: 340, flex: 1 }}>
-            <Search size={15} />
-            <span className="text-[12.5px]">Search pages, records, actions…</span>
+            className="flex items-center gap-2 text-sm text-gray-400 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg px-3 h-8 transition-colors w-[230px] shrink-0">
+            <Search size={14} />
+            <span className="text-[12.5px] truncate">Search or jump…</span>
             <span className="ml-auto text-[11px] text-gray-400 border border-gray-200 rounded px-1.5 py-0.5">⌘K</span>
           </button>
-          <div className="flex-1" />
           {newAction && (
             <Link href={newAction.href} className="hidden sm:flex items-center gap-1.5 text-[12.5px] font-medium text-white rounded-lg px-3 h-8" style={{ background: GOLD }}>
               <Plus size={14} /> {newAction.label}
@@ -474,45 +500,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </button>
           <NotificationBell />
         </header>
-
-        {/* Breadcrumb + title — hidden inside a record (it has its own header + back button) */}
-        {!isDetail && (
-          <div className="flex items-center justify-between gap-3 px-5 pt-3 bg-white">
-            <div className="min-w-0">
-              <div className="text-[11.5px] text-gray-400 flex items-center gap-1">
-                <span>{activeModule.label}</span>
-                {activePage && <><ChevronRight size={11} /> <span>{activePage.label}</span></>}
-              </div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-[18px] font-bold text-gray-900 truncate">{activePage?.label || activeModule.label}</h1>
-                {activePage && (
-                  <button onClick={togglePin} title={isPinned ? 'Unpin' : 'Pin'} aria-label="Pin page"
-                    className="text-gray-300 hover:text-amber-500" style={{ color: isPinned ? GOLD : undefined }}>
-                    <Star size={15} fill={isPinned ? GOLD : 'none'} />
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Pinned + recents */}
-        {!isDetail && (pins.length > 0 || recents.length > 0) && (
-          <div className="flex items-center gap-1.5 flex-wrap px-5 pt-2 pb-1 bg-white text-[11.5px]">
-            {pins.length > 0 && <span className="text-gray-400">Pinned</span>}
-            {pins.map(p => (
-              <Link key={'pin' + p.href} href={p.href} className="flex items-center gap-1 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-full px-2.5 py-1 text-gray-700">
-                <Star size={11} style={{ color: GOLD }} fill={GOLD} /> {p.label}
-              </Link>
-            ))}
-            {recents.length > 0 && <span className="text-gray-400 ml-1">Recent</span>}
-            {recents.slice(0, 4).map(p => (
-              <Link key={'rec' + p.href} href={p.href} className="flex items-center gap-1 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-full px-2.5 py-1 text-gray-600">
-                <Clock size={11} /> {p.label}
-              </Link>
-            ))}
-          </div>
-        )}
 
         {/* Sub-tabs — hidden on record-detail screens (they bring their own header) */}
         {!isDetail && (

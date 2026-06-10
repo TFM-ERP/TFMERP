@@ -1,0 +1,24 @@
+feat(ux): SYS-14 step 3 — shell: breadcrumb topbar + single context row
+
+Layout (dashboard shell)
+- The topbar now carries a clickable BREADCRUMB (Module / Page + pin star) — it IS
+  the page title. The old stacked rows are gone: the 18px title block and the
+  pinned/recents chip rows are removed. Chrome above content on list pages:
+  topbar + module tabs = 2 rows (was 4).
+- Pinned + recent pages moved into the ⌘K palette: opening it empty now lists
+  ★ pinned, then recent, then pages — matching the command-first direction.
+- Search box docked right in the topbar ("Search or jump… ⌘K").
+- On record-detail routes the breadcrumb stays visible (Module / Page / record)
+  so context is never lost; module tabs still hide there.
+
+Project workspace header
+- Identity collapses to ONE compact row: back · title (15px) · number · status ·
+  client — replacing the tall multi-line header.
+- Budget-version actions (lock / working copy / recalc) + CSV / Print now appear
+  ONLY on money tabs (budget, topsheet, fringe, incentives, actual, cost report,
+  purchasing, ledger, cash). Other phases drop that noise; total budget stays as
+  a compact figure on the right.
+
+Net: project workspace = topbar + identity row + phase row + surface row, all
+compact — the deep-stack congestion drops from ~8 chrome rows toward the mock's
+target ahead of the ScriptON full-page-takeover slice.

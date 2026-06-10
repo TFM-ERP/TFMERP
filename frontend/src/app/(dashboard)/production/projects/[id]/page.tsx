@@ -375,32 +375,34 @@ export default function ProjectDetailPage() {
       {/* Sticky header + tabs — stays pinned while the page content scrolls */}
       <div className="sticky top-0 z-20 -mx-6 -mt-6 px-6 pt-5 pb-2 mb-4 border-b border-gray-200 shadow-sm [&>*:last-child]:mb-0" style={{ background: 'var(--page-bg)' }}>
       {/* Header — project name, active budget, actions + total all on one row */}
-      <div className="flex items-center gap-x-3 gap-y-2 mb-4 flex-wrap">
+      {/* SYS-14 shell: ONE compact identity row. Budget-version actions and exports
+          only appear on money tabs — other phases don't carry their noise. */}
+      {(() => {
+        const moneyCtx = ['budget', 'topsheet', 'fringe', 'incentives', 'actual', 'costreport', 'purchasing', 'accounting', 'cash'].includes(tab);
+        return (
+      <div className="flex items-center gap-x-2.5 gap-y-1.5 mb-3 flex-wrap">
         <button onClick={() => { if (window.history.length > 1) router.back(); else router.push('/production/projects'); }}
-          title="Back" className="btn btn-secondary p-1.5"><ArrowLeft size={16} /></button>
-        <div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-xl font-bold text-gray-900">{project.title}</h1>
-            <span className="text-sm text-gray-400">{project.projectNumber}</span>
-            <span className={cn('badge text-xs', STATUS_COLORS[project.status] || 'bg-gray-100 text-gray-600')}>
-              {project.status.replace(/_/g, ' ')}
-            </span>
-          </div>
-          {project.client && <p className="text-sm text-gray-500">{project.client.companyName} · {project.projectType}</p>}
-        </div>
+          title="Back" className="btn btn-secondary p-1.5"><ArrowLeft size={15} /></button>
+        <h1 className="text-[15px] font-bold text-gray-900 truncate max-w-[320px]">{project.title}</h1>
+        <span className="text-xs text-gray-400">{project.projectNumber}</span>
+        <span className={cn('badge text-xs', STATUS_COLORS[project.status] || 'bg-gray-100 text-gray-600')}>
+          {project.status.replace(/_/g, ' ')}
+        </span>
+        {project.client && <span className="text-xs text-gray-400 truncate hidden md:inline">· {project.client.companyName} · {project.projectType}</span>}
 
-        {/* Active budget — beside the project name */}
-        {activeVersion && (
-          <div className="flex items-center gap-2 text-sm text-gray-600 pl-3 border-l border-gray-200">
-            <span className="text-gray-400">Active budget:</span>
-            <span className="font-medium">{activeVersion.versionName}</span>
+        <div className="flex-1" />
+
+        {/* Budget context cluster — money tabs only */}
+        {moneyCtx && activeVersion && (
+          <div className="flex items-center gap-1.5 text-xs text-gray-600">
+            <span className="font-medium truncate max-w-[160px]">{activeVersion.versionName}</span>
             <span className={cn('badge text-xs', activeVersion.status === 'LOCKED' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700')}>
               {activeVersion.status}
             </span>
             {activeVersion.status !== 'LOCKED' ? (
               <button onClick={async () => { if (confirm('Lock this budget? It becomes read-only — changes will require a working copy or an approved transfer.')) { await productionApi.budget.lockVersion(activeVersion.id); reload(); } }}
                 className="btn btn-secondary text-xs py-1 px-2">
-                <Lock size={11} className="mr-1" /> Lock baseline
+                <Lock size={11} className="mr-1" /> Lock
               </button>
             ) : (
               <button onClick={async () => {
@@ -410,36 +412,23 @@ export default function ProjectDetailPage() {
                 await productionApi.budget.activateVersion(r.data.id);
                 reload();
               }} className="btn btn-primary text-xs py-1 px-2">
-                <Plus size={11} className="mr-1" /> Create working copy
+                <Plus size={11} className="mr-1" /> Working copy
               </button>
             )}
             <button onClick={async () => { await productionApi.budget.recalculate(activeVersion.id); reload(); }}
-              className="btn btn-secondary text-xs py-1 px-2">
-              <RefreshCw size={11} className="mr-1" /> Recalc
+              className="btn btn-secondary text-xs py-1 px-2" title="Recalculate">
+              <RefreshCw size={11} />
             </button>
+            <button onClick={exportCsv} className="btn btn-secondary text-xs py-1 px-2" title="Export CSV"><FileDown size={11} /></button>
+            <button onClick={openPrint} className="btn btn-secondary text-xs py-1 px-2" title="Print / PDF"><Printer size={11} /></button>
           </div>
-        )}
-
-        <div className="flex-1" />
-
-        {/* Export actions + total */}
-        {activeVersion && (
-          <>
-            <button onClick={exportCsv} className="btn btn-secondary text-xs py-1 px-2">
-              <FileDown size={11} className="mr-1" /> CSV
-            </button>
-            <button onClick={openPrint} className="btn btn-secondary text-xs py-1 px-2">
-              <Printer size={11} className="mr-1" /> Print / PDF
-            </button>
-          </>
         )}
         {project.totalBudget && (
-          <div className="text-right ml-1">
-            <p className="text-xs text-gray-400">Total Budget</p>
-            <p className="text-lg font-bold text-gray-900">{money(project.totalBudget)}</p>
-          </div>
+          <span className="text-xs text-gray-400 ml-1">Budget <b className="text-[13px] text-gray-900 font-bold">{money(project.totalBudget)}</b></span>
         )}
       </div>
+        );
+      })()}
 
       {/* Tab groups */}
       {(() => {
