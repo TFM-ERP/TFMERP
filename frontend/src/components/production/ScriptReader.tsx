@@ -72,15 +72,16 @@ const RDR_CSS = `
 .rdr.rdr-am-name .rdr-mine.rdr-character,.rdr.rdr-am-both .rdr-mine.rdr-character{background:#bbf7d0;border-radius:4px;padding:1px 4px}
 .rdr.rdr-am-dialogue .rdr-mine.rdr-dialogue,.rdr.rdr-am-both .rdr-mine.rdr-dialogue{background:#bbf7d0;border-radius:4px;padding:1px 4px}
 .rdr .rdr-active{background:#fde68a !important;border-radius:4px;padding:1px 4px}
-.rdr-scene{font-weight:700;text-transform:uppercase;margin-top:18px}
-.rdr-transition{text-align:right;font-weight:600}
-.rdr-character{text-align:center;font-weight:600;margin-top:10px}
-.rdr-paren{text-align:center;font-style:italic;color:#64748b}
-.rdr-dialogue{max-width:62%;margin:0 auto}
-.rdr-action{margin-top:8px}
-.rdr-sceneno{color:#94a3b8;font-weight:700;margin-right:8px}
-.rdr-8ths{color:#94a3b8;font-weight:400;margin-left:8px;font-size:.78em}
-.rdr-dlgno{color:#94a3b8;margin-left:4px;font-size:.66em}
+.rdr{color:#1f1f1f}
+.rdr-scene{font-weight:700;text-transform:uppercase;margin-top:18px;color:#1f1f1f}
+.rdr-transition{text-align:right;font-weight:600;color:#1f1f1f}
+.rdr-character{text-align:center;font-weight:600;margin-top:10px;color:#1f1f1f}
+.rdr-paren{text-align:center;font-style:italic;color:#666}
+.rdr-dialogue{max-width:62%;margin:0 auto;color:#1f1f1f}
+.rdr-action{margin-top:8px;color:#3c3c3c}
+.rdr-sceneno{color:#8a8a82;font-weight:700;margin-right:8px}
+.rdr-8ths{color:#8a8a82;font-weight:400;margin-left:8px;font-size:.78em}
+.rdr-dlgno{color:#8a8a82;margin-left:4px;font-size:.66em}
 `;
 
 /** One script line, memoized — its props only change for cursor moves, actor change, or blackout. */
@@ -100,7 +101,7 @@ const Row = memo(function Row({ e, idx, mine, active, sceneNo, eighthsLabel, dlg
   );
 });
 
-export default function ScriptReader({ revision, onClose }: { revision: any; onClose: () => void }) {
+export default function ScriptReader({ revision, onClose, inline }: { revision: any; onClose: () => void; inline?: boolean }) {
   const els = useMemo(() => parseScript(revision?.pageText || []), [revision]);
   const characters = useMemo(() => {
     const seen = new Set<string>();
@@ -216,6 +217,7 @@ export default function ScriptReader({ revision, onClose }: { revision: any; onC
         emotion: emotionFor(idx),
       }).then((r) => r.data);
       synthRef.current.set(idx, p);
+      p.catch(() => synthRef.current.delete(idx)); // handled: prefetch failures must not crash the app
     }
     return p;
   }, [els, revision?.id, emotionFor]);
@@ -346,8 +348,8 @@ export default function ScriptReader({ revision, onClose }: { revision: any; onC
   const onReveal = useCallback((idx: number) => setRevealed((r) => new Set(r).add(idx)), []);
 
   return (
-    <div className="fixed inset-0 z-[80] bg-slate-900/50 flex items-stretch" onClick={handleClose}>
-      <div className={`son ${sonDark ? 'son-dark' : ''} ml-auto h-full w-full max-w-5xl bg-slate-50 shadow-2xl flex flex-col`} onClick={(e) => e.stopPropagation()}>
+    <div className={inline ? 'absolute inset-0 flex items-stretch' : 'fixed inset-0 z-[80] bg-slate-900/50 flex items-stretch'} onClick={inline ? undefined : handleClose}>
+      <div className={`son ${sonDark ? 'son-dark' : ''} h-full w-full bg-slate-50 flex flex-col ${inline ? 'rounded-2xl border border-slate-200' : 'ml-auto max-w-5xl shadow-2xl'}`} onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center gap-2 px-4 h-12 bg-white border-b border-slate-200 shrink-0">
           <BookOpen size={16} className="text-slate-700" />
@@ -500,7 +502,9 @@ export default function ScriptReader({ revision, onClose }: { revision: any; onC
               info.dialogueNo ? 'rdr-info-dlgno' : '', info.eighths ? 'rdr-info-8ths' : '',
               actor ? `rdr-am-${actorMode}` : '',
             ].filter(Boolean).join(' ')}
-            style={{ fontFamily: serif ? 'Georgia, serif' : 'ui-monospace, Menlo, monospace', fontSize: font, lineHeight: 1.5, background: info.tint ? tintFor(revision?.colorCode) : '#ffffff' }}>
+            style={{ fontFamily: serif ? 'Georgia, serif' : '"Courier New", Courier, monospace', fontSize: font, lineHeight: 1.6,
+              background: info.tint ? tintFor(revision?.colorCode) : '#fdfdf9', color: '#1f1f1f',
+              border: '1px solid rgba(0,0,0,.07)', boxShadow: '0 2px 5px rgba(0,0,0,.16), 0 14px 34px rgba(0,0,0,.12)' }}>
             {els.length === 0 && <p className="text-slate-400 text-sm">No extractable text in this revision. (Scanned PDFs have no text layer.)</p>}
             {els.map((e, idx) => (
               <Row key={idx} e={e} idx={idx}

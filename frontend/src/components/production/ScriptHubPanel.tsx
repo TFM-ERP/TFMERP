@@ -467,15 +467,21 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
             </div>
           </div>
         )}
-        {/* SYS-14 takeovers — exactly one surface; closing returns to Pages */}
-        {surface === 'sides' && activeRev && <SidesGenerator projectId={projectId} revision={activeRev} onClose={() => setSurface(null)} />}
-        {surface === 'lining' && activeRev && <LiningPanel projectId={projectId} revision={activeRev} onClose={() => setSurface(null)} />}
-        {surface === 'procurement' && activeRev && <ProcurementStagingPanel projectId={projectId} revision={activeRev} onClose={() => setSurface(null)} />}
-        {surface === 'reader' && activeRev && <ScriptReader revision={activeRev} onClose={() => setSurface(null)} />}
-        {surface === 'tags' && activeRev && <TagToolsPanel projectId={projectId} revision={activeRev} onChanged={() => loadAnnos(activeRev.id)} onClose={() => setSurface(null)} />}
-        {surface === 'analyze' && activeRev && <ScriptAnalyzePanel revision={activeRev} onClose={() => setSurface(null)} />}
-        {surface === 'memos' && activeRev && <AudioNotesPanel revision={activeRev} onClose={() => setSurface(null)} />}
-        {surface === 'audiostudio' && activeRev && <ScriptOnAudioPanel revision={activeRev} projectId={projectId} onClose={() => setSurface(null)} />}
+        {/* SYS-14 takeovers — exactly one surface; closing returns to Pages.
+            The transform on this wrapper CONTAINS the surfaces' `position: fixed`,
+            so they render INSIDE the binder (same window as Pages), not over the app. */}
+        {surface && activeRev && (
+          <div style={{ position: 'relative', minHeight: '78vh', transform: 'translateZ(0)', overflow: 'hidden', borderRadius: 16 }}>
+            {surface === 'sides' && <SidesGenerator projectId={projectId} revision={activeRev} onClose={() => setSurface(null)} />}
+            {surface === 'lining' && <LiningPanel projectId={projectId} revision={activeRev} onClose={() => setSurface(null)} />}
+            {surface === 'procurement' && <ProcurementStagingPanel projectId={projectId} revision={activeRev} onClose={() => setSurface(null)} />}
+            {surface === 'reader' && <ScriptReader revision={activeRev} inline onClose={() => setSurface(null)} />}
+            {surface === 'tags' && <TagToolsPanel projectId={projectId} revision={activeRev} onChanged={() => loadAnnos(activeRev.id)} onClose={() => setSurface(null)} />}
+            {surface === 'analyze' && <ScriptAnalyzePanel revision={activeRev} onClose={() => setSurface(null)} />}
+            {surface === 'memos' && <AudioNotesPanel revision={activeRev} onClose={() => setSurface(null)} />}
+            {surface === 'audiostudio' && <ScriptOnAudioPanel revision={activeRev} projectId={projectId} onClose={() => setSurface(null)} />}
+          </div>
+        )}
 
         {activeRev ? (
           <>
@@ -502,7 +508,7 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
               </div>
             )}
 
-            <div className="flex gap-3">
+            <div className="flex gap-3" style={{ display: surface ? 'none' : undefined }}>
               <div className="flex-1 min-w-0">
                 {activeRev.pdfUrl && !/\.pdf$/i.test(activeRev.pdfUrl) ? (
                   <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center">
