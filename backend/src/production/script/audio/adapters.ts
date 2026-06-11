@@ -19,7 +19,11 @@ export interface VoiceConfig {
   styleAmount?: number;   // ElevenLabs style exaggeration 0..1
   speed?: number;         // ElevenLabs voice_settings.speed (~0.7–1.2)
   emotionTag?: string;    // normalized label, e.g. "excited" — v3 audio tag / OpenAI instructions
+  accent?: string;        // character accent — OpenAI instructions / v3 accent tag
 }
+
+/** Filters for browsing a provider's FULL voice library (not just the account's voices). */
+export interface VoiceSearch { gender?: string; age?: string; accent?: string; language?: string; search?: string; }
 
 export interface Segment {
   id: string; kind: 'dialogue' | 'narration'; character?: string; text: string;
@@ -42,6 +46,7 @@ export interface VoiceOption {
   description?: string;
   useCase?: string;
   previewUrl?: string;    // audition sample
+  publicOwnerId?: string; // set for SHARED library voices — needed to add them to the account
 }
 
 export interface AudioProviderAdapter {
@@ -117,6 +122,45 @@ export class ElevenLabsAdapter implements AudioProviderAdapter {
     return { audio: Buffer.from(await r.arrayBuffer()), mime: 'audio/mpeg', charsBilled: seg.text.length };
   }
 
+  /** Browse the FULL ElevenLabs shared voice library with label filters (thousands of voices). */
+  async searchVoices(f: VoiceSearch): Promise<VoiceOption[]> {
+    const q = new URLSearchParams({ page_size: '50' });
+    if (f.gender) q.set('gender', f.gender);
+    if (f.age) q.set('age', f.age);
+    if (f.accent) q.set('accent', f.accent);
+    if (f.language) q.set('language', f.language);
+    if (f.search) q.set('search', f.search);
+    const r = await fetch(`https://api.elevenlabs.io/v1/shared-voices?${q}`, { headers: { 'xi-api-key': this.apiKey() }, signal: AbortSignal.timeout(30_000) });
+    if (!r.ok) throw new Error(`ElevenLabs voice library ${r.status}: ${await r.text().catch(() => '')}`);
+    const data: any = await r.json();
+    return ((data?.voices || []) as any[]).map((v) => ({
+      id: v.voice_id, name: v.name,
+      gender: v.gender || undefined, age: v.age || undefined, accent: v.accent || undefined,
+      language: v.language || undefined, description: v.descriptive || v.description || undefined,
+      useCase: v.use_case || undefined, previewUrl: v.preview_url || undefined,
+      publicOwnerId: v.public_owner_id || undefined,
+    }));
+  }
+
+  /** Add a shared-library voice to THIS account so it can be cast and synthesized. */
+  async addSharedVoice(publicOwnerId: string, voiceId: string, name: string): Promise<string> {
+    const r = await fetch(`https://api.elevenlabs.io/v1/voices/add/${publicOwnerId}/${voiceId}`, {
+      method: 'POST', headers: { 'xi-api-key': this.apiKey(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ new_name: name }), signal: AbortSignal.timeout(30_000),
+    });
+    if (!r.ok) throw new Error(`ElevenLabs add voice ${r.status}: ${await r.text().catch(() => '')}`);
+    const data: any = await r.json();
+    return data?.voice_id || voiceId;
+  }
+
+  /** Subscription status — used/limit characters, so the studio can warn BEFORE quota death. */
+  async accountStatus(): Promise<{ used: number; limit: number; tier?: string }> {
+    const r = await fetch('https://api.elevenlabs.io/v1/user/subscription', { headers: { 'xi-api-key': this.apiKey() }, signal: AbortSignal.timeout(20_000) });
+    if (!r.ok) throw new Error(`ElevenLabs subscription ${r.status}`);
+    const d: any = await r.json();
+    return { used: Number(d?.character_count || 0), limit: Number(d?.character_limit || 0), tier: d?.tier };
+  }
+
   /**
    * v3 Text-to-Dialogue: a whole scene as multi-speaker turns in ONE generation —
    * natural interplay (interruptions, reactions) instead of stitched lines.
@@ -176,7 +220,9 @@ export class OpenAiAdapter implements AudioProviderAdapter {
 
   async synthesize(seg: Segment, cfg: VoiceConfig): Promise<SynthResult> {
     const body: any = { model: cfg.model || this.defaultModel || 'gpt-4o-mini-tts', voice: cfg.externalVoiceId || 'alloy', input: seg.text, response_format: 'mp3', speed: cfg.rate ?? 1 };
-    if (cfg.emotionTag) body.instructions = `Deliver the line in a ${cfg.emotionTag} tone.`; // supported by gpt-4o-mini-tts
+    // gpt-4o-mini-tts takes free-text voice direction — accents AND emotions ride here.
+    const direction = [cfg.accent ? `Speak with a ${cfg.accent} accent` : '', cfg.emotionTag ? `in a ${cfg.emotionTag.replace(/\] \[/g, ', ')} tone` : ''].filter(Boolean).join(', ');
+    if (direction) body.instructions = `${direction}.`;
     const r = await fetch('https://api.openai.com/v1/audio/speech', {
       method: 'POST', headers: { Authorization: `Bearer ${this.apiKey()}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(body),

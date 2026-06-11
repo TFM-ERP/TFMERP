@@ -38,7 +38,8 @@ export class LayersService {
     return this.prisma.sceneAudioCue.findMany({ where: { revisionId, status: { not: 'REMOVED' } }, orderBy: [{ sceneNumber: 'asc' }, { startMs: 'asc' }] });
   }
 
-  /** Heuristic suggestion: scan each scene's slugline + action for ambience/SFX/music cues. */
+  /** Cue suggestion. AI-first (Claude reads each scene's REAL text and sound-designs it:
+   *  ambience, SFX with placement, foley, music mood). Heuristic keyword scan as fallback. */
   async suggest(revisionId: string, userId?: string) {
     const scenes = await this.prisma.scriptScene.findMany({ where: { revisionId }, orderBy: { sortOrder: 'asc' } });
     const rev = await this.prisma.scriptRevision.findUnique({ where: { id: revisionId }, select: { pageText: true } });
@@ -48,26 +49,108 @@ export class LayersService {
     const existing = await this.prisma.sceneAudioCue.findMany({ where: { revisionId, source: 'AUTO' }, select: { sceneNumber: true, layerType: true, genPrompt: true } });
     const have = new Set(existing.map((e) => `${e.sceneNumber}|${e.layerType}|${e.genPrompt}`));
     let created = 0;
+    const add = async (sc: string, layerType: string, prompt: string, confidence: number, startMs = 0, duck?: boolean) => {
+      if (have.has(`${sc}|${layerType}|${prompt}`)) return;
+      have.add(`${sc}|${layerType}|${prompt}`);
+      await this.prisma.sceneAudioCue.create({ data: { revisionId, sceneNumber: sc, layerType, genPrompt: prompt, startMs, source: 'AUTO', status: 'SUGGESTED', confidence, duckDialogue: duck ?? (layerType === 'MUSIC' || layerType === 'AMBIENCE'), createdById: userId || null } });
+      created += 1;
+    };
+
+    // ── AI sound design (scene-precise) ──────────────────────────────────────────
+    if (process.env.ANTHROPIC_API_KEY && scenes.length) {
+      try {
+        const BATCH = 6;
+        for (let i = 0; i < scenes.length; i += BATCH) {
+          const batch = scenes.slice(i, i + BATCH).map((s) => ({
+            scene: s.sceneNumber || String(s.sortOrder),
+            slugline: s.slugline, dayNight: s.dayNight, intExt: s.intExt,
+            text: `${textForScene(s)}`.slice(0, 1600),
+            durationSec: Math.max(10, Math.round(textForScene(s).length / 14)),
+          }));
+          const cuesOut = await this.callSoundDesigner(batch);
+          for (const c of cuesOut) {
+            const sc = String(c.scene || '');
+            const lt = ['AMBIENCE', 'ROOMTONE', 'SFX', 'FOLEY', 'MUSIC'].includes(String(c.layerType)) ? c.layerType : null;
+            const prompt = String(c.prompt || '').trim().slice(0, 180);
+            if (!sc || !lt || !prompt) continue;
+            const dur = (batch.find((b) => b.scene === sc)?.durationSec || 60) * 1000;
+            const startMs = Math.max(0, Math.min(dur, Math.round((Number(c.position) || 0) * dur)));
+            await add(sc, lt, prompt, Math.min(1, Math.max(0, Number(c.confidence) || 0.6)), startMs, c.duck === undefined ? undefined : !!c.duck);
+          }
+        }
+        return { created, cues: await this.listCues(revisionId), ai: true };
+      } catch { /* fall through to the heuristic below */ }
+    }
+
+    // ── Heuristic fallback ($0, offline) ─────────────────────────────────────────
     for (const s of scenes) {
       const sc = s.sceneNumber || String(s.sortOrder);
       const text = `${s.slugline || ''}\n${textForScene(s)}`;
-      const add = async (layerType: string, prompt: string, confidence: number) => {
-        if (have.has(`${sc}|${layerType}|${prompt}`)) return;
-        await this.prisma.sceneAudioCue.create({ data: { revisionId, sceneNumber: sc, layerType, genPrompt: prompt, source: 'AUTO', status: 'SUGGESTED', confidence, duckDialogue: layerType === 'MUSIC' || layerType === 'AMBIENCE', createdById: userId || null } });
-        created += 1;
-      };
-      for (const [re, prompt] of this.AMBIENCE) if (re.test(text)) { await add('AMBIENCE', prompt, 0.6); break; }
-      for (const [re, prompt] of this.SFX) if (re.test(text)) await add('SFX', prompt, 0.5);
-      // a tension music bed for NIGHT / action-heavy scenes
-      if (/\bnight\b/i.test(s.dayNight || s.slugline || '') || /\b(chase|fight|run|gun|explos)\b/i.test(text)) await add('MUSIC', 'tense underscore bed', 0.45);
+      for (const [re, prompt] of this.AMBIENCE) if (re.test(text)) { await add(sc, 'AMBIENCE', prompt, 0.6); break; }
+      for (const [re, prompt] of this.SFX) if (re.test(text)) await add(sc, 'SFX', prompt, 0.5);
+      if (/\bnight\b/i.test(s.dayNight || s.slugline || '') || /\b(chase|fight|run|gun|explos)\b/i.test(text)) await add(sc, 'MUSIC', 'tense underscore bed', 0.45);
     }
-    return { created, cues: await this.listCues(revisionId) };
+    return { created, cues: await this.listCues(revisionId), ai: false };
+  }
+
+  /** Claude as sound designer: reads scene text, returns concrete generation-ready cues. */
+  private async callSoundDesigner(scenes: any[]): Promise<any[]> {
+    const tool = {
+      name: 'submit_sound_design',
+      description: 'Submit the cue plan for the provided scenes.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          cues: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                scene: { type: 'string', description: 'sceneNumber exactly as given' },
+                layerType: { type: 'string', enum: ['AMBIENCE', 'ROOMTONE', 'SFX', 'FOLEY', 'MUSIC'] },
+                prompt: { type: 'string', description: 'concrete, generation-ready description, e.g. "heavy rain on metal skylights, occasional distant thunder"' },
+                position: { type: 'number', description: '0..1 — where in the scene it starts (0 = scene top)' },
+                duck: { type: 'boolean', description: 'lower under dialogue' },
+                confidence: { type: 'number' },
+              },
+              required: ['scene', 'layerType', 'prompt', 'position'],
+            },
+          },
+        },
+        required: ['cues'],
+      },
+    };
+    const system = [
+      'You are a film sound designer doing a spotting pass on screenplay scenes.',
+      'For EACH scene, propose the cues its soundscape actually needs, based on what HAPPENS in the text:',
+      '- ONE ambience/roomtone bed matching the real location and time (position 0).',
+      '- SFX for concrete events in the action lines (a shot, a door, a vault over a rail) placed at their approximate position in the scene.',
+      '- FOLEY for sustained physical activity (footsteps on the gantry, handling props).',
+      '- MUSIC only when the scene\'s tension/emotion warrants it; describe mood, instrumentation, energy.',
+      'Be specific and concrete — prompts go straight to a sound-generation model. 2–5 cues per scene. No invented events.',
+      'Respond ONLY by calling submit_sound_design.',
+    ].join('\n');
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY!, 'anthropic-version': '2023-06-01' } as any,
+      body: JSON.stringify({
+        model: process.env.SCRIPT_AUDIO_AI_MODEL || process.env.MM_AI_MODEL || 'claude-3-5-sonnet-20241022',
+        max_tokens: 4000, system, tools: [tool],
+        tool_choice: { type: 'tool', name: 'submit_sound_design' },
+        messages: [{ role: 'user', content: JSON.stringify({ scenes }) }],
+      }),
+      signal: AbortSignal.timeout(90_000),
+    });
+    if (!res.ok) throw new Error(`Anthropic HTTP ${res.status}`);
+    const data: any = await res.json().catch(() => null);
+    const toolUse = (data?.content || []).find((b: any) => b?.type === 'tool_use' && b?.name === 'submit_sound_design');
+    return Array.isArray(toolUse?.input?.cues) ? toolUse.input.cues : [];
   }
 
   upsertCue(b: any, userId?: string) {
     if (b?.id) {
       const d: any = {};
-      for (const k of ['sceneNumber', 'layerType', 'layerAssetId', 'uploadUrl', 'genPrompt', 'startMs', 'endMs', 'volumeDb', 'fadeInMs', 'fadeOutMs', 'duckDialogue', 'status']) if (b[k] !== undefined) d[k] = b[k];
+      for (const k of ['sceneNumber', 'layerType', 'layerAssetId', 'uploadUrl', 'genPrompt', 'startMs', 'endMs', 'volumeDb', 'fadeInMs', 'fadeOutMs', 'duckDialogue', 'status', 'anchorSeg', 'anchorOffsetMs']) if (b[k] !== undefined) d[k] = b[k];
       return this.prisma.sceneAudioCue.update({ where: { id: b.id }, data: d });
     }
     return this.prisma.sceneAudioCue.create({ data: {

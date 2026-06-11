@@ -3009,6 +3009,10 @@ model SceneAudioCue {
   genPrompt    String?
   startMs      Int      @default(0)
   endMs        Int?
+  // SYS-14 V3-A: line anchoring — fire when the Nth speakable segment of the scene
+  // plays (+offset). Survives recasting/re-renders; startMs stays as the mix estimate.
+  anchorSeg      Int?
+  anchorOffsetMs Int    @default(0)
   volumeDb     Float    @default(0)
   fadeInMs     Int      @default(0)
   fadeOutMs    Int      @default(0)
@@ -3057,6 +3061,8 @@ model ScriptRevision {
   pdfUrl        String         // /uploads/<file>
   pageCount     Int            @default(0)
   pageText      Json?          // [{ page, text }] captured at upload (anchor source)
+  // SYS-14 V3-B: AI Director — per-line delivery, { [sceneOrdinal]: { [segIdx]: { tag, take } } }
+  lineDirections Json?
   uploadedById  String?
   createdAt     DateTime       @default(now())
 

@@ -1433,6 +1433,9 @@ export const scriptAudioApi = {
   // engines + routing (admin)
   engines:       () => api.get('/production/audio/engines'),
   engineVoices:  (key: string) => api.get(`/production/audio/engines/${encodeURIComponent(key)}/voices`),
+  voiceSearch:   (key: string, params: any) => api.get(`/production/audio/engines/${encodeURIComponent(key)}/voice-search`, { params }),
+  voiceAdd:      (key: string, data: any) => api.post(`/production/audio/engines/${encodeURIComponent(key)}/voice-add`, data),
+  engineStatus:  (key: string) => api.get(`/production/audio/engines/${encodeURIComponent(key)}/status`),
   seedEngines:   () => api.post('/production/audio/engines/seed'),
   createEngine:  (data: any) => api.post('/production/audio/engines', data),
   updateEngine:  (id: string, data: any) => api.put(`/production/audio/engines/${id}`, data),
@@ -1456,6 +1459,8 @@ export const scriptAudioApi = {
   // render + library
   estimate:      (revisionId: string, opts: any = {}) => api.post(`/production/audio/render/estimate/${revisionId}`, opts),
   speak:         (revisionId: string, data: any) => api.post(`/production/audio/speak/${revisionId}`, data),
+  directScene:   (revisionId: string, data: any) => api.post(`/production/audio/direct/${revisionId}`, data),
+  saveDirections:(revisionId: string, data: any) => api.put(`/production/audio/directions/${revisionId}`, data),
   render:        (revisionId: string, opts: any = {}) => api.post(`/production/audio/render/${revisionId}`, opts),
   runJob:        (jobId: string) => api.post(`/production/audio/render/run/${jobId}`),
   renderPlan:    (revisionId: string) => api.get(`/production/audio/render/plan/${revisionId}`),

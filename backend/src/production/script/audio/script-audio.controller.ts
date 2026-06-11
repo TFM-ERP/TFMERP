@@ -34,6 +34,9 @@ export class AudioEnginesController {
   constructor(private engines: AudioEnginesService) {}
   @Get('engines') listEngines() { return this.engines.listEngines(); }
   @Get('engines/:key/voices') engineVoices(@Param('key') key: string) { return this.engines.listEngineVoices(key); }
+  @Get('engines/:key/voice-search') voiceSearch(@Param('key') key: string, @Query() q: any) { return this.engines.searchEngineVoices(key, q); }
+  @Post('engines/:key/voice-add') @RequirePermission('production', 2) voiceAdd(@Param('key') key: string, @Body() b: any) { return this.engines.addEngineVoice(key, b); }
+  @Get('engines/:key/status') engineStatus(@Param('key') key: string) { return this.engines.engineStatus(key); }
   @Post('engines/seed') @RequirePermission('production', 2) seed() { return this.engines.seedDefaults(); }
   @Post('engines') @RequirePermission('production', 2) createEngine(@Body() b: any) { return this.engines.createEngine(b); }
   @Put('engines/:id') @RequirePermission('production', 2) updateEngine(@Param('id') id: string, @Body() b: any) { return this.engines.updateEngine(id, b); }
@@ -87,6 +90,9 @@ export class RenderController {
   @Get('jobs-for-revision/:revisionId') jobsForRevision(@Param('revisionId') id: string) { return this.render.jobsForRevision(id); }
   /** S4 — generate a layer cue's audio on demand (SFX/ambience/foley/Eleven Music). */
   @Post('cue-generate/:cueId') @RequirePermission('production', 2) generateCue(@Param('cueId') id: string, @Req() req: any) { return this.render.generateCueAudio(id, req.user?.id); }
+  /** V3-B — AI Director: per-line delivery pass for one scene; + manual direction saves. */
+  @Post('direct/:revisionId') @RequirePermission('production', 2) direct(@Param('revisionId') id: string, @Body() b: any, @Req() req: any) { return this.render.aiDirectScene(id, b, req.user?.id); }
+  @Put('directions/:revisionId') @RequirePermission('production', 2) saveDirections(@Param('revisionId') id: string, @Body() b: any) { return this.render.saveDirections(id, String(b?.scene || ''), b?.directions || {}); }
   @Get('library/:projectId') library(@Param('projectId') id: string, @Query('revisionId') revisionId?: string) { return this.render.listAssets(id, revisionId); }
   @Post('library/:id/archive') @RequirePermission('production', 2) archive(@Param('id') id: string) { return this.render.archiveAsset(id); }
   @Get('usage/:projectId') usage(@Param('projectId') id: string) { return this.render.usageSummary(id); }

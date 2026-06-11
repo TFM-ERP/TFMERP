@@ -66,9 +66,12 @@ export class RenderService implements OnModuleInit {
   private async buildSegments(revisionId: string, opts: any): Promise<{ segments: Segment[]; speakers: Set<string> }> {
     const rev = await this.prisma.scriptRevision.findUnique({ where: { id: revisionId }, select: { pageText: true } });
     if (!rev) throw new NotFoundException('Revision not found.');
-    const wantNarration = opts?.scope !== 'DIALOGUE_ONLY' && opts?.options?.narration !== false;
-    const dialogueOnly = opts?.scope === 'CHARACTER_ONLY' || opts?.scope === 'DIALOGUE_ONLY';
-    const narratorOnly = opts?.scope === 'NARRATOR_ONLY';
+    // Content can come from the legacy scope values OR the orthogonal options.content
+    // ('all' | 'dialogue' | 'narration') so range (scenes/pages) and content mix combine freely.
+    const content = opts?.options?.content;
+    const wantNarration = opts?.scope !== 'DIALOGUE_ONLY' && opts?.options?.narration !== false && content !== 'dialogue';
+    const dialogueOnly = opts?.scope === 'CHARACTER_ONLY' || opts?.scope === 'DIALOGUE_ONLY' || content === 'dialogue';
+    const narratorOnly = opts?.scope === 'NARRATOR_ONLY' || content === 'narration';
 
     // Optional page/scene scoping. selection = { pages: number[], scenes: sceneNumber[] }
     let includedPages: Set<number> | null = null;
@@ -274,6 +277,8 @@ export class RenderService implements OnModuleInit {
   private deliveryTags(profile: any, hintKey?: string): string | undefined {
     const er = (profile?.emotionalRange as any) || {};
     const tags: string[] = [];
+    // v3 understands accent tags — the character's accent shapes every line.
+    if (profile?.accent) tags.push(`${String(profile.accent).trim()} accent`);
     if (hintKey) tags.push(hintKey);
     else {
       if (Number(er.tension) >= 7) tags.push('tense');
@@ -282,7 +287,7 @@ export class RenderService implements OnModuleInit {
     }
     if (Number(er.pace) >= 8) tags.push('fast-paced');
     else if (er.pace !== undefined && Number(er.pace) <= 2) tags.push('drawn out');
-    return tags.length ? tags.join('] [') : undefined; // adapter wraps: "[tense] [fast-paced]"
+    return tags.length ? tags.join('] [') : undefined; // adapter wraps: "[French accent] [tense]"
   }
 
   /** In-memory engine voice-library cache (10 min) for default-voice picks. */
@@ -310,7 +315,7 @@ export class RenderService implements OnModuleInit {
    * Same LineSynthesisCache + usage ledger + quota as renders, so replays are free
    * and every paid character is accounted for.
    */
-  async speakLine(revisionId: string, b: { text?: string; character?: string; kind?: string; emotion?: string }, userId?: string) {
+  async speakLine(revisionId: string, b: { text?: string; character?: string; kind?: string; emotion?: string; take?: number }, userId?: string) {
     const fs = await import('fs');
     const text0 = String(b?.text || '').trim();
     if (!text0) throw new BadRequestException('text is required.');
@@ -348,7 +353,8 @@ export class RenderService implements OnModuleInit {
     const dict = await this.pron.resolveMap({ projectId, revisionId });
     const text = this.pron.applyTo(text0, dict);
     const seg: Segment = { id: 'live', kind: isNarr ? 'narration' : 'dialogue', character: b?.character, text };
-    const key = this.cacheKey(seg, engineRow.key, `${voiceId}|${tagLine || ''}|${fx?.key || ''}|${engineRow.defaultModel || 'eleven_v3'}`); // delivery/effect/MODEL all key the cache — switching models re-renders lines
+    // delivery/effect/MODEL/TAKE all key the cache — A/B takes are distinct generations
+    const key = this.cacheKey(seg, engineRow.key, `${voiceId}|${tagLine || ''}|${fx?.key || ''}|${engineRow.defaultModel || 'eleven_v3'}${b?.take ? `|t${Number(b.take)}` : ''}`);
     const currency = (engineRow.costModel as any)?.currency || 'USD';
 
     // Cache hit → free replay
@@ -367,6 +373,7 @@ export class RenderService implements OnModuleInit {
     const cfg = {
       externalVoiceId: voiceId, rate: Number(profile?.defaultRate ?? 1),
       stability: emo?.stability, styleAmount: emo?.style, speed: emo?.speed, emotionTag: tagLine,
+      accent: profile?.accent || undefined,
     };
     let res;
     try { res = await adapter.synthesize(seg, cfg); }
@@ -427,6 +434,7 @@ export class RenderService implements OnModuleInit {
       const cfg = {
         externalVoiceId: voiceId, rate: Number(profile?.defaultRate ?? 1),
         stability: emo?.stability, styleAmount: emo?.style, speed: emo?.speed, emotionTag: tagLine,
+        accent: profile?.accent || undefined,
       };
       const text = this.pron.applyTo(seg.text, dict);
       const key = this.cacheKey({ ...seg, text }, engineRow.key, `${voiceId}|${tagLine || ''}|${fx?.key || ''}|${engineRow.defaultModel || 'eleven_v3'}`);
@@ -576,8 +584,18 @@ export class RenderService implements OnModuleInit {
     const gen = isMusic ? adapter.generateMusic?.bind(adapter) : adapter.generateSfx?.bind(adapter);
     if (!gen) throw new BadRequestException('The engine cannot generate this layer type.');
     const durationMs = isMusic ? 30000 : (cue.layerType === 'AMBIENCE' || cue.layerType === 'ROOMTONE') ? 20000 : 8000;
+    // Scene-aware prompt: fold the scene's setting (INT/EXT, location, day/night) into the
+    // generation so the sound matches the scene, not just the bare phrase.
+    let prompt = cue.genPrompt;
+    if (cue.sceneNumber) {
+      const sc = await this.prisma.scriptScene.findFirst({ where: { revisionId: cue.revisionId, sceneNumber: String(cue.sceneNumber) }, select: { slugline: true, intExt: true, dayNight: true } }).catch(() => null);
+      if (sc) {
+        const setting = [sc.intExt === 'INT' ? 'interior' : sc.intExt === 'EXT' ? 'exterior' : sc.intExt, sc.slugline?.replace(/^(\d+[A-Z]?\.?\s+)?(INT\.?\/EXT\.?|I\/E\.?|INT\.?|EXT\.?)[\.\s]+/i, '').replace(/\s*[–-]\s*(DAY|NIGHT|DAWN|DUSK|MORNING|EVENING|CONTINUOUS|LATER)\s*$/i, ''), sc.dayNight?.toLowerCase()].filter(Boolean).join(', ');
+        if (setting) prompt = isMusic ? `${cue.genPrompt}. Scene mood: ${setting}.` : `${cue.genPrompt} — ${setting}`;
+      }
+    }
     let res;
-    try { res = await gen(cue.genPrompt, { durationMs }); }
+    try { res = await gen(prompt, { durationMs }); }
     catch (e: any) { throw new BadRequestException(`Generation failed (${engineRow.displayName}): ${String(e?.message || e).slice(0, 200)}`); }
     const fn = `cue-${cueId.slice(0, 12)}-${Date.now()}.mp3`;
     fs.writeFileSync(this.absPath(fn), res.audio);
@@ -589,6 +607,74 @@ export class RenderService implements OnModuleInit {
     await this.debitQuota(doc?.projectId || undefined, 0, gCost);
     const updated = await this.prisma.sceneAudioCue.update({ where: { id: cueId }, data: { uploadUrl: `/uploads/${fn}` } });
     return { cue: updated, url: `/uploads/${fn}`, cost: gCost };
+  }
+
+  // ── V3-B: AI Director — Claude performs a per-line direction pass on a scene. ──────
+  async aiDirectScene(revisionId: string, b: { scene?: string; segs?: any[] }, userId?: string) {
+    if (!process.env.ANTHROPIC_API_KEY) throw new BadRequestException('AI not configured — set ANTHROPIC_API_KEY in the backend .env.');
+    const segs = (b?.segs || []).slice(0, 80).map((s: any, i: number) => ({ idx: s.idx ?? i, kind: s.kind, character: s.character, text: String(s.text || '').slice(0, 200), hint: s.hint }));
+    if (!segs.length || !b?.scene) throw new BadRequestException('scene and segs are required.');
+    const tool = {
+      name: 'submit_direction',
+      description: 'Submit per-line delivery direction for the scene.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          lines: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                idx: { type: 'number', description: 'segment idx exactly as given' },
+                tag: { type: 'string', description: 'ONE short v3 audio tag, e.g. whispers, tense, warm, sarcastic, shouts, hesitant' },
+                note: { type: 'string', description: 'optional 5-word director note' },
+              },
+              required: ['idx', 'tag'],
+            },
+          },
+        },
+        required: ['lines'],
+      },
+    };
+    const system = [
+      'You are a film director giving line readings for an audio table read.',
+      'For DIALOGUE lines that benefit from specific delivery, return one short audio tag (whispers, tense, cold, warm, pleading, sarcastic, shouts, hesitant, urgent…).',
+      'Direct only where it matters — skip neutral lines. NEVER direct lines that already have a hint (the writer\'s parenthetical is canon).',
+      'Respond ONLY by calling submit_direction.',
+    ].join('\n');
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY!, 'anthropic-version': '2023-06-01' } as any,
+      body: JSON.stringify({
+        model: process.env.SCRIPT_AUDIO_AI_MODEL || process.env.MM_AI_MODEL || 'claude-3-5-sonnet-20241022',
+        max_tokens: 3000, system, tools: [tool],
+        tool_choice: { type: 'tool', name: 'submit_direction' },
+        messages: [{ role: 'user', content: JSON.stringify({ scene: b.scene, segs }) }],
+      }),
+      signal: AbortSignal.timeout(90_000),
+    });
+    if (!res.ok) throw new BadRequestException(`AI direction failed: HTTP ${res.status}`);
+    const data: any = await res.json().catch(() => null);
+    const toolUse = (data?.content || []).find((x: any) => x?.type === 'tool_use' && x?.name === 'submit_direction');
+    const lines: any[] = Array.isArray(toolUse?.input?.lines) ? toolUse.input.lines : [];
+    const directions: Record<string, any> = {};
+    for (const l of lines) {
+      const seg = segs.find((s) => s.idx === Number(l.idx));
+      if (!seg || seg.hint) continue; // parenthetical is canon
+      directions[String(l.idx)] = { tag: String(l.tag || '').toLowerCase().slice(0, 30), note: l.note ? String(l.note).slice(0, 60) : undefined };
+    }
+    await this.saveDirections(revisionId, String(b.scene), directions, false);
+    return { scene: b.scene, directions };
+  }
+
+  /** Persist per-line directions (AI or manual take picks). merge=true keeps existing keys. */
+  async saveDirections(revisionId: string, scene: string, directions: Record<string, any>, merge = true) {
+    const rev = await this.prisma.scriptRevision.findUnique({ where: { id: revisionId }, select: { lineDirections: true } });
+    if (!rev) throw new NotFoundException('Revision not found.');
+    const all: any = rev.lineDirections || {};
+    all[scene] = merge ? { ...(all[scene] || {}), ...directions } : directions;
+    await this.prisma.scriptRevision.update({ where: { id: revisionId }, data: { lineDirections: all } });
+    return { scene, directions: all[scene] };
   }
 
   // ── Layer mixing (ffmpeg) ─────────────────────────────────────────────────────────

@@ -10,22 +10,25 @@ import { X, Play, Pause, Search, Download, Archive, Sparkles, ChevronLeft, Loade
 import { scriptAudioApi, assetUrl } from '@/lib/api';
 import { SonRoot, SonShell, SonTabs, SonCard, SonChip, SonBtn, SonThemeToggle } from './Son';
 
+// SYS-14 V3-A: 6 tabs → 3. Studio = read + mix per scene; Cast = voices + pronunciation;
+// Deliver = render profiles + outputs.
 const TABS = [
-  { key: 'reader', label: 'Reader' }, { key: 'voices', label: 'Voices' }, { key: 'pronounce', label: 'Pronounce' },
-  { key: 'render', label: 'Performance' }, { key: 'layers', label: 'Layers' }, { key: 'library', label: 'Library' },
+  { key: 'studio', label: 'Studio' }, { key: 'cast', label: 'Cast' }, { key: 'deliver', label: 'Deliver' },
 ];
-const TITLES: Record<string, string> = { reader: 'Studio Reader', voices: 'Voice Casting', pronounce: 'Pronunciation', render: 'Performance & Render', library: 'Audio Library', layers: 'Sound Layers' };
+const TITLES: Record<string, string> = { studio: 'Studio — read & mix', cast: 'Cast — who sounds how', deliver: 'Deliver — render & outputs' };
 const COLORS = ['#0ea5e9', '#f97316', '#a855f7', '#22c55e', '#ef4444', '#eab308', '#14b8a6', '#ec4899'];
 
 export default function ScriptOnAudioPanel({ revision, projectId, onClose }: { revision: any; projectId?: string; onClose: () => void }) {
-  const [tab, setTab] = useState('reader');
-  const [castEdit, setCastEdit] = useState<string | null>(null); // "Edit voice" jump from the Reader inspector
+  const [tab, setTab] = useState('studio');
+  const [castSub, setCastSub] = useState('voices');     // Cast: voices | pronounce
+  const [deliverSub, setDeliverSub] = useState('render'); // Deliver: render | library
+  const [castEdit, setCastEdit] = useState<string | null>(null); // "Edit voice" jump from the Studio inspector
   const [playing, setPlaying] = useState(false);
   const [nowPlaying, setNowPlaying] = useState('Nothing playing');
   const planRef = useRef<any>(null); const idxRef = useRef(0);
 
   // ── Live playback: Browser ($0, speechSynthesis) or Studio (per-line ElevenLabs/OpenAI) ──
-  const [liveStudio, setLiveStudio] = useState(false);   // transport voice source
+  const [liveStudio, setLiveStudio] = useState(true);    // transport voice source — studio voices by default
   const [liveCost, setLiveCost] = useState(0);           // session spend (cache hits are free)
   const audioElRef = useRef<HTMLAudioElement | null>(null);
   const synthCacheRef = useRef<Map<string, Promise<any>>>(new Map());
@@ -42,6 +45,7 @@ export default function ScriptOnAudioPanel({ revision, projectId, onClose }: { r
     if (!p) {
       p = scriptAudioApi.speak(revision.id, { text: s.text, character: s.character, kind: s.kind }).then((r) => r.data);
       synthCacheRef.current.set(key, p);
+      p.catch(() => synthCacheRef.current.delete(key)); // handled: prefetch failures must not crash the app
     }
     return p;
   }, [revision.id]);
@@ -77,7 +81,10 @@ export default function ScriptOnAudioPanel({ revision, projectId, onClose }: { r
   }, [liveStudio, synthSeg]);
   useEffect(() => () => stop(), [stop]);
 
+  // The Reader registers its scene playback here — on the Reader tab the transport drives IT.
+  const readerCtl = useRef<{ toggle: () => void; playing: boolean } | null>(null);
   const togglePlay = async () => {
+    if (tab === 'reader' && readerCtl.current) { readerCtl.current.toggle(); return; }
     if (playing) { stop(); return; }
     if (planRef.current) { playPlan(planRef.current); return; }
     try { const r = await scriptAudioApi.renderPlan(revision.id); playPlan(r.data); } catch { setNowPlaying('Could not load playback.'); }
@@ -101,12 +108,40 @@ export default function ScriptOnAudioPanel({ revision, projectId, onClose }: { r
             <SonTabs tabs={TABS} active={tab} onChange={setTab} />
 
             <div className="son-content" style={{ position: 'relative' }}>
-              {tab === 'reader' && <StudioReader revision={revision} projectId={projectId} onEditVoice={(name: string) => { setCastEdit(name); setTab('voices'); }} />}
-              {tab === 'voices' && <Voices revision={revision} projectId={projectId} initialEditing={castEdit} onEditingConsumed={() => setCastEdit(null)} onCastingChanged={() => { planRef.current = null; }} />}
-              {tab === 'pronounce' && <Pronounce revision={revision} projectId={projectId} />}
-              {tab === 'render' && <Render revision={revision} projectId={projectId} onPlayPlan={playPlan} />}
-              {tab === 'library' && <Library projectId={projectId} revision={revision} />}
-              {tab === 'layers' && <Layers revision={revision} />}
+              {tab === 'studio' && (
+                <div className="son-pane" style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                  <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+                    <StudioReader revision={revision} projectId={projectId}
+                      onEditVoice={(name: string) => { setCastEdit(name); setCastSub('voices'); setTab('cast'); }}
+                      onTransport={(ctl: any) => { readerCtl.current = ctl; }}
+                      onNow={(text: string, isPlaying: boolean) => { setNowPlaying(text); setPlaying(isPlaying); }} />
+                  </div>
+                  <details style={{ borderTop: '1px solid var(--son-border)' }}>
+                    <summary style={{ cursor: 'pointer', padding: '8px 16px', fontSize: 12, fontWeight: 650, color: 'var(--son-muted)', userSelect: 'none' }}>
+                      🎚 Sound design — cues, timeline, generate &amp; mix
+                    </summary>
+                    <div style={{ maxHeight: '46vh', overflow: 'auto' }}>
+                      <Layers revision={revision} />
+                    </div>
+                  </details>
+                </div>
+              )}
+              {tab === 'cast' && (
+                <div className="son-pane" style={{ overflow: 'auto' }}>
+                  <SubChips value={castSub} onChange={setCastSub} items={[['voices', 'Voices'], ['pronounce', 'Pronunciation']]} />
+                  {castSub === 'voices'
+                    ? <Voices revision={revision} projectId={projectId} initialEditing={castEdit} onEditingConsumed={() => setCastEdit(null)} onCastingChanged={() => { planRef.current = null; }} />
+                    : <Pronounce revision={revision} projectId={projectId} />}
+                </div>
+              )}
+              {tab === 'deliver' && (
+                <div className="son-pane" style={{ overflow: 'auto' }}>
+                  <SubChips value={deliverSub} onChange={setDeliverSub} items={[['render', 'Performance & render'], ['library', 'Library & shares']]} />
+                  {deliverSub === 'render'
+                    ? <Render revision={revision} projectId={projectId} onPlayPlan={playPlan} />
+                    : <Library projectId={projectId} revision={revision} />}
+                </div>
+              )}
             </div>
 
             <div className="son-transport">
@@ -122,6 +157,17 @@ export default function ScriptOnAudioPanel({ revision, projectId, onClose }: { r
           </SonShell>
         </div>
       </SonRoot>
+    </div>
+  );
+}
+
+/** Small secondary toggle inside a merged tab (Cast / Deliver). */
+function SubChips({ value, onChange, items }: { value: string; onChange: (v: string) => void; items: [string, string][] }) {
+  return (
+    <div style={{ display: 'flex', gap: 6, padding: '10px 16px 0' }}>
+      {items.map(([k, label]) => (
+        <button key={k} className={`son-togbtn ${value === k ? 'is-on' : ''}`} onClick={() => onChange(k)}>{label}</button>
+      ))}
     </div>
   );
 }
@@ -167,7 +213,7 @@ function parseStudioScenes(revision: any): RdrScene[] {
 }
 const fmtDur = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
-function StudioReader({ revision, projectId, onEditVoice }: any) {
+function StudioReader({ revision, projectId, onEditVoice, onTransport, onNow }: any) {
   const scenes = useMemo(() => parseStudioScenes(revision), [revision]);
   const [sel, setSel] = useState(0);
   const [cast, setCast] = useState<any>(null);            // detect() — characters + profiles
@@ -181,43 +227,159 @@ function StudioReader({ revision, projectId, onEditVoice }: any) {
   const scene = scenes[sel];
 
   useEffect(() => { scriptAudioApi.detect(revision.id).then(r => setCast(r.data)).catch(() => setCast({ characters: [] })); }, [revision.id]);
-  useEffect(() => () => { playRef.current = false; try { audioRef.current?.pause(); } catch {} }, []);
+  useEffect(() => () => {
+    playRef.current = false;
+    try { audioRef.current?.pause(); } catch {}
+    try { mixCtx.current?.close(); } catch {}
+    onTransport?.(null);
+  }, [onTransport]);
+  // Register with the panel transport so the bottom Play button drives the scene reader
+  useEffect(() => {
+    onTransport?.({ toggle: () => (playRef.current ? stop() : play(cursor >= 0 ? cursor : 0)), playing });
+    onNow?.(playing && scene ? `${scene.slug}${cursor >= 0 && scene.segs[cursor]?.character ? ` · ${scene.segs[cursor].character}` : ''}` : 'Reader ready — pick a scene', playing);
+  }); // every render keeps the closure fresh
+
+  // V3-C keyboard transport: space = play/pause · ↑↓ = scene · ←→ = line (paused)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement;
+      if (t?.tagName === 'INPUT' || t?.tagName === 'TEXTAREA' || t?.tagName === 'SELECT' || t?.isContentEditable) return;
+      if (e.code === 'Space') { e.preventDefault(); playRef.current ? stop() : play(cursor >= 0 ? cursor : 0); }
+      else if (e.key === 'ArrowDown') { e.preventDefault(); stop(); setSel((s) => Math.min(scenes.length - 1, s + 1)); setCursor(-1); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); stop(); setSel((s) => Math.max(0, s - 1)); setCursor(-1); }
+      else if (e.key === 'ArrowRight' && !playRef.current && scene) { e.preventDefault(); setCursor((c) => Math.min(scene.segs.length - 1, c < 0 ? 0 : c + 1)); }
+      else if (e.key === 'ArrowLeft' && !playRef.current) { e.preventDefault(); setCursor((c) => Math.max(0, c - 1)); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }); // fresh closure each render
 
   const charInfo = (name?: string) => cast?.characters?.find((c: any) => c.characterName === name);
 
-  const synth = (seg: RdrSeg) => {
-    const key = `${sel}|${seg.character || ''}|${seg.text}|${seg.hint || ''}`;
+  // ── V3-B: AI Director — per-line delivery (tag) + A/B takes, persisted on the revision ──
+  const [dirMap, setDirMap] = useState<any>(revision?.lineDirections || {});
+  const [directing, setDirecting] = useState(false);
+  const dirs: Record<string, { tag?: string; note?: string; take?: number }> = dirMap?.[scene?.n] || {};
+  const saveDir = async (idx: number, patch: any) => {
+    const next = { ...(dirMap?.[scene.n] || {}), [String(idx)]: { ...(dirs[String(idx)] || {}), ...patch } };
+    setDirMap((m: any) => ({ ...m, [scene.n]: next }));
+    await scriptAudioApi.saveDirections(revision.id, { scene: scene.n, directions: { [String(idx)]: { ...(dirs[String(idx)] || {}), ...patch } } }).catch(() => {});
+  };
+  const directScene = async () => {
+    setDirecting(true); setMsg('');
+    try {
+      const r = await scriptAudioApi.directScene(revision.id, {
+        scene: scene.n,
+        segs: scene.segs.map((s, idx) => ({ idx, kind: s.kind, character: s.character, text: s.text, hint: s.hint })),
+      });
+      setDirMap((m: any) => ({ ...m, [scene.n]: { ...(m?.[scene.n] || {}), ...(r.data?.directions || {}) } }));
+      const n = Object.keys(r.data?.directions || {}).length;
+      setMsg(n ? `Directed ${n} line(s) — play to hear the readings.` : 'No lines needed extra direction.');
+    } catch (e: any) { setMsg(e?.response?.data?.message || 'AI direction failed.'); }
+    finally { setDirecting(false); }
+  };
+
+  const synth = (seg: RdrSeg, idx: number) => {
+    const d = dirs[String(idx)] || {};
+    const emotion = seg.hint || d.tag; // the writer's parenthetical is canon; AI direction fills gaps
+    const take = d.take || undefined;
+    const key = `${sel}|${idx}|${seg.text}|${emotion || ''}|${take || 1}`;
     let p = synthRef.current.get(key);
     if (!p) {
       p = scriptAudioApi.speak(revision.id, {
         text: seg.text, character: seg.kind === 'dialogue' ? seg.character : undefined,
-        kind: seg.kind === 'dialogue' ? 'dialogue' : 'narration', emotion: seg.hint,
+        kind: seg.kind === 'dialogue' ? 'dialogue' : 'narration', emotion, take,
       }).then(r => r.data);
       synthRef.current.set(key, p);
+      // mark prefetch rejections handled + drop the entry so the line can retry
+      p.catch(() => synthRef.current.delete(key));
     }
     return p;
   };
   const speakable = (x: RdrSeg) => x.kind === 'action' || x.kind === 'dialogue';
 
-  const stop = () => { playRef.current = false; try { audioRef.current?.pause(); } catch {} setPlaying(false); };
-  const play = (startAt = 0) => {
+  // ── V3-A: the Studio mixing desk — cues play WITH the reading ──────────────────
+  const [laneMute, setLaneMute] = useState<Set<string>>(new Set());
+  const [duckAmt, setDuckAmt] = useState(0.45); // how far ducked cues drop under dialogue
+  const mixCtx = useRef<AudioContext | null>(null);
+  const mixNodes = useRef<{ src: AudioBufferSourceNode; gain: GainNode; base: number; duck: boolean }[]>([]);
+  const anchoredRef = useRef<Map<number, any[]>>(new Map()); // segIdx → cues waiting for that line
+  const laneOf = (c: any) => (c.layerType === 'ROOMTONE' ? 'AMBIENCE' : c.layerType);
+  const gainFor = (c: any) => Math.max(0.02, Math.min(1.6, Math.pow(10, (Number(c.volumeDb) || 0) / 20) * 0.9));
+
+  const startCueNow = (c: any, buf: AudioBuffer, atOffsetMs = 0) => {
+    const ctx = mixCtx.current; if (!ctx || !playRef.current) return;
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    src.loop = c.layerType === 'AMBIENCE' || c.layerType === 'ROOMTONE';
+    const gain = ctx.createGain(); const base = gainFor(c);
+    gain.gain.value = base;
+    src.connect(gain); gain.connect(ctx.destination);
+    src.start(ctx.currentTime + Math.max(0, atOffsetMs) / 1000);
+    mixNodes.current.push({ src, gain, base, duck: !!c.duckDialogue });
+  };
+  /** Sidechain: dialogue starts → ducked cues dip; dialogue ends → recover. */
+  const duckTo = (down: boolean) => {
+    const ctx = mixCtx.current; if (!ctx) return;
+    for (const n of mixNodes.current) if (n.duck) {
+      try { n.gain.gain.cancelScheduledValues(ctx.currentTime); n.gain.gain.linearRampToValueAtTime(down ? n.base * duckAmt : n.base, ctx.currentTime + 0.25); } catch {}
+    }
+  };
+
+  const stop = () => {
+    playRef.current = false;
+    try { audioRef.current?.pause(); } catch {}
+    mixNodes.current.forEach(n => { try { n.src.stop(); } catch {} }); mixNodes.current = [];
+    anchoredRef.current.clear();
+    try { mixCtx.current?.close(); } catch {} mixCtx.current = null;
+    setPlaying(false);
+  };
+
+  const play = async (startAt = 0) => {
     if (!scene) return;
     playRef.current = true; setPlaying(true); setMsg('');
+
+    // Build the cue bed: fresh cues for this scene (+ whole-script beds), decoded inside the gesture.
+    try {
+      const Ctx: any = (window as any).AudioContext || (window as any).webkitAudioContext;
+      const ctx: AudioContext = new Ctx(); mixCtx.current = ctx;
+      const r = await scriptAudioApi.cues(revision.id).catch(() => ({ data: [] as any[] }));
+      const all = (r.data || []).filter((c: any) => c.uploadUrl && c.status !== 'REMOVED'
+        && !laneMute.has(laneOf(c))
+        && (String(c.sceneNumber || '') === String(revision?.scenes?.[sel]?.sceneNumber ?? scene.n) || !c.sceneNumber));
+      anchoredRef.current.clear();
+      for (const c of all) {
+        fetch(assetUrl(c.uploadUrl)).then(res => res.arrayBuffer()).then(b => ctx.decodeAudioData(b)).then(buf => {
+          if (!playRef.current || mixCtx.current !== ctx) return;
+          if (c.anchorSeg != null) {
+            // line-anchored: hold until that segment actually plays — zero drift
+            const list = anchoredRef.current.get(Number(c.anchorSeg)) || [];
+            list.push({ cue: c, buf }); anchoredRef.current.set(Number(c.anchorSeg), list);
+          } else {
+            startCueNow(c, buf, Number(c.startMs) || 0);
+          }
+        }).catch(() => {});
+      }
+    } catch { /* cue bed is optional — the reading must never fail because of it */ }
+
     let i = startAt;
     const step = () => {
       if (!playRef.current) return;
-      if (i >= scene.segs.length) { setPlaying(false); setCursor(-1); return; }
+      if (i >= scene.segs.length) { duckTo(false); setTimeout(() => { if (playRef.current) stop(); setCursor(-1); }, 1500); return; }
       const seg = scene.segs[i];
       setCursor(i);
       bodyRef.current?.querySelector(`[data-seg="${i}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      // fire any cues anchored to THIS line
+      const waiting = anchoredRef.current.get(i);
+      if (waiting) { waiting.forEach(w => startCueNow(w.cue, w.buf, Number(w.cue.anchorOffsetMs) || 0)); anchoredRef.current.delete(i); }
       if (!speakable(seg)) { i++; step(); return; }
-      synth(seg).then((r: any) => {
+      synth(seg, i).then((r: any) => {
         if (!playRef.current) return;
-        for (let j = i + 1, found = 0; j < scene.segs.length && found < 2; j++) if (speakable(scene.segs[j])) { synth(scene.segs[j]); found++; }
+        for (let j = i + 1, found = 0; j < scene.segs.length && found < 2; j++) if (speakable(scene.segs[j])) { synth(scene.segs[j], j); found++; }
         if (r.cached) setCached(c => c + 1); else setCost(c => c + Number(r.cost || 0));
         const a = new Audio(assetUrl(r.url)); audioRef.current = a;
-        a.onended = () => { i++; if (playRef.current) step(); };
-        a.onerror = () => { i++; if (playRef.current) step(); };
+        duckTo(true);
+        a.onended = () => { duckTo(false); i++; if (playRef.current) step(); };
+        a.onerror = () => { duckTo(false); i++; if (playRef.current) step(); };
         a.play().catch(() => { i++; step(); });
       }).catch((e: any) => { setMsg(e?.response?.data?.message || 'Studio voices unavailable.'); stop(); });
     };
@@ -256,6 +418,22 @@ function StudioReader({ revision, projectId, onEditVoice }: any) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
           <SonBtn primary onClick={() => playing ? stop() : play(cursor >= 0 ? cursor : 0)}>{playing ? <Pause size={13} /> : <Play size={13} />} {playing ? 'Pause' : 'Read scene'}</SonBtn>
           <SonChip>{scene.slug}</SonChip><SonChip>{fmtDur(scene.durationSec)}</SonChip>
+          {/* Mixing desk: lane mutes + master duck */}
+          <span style={{ display: 'inline-flex', gap: 3 }} title="Mute lanes (takes effect on next play)">
+            {(['AMBIENCE', 'SFX', 'FOLEY', 'MUSIC'] as const).map((l) => (
+              <button key={l} className={`son-togbtn ${laneMute.has(l) ? '' : 'is-on'}`} style={{ padding: '3px 8px', fontSize: 10 }}
+                title={`${l.toLowerCase()} ${laneMute.has(l) ? '(muted)' : ''}`}
+                onClick={() => setLaneMute((m) => { const n = new Set(m); n.has(l) ? n.delete(l) : n.add(l); return n; })}>
+                {l[0]}
+              </button>
+            ))}
+          </span>
+          <label className="son-faint" style={{ fontSize: 10, display: 'inline-flex', alignItems: 'center', gap: 4 }} title="How far ducked cues drop under dialogue">
+            duck <input type="range" min={0.1} max={1} step={0.05} value={duckAmt} onChange={(e) => setDuckAmt(Number(e.target.value))} style={{ width: 64 }} />
+          </label>
+          <SonBtn onClick={directScene} disabled={directing} title="AI Director: Claude reads the scene and gives per-line delivery direction (the writer's parentheticals always win)">
+            {directing ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />} Direct scene
+          </SonBtn>
           {(cost > 0 || cached > 0) && <span className="son-faint" style={{ fontSize: 11 }}>≈ ${cost.toFixed(2)}{cached ? ` · ${cached} cached` : ''}</span>}
           {msg && <span style={{ fontSize: 11, color: 'var(--son-danger)' }}>{msg}</span>}
         </div>
@@ -265,7 +443,16 @@ function StudioReader({ revision, projectId, onEditVoice }: any) {
             const base: React.CSSProperties = { padding: '1px 6px', borderRadius: 6, background: on ? 'var(--son-hi)' : 'transparent' };
             if (seg.kind === 'cue') return <div key={i} data-seg={i} style={{ ...base, textAlign: 'center', fontWeight: 700, marginTop: 14 }}>{seg.text}</div>;
             if (seg.kind === 'paren') return <div key={i} data-seg={i} style={{ ...base, textAlign: 'center', fontStyle: 'italic', color: 'var(--son-muted)' }}>{seg.text}</div>;
-            if (seg.kind === 'dialogue') return <div key={i} data-seg={i} style={{ ...base, textAlign: 'center', maxWidth: '70%', margin: '0 auto' }}>{seg.text}</div>;
+            if (seg.kind === 'dialogue') {
+              const d = dirs[String(i)];
+              return (
+                <div key={i} data-seg={i} onClick={() => !playing && setCursor(i)} style={{ ...base, textAlign: 'center', maxWidth: '70%', margin: '0 auto', cursor: 'pointer' }}>
+                  {d?.tag && !seg.hint && <span title={d.note || 'AI direction'} style={{ fontSize: '0.72em', color: 'var(--son-violet)', marginRight: 6 }}>[{d.tag}]</span>}
+                  {seg.text}
+                  {(d?.take || 0) > 1 && <span className="son-faint" style={{ fontSize: '0.7em', marginLeft: 6 }}>take {d!.take}</span>}
+                </div>
+              );
+            }
             return <div key={i} data-seg={i} style={{ ...base, color: 'var(--son-muted)', marginTop: 10 }}>{seg.text}</div>;
           })}
         </div>
@@ -299,6 +486,17 @@ function StudioReader({ revision, projectId, onEditVoice }: any) {
                 </label>
               ))}
             </div>
+            {/* V3-C: A/B takes for the selected line */}
+            {cursor >= 0 && scene.segs[cursor]?.kind === 'dialogue' && (
+              <div style={{ borderTop: '1px dashed var(--son-border)', marginTop: 10, paddingTop: 8 }}>
+                <div className="son-faint" style={{ fontSize: 10, marginBottom: 4 }}>SELECTED LINE · take {dirs[String(cursor)]?.take || 1}</div>
+                <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                  <SonBtn onClick={() => saveDir(cursor, { take: (dirs[String(cursor)]?.take || 1) + 1 })} title="Generate a fresh performance of this line (billed once, then cached)">↻ New take</SonBtn>
+                  {(dirs[String(cursor)]?.take || 1) > 1 && <SonBtn onClick={() => saveDir(cursor, { take: (dirs[String(cursor)]?.take || 2) - 1 })}>◂ Prev</SonBtn>}
+                  <SonBtn primary onClick={async () => { try { const r: any = await synth(scene.segs[cursor], cursor); new Audio(assetUrl(r.url)).play().catch(() => {}); } catch (e: any) { setMsg(e?.response?.data?.message || 'Could not play the take.'); } }}>▶ Hear</SonBtn>
+                </div>
+              </div>
+            )}
             <SonBtn style={{ width: '100%', justifyContent: 'center', marginTop: 12 }} onClick={() => onEditVoice(curChar)}>Edit voice</SonBtn>
           </SonCard>
         )}
@@ -397,6 +595,12 @@ function VoiceEditor({ revision, projectId, character, engines, onSaved }: any) 
   const [voices, setVoices] = useState<any[]>([]);           // engine voice library
   const [voicesMsg, setVoicesMsg] = useState('');            // load state / error
   const [manualId, setManualId] = useState(false);           // fall back to free-text id
+  // Full shared-library browser (ElevenLabs)
+  const [libOpen, setLibOpen] = useState(false);
+  const [libF, setLibF] = useState<any>({ gender: '', age: '', accent: '', language: '', search: '' });
+  const [libRes, setLibRes] = useState<any[]>([]);
+  const [libBusy, setLibBusy] = useState(false);
+  const [libMsg, setLibMsg] = useState('');
   const previewRef = useRef<HTMLAudioElement | null>(null);
   const set = (k: string, val: any) => setF((p: any) => ({ ...p, [k]: val }));
 
@@ -492,6 +696,54 @@ function VoiceEditor({ revision, projectId, character, engines, onSaved }: any) 
         <FieldSel label="Style" value={f.style} options={opts.style} onChange={(val: string) => set('style', val)} />
         <label className="son-faint" style={{ fontSize: 11 }}>Speed<input className="son-input" type="number" step="0.05" style={{ width: '100%', marginTop: 2 }} value={f.defaultRate} onChange={(e) => set('defaultRate', Number(e.target.value))} /></label>
       </div>
+      {/* Browse the provider's FULL voice library (thousands of voices, label-filtered) */}
+      {f.engineKey === 'ELEVENLABS' && (
+        <div style={{ marginTop: 10 }}>
+          <SonBtn onClick={() => setLibOpen((o: boolean) => !o)}>{libOpen ? '▾' : '▸'} Browse full ElevenLabs library…</SonBtn>
+          {libOpen && (
+            <div style={{ marginTop: 8, border: '1px solid var(--son-border)', borderRadius: 10, padding: 10 }}>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+                <select className="son-input" style={{ width: 110 }} value={libF.gender} onChange={(e) => setLibF({ ...libF, gender: e.target.value })}>
+                  <option value="">any gender</option><option value="male">male</option><option value="female">female</option><option value="neutral">neutral</option>
+                </select>
+                <select className="son-input" style={{ width: 130 }} value={libF.age} onChange={(e) => setLibF({ ...libF, age: e.target.value })}>
+                  <option value="">any age</option><option value="young">young</option><option value="middle_aged">middle aged</option><option value="old">old</option>
+                </select>
+                <input className="son-input" style={{ width: 120 }} placeholder="accent, e.g. french" value={libF.accent} onChange={(e) => setLibF({ ...libF, accent: e.target.value })} />
+                <input className="son-input" style={{ width: 90 }} placeholder="lang (en, fr)" value={libF.language} onChange={(e) => setLibF({ ...libF, language: e.target.value })} />
+                <input className="son-input" style={{ flex: 1, minWidth: 120 }} placeholder="search… e.g. raspy villain" value={libF.search} onChange={(e) => setLibF({ ...libF, search: e.target.value })} />
+                <SonBtn primary disabled={libBusy} onClick={async () => {
+                  setLibBusy(true); setLibMsg('');
+                  try { const r = await scriptAudioApi.voiceSearch('ELEVENLABS', Object.fromEntries(Object.entries(libF).filter(([, v]) => v))); setLibRes(r.data || []); if (!(r.data || []).length) setLibMsg('No matches — loosen the filters.'); }
+                  catch (e: any) { setLibMsg(e?.response?.data?.message || 'Search failed.'); }
+                  finally { setLibBusy(false); }
+                }}>{libBusy ? <Loader2 size={13} className="animate-spin" /> : <Search size={13} />} Search</SonBtn>
+              </div>
+              {libMsg && <p className="son-faint" style={{ fontSize: 11 }}>{libMsg}</p>}
+              <div style={{ maxHeight: 220, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 5 }}>
+                {libRes.map((v: any) => (
+                  <div key={v.id} style={{ display: 'flex', alignItems: 'center', gap: 8, border: '1px solid var(--son-border)', borderRadius: 8, padding: '5px 8px' }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 600 }}>{v.name}</div>
+                      <div className="son-faint" style={{ fontSize: 10 }}>{[v.gender, v.age, v.accent, v.language, v.useCase].filter(Boolean).join(' · ')}</div>
+                    </div>
+                    {v.previewUrl && <button className="son-iconbtn" title="Preview" onClick={() => { new Audio(v.previewUrl).play().catch(() => {}); }}><Play size={13} /></button>}
+                    <SonBtn primary onClick={async () => {
+                      setLibMsg('Adding to your account…');
+                      try {
+                        const r = await scriptAudioApi.voiceAdd('ELEVENLABS', { publicOwnerId: v.publicOwnerId, voiceId: v.id, name: v.name });
+                        setF((p: any) => ({ ...p, externalVoiceId: r.data?.voiceId || v.id, gender: v.gender || p.gender, ageRange: v.age || p.ageRange, accent: v.accent || p.accent, nativeLanguage: v.language || p.nativeLanguage }));
+                        setLibMsg(`“${v.name}” added & selected — save the voice.`); setLibOpen(false);
+                      } catch (e: any) { setLibMsg(e?.response?.data?.message || 'Could not add the voice.'); }
+                    }}>Add &amp; cast</SonBtn>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Performance sliders — the character's standing delivery, expressed as v3 audio tags */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 10, marginTop: 10 }}>
         {([['pace', 'Pace'], ['confidence', 'Confidence'], ['tension', 'Tension']] as const).map(([k, label]) => (
@@ -552,19 +804,22 @@ function Pronounce({ revision, projectId }: any) {
 }
 
 /* ---------------- Performance & Render ---------------- */
-const RENDER_PROFILES: { key: string; name: string; desc: string; scope: string; layers: boolean }[] = [
-  { key: 'tableread', name: 'Table read', desc: 'Voices + narrator · no music/SFX', scope: 'TABLE_READ', layers: false },
-  { key: 'fullmix', name: 'Full mix', desc: 'Everything — dialogue, ambience, SFX, music', scope: 'ENTIRE', layers: true },
-  { key: 'dialogue', name: 'Dialogue only', desc: 'Cast voices, no narration or layers', scope: 'DIALOGUE_ONLY', layers: false },
-  { key: 'narration', name: 'Narration only', desc: 'Scene description track', scope: 'NARRATOR_ONLY', layers: false },
+// Profiles = WHAT is in the mix. Range = HOW MUCH of the script. Fully independent.
+const RENDER_PROFILES: { key: string; name: string; desc: string; content: string; layers: boolean }[] = [
+  { key: 'tableread', name: 'Table read', desc: 'Voices + narrator · no music/SFX', content: 'all', layers: false },
+  { key: 'fullmix', name: 'Full mix', desc: 'Dialogue, ambience, SFX, music', content: 'all', layers: true },
+  { key: 'dialogue', name: 'Dialogue only', desc: 'Cast voices, no narration or layers', content: 'dialogue', layers: false },
+  { key: 'narration', name: 'Narration only', desc: 'Scene description track', content: 'narration', layers: false },
 ];
 function Render({ revision, projectId, onPlayPlan }: any) {
   const scenes = revision?.scenes || [];
-  const [scope, setScope] = useState('TABLE_READ');
+  const [range, setRange] = useState('ENTIRE'); // ENTIRE | SELECTED_SCENES | PAGES
   const [format, setFormat] = useState('MP3');
   const [profile, setProfile] = useState('tableread');
-  const [withLayers, setWithLayers] = useState(false);
-  const pickProfile = (p: typeof RENDER_PROFILES[number]) => { setProfile(p.key); setScope(p.scope); setWithLayers(p.layers); };
+  const prof = RENDER_PROFILES.find(p => p.key === profile) || RENDER_PROFILES[0];
+  const withLayers = prof.layers;
+  const scope = range; // backend range; content rides in options
+  const setScope = setRange;
   const [selScenes, setSelScenes] = useState<string[]>([]);
   const [pages, setPages] = useState('');
   const [est, setEst] = useState<any>(null); const [routing, setRouting] = useState<any>(null);
@@ -576,18 +831,25 @@ function Render({ revision, projectId, onPlayPlan }: any) {
 
   const [jobs, setJobs] = useState<any[]>([]);
   const loadJobs = useCallback(() => { scriptAudioApi.jobsForRevision(revision.id).then(r => setJobs(r.data || [])).catch(() => {}); }, [revision.id]);
+  // Provider credit balance — warn BEFORE a render dies on quota
+  const [provCredits, setProvCredits] = useState<any>(null);
+  useEffect(() => {
+    const k = est?.engine?.key;
+    if (!k || k === 'BROWSER') { setProvCredits(null); return; }
+    scriptAudioApi.engineStatus(k).then(r => setProvCredits(r.data?.credits || null)).catch(() => setProvCredits(null));
+  }, [est?.engine?.key]);
   const refresh = useCallback(() => {
-    scriptAudioApi.estimate(revision.id, { scope, format, selection, options: { layers: withLayers } }).then(r => setEst(r.data)).catch(() => setEst(null));
+    scriptAudioApi.estimate(revision.id, { scope, format, selection, options: { layers: withLayers, content: prof.content } }).then(r => setEst(r.data)).catch(() => setEst(null));
     scriptAudioApi.routingResolved(projectId).then(r => setRouting(r.data)).catch(() => {});
     loadJobs();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [revision.id, scope, format, projectId, JSON.stringify(selScenes), pages, withLayers, loadJobs]);
+  }, [revision.id, scope, format, projectId, JSON.stringify(selScenes), pages, profile, loadJobs]);
   useEffect(() => { refresh(); }, [refresh]);
 
   const queue = async () => {
     setBusy(true); setMsg('');
     try {
-      const r = await scriptAudioApi.render(revision.id, { scope, format, selection, options: { layers: withLayers } });
+      const r = await scriptAudioApi.render(revision.id, { scope, format, selection, options: { layers: withLayers, content: prof.content } });
       if (r.data?.tier === 'BROWSER' && r.data?.plan) { onPlayPlan(r.data.plan); setMsg('Browser table read started — playing live ($0).'); }
       else {
         const jobId = r.data?.job?.id; setMsg('Studio render queued…');
@@ -610,10 +872,10 @@ function Render({ revision, projectId, onPlayPlan }: any) {
   return (
     <div className="son-pane son-render">
       <div>
-        <div className="son-sec" style={{ padding: '0 0 14px' }}><h3 className="son-h3">Performance profile</h3>
+        <div className="son-sec" style={{ padding: '0 0 14px' }}><h3 className="son-h3">What&apos;s in the mix</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 8 }}>
             {RENDER_PROFILES.map(p => (
-              <button key={p.key} onClick={() => pickProfile(p)}
+              <button key={p.key} onClick={() => setProfile(p.key)}
                 style={{ textAlign: 'left', padding: '10px 12px', borderRadius: 12, cursor: 'pointer', font: 'inherit', color: 'var(--son-text)',
                   background: profile === p.key ? 'var(--son-surface)' : 'transparent',
                   border: profile === p.key ? '2px solid var(--son-accent)' : '1px solid var(--son-border)' }}>
@@ -623,9 +885,10 @@ function Render({ revision, projectId, onPlayPlan }: any) {
             ))}
           </div>
         </div>
-        <div className="son-sec" style={{ padding: '0 0 14px' }}><h3 className="son-h3">Scope</h3><div className="son-chips">
-          {[['ENTIRE', 'Entire script'], ['TABLE_READ', 'Table read'], ['SELECTED_SCENES', 'Selected scenes'], ['PAGES', 'Pages'], ['DIALOGUE_ONLY', 'Dialogue only'], ['NARRATOR_ONLY', 'Narrator only']].map(([v, l]) => <Tog key={v} on={scope === v} onClick={() => { setScope(v); setProfile(''); }}>{l}</Tog>)}
-        </div></div>
+        <div className="son-sec" style={{ padding: '0 0 14px' }}><h3 className="son-h3">How much of the script</h3><div className="son-chips">
+          {[['ENTIRE', 'Entire script'], ['SELECTED_SCENES', 'Selected scenes'], ['PAGES', 'Pages']].map(([v, l]) => <Tog key={v} on={range === v} onClick={() => setRange(v)}>{l}</Tog>)}
+        </div>
+        <p className="son-faint" style={{ fontSize: 11, marginTop: 6 }}>Mix and range combine freely — e.g. “Full mix” of just scene 12.</p></div>
         {scope === 'SELECTED_SCENES' && (
           <div className="son-sec" style={{ padding: '0 0 14px' }}><h3 className="son-h3">Scenes ({selScenes.length} selected)</h3>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, maxHeight: 170, overflow: 'auto' }}>
@@ -652,6 +915,12 @@ function Render({ revision, projectId, onPlayPlan }: any) {
           <div className="son-route"><span>Engine</span><span>{est.engine?.displayName || '—'} {est.locked ? '🔒' : ''}</span></div>
           <div className="son-route"><span>Segments</span><span>{est.segments}</span></div>
           <div className="son-route"><span>Billable chars</span><span>{est.billableChars.toLocaleString()}</span></div>
+          {provCredits && provCredits.limit > 0 && (
+            <div className="son-route" style={{ color: provCredits.limit - provCredits.used < est.billableChars ? 'var(--son-danger)' : undefined }}>
+              <span>Provider credits</span>
+              <span>{(provCredits.limit - provCredits.used).toLocaleString()} left{provCredits.limit - provCredits.used < est.billableChars ? ' — not enough!' : ''}</span>
+            </div>
+          )}
           <div className="son-route"><span>Est. length</span><span>~{Math.round((est.durationSec || 0) / 60)} min</span></div>
           {est.quota?.costLimit != null && <>
             <div className="son-faint" style={{ fontSize: 11, marginTop: 12 }}>Project quota</div>
@@ -798,7 +1067,7 @@ function Layers({ revision }: any) {
   useEffect(() => { load(); }, [load]);
   const suggest = async () => {
     setBusy(true); setMsg('');
-    try { const r = await scriptAudioApi.suggestCues(revision.id); const n = r.data?.created ?? 0; setMsg(n > 0 ? `Suggested ${n} cue(s).` : (scenes.length ? 'No new cues matched the scene text.' : 'No parsed scenes on this revision — upload a PDF so scenes are detected, then auto-suggest.')); load(); }
+    try { const r = await scriptAudioApi.suggestCues(revision.id); const n = r.data?.created ?? 0; setMsg(n > 0 ? `Suggested ${n} cue(s)${r.data?.ai ? ' — AI read each scene and sound-designed it' : ' (keyword scan)'}.` : (scenes.length ? 'No new cues matched the scene text.' : 'No parsed scenes on this revision — upload a PDF so scenes are detected, then auto-suggest.')); load(); }
     catch (e: any) { setMsg(e?.response?.data?.message || 'Auto-suggest failed.'); }
     finally { setBusy(false); }
   };
@@ -816,6 +1085,84 @@ function Layers({ revision }: any) {
     try { await scriptAudioApi.uploadCueAudio(cueId, file); setMsg('Sound attached to cue.'); load(); }
     catch (e: any) { setMsg(e?.response?.data?.message || 'Upload failed.'); }
   };
+  // ── Live layered scene playback: dialogue (studio voices) + cue audio mixed in-browser.
+  //    Cues play through Web Audio (decoded up-front, scheduled on the AudioContext clock) —
+  //    timer-fired <audio>.play() gets BLOCKED by autoplay policy once the click gesture
+  //    expires, which is why late SFX/foley/music never sounded. ───────────────────────────
+  const [selScene, setSelScene] = useState<string>('');
+  const [livePlaying, setLivePlaying] = useState(false);
+  const [playheadMs, setPlayheadMs] = useState<number | null>(null); // timeline pointer, driven by the audio clock
+  const liveRef = useRef(false);
+  const liveAudios = useRef<HTMLAudioElement[]>([]);
+  const liveTimers = useRef<any[]>([]);
+  const liveCtx = useRef<AudioContext | null>(null);
+  const liveSources = useRef<AudioBufferSourceNode[]>([]);
+  const liveGains = useRef<Map<string, GainNode>>(new Map()); // cueId → gain, for live volume sliders
+  const cueGain = (c: any, db?: number) => Math.max(0.02, Math.min(1.6, Math.pow(10, (Number(db ?? c.volumeDb) || 0) / 20) * (c.duckDialogue ? 0.45 : 0.9)));
+  const stopLive = useCallback(() => {
+    liveRef.current = false;
+    liveTimers.current.forEach(clearTimeout); liveTimers.current = [];
+    liveSources.current.forEach(s => { try { s.stop(); } catch {} }); liveSources.current = [];
+    liveGains.current.clear();
+    try { liveCtx.current?.close(); } catch {} liveCtx.current = null;
+    liveAudios.current.forEach(a => { try { a.pause(); } catch {} }); liveAudios.current = [];
+    setLivePlaying(false); setPlayheadMs(null);
+  }, []);
+  useEffect(() => () => stopLive(), [stopLive]);
+  const playLive = () => {
+    if (livePlaying) { stopLive(); return; }
+    if (!selScene) { setMsg('Pick a scene on the timeline first.'); return; }
+    const idx = scenes.findIndex((s: any) => String(s.sceneNumber) === selScene);
+    const parsed = parseStudioScenes(revision);
+    const sc = idx >= 0 ? parsed[idx] : null;
+    if (!sc) { setMsg('Could not match that scene in the script text.'); return; }
+    liveRef.current = true; setLivePlaying(true); setMsg('');
+    // AudioContext created INSIDE the click — everything scheduled on it stays allowed.
+    const Ctx: any = (window as any).AudioContext || (window as any).webkitAudioContext;
+    const ctx: AudioContext = new Ctx(); liveCtx.current = ctx;
+    const t0 = ctx.currentTime + 0.1;
+    // Playhead: sample the audio clock — perfectly in sync with what's heard
+    liveTimers.current.push(setInterval(() => {
+      if (liveRef.current && liveCtx.current === ctx) setPlayheadMs(Math.max(0, (ctx.currentTime - t0) * 1000));
+    }, 100));
+    // Scene-tagged cues AND whole-script cues (no scene number) — beds apply everywhere.
+    const inScope = (c: any) => String(c.sceneNumber || '') === selScene || !c.sceneNumber;
+    const sceneCues = cues.filter((c: any) => inScope(c) && c.uploadUrl);
+    let failed = 0;
+    for (const c of sceneCues) {
+      fetch(assetUrl(c.uploadUrl)).then(r => r.arrayBuffer()).then(buf => ctx.decodeAudioData(buf)).then(audio => {
+        if (!liveRef.current || liveCtx.current !== ctx) return;
+        const src = ctx.createBufferSource();
+        src.buffer = audio;
+        src.loop = c.layerType === 'AMBIENCE' || c.layerType === 'ROOMTONE';
+        const gain = ctx.createGain();
+        gain.gain.value = cueGain(c);
+        src.connect(gain); gain.connect(ctx.destination);
+        src.start(Math.max(ctx.currentTime, t0 + (Number(c.startMs) || 0) / 1000));
+        liveSources.current.push(src);
+        liveGains.current.set(c.id, gain); // live volume slider hooks in here
+      }).catch(() => { failed += 1; setMsg(`${failed} cue(s) could not be decoded.`); });
+    }
+    const missing = cues.filter((c: any) => inScope(c) && !c.uploadUrl);
+    setMsg(`${sceneCues.length} cue(s) scheduled${missing.length > 0 ? ` · no audio on: ${missing.map((c: any) => c.genPrompt || c.layerType).join(', ')} — hit ✨ on each` : ''}.`);
+    // Dialogue + narration sequentially over the bed
+    const segs = sc.segs.filter((s: any) => s.kind === 'dialogue' || s.kind === 'action');
+    let i = 0;
+    const step = () => {
+      if (!liveRef.current) return;
+      if (i >= segs.length) { liveTimers.current.push(setTimeout(stopLive, 2000)); return; }
+      const seg = segs[i++];
+      scriptAudioApi.speak(revision.id, { text: seg.text, character: seg.kind === 'dialogue' ? seg.character : undefined, kind: seg.kind === 'dialogue' ? 'dialogue' : 'narration', emotion: seg.hint })
+        .then(r => {
+          if (!liveRef.current) return;
+          const a = new Audio(assetUrl(r.data.url)); liveAudios.current.push(a);
+          a.onended = step; a.onerror = step; a.play().catch(step);
+        })
+        .catch((e: any) => { setMsg(e?.response?.data?.message || 'Voice synthesis failed.'); stopLive(); });
+    };
+    step();
+  };
+
   const [genBusy, setGenBusy] = useState<string | null>(null);
   const generateCue = async (c: any) => {
     setGenBusy(c.id); setMsg(`Generating “${c.genPrompt || c.layerType}”…`);
@@ -823,8 +1170,35 @@ function Layers({ revision }: any) {
     catch (e: any) { setMsg(e?.response?.data?.message || 'Generation failed.'); }
     finally { setGenBusy(null); }
   };
+  /** One click: generate audio for EVERY cue (in the selected scene + whole-script beds) that has none. */
+  const generateMissing = async () => {
+    const missing = cues.filter((c: any) => !c.uploadUrl && c.status !== 'REMOVED' && c.genPrompt &&
+      (String(c.sceneNumber || '') === selScene || !c.sceneNumber || selScene === ''));
+    if (!missing.length) { setMsg('Every cue already has audio.'); return; }
+    setGenBusy('ALL');
+    let ok = 0;
+    for (const c of missing) {
+      setMsg(`Generating ${ok + 1}/${missing.length}: “${c.genPrompt}”…`);
+      try { await scriptAudioApi.generateCue(c.id); ok += 1; }
+      catch (e: any) { setMsg(`Stopped at “${c.genPrompt}”: ${e?.response?.data?.message || 'generation failed'}`); setGenBusy(null); load(); return; }
+    }
+    setMsg(`Generated ${ok} cue(s) — hit Play scene live.`);
+    setGenBusy(null); load();
+  };
   const TONE: Record<string, string> = { AMBIENCE: '#10b981', ROOMTONE: '#64748b', SFX: '#f59e0b', FOLEY: '#7c3aed', MUSIC: '#db2777' };
   const LTYPES = ['AMBIENCE', 'ROOMTONE', 'SFX', 'FOLEY', 'MUSIC'];
+
+  // V3-A line anchoring: which lines of the cue's scene can a cue anchor to?
+  const parsedScenes = useMemo(() => parseStudioScenes(revision), [revision]);
+  const anchorOptions = (c: any): { idx: number; label: string }[] => {
+    if (!c.sceneNumber) return [];
+    const sceneIdx = scenes.findIndex((s: any) => String(s.sceneNumber) === String(c.sceneNumber));
+    const sc = sceneIdx >= 0 ? parsedScenes[sceneIdx] : null;
+    if (!sc) return [];
+    return sc.segs.map((seg: any, idx: number) => ({ idx, seg }))
+      .filter((x: any) => x.seg.kind === 'dialogue' || x.seg.kind === 'action')
+      .map((x: any) => ({ idx: x.idx, label: `${x.seg.character ? x.seg.character + ': ' : ''}${x.seg.text.slice(0, 34)}` }));
+  };
 
   if (!cues) return <Loading />;
   return (
@@ -834,6 +1208,9 @@ function Layers({ revision }: any) {
           <h3 className="son-h3" style={{ margin: 0 }}>Layer cues</h3><SonChip>{cues.length}</SonChip>
           <span style={{ flex: 1 }} />
           <SonBtn onClick={approveAll}>✓ Approve all</SonBtn>
+          <SonBtn onClick={generateMissing} disabled={genBusy === 'ALL'} title="Generate sound for every cue that has none (ElevenLabs SFX / Eleven Music)">
+            {genBusy === 'ALL' ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />} Generate missing audio
+          </SonBtn>
           <SonBtn primary onClick={suggest} disabled={busy}>{busy ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />} Auto-suggest</SonBtn>
         </div>
 
@@ -849,8 +1226,10 @@ function Layers({ revision }: any) {
         </SonCard>
         {msg && <p style={{ fontSize: 11, color: 'var(--son-info)', marginBottom: 8 }}>{msg}</p>}
 
-        {/* ── Scene timeline (mockup view): lanes with positioned cues; drag to move ── */}
-        <LayerTimeline revision={revision} scenes={scenes} cues={cues} onMove={(c: any, startMs: number) => saveCue(c, { startMs })} onSelectStatus={setStatus} />
+        {/* ── Scene timeline (mockup view): lanes with positioned cues; drag to move; live mix ── */}
+        <LayerTimeline revision={revision} scenes={scenes} cues={cues} selScene={selScene} setSelScene={(s: string) => { stopLive(); setSelScene(s); }}
+          livePlaying={livePlaying} onPlayLive={playLive} playheadMs={playheadMs}
+          onMove={(c: any, startMs: number) => saveCue(c, { startMs })} onSelectStatus={setStatus} />
 
         {cues.length === 0 && <p className="son-faint" style={{ fontSize: 13 }}>No cues yet. Use Auto-suggest (scans each scene for ambience/SFX/music) or add one above.</p>}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -862,8 +1241,25 @@ function Layers({ revision }: any) {
                 <div className="son-faint" style={{ fontSize: 11 }}>{c.uploadUrl ? '📎 uploaded sound' : c.genPrompt || 'cue'}{c.source === 'AUTO' ? ' · suggested' : ''}</div>
                 {c.uploadUrl && <audio controls src={assetUrl(c.uploadUrl)} style={{ width: '100%', height: 28, marginTop: 4 }} />}
               </div>
-              <label className="son-faint" style={{ fontSize: 10 }}>Start s<input className="son-input" type="number" step="0.5" style={{ width: 64, marginTop: 2 }} defaultValue={(c.startMs || 0) / 1000} onBlur={(e) => saveCue(c, { startMs: Math.round(Number(e.target.value) * 1000) })} /></label>
-              <label className="son-faint" style={{ fontSize: 10 }}>Vol dB<input className="son-input" type="number" step="1" style={{ width: 60, marginTop: 2 }} defaultValue={c.volumeDb ?? 0} onBlur={(e) => saveCue(c, { volumeDb: Number(e.target.value) })} /></label>
+              <label className="son-faint" style={{ fontSize: 10 }} title="Anchor the cue to a script line — it fires exactly when that line plays, never drifts">⚓ line
+                <select className="son-input" style={{ width: 150, marginTop: 2 }} value={c.anchorSeg ?? ''}
+                  onChange={(e) => saveCue(c, { anchorSeg: e.target.value === '' ? null : Number(e.target.value) })}>
+                  <option value="">— time-based —</option>
+                  {anchorOptions(c).map((o) => <option key={o.idx} value={o.idx}>{o.label}</option>)}
+                </select>
+              </label>
+              {c.anchorSeg == null && <label className="son-faint" style={{ fontSize: 10 }}>Start s<input className="son-input" type="number" step="0.5" style={{ width: 64, marginTop: 2 }} defaultValue={(c.startMs || 0) / 1000} onBlur={(e) => saveCue(c, { startMs: Math.round(Number(e.target.value) * 1000) })} /></label>}
+              <label className="son-faint" style={{ fontSize: 10, width: 110 }} title="Volume — adjusts live while the scene plays">
+                Vol <b id={`voldb-${c.id}`}>{c.volumeDb ?? 0}</b> dB
+                <input type="range" min={-24} max={12} step={1} defaultValue={c.volumeDb ?? 0} style={{ width: '100%', marginTop: 2 }}
+                  onChange={(e) => {
+                    const db = Number(e.target.value);
+                    const lbl = document.getElementById(`voldb-${c.id}`); if (lbl) lbl.textContent = String(db);
+                    const g = liveGains.current.get(c.id); if (g) g.gain.value = cueGain(c, db); // hear it immediately
+                  }}
+                  onMouseUp={(e) => saveCue(c, { volumeDb: Number((e.target as HTMLInputElement).value) })}
+                  onTouchEnd={(e) => saveCue(c, { volumeDb: Number((e.target as HTMLInputElement).value) })} />
+              </label>
               <label className="son-faint" style={{ fontSize: 10, display: 'inline-flex', alignItems: 'center', gap: 4 }} title="Lower this layer under dialogue"><input type="checkbox" checked={!!c.duckDialogue} onChange={(e) => saveCue(c, { duckDialogue: e.target.checked })} /> duck</label>
               <SonChip color={c.status === 'APPROVED' ? 'var(--son-ok)' : c.status === 'SUGGESTED' ? 'var(--son-warn)' : '#94a3b8'}>{c.status}</SonChip>
               {c.status !== 'APPROVED' && <button className="son-iconbtn" title="Approve" onClick={() => setStatus(c.id, 'APPROVED')}>✓</button>}
@@ -891,11 +1287,35 @@ const LANES: { key: string; label: string; color: string }[] = [
   { key: 'FOLEY', label: 'Foley', color: '#7c3aed' },
   { key: 'MUSIC', label: 'Music', color: '#db2777' },
 ];
-function LayerTimeline({ revision, scenes, cues, onMove, onSelectStatus }: any) {
-  const [selScene, setSelScene] = useState<string>('');
+function LayerTimeline({ revision, scenes, cues, selScene, setSelScene, livePlaying, onPlayLive, playheadMs, onMove, onSelectStatus }: any) {
   const drag = useRef<{ cue: any; startX: number; origMs: number; widthPx: number; durMs: number } | null>(null);
   const [liveMs, setLiveMs] = useState<Record<string, number>>({});
   const trackRef = useRef<HTMLDivElement>(null);
+
+  // Probe each cue's audio: true duration + a 48-bucket peak envelope (V3-C waveforms).
+  const [audioDur, setAudioDur] = useState<Record<string, number>>({});
+  const [peaks, setPeaks] = useState<Record<string, number[]>>({});
+  const probed = useRef<Set<string>>(new Set());
+  const decodeCtx = useRef<AudioContext | null>(null);
+  useEffect(() => {
+    for (const c of cues) {
+      if (!c.uploadUrl || probed.current.has(c.id)) continue;
+      probed.current.add(c.id);
+      if (!decodeCtx.current) { const Ctx: any = (window as any).AudioContext || (window as any).webkitAudioContext; decodeCtx.current = new Ctx(); }
+      fetch(assetUrl(c.uploadUrl)).then((r) => r.arrayBuffer()).then((b) => decodeCtx.current!.decodeAudioData(b)).then((buf) => {
+        setAudioDur((m) => ({ ...m, [c.id]: buf.duration }));
+        const data = buf.getChannelData(0); const N = 48; const step = Math.max(1, Math.floor(data.length / N));
+        const env: number[] = [];
+        for (let k = 0; k < N; k++) {
+          let peak = 0;
+          for (let j = k * step; j < Math.min(data.length, (k + 1) * step); j += 32) { const v = Math.abs(data[j]); if (v > peak) peak = v; }
+          env.push(Math.min(1, peak * 1.4));
+        }
+        setPeaks((m) => ({ ...m, [c.id]: env }));
+      }).catch(() => {});
+    }
+  }, [cues]);
+  useEffect(() => () => { try { decodeCtx.current?.close(); } catch {} }, []);
 
   // Rough scene duration: characters on its pages / 14 per second
   const durFor = (sceneNumber: string): number => {
@@ -908,7 +1328,7 @@ function LayerTimeline({ revision, scenes, cues, onMove, onSelectStatus }: any) 
   const durMs = (selScene ? durFor(selScene) : 180) * 1000;
   const laneCues = (lane: string) => cues.filter((c: any) =>
     (c.layerType === lane || (lane === 'AMBIENCE' && c.layerType === 'ROOMTONE')) &&
-    String(c.sceneNumber || '') === selScene);
+    (String(c.sceneNumber || '') === selScene || (selScene !== '' && !c.sceneNumber))); // whole-script beds show on every scene
 
   useEffect(() => {
     const mv = (e: MouseEvent) => {
@@ -938,7 +1358,12 @@ function LayerTimeline({ revision, scenes, cues, onMove, onSelectStatus }: any) 
           <button key={s.id} title={s.slugline} className={`son-togbtn ${selScene === String(s.sceneNumber) ? 'is-on' : ''}`} onClick={() => setSelScene(String(s.sceneNumber))}>Sc {s.sceneNumber || '•'}</button>
         ))}
         <span style={{ flex: 1 }} />
-        <SonChip>{fmtDur(Math.round(durMs / 1000))}</SonChip>
+        <SonChip>{playheadMs != null ? `${fmtDur(Math.floor(playheadMs / 1000))} / ` : ''}{fmtDur(Math.round(durMs / 1000))}</SonChip>
+        {selScene && (
+          <SonBtn primary onClick={onPlayLive} title="Play this scene live: studio voices + every cue with audio, mixed in the browser">
+            {livePlaying ? <Pause size={13} /> : <Play size={13} />} {livePlaying ? 'Stop' : 'Play scene live'}
+          </SonBtn>
+        )}
       </div>
       <div ref={trackRef}>
         {LANES.map((lane) => (
@@ -948,22 +1373,38 @@ function LayerTimeline({ revision, scenes, cues, onMove, onSelectStatus }: any) 
             </div>
             <div style={{ flex: 1, position: 'relative', height: 38, background: 'var(--son-surface-2)', borderRadius: 8, overflow: 'hidden',
               backgroundImage: 'repeating-linear-gradient(90deg, transparent 0 calc(10% - 1px), var(--son-border) calc(10% - 1px) 10%)' }}>
+              {playheadMs != null && (
+                <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${Math.min(100, (playheadMs / durMs) * 100)}%`, width: 2, background: 'var(--son-danger)', zIndex: 2, pointerEvents: 'none' }} />
+              )}
               {laneCues(lane.key).map((c: any) => {
                 const ms = liveMs[c.id] ?? (c.startMs || 0);
                 const left = Math.min(92, (ms / durMs) * 100);
                 const sugg = c.status === 'SUGGESTED';
+                // Block width = TRUE audio length on the scene's time scale; loops fill to scene end.
+                const isLoop = c.layerType === 'AMBIENCE' || c.layerType === 'ROOMTONE';
+                const dSec = audioDur[c.id];
+                const widthPct = isLoop && c.uploadUrl ? Math.max(4, 100 - left)
+                  : dSec && dSec > 0 ? Math.max(2.5, Math.min(100 - left, (dSec * 1000 / durMs) * 100))
+                  : undefined; // no audio yet → content-sized ghost
                 return (
-                  <div key={c.id} title={`${c.genPrompt || c.layerType} — drag to move${sugg ? ' · suggested (click ✓ in the list to approve)' : ''}`}
+                  <div key={c.id} title={`${c.genPrompt || c.layerType}${dSec ? ` · ${fmtDur(Math.round(dSec))}` : ''} — drag to move${sugg ? ' · suggested (✓ in the list to approve)' : ''}`}
                     onMouseDown={(e) => {
                       e.preventDefault();
                       const w = (e.currentTarget.parentElement as HTMLElement).clientWidth;
                       drag.current = { cue: c, startX: e.clientX, origMs: ms, widthPx: w, durMs };
                     }}
-                    style={{ position: 'absolute', top: 4, left: `${left}%`, height: 30, maxWidth: '46%', padding: '0 9px',
+                    style={{ position: 'absolute', top: 4, left: `${left}%`, height: 30, padding: '0 9px',
+                      width: widthPct !== undefined ? `${widthPct}%` : undefined, maxWidth: widthPct !== undefined ? undefined : '46%',
                       display: 'flex', alignItems: 'center', borderRadius: 8, fontSize: 11, fontWeight: 600, color: '#fff',
                       whiteSpace: 'nowrap', overflow: 'hidden', cursor: 'grab', userSelect: 'none',
-                      background: sugg ? '#b8860b' : lane.color, border: sugg ? '2px dashed #ffd76e' : 'none' }}>
-                    {c.uploadUrl ? '📎 ' : ''}{c.genPrompt || c.layerType}{sugg ? ' ✦' : ''}
+                      background: sugg ? '#b8860b' : lane.color, opacity: c.uploadUrl ? 1 : 0.55,
+                      border: sugg ? '2px dashed #ffd76e' : 'none' }}>
+                    {peaks[c.id] && (
+                      <svg viewBox="0 0 48 10" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.4, pointerEvents: 'none' }}>
+                        {peaks[c.id].map((p, k) => <rect key={k} x={k} y={5 - p * 4.5} width={0.72} height={Math.max(0.5, p * 9)} fill="#fff" />)}
+                      </svg>
+                    )}
+                    <span style={{ position: 'relative' }}>{c.uploadUrl ? '' : '⚠ '}{c.genPrompt || c.layerType}{sugg ? ' ✦' : ''}</span>
                   </div>
                 );
               })}

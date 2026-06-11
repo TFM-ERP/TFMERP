@@ -38,6 +38,58 @@ S3 — Scene rendering via v3 Text-to-Dialogue
   (radio/phone), uncast speakers, or any dialogue-API error fall back to the
   proven per-line path. options.dialogueMode=false forces per-line.
 
+V3-B — AI Director (per-line emotion pass)
+- "✨ Direct scene" in the Studio: Claude reads the scene and returns per-line delivery
+  direction (whispers / tense / pleading…) as v3 audio tags — only where it matters,
+  NEVER overriding the writer's parentheticals (canon). Directions persist on the
+  revision (ScriptRevision.lineDirections) and show inline as violet [tag] chips with
+  the director's note on hover. POST audio/direct/:revisionId · PUT audio/directions.
+
+V3-C — Desk polish
+- A/B TAKES per line: select a line → "↻ New take" generates a fresh performance
+  (cache keyed per take, billed once each), ◂ Prev switches back, ▶ Hear auditions;
+  the picked take is what plays in the scene and persists with the directions.
+- WAVEFORMS on timeline blocks: each cue's real peak envelope drawn over its block.
+- Keyboard transport in the Studio: Space = play/pause · ↑/↓ = scene · ←/→ = line.
+
+V3-A — Studio merge + line-anchored cues (the script IS the timeline)
+- Tabs 3, not 6: STUDIO (reader + sound design in one surface — the Layers editor
+  docks under the script as a drawer) · CAST (voices + pronunciation) · DELIVER
+  (performance/render + library/shares). Sub-toggles inside merged tabs.
+- The Studio reading is now the FULL MIX: pressing Read scene (or the transport)
+  plays cast voices AND the cue bed together — Web Audio, decoded in the gesture.
+- LINE-ANCHORED CUES: a cue can anchor to a script line ("⚓ line" selector on every
+  cue row); it fires exactly when that line plays (+offset) — zero drift, survives
+  recasting and slider changes. Time-based cues still honor startMs.
+  Schema: SceneAudioCue.anchorSeg + anchorOffsetMs (REQUIRES npx prisma db push
+  && npx prisma generate in backend/).
+- Mixing desk in the reader header: per-lane mutes (A/S/F/M) + master duck slider;
+  REAL sidechain — ducked cues ramp down when a voice line starts and recover when
+  it ends.
+
+S5 — Provider depth: full voice libraries, accents everywhere, engine health
+- Voice editor: "Browse full ElevenLabs library" — search THOUSANDS of shared voices
+  filtered by gender / age / accent / language / free text, preview, and "Add & cast"
+  (adds the voice to the account via the API and selects it).
+- Accents are now performance-wide: a character's accent becomes a v3 audio tag
+  ([French accent]) on every line, and OpenAI gpt-4o-mini-tts gets it via free-text
+  instructions ("Speak with a French accent, in a tense tone").
+- Engines & Routing recalibrated: model picker is a curated catalog with intent hints
+  (v3 flagship / multilingual v2 stable / turbo · flash for latency; gpt-4o-mini-tts
+  instructions), live PROVIDER CREDITS bar (used/limit from the subscription API,
+  red under 10%), account voice count. New endpoints: voice-search, voice-add,
+  engines/:key/status.
+- Studio cost card shows provider credits next to the estimate and flags
+  "not enough!" BEFORE a render dies on quota.
+
+S6 — Scene-precise AI sound design (Auto-suggest upgrade)
+- Auto-suggest is now AI-first: Claude reads each scene's REAL text (batched, forced
+  tool-use) and returns a spotting pass — one matching ambience bed, SFX placed at
+  their position in the scene (0..1 → startMs), foley for sustained activity, music
+  only when warranted, all as concrete generation-ready prompts. Keyword heuristic
+  remains the $0 offline fallback. Cue generation already folds scene setting
+  (INT/EXT, location, day/night) into ElevenLabs prompts.
+
 S4 — Generate cue audio in the Layers tab
 - New POST production/audio/cue-generate/:cueId — SFX/ambience/foley via
   ElevenLabs sound-generation (8–20s), MUSIC via Eleven Music (30s), billed per

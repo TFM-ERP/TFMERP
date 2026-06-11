@@ -1,6 +1,21 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../common/prisma/prisma.service';
-import { buildAdapter, VoiceOption } from './adapters';
+import { buildAdapter, VoiceOption, VoiceSearch } from './adapters';
+
+/** Curated model catalog per engine — what each is FOR, so admins pick by intent. */
+export const ENGINE_MODELS: Record<string, { id: string; label: string; hint: string }[]> = {
+  ELEVENLABS: [
+    { id: 'eleven_v3', label: 'Eleven v3 — flagship', hint: 'Richest emotion via audio tags, dialogue mode, 70+ languages' },
+    { id: 'eleven_multilingual_v2', label: 'Multilingual v2 — stable', hint: 'Proven quality, voice-settings modulation, 29 languages' },
+    { id: 'eleven_turbo_v2_5', label: 'Turbo v2.5 — balanced', hint: 'Low latency + language pinning (language_code)' },
+    { id: 'eleven_flash_v2_5', label: 'Flash v2.5 — fastest', hint: '~75ms latency, best for live reading on a budget' },
+  ],
+  OPENAI: [
+    { id: 'gpt-4o-mini-tts', label: 'GPT-4o mini TTS', hint: 'Free-text voice direction (accents, emotions via instructions)' },
+    { id: 'tts-1-hd', label: 'TTS-1 HD', hint: 'Higher fidelity, no instructions' },
+    { id: 'tts-1', label: 'TTS-1', hint: 'Fastest/cheapest OpenAI voice' },
+  ],
+};
 
 const CAPABILITIES = ['LIVE_READ', 'TTS', 'SFX', 'MUSIC', 'DUBBING'];
 
@@ -62,6 +77,42 @@ export class AudioEnginesService {
     return this.prisma.audioEngine.update({ where: { id }, data: d });
   }
   removeEngine(id: string) { return this.prisma.audioEngine.delete({ where: { id } }); }
+
+  /** Search the engine's FULL voice library (shared voices) with label filters. */
+  async searchEngineVoices(key: string, f: VoiceSearch): Promise<VoiceOption[]> {
+    const engine = await this.prisma.audioEngine.findUnique({ where: { key: String(key).toUpperCase() } });
+    if (!engine) throw new NotFoundException(`Unknown audio engine "${key}".`);
+    const adapter: any = buildAdapter(engine as any);
+    if (!adapter.searchVoices) return this.listEngineVoices(key); // engines without a shared library fall back to account voices
+    try { return await adapter.searchVoices(f); }
+    catch (e: any) { throw new BadRequestException(e?.message || 'Voice library search failed.'); }
+  }
+
+  /** Add a shared-library voice to the provider account (so it becomes castable). */
+  async addEngineVoice(key: string, b: { publicOwnerId: string; voiceId: string; name: string }) {
+    const engine = await this.prisma.audioEngine.findUnique({ where: { key: String(key).toUpperCase() } });
+    if (!engine) throw new NotFoundException(`Unknown audio engine "${key}".`);
+    const adapter: any = buildAdapter(engine as any);
+    if (!adapter.addSharedVoice) throw new BadRequestException('This engine has no shared voice library.');
+    if (!b?.publicOwnerId || !b?.voiceId) throw new BadRequestException('publicOwnerId and voiceId are required.');
+    try { const id = await adapter.addSharedVoice(b.publicOwnerId, b.voiceId, b.name || 'TFM voice'); return { voiceId: id }; }
+    catch (e: any) { throw new BadRequestException(e?.message || 'Could not add the voice.'); }
+  }
+
+  /** Engine health for the admin page + studio: credits, voice count, model catalog. */
+  async engineStatus(key: string) {
+    const engine = await this.prisma.audioEngine.findUnique({ where: { key: String(key).toUpperCase() } });
+    if (!engine) throw new NotFoundException(`Unknown audio engine "${key}".`);
+    const adapter: any = buildAdapter(engine as any);
+    const out: any = { key: engine.key, enabled: engine.enabled, defaultModel: engine.defaultModel, models: ENGINE_MODELS[engine.key] || [] };
+    if (engine.enabled && adapter.accountStatus) {
+      try { out.credits = await adapter.accountStatus(); } catch (e: any) { out.creditsError = String(e?.message || e).slice(0, 120); }
+    }
+    if (engine.enabled && adapter.listVoices) {
+      try { out.voiceCount = (await adapter.listVoices()).length; } catch { /* non-fatal */ }
+    }
+    return out;
+  }
 
   // ── Routing policy ──────────────────────────────────────────────────────────
   async getRouting(scope: string, projectId?: string) {
