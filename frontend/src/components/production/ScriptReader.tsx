@@ -301,11 +301,28 @@ export default function ScriptReader({ revision, onClose, inline }: { revision: 
         a.playbackRate = rate; audioRef.current = a;
         a.onended = () => advance(); a.onerror = () => advance();
         a.play().catch(() => advance());
-      }).catch((err: any) => {
+      }).catch(() => {
+        // One retry after a short breather — local CPU engines hiccup transiently
+        // (model reload, queue pressure); a single failure shouldn't demote the session.
         synthRef.current.delete(cur);
-        setStudioMsg(err?.response?.data?.message || 'Live studio voices unavailable — continuing with browser voices.');
-        useStudio = false; setStudio(false);
-        speakBrowser(e); // finish this line with the browser voice so playback never stalls
+        setStudioMsg('Synthesis hiccup — retrying line…');
+        setTimeout(() => {
+          if (!playRef.current) return;
+          synthFor(cur).then((r: any) => {
+            if (!playRef.current) return;
+            setStudioMsg('');
+            if (r.cached) setCachedLines((c) => c + 1); else setSessionCost((c) => c + Number(r.cost || 0));
+            const a = new Audio(assetUrl(r.url));
+            a.playbackRate = rate; audioRef.current = a;
+            a.onended = () => advance(); a.onerror = () => advance();
+            a.play().catch(() => advance());
+          }).catch((err2: any) => {
+            synthRef.current.delete(cur);
+            setStudioMsg(err2?.response?.data?.message || 'Live studio voices unavailable — continuing with browser voices.');
+            useStudio = false; setStudio(false);
+            speakBrowser(e); // finish this line with the browser voice so playback never stalls
+          });
+        }, 3000);
       });
     };
     step();
@@ -333,6 +350,50 @@ export default function ScriptReader({ revision, onClose, inline }: { revision: 
       start = s >= 0 ? s : 0;
     }
     run(start);
+  };
+
+  // ── Warm scene: pre-generate every speakable line in the current scope into the cache,
+  //    one at a time (kind to local CPU engines). After warming, Read plays instantly. ──
+  const [warm, setWarm] = useState<{ done: number; total: number } | null>(null);
+  const warmRef = useRef(false);
+  const warmScene = async () => {
+    if (warmRef.current) { warmRef.current = false; setWarm(null); return; } // click again = cancel
+    let start = 0; let end = els.length - 1;
+    if (scope === 'scene') {
+      const n = sceneSel || 1;
+      const s = meta.sceneOf.findIndex((x) => x === n);
+      start = s >= 0 ? s : 0;
+      if (!carryOn) { const e = meta.sceneOf.lastIndexOf(n); if (e >= 0) end = e; }
+    } else if (scope === 'page') {
+      const s = els.findIndex((e) => (e.page || 1) >= fromPage);
+      start = s >= 0 ? s : 0;
+    }
+    const ok = (x: El) => !!x.text && (
+      (x.type === 'scene' && readSet.scene) || (x.type === 'action' && readSet.action) ||
+      (x.type === 'character' && readSet.character) || (x.type === 'dialogue' && readSet.dialogue));
+    const idxs: number[] = [];
+    for (let j = start; j <= end && j < els.length; j++) {
+      const n = els[j];
+      const mine = mode === 'rehearse' && actor && n.character === actor && (n.type === 'dialogue' || n.type === 'character');
+      if (!mine && ok(n)) idxs.push(j);
+    }
+    warmRef.current = true; setWarm({ done: 0, total: idxs.length });
+    let done = 0;
+    for (const j of idxs) {
+      if (!warmRef.current) break;
+      try {
+        const r: any = await synthFor(j);
+        if (r?.cached) setCachedLines((c) => c + 1); else setSessionCost((c) => c + Number(r?.cost || 0));
+      } catch {
+        // one retry per line after a breather; a stubborn line is skipped, not fatal
+        synthRef.current.delete(j);
+        await new Promise((res) => setTimeout(res, 3000));
+        try { await synthFor(j); } catch { synthRef.current.delete(j); }
+      }
+      done += 1; setWarm({ done, total: idxs.length });
+    }
+    warmRef.current = false;
+    setTimeout(() => setWarm((w) => (w && w.done >= w.total ? null : w)), 5000);
   };
   const handleClose = () => { stop(); onClose(); };
 
@@ -425,6 +486,12 @@ export default function ScriptReader({ revision, onClose, inline }: { revision: 
               </button>
               <button onClick={stop} title="Stop" className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:border-slate-900"><Square size={13} /></button>
               <button onClick={() => { stop(); setCursor(-1); }} title="Restart" className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:border-slate-900"><RotateCcw size={13} /></button>
+              {studio && (
+                <button onClick={warmScene} title="Pre-generate all lines in scope into the cache — Read then plays instantly. Click again to cancel."
+                  className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1.5 ${warm ? 'border-amber-500 text-amber-600' : 'border-slate-200 text-slate-600 hover:border-slate-900'}`}>
+                  ⚡ {warm ? `${warm.done}/${warm.total}` : 'Warm'}
+                </button>
+              )}
               <span className="text-slate-600 font-medium px-1">{scopeDesc}</span>
               {studioMsg ? <span className="text-amber-600 truncate">{studioMsg}</span>
                 : studio && (sessionCost > 0 || cachedLines > 0) ? <span className="text-indigo-600">≈ ${sessionCost.toFixed(2)}{cachedLines ? ` · ${cachedLines} cached` : ''}</span>

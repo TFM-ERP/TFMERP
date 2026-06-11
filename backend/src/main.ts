@@ -53,6 +53,11 @@ async function bootstrap() {
 
   const port = process.env.PORT || 3001;
   await app.listen(port);
+  // Local CPU TTS (ScriptON LOCAL engine) queues line synthesis — requests can legitimately
+  // wait many minutes. Node's default requestTimeout (300s) would cut them mid-queue.
+  const server = app.getHttpServer();
+  server.requestTimeout = 0;        // no hard cap on in-flight requests
+  server.headersTimeout = 120_000;  // still drop clients that never send headers
   console.log(`\n🚀 TFM ERP API running on: http://localhost:${port}/api/v1`);
   console.log(`📚 API Docs: http://localhost:${port}/api/docs\n`);
 }

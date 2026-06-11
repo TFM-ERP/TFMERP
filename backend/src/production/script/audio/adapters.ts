@@ -242,6 +242,9 @@ export class OpenAiAdapter implements AudioProviderAdapter {
 export class LocalAdapter implements AudioProviderAdapter {
   key = 'LOCAL';
   capabilities = { tts: true, sfx: false, music: false, dubbing: false };
+  /** Local CPU servers can't take parallel generations (OOM → container restart →
+   *  "Model not loaded"). Serialize ALL local synth calls through one queue. */
+  private static queue: Promise<unknown> = Promise.resolve();
   constructor(private baseUrl?: string | null, private defaultModel?: string | null) {}
   private url(p: string) { return `${(this.baseUrl || 'http://localhost:4123').replace(/\/$/, '')}${p}`; }
 
@@ -263,6 +266,13 @@ export class LocalAdapter implements AudioProviderAdapter {
   }
 
   async synthesize(seg: Segment, cfg: VoiceConfig): Promise<SynthResult> {
+    // Serialize: chain this call behind any in-flight local generation.
+    const run = LocalAdapter.queue.then(() => this.synthesizeNow(seg, cfg));
+    LocalAdapter.queue = run.catch(() => {}); // a failure must not poison the queue
+    return run;
+  }
+
+  private async synthesizeNow(seg: Segment, cfg: VoiceConfig): Promise<SynthResult> {
     // Chatterbox 500s on unknown voice names and on text that chunks to nothing —
     // omit `voice` when uncast (server uses its built-in sample) and sanitize input.
     const input = seg.text.replace(/\s+/g, ' ').trim();
