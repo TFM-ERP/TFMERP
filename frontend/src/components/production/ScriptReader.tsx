@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState, useCallback, memo } from 'react';
 import {
-  X, Play, Pause, Square, RotateCcw, Highlighter, Eye, EyeOff, Type as TypeIcon,
-  Volume2, Mic, Video, ChevronDown, Users, BookOpen,
+  X, Play, Pause, Square, RotateCcw, Eye, EyeOff, Type as TypeIcon,
+  Volume2, Mic, Video, ChevronDown, BookOpen,
 } from 'lucide-react';
 import { scriptAudioApi, assetUrl } from '@/lib/api';
 
@@ -347,6 +347,23 @@ export default function ScriptReader({ revision, onClose, inline }: { revision: 
   const isHidden = (e: El, idx: number) => blackout && actor && e.character === actor && e.type === 'dialogue' && !revealed.has(idx);
   const onReveal = useCallback((idx: number) => setRevealed((r) => new Set(r).add(idx)), []);
 
+  // Pages-style left rail: scene cards with page + reading-time estimate
+  const [railTab, setRailTab] = useState<'scenes' | 'pages'>('scenes');
+  const sceneCards = useMemo(() => {
+    const out: any[] = [];
+    let cur: any = null;
+    els.forEach((e, i) => {
+      const sn = meta.sceneOf[i];
+      if (e.type === 'scene') { cur = { n: sn, label: e.text.replace(/^\d+[A-Z]?\.?\s+/, '').slice(0, 34), page: e.page || 1, chars: 0 }; out.push(cur); }
+      else if (cur && sn === cur.n) cur.chars += e.text.length;
+    });
+    return out.map((s: any) => ({ ...s, durSec: Math.max(5, Math.round(s.chars / 14)) }));
+  }, [els, meta]);
+  const mmss = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  const readingSceneN = playing && cursor >= 0 ? meta.sceneOf[cursor] : null;
+  const scopeDesc = scope === 'scene' ? `Sc ${sceneSel}${carryOn ? ' →' : ''}` : scope === 'page' ? `from p.${fromPage}` : 'Whole script';
+  const chip = (on: boolean, accent = 'slate') => `px-2 py-0.5 rounded-full border text-[10.5px] capitalize ${on ? (accent === 'emerald' ? 'border-emerald-600 bg-emerald-600 text-white' : accent === 'sky' ? 'border-sky-600 bg-sky-600 text-white' : 'border-slate-900 bg-slate-900 text-white') : 'border-slate-200 text-slate-500'}`;
+
   return (
     <div className={inline ? 'absolute inset-0 flex items-stretch' : 'fixed inset-0 z-[80] bg-slate-900/50 flex items-stretch'} onClick={inline ? undefined : handleClose}>
       <div className={`son ${sonDark ? 'son-dark' : ''} h-full w-full bg-slate-50 flex flex-col ${inline ? 'rounded-2xl border border-slate-200' : 'ml-auto max-w-5xl shadow-2xl'}`} onClick={(e) => e.stopPropagation()}>
@@ -359,163 +376,189 @@ export default function ScriptReader({ revision, onClose, inline }: { revision: 
             <button onClick={() => setSonDark(d => !d)} title={sonDark ? 'Light' : 'Dark'} className="son-iconbtn">{sonDark
               ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19"/></svg>
               : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg>}</button>
-            <button onClick={() => setRecOpen(true)} className="text-xs inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-slate-600 hover:border-slate-900"><Video size={13} /> Self-tape</button>
             <button onClick={handleClose} className="text-slate-400 hover:text-slate-700 p-1"><X size={18} /></button>
           </div>
         </div>
 
-        {/* Toolbar */}
-        <div className="flex flex-wrap items-center gap-2 px-4 py-2 bg-white border-b border-slate-100 text-xs shrink-0">
-          {/* Font */}
-          <div className="inline-flex items-center gap-1">
-            <TypeIcon size={13} className="text-slate-400" />
-            <button onClick={() => setFont((f) => Math.max(12, f - 1))} className="px-1.5 rounded border border-slate-200">A-</button>
-            <button onClick={() => setFont((f) => Math.min(28, f + 1))} className="px-1.5 rounded border border-slate-200">A+</button>
-            <button onClick={() => setSerif((s) => !s)} className="px-1.5 rounded border border-slate-200">{serif ? 'Serif' : 'Mono'}</button>
-          </div>
-          <span className="w-px h-4 bg-slate-200" />
-          {/* Auto-highlight elements */}
-          <Highlighter size={13} className="text-slate-400" />
-          {(['scene', 'action', 'character', 'dialogue'] as const).map((k) => (
-            <button key={k} onClick={() => setHl((h) => ({ ...h, [k]: !h[k] }))}
-              className={`px-2 py-0.5 rounded-full border capitalize ${hl[k] ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 text-slate-500'}`}>{k}</button>
-          ))}
-          <span className="w-px h-4 bg-slate-200" />
-          {/* Info layers */}
-          <span className="text-[10px] uppercase tracking-wide text-slate-400">Info</span>
-          {([['sceneNo', 'Scene #'], ['dividers', 'Dividers'], ['dialogueNo', 'Dlg #'], ['eighths', '8ths'], ['tint', 'Tint']] as const).map(([k, lbl]) => (
-            <button key={k} onClick={() => setInfo((s) => ({ ...s, [k]: !s[k as keyof typeof s] }))}
-              className={`px-2 py-0.5 rounded-full border ${info[k as keyof typeof info] ? 'border-sky-600 bg-sky-600 text-white' : 'border-slate-200 text-slate-500'}`}>{lbl}</button>
-          ))}
-          <span className="w-px h-4 bg-slate-200" />
-          {/* Actor */}
-          <Users size={13} className="text-slate-400" />
-          <select value={actor} onChange={(e) => { setActor(e.target.value); setRevealed(new Set()); }} className="rounded-lg border border-slate-200 px-2 py-1 max-w-[150px]">
-            <option value="">Highlight character…</option>
-            {characters.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
-          {actor && (
-            <>
-              <div className="inline-flex rounded-lg border border-slate-200 overflow-hidden">
-                {(['name', 'dialogue', 'both'] as const).map((m) => (
-                  <button key={m} onClick={() => setActorMode(m)} className={`px-2 py-1 capitalize ${actorMode === m ? 'bg-slate-900 text-white' : 'text-slate-500'}`}>{m}</button>
-                ))}
-              </div>
-              <button onClick={() => { setBlackout((b) => !b); setRevealed(new Set()); }}
-                className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border ${blackout ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 text-slate-500'}`}>
-                {blackout ? <EyeOff size={12} /> : <Eye size={12} />} Off-book
-              </button>
-            </>
-          )}
-        </div>
-
-        {/* Playback bar */}
-        <div className="flex flex-wrap items-center gap-2 px-4 py-2 bg-slate-100 border-b border-slate-200 text-xs shrink-0">
-          <div className="inline-flex rounded-lg border border-slate-300 overflow-hidden bg-white">
-            <button onClick={() => setMode('read')} className={`px-2.5 py-1 ${mode === 'read' ? 'bg-slate-900 text-white' : 'text-slate-600'}`}>Read aloud</button>
-            <button onClick={() => setMode('rehearse')} className={`px-2.5 py-1 ${mode === 'rehearse' ? 'bg-slate-900 text-white' : 'text-slate-600'}`}>Rehearse</button>
-          </div>
-          <select value={scope} onChange={(e) => { stop(); setScope(e.target.value as any); }}
-            className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-slate-600" title="What to play">
-            <option value="script">Whole script</option>
-            <option value="scene">Scene…</option>
-            <option value="page">From page…</option>
-          </select>
-          {scope === 'scene' && (
-            <>
-              <select value={sceneSel} onChange={(e) => { stop(); setSceneSel(Number(e.target.value)); }}
-                className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-slate-600 max-w-[180px]">
-                {scenesList.map((s) => <option key={s.n} value={s.n}>#{s.n} {s.label}</option>)}
-                {scenesList.length === 0 && <option value={1}>No scenes detected</option>}
-              </select>
-              <label className="inline-flex items-center gap-1 text-slate-500" title="Keep playing into the following scenes instead of stopping at the scene end">
-                <input type="checkbox" checked={carryOn} onChange={(e) => { stop(); setCarryOn(e.target.checked); }} /> carry on
-              </label>
-            </>
-          )}
-          {scope === 'page' && (
-            <label className="inline-flex items-center gap-1 text-slate-500">p.
-              <input type="number" min={1} max={pageCount} value={fromPage}
-                onChange={(e) => { stop(); setFromPage(Math.max(1, Math.min(pageCount, Number(e.target.value) || 1))); }}
-                className="w-14 rounded-lg border border-slate-300 bg-white px-1.5 py-1" /> / {pageCount}
-            </label>
-          )}
-          <div className="inline-flex rounded-lg border border-slate-300 overflow-hidden bg-white" title="Studio = live ElevenLabs/OpenAI with the cast voices from Audio Studio → Voices">
-            <button onClick={() => setStudio(false)} className={`px-2.5 py-1 ${!studio ? 'bg-slate-900 text-white' : 'text-slate-600'}`}>Browser</button>
-            <button onClick={() => { setStudio(true); setStudioMsg(''); }} className={`px-2.5 py-1 ${studio ? 'bg-indigo-600 text-white' : 'text-slate-600'}`}>Studio ✨</button>
-          </div>
-          <button onClick={togglePlay} disabled={!speak && !studio} className="inline-flex items-center gap-1 rounded-lg bg-slate-900 text-white px-3 py-1.5 disabled:opacity-50">
-            {playing ? <Pause size={13} /> : <Play size={13} />} {playing ? 'Pause' : 'Play'}
-          </button>
-          <button onClick={stop} className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-slate-600"><Square size={12} /> Stop</button>
-          <button onClick={() => { stop(); setCursor(-1); }} className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-slate-600"><RotateCcw size={12} /> Restart</button>
-          <label className="inline-flex items-center gap-1 text-slate-500">Speed
-            <input type="range" min={0.5} max={2} step={0.1} value={rate} onChange={(e) => setRate(Number(e.target.value))} className="w-20" /> {rate.toFixed(1)}×
-          </label>
-          {mode === 'rehearse' && (
-            <label className="inline-flex items-center gap-1 text-slate-500">Your-line gap
-              <input type="range" min={0.5} max={8} step={0.5} value={gap} onChange={(e) => setGap(Number(e.target.value))} className="w-20" /> {gap}s
-            </label>
-          )}
-          <span className="w-px h-4 bg-slate-200" />
-          <span className="text-[10px] uppercase tracking-wide text-slate-400">Read</span>
-          {([['scene', 'Scenes'], ['action', 'Action'], ['character', 'Names'], ['dialogue', 'Dialogue']] as const).map(([k, lbl]) => (
-            <button key={k} onClick={() => setReadSet((s) => ({ ...s, [k]: !s[k] }))}
-              title={`Read ${lbl.toLowerCase()} aloud`}
-              className={`px-2 py-0.5 rounded-full border ${readSet[k] ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-slate-200 text-slate-500'}`}>{lbl}</button>
-          ))}
-          {studio && (
-            <span className="text-indigo-600">
-              {sessionCost > 0 ? `≈ $${sessionCost.toFixed(2)} this session` : 'cast voices · live'}{cachedLines > 0 ? ` · ${cachedLines} cached (free)` : ''}
-            </span>
-          )}
-          {studioMsg && <span className="text-amber-600">{studioMsg}</span>}
-          <div className="relative">
-            <button onClick={() => setShowVoices((s) => !s)} className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-slate-600"><Volume2 size={12} /> Voices <ChevronDown size={12} /></button>
-            {showVoices && (
-              <div className="absolute right-0 mt-1 z-10 w-72 max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl p-2 space-y-1">
-                {studio && <p className="text-[11px] text-indigo-600 p-1">Studio mode uses the cast voices from Audio Studio → Voices. These browser-voice picks apply to Browser mode only.</p>}
-                {['_narrator', ...characters].map((c) => (
-                  <div key={c} className="flex items-center gap-2">
-                    <span className="text-[11px] text-slate-600 w-28 truncate">{c === '_narrator' ? 'Narrator' : c}</span>
-                    <select value={voiceMap[c] || ''} onChange={(e) => setVoiceMap((m) => ({ ...m, [c]: e.target.value }))}
-                      className="flex-1 text-[11px] rounded border border-slate-200 px-1.5 py-1">
-                      <option value="">Default</option>
-                      {voices.map((v) => <option key={v.voiceURI} value={v.voiceURI}>{v.name} ({v.lang})</option>)}
-                    </select>
-                  </div>
-                ))}
-                {voices.length === 0 && <p className="text-[11px] text-slate-400 p-1">No system voices found in this browser.</p>}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Script body */}
+        {/* SYS-14: Pages-skeleton body — left rail · centered paper · right tool rail */}
         <style>{RDR_CSS}</style>
-        <div ref={bodyRef} className="flex-1 overflow-y-auto bg-slate-200/60 px-4 py-6">
-          <div className={[
-              'rdr mx-auto shadow-sm rounded-md px-8 sm:px-14 py-10 max-w-3xl',
-              hl.scene ? 'rdr-hl-scene' : '', hl.action ? 'rdr-hl-action' : '',
-              hl.character ? 'rdr-hl-character' : '', hl.dialogue ? 'rdr-hl-dialogue' : '',
-              info.sceneNo ? 'rdr-info-sceneno' : '', info.dividers ? 'rdr-info-div' : '',
-              info.dialogueNo ? 'rdr-info-dlgno' : '', info.eighths ? 'rdr-info-8ths' : '',
-              actor ? `rdr-am-${actorMode}` : '',
-            ].filter(Boolean).join(' ')}
-            style={{ fontFamily: serif ? 'Georgia, serif' : '"Courier New", Courier, monospace', fontSize: font, lineHeight: 1.6,
-              background: info.tint ? tintFor(revision?.colorCode) : '#fdfdf9', color: '#1f1f1f',
-              border: '1px solid rgba(0,0,0,.07)', boxShadow: '0 2px 5px rgba(0,0,0,.16), 0 14px 34px rgba(0,0,0,.12)' }}>
-            {els.length === 0 && <p className="text-slate-400 text-sm">No extractable text in this revision. (Scanned PDFs have no text layer.)</p>}
-            {els.map((e, idx) => (
-              <Row key={idx} e={e} idx={idx}
-                mine={!!actor && e.character === actor && (e.type === 'character' || e.type === 'dialogue')}
-                active={cursor === idx}
-                sceneNo={e.type === 'scene' ? meta.sceneOf[idx] : null}
-                eighthsLabel={e.type === 'scene' ? eighths(meta.counts[meta.sceneOf[idx]]) : null}
-                dlgNo={e.type === 'dialogue' ? meta.dlgOf[idx] : null}
-                hidden={!!isHidden(e, idx)}
-                onReveal={onReveal} />
-            ))}
+        <div className="flex-1 flex gap-3 min-h-0 p-3">
+
+          {/* LEFT RAIL — identical to Pages: Scenes / Pages */}
+          <div className="w-52 shrink-0 rounded-2xl border border-slate-200 bg-white overflow-hidden flex flex-col">
+            <div className="flex border-b border-slate-100 text-xs">
+              <button onClick={() => setRailTab('scenes')} className={`flex-1 py-2 ${railTab === 'scenes' ? 'bg-slate-900 text-white' : 'text-slate-500'}`}>Scenes</button>
+              <button onClick={() => setRailTab('pages')} className={`flex-1 py-2 ${railTab === 'pages' ? 'bg-slate-900 text-white' : 'text-slate-500'}`}>Pages</button>
+            </div>
+            <div className="overflow-y-auto p-2 flex-1">
+              {railTab === 'scenes' ? (
+                <>
+                  <button onClick={() => { stop(); setScope('script'); setCursor(-1); }}
+                    className={`block w-full text-left px-2 py-1.5 rounded-lg text-xs mb-1 ${scope === 'script' ? 'bg-slate-100 font-medium text-slate-900' : 'text-slate-600 hover:bg-slate-50'}`}>
+                    ▶ Whole script <span className="block text-[10px] text-slate-400">{pageCount} pages · {scenesList.length} scenes</span>
+                  </button>
+                  {sceneCards.map((s) => (
+                    <button key={s.n} onClick={() => { stop(); setScope('scene'); setSceneSel(s.n); setCursor(-1); }}
+                      className={`block w-full text-left px-2 py-1.5 rounded-lg text-xs mb-0.5 ${scope === 'scene' && sceneSel === s.n ? 'bg-slate-100 font-medium text-slate-900' : 'text-slate-600 hover:bg-slate-50'}`}>
+                      <span className="text-slate-400">{s.n}</span> {s.label}
+                      <span className="block text-[10px] text-slate-400">p.{s.page} · {mmss(s.durSec)}{readingSceneN === s.n ? ' · reading…' : ''}</span>
+                    </button>
+                  ))}
+                  {sceneCards.length === 0 && <p className="text-[11px] text-slate-400 p-2">No scenes parsed.</p>}
+                </>
+              ) : (
+                <div className="grid grid-cols-3 gap-1.5">
+                  {Array.from({ length: pageCount }, (_, i) => i + 1).map((n) => (
+                    <button key={n} onClick={() => { stop(); setScope('page'); setFromPage(n); setCursor(-1); }}
+                      className={`aspect-[3/4] rounded-md border text-xs flex items-center justify-center ${scope === 'page' && fromPage === n ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 text-slate-500 hover:border-slate-400'}`}>{n}</button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* CENTER — transport mini-bar + the paper, same position as the Pages canvas */}
+          <div className="flex-1 min-w-0 flex flex-col">
+            <div className="flex items-center gap-1.5 mb-2 text-xs flex-wrap">
+              <button onClick={togglePlay} disabled={!speak && !studio} className="inline-flex items-center gap-1 rounded-lg bg-slate-900 text-white px-3 py-1.5 disabled:opacity-50">
+                {playing ? <Pause size={13} /> : <Play size={13} />} {playing ? 'Pause' : 'Read'}
+              </button>
+              <button onClick={stop} title="Stop" className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:border-slate-900"><Square size={13} /></button>
+              <button onClick={() => { stop(); setCursor(-1); }} title="Restart" className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:border-slate-900"><RotateCcw size={13} /></button>
+              <span className="text-slate-600 font-medium px-1">{scopeDesc}</span>
+              {studioMsg ? <span className="text-amber-600 truncate">{studioMsg}</span>
+                : studio && (sessionCost > 0 || cachedLines > 0) ? <span className="text-indigo-600">≈ ${sessionCost.toFixed(2)}{cachedLines ? ` · ${cachedLines} cached` : ''}</span>
+                : <span className="text-slate-400">space = play · click a scene to scope</span>}
+              <span className="flex-1" />
+              <div className="inline-flex rounded-lg border border-slate-200 overflow-hidden bg-white" title="Studio = live ElevenLabs/OpenAI with the cast voices from Audio Studio">
+                <button onClick={() => setStudio(false)} className={`px-2.5 py-1 ${!studio ? 'bg-slate-900 text-white' : 'text-slate-600'}`}>Browser</button>
+                <button onClick={() => { setStudio(true); setStudioMsg(''); }} className={`px-2.5 py-1 ${studio ? 'bg-indigo-600 text-white' : 'text-slate-600'}`}>Studio ✨</button>
+              </div>
+            </div>
+            <div ref={bodyRef} className="flex-1 overflow-y-auto rounded-2xl border border-slate-200 bg-slate-200/60 px-4 py-6">
+              <div className={[
+                  'rdr mx-auto rounded-md px-8 sm:px-14 py-10 max-w-3xl',
+                  hl.scene ? 'rdr-hl-scene' : '', hl.action ? 'rdr-hl-action' : '',
+                  hl.character ? 'rdr-hl-character' : '', hl.dialogue ? 'rdr-hl-dialogue' : '',
+                  info.sceneNo ? 'rdr-info-sceneno' : '', info.dividers ? 'rdr-info-div' : '',
+                  info.dialogueNo ? 'rdr-info-dlgno' : '', info.eighths ? 'rdr-info-8ths' : '',
+                  actor ? `rdr-am-${actorMode}` : '',
+                ].filter(Boolean).join(' ')}
+                style={{ fontFamily: serif ? 'Georgia, serif' : '"Courier New", Courier, monospace', fontSize: font, lineHeight: 1.6,
+                  background: info.tint ? tintFor(revision?.colorCode) : '#fdfdf9', color: '#1f1f1f',
+                  border: '1px solid rgba(0,0,0,.07)', boxShadow: '0 2px 5px rgba(0,0,0,.16), 0 14px 34px rgba(0,0,0,.12)' }}>
+                {els.length === 0 && <p className="text-slate-400 text-sm">No extractable text in this revision. (Scanned PDFs have no text layer.)</p>}
+                {els.map((e, idx) => (
+                  <Row key={idx} e={e} idx={idx}
+                    mine={!!actor && e.character === actor && (e.type === 'character' || e.type === 'dialogue')}
+                    active={cursor === idx}
+                    sceneNo={e.type === 'scene' ? meta.sceneOf[idx] : null}
+                    eighthsLabel={e.type === 'scene' ? eighths(meta.counts[meta.sceneOf[idx]]) : null}
+                    dlgNo={e.type === 'dialogue' ? meta.dlgOf[idx] : null}
+                    hidden={!!isHidden(e, idx)}
+                    onReveal={onReveal} />
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* RIGHT RAIL — every Reader control as a tool card, where Pages keeps its tools */}
+          <div className="w-48 shrink-0 overflow-y-auto space-y-2.5 text-xs">
+            <div className="rounded-2xl border border-slate-200 bg-white p-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-2">Playback</p>
+              <div className="flex gap-1 mb-2">
+                <button onClick={() => setMode('read')} className={chip(mode === 'read')}>Read aloud</button>
+                <button onClick={() => setMode('rehearse')} className={chip(mode === 'rehearse')}>Rehearse</button>
+              </div>
+              <label className="block text-slate-500 mb-1.5">Speed {rate.toFixed(1)}×
+                <input type="range" min={0.5} max={2} step={0.1} value={rate} onChange={(e) => setRate(Number(e.target.value))} className="w-full" />
+              </label>
+              {mode === 'rehearse' && (
+                <label className="block text-slate-500 mb-1.5">Your-line gap {gap}s
+                  <input type="range" min={0.5} max={8} step={0.5} value={gap} onChange={(e) => setGap(Number(e.target.value))} className="w-full" />
+                </label>
+              )}
+              {scope === 'scene' && (
+                <label className="inline-flex items-center gap-1.5 text-slate-500" title="Keep reading into the following scenes instead of stopping at the scene end">
+                  <input type="checkbox" checked={carryOn} onChange={(e) => { stop(); setCarryOn(e.target.checked); }} /> continue past scene
+                </label>
+              )}
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-2">Read aloud</p>
+              <div className="flex flex-wrap gap-1">
+                {([['scene', 'Scenes'], ['action', 'Action'], ['character', 'Names'], ['dialogue', 'Dialogue']] as const).map(([k, lbl]) => (
+                  <button key={k} onClick={() => setReadSet((s) => ({ ...s, [k]: !s[k] }))} title={`Read ${lbl.toLowerCase()} aloud`} className={chip(readSet[k], 'emerald')}>{lbl}</button>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-2">Highlight</p>
+              <div className="flex flex-wrap gap-1 mb-2">
+                {(['scene', 'action', 'character', 'dialogue'] as const).map((k) => (
+                  <button key={k} onClick={() => setHl((h) => ({ ...h, [k]: !h[k] }))} className={chip(hl[k])}>{k}</button>
+                ))}
+              </div>
+              <select value={actor} onChange={(e) => { setActor(e.target.value); setRevealed(new Set()); }} className="w-full rounded-lg border border-slate-200 px-2 py-1 mb-1.5">
+                <option value="">My character…</option>
+                {characters.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+              {actor && (
+                <div className="flex flex-wrap gap-1">
+                  {(['name', 'dialogue', 'both'] as const).map((m) => (
+                    <button key={m} onClick={() => setActorMode(m)} className={chip(actorMode === m)}>{m}</button>
+                  ))}
+                  <button onClick={() => { setBlackout((b) => !b); setRevealed(new Set()); }} className={chip(blackout)}>
+                    {blackout ? <EyeOff size={10} className="inline mr-0.5" /> : <Eye size={10} className="inline mr-0.5" />}Off-book
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-2">Info layers</p>
+              <div className="flex flex-wrap gap-1">
+                {([['sceneNo', 'Scene #'], ['dividers', 'Dividers'], ['dialogueNo', 'Dlg #'], ['eighths', '8ths'], ['tint', 'Tint']] as const).map(([k, lbl]) => (
+                  <button key={k} onClick={() => setInfo((s) => ({ ...s, [k]: !s[k as keyof typeof s] }))} className={chip(!!info[k as keyof typeof info], 'sky')}>{lbl}</button>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-2">Voices</p>
+              <button onClick={() => setShowVoices((s) => !s)} className="w-full inline-flex items-center justify-between rounded-lg border border-slate-200 px-2 py-1 text-slate-600">
+                <span className="inline-flex items-center gap-1"><Volume2 size={12} /> Browser voices</span><ChevronDown size={12} style={{ transform: showVoices ? 'rotate(180deg)' : 'none' }} />
+              </button>
+              {showVoices && (
+                <div className="mt-2 space-y-1 max-h-56 overflow-y-auto">
+                  {studio && <p className="text-[10px] text-indigo-600">Studio mode uses the cast voices from Audio Studio — these picks apply to Browser mode only.</p>}
+                  {['_narrator', ...characters].map((c) => (
+                    <div key={c}>
+                      <span className="text-[10px] text-slate-500 block truncate">{c === '_narrator' ? 'Narrator' : c}</span>
+                      <select value={voiceMap[c] || ''} onChange={(e) => setVoiceMap((m) => ({ ...m, [c]: e.target.value }))}
+                        className="w-full text-[10.5px] rounded border border-slate-200 px-1 py-0.5">
+                        <option value="">Default</option>
+                        {voices.map((v) => <option key={v.voiceURI} value={v.voiceURI}>{v.name} ({v.lang})</option>)}
+                      </select>
+                    </div>
+                  ))}
+                  {voices.length === 0 && <p className="text-[10px] text-slate-400">No system voices in this browser.</p>}
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-2">Type · capture</p>
+              <div className="flex items-center gap-1 mb-2">
+                <TypeIcon size={12} className="text-slate-400" />
+                <button onClick={() => setFont((f) => Math.max(12, f - 1))} className="px-1.5 rounded border border-slate-200">A-</button>
+                <button onClick={() => setFont((f) => Math.min(28, f + 1))} className="px-1.5 rounded border border-slate-200">A+</button>
+                <button onClick={() => setSerif((s) => !s)} className="px-1.5 rounded border border-slate-200">{serif ? 'Serif' : 'Courier'}</button>
+              </div>
+              <button onClick={() => setRecOpen(true)} className="w-full inline-flex items-center justify-center gap-1 rounded-lg border border-slate-200 px-2 py-1.5 text-slate-600 hover:border-slate-900"><Video size={13} /> Self-tape</button>
+            </div>
           </div>
         </div>
       </div>

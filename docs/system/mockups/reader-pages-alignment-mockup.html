@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pages ↔ Reader alignment — mockup (research)</title>
+<style>
+  :root{--bg:#f1f5f9;--card:#fff;--border:#e2e8f0;--text:#0f172a;--muted:#64748b;--faint:#94a3b8;--accent:#0f172a;--gold:#C3A56E}
+  *{box-sizing:border-box;margin:0}
+  body{font:400 13px/1.45 system-ui,"Segoe UI",sans-serif;background:#e8ecf1;color:var(--text);padding:24px}
+  h1{font-size:20px;font-weight:650;margin-bottom:4px}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:18px}
+  .compare{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+  @media (max-width:1100px){.compare{grid-template-columns:1fr}}
+  .panel-title{font-size:13px;font-weight:650;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+  .pill{font-size:10px;font-weight:700;border-radius:999px;padding:2px 9px}
+  .pill.now{background:#e2e8f0;color:#475569}
+  .pill.new{background:#dbeafe;color:#1d4ed8}
+
+  .frame{background:var(--bg);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+  .tabsrow{display:flex;gap:2px;background:#fff;border-bottom:1px solid var(--border);padding:0 10px}
+  .tab{padding:9px 12px;font-size:12px;color:var(--muted);border-bottom:2px solid transparent}
+  .tab.on{color:var(--text);font-weight:650;border-bottom-color:var(--accent)}
+  .body{display:flex;gap:10px;padding:10px;min-height:560px}
+
+  .rail{width:150px;flex-shrink:0;background:#fff;border:1px solid var(--border);border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
+  .railtabs{display:flex;font-size:10.5px;border-bottom:1px solid var(--border)}
+  .railtabs span{flex:1;text-align:center;padding:7px 0;color:var(--muted)}
+  .railtabs span.on{background:var(--accent);color:#fff}
+  .scene{padding:6px 9px;font-size:10.5px;color:var(--muted);border-radius:8px;margin:2px 6px}
+  .scene.on{background:#f1f5f9;color:var(--text);font-weight:600}
+  .scene small{display:block;color:var(--faint);font-size:9px}
+
+  .center{flex:1;min-width:0;display:flex;flex-direction:column}
+  .minibar{display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--muted);padding:0 2px 8px}
+  .minibar .grow{flex:1}
+  .btn{border:1px solid var(--border);background:#fff;border-radius:8px;padding:4px 9px;font-size:10.5px;color:#475569;white-space:nowrap}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .well{flex:1;background:#e2e8f0;border:1px solid var(--border);border-radius:12px;padding:14px;display:flex;justify-content:center;overflow:hidden}
+  .paper{width:330px;background:#fdfdf9;border:1px solid rgba(0,0,0,.08);box-shadow:0 2px 5px rgba(0,0,0,.18),0 12px 26px rgba(0,0,0,.12);padding:26px 30px;font-family:"Courier New",monospace;font-size:9.5px;line-height:1.55;color:#1f1f1f}
+  .paper .slughead{display:flex;justify-content:space-between;font-weight:700;margin-bottom:10px}
+  .paper .act{color:#3c3c3c;margin-top:8px}
+  .paper .cue{text-align:center;font-weight:700;margin-top:10px}
+  .paper .par{text-align:center;font-style:italic;color:#666}
+  .paper .dlg{text-align:center;max-width:72%;margin:0 auto}
+  .paper .hi{background:#ffe9a0;border-radius:2px;padding:0 3px}
+  .paper .dir{color:#7c3aed;font-size:8.5px}
+
+  .tools{width:160px;flex-shrink:0;display:flex;flex-direction:column;gap:8px}
+  .tcard{background:#fff;border:1px solid var(--border);border-radius:12px;padding:9px 10px}
+  .tcard h5{font-size:9px;letter-spacing:.06em;color:var(--faint);text-transform:uppercase;margin-bottom:6px}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+  .tool{aspect-ratio:1;border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#64748b}
+  .tool.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .chips{display:flex;flex-wrap:wrap;gap:4px}
+  .chip{font-size:9px;border:1px solid var(--border);border-radius:999px;padding:2px 7px;color:var(--muted)}
+  .chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .slider{height:4px;border-radius:2px;background:#e2e8f0;position:relative;margin:7px 2px 2px}
+  .slider i{position:absolute;top:-4px;left:55%;width:12px;height:12px;border-radius:50%;background:#fff;border:2px solid #64748b}
+  .note{font-size:11px;color:var(--muted);background:#fff;border:1px dashed var(--border);border-radius:10px;padding:8px 12px;margin-top:10px}
+  .ghost{position:absolute;inset:0;border:2px dashed #60a5fa;border-radius:12px;pointer-events:none;opacity:.0}
+</style>
+</head>
+<body>
+<h1>Pages ↔ Reader — same skeleton, the script never moves</h1>
+<p class="sub">Left = the Pages tab today. Right = the proposed Reader tab: it INHERITS the Pages layout — same left rail (Scenes/Pages), same centered script position, and all reader controls become a right tool rail exactly where the Pages tools live. Switching tabs only swaps the paper's content and the right rail — a transition, not a jump.</p>
+
+<div class="compare">
+
+  <!-- ── PAGES (current) ─────────────────────────────────────────── -->
+  <div>
+    <div class="panel-title">Pages tab <span class="pill now">TODAY — unchanged</span></div>
+    <div class="frame">
+      <div class="tabsrow"><span class="tab on">Pages</span><span class="tab">Reader</span><span class="tab">Tags</span><span class="tab">Lining</span><span class="tab">Sides</span><span class="tab">Analyze</span><span class="tab">Audio Studio ♪</span></div>
+      <div class="body">
+        <div class="rail">
+          <div class="railtabs"><span class="on">Scenes</span><span>Pages</span></div>
+          <div class="scene on">1 · INT. PRISON CORRIDOR<small>p.1</small></div>
+          <div class="scene">2 · INT. WARDEN'S OFFICE<small>p.2–3</small></div>
+          <div class="scene">3 · EXT. PRISON YARD<small>p.4</small></div>
+          <div class="scene">4 · INT. TRANSPORT VAN<small>p.5</small></div>
+        </div>
+        <div class="center">
+          <div class="minibar">‹ <b>Page 1 / 76</b> › <span class="grow"></span> ⟳ &nbsp; − 120% +</div>
+          <div class="well">
+            <div class="paper">
+              <div class="slughead"><span>1</span><span>INT. PRISON CORRIDOR – DAY</span><span>1</span></div>
+              <div class="act">WAILING KLAXONS - a dance of moving metal accompanies the opening of every door…</div>
+              <div class="cue">WARDEN</div>
+              <div class="dlg">Sorry, caught me a little off guard. I was just notified about this.</div>
+              <div class="cue">FBI POWELL</div>
+              <div class="par">(hands him paperwork)</div>
+              <div class="dlg">Inmate 272523 — we have clearance to transfer.</div>
+              <div class="act"><span style="background:#bfdbfe;border-radius:2px;padding:0 2px">highlight</span> + sticky notes + pen marks live here…</div>
+            </div>
+          </div>
+        </div>
+        <div class="tools">
+          <div class="tcard"><h5>Tools · ↶ ↷</h5>
+            <div class="grid3"><span class="tool on">▖</span><span class="tool">▆</span><span class="tool">✎</span><span class="tool">T</span><span class="tool">▣</span><span class="tool">⬖</span></div>
+          </div>
+          <div class="tcard"><h5>Layers</h5>
+            <div class="chips"><span class="chip on">My Notes</span><span class="chip">Cast</span></div>
+          </div>
+          <div class="tcard"><h5>Bookmarks</h5><div class="chips"><span class="chip">+ scene…</span></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── READER (proposed) ───────────────────────────────────────── -->
+  <div>
+    <div class="panel-title">Reader tab <span class="pill new">PROPOSED — inherits Pages skeleton</span></div>
+    <div class="frame">
+      <div class="tabsrow"><span class="tab">Pages</span><span class="tab on">Reader</span><span class="tab">Tags</span><span class="tab">Lining</span><span class="tab">Sides</span><span class="tab">Analyze</span><span class="tab">Audio Studio ♪</span></div>
+      <div class="body">
+        <div class="rail">
+          <div class="railtabs"><span class="on">Scenes</span><span>Pages</span></div>
+          <div class="scene on">1 · INT. PRISON CORRIDOR<small>p.1 · 2:18 · reading</small></div>
+          <div class="scene">2 · INT. WARDEN'S OFFICE<small>p.2–3 · 3:04</small></div>
+          <div class="scene">3 · EXT. PRISON YARD<small>p.4 · 1:12</small></div>
+          <div class="scene">4 · INT. TRANSPORT VAN<small>p.5 · 2:02</small></div>
+        </div>
+        <div class="center">
+          <div class="minibar"><span class="btn primary">▶ Read</span> <span class="btn">■</span> <span class="btn">⟲</span> <b style="color:#0f172a">Sc 1 · 0:45 / 2:18</b><span class="grow"></span><span class="btn">Browser | <b>Studio ✨</b></span></div>
+          <div class="well">
+            <div class="paper">
+              <div class="slughead"><span>1</span><span>INT. PRISON CORRIDOR – DAY</span><span>1</span></div>
+              <div class="act">WAILING KLAXONS - a dance of moving metal accompanies the opening of every door…</div>
+              <div class="cue">WARDEN</div>
+              <div class="dlg"><span class="hi">Sorry, caught me a little off guard. I was just notified about this.</span></div>
+              <div class="cue">FBI POWELL</div>
+              <div class="par">(hands him paperwork)</div>
+              <div class="dlg"><span class="dir">[matter-of-fact]</span> Inmate 272523 — we have clearance to transfer.</div>
+              <div class="act">— same paper, same position; the yellow line follows the voices —</div>
+            </div>
+          </div>
+        </div>
+        <div class="tools">
+          <div class="tcard"><h5>Playback</h5>
+            <div class="chips"><span class="chip on">Read aloud</span><span class="chip">Rehearse</span></div>
+            <div style="font-size:9px;color:#94a3b8;margin-top:6px">Speed 1.0× <span style="float:right">gap 2s</span></div>
+            <div class="slider"><i></i></div>
+          </div>
+          <div class="tcard"><h5>Read</h5>
+            <div class="chips"><span class="chip on">Scenes</span><span class="chip on">Action</span><span class="chip">Names</span><span class="chip on">Dialogue</span></div>
+          </div>
+          <div class="tcard"><h5>Highlight</h5>
+            <div class="chips"><span class="chip">scene</span><span class="chip">action</span><span class="chip">character</span><span class="chip">dialogue</span></div>
+            <div class="chips" style="margin-top:5px"><span class="chip">MARIE ▾</span><span class="chip">Off-book</span></div>
+          </div>
+          <div class="tcard"><h5>Info layers</h5>
+            <div class="chips"><span class="chip on">Scene #</span><span class="chip">Dividers</span><span class="chip">8ths</span><span class="chip">Tint</span></div>
+          </div>
+          <div class="tcard"><h5>Voices · self-tape</h5>
+            <div class="chips"><span class="chip">Cast voices ▾</span><span class="chip">🎥 Self-tape</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<p class="note"><b>What changes:</b> the Reader's own toolbar rows (font, highlight chips, info chips, actor picker, playback bar, voices popover, scope picker) all dissolve — scene/page selection comes from the SAME left rail as Pages (now also showing each scene's reading time), and every control becomes a card in the right rail, exactly where the Pages tools sit. The center column is identical in both tabs: mini-bar on top, paper in the same position. <b>What stays:</b> all functionality — read-aloud/rehearse, studio voices, read-set, highlights, off-book, info layers, self-tape.</p>
+</body>
+</html>
