@@ -485,13 +485,17 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
 
         {activeRev ? (
           <>
-            <div className="flex items-center gap-2 mb-3 text-xs text-slate-500">
+          {!surface && (
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 overflow-hidden">
+            {/* Same card shell as the Reader — header bar + padded body */}
+            <div className="flex items-center gap-2 px-4 h-12 bg-white border-b border-slate-200">
+              <FileText size={16} className="text-slate-700" />
+              <h3 className="text-sm font-semibold text-slate-800">Pages — {activeRev.revisionLabel}</h3>
+              <span className="text-[11px] text-slate-400">{activeRev.pageCount} pages · {activeRev.scenes?.length || 0} scenes · {annos.length} notes</span>
               <Chip tone="slate"><span className="inline-block w-2 h-2 rounded-full mr-1" style={{ background: activeRev.colorCode || '#e2e8f0' }} />{activeRev.revisionLabel}</Chip>
-              <span>{activeRev.pageCount} pages</span>
-              <span>· {activeRev.scenes?.length || 0} scenes</span>
-              <span>· {annos.length} notes</span>
               {orphans.length > 0 && <Chip tone="risk">{orphans.length} orphan{orphans.length === 1 ? '' : 's'}</Chip>}
             </div>
+            <div className="p-3">
 
             {/* Orphans tray (D3) — transferred notes that lost their text */}
             {orphans.length > 0 && (
@@ -508,7 +512,7 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
               </div>
             )}
 
-            <div className="flex gap-3" style={{ display: surface ? 'none' : undefined }}>
+            <div className="flex gap-3">
               <div className="flex-1 min-w-0">
                 {activeRev.pdfUrl && !/\.pdf$/i.test(activeRev.pdfUrl) ? (
                   <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center">
@@ -623,6 +627,9 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
                 </div>
               </div>
             </div>
+            </div>
+          </div>
+          )}
           </>
         ) : (
           <EmptyState icon={Upload}>No revision uploaded yet. Pick a revision color and upload the script PDF.</EmptyState>
