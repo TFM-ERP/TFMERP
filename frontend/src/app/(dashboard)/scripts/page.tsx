@@ -145,7 +145,7 @@ function DetailDrawer({ m, onClose, onEdit, onChanged, reloadList }: any) {
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/30" onClick={onClose}>
       <div className="w-full max-w-2xl bg-white h-full overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="sticky top-0 bg-white border-b px-5 py-3 flex items-center justify-between z-10">
+        <div className="sticky top-0 glass-bar border-b px-5 py-3 flex items-center justify-between z-10">
           <div className="flex items-center gap-2"><h2 className="font-semibold">{m.title}</h2><StatusBadge status={m.status} /></div>
           <div className="flex items-center gap-3">
             <button onClick={onEdit} className="text-sm text-gray-600 hover:text-black">Edit</button>

@@ -226,7 +226,7 @@ function DetailDrawer({ loc, onClose, onEdit, onChanged, reloadList }: any) {
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/30" onClick={onClose}>
       <div className="w-full max-w-2xl bg-white h-full overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="sticky top-0 bg-white border-b px-5 py-3 flex items-center justify-between z-10">
+        <div className="sticky top-0 glass-bar border-b px-5 py-3 flex items-center justify-between z-10">
           <div className="flex items-center gap-2">
             <h2 className="font-semibold">{loc.name}</h2><StatusBadge status={loc.status} />
           </div>
@@ -361,7 +361,7 @@ function EditModal({ form, setForm, onClose, onSave, saving }: any) {
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="sticky top-0 bg-white border-b px-5 py-3 flex items-center justify-between">
+        <div className="sticky top-0 glass-bar border-b px-5 py-3 flex items-center justify-between">
           <h2 className="font-semibold">{form.id ? 'Edit location' : 'Add location'}</h2>
           <button onClick={onClose}><X size={18} /></button>
         </div>

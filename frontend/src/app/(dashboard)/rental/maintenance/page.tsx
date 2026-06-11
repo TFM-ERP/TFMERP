@@ -126,7 +126,7 @@ function ScheduleModal({
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
-        <div className="flex items-center justify-between p-5 border-b sticky top-0 bg-white z-10">
+        <div className="flex items-center justify-between p-5 border-b sticky top-0 glass-bar z-10">
           <h2 className="text-lg font-semibold text-gray-900">
             {editing ? 'Edit Maintenance Record' : 'Schedule Maintenance'}
           </h2>

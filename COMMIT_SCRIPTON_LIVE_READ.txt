@@ -1,0 +1,123 @@
+feat(scripton-audio): SAUDIO-10 — LIVE studio reading (no render) + engine-matched voice editor
+
+Live line synthesis (the original AudioON intent: the reader reads LIVE with real voices)
+- RenderService.speakLine(revisionId, {text, character, kind}): one line in → audio URL
+  out, spoken with the character's cast studio voice (profile engine when enabled, else
+  resolved TTS routing). Applies pronunciation entries, reuses LineSynthesisCache (a line
+  is billed once — replays are free), writes VoiceUsageRecord (capability LIVE_READ),
+  debits the project quota, and hard-stops when the quota cap is reached.
+- POST production/audio/speak/:revisionId + scriptAudioApi.speak.
+- Uncast speakers never 500: narration falls back to a narration-suited voice from the
+  engine's library and uncast characters get a stable per-name default (10-min in-memory
+  library cache); synthesis errors surface as readable messages, not "Internal server
+  error".
+
+Reader (ScriptReader) — Playback & Rehearse now read live with ElevenLabs/OpenAI
+- Browser | Studio toggle in the playback bar. Studio mode synthesizes per line with the
+  cast voices, prefetching the next two speakable lines while the current one plays (no
+  gaps). Character cues are skipped in studio mode (the voice change identifies the
+  speaker). Rehearse keeps muting your lines + timed gap.
+- Session cost ticker (≈$ spent · cached lines free); browser-voice picker now labelled
+  as Browser-mode only. On any engine failure playback drops to browser voices for the
+  rest of the run and never stalls.
+
+Audio Studio transport — live table read with studio voices
+- The "Browser · $0" pill is now a toggle: "✨ Studio live · ≈$x". Same per-line live
+  synthesis + prefetch + cache; falls back to browser voices on engine failure.
+- Plan cache invalidated whenever casting changes (recast voices play immediately).
+
+Voice editor — fields match the engine's real library (ElevenLabs/OpenAI)
+- Gender/Age/Accent/Language/Style dropdown options are built from the distinct label
+  values of the loaded engine's voice library; they also FILTER the voice list
+  ("Voice (12 of 40)") so you pick traits first, then a matching voice. Nationality is
+  hidden when a library engine is active (no such concept there).
+- Picking a voice syncs trait fields to its labels; saving updates the profile's
+  sampleUrl so Audition always plays the voice you actually chose (fixes "edit not
+  taking effect"). Free-text fields no longer lose focus per keystroke.
+
+Highlight/pen deletion made discoverable
+- Click your own highlight or pen mark to select it (dashed outline / thicker stroke)
+  → a floating "✕ Delete" button appears beside it. Double-click still deletes.
+  Selection clears on any page click; other users' marks aren't selectable.
+
+Author-only editing of notes
+- Every annotation kind (highlight, pen/writing, text pin, sticky, tag) can be edited
+  or deleted ONLY by its author — enforced server-side (assertOwn on update/delete:
+  creator, own-layer owner, or legacy unowned) and reflected in the UI (delete/resize/
+  rotate/edit affordances hidden on other users' notes; tooltip says whose it is).
+
+In-place annotation input (no more prompt() popups)
+- Sticky tool: click → the sticky appears with the cursor inside it (FigJam-style
+  place-and-type); blur saves, Esc cancels, empty = no note. Double-click an existing
+  sticky to edit its text in place.
+- Text & Tag tools: click drops a pin and opens a floating inline composer next to it
+  (Figma-comment style) — Enter saves, Esc cancels, ✓ button to save.
+- Gesture commits only fire when something actually changed (no no-op undo entries).
+
+Viewer & annotation UX
+- Undo/redo for notes: history of create/delete/move/resize edits with buttons in the
+  Tools card + Ctrl/Cmd+Z and Ctrl+Y / Ctrl+Shift+Z. Undoing a delete recreates the
+  note; everything reloads from the server so layers stay authoritative.
+- Real sticky notes: paper colour, shadow, folded corner, handwritten font — draggable
+  to move, corner handle to resize, top handle to rotate (persisted via the annotation
+  update endpoint; rotation stored in payload).
+- Sharp pages: PDF pages render at device-pixel resolution (≥2×, capped 3×) and display
+  at logical size — no more soft/blurry text.
+- Scene isolation: clicking a scene in the outline shows ONLY that scene's pages
+  (amber chip + "show all" to exit; page nav clamps to the range). Click the scene
+  again to go back to the whole script.
+
+FDX → viewable PDF
+- .fdx uploads now generate a screenplay-formatted PDF (pdf-lib, Courier, standard
+  indents, scene headings bold, page numbers) so the ScriptON viewer / annotations /
+  page selection work on Final Draft files exactly like PDFs. One pagination drives
+  both the generated PDF and pageText, so pages line up everywhere (scenes, sides,
+  bookmarks). FDX text layout also gained proper indents + blank lines between
+  paragraphs (fixes downstream parsers attributing action lines to the last speaker).
+- Applies to project script uploads and Script Library masters (extractAndParse
+  returns viewPdfUrl; both revision writers prefer it).
+
+Playback transport + scope
+- Pause now resumes from the paused line (it used to restart from the top); Stop resets.
+- Play scope: Whole script · a single Scene (picker; "carry on" optionally continues
+  into following scenes) · From page N. Parser now keeps each element's source page.
+- Closing the reader (X / click-outside / unmount) hard-stops studio audio — no more
+  ghost playback or stacked instances.
+- Sidebar: ScriptON module now visible under Production (was missing from nav groups
+  + permission alias).
+
+Read-aloud content control + emotion-aware delivery
+- "Read:" toggles in the Reader playback bar — Scenes / Action / Names / Dialogue —
+  control exactly what is spoken, in both Browser and Studio modes (default: names off).
+- Emotion-aware delivery: each dialogue line takes its hint from the parenthetical
+  above it ((bored), (excited), (dumb joke), (a smile)…) or, failing that, punctuation
+  ("?!" shocked, "!" excited, "…" hesitant, ALL-CAPS shouting). The hint maps to
+  delivery settings server-side (19 emotions + alias table; unknown labels get a mild
+  expressive bump; a cast profile's style is the baseline when no hint):
+  · ElevenLabs v2: voice_settings stability/style/speed modulation per line
+  · ElevenLabs v3 models: inline audio tag ([excited] …)
+  · OpenAI gpt-4o-mini-tts: tone instructions
+  · Browser voices: rate/pitch tweaks
+  Cache keys include the delivery, so the same line with different emotions caches
+  separately and replays stay free.
+
+Audio effects (ffmpeg, per line) from script parentheticals
+- (over radio), (on the phone), (megaphone/PA/intercom), (echoing/cave), (through the
+  wall/muffled), (on TV) — plus aliases — run the synthesized line through an ffmpeg
+  filter chain (bandpass/compression/echo) in BOTH live reading and Studio renders.
+  "(angry, over radio)" applies emotion + effect together. Falls back to the dry line
+  when ffmpeg isn't on PATH. Processed audio is what gets cached, so effects replay free.
+- buildSegments now treats pure parentheticals as hints for the next line instead of
+  reading them aloud (fixes renders/table reads literally saying "beat").
+
+Perf
+- Reader rows are memoized (React.memo) AND all highlight/info-layer/actor styling is
+  class-driven from the page container (RDR_CSS): toggling scene/action/character/
+  dialogue or any info layer changes one container className — zero row re-renders,
+  no inline-style churn across thousands of nodes. Cursor/actor/blackout only touch
+  their own rows. Fixes multi-second hangs on long scripts.
+
+Notes
+- No schema changes. Render/export path untouched (still there for deliverable MP3s).
+- Requires an enabled studio engine (ElevenLabs/OpenAI + API key) and cast characters;
+  otherwise the Studio toggle reports it and playback stays on free browser voices.

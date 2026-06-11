@@ -1,0 +1,93 @@
+feat(scripton-audio): SYS-13c MVP backend — engines, routing, casting, pronunciation, render
+
+Schema (requires: npx prisma db push && npx prisma generate, in backend/)
+- AudioEngine, AudioRoutingPolicy, VoiceProfile, CharacterVoiceAssignment,
+  PronunciationEntry, AudioRenderJob, AudioAsset, VoiceUsageRecord, UsageQuota,
+  LineSynthesisCache. Plain-indexed-FK pattern; all additive/nullable.
+
+Provider adapters (backend/src/production/script/audio/adapters.ts)
+- AudioProviderAdapter interface + Browser (degenerate/$0), ElevenLabs
+  (TTS + Sound Effects + Music), OpenAI (TTS). buildAdapter() factory.
+  Keys read from engine.credentialRef env var; never stored raw.
+
+Services
+- AudioEnginesService: engines CRUD; seedDefaults() (Browser enabled + ElevenLabs/
+  OpenAI pre-seeded disabled with cost models); routing policy get/set; resolve()/
+  resolveAll() (PROJECT override if admin-gated → ORG → Browser fallback; userMayOverride).
+- VoiceCastingService: detect characters (cue parser) merged with assignments; voice-
+  profile CRUD; assignment upsert; autoCast.
+- PronunciationService: entries CRUD; scope-cascade resolveMap (SCRIPT→MASTER→PROJECT→
+  GLOBAL) + applyTo(text).
+- RenderService: buildSegments (narration + dialogue); estimate (cost via engine cost
+  model + cache projection + quota check); queue (Browser → $0 render-plan; Studio →
+  run()); run() synthesizes per line with LineSynthesisCache reuse, writes VoiceUsageRecord
+  ledger, concatenates MP3 segments → AudioAsset (FULL_MIX), debits UsageQuota; renderPlan
+  (client TTS); listJobs/listAssets/archive; usageSummary; getQuota.
+
+Controllers (production/audio/*): engines+routing (admin), casting+voice-profiles,
+pronunciation, render+library+usage+quota. Registered in production.module.
+
+Notes
+- MVP "mix" = sequential MP3 concat (plays in order). ffmpeg layer mixing (ambience/
+  SFX/foley/music + ducking + loudness) is the next slice.
+- Uses Node global fetch (Node 18+). If backend tsc flags fetch types, ensure
+  @types/node >=18 / lib includes it.
+- Frontend wiring (point the four ScriptON Audio screens at these endpoints) is the
+  next slice; screens currently run on representative data.
+
+Layers + ffmpeg mixing (SAUDIO-5)
+- Schema: AudioLayerAsset, SceneAudioCue.
+- LayersService: heuristic auto-suggest (ambience/SFX/music per scene), cue CRUD,
+  approve-all, layer-asset library, mixableCues.
+- RenderService.run extended: after the dialogue stem, mixes APPROVED cues with
+  ffmpeg (per-layer adelay + volume + ducking + amix + loudnorm). Cue audio is
+  resolved from upload → library asset → engine generation (ElevenLabs SFX/Music,
+  cached, billed to the ledger). Guarded — falls back to the dialogue stem if
+  ffmpeg is absent or anything fails. (ffmpeg must be on PATH in production for mixing.)
+- LayersController + module registration.
+
+Frontend wiring (SAUDIO-6)
+- scriptAudioApi (engines/routing/casting/profiles/pronunciation/render/library/layers).
+- ScriptOnAudioPanel now functional: Voices (detect + auto-cast + audition),
+  Render (live estimate + routing + queue; Browser tier plays the table read via
+  speechSynthesis, $0), Library (real assets + audio player + archive), Sound Layers
+  (cues + auto-suggest + approve/remove). Persistent transport drives browser playback.
+  Frontend tsc clean.
+
+On your machine:
+  cd backend
+  npx prisma db push
+  npx prisma generate
+  npx tsc --noEmit
+Then (once running) POST /api/v1/production/audio/engines/seed to create the engines.
+The free Browser tier works immediately; enable ElevenLabs/OpenAI (add the API-key env
+var + flip enabled) for Studio renders. Install ffmpeg on the server for layer mixing.
+
+Async render workers (SAUDIO-7)
+- RenderService is OnModuleInit: if REDIS_URL (or REDIS_HOST) is set it dynamically
+  imports bullmq + ioredis and runs a 'scripton-render' Queue + Worker (concurrency 2);
+  otherwise renders run in-process via setImmediate. queue() now enqueues and returns
+  the QUEUED job immediately (no blocking). runSafe() marks FAILED on error.
+  GET production/audio/job/:id for status polling. To use BullMQ: npm i bullmq ioredis
+  and set REDIS_URL. (Without it, in-process async is the default — fine single-instance.)
+
+Admin UI + polling (SAUDIO-8)
+- /setup/audio-engines (SON-DS): engines list (seed/enable/edit credentialRef+model)
+  + per-capability routing matrix (default engine, project-override, per-render-override).
+  Nav link added under the ScriptON module.
+- Render screen polls GET job/:id every 2s for Studio renders → "complete, open Library".
+  Frontend tsc clean.
+
+Voice library dropdown + AI auto-cast (SAUDIO-9)
+- Adapters: listVoices() on the provider interface; ElevenLabs pulls the account's
+  voice library (GET /v1/voices: labels + preview_url), OpenAI returns its fixed set.
+  GET production/audio/engines/:key/voices.
+- VoiceEditor: voice picker dropdown loaded from the engine library (Browser =
+  speechSynthesis voices) with preview playback and custom-id fallback; picking a
+  voice back-fills gender/age/accent from its labels. Gender/age/style are dropdowns.
+  Audition plays the engine preview (sampleUrl) when cast.
+- autoCast rebuilt: samples each uncast character's dialogue, asks Claude (forced
+  tool use, ANTHROPIC_API_KEY; SCRIPT_AUDIO_AI_MODEL override) for gender/ageRange/
+  nationality/nativeLanguage/accent/style, resolves TTS routing, and score-matches
+  the best library voice per character (distinct voices preferred). Graceful
+  fallbacks: no AI key → traits skipped; engine unreachable → Browser.

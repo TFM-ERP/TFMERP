@@ -1,0 +1,21 @@
+feat(script): SYS-13b P1 — Reader & Actor pack (browser-native, zero third-party)
+
+Adds a Reader to the Script Hub, opened from the new "Reader" button (next to
+Lining/Sides). Pure frontend off the revision's already-extracted pageText.
+
+ScriptReader.tsx
+- Reflow: heuristic screenplay parser turns extracted page text into scene /
+  action / character / parenthetical / dialogue / transition elements.
+- Reading controls: font size +/- , serif/mono, clean reflowed page.
+- Auto-Highlight: toggle colour for scene headings / action / character / dialogue.
+- Actor Highlight: pick a character → highlight name / dialogue / both.
+- Blackout (off-book): hide the chosen character's dialogue; click to reveal.
+- Playback (Hear your script): window.speechSynthesis read-aloud, per-character
+  voice assignment, speed control, live current-line highlight + auto-scroll.
+- Rehearse: mute your character's lines and hold a timed gap so you can deliver
+  them, then continue (read-aloud everyone else).
+- Self-tape: MediaRecorder camera capture + 3-2-1 slate countdown + teleprompter
+  auto-scroll + downloadable .webm.
+
+No backend/schema changes — getRevision already returns pageText + scenes.
+Also: docs/system/13b-scripton-gap-analysis.md (full scriptON gap map + roadmap).

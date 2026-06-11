@@ -96,7 +96,7 @@ function ProfileDrawer({ talent, onClose }: { talent: any; onClose: () => void }
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/40 backdrop-blur-sm" onClick={onClose}>
       <div className="w-full max-w-lg h-full bg-white shadow-2xl overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 sticky top-0 bg-white z-10">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 sticky top-0 glass-bar z-10">
           <h2 className="font-semibold text-slate-900 flex items-center gap-2"><Contact size={16} className="text-[#0f172a]" /> {talent.stageName || talent.fullName}</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-700"><X size={18} /></button>
         </div>
@@ -131,7 +131,7 @@ function ReviewsDrawer({ talentId, onClose }: { talentId: string; onClose: () =>
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/40 backdrop-blur-sm" onClick={onClose}>
       <div className="w-full max-w-md h-full bg-white shadow-2xl overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 sticky top-0 bg-white">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 sticky top-0 glass-bar">
           <h2 className="font-semibold text-slate-900 flex items-center gap-2"><Award size={16} className="text-[#0f172a]" /> Performance History</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-700"><X size={18} /></button>
         </div>
@@ -200,7 +200,7 @@ function ReadinessDrawer({ talentId, onClose }: { talentId: string; onClose: () 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/40 backdrop-blur-sm" onClick={onClose}>
       <div className="w-full max-w-md h-full bg-white shadow-2xl overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 sticky top-0 bg-white">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 sticky top-0 glass-bar">
           <h2 className="font-semibold text-slate-900 flex items-center gap-2"><Gauge size={16} className="text-[#0f172a]" /> Talent Readiness</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-700"><X size={18} /></button>
         </div>
@@ -456,7 +456,7 @@ function ListsDrawer({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/40 backdrop-blur-sm" onClick={onClose}>
       <div className="w-full max-w-md h-full bg-white shadow-2xl overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 sticky top-0 bg-white"><h2 className="font-semibold text-slate-900 flex items-center gap-2"><FolderPlus size={16} className="text-[#0f172a]" /> Talent Lists & Shortlists</h2><button onClick={onClose} className="text-slate-400 hover:text-slate-700"><X size={18} /></button></div>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 sticky top-0 glass-bar"><h2 className="font-semibold text-slate-900 flex items-center gap-2"><FolderPlus size={16} className="text-[#0f172a]" /> Talent Lists & Shortlists</h2><button onClick={onClose} className="text-slate-400 hover:text-slate-700"><X size={18} /></button></div>
         {!openId ? (
           <div className="p-5 space-y-2">
             {lists.length === 0 ? <p className="text-xs text-slate-400">No lists yet. Use the “Add to list” action on any talent.</p> : lists.map((l) => (

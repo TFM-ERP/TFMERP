@@ -325,9 +325,11 @@ function StudioReader({ revision, projectId, onEditVoice, onTransport, onNow }: 
     }
   };
 
+  const voiceSrc = useRef<AudioBufferSourceNode | null>(null);
   const stop = () => {
     playRef.current = false;
     try { audioRef.current?.pause(); } catch {}
+    try { voiceSrc.current?.stop(); } catch {} voiceSrc.current = null;
     mixNodes.current.forEach(n => { try { n.src.stop(); } catch {} }); mixNodes.current = [];
     anchoredRef.current.clear();
     try { mixCtx.current?.close(); } catch {} mixCtx.current = null;
@@ -338,10 +340,17 @@ function StudioReader({ revision, projectId, onEditVoice, onTransport, onNow }: 
     if (!scene) return;
     playRef.current = true; setPlaying(true); setMsg('');
 
-    // Build the cue bed: fresh cues for this scene (+ whole-script beds), decoded inside the gesture.
+    // ONE AudioContext born in the click gesture drives EVERYTHING (voices + cues) —
+    // sources started on it are never autoplay-blocked, unlike per-line <audio>.play().
     try {
       const Ctx: any = (window as any).AudioContext || (window as any).webkitAudioContext;
       const ctx: AudioContext = new Ctx(); mixCtx.current = ctx;
+      ctx.resume().catch(() => {});
+    } catch { mixCtx.current = null; }
+
+    // Build the cue bed: fresh cues for this scene (+ whole-script beds), decoded inside the gesture.
+    try {
+      const ctx = mixCtx.current; if (!ctx) throw new Error('no audio context');
       const r = await scriptAudioApi.cues(revision.id).catch(() => ({ data: [] as any[] }));
       const all = (r.data || []).filter((c: any) => c.uploadUrl && c.status !== 'REMOVED'
         && !laneMute.has(laneOf(c))
@@ -372,16 +381,36 @@ function StudioReader({ revision, projectId, onEditVoice, onTransport, onNow }: 
       const waiting = anchoredRef.current.get(i);
       if (waiting) { waiting.forEach(w => startCueNow(w.cue, w.buf, Number(w.cue.anchorOffsetMs) || 0)); anchoredRef.current.delete(i); }
       if (!speakable(seg)) { i++; step(); return; }
-      synth(seg, i).then((r: any) => {
+      setMsg(`Synthesizing: “${seg.text.slice(0, 40)}…”`);
+      synth(seg, i).then(async (r: any) => {
         if (!playRef.current) return;
+        setMsg('');
         for (let j = i + 1, found = 0; j < scene.segs.length && found < 2; j++) if (speakable(scene.segs[j])) { synth(scene.segs[j], j); found++; }
         if (r.cached) setCached(c => c + 1); else setCost(c => c + Number(r.cost || 0));
+        const next = () => { duckTo(false); i++; if (playRef.current) step(); };
+        const ctx = mixCtx.current;
+        if (ctx) {
+          // voice line through the SAME AudioContext — autoplay-proof, sample-accurate ducking
+          try {
+            const buf = await fetch(assetUrl(r.url)).then((x) => x.arrayBuffer()).then((b) => ctx.decodeAudioData(b));
+            if (!playRef.current || mixCtx.current !== ctx) return;
+            const src = ctx.createBufferSource(); src.buffer = buf;
+            const g = ctx.createGain(); g.gain.value = 1;
+            src.connect(g); g.connect(ctx.destination);
+            duckTo(true);
+            src.onended = next;
+            voiceSrc.current = src;
+            src.start();
+            return;
+          } catch (err) { console.error('decode failed, falling back to <audio>:', err); }
+        }
+        // fallback path (no Web Audio available)
         const a = new Audio(assetUrl(r.url)); audioRef.current = a;
         duckTo(true);
-        a.onended = () => { duckTo(false); i++; if (playRef.current) step(); };
-        a.onerror = () => { duckTo(false); i++; if (playRef.current) step(); };
-        a.play().catch(() => { i++; step(); });
-      }).catch((e: any) => { setMsg(e?.response?.data?.message || 'Studio voices unavailable.'); stop(); });
+        a.onended = next;
+        a.onerror = () => { console.error('Audio element failed for', r.url); setMsg(`Audio file failed to play (${String(r.url).slice(0, 60)}).`); next(); };
+        a.play().catch((err) => { console.error('play() blocked:', err); setMsg('Browser blocked playback — press Space to continue.'); i++; step(); });
+      }).catch((e: any) => { console.error('speak failed:', e); setMsg(e?.response?.data?.message || `Voice synthesis failed (${e?.message || 'network'}).`); stop(); });
     };
     step();
   };
@@ -413,48 +442,73 @@ function StudioReader({ revision, projectId, onEditVoice, onTransport, onNow }: 
         ))}
       </div>
 
-      {/* Karaoke reader */}
-      <div ref={bodyRef} style={{ overflow: 'auto', padding: '16px 22px', background: 'var(--son-bg)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-          <SonBtn primary onClick={() => playing ? stop() : play(cursor >= 0 ? cursor : 0)}>{playing ? <Pause size={13} /> : <Play size={13} />} {playing ? 'Pause' : 'Read scene'}</SonBtn>
-          <SonChip>{scene.slug}</SonChip><SonChip>{fmtDur(scene.durationSec)}</SonChip>
-          {/* Mixing desk: lane mutes + master duck */}
-          <span style={{ display: 'inline-flex', gap: 3 }} title="Mute lanes (takes effect on next play)">
-            {(['AMBIENCE', 'SFX', 'FOLEY', 'MUSIC'] as const).map((l) => (
-              <button key={l} className={`son-togbtn ${laneMute.has(l) ? '' : 'is-on'}`} style={{ padding: '3px 8px', fontSize: 10 }}
-                title={`${l.toLowerCase()} ${laneMute.has(l) ? '(muted)' : ''}`}
-                onClick={() => setLaneMute((m) => { const n = new Set(m); n.has(l) ? n.delete(l) : n.add(l); return n; })}>
-                {l[0]}
-              </button>
-            ))}
-          </span>
-          <label className="son-faint" style={{ fontSize: 10, display: 'inline-flex', alignItems: 'center', gap: 4 }} title="How far ducked cues drop under dialogue">
-            duck <input type="range" min={0.1} max={1} step={0.05} value={duckAmt} onChange={(e) => setDuckAmt(Number(e.target.value))} style={{ width: 64 }} />
-          </label>
-          <SonBtn onClick={directScene} disabled={directing} title="AI Director: Claude reads the scene and gives per-line delivery direction (the writer's parentheticals always win)">
-            {directing ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />} Direct scene
-          </SonBtn>
-          {(cost > 0 || cached > 0) && <span className="son-faint" style={{ fontSize: 11 }}>≈ ${cost.toFixed(2)}{cached ? ` · ${cached} cached` : ''}</span>}
-          {msg && <span style={{ fontSize: 11, color: 'var(--son-danger)' }}>{msg}</span>}
+      {/* Karaoke reader — a real script PAGE on a desk */}
+      <div ref={bodyRef} style={{ overflow: 'auto', background: 'var(--son-bg)', display: 'flex', flexDirection: 'column' }}>
+        {/* Header: transport · scene identity · mixing desk — three aligned zones */}
+        <div style={{ position: 'sticky', top: 0, zIndex: 3, background: 'var(--son-surface)', borderBottom: '1px solid var(--son-border)', padding: '10px 16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <SonBtn primary onClick={() => playing ? stop() : play(cursor >= 0 ? cursor : 0)}>{playing ? <Pause size={13} /> : <Play size={13} />} {playing ? 'Pause' : 'Read scene'}</SonBtn>
+            <SonBtn onClick={directScene} disabled={directing} title="AI Director: Claude reads the scene and gives per-line delivery direction (the writer's parentheticals always win)">
+              {directing ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />} Direct
+            </SonBtn>
+            <div style={{ flex: 1, minWidth: 120 }}>
+              <div style={{ fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{scene.slug}</div>
+              <div className="son-faint" style={{ fontSize: 10 }}>{fmtDur(scene.durationSec)} · {scene.chars.join(', ') || 'no speaking roles'}</div>
+            </div>
+            <div title="Mixing desk — lane mutes apply on next play; duck = how far beds drop under dialogue"
+              style={{ display: 'flex', alignItems: 'center', gap: 8, border: '1px solid var(--son-border)', borderRadius: 10, padding: '5px 10px' }}>
+              <span className="son-faint" style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '.06em' }}>Mix</span>
+              <span style={{ display: 'inline-flex', gap: 3 }}>
+                {(['AMBIENCE', 'SFX', 'FOLEY', 'MUSIC'] as const).map((l) => (
+                  <button key={l} className={`son-togbtn ${laneMute.has(l) ? '' : 'is-on'}`} style={{ padding: '3px 8px', fontSize: 10 }}
+                    title={`${l.toLowerCase()} ${laneMute.has(l) ? '(muted)' : ''}`}
+                    onClick={() => setLaneMute((m) => { const n = new Set(m); n.has(l) ? n.delete(l) : n.add(l); return n; })}>
+                    {l[0]}
+                  </button>
+                ))}
+              </span>
+              <label className="son-faint" style={{ fontSize: 10, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                duck <input type="range" min={0.1} max={1} step={0.05} value={duckAmt} onChange={(e) => setDuckAmt(Number(e.target.value))} style={{ width: 60 }} />
+              </label>
+            </div>
+          </div>
+          {/* status line — fixed height so the header never jumps */}
+          <div style={{ height: 16, marginTop: 4, fontSize: 11, display: 'flex', gap: 12 }}>
+            {msg ? <span style={{ color: 'var(--son-danger)' }}>{msg}</span>
+              : (cost > 0 || cached > 0) ? <span className="son-faint">session ≈ ${cost.toFixed(2)}{cached ? ` · ${cached} lines cached (free)` : ''}</span>
+              : <span className="son-faint">Space = play · ↑↓ scene · ←→ line · click a line to select it</span>}
+          </div>
         </div>
-        <div style={{ maxWidth: 620, margin: '0 auto', fontSize: 'var(--son-fs-body)', lineHeight: 1.65 }}>
-          {scene.segs.map((seg, i) => {
-            const on = cursor === i;
-            const base: React.CSSProperties = { padding: '1px 6px', borderRadius: 6, background: on ? 'var(--son-hi)' : 'transparent' };
-            if (seg.kind === 'cue') return <div key={i} data-seg={i} style={{ ...base, textAlign: 'center', fontWeight: 700, marginTop: 14 }}>{seg.text}</div>;
-            if (seg.kind === 'paren') return <div key={i} data-seg={i} style={{ ...base, textAlign: 'center', fontStyle: 'italic', color: 'var(--son-muted)' }}>{seg.text}</div>;
-            if (seg.kind === 'dialogue') {
-              const d = dirs[String(i)];
-              return (
-                <div key={i} data-seg={i} onClick={() => !playing && setCursor(i)} style={{ ...base, textAlign: 'center', maxWidth: '70%', margin: '0 auto', cursor: 'pointer' }}>
-                  {d?.tag && !seg.hint && <span title={d.note || 'AI direction'} style={{ fontSize: '0.72em', color: 'var(--son-violet)', marginRight: 6 }}>[{d.tag}]</span>}
-                  {seg.text}
-                  {(d?.take || 0) > 1 && <span className="son-faint" style={{ fontSize: '0.7em', marginLeft: 6 }}>take {d!.take}</span>}
-                </div>
-              );
-            }
-            return <div key={i} data-seg={i} style={{ ...base, color: 'var(--son-muted)', marginTop: 10 }}>{seg.text}</div>;
-          })}
+
+        {/* The page itself — paper stays paper, even in dark mode */}
+        <div style={{ padding: '22px 18px 40px' }}>
+          <div style={{ maxWidth: 660, margin: '0 auto', background: '#fdfdf9', color: '#1f1f1f',
+            fontFamily: '"Courier New", Courier, monospace', fontSize: 13.5, lineHeight: 1.62,
+            padding: '46px 58px 60px', borderRadius: 2, border: '1px solid rgba(0,0,0,.07)',
+            boxShadow: '0 2px 5px rgba(0,0,0,.16), 0 14px 34px rgba(0,0,0,.12)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, marginBottom: 18 }}>
+              <span>{scene.n}</span>
+              <span style={{ textAlign: 'center', flex: 1, padding: '0 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{scene.slug}</span>
+              <span>{scene.n}</span>
+            </div>
+            {scene.segs.map((seg, i) => {
+              const on = cursor === i;
+              const base: React.CSSProperties = { padding: '1px 5px', borderRadius: 3, background: on ? '#ffe9a0' : 'transparent', transition: 'background .15s' };
+              if (seg.kind === 'cue') return <div key={i} data-seg={i} style={{ ...base, textAlign: 'center', fontWeight: 700, marginTop: 16, letterSpacing: '.04em' }}>{seg.text}</div>;
+              if (seg.kind === 'paren') return <div key={i} data-seg={i} style={{ ...base, textAlign: 'center', fontStyle: 'italic', color: '#666' }}>{seg.text}</div>;
+              if (seg.kind === 'dialogue') {
+                const d = dirs[String(i)];
+                return (
+                  <div key={i} data-seg={i} onClick={() => !playing && setCursor(i)} style={{ ...base, textAlign: 'center', maxWidth: '64%', margin: '0 auto', cursor: 'pointer' }}>
+                    {d?.tag && !seg.hint && <span title={d.note || 'AI direction'} style={{ fontSize: '0.74em', color: '#7c3aed', marginRight: 6 }}>[{d.tag}]</span>}
+                    {seg.text}
+                    {(d?.take || 0) > 1 && <span style={{ fontSize: '0.7em', marginLeft: 6, color: '#999' }}>take {d!.take}</span>}
+                  </div>
+                );
+              }
+              return <div key={i} data-seg={i} style={{ ...base, color: '#3c3c3c', marginTop: 12 }}>{seg.text}</div>;
+            })}
+          </div>
         </div>
       </div>
 

@@ -1,0 +1,25 @@
+feat(script): SYS-13b P4 — Lining depth (multi-cam slates + auto-coverage) + Page Maker
+
+Schema (requires: npx prisma db push && npx prisma generate, in backend/)
+- ScriptCoverage.cameras  Json?    — multi-camera slate [{ label, color, onScreen }] (≤26)
+- ScriptCoverage.slateFormat String? — ALPHA | NUMERIC | DECIMAL
+
+Backend
+- lining.service: add/updateCoverage now persist cameras + slateFormat;
+  new autoCoverage(revisionId, userId, {slateFormat}) — creates a default "Master"
+  slate for every uncovered scene (idempotent; slate label follows the format).
+- lining.controller: POST production/lining/autocoverage/:revisionId.
+- sides.service: facingPages(revisionId, {style, side, heading}) — pdf-lib builds a
+  blank note page (LINED / DOT / GRID / PLAIN) interleaved before/after each script
+  page; one-off PDF written to /uploads, returns {url, pageCount}.
+- sides.controller: POST production/sides/facing/:revisionId.
+
+Frontend
+- LiningPanel: per-coverage camera chips (add ≤26 A–Z, colour, on/off-screen toggle
+  with persistence), slate-format picker, and an "Auto-coverage" button.
+- ScriptHubPanel: new "Pages" toolbar button → Page Maker modal (note style + position)
+  → builds & opens the facing-page PDF.
+- api: lining.autoCoverage, sides.facing.
+
+All pdf-lib / browser-native; no new deps. Deferred to P4.2: drawn split/dirty
+tramlines, custom-image note pages, multi-episode sides.

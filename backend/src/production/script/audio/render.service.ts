@@ -303,7 +303,8 @@ export class RenderService implements OnModuleInit {
   /** Default voice for an uncast speaker: narration-suited pick for the narrator, stable per-name pick for characters. */
   private async defaultVoiceId(engineKey: string, character: string | undefined, isNarr: boolean): Promise<string | null> {
     const lib = await this.engineVoicesCached(engineKey);
-    if (!lib.length) return null;
+    // LOCAL servers always have a built-in default voice, even with an empty voice library.
+    if (!lib.length) return engineKey === 'LOCAL' ? 'default' : null;
     if (isNarr) return (lib.find((v: any) => /narrat/i.test(`${v.useCase || ''} ${v.description || ''}`)) || lib[0]).id;
     let h = 0; for (const ch of String(character || '')) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
     return lib[h % lib.length].id;
@@ -642,21 +643,32 @@ export class RenderService implements OnModuleInit {
       'Direct only where it matters — skip neutral lines. NEVER direct lines that already have a hint (the writer\'s parenthetical is canon).',
       'Respond ONLY by calling submit_direction.',
     ].join('\n');
+    const model = process.env.SCRIPT_AUDIO_AI_MODEL || process.env.MM_AI_MODEL || 'claude-fable-5';
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY!, 'anthropic-version': '2023-06-01' } as any,
       body: JSON.stringify({
-        model: process.env.SCRIPT_AUDIO_AI_MODEL || process.env.MM_AI_MODEL || 'claude-3-5-sonnet-20241022',
+        model,
         max_tokens: 3000, system, tools: [tool],
-        tool_choice: { type: 'tool', name: 'submit_direction' },
+        // Fable/Mythos-class models reject FORCED tool use — they get auto + a strict instruction.
+        tool_choice: /fable|mythos/i.test(model) ? { type: 'auto' } : { type: 'tool', name: 'submit_direction' },
         messages: [{ role: 'user', content: JSON.stringify({ scene: b.scene, segs }) }],
       }),
       signal: AbortSignal.timeout(90_000),
     });
-    if (!res.ok) throw new BadRequestException(`AI direction failed: HTTP ${res.status}`);
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      const hint = res.status === 401 ? ' — the ANTHROPIC_API_KEY in backend/.env is invalid or was rotated; update it and restart the backend.' : '';
+      throw new BadRequestException(`AI direction failed: HTTP ${res.status}${hint} ${body.slice(0, 160)}`);
+    }
     const data: any = await res.json().catch(() => null);
     const toolUse = (data?.content || []).find((x: any) => x?.type === 'tool_use' && x?.name === 'submit_direction');
-    const lines: any[] = Array.isArray(toolUse?.input?.lines) ? toolUse.input.lines : [];
+    let lines: any[] = Array.isArray(toolUse?.input?.lines) ? toolUse.input.lines : [];
+    if (!lines.length) {
+      // model answered in prose — salvage the JSON
+      const text = (data?.content || []).filter((x: any) => x?.type === 'text').map((x: any) => x.text).join('\n');
+      try { const j = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1)); if (Array.isArray(j?.lines)) lines = j.lines; } catch { /* nothing usable */ }
+    }
     const directions: Record<string, any> = {};
     for (const l of lines) {
       const seg = segs.find((s) => s.idx === Number(l.idx));

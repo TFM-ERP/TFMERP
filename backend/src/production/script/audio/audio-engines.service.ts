@@ -15,6 +15,11 @@ export const ENGINE_MODELS: Record<string, { id: string; label: string; hint: st
     { id: 'tts-1-hd', label: 'TTS-1 HD', hint: 'Higher fidelity, no instructions' },
     { id: 'tts-1', label: 'TTS-1', hint: 'Fastest/cheapest OpenAI voice' },
   ],
+  LOCAL: [
+    { id: 'chatterbox', label: 'Chatterbox (local)', hint: 'MIT, emotion exaggeration + voice cloning — chatterbox-tts-api server' },
+    { id: 'piper', label: 'Piper (local)', hint: '900+ voices, ultra-fast CPU — via openedai-speech server' },
+    { id: 'melo', label: 'MeloTTS (local)', hint: 'Multi-language + English accents (US/UK/AU/IN), real-time CPU' },
+  ],
 };
 
 const CAPABILITIES = ['LIVE_READ', 'TTS', 'SFX', 'MUSIC', 'DUBBING'];
@@ -42,9 +47,16 @@ export class AudioEnginesService {
     for (const e of [
       { key: 'ELEVENLABS', displayName: 'ElevenLabs', caps: { tts: true, sfx: true, music: true, dubbing: true }, cloning: true, credentialRef: 'ELEVENLABS_API_KEY', defaultModel: 'eleven_v3' },
       { key: 'OPENAI', displayName: 'OpenAI', caps: { tts: true, sfx: false, music: false, dubbing: false }, cloning: false, credentialRef: 'OPENAI_API_KEY' },
+      { key: 'LOCAL', displayName: 'Local server (free)', caps: { tts: true, sfx: false, music: false, dubbing: false }, cloning: true, credentialRef: null, defaultModel: 'chatterbox', baseUrl: 'http://localhost:4123', included: true },
     ]) {
       const r = await this.prisma.audioEngine.findUnique({ where: { key: e.key } });
-      if (!r) await this.prisma.audioEngine.create({ data: { key: e.key, displayName: e.displayName, tier: 'STUDIO', enabled: false, supportsCloning: e.cloning, credentialRef: e.credentialRef, defaultModel: (e as any).defaultModel || null, capabilities: e.caps, costModel: { tts: { unit: 'CHAR', rate: e.key === 'ELEVENLABS' ? 0.00018 : 0.000015 }, sfx: { unit: 'GENERATION', rate: 0.08 }, music: { unit: 'GENERATION', rate: 0.2 }, currency: 'USD' } } });
+      if (!r) await this.prisma.audioEngine.create({ data: {
+        key: e.key, displayName: e.displayName, tier: 'STUDIO', enabled: false, supportsCloning: e.cloning,
+        credentialRef: e.credentialRef, baseUrl: (e as any).baseUrl || null, defaultModel: (e as any).defaultModel || null, capabilities: e.caps,
+        costModel: (e as any).included
+          ? { billing: 'INCLUDED', tts: { unit: 'CHAR', rate: 0 }, currency: 'USD' }
+          : { tts: { unit: 'CHAR', rate: e.key === 'ELEVENLABS' ? 0.00018 : 0.000015 }, sfx: { unit: 'GENERATION', rate: 0.08 }, music: { unit: 'GENERATION', rate: 0.2 }, currency: 'USD' },
+      } });
     }
     return this.listEngines();
   }
@@ -73,7 +85,7 @@ export class AudioEnginesService {
   }
   updateEngine(id: string, b: any) {
     const d: any = {};
-    for (const k of ['displayName', 'tier', 'enabled', 'credentialRef', 'capabilities', 'defaultModel', 'supportsCloning', 'costModel', 'rateLimit', 'roleAllowList', 'status']) if (b?.[k] !== undefined) d[k] = b[k];
+    for (const k of ['displayName', 'tier', 'enabled', 'credentialRef', 'baseUrl', 'capabilities', 'defaultModel', 'supportsCloning', 'costModel', 'rateLimit', 'roleAllowList', 'status']) if (b?.[k] !== undefined) d[k] = b[k];
     return this.prisma.audioEngine.update({ where: { id }, data: d });
   }
   removeEngine(id: string) { return this.prisma.audioEngine.delete({ where: { id } }); }

@@ -201,7 +201,7 @@ export function CharacterEditor({ call, onClose, onSaved }: { call: any; onClose
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/40 backdrop-blur-sm" onClick={onClose}>
       <div className="w-full max-w-lg h-full bg-white shadow-2xl overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 sticky top-0 bg-white">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 sticky top-0 glass-bar">
           <h2 className="font-semibold text-slate-900 flex items-center gap-2"><BookOpen size={16} className="text-[#0f172a]" /> Character — {call.roleName}</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-700"><X size={18} /></button>
         </div>
@@ -331,7 +331,7 @@ function SelfTapeDrawer({ call, onClose }: any) {
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/40 backdrop-blur-sm" onClick={onClose}>
       <div className="w-full max-w-lg h-full bg-white shadow-2xl overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 sticky top-0 bg-white z-10">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 sticky top-0 glass-bar z-10">
           <h2 className="font-semibold text-slate-900 flex items-center gap-2"><Video size={16} className="text-[#0f172a]" /> Self-tape — {call.roleName}</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-700"><X size={18} /></button>
         </div>
@@ -486,7 +486,7 @@ function NegotiationDrawer({ submission, onClose, onDone }: any) {
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/40 backdrop-blur-sm" onClick={onClose}>
       <div className="w-full max-w-md h-full bg-white shadow-2xl overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 sticky top-0 bg-white">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 sticky top-0 glass-bar">
           <h2 className="font-semibold text-slate-900 flex items-center gap-2"><Handshake size={16} className="text-[#0f172a]" /> Negotiation — {submission.talent?.stageName || submission.talent?.fullName}</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-700"><X size={18} /></button>
         </div>
@@ -657,7 +657,7 @@ function TalentDossier({ row, projectId, initialTab, onClose }: any) {
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/40 backdrop-blur-sm" onClick={onClose}>
       <div className="w-full max-w-lg h-full bg-white shadow-2xl overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 sticky top-0 bg-white z-10">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 sticky top-0 glass-bar z-10">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-9 h-9 rounded-full bg-slate-100 overflow-hidden grid place-items-center shrink-0">{row.headshot ? <img src={assetUrl(row.headshot)} alt="" className="w-full h-full object-cover" /> : <Users size={16} className="text-slate-300" />}</div>
             <div className="min-w-0"><h2 className="font-semibold text-slate-900 truncate">{row.name}</h2><p className="text-[11px] text-slate-400">{[row.roles?.join(', '), row.status].filter(Boolean).join(' · ')}</p></div>

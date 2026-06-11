@@ -1,0 +1,24 @@
+feat(script): SYS-13b P2 — Info Layers + Bookmarks + Transfer summary
+
+Schema
+- ScriptBookmark (revisionId, page, sceneNumber, label, note, color) +
+  ScriptRevision.bookmarks relation. Requires: npx prisma db push + generate.
+
+Backend (production/script-annotations)
+- Bookmark CRUD on AnnotationsService: GET bookmarks/:revisionId,
+  POST bookmarks/:revisionId, PUT bookmark/:id, DELETE bookmark/:id.
+- Transfer now carries bookmarks source→target, re-homing each to the same
+  sceneNumber's page in the new draft, and returns `bookmarksMoved` alongside
+  the existing { total, transferred, orphaned } counts.
+
+Frontend
+- ScriptReader Info Layers (auto overlays, no drawing): toggles for Scene # in
+  the margin, scene Dividers, Dialogue line numbers, an 8ths page estimate per
+  scene, and a revision-colour page Tint (maps White/Blue/Pink/… or hex).
+- ScriptHubPanel: Bookmarks card in the right rail — bookmark any scene
+  (one click), list with colour + page, delete; loads per revision.
+- Transfer summary alert upgraded to "X re-anchored · Y need placement ·
+  Z bookmarks carried forward".
+- api: scriptAnnotations.bookmarks / addBookmark / editBookmark / removeBookmark.
+
+All browser-native; no new deps.

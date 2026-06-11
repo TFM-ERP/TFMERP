@@ -1,0 +1,25 @@
+feat(script): SYS-13b P3 — Tagging & reports depth
+
+Schema (requires npx prisma db push + generate)
+- TagCategory (project-scoped: key, label, color, sortOrder, hidden,
+  breakdownCategory, budgetCode) via plain FK.
+- ScriptScene: description, storyDay, tagNote (scene-level special tags).
+
+Backend (production/script-annotations)
+- Tag categories: GET/POST tag-categories/:projectId (seeds 16 defaults on
+  first read), PUT tag-category/:id, DELETE, POST .../reorder.
+- POST autotag-cast/:revisionId — parses every scene's cues, tags each speaking
+  character once onto a shared Cast layer (idempotent).
+- GET tag-report/:revisionId — groups TAG annotations by category → elements
+  with scene refs + counts.
+- PUT scene/:id — scene special tags.
+
+Frontend
+- TagToolsPanel (new "Tags" button in the Script Hub): Categories manager
+  (recolour/rename/reorder/hide/add/delete), Auto-tag cast, Element/Category
+  Report (Copy CSV + Download CSV), Scene-tags editor (story day / synopsis / note).
+- AnnotationOverlay: TAG tool adopts the selected category (colour + tagKey),
+  prompting only for the element name; hub Tools card gets a category picker.
+- api: tagCategories/add/edit/remove/reorder, autoTagCast, tagReport, updateScene.
+
+All browser-native; no new deps.

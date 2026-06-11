@@ -70,7 +70,7 @@ function ViewTemplate({ t, onClose }: any) {
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/40 backdrop-blur-sm" onClick={onClose}>
       <div className="w-full max-w-xl h-full bg-white shadow-2xl overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 sticky top-0 bg-white"><div><div className="font-semibold text-slate-900">{t.name}</div><div className="text-xs text-slate-500">{t.type?.replace(/_/g, ' ')}</div></div><button onClick={onClose} className="text-slate-400 hover:text-slate-700"><X size={18} /></button></div>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 sticky top-0 glass-bar"><div><div className="font-semibold text-slate-900">{t.name}</div><div className="text-xs text-slate-500">{t.type?.replace(/_/g, ' ')}</div></div><button onClick={onClose} className="text-slate-400 hover:text-slate-700"><X size={18} /></button></div>
         <div className="p-5">
           <article className="rounded-xl border border-slate-200 p-5 text-sm text-slate-700 leading-relaxed" dangerouslySetInnerHTML={{ __html: html }} />
           {(t.clauses || []).length > 0 && <div className="mt-4"><p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-2">Clauses</p>{t.clauses.map((c: any) => <div key={c.id} className="text-sm text-slate-700 border-b border-slate-50 py-2"><b>{c.title}</b>{c.isMandatory ? ' (mandatory)' : ''}<div className="text-xs text-slate-500">{c.bodyMarkdown}</div></div>)}</div>}

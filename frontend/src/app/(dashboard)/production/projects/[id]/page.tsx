@@ -373,7 +373,7 @@ export default function ProjectDetailPage() {
   return (
     <div className="p-6 max-w-[1700px] mx-auto">
       {/* Sticky header + tabs — stays pinned while the page content scrolls */}
-      <div className="sticky top-0 z-20 -mx-6 -mt-6 px-6 pt-5 pb-2 mb-4 border-b border-gray-200 shadow-sm [&>*:last-child]:mb-0" style={{ background: 'var(--page-bg)' }}>
+      <div className="glass-bar sticky top-0 z-20 -mx-6 -mt-6 px-6 pt-5 pb-2 mb-4 border-b border-gray-200/60 [&>*:last-child]:mb-0" style={{ ['--glass-base' as any]: 'var(--page-bg)' }}>
       {/* Header — project name, active budget, actions + total all on one row */}
       {/* SYS-14 shell: ONE compact identity row. Budget-version actions and exports
           only appear on money tabs — other phases don't carry their noise. */}

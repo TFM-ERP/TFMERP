@@ -1,0 +1,45 @@
+feat(scripton): SYS-13d — adopt ScriptON Design System (SON-DS)
+
+The approved "one component, three form factors" mockup language, productized.
+
+Foundation (reusable, opt-in via .son scope)
+- frontend/src/app/scripton-ds.css — tokens (light + .son-dark), shell, list-detail,
+  card, tabs, chip, btn, transport, bottom-nav; all container-query driven
+  (≤700 mobile · 701–1023 tablet · ≥1024 desktop), 44px touch targets, clamp() type.
+  Imported once in src/app/layout.tsx (overrides nothing globally).
+- frontend/src/components/production/scripton/Son.tsx — React primitives:
+  SonRoot (tokens + container + persisted light/dark), SonThemeToggle, SonShell,
+  SonTabs, SonCard, SonChip, SonBtn, SonTransport.
+
+Applied
+- ScriptON document-list view re-skinned to SON-DS (themed cards/rows, working
+  light/dark toggle, responsive). Retired PanelHeader/StatRow from this view.
+
+Docs
+- docs/system/13d-scripton-design-system.md — tokens, breakpoints, primitives,
+  adoption status, and the platform-wide rollout note (adopt for ScriptON now;
+  revisit a global migration after the ScriptON Audio MVP).
+
+ScriptON Audio screens (NEW, on SON-DS)
+- scripton-ds.css extended with Audio-screen layout classes (voices grid + editor,
+  render + sticky cost, library grid + asset card, layers timeline) — all
+  container-query responsive.
+- components/production/scripton/ScriptOnAudioPanel.tsx — the four screens
+  (Voice Casting, Studio Render + cost preview, Audio Library, Sound Layers) with
+  SonTabs, persistent SonTransport, mobile bottom-nav, light/dark. Representative
+  data for now; wires to the AudioEngine/render backend in the MVP slice.
+- Opened from the ScriptON binder via a new "Audio Studio" button.
+
+Binder + legacy Reader re-skinned onto SON-DS
+- scripton-ds.css: added a scoped .son Tailwind-compat shim that re-points the
+  neutral slate/white utilities used by the legacy binder + Reader onto SON tokens
+  (so both inherit the design system incl. dark mode, without a full markup rewrite).
+  Accent/colored/overlay utilities left untouched.
+- ScriptHubPanel binder view wrapped in SonRoot + SonThemeToggle in the toolbar.
+- ScriptReader surface scoped to .son with a self-contained light/dark toggle in
+  its header; karaoke highlight preserved across themes.
+
+Next slices: sub-panel/modal restyle (Sides/Lining/Tags/Procurement/Analyze) pass;
+then wire ScriptON Audio screens to the backend (engines/routing/render pipeline).
+
+Frontend tsc clean. No new dependencies.

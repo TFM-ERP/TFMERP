@@ -91,7 +91,7 @@ function PropertyDrawer({ id, onClose }: { id: string; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/40 backdrop-blur-sm" onClick={onClose}>
       <div className="w-full max-w-lg h-full bg-white shadow-2xl overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 sticky top-0 bg-white">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 sticky top-0 glass-bar">
           <h2 className="font-semibold text-slate-900 flex items-center gap-2"><Building2 size={16} className="text-[#0f172a]" /> {p?.name || 'Property'}</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-700"><X size={18} /></button>
         </div>

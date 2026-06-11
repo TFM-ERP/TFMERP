@@ -1,0 +1,23 @@
+feat(script): SYS-13b P6 — Analyze ($0 local) + Audio notes
+
+Constraint honoured: zero paid third-party APIs. Analyze is a purely on-machine heuristic;
+audio is browser-native MediaRecorder. Live Layers (WebSocket collab) deferred to P6.2
+(needs realtime socket infrastructure — a separate commitment).
+
+Schema (requires: npx prisma db push && npx prisma generate, in backend/)
+- ScriptAudioNote: per-revision voice memos (page?, label, audioUrl, durationSec?).
+
+Backend (production/script-analyze)
+- ScriptAnalyzeService.analyze(revisionId): local breakdown over captured pageText +
+  parsed scenes — totals (pages/scenes/eighths/roles/locations), INT/EXT + day/night
+  distribution, dialogue/action mix, speaking-character table (cue counts + scene span),
+  largest scenes, location frequency. NO external AI.
+- Audio notes: GET/POST(multipart)/DELETE; clips saved to /uploads.
+- New controller registered in production.module.
+
+Frontend
+- ScriptAnalyzePanel: stats + bars + character table (Copy/Download CSV).
+- AudioNotesPanel: record (MediaRecorder) → upload → list/play/delete, optional page+label.
+- ScriptON toolbar: "Analyze" + "Audio" buttons; api: script.analyze/audioList/addAudio/removeAudio.
+
+tsc (frontend) clean. No new dependencies.

@@ -233,11 +233,64 @@ export class OpenAiAdapter implements AudioProviderAdapter {
   }
 }
 
+/**
+ * LOCAL — free, self-hosted, unlimited. One adapter for any OpenAI-compatible local TTS
+ * server: Chatterbox (chatterbox-tts-api — emotion exaggeration + voice cloning, MIT),
+ * Piper via openedai-speech (900+ voices), MeloTTS wrappers (multi-language/accents).
+ * The server URL lives on the engine row (baseUrl); no API key, no quota, no per-char cost.
+ */
+export class LocalAdapter implements AudioProviderAdapter {
+  key = 'LOCAL';
+  capabilities = { tts: true, sfx: false, music: false, dubbing: false };
+  constructor(private baseUrl?: string | null, private defaultModel?: string | null) {}
+  private url(p: string) { return `${(this.baseUrl || 'http://localhost:4123').replace(/\/$/, '')}${p}`; }
+
+  /** Voice catalog — servers differ: chatterbox-tts-api uses /voices, others /v1/audio/voices;
+   *  entries may be plain names or objects with gender/age/accent/language labels. */
+  async listVoices(): Promise<VoiceOption[]> {
+    let d: any = null;
+    for (const path of ['/voices', '/v1/audio/voices', '/v1/voices']) {
+      const r = await fetch(this.url(path), { signal: AbortSignal.timeout(10_000) }).catch(() => null);
+      if (!r || !r.ok) continue;
+      d = await r.json().catch(() => null);
+      if (d) break;
+    }
+    if (!d) return [];
+    const arr = Array.isArray(d) ? d : (d?.voices || []);
+    return (arr as any[]).map((v) => typeof v === 'string'
+      ? { id: v, name: v }
+      : { id: v.id || v.voice_id || v.name, name: v.name || v.id, gender: v.gender || undefined, age: v.age || undefined, accent: v.accent || undefined, language: v.language || v.lang || undefined, description: v.description || undefined, previewUrl: v.preview_url || undefined });
+  }
+
+  async synthesize(seg: Segment, cfg: VoiceConfig): Promise<SynthResult> {
+    // Chatterbox 500s on unknown voice names and on text that chunks to nothing —
+    // omit `voice` when uncast (server uses its built-in sample) and sanitize input.
+    const input = seg.text.replace(/\s+/g, ' ').trim();
+    if (!input) throw new Error('Empty line — nothing to synthesize.');
+    // Keep the request minimal — Chatterbox 500s on params its current model build can't take.
+    // (No response_format/speed/instructions; WAV default is handled by mime detection below.)
+    const body: any = { input };
+    if (cfg.externalVoiceId && cfg.externalVoiceId !== 'default') body.voice = cfg.externalVoiceId;
+    // Expressive controls — consumed by Chatterbox-style servers, harmlessly ignored by others.
+    if (cfg.styleAmount !== undefined) body.exaggeration = Math.max(0.25, Math.min(2, 0.5 + (cfg.styleAmount || 0)));
+    if (cfg.stability !== undefined) body.cfg_weight = Math.max(0.2, Math.min(1, cfg.stability ?? 0.5));
+    const r = await fetch(this.url('/v1/audio/speech'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(120_000), // local CPU synth can be slower than cloud
+    });
+    if (!r.ok) throw new Error(`Local TTS ${r.status}: ${await r.text().catch(() => '')} — is the local server running at ${this.baseUrl || 'http://localhost:4123'}?`);
+    const mime = r.headers.get('content-type')?.split(';')[0] || 'audio/mpeg'; // chatterbox returns WAV
+    return { audio: Buffer.from(await r.arrayBuffer()), mime, charsBilled: seg.text.length };
+  }
+}
+
 /** Build the adapter for an engine row. */
-export function buildAdapter(engine: { key: string; credentialRef?: string | null; defaultModel?: string | null }): AudioProviderAdapter {
+export function buildAdapter(engine: { key: string; credentialRef?: string | null; defaultModel?: string | null; baseUrl?: string | null }): AudioProviderAdapter {
   switch (engine.key) {
     case 'ELEVENLABS': return new ElevenLabsAdapter(engine.credentialRef, engine.defaultModel);
     case 'OPENAI': return new OpenAiAdapter(engine.credentialRef, engine.defaultModel);
+    case 'LOCAL': return new LocalAdapter(engine.baseUrl, engine.defaultModel);
     case 'BROWSER': default: return new BrowserAdapter();
   }
 }

@@ -61,7 +61,7 @@ export class AiMappingService {
   constructor(private dynamicContext: DynamicContextService) {}
 
   private aiConfigured(): boolean { return !!process.env.ANTHROPIC_API_KEY; }
-  private model(): string { return process.env.MM_AI_MODEL || process.env.LABOR_AI_MODEL || 'claude-3-5-sonnet-20241022'; }
+  private model(): string { return process.env.MM_AI_MODEL || process.env.LABOR_AI_MODEL || 'claude-sonnet-4-6'; }
 
   /**
    * Map unmapped imported budget lines onto the enterprise Master CoA, grounded

@@ -52,19 +52,19 @@ export default function AudioEnginesPage() {
         {loading ? <div className="text-center py-16"><Loader2 className="animate-spin son-faint mx-auto" /></div> : (
           <>
             {/* Engines */}
-            <h3 className="son-h3 mb-2">Engines</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }} className="mb-8">
+            <div className="son-faint" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>Engines</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }} className="mb-10">
               {engines.length === 0 && <SonCard className="p-4"><p className="son-faint text-sm">No engines yet. Click “Seed defaults” to create Browser (free), ElevenLabs, and OpenAI.</p></SonCard>}
               {engines.map((e) => <EngineRow key={e.id} engine={e} onSave={saveEngine} />)}
             </div>
 
             {/* Routing matrix */}
-            <h3 className="son-h3 mb-2">Routing &amp; defaults</h3>
-            <SonCard className="overflow-hidden">
+            <div className="son-faint" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>Routing &amp; defaults</div>
+            <SonCard className="overflow-hidden" style={{ padding: 0 }}>
               <table className="w-full text-sm">
-                <thead><tr className="son-faint" style={{ fontSize: 11, textTransform: 'uppercase' }}>
-                  <th className="text-left px-3 py-2">Capability</th><th className="text-left px-3 py-2">Default engine</th>
-                  <th className="text-center px-3 py-2">Project override</th><th className="text-center px-3 py-2">Per-render override</th>
+                <thead><tr className="son-faint" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.05em', borderBottom: '1px solid var(--son-border)' }}>
+                  <th className="text-left" style={{ padding: '10px 16px' }}>Capability</th><th className="text-left" style={{ padding: '10px 12px' }}>Default engine</th>
+                  <th className="text-center" style={{ padding: '10px 12px' }}>Project override</th><th className="text-center" style={{ padding: '10px 16px' }}>Per-render override</th>
                 </tr></thead>
                 <tbody>
                   {CAPS.map((c) => {
@@ -72,15 +72,15 @@ export default function AudioEnginesPage() {
                     const eligible = engines.filter((e) => c.key === 'LIVE_READ' ? e.key === 'BROWSER' || (e.capabilities?.tts) : e.capabilities?.[c.key.toLowerCase()]);
                     return (
                       <tr key={c.key} style={{ borderTop: '1px solid var(--son-border)' }}>
-                        <td className="px-3 py-2 font-medium">{c.label}</td>
-                        <td className="px-3 py-2">
-                          <select className="son-input" value={row.defaultEngineId || ''} onChange={(e) => saveRouting(c.key, { defaultEngineId: e.target.value || null, allowedEngineIds: row.allowedEngineIds || [], projectOverrideAllowed: row.projectOverrideAllowed, userMayOverride: row.userMayOverride })}>
-                            <option value="">— (auto / Browser) —</option>
+                        <td className="font-medium" style={{ padding: '9px 16px', whiteSpace: 'nowrap' }}>{c.label}</td>
+                        <td style={{ padding: '9px 12px' }}>
+                          <select className="son-input" style={{ width: 240 }} value={row.defaultEngineId || ''} onChange={(e) => saveRouting(c.key, { defaultEngineId: e.target.value || null, allowedEngineIds: row.allowedEngineIds || [], projectOverrideAllowed: row.projectOverrideAllowed, userMayOverride: row.userMayOverride })}>
+                            <option value="">— auto (Browser fallback) —</option>
                             {eligible.map((e) => <option key={e.id} value={e.id}>{e.displayName}{!e.enabled ? ' (disabled)' : ''}</option>)}
                           </select>
                         </td>
-                        <td className="px-3 py-2 text-center"><input type="checkbox" checked={!!row.projectOverrideAllowed} onChange={(e) => saveRouting(c.key, { defaultEngineId: row.defaultEngineId, allowedEngineIds: row.allowedEngineIds || [], projectOverrideAllowed: e.target.checked, userMayOverride: row.userMayOverride })} /></td>
-                        <td className="px-3 py-2 text-center"><input type="checkbox" checked={!!row.userMayOverride} onChange={(e) => saveRouting(c.key, { defaultEngineId: row.defaultEngineId, allowedEngineIds: row.allowedEngineIds || [], projectOverrideAllowed: row.projectOverrideAllowed, userMayOverride: e.target.checked })} /></td>
+                        <td className="text-center" style={{ padding: '9px 12px' }}><input type="checkbox" checked={!!row.projectOverrideAllowed} onChange={(e) => saveRouting(c.key, { defaultEngineId: row.defaultEngineId, allowedEngineIds: row.allowedEngineIds || [], projectOverrideAllowed: e.target.checked, userMayOverride: row.userMayOverride })} /></td>
+                        <td className="text-center" style={{ padding: '9px 16px' }}><input type="checkbox" checked={!!row.userMayOverride} onChange={(e) => saveRouting(c.key, { defaultEngineId: row.defaultEngineId, allowedEngineIds: row.allowedEngineIds || [], projectOverrideAllowed: row.projectOverrideAllowed, userMayOverride: e.target.checked })} /></td>
                       </tr>
                     );
                   })}
@@ -99,6 +99,8 @@ function EngineRow({ engine, onSave }: { engine: any; onSave: (id: string, d: an
   const cm = engine.costModel || {};
   const [cred, setCred] = useState(engine.credentialRef || '');
   const [model, setModel] = useState(engine.defaultModel || '');
+  const [baseUrl, setBaseUrl] = useState(engine.baseUrl || '');
+  const isLocal = engine.key === 'LOCAL';
   // Live engine health: provider credits, voice count, curated model catalog
   const [status, setStatus] = useState<any>(null);
   useEffect(() => {
@@ -116,53 +118,87 @@ function EngineRow({ engine, onSave }: { engine: any; onSave: (id: string, d: an
     ? { ...cm, billing: 'INCLUDED', currency: cm.currency || 'USD', tts: { unit: 'CHAR', rate: 0 }, sfx: { unit: 'GENERATION', rate: 0 }, music: { unit: 'GENERATION', rate: 0 } }
     : { billing: 'METERED', currency: cm.currency || 'USD', tts: { unit: 'CHAR', rate: (Number(rate1k) || 0) / 1000 }, sfx: { unit: 'GENERATION', rate: cm.sfx?.rate ?? 0.08 }, music: { unit: 'GENERATION', rate: cm.music?.rate ?? 0.2 } };
 
+  const low = credits && credits.limit > 0 && (credits.limit - credits.used) / credits.limit < 0.1;
+  const Field = ({ label, children, hint }: any) => (
+    <div>
+      <div className="son-faint" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 4 }}>{label}</div>
+      {children}
+      {hint && <div className="son-faint" style={{ fontSize: 10, marginTop: 4, lineHeight: 1.35 }}>{hint}</div>}
+    </div>
+  );
+
   return (
-    <SonCard className="p-3" style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
-      <div style={{ minWidth: 160 }}>
-        <div style={{ fontWeight: 650, display: 'flex', alignItems: 'center', gap: 6 }}>{engine.displayName}
-          <SonChip color={engine.tier === 'LIVE' ? 'var(--son-ok)' : 'var(--son-info)'}>{engine.tier}</SonChip></div>
-        <div className="son-faint" style={{ fontSize: 11, fontFamily: 'monospace' }}>{engine.key}</div>
-      </div>
-      <div style={{ display: 'flex', gap: 4 }}>
-        {(['tts', 'sfx', 'music', 'dubbing'] as const).map((k) => caps[k] && <SonChip key={k}>{k}</SonChip>)}
-      </div>
-      {engine.tier !== 'LIVE' && <>
-        <label className="son-faint" style={{ fontSize: 11 }}>API key env<input className="son-input" style={{ width: 150, marginTop: 2 }} value={cred} onChange={(e) => setCred(e.target.value)} placeholder="ELEVENLABS_API_KEY" /></label>
-        <label className="son-faint" style={{ fontSize: 11 }} title={models.find((m: any) => m.id === model)?.hint || ''}>Model
-          {models.length ? (
-            <select className="son-input" style={{ width: 210, marginTop: 2 }} value={model} onChange={(e) => setModel(e.target.value)}>
-              <option value="">(engine default)</option>
-              {model && !models.some((m: any) => m.id === model) && <option value={model}>{model}</option>}
-              {models.map((m: any) => <option key={m.id} value={m.id} title={m.hint}>{m.label}</option>)}
-            </select>
-          ) : (
-            <input className="son-input" style={{ width: 130, marginTop: 2 }} value={model} onChange={(e) => setModel(e.target.value)} />
-          )}
-        </label>
-        {model && models.find((m: any) => m.id === model) && <span className="son-faint" style={{ fontSize: 10, maxWidth: 180 }}>{models.find((m: any) => m.id === model).hint}</span>}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          <label className="text-sm inline-flex items-center gap-1.5" title="Covered by your provider subscription — hide cost estimates & don't track spend">
-            <input type="checkbox" checked={included} onChange={(e) => setIncluded(e.target.checked)} /> Included in subscription (hide cost)
-          </label>
-          {!included && <label className="son-faint" style={{ fontSize: 11 }}>$ / 1,000 chars<input className="son-input" style={{ width: 90, marginTop: 2 }} value={rate1k} onChange={(e) => setRate1k(e.target.value)} /></label>}
-        </div>
-      </>}
-      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
+    <SonCard style={{ padding: '14px 16px' }}>
+      {/* Header line: identity · capabilities · health · enable */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <div style={{ fontWeight: 700, fontSize: 15 }}>{engine.displayName}</div>
+        <SonChip color={engine.tier === 'LIVE' ? 'var(--son-ok)' : 'var(--son-info)'}>{engine.tier === 'LIVE' ? 'free · browser' : 'studio'}</SonChip>
+        <span className="son-faint" style={{ fontSize: 11, fontFamily: 'monospace' }}>{engine.key}</span>
+        <span style={{ display: 'inline-flex', gap: 4 }}>
+          {(['tts', 'sfx', 'music', 'dubbing'] as const).map((k) => caps[k] && <SonChip key={k}>{k}</SonChip>)}
+        </span>
+        <span style={{ flex: 1 }} />
+        {status?.voiceCount !== undefined && <SonChip>{status.voiceCount} voices</SonChip>}
         {credits && credits.limit > 0 && (
-          <div title={`Provider credits used this cycle${status?.credits?.tier ? ` · ${status.credits.tier} plan` : ''}`} style={{ width: 130 }}>
-            <div className="son-faint" style={{ fontSize: 10, display: 'flex', justifyContent: 'space-between' }}>
-              <span>credits</span><span style={{ color: (credits.limit - credits.used) / credits.limit < 0.1 ? 'var(--son-danger)' : undefined }}>{(credits.limit - credits.used).toLocaleString()} left</span>
+          <div title={`Provider credits this cycle${credits.tier ? ` · ${credits.tier} plan` : ''}`} style={{ width: 150 }}>
+            <div className="son-faint" style={{ fontSize: 10, display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
+              <span>credits</span>
+              <span style={{ color: low ? 'var(--son-danger)' : undefined, fontWeight: low ? 700 : 400 }}>{(credits.limit - credits.used).toLocaleString()} left</span>
             </div>
             <div style={{ height: 5, borderRadius: 3, background: 'var(--son-surface-2)', overflow: 'hidden' }}>
-              <i style={{ display: 'block', height: '100%', width: `${Math.min(100, (credits.used / credits.limit) * 100)}%`, background: (credits.limit - credits.used) / credits.limit < 0.1 ? 'var(--son-danger)' : 'var(--son-info)' }} />
+              <i style={{ display: 'block', height: '100%', width: `${Math.min(100, (credits.used / credits.limit) * 100)}%`, background: low ? 'var(--son-danger)' : 'var(--son-info)' }} />
             </div>
           </div>
         )}
-        {status?.voiceCount !== undefined && <SonChip>{status.voiceCount} voices</SonChip>}
         {status?.creditsError && <span className="son-faint" style={{ fontSize: 10, color: 'var(--son-warn)' }} title={status.creditsError}>status unavailable</span>}
-        <label className="text-sm inline-flex items-center gap-1.5"><input type="checkbox" checked={!!engine.enabled} onChange={(e) => onSave(engine.id, { enabled: e.target.checked })} /> Enabled</label>
-        {engine.tier !== 'LIVE' && <SonBtn onClick={() => onSave(engine.id, { credentialRef: cred || null, defaultModel: model || null, costModel: buildCostModel() })}><Save size={13} /> Save</SonBtn>}
+        <label className="text-sm inline-flex items-center gap-1.5" style={{ fontWeight: 600 }}>
+          <input type="checkbox" checked={!!engine.enabled} onChange={(e) => onSave(engine.id, { enabled: e.target.checked })} /> Enabled
+        </label>
       </div>
+
+      {/* Config grid: aligned columns, labels above fields */}
+      {engine.tier !== 'LIVE' && (
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, marginTop: 14, alignItems: 'start', borderTop: '1px solid var(--son-border)', paddingTop: 12 }}>
+            {isLocal ? (
+              <Field label="Server URL" hint="Your local OpenAI-compatible TTS server — free, unlimited, no key. See docs/system/15-local-audio-engines.md.">
+                <input className="son-input" style={{ width: '100%' }} value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder="http://localhost:4123" />
+              </Field>
+            ) : (
+              <Field label="API key environment variable" hint="The env var name in backend/.env — never the key itself.">
+                <input className="son-input" style={{ width: '100%' }} value={cred} onChange={(e) => setCred(e.target.value)} placeholder="ELEVENLABS_API_KEY" />
+              </Field>
+            )}
+            <Field label="Model" hint={models.find((m: any) => m.id === model)?.hint || 'Pick by intent — hover options for details.'}>
+              {models.length ? (
+                <select className="son-input" style={{ width: '100%' }} value={model} onChange={(e) => setModel(e.target.value)}>
+                  <option value="">(engine default)</option>
+                  {model && !models.some((m: any) => m.id === model) && <option value={model}>{model}</option>}
+                  {models.map((m: any) => <option key={m.id} value={m.id} title={m.hint}>{m.label}</option>)}
+                </select>
+              ) : (
+                <input className="son-input" style={{ width: '100%' }} value={model} onChange={(e) => setModel(e.target.value)} placeholder="model id" />
+              )}
+            </Field>
+            <Field label="Billing" hint={included ? 'Subscription-covered: no cost estimates, no spend tracking.' : 'Metered: estimates + ledger use this rate.'}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, height: 34 }}>
+                <label className="text-sm inline-flex items-center gap-1.5" style={{ whiteSpace: 'nowrap' }}>
+                  <input type="checkbox" checked={included} onChange={(e) => setIncluded(e.target.checked)} /> Included in subscription
+                </label>
+                {!included && (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                    <span className="son-faint" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>$ / 1k chars</span>
+                    <input className="son-input" style={{ width: 80 }} value={rate1k} onChange={(e) => setRate1k(e.target.value)} />
+                  </span>
+                )}
+              </div>
+            </Field>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+            <SonBtn primary onClick={() => onSave(engine.id, { credentialRef: cred || null, baseUrl: baseUrl || null, defaultModel: model || null, costModel: buildCostModel() })}><Save size={13} /> Save engine</SonBtn>
+          </div>
+        </>
+      )}
     </SonCard>
   );
 }

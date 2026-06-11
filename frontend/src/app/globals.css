@@ -48,6 +48,19 @@
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
+  /* iOS-style frosted glass for sticky chrome: translucent fill + backdrop blur, so the
+     page scrolling underneath shows through as color, not legible text. The saturate()
+     is what makes colors bleed through vividly instead of going gray. Solid fallback
+     for browsers without backdrop-filter. Base surface overridable via --glass-base. */
+  .glass-bar {
+    background: color-mix(in srgb, var(--glass-base, var(--surface-1)) 78%, transparent);
+    -webkit-backdrop-filter: blur(16px) saturate(1.7);
+    backdrop-filter: blur(16px) saturate(1.7);
+  }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .glass-bar { background: var(--glass-base, var(--surface-1)); }
+  }
+
   html { font-size: 13px; }
 
   body {
@@ -363,8 +376,8 @@ html.dark ::-webkit-scrollbar-thumb { background: #334155; }
   html.dark .page-header { background: var(--card-bg); }
   html.dark .input:hover { border-color: #334155; }
 
-  /* ── SYS-14: SLATE family remap — the Script*/production panels are built on
-     slate-* utilities, which the original remap never covered. This is the fix
+  /* ── SYS-14: SLATE family remap — the Script/production panels are built on
+     slate utilities, which the original remap never covered. This is the fix
      for "dark mode text not readable". ─────────────────────────────────────── */
   html.dark .bg-slate-100, html.dark .bg-slate-50\/60, html.dark .bg-slate-100\/50,
   html.dark .bg-slate-100\/70 { background-color: var(--surface-2) !important; }

@@ -1,0 +1,33 @@
+feat(auth): two-factor authentication (TOTP) — Phase 2
+
+Backend
+- auth.service: setup2FA now returns a locally-rendered QR data URL (qrcode lib,
+  no third-party API) alongside the secret + otpauth URL; blocks re-enrol while on.
+- auth.service: disable2FA (requires a current code); enable2FA trims input.
+- auth.controller: POST /auth/2fa/disable.
+- @Require2FA() decorator + TwoFactorGuard: step-up auth. On guarded routes the
+  user must have 2FA on (else 403) and pass a valid code in x-2fa-code (else 401
+  with code TWO_FACTOR_REQUIRED / TWO_FACTOR_INVALID). Applied to
+  POST /production/ledger/pay/:projectId (payment release).
+
+Frontend
+- twoFactorApi (setup / enable / disable); ledger.pay takes an optional code →
+  x-2fa-code header.
+- Account → Personal identity & security: real 2FA section — enrol (QR + manual
+  key + verify), status pill, disable-with-code (replaces the Phase-1 teaser).
+- TwoFactorPrompt: reusable step-up modal. AccountingPanel pay flow catches the
+  401, pops the prompt, and retries with the code.
+- Login: handles requires2FA — reveals an authenticator-code field and resubmits.
+
+Recovery codes
+- Schema: TwoFactorBackupCode (single-use, sha256-hashed).
+- 10 codes minted on enable (shown once); verifyTwoFactor accepts a TOTP or
+  burns a recovery code. Login + disable accept recovery codes; payment step-up
+  stays TOTP-only so codes aren't spent on routine actions.
+- auth.controller: GET /auth/2fa/backup-codes (remaining), POST .../regenerate.
+- Account 2FA: show-once codes panel (copy / download), remaining count + low
+  warning, regenerate-with-code. Login: "use a recovery code" toggle.
+
+Requires: cd backend && npm i qrcode @types/qrcode   (then npx prisma db push + generate — TwoFactorBackupCode)
+
+No third-party APIs added (qrcode renders the QR locally).

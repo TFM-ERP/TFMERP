@@ -622,7 +622,7 @@ export function CompareModal({ projectId, onClose }: { projectId: string; onClos
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div className="bg-white rounded-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="border-b px-5 py-3 flex items-center justify-between sticky top-0 bg-white">
+        <div className="border-b px-5 py-3 flex items-center justify-between sticky top-0 glass-bar">
           <h2 className="font-semibold text-sm flex items-center gap-2"><BarChart3 size={16} className="text-[#0f172a]" /> Compare locations</h2>
           <button onClick={onClose}><X size={18} /></button>
         </div>

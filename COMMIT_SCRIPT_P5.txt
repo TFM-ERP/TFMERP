@@ -1,0 +1,35 @@
+feat(script): SYS-13b P5 — Standalone Script Library master + rename ScriptON
+
+Rename
+- "Script Hub" → "ScriptON" everywhere user-facing (project tab label, panel header,
+  standalone sidebar module).
+
+Schema (requires: npx prisma db push && npx prisma generate, in backend/)
+- MasterScript: company-level script (title, logline, kind, writer, status, summary,
+  tags, tagPalette, voicePalette, timesUsed). Mirrors MasterLocation.
+- MasterScriptRevision: canonical PDFs (revisionLabel, colorCode, pdfUrl, pageCount,
+  pageText, scenes JSON).
+- ScriptDocument.masterScriptId (nullable) → optional link to a library master.
+  Fully backward-compatible; existing project scripts untouched.
+
+Backend (production/master-scripts)
+- CRUD + stats; addRevision (multipart upload, reuses ScriptService.extractAndParse).
+- Palettes: PUT :id/palette (tagPalette + voicePalette).
+- linkToProject (:id/link/:projectId): creates a project ScriptDocument linked to the
+  master, copies the latest master revision → project ScriptRevision (+ScriptScene rows),
+  seeds the project's TagCategories from the master palette, bumps timesUsed.
+- promoteFromDocument (promote/:documentId): builds a MasterScript (+revision) from a
+  project doc's active revision and links the doc.
+- pullLatest (pull/:documentId): copies the master's latest revision into the linked
+  project doc as a NEW revision so Transfer notes re-anchors annotations.
+- ScriptService.extractAndParse made public for reuse. Registered in production.module.
+
+Frontend
+- /scripts — standalone Script Library page (grid, create/edit, stats, detail drawer:
+  revisions + PDF upload, reusable palettes editor (tag categories + saved voices),
+  linked-projects list). New "ScriptON" sidebar module.
+- In-project ScriptON: "Use library script" picker (link a master), "Promote to library"
+  (unlinked docs), "Library-linked" chip + "Pull latest" (linked docs).
+- api: masterScriptApi (+ script.promoteToLibrary/pullLatest/linkMaster/libraryList).
+
+All browser-native / pdf-parse (existing dep); no new packages. tsc (frontend) clean.

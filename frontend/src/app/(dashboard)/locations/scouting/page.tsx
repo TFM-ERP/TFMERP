@@ -163,7 +163,7 @@ function AssignmentDrawer({ id, projName, sync, onClose, onChanged }: any) {
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/30" onClick={onClose}>
       <div className="w-full max-w-2xl bg-white h-full overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="sticky top-0 bg-white border-b px-5 py-3 flex items-center justify-between z-10">
+        <div className="sticky top-0 glass-bar border-b px-5 py-3 flex items-center justify-between z-10">
           <div><h2 className="font-semibold">{a.title}</h2><p className="text-xs text-gray-400">{projName(a.projectId)} · {a.type.replace('_', ' ')} · {a.status.replace('_', ' ')}</p></div>
           <button onClick={onClose}><X size={18} /></button>
         </div>

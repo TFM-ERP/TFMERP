@@ -96,7 +96,7 @@ export default function BreakdownMappingModal({ projectId, currency = 'AED', onC
         <div className="flex-1 min-h-0 p-4 grid grid-cols-[1fr_1.2fr] gap-4">
           {/* Left — categories to place (own scrollbar, stays put) */}
           <div className="overflow-y-auto pr-1 min-h-0">
-            <h4 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2 sticky top-0 bg-white py-1 z-10">AI breakdown categories {unassigned.length > 0 && <span className="text-amber-600">· {unassigned.length} unplaced</span>}</h4>
+            <h4 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2 sticky top-0 glass-bar py-1 z-10">AI breakdown categories {unassigned.length > 0 && <span className="text-amber-600">· {unassigned.length} unplaced</span>}</h4>
             <div className="space-y-1.5">
               {cats.length === 0 && <p className="text-xs text-gray-400">No breakdown elements yet — import a script first.</p>}
               {unassigned.map(c => <CatCard key={c.category} c={c} />)}
@@ -106,7 +106,7 @@ export default function BreakdownMappingModal({ projectId, currency = 'AED', onC
 
           {/* Right — account buckets (scrolls on its own while dragging) */}
           <div className="overflow-y-auto pr-1 min-h-0">
-            <h4 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2 sticky top-0 bg-white py-1 z-10">Budget accounts</h4>
+            <h4 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2 sticky top-0 glass-bar py-1 z-10">Budget accounts</h4>
             <div className="space-y-1.5">
               {accounts.map(a => {
                 const placed = cats.filter(c => assign[c.category] === a.code);

@@ -2753,6 +2753,7 @@ model AudioEngine {
   tier         String   @default("STUDIO") // LIVE | STUDIO
   enabled      Boolean  @default(false)
   credentialRef String? // secret-manager handle / env var name; never the raw key
+  baseUrl      String? // LOCAL engines: OpenAI-compatible server URL (Chatterbox/Piper/Melo wrappers)
   capabilities Json? // { tts, sfx, music, dubbing }
   defaultModel String?
   supportsCloning Boolean @default(false)

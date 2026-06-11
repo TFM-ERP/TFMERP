@@ -34,7 +34,7 @@ export default function CoordinationWidget({ coordination }: { coordination: any
           {unsigned.length === 0 ? <div className="p-8 text-center text-gray-400 text-sm">All paperwork is signed. 🎉</div> : (
             <div className="max-h-80 overflow-y-auto">
               <table className="w-full text-sm">
-                <thead className="sticky top-0 bg-white"><tr className="text-[10px] font-semibold text-gray-400 uppercase border-b border-gray-100"><th className="px-4 py-2 text-left">Crew</th><th className="px-3 py-2 text-left">Deal memo</th><th className="px-3 py-2 text-left">NDA</th></tr></thead>
+                <thead className="sticky top-0 glass-bar"><tr className="text-[10px] font-semibold text-gray-400 uppercase border-b border-gray-100"><th className="px-4 py-2 text-left">Crew</th><th className="px-3 py-2 text-left">Deal memo</th><th className="px-3 py-2 text-left">NDA</th></tr></thead>
                 <tbody>
                   {unsigned.map(c => (
                     <tr key={c.id} className="border-b border-gray-50">

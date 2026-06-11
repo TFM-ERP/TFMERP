@@ -130,13 +130,14 @@ export class LayersService {
       'Be specific and concrete — prompts go straight to a sound-generation model. 2–5 cues per scene. No invented events.',
       'Respond ONLY by calling submit_sound_design.',
     ].join('\n');
+    const model = process.env.SCRIPT_AUDIO_AI_MODEL || process.env.MM_AI_MODEL || 'claude-fable-5';
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY!, 'anthropic-version': '2023-06-01' } as any,
       body: JSON.stringify({
-        model: process.env.SCRIPT_AUDIO_AI_MODEL || process.env.MM_AI_MODEL || 'claude-3-5-sonnet-20241022',
+        model,
         max_tokens: 4000, system, tools: [tool],
-        tool_choice: { type: 'tool', name: 'submit_sound_design' },
+        tool_choice: /fable|mythos/i.test(model) ? { type: 'auto' } : { type: 'tool', name: 'submit_sound_design' },
         messages: [{ role: 'user', content: JSON.stringify({ scenes }) }],
       }),
       signal: AbortSignal.timeout(90_000),
@@ -144,7 +145,10 @@ export class LayersService {
     if (!res.ok) throw new Error(`Anthropic HTTP ${res.status}`);
     const data: any = await res.json().catch(() => null);
     const toolUse = (data?.content || []).find((b: any) => b?.type === 'tool_use' && b?.name === 'submit_sound_design');
-    return Array.isArray(toolUse?.input?.cues) ? toolUse.input.cues : [];
+    if (Array.isArray(toolUse?.input?.cues)) return toolUse.input.cues;
+    const text = (data?.content || []).filter((b: any) => b?.type === 'text').map((b: any) => b.text).join('\n');
+    try { const j = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1)); if (Array.isArray(j?.cues)) return j.cues; } catch { /* nothing usable */ }
+    return [];
   }
 
   upsertCue(b: any, userId?: string) {

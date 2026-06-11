@@ -44,7 +44,7 @@ export default function SidesGenerator({ projectId, revision, onClose }: { proje
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[88vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="border-b border-slate-100 px-5 py-3 flex items-center justify-between sticky top-0 bg-white">
+        <div className="border-b border-slate-100 px-5 py-3 flex items-center justify-between sticky top-0 glass-bar">
           <h2 className="font-semibold text-sm inline-flex items-center gap-2"><Scissors size={16} /> Sides Generator — {revision?.revisionLabel}</h2>
           <button onClick={onClose}><X size={18} /></button>
         </div>
