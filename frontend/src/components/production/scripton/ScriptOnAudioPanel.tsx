@@ -410,7 +410,24 @@ function StudioReader({ revision, projectId, onEditVoice, onTransport, onNow }: 
         a.onended = next;
         a.onerror = () => { console.error('Audio element failed for', r.url); setMsg(`Audio file failed to play (${String(r.url).slice(0, 60)}).`); next(); };
         a.play().catch((err) => { console.error('play() blocked:', err); setMsg('Browser blocked playback — press Space to continue.'); i++; step(); });
-      }).catch((e: any) => { console.error('speak failed:', e); setMsg(e?.response?.data?.message || `Voice synthesis failed (${e?.message || 'network'}).`); stop(); });
+      }).catch(() => {
+        // One retry after a breather — transient hiccups (engine queue, model reload)
+        // shouldn't kill the whole scene playback. Only a second failure stops.
+        setMsg('Synthesis hiccup — retrying line…');
+        setTimeout(() => {
+          if (!playRef.current) return;
+          synth(seg, i).then((r: any) => {
+            if (!playRef.current) return;
+            setMsg('');
+            if (r.cached) setCached(c => c + 1); else setCost(c => c + Number(r.cost || 0));
+            const a = new Audio(assetUrl(r.url)); audioRef.current = a;
+            duckTo(true);
+            a.onended = () => { duckTo(false); i++; if (playRef.current) step(); };
+            a.onerror = () => { duckTo(false); i++; if (playRef.current) step(); };
+            a.play().catch(() => { i++; if (playRef.current) step(); });
+          }).catch((e2: any) => { console.error('speak failed twice:', e2); setMsg(e2?.response?.data?.message || `Voice synthesis failed (${e2?.message || 'network'}).`); stop(); });
+        }, 3000);
+      });
     };
     step();
   };
@@ -581,10 +598,33 @@ function Voices({ revision, projectId, onCastingChanged, initialEditing, onEditi
     } catch (e: any) { setCastMsg(e?.response?.data?.message || 'Auto-cast failed.'); }
     finally { setBusy(false); }
   };
-  const audition = (c: any) => {
-    if (c?.voice?.sampleUrl) { new Audio(c.voice.sampleUrl).play().catch(() => {}); return; } // engine preview (e.g. ElevenLabs)
-    try { window.speechSynthesis?.cancel(); const u = new SpeechSynthesisUtterance(`This is the voice for ${c.characterName}.`); window.speechSynthesis?.speak(u); } catch {}
+  // Audition is a toggle: click to hear, click again to stop. Starting a new audition stops the old one.
+  const audRef = useRef<HTMLAudioElement | null>(null);
+  const [auditioning, setAuditioning] = useState<string | null>(null);
+  const stopAudition = () => {
+    try { audRef.current?.pause(); } catch {} audRef.current = null;
+    try { window.speechSynthesis?.cancel(); } catch {}
+    setAuditioning(null);
   };
+  const audition = (c: any) => {
+    const was = auditioning === c.characterName;
+    stopAudition();
+    if (was) return; // second click = stop
+    if (c?.voice?.sampleUrl) { // engine preview (e.g. ElevenLabs)
+      const a = new Audio(c.voice.sampleUrl);
+      audRef.current = a; setAuditioning(c.characterName);
+      a.onended = () => setAuditioning((x) => (x === c.characterName ? null : x));
+      a.play().catch(() => setAuditioning(null));
+      return;
+    }
+    try {
+      const u = new SpeechSynthesisUtterance(`This is the voice for ${c.characterName}.`);
+      u.onend = () => setAuditioning((x) => (x === c.characterName ? null : x));
+      setAuditioning(c.characterName);
+      window.speechSynthesis?.speak(u);
+    } catch { setAuditioning(null); }
+  };
+  useEffect(() => () => { try { audRef.current?.pause(); } catch {} try { window.speechSynthesis?.cancel(); } catch {} }, []);
 
   if (!data) return <Loading />;
   return (
@@ -606,7 +646,7 @@ function Voices({ revision, projectId, onCastingChanged, initialEditing, onEditi
                   <SonChip color={c.cast ? 'var(--son-ok)' : 'var(--son-warn)'}>{c.cast ? 'Cast' : 'Uncast'}</SonChip></div>
                 <div className="son-faint" style={{ fontSize: 11, marginTop: 2 }}>{c.lines} line{c.lines === 1 ? '' : 's'}{c.voice ? ` · ${c.voice.name} · ${c.voice.engineKey}${c.voice.accent ? ' · ' + c.voice.accent : ''}` : ' · no voice yet'}</div>
               </div>
-              <SonBtn onClick={() => audition(c)}><Play size={13} /> Audition</SonBtn>
+              <SonBtn onClick={() => audition(c)}>{auditioning === c.characterName ? <><Pause size={13} /> Stop</> : <><Play size={13} /> Audition</>}</SonBtn>
               <SonBtn primary={!c.cast} onClick={() => setEditing(editing === c.characterName ? null : c.characterName)}>{c.cast ? 'Edit voice' : 'Cast'}</SonBtn>
             </SonCard>
             {editing === c.characterName && <VoiceEditor revision={revision} projectId={projectId} character={c} engines={engines} onSaved={() => { setEditing(null); load(); }} />}

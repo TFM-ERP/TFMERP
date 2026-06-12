@@ -83,10 +83,24 @@ export class VoiceCastingService {
    */
   async autoCast(revisionId: string, projectId: string | undefined, userId?: string) {
     const { characters } = await this.detect(revisionId);
-    const uncast = characters.filter((c) => !c.cast);
-    if (!uncast.length) return { created: 0, ai: false, engineKey: null };
 
-    // 1. AI trait suggestion from sampled dialogue (suggestions only — user can edit after)
+    // 1. Resolve the routed TTS engine FIRST; pull its voice library if it has one
+    const routing = await this.engines.resolve('TTS', projectId).catch(() => null);
+    let engineKey = routing?.engine?.key || 'BROWSER';
+    let voices: VoiceOption[] = [];
+    if (engineKey !== 'BROWSER') {
+      try { voices = await this.engines.listEngineVoices(engineKey); }
+      catch { engineKey = 'BROWSER'; }
+    }
+
+    // Candidates: never-cast characters PLUS anyone cast on a DIFFERENT engine than the
+    // current routing — switch routing (e.g. ElevenLabs → Local) and hitting Auto-cast
+    // recasts the troupe on the new engine instead of silently doing nothing.
+    const uncast = characters.filter((c) => !c.cast
+      || (engineKey !== 'BROWSER' && (c.voice as any)?.engineKey && (c.voice as any).engineKey !== engineKey));
+    if (!uncast.length) return { created: 0, ai: false, engineKey };
+
+    // 2. AI trait suggestion from sampled dialogue (suggestions only — user can edit after)
     let traits = new Map<string, any>();
     let usedAi = false;
     if (process.env.ANTHROPIC_API_KEY) {
@@ -95,15 +109,6 @@ export class VoiceCastingService {
         traits = await this.suggestTraits(uncast.map((c) => ({ name: c.characterName, lines: c.lines, sample: samples.get(c.characterName) || '' })));
         usedAi = traits.size > 0;
       } catch { /* AI unavailable — continue with defaults */ }
-    }
-
-    // 2. Resolve the TTS engine; pull its voice library if it has one
-    const routing = await this.engines.resolve('TTS', projectId).catch(() => null);
-    let engineKey = routing?.engine?.key || 'BROWSER';
-    let voices: VoiceOption[] = [];
-    if (engineKey !== 'BROWSER') {
-      try { voices = await this.engines.listEngineVoices(engineKey); }
-      catch { engineKey = 'BROWSER'; }
     }
 
     // 3. Create a profile + assignment per character, matching a library voice when possible
@@ -116,7 +121,8 @@ export class VoiceCastingService {
       const profile = await this.createProfile({
         scope: 'PROJECT', projectId,
         name: `${c.characterName} — ${match ? match.name : 'voice'}`,
-        engineKey: match ? engineKey : 'BROWSER',
+        // LOCAL keeps the engine even without a library match — its built-in default voice speaks.
+        engineKey: match || engineKey === 'LOCAL' ? engineKey : 'BROWSER',
         externalVoiceId: match?.id || null,
         gender: t.gender || match?.gender || null,
         ageRange: t.ageRange || match?.age || null,
@@ -129,7 +135,7 @@ export class VoiceCastingService {
       await this.assign(revisionId, c.characterName, { voiceProfileId: profile.id }, userId);
       created += 1;
     }
-    return { created, ai: usedAi, engineKey: voices.length ? engineKey : 'BROWSER' };
+    return { created, ai: usedAi, engineKey: voices.length || engineKey === 'LOCAL' ? engineKey : 'BROWSER' };
   }
 
   // ── Auto-cast internals ────────────────────────────────────────────────────────

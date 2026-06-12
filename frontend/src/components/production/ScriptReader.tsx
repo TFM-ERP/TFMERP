@@ -395,6 +395,19 @@ export default function ScriptReader({ revision, onClose, inline }: { revision: 
     warmRef.current = false;
     setTimeout(() => setWarm((w) => (w && w.done >= w.total ? null : w)), 5000);
   };
+
+  // Space = play/pause (kept in a ref so the listener never goes stale)
+  const togglePlayRef = useRef<() => void>(() => {});
+  togglePlayRef.current = togglePlay;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement;
+      if (t?.tagName === 'INPUT' || t?.tagName === 'TEXTAREA' || t?.tagName === 'SELECT' || t?.isContentEditable) return;
+      if (e.code === 'Space') { e.preventDefault(); togglePlayRef.current(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
   const handleClose = () => { stop(); onClose(); };
 
   // Kill ALL audio if the reader unmounts for any reason (close, navigation, hot reload).
