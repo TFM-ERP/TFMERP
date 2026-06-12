@@ -56,7 +56,7 @@ export function buildContext(type: 'invoice' | 'quotation', doc: any, company: a
       phone: co?.phone ?? '',
       billingEmail,
       website: co?.website ?? '',
-      logoUrl: co?.logoUrl || '/tfm-logo.svg',
+      logoUrl: co?.logoUrl || '/tfm-logo.png',
     },
     client: {
       companyName: client?.companyName ?? '',

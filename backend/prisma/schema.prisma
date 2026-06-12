@@ -1508,6 +1508,8 @@ model ProductionProject {
   productionCountry   GeoNode? @relation("ProjectProductionCountry", fields: [productionCountryId], references: [id])
   emailSettings Json? // per-project email sender { enabled, smtp:{...} }
   logoUrl     String? // project / studio logo (shown next to company logo on reports)
+  posterUrl       String? // tile poster (projects grid branding image)
+  posterTransform Json?   // tile framing: { x, y, zoom, rotation } from the Identity & branding editor
 
   description String?
   notes       String?
@@ -4729,6 +4731,7 @@ model CompanyProfile {
   legalName             String
   tradeName             String?
   logoUrl               String?
+  darkLogoUrl           String?  // dark-mode logo (white lettering) — used by the app shell in dark theme
   stampUrl              String?
   registrationNumber    String?
   trn                   String?

@@ -95,7 +95,17 @@ export class AudioEnginesService {
     const engine = await this.prisma.audioEngine.findUnique({ where: { key: String(key).toUpperCase() } });
     if (!engine) throw new NotFoundException(`Unknown audio engine "${key}".`);
     const adapter: any = buildAdapter(engine as any);
-    if (!adapter.searchVoices) return this.listEngineVoices(key); // engines without a shared library fall back to account voices
+    if (!adapter.searchVoices) {
+      // Engines without a shared library (LOCAL, OPENAI): filter their own catalog by the same criteria.
+      const all = await this.listEngineVoices(key);
+      const n = (s?: string) => String(s || '').toLowerCase();
+      return all.filter((v: any) =>
+        (!f.gender || n(v.gender).includes(n(f.gender))) &&
+        (!f.age || n(v.age).includes(n(f.age))) &&
+        (!f.accent || n(v.accent).includes(n(f.accent))) &&
+        (!f.language || n(v.language).includes(n(f.language))) &&
+        (!f.search || `${n(v.name)} ${n(v.description)}`.includes(n(f.search))));
+    }
     try { return await adapter.searchVoices(f); }
     catch (e: any) { throw new BadRequestException(e?.message || 'Voice library search failed.'); }
   }

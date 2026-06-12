@@ -12,38 +12,28 @@ type Ctx = { dark: boolean; setDark: (v: boolean) => void };
 const SonCtx = createContext<Ctx>({ dark: false, setDark: () => {} });
 export const useSon = () => useContext(SonCtx);
 
-/** Root: establishes tokens + container context + theme. Persists choice. */
-export function SonRoot({ children, className = '', storageKey = 'son-theme' }: { children: ReactNode; className?: string; storageKey?: string }) {
+/** Root: establishes tokens + container context. Theme FOLLOWS the global system
+ *  setting (html.dark) — no per-surface theme choice anymore. */
+export function SonRoot({ children, className = '' }: { children: ReactNode; className?: string; storageKey?: string }) {
   const [dark, setDark] = useState(false);
-  const [mounted, setMounted] = useState(false);
   useEffect(() => {
-    setMounted(true);
-    try {
-      const v = localStorage.getItem(storageKey);
-      if (v === 'dark') setDark(true);
-      else if (v === null) setDark(document.documentElement.classList.contains('dark'));
-    } catch { /* ignore */ }
-  }, [storageKey]);
-  const set = (v: boolean) => { setDark(v); try { localStorage.setItem(storageKey, v ? 'dark' : 'light'); } catch { /* ignore */ } };
-  // Until mounted, render the exact same markup the server produced (no theme class) to avoid
-  // any hydration mismatch; the theme is applied on the client right after hydration.
+    const root = document.documentElement;
+    const sync = () => setDark(root.classList.contains('dark'));
+    sync();
+    const mo = new MutationObserver(sync); // live-follow the global theme toggle
+    mo.observe(root, { attributes: true, attributeFilter: ['class'] });
+    return () => mo.disconnect();
+  }, []);
   return (
-    <SonCtx.Provider value={{ dark, setDark: set }}>
-      <div suppressHydrationWarning className={`son ${mounted && dark ? 'son-dark' : ''} ${className}`.trim()}>{children}</div>
+    <SonCtx.Provider value={{ dark, setDark: () => {} }}>
+      <div suppressHydrationWarning className={`son ${dark ? 'son-dark' : ''} ${className}`.trim()}>{children}</div>
     </SonCtx.Provider>
   );
 }
 
-export function SonThemeToggle({ className = '' }: { className?: string }) {
-  const { dark, setDark } = useSon();
-  return (
-    <button type="button" onClick={() => setDark(!dark)} title={dark ? 'Switch to light' : 'Switch to dark'}
-      className={`son-iconbtn ${className}`} aria-label="Toggle theme">
-      {dark
-        ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19"/></svg>
-        : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg>}
-    </button>
-  );
+/** Retired: ScriptON surfaces follow the system theme. Kept as a no-op so call sites compile. */
+export function SonThemeToggle(_props: { className?: string }) {
+  return null;
 }
 
 export function SonShell({ children, className = '' }: { children: ReactNode; className?: string }) {

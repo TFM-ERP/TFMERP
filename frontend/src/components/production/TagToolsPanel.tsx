@@ -9,8 +9,8 @@ import { X, Plus, Trash2, ChevronUp, ChevronDown, Eye, EyeOff, Loader2, Copy, Do
  * Custom tag categories (add/rename/recolour/reorder/hide), Auto-Tag Cast, an Element/Category
  * report (with CSV), and scene-level special tags (story day / synopsis / note).
  */
-export default function TagToolsPanel({ projectId, revision, onChanged, onClose }: {
-  projectId: string; revision: any; onChanged?: () => void; onClose: () => void;
+export default function TagToolsPanel({ projectId, revision, onChanged, onClose, inline }: {
+  projectId: string; revision: any; onChanged?: () => void; onClose: () => void; inline?: boolean;
 }) {
   const [tab, setTab] = useState<'cats' | 'auto' | 'report' | 'scenes'>('cats');
   const [cats, setCats] = useState<any[]>([]);
@@ -60,13 +60,15 @@ export default function TagToolsPanel({ projectId, revision, onChanged, onClose 
   const TABS = [['cats', 'Categories', Tags], ['auto', 'Auto-tag', Sparkles], ['report', 'Report', FileText], ['scenes', 'Scene tags', ClipboardList]] as const;
 
   return (
-    <div className="fixed inset-0 z-[80] bg-slate-900/50 flex items-stretch" onClick={onClose}>
-      <div className="ml-auto h-full w-full max-w-2xl bg-white shadow-2xl flex flex-col" onClick={(e) => e.stopPropagation()}>
+    <div className={inline ? 'absolute inset-0' : 'fixed inset-0 z-[80] bg-slate-900/50 flex items-stretch'} onClick={inline ? undefined : onClose}>
+      <div className={inline ? 'h-full w-full bg-white flex flex-col' : 'ml-auto h-full w-full max-w-2xl bg-white shadow-2xl flex flex-col'} onClick={(e) => e.stopPropagation()}>
+        {!inline && (
         <div className="flex items-center gap-2 px-4 h-12 border-b border-slate-200 shrink-0">
           <Tags size={16} className="text-slate-700" />
           <h3 className="text-sm font-semibold text-slate-800">Tagging — {revision?.revisionLabel}</h3>
           <button onClick={onClose} className="ml-auto text-slate-400 hover:text-slate-700"><X size={18} /></button>
         </div>
+        )}
         <div className="flex border-b border-slate-100 text-xs shrink-0">
           {TABS.map(([k, lbl, Icon]) => (
             <button key={k} onClick={() => setTab(k as any)} className={`flex-1 py-2.5 inline-flex items-center justify-center gap-1.5 ${tab === k ? 'border-b-2 border-slate-900 text-slate-900 font-medium' : 'text-slate-500'}`}>

@@ -44,6 +44,9 @@
 
 /* tabs ----------------------------------------------------------------------*/
 .son-tabs{display:flex;gap:2px;padding:0 16px;background:var(--son-surface);border-bottom:1px solid var(--son-border);overflow-x:auto}
+/* tabs INSIDE the compact topbar: no own border/padding — the topbar already draws them */
+.son-topbar .son-tabs{border-bottom:none;padding:0;background:transparent;align-self:stretch;align-items:stretch}
+.son-topbar .son-tab{padding:0 12px;min-height:0;display:flex;align-items:center}
 .son-tab{padding:11px 13px;font-size:13px;color:var(--son-muted);border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;min-height:var(--son-tap);background:none;border-top:0;border-left:0;border-right:0;font:inherit}
 .son-tab.is-active{color:var(--son-text);border-bottom-color:var(--son-accent);font-weight:600}
 

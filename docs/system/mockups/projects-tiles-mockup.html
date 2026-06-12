@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Projects page — Option A final</title>
+<style>
+  :root{
+    --surface-0:#F6F7F9; --surface-1:#FFFFFF; --text-1:#15202E; --text-2:#5B6B7E; --text-3:#8B97A6;
+    --border-1:#E4E8EE; --accent:#3E6CD6; --danger:#DC2626; --gold:#b08d4f;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Inter,'Segoe UI',Arial,sans-serif;background:var(--surface-0);color:var(--text-1);font-size:13px;padding:28px;line-height:1.5}
+  h1{font-size:18px;margin-bottom:4px} .sub{color:var(--text-2);margin-bottom:26px}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-3);margin:34px 0 6px}
+  .note{color:var(--text-2);font-size:12px;margin-bottom:14px;max-width:780px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:16px}
+  .chip{display:inline-block;font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:99px}
+  .meta{display:flex;gap:14px;font-size:11.5px}
+  .bar{height:4px;border-radius:99px;background:rgba(255,255,255,.25);overflow:hidden;margin-top:10px}
+  .bar i{display:block;height:100%;width:62%;background:var(--gold)}
+
+  /* ── Option A final — cinematic poster tile ── */
+  .cardA{position:relative;border-radius:18px;overflow:hidden;min-height:205px;display:flex;flex-direction:column;justify-content:flex-end;
+    color:#fff;cursor:pointer;box-shadow:0 1px 3px rgba(16,24,40,.08);transition:transform .15s,box-shadow .15s;border:1px solid var(--border-1)}
+  .cardA:hover{transform:translateY(-3px);box-shadow:0 12px 28px rgba(16,24,40,.18)}
+  .cardA .bg{position:absolute;inset:0;background-size:cover;background-position:center}
+  .cardA .scrim{position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,12,20,.05) 30%,rgba(8,12,20,.82) 78%,rgba(8,12,20,.93))}
+  .cardA .body{position:relative;padding:16px}
+  .cardA .code{font-size:10.5px;letter-spacing:.08em;opacity:.75}
+  .cardA .name{font-size:16.5px;font-weight:700;margin:2px 0 2px;text-shadow:0 1px 8px rgba(0,0,0,.4)}
+  /* NEW: project type line — gold small-caps under the title */
+  .cardA .type{font-size:10.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin-bottom:7px}
+  .cardA .meta{color:rgba(255,255,255,.82)}
+  .cardA .chip{position:absolute;top:12px;left:12px;background:rgba(8,12,20,.55);backdrop-filter:blur(6px);color:#fff;border:1px solid rgba(255,255,255,.25)}
+  .cardA .money{position:absolute;top:12px;right:12px;background:rgba(8,12,20,.55);backdrop-filter:blur(6px);border-radius:10px;padding:4px 10px;font-size:11.5px;font-weight:600}
+
+  .p1{background-image:linear-gradient(135deg,#1a2b4a,#0e1726 55%,#3d2c12)}
+  .p2{background-image:radial-gradient(120% 120% at 20% 0%,#5a1f1f,#1c0f18 70%)}
+  .p3{background-image:linear-gradient(160deg,#0f3530,#0b1d2e 60%,#10243f)}
+  .p4{background-image:linear-gradient(150deg,#4a3413,#241607 60%,#0d0a05)}
+
+  /* archived */
+  .toolbar{display:flex;align-items:center;gap:10px;background:var(--surface-1);border:1px solid var(--border-1);border-radius:12px;padding:8px 12px;margin-bottom:14px}
+  .toolbar label{display:flex;align-items:center;gap:6px;font-weight:600}
+  .toolbar .count{color:var(--text-3)} .toolbar .spacer{flex:1}
+  .btn{border:1px solid var(--border-1);background:var(--surface-1);border-radius:9px;padding:5px 12px;font-size:12px;cursor:pointer;font-weight:600;color:var(--text-1)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.danger{color:var(--danger);border-color:#F3C8C8}
+  .cardArc{position:relative;border-radius:16px;overflow:hidden;border:1px solid var(--border-1);background:var(--surface-1);padding:14px 15px;filter:grayscale(.35)}
+  .cardArc .name{font-size:14px;font-weight:700;margin:1px 0 2px;color:var(--text-2)}
+  .cardArc .type{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text-3);margin-bottom:5px}
+  .cardArc .check{position:absolute;top:11px;right:11px;width:17px;height:17px}
+  .cardArc .chip{background:#F1F3F6;color:var(--text-3)}
+  .cardArc .row{display:flex;gap:8px;margin-top:11px}
+  .cardArc.sel{outline:2px solid var(--accent);outline-offset:-2px;filter:none}
+
+  /* ── poster editor (Identity & branding) ── */
+  .editor{display:flex;gap:22px;flex-wrap:wrap;background:var(--surface-1);border:1px solid var(--border-1);border-radius:16px;padding:18px;max-width:780px}
+  .ed-left{width:330px}
+  .ed-stage{position:relative;border-radius:18px;overflow:hidden;height:205px;border:1px solid var(--border-1);cursor:grab}
+  .ed-stage .img{position:absolute;inset:-30%;background-size:cover;background-position:center;transform:scale(1.25) rotate(0deg)}
+  .ed-stage .scrim{position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,12,20,.05) 30%,rgba(8,12,20,.85))}
+  .ed-stage .ghost{position:absolute;left:16px;bottom:14px;color:#fff}
+  .ed-stage .ghost .nm{font-weight:700;font-size:16px}
+  .ed-stage .ghost .tp{font-size:10px;letter-spacing:.14em;color:var(--gold);font-weight:700}
+  .ed-hint{font-size:11px;color:var(--text-3);margin-top:8px;text-align:center}
+  .ed-right{flex:1;min-width:240px}
+  .ed-right h3{font-size:13px;margin-bottom:12px}
+  .ctl{margin-bottom:14px}
+  .ctl label{display:block;font-size:11px;color:var(--text-2);font-weight:600;margin-bottom:5px}
+  .ctl input[type=range]{width:100%}
+  .rot{display:flex;gap:8px}
+  .ed-actions{display:flex;gap:8px;margin-top:18px}
+</style>
+</head>
+<body>
+  <h1>Projects page — Option A, final spec</h1>
+  <p class="sub">Cinematic poster tiles + type line · archived-first delete rule · poster editor in Identity &amp; branding.</p>
+
+  <h2>Active projects</h2>
+  <p class="note">The project TYPE (Feature / Documentary / TVC / Series / Short / Music video) now sits as a gold small-caps line under the title — reads like a one-sheet's genre line. No delete anywhere on active tiles: a project must be archived first.</p>
+  <div class="grid">
+    <div class="cardA"><div class="bg p1"></div><div class="scrim"></div>
+      <span class="chip">DEVELOPMENT</span><span class="money">AED 1.34M</span>
+      <div class="body"><div class="code">PRD-2026-0016</div><div class="name">The Misfits II</div>
+        <div class="type">Feature Film</div>
+        <div class="meta"><span>42 scenes</span><span>Jun–Sep 2026</span></div>
+        <div class="bar"><i></i></div></div>
+    </div>
+    <div class="cardA"><div class="bg p2"></div><div class="scrim"></div>
+      <span class="chip" style="background:rgba(22,101,52,.6)">SHOOTING</span><span class="money">AED 5.10M</span>
+      <div class="body"><div class="code">PRD-2026-0009</div><div class="name">Red Harvest</div>
+        <div class="type">Series · 8 Episodes</div>
+        <div class="meta"><span>Day 14/38</span><span>On schedule</span></div>
+        <div class="bar"><i style="width:37%"></i></div></div>
+    </div>
+    <div class="cardA"><div class="bg p3"></div><div class="scrim"></div>
+      <span class="chip" style="background:rgba(120,53,15,.6)">POST</span><span class="money">AED 0.87M</span>
+      <div class="body"><div class="code">PRD-2025-0031</div><div class="name">Saltwater</div>
+        <div class="type">Documentary</div>
+        <div class="meta"><span>Cut 3 review</span></div>
+        <div class="bar"><i style="width:88%"></i></div></div>
+    </div>
+    <div class="cardA"><div class="bg p4"></div><div class="scrim"></div>
+      <span class="chip">DEVELOPMENT</span><span class="money">AED 0.21M</span>
+      <div class="body"><div class="code">PRD-2026-0021</div><div class="name">Dune Coffee — Ramadan</div>
+        <div class="type">TVC · 45s</div>
+        <div class="meta"><span>3 scenes</span><span>Aug 2026</span></div>
+        <div class="bar"><i style="width:12%"></i></div></div>
+    </div>
+  </div>
+
+  <h2>Archived — the only place Delete exists</h2>
+  <p class="note">Active tiles can only be <b>archived</b> (single or bulk). Once here, cards gain Unarchive and Delete — singly or via select-all bulk actions. Delete asks for confirmation and is permanent.</p>
+  <div class="toolbar">
+    <label><input type="checkbox" checked> Select all</label>
+    <span class="count">2 of 3 selected</span>
+    <span class="spacer"></span>
+    <button class="btn primary">⤴ Unarchive selected</button>
+    <button class="btn danger">🗑 Delete selected</button>
+  </div>
+  <div class="grid">
+    <div class="cardArc sel"><input class="check" type="checkbox" checked>
+      <span class="chip">ARCHIVED</span><div class="name">Desert Lines</div><div class="type">Feature Film</div>
+      <div class="meta"><span>PRD-2024-0007</span><span>Wrapped Nov 2024</span></div>
+      <div class="row"><button class="btn">⤴ Unarchive</button><button class="btn danger">Delete</button></div>
+    </div>
+    <div class="cardArc sel"><input class="check" type="checkbox" checked>
+      <span class="chip">ARCHIVED</span><div class="name">Nightshift (pilot)</div><div class="type">Series Pilot</div>
+      <div class="meta"><span>PRD-2023-0019</span><span>Wrapped Mar 2024</span></div>
+      <div class="row"><button class="btn">⤴ Unarchive</button><button class="btn danger">Delete</button></div>
+    </div>
+    <div class="cardArc"><input class="check" type="checkbox">
+      <span class="chip">ARCHIVED</span><div class="name">Coffee &amp; Cigarettes AD</div><div class="type">TVC · 30s</div>
+      <div class="meta"><span>PRD-2023-0002</span><span>Wrapped Aug 2023</span></div>
+      <div class="row"><button class="btn">⤴ Unarchive</button><button class="btn danger">Delete</button></div>
+    </div>
+  </div>
+
+  <h2>Poster editor — project settings → Identity &amp; branding</h2>
+  <p class="note">Upload a poster, then frame it exactly as it will appear on the tile: <b>drag to position</b>, <b>zoom</b>, <b>rotate</b> — the preview IS the tile (same scrim, same title overlay), so what you frame is what the grid shows. Saved as posterUrl + posterTransform (x/y/zoom/rotation).</p>
+  <div class="editor">
+    <div class="ed-left">
+      <div class="ed-stage"><div class="img p1"></div><div class="scrim"></div>
+        <div class="ghost"><div class="tp">FEATURE FILM</div><div class="nm">The Misfits II</div></div>
+      </div>
+      <div class="ed-hint">↕↔ drag the image to reposition</div>
+    </div>
+    <div class="ed-right">
+      <h3>Tile poster</h3>
+      <div class="ctl"><label>Image</label><button class="btn">⬆ Upload poster…</button> <button class="btn">Remove</button></div>
+      <div class="ctl"><label>Zoom — 125%</label><input type="range" min="100" max="300" value="125"></div>
+      <div class="ctl"><label>Rotate</label>
+        <div class="rot"><button class="btn">⟲ −90°</button><button class="btn">⟳ +90°</button><input type="range" min="-45" max="45" value="0" style="flex:1" title="fine rotation"></div>
+      </div>
+      <div class="ed-actions"><button class="btn primary">Save poster</button><button class="btn">Reset framing</button></div>
+    </div>
+  </div>
+</body>
+</html>

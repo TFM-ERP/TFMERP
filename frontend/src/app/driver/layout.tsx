@@ -27,7 +27,7 @@ export default function DriverLayout({ children }: { children: React.ReactNode }
     <div style={{ minHeight: '100vh', background: '#f4f5f7' }}>
       <header style={{ background: '#14213a', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', position: 'sticky', top: 0, zIndex: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ background: '#fff', borderRadius: 6, padding: '3px 6px' }}><img src="/tfm-logo.svg" alt="TFM" style={{ height: 20 }} /></div>
+          <div style={{ background: '#fff', borderRadius: 6, padding: '3px 6px' }}><img src="/tfm-logo.png" alt="TFM" style={{ height: 20 }} /></div>
           <span style={{ fontSize: 14, fontWeight: 500 }}>Driver</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>

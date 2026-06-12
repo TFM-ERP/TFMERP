@@ -110,7 +110,16 @@ export default function ScriptReader({ revision, onClose, inline }: { revision: 
   }, [els]);
 
   // View controls
-  const [sonDark, setSonDark] = useState(false); // SON-DS theme for the reader surface
+  // SON-DS theme follows the global system setting (html.dark) — no dedicated toggle.
+  const [sonDark, setSonDark] = useState(false);
+  useEffect(() => {
+    const root = document.documentElement;
+    const sync = () => setSonDark(root.classList.contains('dark'));
+    sync();
+    const mo = new MutationObserver(sync);
+    mo.observe(root, { attributes: true, attributeFilter: ['class'] });
+    return () => mo.disconnect();
+  }, []);
   const [font, setFont] = useState(16);
   const [serif, setSerif] = useState(true);
   const [hl, setHl] = useState<{ scene: boolean; action: boolean; character: boolean; dialogue: boolean }>({ scene: true, action: false, character: false, dialogue: false });
@@ -444,13 +453,10 @@ export default function ScriptReader({ revision, onClose, inline }: { revision: 
         {/* Header */}
         <div className="flex items-center gap-2 px-4 h-12 bg-white border-b border-slate-200 shrink-0">
           <BookOpen size={16} className="text-slate-700" />
-          <h3 className="text-sm font-semibold text-slate-800">Reader — {revision?.revisionLabel}</h3>
+          <h3 className="text-sm text-slate-800" style={{ fontWeight: 650 }}>Reader — {revision?.revisionLabel}</h3>
           <span className="text-[11px] text-slate-400">{characters.length} characters · {els.length} lines</span>
           <div className="ml-auto flex items-center gap-1.5">
-            <button onClick={() => setSonDark(d => !d)} title={sonDark ? 'Light' : 'Dark'} className="son-iconbtn">{sonDark
-              ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19"/></svg>
-              : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg>}</button>
-            <button onClick={handleClose} className="text-slate-400 hover:text-slate-700 p-1"><X size={18} /></button>
+            {!inline && <button onClick={handleClose} className="text-slate-400 hover:text-slate-700 p-1"><X size={18} /></button>}
           </div>
         </div>
 

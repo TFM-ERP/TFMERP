@@ -358,6 +358,7 @@ export default function CompanyPage() {
               <h3 className="text-sm font-semibold text-gray-700 mb-4">Brand Assets</h3>
               <div className="grid grid-cols-2 gap-4">
                 <ImageUpload label="Company Logo" value={data.logoUrl} onChange={(v) => set('logoUrl', v)} />
+                <ImageUpload label="Dark Mode Logo" value={data.darkLogoUrl} onChange={(v) => set('darkLogoUrl', v)} />
                 <ImageUpload label="Invoice Logo" value={data.invoiceLogoUrl} onChange={(v) => set('invoiceLogoUrl', v)} />
                 <ImageUpload label="Watermark" value={data.watermarkUrl} onChange={(v) => set('watermarkUrl', v)} />
                 <ImageUpload label="Company Stamp" value={data.stampUrl} onChange={(v) => set('stampUrl', v)} />

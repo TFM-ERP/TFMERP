@@ -191,7 +191,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
 
   const [user, setUser] = useState<{ fullName: string; role: string; avatarUrl?: string | null; preferredName?: string | null } | null>(null);
-  const [company, setCompany] = useState<{ name?: string; logoUrl?: string } | null>(null);
+  const [company, setCompany] = useState<{ name?: string; logoUrl?: string; darkLogoUrl?: string } | null>(null);
   const [expanded, setExpanded] = useState(true);
   const [showAll, setShowAll] = useState(false);
   const [pins, setPins] = useState<Page[]>([]);
@@ -235,7 +235,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     setPins(lsGet('tfm_nav_pins', []));
     setRecents(lsGet('tfm_nav_recents', []));
     setLastTab(lsGet('tfm_nav_lasttab', {}));
-    settingsApi.get().then(r => setCompany({ name: r.data?.name, logoUrl: r.data?.logoUrl })).catch(() => {});
+    settingsApi.get().then(r => setCompany({ name: r.data?.name, logoUrl: r.data?.logoUrl, darkLogoUrl: r.data?.darkLogoUrl })).catch(() => {});
     permissionsApi.me().then(r => { setPerms(r.data?.permissions || {}); lsSet('tfm_perms', r.data?.permissions || {}); }).catch(() => {});
     statusApi.kpi().then((r: any) => {
       const k = r.data || {};
@@ -330,7 +330,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   })();
 
   const RAIL_W = expanded ? 220 : 60;
-  const logoSrc = fileSrc(company?.logoUrl);
+  // Dark mode prefers the uploaded dark-mode logo (white lettering); falls back to the light one.
+  const usingDarkLogo = darkMode && !!company?.darkLogoUrl;
+  const logoSrc = fileSrc(usingDarkLogo ? company?.darkLogoUrl : company?.logoUrl);
+  const fallbackLogo = darkMode ? '/tfm-logo-dark.png' : '/tfm-logo.png';
 
   // Theme-following rail palette — neutral in light, charcoal brand in dark.
   const pal = darkMode ? {
@@ -392,12 +395,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="flex items-center gap-2 px-2.5 py-3" style={{ borderBottom: `1px solid ${pal.border}`, justifyContent: expanded ? 'space-between' : 'center' }}>
           {expanded ? (
             logoSrc
-              ? <div className="bg-white rounded-md px-2 py-1.5 flex items-center justify-center flex-1 mr-1"><img src={logoSrc} alt={company?.name || 'Company'} className="h-8 w-auto max-w-[140px] object-contain" /></div>
-              : <img src="/tfm-logo.svg" alt="Company" className="h-7 w-auto ml-1" style={{ filter: darkMode ? 'brightness(0) invert(1)' : 'none', opacity: 0.9 }} />
+              ? (usingDarkLogo
+                ? <img src={logoSrc} alt={company?.name || 'Company'} className="h-9 w-auto max-w-[150px] object-contain ml-1" />
+                : <div className="bg-white rounded-md px-2 py-1.5 flex items-center justify-center flex-1 mr-1"><img src={logoSrc} alt={company?.name || 'Company'} className="h-8 w-auto max-w-[140px] object-contain" /></div>)
+              : <img src={fallbackLogo} alt="Company" className="h-8 w-auto ml-1" style={{ opacity: 0.95 }} />
           ) : (
             logoSrc
-              ? <div className="bg-white rounded-md p-1 flex items-center justify-center"><img src={logoSrc} alt="" className="h-6 w-6 object-contain" /></div>
-              : <img src="/tfm-logo.svg" alt="" className="h-6 w-auto" style={{ filter: darkMode ? 'brightness(0) invert(1)' : 'none', opacity: 0.9 }} />
+              ? (usingDarkLogo
+                ? <img src={logoSrc} alt="" className="h-6 w-auto object-contain" />
+                : <div className="bg-white rounded-md p-1 flex items-center justify-center"><img src={logoSrc} alt="" className="h-6 w-6 object-contain" /></div>)
+              : <img src={fallbackLogo} alt="" className="h-6 w-auto" style={{ opacity: 0.95 }} />
           )}
           <button onClick={toggleExpanded} aria-label="Toggle navigation" className="shrink-0" style={{ color: pal.searchText }}>
             {expanded ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}

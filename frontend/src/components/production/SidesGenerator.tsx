@@ -11,7 +11,7 @@ const inp = 'rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm focus:bord
  * SYS-13 · D5 — Sides Generator. Pick tomorrow's scenes, choose recipients, generate the pruned +
  * crossed-out + 2-up + per-recipient-watermarked sides, then download or email them.
  */
-export default function SidesGenerator({ projectId, revision, onClose }: { projectId: string; revision: any; onClose: () => void }) {
+export default function SidesGenerator({ projectId, revision, onClose, inline }: { projectId: string; revision: any; onClose: () => void; inline?: boolean }) {
   const scenes = revision?.scenes || [];
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [shootDate, setShootDate] = useState('');
@@ -42,12 +42,14 @@ export default function SidesGenerator({ projectId, revision, onClose }: { proje
   const removeJob = async (id: string) => { if (!confirm('Delete this sides job?')) return; await productionApi.sides.remove(id); loadJobs(); };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[88vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+    <div className={inline ? 'absolute inset-0' : 'fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4'} onClick={inline ? undefined : onClose}>
+      <div className={inline ? 'bg-white h-full w-full overflow-y-auto' : 'bg-white rounded-2xl w-full max-w-3xl max-h-[88vh] overflow-y-auto'} onClick={(e) => e.stopPropagation()}>
+        {!inline && (
         <div className="border-b border-slate-100 px-5 py-3 flex items-center justify-between sticky top-0 glass-bar">
           <h2 className="font-semibold text-sm inline-flex items-center gap-2"><Scissors size={16} /> Sides Generator — {revision?.revisionLabel}</h2>
           <button onClick={onClose}><X size={18} /></button>
         </div>
+        )}
 
         <div className="p-5 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

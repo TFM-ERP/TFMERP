@@ -17,7 +17,7 @@ type Cam = { label: string; color: string; onScreen: boolean };
  * SYS-13 · D6 — Lining & Hot Cost. Log coverage + takes per scene (the digital tramline record),
  * wrap takes to stamp out-times, and watch the live Hot Cost monitor → push the day's accrual.
  */
-export default function LiningPanel({ projectId, revision, onClose }: { projectId: string; revision: any; onClose: () => void }) {
+export default function LiningPanel({ projectId, revision, onClose, inline }: { projectId: string; revision: any; onClose: () => void; inline?: boolean }) {
   const scenes = revision?.scenes || [];
   const [sceneId, setSceneId] = useState(scenes[0]?.id || '');
   const [coverage, setCoverage] = useState<any[]>([]);
@@ -80,12 +80,14 @@ export default function LiningPanel({ projectId, revision, onClose }: { projectI
   const removeAccrual = async (id: string) => { await productionApi.lining.removeAccrual(id); productionApi.lining.accruals(projectId).then((r) => setAccruals(r.data || [])); };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+    <div className={inline ? 'absolute inset-0' : 'fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4'} onClick={inline ? undefined : onClose}>
+      <div className={inline ? 'bg-white h-full w-full overflow-y-auto' : 'bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto'} onClick={(e) => e.stopPropagation()}>
+        {!inline && (
         <div className="border-b border-slate-100 px-5 py-3 flex items-center justify-between sticky top-0 glass-bar">
           <h2 className="font-semibold text-sm inline-flex items-center gap-2"><Clapperboard size={16} /> Lining & Hot Cost — {revision?.revisionLabel}</h2>
           <button onClick={onClose}><X size={18} /></button>
         </div>
+        )}
 
         <div className="p-5 grid grid-cols-1 lg:grid-cols-2 gap-5">
           {/* ── Lining (coverage + takes) ── */}

@@ -8,7 +8,7 @@ import { X, BarChart3, Copy, Download, Loader2 } from 'lucide-react';
  * SYS-13b · P6 — Analyze. Renders the local ($0, on-machine) script breakdown for a revision.
  * No external AI — heuristic over the captured page text + parsed scenes.
  */
-export default function ScriptAnalyzePanel({ revision, onClose }: { revision: any; onClose: () => void }) {
+export default function ScriptAnalyzePanel({ revision, onClose, inline }: { revision: any; onClose: () => void; inline?: boolean }) {
   const [data, setData] = useState<any>(null);
   const [err, setErr] = useState('');
 
@@ -37,12 +37,14 @@ export default function ScriptAnalyzePanel({ revision, onClose }: { revision: an
   );
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+    <div className={inline ? 'absolute inset-0' : 'fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4'} onClick={inline ? undefined : onClose}>
+      <div className={inline ? 'bg-white h-full w-full overflow-y-auto' : 'bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto'} onClick={(e) => e.stopPropagation()}>
+        {!inline && (
         <div className="border-b border-slate-100 px-5 py-3 flex items-center justify-between sticky top-0 glass-bar">
           <h2 className="font-semibold text-sm inline-flex items-center gap-2"><BarChart3 size={16} /> Analyze — {revision.revisionLabel}</h2>
           <button onClick={onClose}><X size={18} /></button>
         </div>
+        )}
 
         {err && <p className="p-5 text-sm text-rose-600">{err}</p>}
         {!data && !err && <p className="p-10 text-center text-slate-400"><Loader2 className="animate-spin mx-auto" /></p>}

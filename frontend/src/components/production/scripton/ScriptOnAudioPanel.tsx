@@ -6,7 +6,7 @@
  * metered render. Adaptive (container queries), light/dark, persistent transport.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { X, Play, Pause, Search, Download, Archive, Sparkles, ChevronLeft, Loader2, Trash2, Upload, Share2, Link2, Copy, Mail } from 'lucide-react';
+import { X, Play, Pause, Search, Download, Archive, Sparkles, Loader2, Trash2, Upload, Share2, Link2, Copy, Mail } from 'lucide-react';
 import { scriptAudioApi, assetUrl } from '@/lib/api';
 import { SonRoot, SonShell, SonTabs, SonCard, SonChip, SonBtn, SonThemeToggle } from './Son';
 
@@ -19,9 +19,25 @@ const TITLES: Record<string, string> = { studio: 'Studio — read & mix', cast: 
 const COLORS = ['#0ea5e9', '#f97316', '#a855f7', '#22c55e', '#ef4444', '#eab308', '#14b8a6', '#ec4899'];
 
 export default function ScriptOnAudioPanel({ revision, projectId, onClose }: { revision: any; projectId?: string; onClose: () => void }) {
-  const [tab, setTab] = useState('studio');
-  const [castSub, setCastSub] = useState('voices');     // Cast: voices | pronounce
-  const [deliverSub, setDeliverSub] = useState('render'); // Deliver: render | library
+  // Tabs + sub-tabs survive refresh: URL params (atab/asub/asub2) + sessionStorage fallback
+  // (immune to the router rewriting the URL).
+  const urlParam = (k: string) => {
+    if (typeof window === 'undefined') return null;
+    return new URLSearchParams(window.location.search).get(k) || window.sessionStorage.getItem(`audio-${k}`);
+  };
+  const setUrlParam = (k: string, v: string) => {
+    try { window.sessionStorage.setItem(`audio-${k}`, v); } catch {}
+    try {
+      const u = new URL(window.location.href); u.searchParams.set(k, v);
+      window.history.replaceState(null, '', u.toString());
+    } catch {}
+  };
+  const [tab, setTabState] = useState(() => urlParam('atab') || 'studio');
+  const setTab = (t: string) => { setTabState(t); setUrlParam('atab', t); };
+  const [castSub, setCastSubState] = useState(() => urlParam('asub') || 'voices');        // Cast: voices | pronounce
+  const setCastSub = (s: string) => { setCastSubState(s); setUrlParam('asub', s); };
+  const [deliverSub, setDeliverSubState] = useState(() => urlParam('asub2') || 'render'); // Deliver: render | library
+  const setDeliverSub = (s: string) => { setDeliverSubState(s); setUrlParam('asub2', s); };
   const [castEdit, setCastEdit] = useState<string | null>(null); // "Edit voice" jump from the Studio inspector
   const [playing, setPlaying] = useState(false);
   const [nowPlaying, setNowPlaying] = useState('Nothing playing');
@@ -95,17 +111,15 @@ export default function ScriptOnAudioPanel({ revision, projectId, onClose }: { r
       <SonRoot className="w-full">
         <div style={{ height: '100%' }} onClick={(e) => e.stopPropagation()}>
           <SonShell className="h-full">
-            <div className="son-topbar">
-              <button className="son-iconbtn" onClick={() => { stop(); onClose(); }}><ChevronLeft size={16} /></button>
-              <div className="son-grow">
-                <div className="son-crumb">{revision?.revisionLabel} · ScriptON Audio</div>
-                <div className="son-title">{TITLES[tab]}</div>
+            {/* Compact h-12 header — same height as Pages/Reader/Prep so tab switches don't jump.
+                No back/close buttons: surfaces are tabs now, switching happens in the binder's tab row. */}
+            <div className="son-topbar" style={{ height: 48, minHeight: 48, paddingTop: 0, paddingBottom: 0, alignItems: 'center', gap: 8 }}>
+              <div style={{ fontSize: 14, fontWeight: 650, whiteSpace: 'nowrap' }} title={TITLES[tab]}>Audio Studio — {revision?.revisionLabel}</div>
+              <div style={{ marginLeft: 10, display: 'flex', alignItems: 'center', alignSelf: 'stretch' }}>
+                <SonTabs tabs={TABS} active={tab} onChange={setTab} />
               </div>
-              <SonThemeToggle />
-              <button className="son-iconbtn" onClick={() => { stop(); onClose(); }}><X size={16} /></button>
+              <span className="son-grow" />
             </div>
-
-            <SonTabs tabs={TABS} active={tab} onChange={setTab} />
 
             <div className="son-content" style={{ position: 'relative' }}>
               {tab === 'studio' && (
@@ -564,7 +578,7 @@ function StudioReader({ revision, projectId, onEditVoice, onTransport, onNow }: 
                 <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
                   <SonBtn onClick={() => saveDir(cursor, { take: (dirs[String(cursor)]?.take || 1) + 1 })} title="Generate a fresh performance of this line (billed once, then cached)">↻ New take</SonBtn>
                   {(dirs[String(cursor)]?.take || 1) > 1 && <SonBtn onClick={() => saveDir(cursor, { take: (dirs[String(cursor)]?.take || 2) - 1 })}>◂ Prev</SonBtn>}
-                  <SonBtn primary onClick={async () => { try { const r: any = await synth(scene.segs[cursor], cursor); new Audio(assetUrl(r.url)).play().catch(() => {}); } catch (e: any) { setMsg(e?.response?.data?.message || 'Could not play the take.'); } }}>▶ Hear</SonBtn>
+                  <SonBtn primary onClick={async () => { try { const r: any = await synth(scene.segs[cursor], cursor); try { audioRef.current?.pause(); } catch {} const a = new Audio(assetUrl(r.url)); audioRef.current = a; a.play().catch(() => {}); } catch (e: any) { setMsg(e?.response?.data?.message || 'Could not play the take.'); } }}>▶ Hear</SonBtn>
                 </div>
               </div>
             )}
@@ -790,10 +804,11 @@ function VoiceEditor({ revision, projectId, character, engines, onSaved }: any) 
         <FieldSel label="Style" value={f.style} options={opts.style} onChange={(val: string) => set('style', val)} />
         <label className="son-faint" style={{ fontSize: 11 }}>Speed<input className="son-input" type="number" step="0.05" style={{ width: '100%', marginTop: 2 }} value={f.defaultRate} onChange={(e) => set('defaultRate', Number(e.target.value))} /></label>
       </div>
-      {/* Browse the provider's FULL voice library (thousands of voices, label-filtered) */}
-      {f.engineKey === 'ELEVENLABS' && (
+      {/* Browse the provider's FULL voice library (thousands of voices, label-filtered).
+          LOCAL gets the same search UI over its own catalog (server-side filtered). */}
+      {(f.engineKey === 'ELEVENLABS' || f.engineKey === 'LOCAL') && (
         <div style={{ marginTop: 10 }}>
-          <SonBtn onClick={() => setLibOpen((o: boolean) => !o)}>{libOpen ? '▾' : '▸'} Browse full ElevenLabs library…</SonBtn>
+          <SonBtn onClick={() => setLibOpen((o: boolean) => !o)}>{libOpen ? '▾' : '▸'} {f.engineKey === 'LOCAL' ? 'Search local voices…' : 'Browse full ElevenLabs library…'}</SonBtn>
           {libOpen && (
             <div style={{ marginTop: 8, border: '1px solid var(--son-border)', borderRadius: 10, padding: 10 }}>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
@@ -808,7 +823,7 @@ function VoiceEditor({ revision, projectId, character, engines, onSaved }: any) 
                 <input className="son-input" style={{ flex: 1, minWidth: 120 }} placeholder="search… e.g. raspy villain" value={libF.search} onChange={(e) => setLibF({ ...libF, search: e.target.value })} />
                 <SonBtn primary disabled={libBusy} onClick={async () => {
                   setLibBusy(true); setLibMsg('');
-                  try { const r = await scriptAudioApi.voiceSearch('ELEVENLABS', Object.fromEntries(Object.entries(libF).filter(([, v]) => v))); setLibRes(r.data || []); if (!(r.data || []).length) setLibMsg('No matches — loosen the filters.'); }
+                  try { const r = await scriptAudioApi.voiceSearch(f.engineKey, Object.fromEntries(Object.entries(libF).filter(([, v]) => v))); setLibRes(r.data || []); if (!(r.data || []).length) setLibMsg(f.engineKey === 'LOCAL' ? 'No matches — your local library may need more voices (upload clips to the local server).' : 'No matches — loosen the filters.'); }
                   catch (e: any) { setLibMsg(e?.response?.data?.message || 'Search failed.'); }
                   finally { setLibBusy(false); }
                 }}>{libBusy ? <Loader2 size={13} className="animate-spin" /> : <Search size={13} />} Search</SonBtn>
@@ -823,13 +838,19 @@ function VoiceEditor({ revision, projectId, character, engines, onSaved }: any) 
                     </div>
                     {v.previewUrl && <button className="son-iconbtn" title="Preview" onClick={() => { new Audio(v.previewUrl).play().catch(() => {}); }}><Play size={13} /></button>}
                     <SonBtn primary onClick={async () => {
+                      // LOCAL voices are already in the account — just select. ElevenLabs shared voices get added first.
+                      if (f.engineKey === 'LOCAL') {
+                        setF((p: any) => ({ ...p, externalVoiceId: v.id, gender: v.gender || p.gender, ageRange: v.age || p.ageRange, accent: v.accent || p.accent, nativeLanguage: v.language || p.nativeLanguage }));
+                        setLibMsg(`“${v.name}” selected — save the voice.`); setLibOpen(false);
+                        return;
+                      }
                       setLibMsg('Adding to your account…');
                       try {
                         const r = await scriptAudioApi.voiceAdd('ELEVENLABS', { publicOwnerId: v.publicOwnerId, voiceId: v.id, name: v.name });
                         setF((p: any) => ({ ...p, externalVoiceId: r.data?.voiceId || v.id, gender: v.gender || p.gender, ageRange: v.age || p.ageRange, accent: v.accent || p.accent, nativeLanguage: v.language || p.nativeLanguage }));
                         setLibMsg(`“${v.name}” added & selected — save the voice.`); setLibOpen(false);
                       } catch (e: any) { setLibMsg(e?.response?.data?.message || 'Could not add the voice.'); }
-                    }}>Add &amp; cast</SonBtn>
+                    }}>{f.engineKey === 'LOCAL' ? 'Cast' : 'Add & cast'}</SonBtn>
                   </div>
                 ))}
               </div>

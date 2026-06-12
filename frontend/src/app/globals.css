@@ -285,6 +285,23 @@ html.dark {
 html.dark body { background-color: var(--page-bg); color: var(--text-primary); }
 html.dark ::-webkit-scrollbar-thumb { background: #334155; }
 
+/* NATIVE form controls: color-scheme makes the browser render dropdown lists, date
+   pickers, checkboxes and scrollbars dark — fixes white-on-white option lists. */
+html.dark { color-scheme: dark; }
+@media not print {
+  /* Inputs/selects/textareas that kept a hardcoded white fill: force dark surface + readable ink.
+     Excludes checkboxes/radios/buttons (they style themselves). */
+  html.dark input:not([type='checkbox']):not([type='radio']):not([type='button']):not([type='submit']):not([type='range']):not([type='color']),
+  html.dark select,
+  html.dark textarea {
+    background-color: var(--surface-2) !important;
+    color: var(--text-1) !important;
+    border-color: var(--border-1) !important;
+  }
+  html.dark input::placeholder, html.dark textarea::placeholder { color: var(--text-3) !important; }
+  html.dark option { background-color: var(--surface-1); color: var(--text-1); }
+}
+
 /* (2) raw Tailwind utility remap — scoped to dark, print excluded */
 @media not print {
   html.dark .bg-white { background-color: var(--card-bg) !important; }

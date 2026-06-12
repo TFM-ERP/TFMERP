@@ -455,6 +455,31 @@ export class ProjectsService {
     return { ok: true, archived: res.count, missing: projectIds.length - found.length };
   }
 
+  /** Bulk unarchive — archived projects return to DEVELOPMENT (phase is editable after). */
+  async bulkUnarchive(projectIds: string[]) {
+    if (!Array.isArray(projectIds) || projectIds.length === 0) {
+      throw new BadRequestException('Provide a non-empty array of projectIds.');
+    }
+    const res = await this.prisma.productionProject.updateMany({
+      where: { id: { in: projectIds }, status: 'ARCHIVED' },
+      data: { status: 'DEVELOPMENT' },
+    });
+    return { ok: true, unarchived: res.count };
+  }
+
+  /** Bulk delete — every target must already be ARCHIVED (delete lives in the archive only). */
+  async bulkRemove(projectIds: string[], force = false) {
+    if (!Array.isArray(projectIds) || projectIds.length === 0) {
+      throw new BadRequestException('Provide a non-empty array of projectIds.');
+    }
+    const results: { id: string; ok: boolean; error?: string }[] = [];
+    for (const id of projectIds) {
+      try { await this.remove(id, force); results.push({ id, ok: true }); }
+      catch (e: any) { results.push({ id, ok: false, error: e?.message || 'Delete failed' }); }
+    }
+    return { ok: results.every((r) => r.ok), deleted: results.filter((r) => r.ok).length, results };
+  }
+
   /**
    * Delete a project and (via cascade) everything under it. Guarded: projects with a
    * LOCKED budget baseline or posted ledger transactions are protected — they require
@@ -469,6 +494,10 @@ export class ProjectsService {
       },
     });
     if (!project) throw new NotFoundException('Project not found');
+    // Delete is a two-step act by design: archive first, then delete from the archive.
+    if ((project as any).status !== 'ARCHIVED') {
+      throw new BadRequestException(`"${project.title}" must be archived before it can be deleted.`);
+    }
     if (!force && (project.budgetVersions.length > 0 || project._count.transactions > 0)) {
       throw new BadRequestException(
         `"${project.title}" has ${project.budgetVersions.length} locked baseline(s) and ${project._count.transactions} ledger transaction(s). ` +
@@ -496,6 +525,8 @@ export class ProjectsService {
         ...(data.notes !== undefined && { notes: data.notes }),
         ...(data.totalBudget !== undefined && { totalBudget: data.totalBudget }),
         ...(data.logoUrl !== undefined && { logoUrl: data.logoUrl || null }),
+        ...(data.posterUrl !== undefined && { posterUrl: data.posterUrl || null }),
+        ...(data.posterTransform !== undefined && { posterTransform: data.posterTransform || null }),
         ...(data.currency !== undefined && { currency: data.currency }),
       },
     });

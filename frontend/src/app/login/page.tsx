@@ -59,7 +59,7 @@ export default function LoginPage() {
       <div className="hidden lg:flex flex-col justify-between w-[420px] shrink-0 p-12"
         style={{ background: '#2B2E31', borderRight: '1px solid #3D4045' }}>
         <div>
-          <img src="/tfm-logo.svg" alt="The Film Makers" className="h-12 w-auto brightness-0 invert opacity-90" />
+          <img src="/tfm-logo-dark.png" alt="The Film Makers" className="h-24 w-auto" />
         </div>
         <div>
           <p className="text-4xl font-black leading-tight" style={{ color: '#e0d5c5' }}>
@@ -82,7 +82,7 @@ export default function LoginPage() {
 
           {/* Mobile logo */}
           <div className="lg:hidden text-center mb-8">
-            <img src="/tfm-logo.svg" alt="TFM" className="h-10 w-auto brightness-0 invert opacity-90 mx-auto mb-3" />
+            <img src="/tfm-logo-dark.png" alt="TFM" className="h-16 w-auto mx-auto mb-3" />
           </div>
 
           {/* Card */}

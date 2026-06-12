@@ -100,7 +100,7 @@ interface Props {
   logoSrc?: string;
 }
 
-export default function DocumentLayout({ type, doc, company, bank, settings, logoSrc = '/tfm-logo.svg' }: Props) {
+export default function DocumentLayout({ type, doc, company, bank, settings, logoSrc = '/tfm-logo.png' }: Props) {
   const S = { ...DEFAULT_DOC_SETTINGS, ...(settings || {}) };
   const GOLD = S.accentColor;
   const NAVY = S.navyColor;

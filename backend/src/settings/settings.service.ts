@@ -43,6 +43,7 @@ export class SettingsService {
       billingEmail: p.billingEmail,
       website:  p.website,
       logoUrl:  p.logoUrl,
+      darkLogoUrl: p.darkLogoUrl, // dark-mode logo (white lettering) for the app shell
       documentSettings: p.documentSettings || null,
       emailSettings: (p as any).emailSettings || null,
       // Finance defaults
@@ -84,6 +85,7 @@ export class SettingsService {
     if (data.email !== undefined) d.mainEmail = data.email || undefined;
     if (data.website !== undefined) d.website = data.website || undefined;
     if (data.logoUrl !== undefined) d.logoUrl = data.logoUrl || undefined;
+    if (data.darkLogoUrl !== undefined) d.darkLogoUrl = data.darkLogoUrl || undefined;
     if (data.defaultCurrency !== undefined) d.currency = data.defaultCurrency || undefined;
     if (data.invoicePrefix !== undefined) d.invoicePrefix = data.invoicePrefix || undefined;
     if (data.quotationPrefix !== undefined) d.quotationPrefix = data.quotationPrefix || undefined;

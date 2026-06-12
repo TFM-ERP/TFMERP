@@ -3,12 +3,28 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { productionApi, uploadFile } from '@/lib/api';
+import { productionApi, uploadFile, assetUrl } from '@/lib/api';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import { Search, RefreshCw, Plus, Film, Calendar, Copy, FileUp, Wand2, X, Clapperboard } from 'lucide-react';
 
 const PROJECT_TYPES = ['TVC', 'CORPORATE', 'DOCUMENTARY', 'FEATURE', 'SHORT', 'MUSIC_VIDEO', 'OTHER'];
 const STATUSES = ['DEVELOPMENT', 'PRE_PRODUCTION', 'PRODUCTION', 'POST_PRODUCTION', 'DELIVERED', 'CANCELLED', 'ARCHIVED'];
+
+/** One-sheet "genre line" under the title. */
+const TYPE_LABEL: Record<string, string> = {
+  TVC: 'TVC', CORPORATE: 'Corporate Film', DOCUMENTARY: 'Documentary',
+  FEATURE: 'Feature Film', SHORT: 'Short Film', MUSIC_VIDEO: 'Music Video', OTHER: 'Production',
+};
+/** Tiles without an uploaded poster fall back to a type-keyed brand gradient. */
+const TYPE_FALLBACK: Record<string, string> = {
+  FEATURE: 'linear-gradient(135deg,#1a2b4a,#0e1726 55%,#3d2c12)',
+  DOCUMENTARY: 'linear-gradient(160deg,#0f3530,#0b1d2e 60%,#10243f)',
+  TVC: 'linear-gradient(150deg,#4a3413,#241607 60%,#0d0a05)',
+  MUSIC_VIDEO: 'radial-gradient(120% 120% at 20% 0%,#5a1f1f,#1c0f18 70%)',
+  SHORT: 'linear-gradient(140deg,#2c1f4a,#141026 60%,#0d1830)',
+  CORPORATE: 'linear-gradient(145deg,#16324a,#0d1c2a 60%,#102337)',
+  OTHER: 'linear-gradient(135deg,#222b3a,#10161f 60%,#1d2433)',
+};
 
 const STATUS_COLORS: Record<string, string> = {
   DEVELOPMENT: 'bg-gray-100 text-gray-600',
@@ -35,22 +51,53 @@ export default function ProductionProjectsPage() {
   // Filming country (GeoNode) — drives jurisdiction tax rules + incentives/rebates
   const [countries, setCountries] = useState<any[]>([]);
   const [countryId, setCountryId] = useState('');
-  // Bulk archive: archived hidden by default, multi-select via card checkboxes
+  // Bulk select: active grid bulk-archives; archived section bulk-unarchives / bulk-deletes.
   const [showArchived, setShowArchived] = useState(false);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState<Set<string>>(new Set());        // active tiles
+  const [selectedArc, setSelectedArc] = useState<Set<string>>(new Set());  // archived cards
   const [archiving, setArchiving] = useState(false);
-  const visible = useMemo(() => showArchived ? items : items.filter((p: any) => p.status !== 'ARCHIVED'), [items, showArchived]);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const activeItems = useMemo(() => items.filter((p: any) => p.status !== 'ARCHIVED'), [items]);
+  const archivedItems = useMemo(() => items.filter((p: any) => p.status === 'ARCHIVED'), [items]);
   const toggleSelect = (id: string) => setSelected(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const toggleArc = (id: string) => setSelectedArc(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const archiveSelected = async () => {
     if (!selected.size) return;
-    if (!confirm(`Archive ${selected.size} project(s)? They stay intact and reversible — set Status back from the project page anytime.`)) return;
+    if (!confirm(`Archive ${selected.size} project(s)? They stay intact and reversible — unarchive anytime from the Archived section.`)) return;
     setArchiving(true);
     try {
       const r = await productionApi.projects.bulkArchive([...selected]);
       alert(`Archived ${r.data.archived} project(s).`);
-      setSelected(new Set()); load();
+      setSelected(new Set()); setShowArchived(true); load();
     } catch (e: any) { alert(e.response?.data?.message || 'Bulk archive failed.'); }
     finally { setArchiving(false); }
+  };
+  const unarchiveIds = async (ids: string[]) => {
+    if (!ids.length) return;
+    setBulkBusy(true);
+    try { await productionApi.projects.bulkUnarchive(ids); setSelectedArc(new Set()); load(); }
+    catch (e: any) { alert(e.response?.data?.message || 'Unarchive failed.'); }
+    finally { setBulkBusy(false); }
+  };
+  const deleteIds = async (ids: string[]) => {
+    if (!ids.length) return;
+    if (!confirm(`Permanently DELETE ${ids.length} archived project(s) and everything in them (budgets, ledger, schedule, crew)?\nThis cannot be undone.`)) return;
+    setBulkBusy(true);
+    try {
+      const r = await productionApi.projects.bulkDelete(ids);
+      const failed = (r.data.results || []).filter((x: any) => !x.ok);
+      if (failed.length) {
+        const protectedOnes = failed.filter((x: any) => String(x.error || '').includes('force=true'));
+        let forced = 0;
+        if (protectedOnes.length && confirm(`${failed.length} project(s) are protected (locked budgets / posted ledger).\n\nDelete them anyway?`)) {
+          const rf = await productionApi.projects.bulkDelete(protectedOnes.map((x: any) => x.id), true);
+          forced = rf.data.deleted || 0;
+        }
+        alert(`Deleted ${(r.data.deleted || 0) + forced} project(s).${failed.length - forced > 0 ? ` ${failed.length - forced} skipped.` : ''}`);
+      }
+      setSelectedArc(new Set()); load();
+    } catch (e: any) { alert(e.response?.data?.message || 'Delete failed.'); }
+    finally { setBulkBusy(false); }
   };
   // Optional script upload + breakdown on create
   const scriptRef = useRef<HTMLInputElement>(null);
@@ -300,60 +347,108 @@ export default function ProductionProjectsPage() {
         </button>
       </div>
 
-      {/* Project Grid */}
+      {/* ── Project grid — cinematic poster tiles (Option A). No delete here: archive first. ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {visible.map((p: any) => (
-          <Link key={p.id} href={`/production/projects/${p.id}`} className={cn('card hover:border-brand-300 hover:shadow-md transition-all cursor-pointer block', selected.has(p.id) && 'border-brand-400 ring-1 ring-brand-200', p.status === 'ARCHIVED' && 'opacity-60')}>
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex items-center gap-2">
+        {activeItems.map((p: any) => {
+          const t = (p.posterTransform || {}) as any;
+          const chip = 'rounded-full px-2 py-0.5 text-[10.5px] font-semibold text-white border border-white/25';
+          const glass = { background: 'rgba(8,12,20,.55)', backdropFilter: 'blur(6px)' } as any;
+          return (
+            <Link key={p.id} href={`/production/projects/${p.id}`}
+              className={cn('group relative rounded-2xl overflow-hidden border border-gray-200 min-h-[205px] flex flex-col justify-end text-white shadow-sm hover:shadow-xl hover:-translate-y-0.5 transition-all', selected.has(p.id) && 'ring-2 ring-indigo-400')}>
+              {/* poster (uploaded, with saved framing) or a type-keyed gradient fallback */}
+              <div aria-hidden style={{
+                position: 'absolute', inset: '-18%',
+                backgroundImage: p.posterUrl ? `url(${assetUrl(p.posterUrl)})` : (TYPE_FALLBACK[p.projectType] || TYPE_FALLBACK.OTHER),
+                backgroundSize: 'cover', backgroundPosition: 'center',
+                transform: `translate(${Number(t.x) || 0}%, ${Number(t.y) || 0}%) scale(${Number(t.zoom) || 1}) rotate(${Number(t.rot) || 0}deg)`,
+              }} />
+              <div aria-hidden className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(8,12,20,.05) 30%, rgba(8,12,20,.82) 78%, rgba(8,12,20,.93))' }} />
+              {/* top chips */}
+              <div className="absolute top-3 left-3 flex items-center gap-2">
                 <input type="checkbox" checked={selected.has(p.id)}
-                  onClick={(e) => { e.stopPropagation(); }}
+                  onClick={(e) => e.stopPropagation()}
                   onChange={(e) => { e.stopPropagation(); toggleSelect(p.id); }}
-                  className="w-4 h-4 accent-indigo-600 cursor-pointer" title="Select for bulk archive" />
-                <div className="w-9 h-9 bg-brand-100 rounded-lg flex items-center justify-center shrink-0">
-                  <Film size={16} className="text-brand-600" />
+                  className="w-4 h-4 accent-indigo-500 cursor-pointer" title="Select for bulk archive" />
+                <span className={chip} style={glass}>{p.status.replace(/_/g, ' ')}</span>
+              </div>
+              <div className="absolute top-3 right-3 flex items-center gap-1.5">
+                {p.totalBudget ? <span className="rounded-lg px-2.5 py-1 text-[11.5px] font-semibold" style={glass}>{formatCurrency(p.totalBudget)}</span> : null}
+                <button title="Duplicate project" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDup(p); }}
+                  className="rounded-lg p-1.5 text-white/70 hover:text-white" style={glass}><Copy size={13} /></button>
+              </div>
+              {/* body */}
+              <div className="relative p-4">
+                <div className="text-[10.5px] tracking-[.08em] opacity-75">{p.projectNumber}</div>
+                <div className="text-[16.5px] font-bold leading-tight" style={{ textShadow: '0 1px 8px rgba(0,0,0,.4)' }}>{p.title}</div>
+                <div className="text-[10.5px] font-bold uppercase tracking-[.14em] mb-1.5" style={{ color: '#c9a96a' }}>{TYPE_LABEL[p.projectType] || p.projectType.replace(/_/g, ' ')}</div>
+                <div className="flex gap-3.5 text-[11.5px] text-white/80">
+                  {p.client && <span className="truncate max-w-[45%]">{p.client.companyName}</span>}
+                  <span>{p._count?.crew || 0} crew</span>
+                  {p.startDate && <span>{formatDate(p.startDate)}</span>}
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <span className={cn('badge text-xs', STATUS_COLORS[p.status] || 'bg-gray-100 text-gray-600')}>
-                  {p.status.replace(/_/g, ' ')}
-                </span>
-                <button title="Duplicate project" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDup(p); }}
-                  className="text-gray-300 hover:text-brand-600"><Copy size={14} /></button>
-                <button title="Delete project" onClick={async (e) => {
-                  e.preventDefault(); e.stopPropagation();
-                  const typed = prompt(`Delete "${p.title}" and EVERYTHING in it (budgets, ledger, schedule, crew)?\nThis cannot be undone.\n\nType the project number to confirm: ${p.projectNumber}`);
-                  if (typed !== p.projectNumber) { if (typed !== null) alert('Project number did not match — nothing deleted.'); return; }
-                  try { await productionApi.projects.remove(p.id); load(); }
-                  catch (err: any) {
-                    const msg = err.response?.data?.message || 'Delete failed.';
-                    if (msg.includes('force=true') && confirm(`${msg}\n\nDelete anyway?`)) {
-                      try { await productionApi.projects.remove(p.id, true); load(); } catch (e2: any) { alert(e2.response?.data?.message || 'Delete failed.'); }
-                    } else alert(msg);
-                  }
-                }} className="text-gray-300 hover:text-red-500"><X size={14} /></button>
-              </div>
-            </div>
-            <p className="font-semibold text-gray-900 text-sm mb-1 leading-tight">{p.title}</p>
-            <p className="text-xs text-gray-400 mb-3">{p.projectNumber} · {p.projectType.replace(/_/g, ' ')}</p>
-            {p.client && <p className="text-xs text-gray-500 mb-2">{p.client.companyName}</p>}
-            <div className="flex items-center justify-between text-xs text-gray-400 border-t border-gray-100 pt-2 mt-2">
-              <span>{p._count?.crew || 0} crew</span>
-              {p.totalBudget ? (
-                <span className="font-semibold text-gray-700">{formatCurrency(p.totalBudget)}</span>
-              ) : (
-                <span className="text-gray-300">No budget</span>
-              )}
-            </div>
-          </Link>
-        ))}
-        {items.length === 0 && !loading && (
+            </Link>
+          );
+        })}
+        {activeItems.length === 0 && !loading && (
           <div className="col-span-3 text-center py-16 text-gray-400">
             <Film size={32} className="mx-auto mb-3 opacity-30" />
             <p className="text-sm">No projects yet. Create your first production project.</p>
           </div>
         )}
       </div>
+
+      {/* ── Archived — the only place Delete exists ── */}
+      {showArchived && archivedItems.length > 0 && (
+        <div className="mt-10">
+          <h2 className="text-[12px] uppercase tracking-[.07em] text-gray-400 font-semibold mb-2">Archived · {archivedItems.length}</h2>
+          <div className="flex items-center gap-3 bg-white border border-gray-200 rounded-xl px-3 py-2 mb-3">
+            <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer">
+              <input type="checkbox"
+                checked={selectedArc.size === archivedItems.length && archivedItems.length > 0}
+                onChange={(e) => setSelectedArc(e.target.checked ? new Set(archivedItems.map((p: any) => p.id)) : new Set())}
+                className="w-4 h-4 accent-indigo-600" />
+              Select all
+            </label>
+            <span className="text-xs text-gray-400">{selectedArc.size} of {archivedItems.length} selected</span>
+            <span className="flex-1" />
+            <button onClick={() => unarchiveIds([...selectedArc])} disabled={bulkBusy || !selectedArc.size}
+              className="btn btn-primary text-xs disabled:opacity-40">⤴ Unarchive selected</button>
+            <button onClick={() => deleteIds([...selectedArc])} disabled={bulkBusy || !selectedArc.size}
+              className="btn text-xs text-red-600 border border-red-200 rounded-lg px-3 py-1.5 disabled:opacity-40">🗑 Delete selected</button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {archivedItems.map((p: any) => (
+              <div key={p.id} className={cn('relative card', selectedArc.has(p.id) ? 'ring-2 ring-indigo-400' : 'opacity-75')}>
+                <input type="checkbox" checked={selectedArc.has(p.id)} onChange={() => toggleArc(p.id)}
+                  className="absolute top-3 right-3 w-4 h-4 accent-indigo-600 cursor-pointer" />
+                <span className="badge text-xs bg-gray-100 text-gray-400">ARCHIVED</span>
+                <Link href={`/production/projects/${p.id}`} className="block mt-2">
+                  <p className="font-semibold text-gray-600 text-sm leading-tight">{p.title}</p>
+                  <p className="text-[10px] uppercase tracking-[.12em] text-gray-400 font-bold mt-0.5">{TYPE_LABEL[p.projectType] || p.projectType.replace(/_/g, ' ')}</p>
+                  <p className="text-xs text-gray-400 mt-1">{p.projectNumber}{p.client ? ` · ${p.client.companyName}` : ''}</p>
+                </Link>
+                <div className="flex gap-2 mt-3">
+                  <button onClick={() => unarchiveIds([p.id])} disabled={bulkBusy} className="btn btn-secondary text-xs">⤴ Unarchive</button>
+                  <button disabled={bulkBusy} className="btn text-xs text-red-600 border border-red-200 rounded-lg px-3 py-1.5"
+                    onClick={async () => {
+                      const typed = prompt(`Delete "${p.title}" and EVERYTHING in it (budgets, ledger, schedule, crew)?\nThis cannot be undone.\n\nType the project number to confirm: ${p.projectNumber}`);
+                      if (typed !== p.projectNumber) { if (typed !== null) alert('Project number did not match — nothing deleted.'); return; }
+                      try { await productionApi.projects.remove(p.id); load(); }
+                      catch (err: any) {
+                        const msg = err.response?.data?.message || 'Delete failed.';
+                        if (msg.includes('force=true') && confirm(`${msg}\n\nDelete anyway?`)) {
+                          try { await productionApi.projects.remove(p.id, true); load(); } catch (e2: any) { alert(e2.response?.data?.message || 'Delete failed.'); }
+                        } else alert(msg);
+                      }
+                    }}>Delete</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Duplicate scope dialog */}
       {dup && (

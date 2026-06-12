@@ -38,6 +38,42 @@ export default function ProjectSettingsPanel({ projectId, project, activeVersion
   };
   const removeLogo = async () => { setLogoUrl(''); await productionApi.projects.update(projectId, { logoUrl: '' }); onChanged?.(); };
 
+  // ── Tile poster (Projects grid branding) — framed exactly as the tile renders it.
+  //    Transform = { x, y (% of stage), zoom (1..3), rot (deg) }, stored as posterTransform.
+  const [posterUrl, setPosterUrl] = useState<string>(project?.posterUrl || '');
+  const [pt, setPt] = useState<{ x: number; y: number; zoom: number; rot: number }>(
+    { x: 0, y: 0, zoom: 1, rot: 0, ...((project?.posterTransform as any) || {}) });
+  const [posterDirty, setPosterDirty] = useState(false);
+  const posterDrag = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!posterUrl) return;
+    e.preventDefault();
+    const stage = (e.currentTarget as HTMLElement);
+    const start = { sx: e.clientX, sy: e.clientY, x: pt.x, y: pt.y };
+    const sc = (stage.clientWidth || 330) / 100; // px per 1% of stage width
+    const move = (ev: MouseEvent) => {
+      setPt((p) => ({ ...p, x: Math.max(-60, Math.min(60, start.x + (ev.clientX - start.sx) / sc)), y: Math.max(-60, Math.min(60, start.y + (ev.clientY - start.sy) / sc)) }));
+      setPosterDirty(true);
+    };
+    const up = () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); };
+    window.addEventListener('mousemove', move); window.addEventListener('mouseup', up);
+  };
+  const uploadPoster = async (e: any) => {
+    const file = e.target.files?.[0]; e.target.value = '';
+    if (!file) return;
+    try { const up = await uploadFile(file); setPosterUrl(up.url); setPt({ x: 0, y: 0, zoom: 1, rot: 0 }); setPosterDirty(true); }
+    catch { alert('Upload failed.'); }
+  };
+  const savePoster = async () => {
+    try {
+      await productionApi.projects.update(projectId, { posterUrl: posterUrl || null, posterTransform: posterUrl ? pt : null });
+      setPosterDirty(false); onChanged?.();
+    } catch (e: any) { alert(e?.response?.data?.message || 'Could not save the poster.'); }
+  };
+  const removePoster = async () => {
+    setPosterUrl(''); setPt({ x: 0, y: 0, zoom: 1, rot: 0 }); setPosterDirty(false);
+    await productionApi.projects.update(projectId, { posterUrl: '', posterTransform: null }); onChanged?.();
+  };
+
   // Production dates — shootStartDate is THE calendar anchor (Day 1 of Principal
   // Photography). Locking a budget derives shootEndDate from it + the locked shoot_days.
   const [shootStart, setShootStart] = useState<string>(project?.shootStartDate ? String(project.shootStartDate).slice(0, 10) : '');
@@ -237,6 +273,58 @@ export default function ProjectSettingsPanel({ projectId, project, activeVersion
                 <div className="flex gap-2">
                   <label className="btn btn-secondary text-xs cursor-pointer inline-flex"><Upload size={13} className="mr-1" /> {logoUrl ? 'Replace' : 'Upload logo'}<input type="file" accept="image/*" className="hidden" onChange={uploadLogo} /></label>
                   {logoUrl && <button onClick={removeLogo} className="btn btn-secondary text-xs text-red-600"><X size={13} className="mr-1" /> Remove</button>}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {section === 'branding' && (
+            <div className="card">
+              <h4 className="text-xs font-semibold text-gray-600 uppercase mb-2 flex items-center gap-1.5"><ImageIcon size={13} /> Tile poster</h4>
+              <p className="text-[11px] text-gray-400 mb-3">The branding image behind this project's tile on the Projects grid. Drag to position, zoom and rotate — the preview below IS the tile, so what you frame is what the grid shows.</p>
+              <div className="flex flex-wrap gap-6">
+                <div>
+                  <div onMouseDown={posterDrag}
+                    className="relative rounded-2xl overflow-hidden border border-gray-200 select-none"
+                    style={{ width: 330, height: 205, cursor: posterUrl ? 'grab' : 'default' }}>
+                    <div aria-hidden style={{
+                      position: 'absolute', inset: '-18%',
+                      backgroundImage: posterUrl ? `url(${assetUrl(posterUrl)})` : 'linear-gradient(135deg,#1a2b4a,#0e1726 55%,#3d2c12)',
+                      backgroundSize: 'cover', backgroundPosition: 'center',
+                      transform: `translate(${pt.x}%, ${pt.y}%) scale(${pt.zoom}) rotate(${pt.rot}deg)`,
+                    }} />
+                    <div aria-hidden style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg,rgba(8,12,20,.05) 30%,rgba(8,12,20,.85))' }} />
+                    <div className="absolute left-4 bottom-3 text-white pointer-events-none">
+                      <div style={{ fontSize: 10, letterSpacing: '.14em', color: '#c9a96a', fontWeight: 700, textTransform: 'uppercase' }}>{(project?.projectType || '').replace(/_/g, ' ')}</div>
+                      <div className="font-bold" style={{ fontSize: 16, textShadow: '0 1px 8px rgba(0,0,0,.4)' }}>{project?.title}</div>
+                    </div>
+                  </div>
+                  <p className="text-[10.5px] text-gray-400 text-center mt-1">{posterUrl ? '↕↔ drag the image to reposition' : 'No poster yet — upload one to replace the gradient'}</p>
+                </div>
+                <div className="flex-1 min-w-[230px] space-y-4">
+                  <div className="flex gap-2">
+                    <label className="btn btn-secondary text-xs cursor-pointer inline-flex"><Upload size={13} className="mr-1" /> {posterUrl ? 'Replace poster' : 'Upload poster…'}<input type="file" accept="image/*" className="hidden" onChange={uploadPoster} /></label>
+                    {posterUrl && <button onClick={removePoster} className="btn btn-secondary text-xs text-red-600"><X size={13} className="mr-1" /> Remove</button>}
+                  </div>
+                  <div>
+                    <label className="label text-xs">Zoom — {Math.round(pt.zoom * 100)}%</label>
+                    <input type="range" min="1" max="3" step="0.05" value={pt.zoom} disabled={!posterUrl}
+                      onChange={(e) => { setPt(p => ({ ...p, zoom: Number(e.target.value) })); setPosterDirty(true); }} className="w-full" />
+                  </div>
+                  <div>
+                    <label className="label text-xs">Rotate — {Math.round(pt.rot)}°</label>
+                    <div className="flex items-center gap-2">
+                      <button disabled={!posterUrl} onClick={() => { setPt(p => ({ ...p, rot: p.rot - 90 })); setPosterDirty(true); }} className="btn btn-secondary text-xs">⟲ −90°</button>
+                      <button disabled={!posterUrl} onClick={() => { setPt(p => ({ ...p, rot: p.rot + 90 })); setPosterDirty(true); }} className="btn btn-secondary text-xs">⟳ +90°</button>
+                      <input type="range" min="-45" max="45" step="1" disabled={!posterUrl} title="Fine rotation"
+                        value={((pt.rot % 90) + 135) % 90 - 45}
+                        onChange={(e) => { const base = Math.round(pt.rot / 90) * 90; setPt(p => ({ ...p, rot: base + Number(e.target.value) })); setPosterDirty(true); }} className="flex-1" />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 pt-1">
+                    <button onClick={savePoster} disabled={!posterDirty} className="btn btn-primary text-xs disabled:opacity-40">Save poster</button>
+                    <button onClick={() => { setPt({ x: 0, y: 0, zoom: 1, rot: 0 }); setPosterDirty(true); }} disabled={!posterUrl} className="btn btn-secondary text-xs">Reset framing</button>
+                  </div>
                 </div>
               </div>
             </div>

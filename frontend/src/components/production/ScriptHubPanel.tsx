@@ -64,7 +64,33 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
   const [compare, setCompare] = useState<any>(null); // { other, data } when compare modal open
   const [settingsLayer, setSettingsLayer] = useState<any>(null);
   // SYS-14 takeover model: ONE surface open at a time — overlays can no longer stack.
-  const [surface, setSurface] = useState<'reader' | 'tags' | 'lining' | 'sides' | 'analyze' | 'audiostudio' | 'memos' | 'procurement' | null>(null);
+  type Surface = 'reader' | 'prep' | 'audiostudio' | 'memos' | 'procurement' | null;
+  type PrepSub = 'tags' | 'lining' | 'sides' | 'analyze';
+  // Surface survives refresh: initialized from ?surface= and written back to the URL on change.
+  // Legacy deep-links (tags/lining/sides/analyze) map to the Prep surface + sub-tab.
+  const PREP_SUBS: PrepSub[] = ['tags', 'lining', 'sides', 'analyze'];
+  const initialRaw = typeof window === 'undefined' ? null
+    : new URLSearchParams(window.location.search).get('surface') || window.sessionStorage.getItem('scripton-surface');
+  const [prepSub, setPrepSubState] = useState<PrepSub>(() =>
+    (PREP_SUBS.includes(initialRaw as PrepSub) ? initialRaw as PrepSub
+      : (typeof window !== 'undefined' && window.sessionStorage.getItem('scripton-prep-sub') as PrepSub)) || 'tags');
+  const setPrepSub = useCallback((s: PrepSub) => {
+    setPrepSubState(s);
+    try { window.sessionStorage.setItem('scripton-prep-sub', s); } catch {}
+  }, []);
+  const [surface, setSurfaceState] = useState<Surface>(() => {
+    if (PREP_SUBS.includes(initialRaw as PrepSub)) return 'prep';
+    return (initialRaw as Surface) || null;
+  });
+  const setSurface = useCallback((s: Surface) => {
+    setSurfaceState(s);
+    try { if (s) window.sessionStorage.setItem('scripton-surface', s); else window.sessionStorage.removeItem('scripton-surface'); } catch {}
+    try {
+      const u = new URL(window.location.href);
+      if (s) u.searchParams.set('surface', s); else u.searchParams.delete('surface');
+      window.history.replaceState(null, '', u.toString());
+    } catch {}
+  }, []);
   const [moreOpen, setMoreOpen] = useState(false);        // "⋯ More" actions menu
   const [pagesOpen, setPagesOpen] = useState(false);      // Page-maker modal (lives in ⋯ More)
   const [pageOpts, setPageOpts] = useState({ style: 'LINED', side: 'BEFORE' });
@@ -420,18 +446,16 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
             {([
               ['pages', 'Pages', 'Annotate the script — notes, layers, bookmarks'],
               ['reader', 'Reader', 'Read-aloud, rehearse & self-tape'],
-              ['tags', 'Tags', 'Tag categories, auto-tag cast, element report'],
-              ['lining', 'Lining', 'Script-supervisor lining + hot cost'],
-              ['sides', 'Sides', 'Generate sides for a shoot day'],
-              ['analyze', 'Analyze', 'Local script breakdown'],
+              ['prep', 'Prep', 'Tags, lining, sides & analysis — the breakdown toolkit'],
               ['audiostudio', 'Audio Studio ♪', 'Voices, live table read, render, layers'],
             ] as const).map(([k, label, tip]) => (
               <button key={k} title={tip}
                 onClick={() => setSurface(k === 'pages' ? null : (surface === k ? null : k as any))}
                 className={`px-3.5 py-2 text-[13px] border-b-2 -mb-px transition-colors ${
                   (k === 'pages' ? surface === null : surface === k)
-                    ? 'border-slate-900 text-slate-900 font-semibold'
-                    : 'border-transparent text-slate-500 hover:text-slate-900'}`}>
+                    ? 'text-slate-900 font-semibold'
+                    : 'border-transparent text-slate-500 hover:text-slate-900'}`}
+                style={(k === 'pages' ? surface === null : surface === k) ? { borderBottomColor: 'var(--accent, #3E6CD6)' } : undefined}>
                 {label}
               </button>
             ))}
@@ -472,12 +496,37 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
             so they render INSIDE the binder (same window as Pages), not over the app. */}
         {surface && activeRev && (
           <div style={{ position: 'relative', minHeight: '78vh', transform: 'translateZ(0)', overflow: 'hidden', borderRadius: 16 }}>
-            {surface === 'sides' && <SidesGenerator projectId={projectId} revision={activeRev} onClose={() => setSurface(null)} />}
-            {surface === 'lining' && <LiningPanel projectId={projectId} revision={activeRev} onClose={() => setSurface(null)} />}
             {surface === 'procurement' && <ProcurementStagingPanel projectId={projectId} revision={activeRev} onClose={() => setSurface(null)} />}
             {surface === 'reader' && <ScriptReader revision={activeRev} inline onClose={() => setSurface(null)} />}
-            {surface === 'tags' && <TagToolsPanel projectId={projectId} revision={activeRev} onChanged={() => loadAnnos(activeRev.id)} onClose={() => setSurface(null)} />}
-            {surface === 'analyze' && <ScriptAnalyzePanel revision={activeRev} onClose={() => setSurface(null)} />}
+            {surface === 'prep' && (
+              // Prep — the breakdown toolkit. Same card shell as Reader/Pages: white h-12
+              // header (title + sub-tabs), full-height body, each tool filling the container.
+              <div className="absolute inset-0 flex flex-col bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                <div className="flex items-center gap-2 px-4 h-12 border-b border-slate-200 shrink-0">
+                  <Scissors size={16} className="text-slate-700" />
+                  <h3 className="text-sm text-slate-800" style={{ fontWeight: 650 }}>Prep — {activeRev.revisionLabel}</h3>
+                  <div className="ml-4 flex items-stretch gap-0.5 self-stretch">
+                    {([['tags', 'Tags'], ['lining', 'Lining'], ['sides', 'Sides'], ['analyze', 'Analyze']] as const).map(([k, label]) => (
+                      <button key={k} onClick={() => setPrepSub(k)}
+                        className="px-3 text-[13px] transition-colors flex items-center"
+                        style={{
+                          color: prepSub === k ? 'var(--text-1, #0f172a)' : 'var(--text-3, #64748b)',
+                          fontWeight: prepSub === k ? 600 : 400,
+                          borderBottom: `2px solid ${prepSub === k ? 'var(--accent, #3E6CD6)' : 'transparent'}`,
+                        }}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex-1 relative min-h-0">
+                  {prepSub === 'tags' && <TagToolsPanel inline projectId={projectId} revision={activeRev} onChanged={() => loadAnnos(activeRev.id)} onClose={() => setSurface(null)} />}
+                  {prepSub === 'lining' && <LiningPanel inline projectId={projectId} revision={activeRev} onClose={() => setSurface(null)} />}
+                  {prepSub === 'sides' && <SidesGenerator inline projectId={projectId} revision={activeRev} onClose={() => setSurface(null)} />}
+                  {prepSub === 'analyze' && <ScriptAnalyzePanel inline revision={activeRev} onClose={() => setSurface(null)} />}
+                </div>
+              </div>
+            )}
             {surface === 'memos' && <AudioNotesPanel revision={activeRev} onClose={() => setSurface(null)} />}
             {surface === 'audiostudio' && <ScriptOnAudioPanel revision={activeRev} projectId={projectId} onClose={() => setSurface(null)} />}
           </div>
@@ -490,7 +539,7 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
             {/* Same card shell as the Reader — header bar + padded body */}
             <div className="flex items-center gap-2 px-4 h-12 bg-white border-b border-slate-200">
               <FileText size={16} className="text-slate-700" />
-              <h3 className="text-sm font-semibold text-slate-800">Pages — {activeRev.revisionLabel}</h3>
+              <h3 className="text-sm text-slate-800" style={{ fontWeight: 650 }}>Pages — {activeRev.revisionLabel}</h3>
               <span className="text-[11px] text-slate-400">{activeRev.pageCount} pages · {activeRev.scenes?.length || 0} scenes · {annos.length} notes</span>
               <Chip tone="slate"><span className="inline-block w-2 h-2 rounded-full mr-1" style={{ background: activeRev.colorCode || '#e2e8f0' }} />{activeRev.revisionLabel}</Chip>
               {orphans.length > 0 && <Chip tone="risk">{orphans.length} orphan{orphans.length === 1 ? '' : 's'}</Chip>}

@@ -214,7 +214,22 @@ export default function ProjectDetailPage() {
   const [bva, setBva] = useState<any>(null);
   const [bvaLoading, setBvaLoading] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<Tab>('overview');
+  // Tab survives refresh: ?tab= in the URL (shareable) + sessionStorage (immune to the
+  // router rewriting the URL). Restore order: URL param → sessionStorage → overview.
+  const [tab, setTabState] = useState<Tab>(() => {
+    if (typeof window === 'undefined') return 'overview';
+    return ((new URLSearchParams(window.location.search).get('tab')
+      || window.sessionStorage.getItem(`proj-tab:${id}`)) as Tab) || 'overview';
+  });
+  const setTab = useCallback((t: Tab) => {
+    setTabState(t);
+    try { window.sessionStorage.setItem(`proj-tab:${id}`, t); } catch {}
+    try {
+      const u = new URL(window.location.href);
+      u.searchParams.set('tab', t);
+      window.history.replaceState(null, '', u.toString());
+    } catch {}
+  }, [id]);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
 
   // Line item add form state

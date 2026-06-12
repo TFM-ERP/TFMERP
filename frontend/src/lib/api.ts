@@ -279,6 +279,8 @@ export const productionApi = {
     duplicate: (id: string, crewScope?: string) => api.post(`/production/projects/${id}/duplicate`, { crewScope }),
     remove: (id: string, force = false) => api.delete(`/production/projects/${id}`, { params: { force } }),
     bulkArchive: (projectIds: string[]) => api.patch('/production/projects/bulk-archive', { projectIds }),
+    bulkUnarchive: (projectIds: string[]) => api.patch('/production/projects/bulk-unarchive', { projectIds }),
+    bulkDelete: (projectIds: string[], force = false) => api.patch('/production/projects/bulk-delete', { projectIds, force }),
     bank: (id: string) => api.get(`/production/projects/${id}/bank`),
     linkBank: (id: string, data: { bankAccountId?: string | null; ledgerBankAccountId?: string | null }) => api.put(`/production/projects/${id}/bank`, data),
     permissionTemplates: () => api.get('/production/projects/permission-templates'),

@@ -45,6 +45,16 @@ export class ProjectsController {
   @RequirePermission('production', 2)
   bulkArchive(@Body() body: { projectIds: string[] }) { return this.service.bulkArchive(body?.projectIds || []); }
 
+  // Bulk unarchive — archived projects return to the active grid
+  @Patch('bulk-unarchive')
+  @RequirePermission('production', 2)
+  bulkUnarchive(@Body() body: { projectIds: string[] }) { return this.service.bulkUnarchive(body?.projectIds || []); }
+
+  // Bulk delete — only ARCHIVED projects qualify (delete lives in the archive)
+  @Patch('bulk-delete')
+  @RequirePermission('production', 2)
+  bulkRemove(@Body() body: { projectIds: string[]; force?: boolean }) { return this.service.bulkRemove(body?.projectIds || [], !!body?.force); }
+
   @Put(':id')
   update(@Param('id') id: string, @Body() body: any) { return this.service.update(id, body); }
 
