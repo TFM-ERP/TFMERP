@@ -34,8 +34,9 @@ export default function QuotationsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Quotations</h1>
-          <p className="text-sm text-gray-500">{total} quotations total</p>
+          <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>Finance · Sales</div>
+          <h1 className="text-[20px] font-extrabold leading-tight" style={{ color: 'var(--text-1)' }}>Quotations</h1>
+          <p className="text-sm" style={{ color: 'var(--text-3)' }}>{total} quotations total</p>
         </div>
         <Link href="/finance/quotations/new" className="btn-primary">
           <Plus size={15} /> New Quotation

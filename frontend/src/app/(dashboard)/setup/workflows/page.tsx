@@ -46,8 +46,9 @@ export default function WorkflowsAdminPage() {
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center"><GitBranch size={18} className="text-brand-600" /></div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">Approval Workflows</h1>
-            <p className="text-sm text-gray-500">Sequential approval chains for POs, timecards, petty cash, transfers and more.</p>
+            <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>Setup · Workflows</div>
+            <h1 className="text-[20px] font-extrabold leading-tight" style={{ color: 'var(--text-1)' }}>Approval Workflows</h1>
+            <p className="text-sm" style={{ color: 'var(--text-3)' }}>Sequential approval chains for POs, timecards, petty cash, transfers and more.</p>
           </div>
         </div>
         <div className="flex gap-2">

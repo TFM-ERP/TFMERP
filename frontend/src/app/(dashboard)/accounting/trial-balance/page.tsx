@@ -36,8 +36,9 @@ export default function TrialBalancePage() {
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center"><BarChart3 size={18} className="text-brand-600" /></div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">Trial Balance</h1>
-            <p className="text-sm text-gray-500">Posted entries only.</p>
+            <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>Accounting · Reports</div>
+            <h1 className="text-[20px] font-extrabold leading-tight" style={{ color: 'var(--text-1)' }}>Trial Balance</h1>
+            <p className="text-sm" style={{ color: 'var(--text-3)' }}>Posted entries only.</p>
           </div>
         </div>
         <div className="flex gap-2 items-end">

@@ -40,8 +40,9 @@ export default function InvoicesPage() {
     <div className="p-6 space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Invoices</h1>
-          <p className="text-sm text-gray-500">{total} invoices total</p>
+          <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>Finance · Receivables</div>
+          <h1 className="text-[20px] font-extrabold leading-tight" style={{ color: 'var(--text-1)' }}>Invoices</h1>
+          <p className="text-sm" style={{ color: 'var(--text-3)' }}>{total} invoices total</p>
         </div>
         <Link href="/finance/invoices/new" className="btn-primary">
           <Plus size={15} /> New Invoice

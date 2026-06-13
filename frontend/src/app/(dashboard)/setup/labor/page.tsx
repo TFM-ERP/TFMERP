@@ -71,8 +71,11 @@ export default function LaborMasterPage() {
     <div className="p-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-2">
-          <Scale size={20} className="text-brand-600" />
-          <h1 className="text-xl font-bold text-gray-900">Labor & Fringe Master</h1>
+          <Scale size={20} style={{ color: 'var(--gold)' }} />
+          <div>
+            <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>Setup · Masters</div>
+            <h1 className="text-[20px] font-extrabold leading-tight" style={{ color: 'var(--text-1)' }}>Labor & Fringe Master</h1>
+          </div>
         </div>
         <div className="flex gap-2">
           <button onClick={doAiUpdateAll} disabled={aiBusy} className="btn btn-primary text-xs">

@@ -34,8 +34,9 @@ export default function LeadsPage() {
         <div className="flex items-center gap-3">
           <Link href="/crm" className="btn-ghost p-2"><ArrowLeft size={16} /></Link>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">Leads</h1>
-            <p className="text-sm text-gray-500">New enquiries before they become opportunities.</p>
+            <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>CRM · Pipeline</div>
+            <h1 className="text-[20px] font-extrabold leading-tight" style={{ color: 'var(--text-1)' }}>Leads</h1>
+            <p className="text-sm" style={{ color: 'var(--text-3)' }}>New enquiries before they become opportunities.</p>
           </div>
         </div>
         <button onClick={() => setEdit({ status: 'NEW' })} className="btn-primary"><Plus size={14} /> New lead</button>

@@ -57,8 +57,9 @@ export default function InventoryPage() {
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center"><Package size={18} className="text-brand-600" /></div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">Inventory &amp; Consumables</h1>
-            <p className="text-sm text-gray-500">Track expendables, stock levels and reorder points.</p>
+            <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>Operations · Stock</div>
+            <h1 className="text-[20px] font-extrabold leading-tight" style={{ color: 'var(--text-1)' }}>Inventory &amp; Consumables</h1>
+            <p className="text-sm" style={{ color: 'var(--text-3)' }}>Track expendables, stock levels and reorder points.</p>
           </div>
         </div>
         <button onClick={() => setShowForm(s => !s)} className="btn btn-primary"><Plus size={14} /> Add item</button>
