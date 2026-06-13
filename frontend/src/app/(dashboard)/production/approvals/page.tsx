@@ -34,14 +34,11 @@ export default function MyApprovalsPage() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
-      <div className="flex items-center justify-between mb-5">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center"><Inbox size={18} className="text-brand-600" /></div>
-          <div>
-            <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>Production · Approvals</div>
-            <h1 className="text-[20px] font-extrabold leading-tight" style={{ color: 'var(--text-1)' }}>My Approvals</h1>
-            <p className="text-sm" style={{ color: 'var(--text-3)' }}>Items waiting on you across every project — {items.length} pending.</p>
-          </div>
+      <div className="marquee-panel flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>Production · Approvals</div>
+          <h1 className="text-[20px] font-extrabold leading-tight" style={{ color: 'var(--text-1)' }}>My Approvals</h1>
+          <p className="text-sm" style={{ color: 'var(--text-3)' }}>Items waiting on you across every project — {items.length} pending.</p>
         </div>
         <button onClick={load} className="btn btn-secondary text-xs"><RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh</button>
       </div>

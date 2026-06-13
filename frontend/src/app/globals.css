@@ -63,6 +63,33 @@
     .glass-bar { background: var(--glass-base, var(--surface-1)); }
   }
 
+  /* Marquee panel — the cinematic hero used on the project pages, as a reusable
+     wrapper for any page header. Theme-aware: warm ivory→sand in light, charcoal
+     →gold in dark, with a soft gold glow in the top-right corner. */
+  .marquee-panel {
+    position: relative;
+    border-radius: 18px;
+    overflow: hidden;
+    padding: 16px 18px;
+    margin-bottom: 18px;
+    background: linear-gradient(120deg, #FCFCFB 0%, #F3F2EF 70%, #EFEBE2 130%);
+    border: 1px solid var(--border-1);
+  }
+  .marquee-panel::before {
+    content: '';
+    position: absolute; right: -50px; top: -70px; width: 240px; height: 240px;
+    border-radius: 50%; pointer-events: none;
+    background: radial-gradient(circle, rgba(176,141,79,.14), transparent 70%);
+  }
+  html.dark .marquee-panel {
+    background: linear-gradient(120deg, #141416 0%, #0E0E10 55%, #1c1407 130%);
+    border-color: #232326;
+  }
+  html.dark .marquee-panel::before {
+    background: radial-gradient(circle, rgba(201,169,106,.18), transparent 70%);
+  }
+  .marquee-panel > * { position: relative; } /* lift content above the glow */
+
   html { font-size: 13px; }
 
   body {
