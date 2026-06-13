@@ -163,5 +163,9 @@ export default function RenewalsPage() {
           </table>
         )}
       </div>
-
-      <p className="text-xs text-gray-400 fl
+      <p className="text-xs text-gray-400 flex items-center gap-1.5">
+        <AlertTriangle size={12} /> Items are pulled live from company documents, fleet registrations, insurance policies and staff records.
+      </p>
+    </div>
+  );
+}
