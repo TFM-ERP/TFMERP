@@ -160,7 +160,7 @@ const NEW_ROUTES: Record<string, { label: string; href: string }> = {
   '/rental/bookings': { label: 'New booking', href: '/rental/bookings/new' },
 };
 
-const GOLD = '#0f172a';
+const GOLD = '#b08d4f'; // TFM gold — the single brand accent in both themes
 
 const API_ROOT = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1').replace('/api/v1', '');
 const fileSrc = (v?: string) => (!v ? '' : (v.startsWith('http') || v.startsWith('data:')) ? v : `${API_ROOT}${v}`);
@@ -335,17 +335,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const logoSrc = fileSrc(usingDarkLogo ? company?.darkLogoUrl : company?.logoUrl);
   const fallbackLogo = darkMode ? '/tfm-logo-dark.png' : '/tfm-logo.png';
 
-  // Theme-following rail palette — neutral in light, charcoal brand in dark.
+  // Theme-following rail palette — Graphite paper in light, Charcoal Black in dark.
+  // Active item = gold-tinted in dark, charcoal fill in light; gold is the only accent.
   const pal = darkMode ? {
-    bg: '#0f172a', border: 'rgba(255,255,255,0.08)', cap: '#5b6b85', brand: '#f1f5f9', brandSub: '#5b6b85',
-    item: '#94a3b8', itemHover: '#1e293b', itemHoverText: '#f1f5f9', activeBg: '#1e293b', activeText: '#ffffff',
-    searchBg: '#0b1322', searchBorder: 'rgba(255,255,255,0.09)', searchText: '#5b6b85',
-    footerText: '#f1f5f9', footerSub: '#5b6b85', avBg: '#1e293b', avText: '#ffffff', menuBg: '#1e293b',
+    bg: '#0E0E10', border: 'rgba(255,255,255,0.07)', cap: '#6e6e76', brand: '#EDEDEA', brandSub: '#6e6e76',
+    item: '#9a9aa2', itemHover: '#1A1A1D', itemHoverText: '#EDEDEA', activeBg: '#2A2310', activeText: '#DFC18A',
+    searchBg: '#121214', searchBorder: 'rgba(255,255,255,0.08)', searchText: '#6e6e76',
+    footerText: '#EDEDEA', footerSub: '#6e6e76', avBg: '#2A2310', avText: '#DFC18A', menuBg: '#1A1A1D',
   } : {
-    bg: '#ffffff', border: '#e8eaed', cap: '#94a3b8', brand: '#0f172a', brandSub: '#94a3b8',
-    item: '#475569', itemHover: '#f1f5f9', itemHoverText: '#0f172a', activeBg: '#e6f1fb', activeText: '#185fa5',
-    searchBg: '#ffffff', searchBorder: '#e8eaed', searchText: '#94a3b8',
-    footerText: '#0f172a', footerSub: '#94a3b8', avBg: '#e6f1fb', avText: '#185fa5', menuBg: '#ffffff',
+    bg: '#FBFBFA', border: '#E3E1DB', cap: '#8B97A6', brand: '#1C2433', brandSub: '#8B97A6',
+    item: '#5B6B7E', itemHover: '#F0EFEC', itemHoverText: '#1C2433', activeBg: '#1C2433', activeText: '#FFFFFF',
+    searchBg: '#FFFFFF', searchBorder: '#E3E1DB', searchText: '#8B97A6',
+    footerText: '#1C2433', footerSub: '#8B97A6', avBg: '#1C2433', avText: '#F2E9D8', menuBg: '#FFFFFF',
   };
 
   const railBtn = (m: Module) => {
@@ -471,7 +472,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* ── SYS-14 shell: TOPBAR (row 1 of 2) — breadcrumb IS the page title.
              The old big-title block + pinned/recents rows are gone; pins and
              recents live in the ⌘K palette. ─────────────────────────────────── */}
-        <header className="flex items-center gap-2 px-4 h-12 bg-white shrink-0" style={{ borderBottom: `1px solid ${darkMode ? '#243349' : '#e6e7ea'}` }}>
+        <header className="flex items-center gap-2 px-4 h-12 bg-white shrink-0" style={{ borderBottom: `1px solid ${darkMode ? '#232327' : '#E3E1DB'}` }}>
           <nav className="flex items-center gap-0.5 min-w-0" aria-label="Breadcrumb">
             <Link href={activeModule.pages.find(p => !p.divider)?.href || '/'}
               className="text-[13px] text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-md px-2 py-1 whitespace-nowrap transition-colors">
@@ -510,10 +511,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         {/* Sub-tabs — hidden on record-detail screens (they bring their own header) */}
         {!isDetail && (
-        <div className="flex items-stretch flex-wrap gap-0.5 px-4 bg-white" style={{ borderBottom: '1px solid #e6e7ea' }}>
+        <div className="flex items-stretch flex-wrap gap-0.5 px-4 bg-white" style={{ borderBottom: '1px solid var(--border-1)' }}>
           {visibleTabs.map(p => {
             if (p.divider) return (
-              <span key={p.href} className="flex items-center gap-1.5 pl-3 pr-1 text-[10px] uppercase tracking-wide text-gray-300 select-none" style={{ borderLeft: '1px solid #e6e7ea', marginLeft: 6 }}>
+              <span key={p.href} className="flex items-center gap-1.5 pl-3 pr-1 text-[10px] uppercase tracking-wide text-gray-300 select-none" style={{ borderLeft: '1px solid var(--border-1)', marginLeft: 6 }}>
                 {p.label}
               </span>
             );

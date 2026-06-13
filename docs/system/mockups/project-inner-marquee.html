@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Project inner pages — marquee carried inside</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Inter,'Segoe UI',Arial,sans-serif;background:#E9EBEF;color:#15202E;font-size:13px;padding:28px;line-height:1.5}
+  h1{font-size:18px;margin-bottom:4px}.sub{color:#5B6B7E;margin-bottom:26px;max-width:860px}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:.07em;color:#8B97A6;margin:36px 0 10px}
+  .note{color:#5B6B7E;font-size:12px;margin:10px 0;max-width:840px}
+  .mag{width:13px;height:13px;flex:none}
+  .kick{font-size:9px;font-weight:800;letter-spacing:.2em;text-transform:uppercase}
+  .chips{display:flex;gap:5px;flex-wrap:wrap}
+  .chip{border-radius:99px;padding:4px 12px;font-size:11px;font-weight:600;cursor:pointer}
+  .ptabs{display:flex;gap:0;overflow-x:auto}
+  .ptab{padding:10px 14px;font-size:12.5px;position:relative;white-space:nowrap;cursor:pointer}
+  .ptab.on::after{content:'';position:absolute;left:10px;right:10px;bottom:0;height:2px;border-radius:2px}
+
+  /* ════ DARK ════ */
+  .D{background:#0B0B0D;border-radius:18px;padding:16px;border:1px solid #232327}
+  /* identity strip — the project's POSTER is the backdrop */
+  .D .hero{border-radius:16px;overflow:hidden;position:relative;border:1px solid #232326;color:#fff}
+  .D .hero .art{position:absolute;inset:0;background:linear-gradient(135deg,#1a2b4a,#0e1726 55%,#3d2c12)}
+  .D .hero .scrim{position:absolute;inset:0;background:linear-gradient(90deg,rgba(10,10,12,.93) 0%,rgba(10,10,12,.78) 45%,rgba(10,10,12,.45) 100%)}
+  .D .hero .in{position:relative;display:flex;align-items:center;gap:12px;padding:13px 16px}
+  .D .kick{color:#c9a96a}
+  .D .pname{font-size:16.5px;font-weight:800;color:#fff}
+  .D .stat{border-radius:99px;padding:2.5px 9px;font-size:10px;font-weight:700;background:rgba(8,12,20,.55);border:1px solid rgba(255,255,255,.25);backdrop-filter:blur(6px)}
+  .D .money{margin-left:auto;text-align:right}
+  .D .money .l{font-size:9px;color:rgba(255,255,255,.5);letter-spacing:.08em}
+  .D .money .v{font-size:14px;font-weight:800;color:#fff}
+  .D .back{width:28px;height:28px;border-radius:9px;border:1px solid rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.7)}
+  /* phase tabs ON the hero bottom edge */
+  .D .phases{position:relative;display:flex;padding:0 10px;background:rgba(10,10,12,.55);backdrop-filter:blur(8px);border-top:1px solid rgba(255,255,255,.08)}
+  .D .ptab{color:#8a8a93}.D .ptab.on{color:#fff;font-weight:700}.D .ptab.on::after{background:#c9a96a}
+  /* sub chips below */
+  .D .subrow{display:flex;align-items:center;gap:5px;margin-top:12px;flex-wrap:wrap}
+  .D .chip{border:1px solid rgba(255,255,255,.14);color:rgba(255,255,255,.65);background:transparent}
+  .D .chip.on{background:#c9a96a;border-color:#c9a96a;color:#1a1206}
+  .D .card{background:#141416;border:1px solid #26262A;border-radius:14px;padding:14px;margin-top:12px;color:#A8A8AD}
+  .D .card b{color:#EDEDEA}
+
+  /* ════ LIGHT ════ */
+  .L{background:#F5F5F4;border-radius:18px;padding:16px;border:1px solid #D9DEE6}
+  .L .hero{border-radius:16px;overflow:hidden;position:relative;border:1px solid #E3E1DB;color:#1C2433}
+  .L .hero .art{position:absolute;inset:0;background:linear-gradient(135deg,#E6E4DF,#F3F1EC 55%,#F2EBD8)}
+  .L .hero .scrim{position:absolute;inset:0;background:linear-gradient(90deg,rgba(252,252,251,.95) 0%,rgba(252,252,251,.82) 45%,rgba(252,252,251,.5) 100%)}
+  .L .hero .in{position:relative;display:flex;align-items:center;gap:12px;padding:13px 16px}
+  .L .kick{color:#b08d4f}
+  .L .pname{font-size:16.5px;font-weight:800;color:#1C2433}
+  .L .stat{border-radius:99px;padding:2.5px 9px;font-size:10px;font-weight:700;background:rgba(255,255,255,.75);border:1px solid rgba(0,0,0,.08);color:#1C2433;backdrop-filter:blur(6px)}
+  .L .money{margin-left:auto;text-align:right}
+  .L .money .l{font-size:9px;color:#8B97A6;letter-spacing:.08em}
+  .L .money .v{font-size:14px;font-weight:800;color:#1C2433}
+  .L .back{width:28px;height:28px;border-radius:9px;border:1px solid #D9D6CE;display:flex;align-items:center;justify-content:center;color:#5B6B7E}
+  .L .phases{position:relative;display:flex;padding:0 10px;background:rgba(252,252,251,.8);backdrop-filter:blur(8px);border-top:1px solid #ECEAE4}
+  .L .ptab{color:#8B97A6}.L .ptab.on{color:#1C2433;font-weight:700}.L .ptab.on::after{background:#b08d4f}
+  .L .subrow{display:flex;align-items:center;gap:5px;margin-top:12px;flex-wrap:wrap}
+  .L .chip{border:1px solid #E1E4EA;color:#5B6B7E;background:#fff}
+  .L .chip.on{background:#1C2433;border-color:#1C2433;color:#fff}
+  .L .card{background:#fff;border:1px solid #E3E1DB;border-radius:14px;padding:14px;margin-top:12px;color:#5B6B7E}
+  .L .card b{color:#1C2433}
+</style>
+</head>
+<body>
+  <h1>Project inner pages — the marquee carried inside</h1>
+  <p class="sub">The trick that ties it together: the project's own <b>tile poster becomes the header backdrop</b> of every inner page — faded behind a side scrim so content stays readable. Identity (kicker · title · status · budget) sits ON the artwork, the phase tabs ride the hero's bottom edge on glass, and sub-tabs become the marquee chips. Scrolling keeps the slim hero sticky (it IS the frosted glass bar you already have).</p>
+
+  <h2>Dark — Charcoal Black</h2>
+  <div class="D">
+    <div class="hero">
+      <div class="art"></div><div class="scrim"></div>
+      <div class="in">
+        <div class="back">‹</div>
+        <div>
+          <div class="kick">PRD-2026-0016 · Feature Film · Development</div>
+          <div class="pname">The Misfits II <span class="stat" style="margin-left:6px">DEVELOPMENT</span></div>
+        </div>
+        <div class="money"><div class="l">ACTIVE BUDGET</div><div class="v">AED 1,340,200</div></div>
+      </div>
+      <div class="phases">
+        <span class="ptab">Overview</span><span class="ptab">Develop</span><span class="ptab on">Plan</span>
+        <span class="ptab">Budget</span><span class="ptab">Shoot</span><span class="ptab">Account</span><span class="ptab">Deliver</span><span class="ptab">⚙</span>
+      </div>
+    </div>
+    <div class="subrow">
+      <span class="chip on">Schedule</span><span class="chip">Breakdowns</span><span class="chip">Locations</span>
+      <span class="chip">Casting</span><span class="chip">Crew</span><span class="chip">Contracts</span><span class="chip">Travel &amp; Visas</span>
+    </div>
+    <div class="card"><b>Stripboard — Day 1 of 38</b><br>Content cards keep the normal charcoal surfaces; only the chrome above carries the poster identity.</div>
+  </div>
+
+  <h2>Light — Graphite</h2>
+  <div class="L">
+    <div class="hero">
+      <div class="art"></div><div class="scrim"></div>
+      <div class="in">
+        <div class="back">‹</div>
+        <div>
+          <div class="kick">PRD-2026-0016 · Feature Film · Development</div>
+          <div class="pname">The Misfits II <span class="stat" style="margin-left:6px">DEVELOPMENT</span></div>
+        </div>
+        <div class="money"><div class="l">ACTIVE BUDGET</div><div class="v">AED 1,340,200</div></div>
+      </div>
+      <div class="phases">
+        <span class="ptab">Overview</span><span class="ptab">Develop</span><span class="ptab on">Plan</span>
+        <span class="ptab">Budget</span><span class="ptab">Shoot</span><span class="ptab">Account</span><span class="ptab">Deliver</span><span class="ptab">⚙</span>
+      </div>
+    </div>
+    <div class="subrow">
+      <span class="chip on">Schedule</span><span class="chip">Breakdowns</span><span class="chip">Locations</span>
+      <span class="chip">Casting</span><span class="chip">Crew</span><span class="chip">Contracts</span><span class="chip">Travel &amp; Visas</span>
+    </div>
+    <div class="card"><b>Stripboard — Day 1 of 38</b><br>White cards on warm paper; the poster header gives every page the project's identity without shouting.</div>
+  </div>
+
+  <p class="note"><b>Behavior notes:</b> ① the hero uses the SAME poster + framing you set in Identity &amp; branding (gradient fallback when none) — side-scrimmed left-to-right so the artwork shows on the right where there's no text; ② on scroll the hero collapses to its bottom 48px (phase tabs + a small title) using the existing frosted sticky bar; ③ money cluster appears only on money tabs, as today; ④ sub-tab chips replace the current plain gray row everywhere inside the project.</p>
+</body>
+</html>

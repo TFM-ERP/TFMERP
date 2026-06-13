@@ -8,12 +8,12 @@
    ============================================================================ */
 
 .son{
-  /* tokens — light */
-  --son-accent:#0f172a; --son-accent-ink:#ffffff;
-  --son-bg:#f1f5f9; --son-surface:#ffffff; --son-surface-2:#f8fafc;
-  --son-rail:#0f172a; --son-rail-ink:#cbd5e1; --son-rail-ink-active:#ffffff;
-  --son-text:#0f172a; --son-muted:#64748b; --son-faint:#94a3b8;
-  --son-border:#e2e8f0; --son-hi:#fde68a; --son-ok:#10b981; --son-info:#0ea5e9;
+  /* tokens — light = Graphite & Gold */
+  --son-accent:#1C2433; --son-accent-ink:#ffffff;
+  --son-bg:#F5F5F4; --son-surface:#ffffff; --son-surface-2:#F0EFEC;
+  --son-rail:#1C2433; --son-rail-ink:#C9C6BD; --son-rail-ink-active:#ffffff;
+  --son-text:#1C2433; --son-muted:#5B6B7E; --son-faint:#8B97A6;
+  --son-border:#E3E1DB; --son-hi:#fde68a; --son-ok:#10b981; --son-info:#0ea5e9;
   --son-warn:#f59e0b; --son-danger:#ef4444; --son-violet:#7c3aed;
   --son-radius:16px; --son-radius-sm:10px; --son-tap:44px;
   --son-shadow:0 1px 2px rgba(15,23,42,.06),0 10px 28px rgba(15,23,42,.07);
@@ -27,11 +27,12 @@
 /* SYS-14: ScriptON now FOLLOWS the global dark mode (html.dark) automatically;
    .son-dark stays as a per-surface override. Muted/faint lifted for AA contrast. */
 .son.son-dark, .son .son-dark, html.dark .son{
-  --son-accent:#38bdf8; --son-accent-ink:#04222e;
-  --son-bg:#0b1120; --son-surface:#1e293b; --son-surface-2:#172033;
-  --son-rail:#0b1120; --son-rail-ink:#9fb0c2; --son-rail-ink-active:#ffffff;
-  --son-text:#e6ebf2; --son-muted:#9fb0c2; --son-faint:#7c8aa0;
-  --son-border:#334155; --son-hi:#3b3a22;
+  /* dark = Charcoal Black + gold accent */
+  --son-accent:#C9A96A; --son-accent-ink:#1a1206;
+  --son-bg:#0B0B0D; --son-surface:#141416; --son-surface-2:#1C1C1F;
+  --son-rail:#0E0E10; --son-rail-ink:#9a9aa2; --son-rail-ink-active:#ffffff;
+  --son-text:#EDEDEA; --son-muted:#A8A8AD; --son-faint:#7E7E85;
+  --son-border:#26262A; --son-hi:#3b3a22;
   --son-shadow:0 1px 2px rgba(0,0,0,.4),0 12px 30px rgba(0,0,0,.4);
 }
 

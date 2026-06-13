@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Film Slate — header & search redesign</title>
+<style>
+  :root{--surface-0:#F6F7F9;--surface-1:#fff;--text-1:#15202E;--text-2:#5B6B7E;--text-3:#8B97A6;
+    --border-1:#E4E8EE;--accent:#3E6CD6;--gold:#b08d4f;--gold-2:#c9a96a}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Inter,'Segoe UI',Arial,sans-serif;background:var(--surface-0);color:var(--text-1);font-size:13px;padding:28px;line-height:1.5}
+  h1{font-size:18px;margin-bottom:4px}.sub{color:var(--text-2);margin-bottom:26px}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-3);margin:38px 0 8px}
+  .note{color:var(--text-2);font-size:12px;margin-bottom:14px;max-width:780px}
+
+  /* sample tiles strip (context) */
+  .tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:14px;opacity:.92}
+  .tile{border-radius:16px;min-height:120px;position:relative;overflow:hidden;color:#fff;display:flex;align-items:flex-end;padding:12px;border:1px solid var(--border-1)}
+  .tile .s{position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,12,20,.05) 30%,rgba(8,12,20,.9))}
+  .tile b{position:relative;font-size:13px}
+  .t1{background:linear-gradient(135deg,#1a2b4a,#0e1726 55%,#3d2c12)}
+  .t2{background:radial-gradient(120% 120% at 20% 0%,#5a1f1f,#1c0f18 70%)}
+  .t3{background:linear-gradient(160deg,#0f3530,#0b1d2e 60%,#10243f)}
+
+  /* ════ OPTION 1 — MARQUEE ════ */
+  .marquee{border-radius:20px;overflow:hidden;position:relative;color:#fff;border:1px solid #1c2536;
+    background:linear-gradient(120deg,#101828 0%,#0c1220 55%,#1d1607 130%)}
+  .marquee .inner{padding:20px 22px 18px;position:relative}
+  .marquee .glow{position:absolute;right:-60px;top:-80px;width:300px;height:300px;border-radius:50%;
+    background:radial-gradient(circle,rgba(176,141,79,.22),transparent 70%)}
+  .m-top{display:flex;align-items:center;gap:14px}
+  .m-title{font-size:20px;font-weight:800;letter-spacing:.01em}
+  .m-kicker{font-size:9.5px;letter-spacing:.22em;color:var(--gold-2);font-weight:700;text-transform:uppercase}
+  .m-count{font-size:11.5px;color:rgba(255,255,255,.55);margin-left:2px}
+  .m-spacer{flex:1}
+  .btn-gold{background:linear-gradient(135deg,#c9a96a,#a87f3d);color:#1a1206;font-weight:700;border:none;border-radius:11px;
+    padding:9px 16px;font-size:12.5px;cursor:pointer;box-shadow:0 4px 14px rgba(176,141,79,.35)}
+  .m-tool{display:flex;gap:8px;align-items:center;margin-top:16px;flex-wrap:wrap}
+  .m-search{flex:1;min-width:220px;display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.07);
+    border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:8px 12px;color:rgba(255,255,255,.85)}
+  .m-search input{background:none;border:none;outline:none;color:#fff;font-size:12.5px;flex:1}
+  .m-search input::placeholder{color:rgba(255,255,255,.4)}
+  .m-sel{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);color:rgba(255,255,255,.85);
+    border-radius:12px;padding:8px 10px;font-size:12px}
+  .m-arch{font-size:11.5px;color:rgba(255,255,255,.55);border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:8px 12px;cursor:pointer}
+  .m-chips{display:flex;gap:6px;margin-top:12px;flex-wrap:wrap}
+  .m-chip{font-size:11px;font-weight:600;border-radius:99px;padding:5px 12px;border:1px solid rgba(255,255,255,.16);
+    color:rgba(255,255,255,.7);cursor:pointer}
+  .m-chip.on{background:var(--gold-2);border-color:var(--gold-2);color:#1a1206}
+
+  /* ════ OPTION 2 — GLASS DOCK ════ */
+  .dock-wrap{position:relative}
+  .d-title-row{display:flex;align-items:baseline;gap:10px;margin-bottom:12px}
+  .d-title{font-size:19px;font-weight:800}
+  .d-type-line{font-size:9.5px;letter-spacing:.2em;color:var(--gold);font-weight:700;text-transform:uppercase}
+  .d-count{font-size:11.5px;color:var(--text-3)}
+  .d-spacer{flex:1}
+  .dock{display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-radius:16px;padding:10px;
+    background:rgba(255,255,255,.75);backdrop-filter:blur(14px) saturate(1.5);border:1px solid var(--border-1);
+    box-shadow:0 6px 22px rgba(16,24,40,.08)}
+  .d-search{flex:1;min-width:220px;display:flex;align-items:center;gap:8px;background:var(--surface-0);
+    border:1px solid var(--border-1);border-radius:11px;padding:8px 12px;color:var(--text-2)}
+  .d-search input{background:none;border:none;outline:none;font-size:12.5px;flex:1}
+  .d-seg{display:flex;border:1px solid var(--border-1);border-radius:11px;overflow:hidden}
+  .d-seg button{border:none;background:#fff;padding:8px 12px;font-size:11.5px;color:var(--text-2);cursor:pointer;font-weight:600}
+  .d-seg button.on{background:#15202E;color:#fff}
+  .d-sel{border:1px solid var(--border-1);border-radius:11px;padding:8px 10px;font-size:12px;background:#fff;color:var(--text-1)}
+  .btn-dark{background:#15202E;color:#fff;font-weight:600;border:none;border-radius:11px;padding:9px 15px;font-size:12.5px;cursor:pointer}
+  .btn-dark .g{color:var(--gold-2)}
+</style>
+</head>
+<body>
+  <h1>Film Slate — header &amp; search, two directions</h1>
+  <p class="sub">Both match the cinematic tiles: gold accents, deep charcoal, rounded-2xl geometry. Sample tiles below each for context.</p>
+
+  <h2>Option 1 — "Marquee" (cinematic hero header)</h2>
+  <p class="note">The header itself becomes part of the cinema language: a charcoal marquee panel with a gold glow, kicker line, and everything—search, type chips, status, sort—living INSIDE it. The grid below starts clean. Type filter = chips (one tap), status &amp; sort = compact selects.</p>
+  <div class="marquee">
+    <div class="glow"></div>
+    <div class="inner">
+      <div class="m-top">
+        <div>
+          <div class="m-kicker">The Film Makers · Production Slate</div>
+          <div class="m-title">Film Slate <span class="m-count">12 active · 3 archived</span></div>
+        </div>
+        <span class="m-spacer"></span>
+        <button class="btn-gold">+ New Project</button>
+      </div>
+      <div class="m-tool">
+        <div class="m-search">🔎 <input placeholder="Search title, number, client…"></div>
+        <select class="m-sel"><option>Status: All</option><option>Development</option><option>Shooting</option><option>Post</option></select>
+        <select class="m-sel"><option>Sort: Newest</option><option>Type</option><option>Status</option><option>Title</option></select>
+        <span class="m-arch">🗂 Archived (3)</span>
+      </div>
+      <div class="m-chips">
+        <span class="m-chip on">All</span><span class="m-chip">Feature Film</span><span class="m-chip">Series</span>
+        <span class="m-chip">Documentary</span><span class="m-chip">TVC</span><span class="m-chip">Short</span><span class="m-chip">Music Video</span>
+      </div>
+    </div>
+  </div>
+  <div class="tiles">
+    <div class="tile t1"><div class="s"></div><b>The Misfits II</b></div>
+    <div class="tile t2"><div class="s"></div><b>Red Harvest</b></div>
+    <div class="tile t3"><div class="s"></div><b>Saltwater</b></div>
+  </div>
+
+  <h2>Option 2 — "Glass dock" (light, floats over the grid)</h2>
+  <p class="note">Lighter touch: a slim title row (with the gold kicker), then a frosted-glass dock that stays sticky while you scroll the tiles — same glass as the tile chips. Type filter as a segmented control, search stretches, New Project in slate-dark with a gold plus.</p>
+  <div class="dock-wrap">
+    <div class="d-title-row">
+      <div>
+        <div class="d-type-line">Production Slate</div>
+        <div class="d-title">Film Slate</div>
+      </div>
+      <span class="d-count">12 active · 3 archived</span>
+      <span class="d-spacer"></span>
+      <button class="btn-dark"><span class="g">＋</span> New Project</button>
+    </div>
+    <div class="dock">
+      <div class="d-search">🔎 <input placeholder="Search title, number, client…"></div>
+      <div class="d-seg">
+        <button class="on">All</button><button>Feature</button><button>Series</button><button>Doc</button><button>TVC</button><button>Short</button><button>MV</button>
+      </div>
+      <select class="d-sel"><option>Status: All</option></select>
+      <select class="d-sel"><option>Sort: Newest</option></select>
+      <select class="d-sel"><option>🗂 Archived</option></select>
+    </div>
+    <div class="tiles">
+      <div class="tile t1"><div class="s"></div><b>The Misfits II</b></div>
+      <div class="tile t2"><div class="s"></div><b>Red Harvest</b></div>
+      <div class="tile t3"><div class="s"></div><b>Saltwater</b></div>
+    </div>
+  </div>
+</body>
+</html>

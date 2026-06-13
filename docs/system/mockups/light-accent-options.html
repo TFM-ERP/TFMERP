@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Light mode — accent color options</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Inter,'Segoe UI',Arial,sans-serif;background:#E9EBEF;color:#15202E;font-size:13px;padding:28px;line-height:1.5}
+  h1{font-size:18px;margin-bottom:4px}.sub{color:#5B6B7E;margin-bottom:26px;max-width:840px}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:.07em;color:#8B97A6;margin:34px 0 10px}
+  .note{color:#5B6B7E;font-size:12px;margin-bottom:10px;max-width:820px}
+  .frame{border-radius:18px;padding:18px;border:1px solid #D9DEE6;background:var(--page)}
+  .panel{background:var(--panel);border:1px solid var(--bd);border-radius:16px;padding:14px;position:relative;overflow:hidden}
+  .glow{position:absolute;right:-50px;top:-70px;width:240px;height:240px;border-radius:50%;background:var(--glow)}
+  .kicker{font-size:9px;font-weight:800;letter-spacing:.22em;text-transform:uppercase;color:var(--acc)}
+  .h-title{font-size:17px;font-weight:800;color:var(--ink)}
+  .toolrow{display:flex;gap:6px;margin-top:10px;align-items:center;flex-wrap:wrap}
+  .srch{flex:1;display:flex;align-items:center;gap:7px;background:#fff;border:1px solid var(--bd);border-radius:10px;padding:7px 11px;font-size:11.5px;color:#93A2B8}
+  .mag{width:13px;height:13px;flex:none}
+  .sel{background:#fff;border:1px solid var(--bd);border-radius:10px;padding:7px 10px;font-size:11.5px;color:var(--ink)}
+  .btn{background:linear-gradient(135deg,var(--acc),var(--acc2));color:#fff;font-weight:700;border:none;border-radius:10px;padding:8px 14px;font-size:12px;box-shadow:0 3px 10px var(--accshadow)}
+  .chips{display:flex;gap:5px;margin-top:9px;flex-wrap:wrap}
+  .chip{border-radius:99px;padding:4px 12px;font-size:11px;font-weight:600;background:#fff;border:1px solid var(--bd);color:#5B6B7E}
+  .chip.on{background:var(--acc);border-color:var(--acc);color:#fff}
+  .tabs{display:flex;margin-top:14px;border-bottom:1px solid var(--bd)}
+  .tab{padding:8px 13px;font-size:12.5px;color:#8B97A6;position:relative}
+  .tab.on{color:var(--ink);font-weight:700}
+  .tab.on::after{content:'';position:absolute;left:9px;right:9px;bottom:-1px;height:2px;border-radius:2px;background:var(--acc)}
+  .tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}
+  .tile{border-radius:14px;min-height:112px;position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;padding:11px;border:1px solid var(--bd);box-shadow:0 1px 3px rgba(19,35,63,.06)}
+  .tile .s{position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,0) 35%,rgba(255,255,255,.88) 75%,rgba(255,255,255,.96))}
+  .tile .tp{font-size:8.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;position:relative;color:var(--acc)}
+  .tile .nm{font-weight:700;font-size:12.5px;position:relative;color:var(--ink)}
+
+  /* C1 · FOREST — production green */
+  .C1{--page:#F3F6F4;--panel:linear-gradient(120deg,#FBFDFC 0%,#EFF5F1 70%,#E7F0EA 130%);--bd:#D8E4DC;
+      --acc:#2F7D5B;--acc2:#1F5C41;--accshadow:rgba(47,125,91,.3);--ink:#16302A;
+      --glow:radial-gradient(circle,rgba(47,125,91,.13),transparent 70%)}
+  .C1 .t1{background:linear-gradient(135deg,#D9EBDF,#EDF6F0 55%,#F2EBD8)}
+  .C1 .t2{background:radial-gradient(120% 120% at 20% 0%,#F0E6D5,#F8F3E8 70%)}
+  .C1 .t3{background:linear-gradient(160deg,#DCEAE4,#EAF2F8 60%,#E5EEE8)}
+
+  /* C2 · OXBLOOD — cinema curtain burgundy */
+  .C2{--page:#F7F4F3;--panel:linear-gradient(120deg,#FDFBFA 0%,#F6EFED 70%,#F2E6E2 130%);--bd:#E7D9D4;
+      --acc:#8C2F39;--acc2:#6B1F28;--accshadow:rgba(140,47,57,.28);--ink:#33181C;
+      --glow:radial-gradient(circle,rgba(140,47,57,.12),transparent 70%)}
+  .C2 .t1{background:linear-gradient(135deg,#F2DCDA,#F9EEED 55%,#F2EBD8)}
+  .C2 .t2{background:radial-gradient(120% 120% at 20% 0%,#EFE0D0,#F8F1E7 70%)}
+  .C2 .t3{background:linear-gradient(160deg,#E9DCE2,#F4ECF1 60%,#EFE3E8)}
+
+  /* C3 · GRAPHITE & GOLD — monochrome ink, gold stays the accent */
+  .C3{--page:#F5F5F4;--panel:linear-gradient(120deg,#FCFCFB 0%,#F3F2EF 70%,#EFEBE2 130%);--bd:#E3E1DB;
+      --acc:#1C2433;--acc2:#0F1722;--accshadow:rgba(28,36,51,.25);--ink:#1C2433;
+      --glow:radial-gradient(circle,rgba(176,141,79,.14),transparent 70%)}
+  .C3 .kicker{color:#b08d4f}
+  .C3 .tab.on::after{background:#b08d4f}
+  .C3 .tile .tp{color:#b08d4f}
+  .C3 .t1{background:linear-gradient(135deg,#E6E4DF,#F3F1EC 55%,#F2EBD8)}
+  .C3 .t2{background:radial-gradient(120% 120% at 20% 0%,#EAE2D2,#F7F3EA 70%)}
+  .C3 .t3{background:linear-gradient(160deg,#E0E3E7,#EFF1F4 60%,#E9ECEF)}
+
+  /* C4 · COPPER — warm terracotta */
+  .C4{--page:#F8F5F1;--panel:linear-gradient(120deg,#FDFBF8 0%,#F7F0E8 70%,#F4E8DA 130%);--bd:#EADDCC;
+      --acc:#B05A2E;--acc2:#8C4220;--accshadow:rgba(176,90,46,.28);--ink:#3A2417;
+      --glow:radial-gradient(circle,rgba(176,90,46,.13),transparent 70%)}
+  .C4 .t1{background:linear-gradient(135deg,#F4E0D0,#FAF0E7 55%,#F2EBD8)}
+  .C4 .t2{background:radial-gradient(120% 120% at 20% 0%,#F1E4CE,#F9F2E5 70%)}
+  .C4 .t3{background:linear-gradient(160deg,#EFE0D8,#F7EDE7 60%,#F2E5DC)}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:1100px){.grid2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+  <h1>Light mode — four accent directions (no blue)</h1>
+  <p class="sub">Same Blueprint structure — soft paper page, marquee panel, light tiles — with the working color swapped. Dark mode stays charcoal + gold in all cases.</p>
+
+  <div class="grid2">
+    <div>
+      <h2>C1 · Forest — production green</h2>
+      <p class="note">Deep green = "rolling" / "go". Calm, natural, reads well against gold in dark mode.</p>
+      <div class="frame C1">
+        <div class="panel"><div class="glow"></div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <div><div class="kicker">The Film Makers · Production Slate</div><div class="h-title">Film Slate</div></div>
+            <span style="flex:1"></span><button class="btn">+ New Project</button>
+          </div>
+          <div class="toolrow"><div class="srch"><svg class="mag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg> Search…</div><div class="sel">Status: All</div></div>
+          <div class="chips"><span class="chip on">All</span><span class="chip">Feature Film</span><span class="chip">TVC</span></div>
+        </div>
+        <div class="tabs"><span class="tab">Develop</span><span class="tab on">Plan</span><span class="tab">Budget</span></div>
+        <div class="tiles">
+          <div class="tile t1"><div class="s"></div><span class="tp">Feature Film</span><span class="nm">The Misfits II</span></div>
+          <div class="tile t2"><div class="s"></div><span class="tp">Series</span><span class="nm">Red Harvest</span></div>
+          <div class="tile t3"><div class="s"></div><span class="tp">Documentary</span><span class="nm">Saltwater</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <h2>C2 · Oxblood — cinema curtain</h2>
+      <p class="note">Burgundy velvet: theatrical, premium, unmistakably film. Warmest of the four.</p>
+      <div class="frame C2">
+        <div class="panel"><div class="glow"></div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <div><div class="kicker">The Film Makers · Production Slate</div><div class="h-title">Film Slate</div></div>
+            <span style="flex:1"></span><button class="btn">+ New Project</button>
+          </div>
+          <div class="toolrow"><div class="srch"><svg class="mag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg> Search…</div><div class="sel">Status: All</div></div>
+          <div class="chips"><span class="chip on">All</span><span class="chip">Feature Film</span><span class="chip">TVC</span></div>
+        </div>
+        <div class="tabs"><span class="tab">Develop</span><span class="tab on">Plan</span><span class="tab">Budget</span></div>
+        <div class="tiles">
+          <div class="tile t1"><div class="s"></div><span class="tp">Feature Film</span><span class="nm">The Misfits II</span></div>
+          <div class="tile t2"><div class="s"></div><span class="tp">Series</span><span class="nm">Red Harvest</span></div>
+          <div class="tile t3"><div class="s"></div><span class="tp">Documentary</span><span class="nm">Saltwater</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <h2>C3 · Graphite &amp; Gold — monochrome, gold stays</h2>
+      <p class="note">No new color at all: charcoal ink does the work, gold remains the only accent (kickers, underlines, type lines) — the closest sibling to your dark mode. Most timeless.</p>
+      <div class="frame C3">
+        <div class="panel"><div class="glow"></div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <div><div class="kicker">The Film Makers · Production Slate</div><div class="h-title">Film Slate</div></div>
+            <span style="flex:1"></span><button class="btn">+ New Project</button>
+          </div>
+          <div class="toolrow"><div class="srch"><svg class="mag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg> Search…</div><div class="sel">Status: All</div></div>
+          <div class="chips"><span class="chip on">All</span><span class="chip">Feature Film</span><span class="chip">TVC</span></div>
+        </div>
+        <div class="tabs"><span class="tab">Develop</span><span class="tab on">Plan</span><span class="tab">Budget</span></div>
+        <div class="tiles">
+          <div class="tile t1"><div class="s"></div><span class="tp">Feature Film</span><span class="nm">The Misfits II</span></div>
+          <div class="tile t2"><div class="s"></div><span class="tp">Series</span><span class="nm">Red Harvest</span></div>
+          <div class="tile t3"><div class="s"></div><span class="tp">Documentary</span><span class="nm">Saltwater</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <h2>C4 · Copper — warm terracotta</h2>
+      <p class="note">Desert copper: warm, energetic, pairs naturally with the gold family without competing.</p>
+      <div class="frame C4">
+        <div class="panel"><div class="glow"></div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <div><div class="kicker">The Film Makers · Production Slate</div><div class="h-title">Film Slate</div></div>
+            <span style="flex:1"></span><button class="btn">+ New Project</button>
+          </div>
+          <div class="toolrow"><div class="srch"><svg class="mag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg> Search…</div><div class="sel">Status: All</div></div>
+          <div class="chips"><span class="chip on">All</span><span class="chip">Feature Film</span><span class="chip">TVC</span></div>
+        </div>
+        <div class="tabs"><span class="tab">Develop</span><span class="tab on">Plan</span><span class="tab">Budget</span></div>
+        <div class="tiles">
+          <div class="tile t1"><div class="s"></div><span class="tp">Feature Film</span><span class="nm">The Misfits II</span></div>
+          <div class="tile t2"><div class="s"></div><span class="tp">Series</span><span class="nm">Red Harvest</span></div>
+          <div class="tile t3"><div class="s"></div><span class="tp">Documentary</span><span class="nm">Saltwater</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

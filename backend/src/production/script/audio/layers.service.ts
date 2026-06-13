@@ -130,7 +130,7 @@ export class LayersService {
       'Be specific and concrete — prompts go straight to a sound-generation model. 2–5 cues per scene. No invented events.',
       'Respond ONLY by calling submit_sound_design.',
     ].join('\n');
-    const model = process.env.SCRIPT_AUDIO_AI_MODEL || process.env.MM_AI_MODEL || 'claude-fable-5';
+    const model = process.env.SCRIPT_AUDIO_AI_MODEL || process.env.MM_AI_MODEL || 'claude-opus-4-8';
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY!, 'anthropic-version': '2023-06-01' } as any,

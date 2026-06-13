@@ -643,7 +643,7 @@ export class RenderService implements OnModuleInit {
       'Direct only where it matters — skip neutral lines. NEVER direct lines that already have a hint (the writer\'s parenthetical is canon).',
       'Respond ONLY by calling submit_direction.',
     ].join('\n');
-    const model = process.env.SCRIPT_AUDIO_AI_MODEL || process.env.MM_AI_MODEL || 'claude-fable-5';
+    const model = process.env.SCRIPT_AUDIO_AI_MODEL || process.env.MM_AI_MODEL || 'claude-opus-4-8';
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY!, 'anthropic-version': '2023-06-01' } as any,

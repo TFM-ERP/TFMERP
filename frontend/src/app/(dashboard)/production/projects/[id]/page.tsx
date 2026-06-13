@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, Fragment } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { productionApi, laborApi, castingApi } from '@/lib/api';
+import { productionApi, laborApi, castingApi, assetUrl } from '@/lib/api';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import CallSheetsPanel from '@/components/production/CallSheetsPanel';
 import CrewAssignmentsPanel from '@/components/production/CrewAssignmentsPanel';
@@ -231,6 +231,16 @@ export default function ProjectDetailPage() {
     } catch {}
   }, [id]);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+  // Theme: hero + tabs follow the global mode (Graphite light · Charcoal Black dark).
+  const [isDark, setIsDark] = useState(false);
+  useEffect(() => {
+    const root = document.documentElement;
+    const sync = () => setIsDark(root.classList.contains('dark'));
+    sync();
+    const mo = new MutationObserver(sync);
+    mo.observe(root, { attributes: true, attributeFilter: ['class'] });
+    return () => mo.disconnect();
+  }, []);
 
   // Line item add form state
   const [addingItem, setAddingItem] = useState<string | null>(null); // accountId
@@ -387,96 +397,127 @@ export default function ProjectDetailPage() {
 
   return (
     <div className="p-6 max-w-[1700px] mx-auto">
-      {/* Sticky header + tabs — stays pinned while the page content scrolls */}
-      <div className="glass-bar sticky top-0 z-20 -mx-6 -mt-6 px-6 pt-5 pb-2 mb-4 border-b border-gray-200/60 [&>*:last-child]:mb-0" style={{ ['--glass-base' as any]: 'var(--page-bg)' }}>
-      {/* Header — project name, active budget, actions + total all on one row */}
-      {/* SYS-14 shell: ONE compact identity row. Budget-version actions and exports
-          only appear on money tabs — other phases don't carry their noise. */}
+      {/* Sticky header — poster-backed marquee hero + phase tabs + chip sub-tabs */}
+      <div className="glass-bar sticky top-0 z-20 -mx-6 -mt-6 px-6 pt-4 pb-2 mb-4 border-b border-gray-200/60 [&>*:last-child]:mb-0" style={{ ['--glass-base' as any]: 'var(--page-bg)' }}>
       {(() => {
         const moneyCtx = ['budget', 'topsheet', 'fringe', 'incentives', 'actual', 'costreport', 'purchasing', 'accounting', 'cash'].includes(tab);
-        return (
-      <div className="flex items-center gap-x-2.5 gap-y-1.5 mb-3 flex-wrap">
-        <button onClick={() => { if (window.history.length > 1) router.back(); else router.push('/production/projects'); }}
-          title="Back" className="btn btn-secondary p-1.5"><ArrowLeft size={15} /></button>
-        <h1 className="text-[15px] font-bold text-gray-900 truncate max-w-[320px]">{project.title}</h1>
-        <span className="text-xs text-gray-400">{project.projectNumber}</span>
-        <span className={cn('badge text-xs', STATUS_COLORS[project.status] || 'bg-gray-100 text-gray-600')}>
-          {project.status.replace(/_/g, ' ')}
-        </span>
-        {project.client && <span className="text-xs text-gray-400 truncate hidden md:inline">· {project.client.companyName} · {project.projectType}</span>}
-
-        <div className="flex-1" />
-
-        {/* Budget context cluster — money tabs only */}
-        {moneyCtx && activeVersion && (
-          <div className="flex items-center gap-1.5 text-xs text-gray-600">
-            <span className="font-medium truncate max-w-[160px]">{activeVersion.versionName}</span>
-            <span className={cn('badge text-xs', activeVersion.status === 'LOCKED' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700')}>
-              {activeVersion.status}
-            </span>
-            {activeVersion.status !== 'LOCKED' ? (
-              <button onClick={async () => { if (confirm('Lock this budget? It becomes read-only — changes will require a working copy or an approved transfer.')) { await productionApi.budget.lockVersion(activeVersion.id); reload(); } }}
-                className="btn btn-secondary text-xs py-1 px-2">
-                <Lock size={11} className="mr-1" /> Lock
-              </button>
-            ) : (
-              <button onClick={async () => {
-                const name = prompt('Name for the working copy:', `${activeVersion.versionName} (Working Copy)`);
-                if (name === null) return;
-                const r = await productionApi.budget.cloneVersion(activeVersion.id, name || undefined);
-                await productionApi.budget.activateVersion(r.data.id);
-                reload();
-              }} className="btn btn-primary text-xs py-1 px-2">
-                <Plus size={11} className="mr-1" /> Working copy
-              </button>
-            )}
-            <button onClick={async () => { await productionApi.budget.recalculate(activeVersion.id); reload(); }}
-              className="btn btn-secondary text-xs py-1 px-2" title="Recalculate">
-              <RefreshCw size={11} />
-            </button>
-            <button onClick={exportCsv} className="btn btn-secondary text-xs py-1 px-2" title="Export CSV"><FileDown size={11} /></button>
-            <button onClick={openPrint} className="btn btn-secondary text-xs py-1 px-2" title="Print / PDF"><Printer size={11} /></button>
-          </div>
-        )}
-        {project.totalBudget && (
-          <span className="text-xs text-gray-400 ml-1">Budget <b className="text-[13px] text-gray-900 font-bold">{money(project.totalBudget)}</b></span>
-        )}
-      </div>
-        );
-      })()}
-
-      {/* Tab groups */}
-      {(() => {
         const activeGroup = TAB_GROUPS.find(g => g.tabs.includes(tab)) || TAB_GROUPS[0];
+        const pt = (project.posterTransform || {}) as any;
+        const typeLabel = ({ TVC: 'TVC', CORPORATE: 'Corporate Film', DOCUMENTARY: 'Documentary', FEATURE: 'Feature Film', SHORT: 'Short Film', MUSIC_VIDEO: 'Music Video', OTHER: 'Production' } as Record<string, string>)[project.projectType] || project.projectType;
+        const H = isDark ? {
+          border: '#232326', ink: '#fff', kicker: '#c9a96a', sub: 'rgba(255,255,255,.55)',
+          art: 'linear-gradient(135deg,#2a2a2e,#121214 55%,#3a2c12)', letterbox: '#0b0f17',
+          scrim: 'linear-gradient(90deg, rgba(10,10,12,.94) 0%, rgba(10,10,12,.8) 45%, rgba(10,10,12,.5) 100%)',
+          band: 'rgba(10,10,12,.55)', bandBd: 'rgba(255,255,255,.08)', tabOff: '#8a8a93', gold: '#c9a96a',
+          glass: { background: 'rgba(8,12,20,.55)', backdropFilter: 'blur(6px)', border: '1px solid rgba(255,255,255,.25)', color: '#fff' } as any,
+          backBd: 'rgba(255,255,255,.18)', backColor: 'rgba(255,255,255,.7)',
+          chipBd: '1px solid rgba(255,255,255,.14)', chipText: 'rgba(255,255,255,.65)', chipBg: 'transparent',
+          chipOnBg: '#c9a96a', chipOnText: '#1a1206',
+        } : {
+          border: '#E3E1DB', ink: '#1C2433', kicker: '#b08d4f', sub: '#8B97A6',
+          art: 'linear-gradient(135deg,#E6E4DF,#F3F1EC 55%,#F2EBD8)', letterbox: '#E8E6E1',
+          scrim: 'linear-gradient(90deg, rgba(252,252,251,.96) 0%, rgba(252,252,251,.84) 45%, rgba(252,252,251,.55) 100%)',
+          band: 'rgba(252,252,251,.8)', bandBd: '#ECEAE4', tabOff: '#8B97A6', gold: '#b08d4f',
+          glass: { background: 'rgba(255,255,255,.75)', backdropFilter: 'blur(6px)', border: '1px solid rgba(0,0,0,.08)', color: '#1C2433' } as any,
+          backBd: '#D9D6CE', backColor: '#5B6B7E',
+          chipBd: '1px solid #E1E4EA', chipText: '#5B6B7E', chipBg: '#fff',
+          chipOnBg: '#1C2433', chipOnText: '#fff',
+        };
         return (
           <>
-            <div className="flex gap-1 mb-2 flex-wrap items-center">
-              {TAB_GROUPS.map((g, gi) => (
-                <span key={g.key} className="inline-flex items-center">
-                  <button onClick={() => setTab(g.tabs[0])}
-                    className={cn('px-3.5 py-1.5 text-[13px] font-semibold rounded-lg transition-colors',
-                      activeGroup.key === g.key ? 'bg-brand-600 text-white' : 'text-gray-600 hover:bg-gray-100')}>
-                    {g.label}
-                  </button>
-                  {gi > 0 && gi < TAB_GROUPS.length - 2 && <span className="text-gray-300 mx-0.5 select-none">›</span>}
-                </span>
+            {/* ── HERO — the project's poster is the backdrop; identity sits on the quiet side ── */}
+            <div className="relative rounded-2xl overflow-hidden mb-2.5" style={{ border: `1px solid ${H.border}`, color: H.ink }}>
+              <div aria-hidden className="absolute inset-0" style={{ background: project.posterUrl ? H.letterbox : undefined, backgroundImage: project.posterUrl ? undefined : H.art }} />
+              {project.posterUrl && (project.posterTransform ? (
+                <img src={assetUrl(project.posterUrl)} alt="" aria-hidden draggable={false} style={{
+                  position: 'absolute', left: '50%', top: '50%', width: `${(Number(pt.zoom) || 1) * 100}%`, height: 'auto', maxWidth: 'none',
+                  transform: `translate(-50%, -50%) translate(${Number(pt.x) || 0}%, ${Number(pt.y) || 0}%) rotate(${Number(pt.rot) || 0}deg)`,
+                }} />
+              ) : (
+                <div aria-hidden className="absolute inset-0" style={{ backgroundImage: `url(${assetUrl(project.posterUrl)})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
               ))}
-            </div>
-            {activeGroup.tabs.length > 1 && (
-              <div className="flex gap-1 mb-6 border-b border-gray-200 flex-wrap">
-                {activeGroup.tabs.map(id => {
-                  const m = TAB_META[id];
+              <div aria-hidden className="absolute inset-0" style={{ background: H.scrim }} />
+
+              <div className="relative flex items-center gap-3 px-4 pt-3 pb-2.5 flex-wrap">
+                <button onClick={() => { if (window.history.length > 1) router.back(); else router.push('/production/projects'); }}
+                  title="Back" className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+                  style={{ border: `1px solid ${H.backBd}`, color: H.backColor }}><ArrowLeft size={14} /></button>
+                <div className="min-w-0">
+                  <div className="text-[9px] font-bold uppercase truncate" style={{ letterSpacing: '.2em', color: H.kicker }}>
+                    {project.projectNumber} · {typeLabel}{project.client ? ` · ${project.client.companyName}` : ''}
+                  </div>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <h1 className="text-[16.5px] font-extrabold leading-tight truncate max-w-[340px]" style={{ color: H.ink }}>{project.title}</h1>
+                    <span className="rounded-full px-2 py-0.5 text-[9.5px] font-bold shrink-0" style={H.glass}>{project.status.replace(/_/g, ' ')}</span>
+                  </div>
+                </div>
+                <div className="flex-1" />
+                {/* Budget cluster — money tabs only */}
+                {moneyCtx && activeVersion && (
+                  <div className="flex items-center gap-1.5 text-xs" style={{ color: H.sub }}>
+                    <span className="font-medium truncate max-w-[140px]" style={{ color: H.ink }}>{activeVersion.versionName}</span>
+                    <span className="rounded-full px-2 py-0.5 text-[9.5px] font-bold" style={{ ...H.glass, color: activeVersion.status === 'LOCKED' ? '#f87171' : '#4ade80' }}>{activeVersion.status}</span>
+                    {activeVersion.status !== 'LOCKED' ? (
+                      <button onClick={async () => { if (confirm('Lock this budget? It becomes read-only — changes will require a working copy or an approved transfer.')) { await productionApi.budget.lockVersion(activeVersion.id); reload(); } }}
+                        className="rounded-lg px-2 py-1 text-[11px] font-semibold" style={H.glass}><Lock size={10} className="inline mr-1" />Lock</button>
+                    ) : (
+                      <button onClick={async () => {
+                        const name = prompt('Name for the working copy:', `${activeVersion.versionName} (Working Copy)`);
+                        if (name === null) return;
+                        const r = await productionApi.budget.cloneVersion(activeVersion.id, name || undefined);
+                        await productionApi.budget.activateVersion(r.data.id);
+                        reload();
+                      }} className="rounded-lg px-2 py-1 text-[11px] font-bold" style={{ background: isDark ? '#c9a96a' : '#1C2433', color: isDark ? '#1a1206' : '#fff' }}>
+                        <Plus size={10} className="inline mr-1" />Working copy
+                      </button>
+                    )}
+                    <button onClick={async () => { await productionApi.budget.recalculate(activeVersion.id); reload(); }} title="Recalculate"
+                      className="rounded-lg p-1.5" style={H.glass}><RefreshCw size={11} /></button>
+                    <button onClick={exportCsv} title="Export CSV" className="rounded-lg p-1.5" style={H.glass}><FileDown size={11} /></button>
+                    <button onClick={openPrint} title="Print / PDF" className="rounded-lg p-1.5" style={H.glass}><Printer size={11} /></button>
+                  </div>
+                )}
+                {project.totalBudget && (
+                  <div className="text-right shrink-0">
+                    <div className="text-[8.5px] font-bold uppercase" style={{ letterSpacing: '.08em', color: H.sub }}>Budget</div>
+                    <div className="text-[13.5px] font-extrabold leading-tight" style={{ color: H.ink }}>{money(project.totalBudget)}</div>
+                  </div>
+                )}
+              </div>
+
+              {/* Phase tabs ride the hero's bottom edge on glass */}
+              <div className="relative flex px-2 overflow-x-auto" style={{ background: H.band, backdropFilter: 'blur(8px)', borderTop: `1px solid ${H.bandBd}` }}>
+                {TAB_GROUPS.map(g => {
+                  const on = activeGroup.key === g.key;
                   return (
-                    <button key={id} onClick={() => setTab(id)}
-                      className={cn('flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors',
-                        tab === id ? 'border-brand-600 text-brand-600' : 'border-transparent text-gray-500 hover:text-gray-700')}>
-                      <m.icon size={14} />{m.label}
+                    <button key={g.key} onClick={() => setTab(g.tabs[0])}
+                      className="px-3.5 py-2 text-[12.5px] whitespace-nowrap relative"
+                      style={{ color: on ? H.ink : H.tabOff, fontWeight: on ? 700 : 400 }}>
+                      {g.label}
+                      {on && <span aria-hidden className="absolute left-2.5 right-2.5 bottom-0 h-[2px] rounded" style={{ background: H.gold }} />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Sub-tabs as marquee chips */}
+            {activeGroup.tabs.length > 1 && (
+              <div className="flex gap-1.5 mb-2 flex-wrap">
+                {activeGroup.tabs.map(tid => {
+                  const m = TAB_META[tid];
+                  const on = tab === tid;
+                  return (
+                    <button key={tid} onClick={() => setTab(tid)}
+                      className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11.5px] font-semibold transition-colors"
+                      style={on ? { background: H.chipOnBg, color: H.chipOnText, border: `1px solid ${H.chipOnBg}` }
+                        : { background: H.chipBg, color: H.chipText, border: H.chipBd }}>
+                      <m.icon size={12} />{m.label}
                     </button>
                   );
                 })}
               </div>
             )}
-            {activeGroup.tabs.length <= 1 && <div />}
           </>
         );
       })()}

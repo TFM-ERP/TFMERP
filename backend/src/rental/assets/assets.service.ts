@@ -9,6 +9,7 @@ export class AssetsService {
   async findAll(query: {
     assetType?: AssetType;
     status?: AssetStatus;
+    category?: string;
     search?: string;
     availableFrom?: string;
     availableTo?: string;
@@ -19,11 +20,12 @@ export class AssetsService {
     const page  = Math.max(1, Number(query.page)  || 1);
     const limit = Math.max(1, Number(query.limit) || 30);
     const skip  = (page - 1) * limit;
-    const { assetType, status, search } = query;
+    const { assetType, status, search, category } = query;
 
     const where: any = { isActive: true };
     if (assetType) where.assetType = assetType;
     if (status)    where.status    = status;
+    if (category)  where.category  = category;
     if (search) {
       where.OR = [
         { name:         { contains: search, mode: 'insensitive' } },
@@ -97,6 +99,7 @@ export class AssetsService {
       'category', 'serialNumber', 'warrantyProvider',
       'plateNumber', 'plateEmirate', 'vinNumber', 'condition', 'notes', 'qrCode', 'status',
       'registrationDocUrl', 'insurancePolicyRef', 'insuranceDocUrl',
+      'tilePhoto', // photo tagged as the tile background (grid view)
     ];
     for (const k of optStr) {
       if (data[k] !== undefined) d[k] = data[k] || undefined;

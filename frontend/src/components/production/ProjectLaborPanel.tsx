@@ -134,7 +134,7 @@ export default function ProjectLaborPanel({ projectId, projectType }: { projectI
   const pct = (n: number) => `${(Number(n) * 100).toFixed(2)}%`;
 
   return (
-    <div className="space-y-4 max-w-4xl">
+    <div className="space-y-4 max-w-7xl">
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-start gap-2">
           <Scale size={18} className="text-brand-600 mt-0.5" />

@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Dark vs Dark — and Blueprint light with light tiles</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Inter,'Segoe UI',Arial,sans-serif;background:#E9EBEF;color:#15202E;font-size:13px;padding:28px;line-height:1.5}
+  h1{font-size:18px;margin-bottom:4px}.sub{color:#5B6B7E;margin-bottom:26px;max-width:840px}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:.07em;color:#8B97A6;margin:36px 0 10px}
+  .note{color:#5B6B7E;font-size:12px;margin-bottom:10px;max-width:820px}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+  .frame{border-radius:18px;padding:18px;border:1px solid #D9DEE6}
+  .tag{font-size:9.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;display:block;margin-bottom:10px}
+  .kicker{font-size:9px;font-weight:800;letter-spacing:.22em;text-transform:uppercase}
+  .h-title{font-size:17px;font-weight:800}
+  .toolrow{display:flex;gap:6px;margin-top:10px;align-items:center;flex-wrap:wrap}
+  .chips{display:flex;gap:5px;margin-top:9px;flex-wrap:wrap}
+  .chip{border-radius:99px;padding:4px 12px;font-size:11px;font-weight:600}
+  .tabs{display:flex;margin-top:14px;border-bottom:1px solid}
+  .tab{padding:8px 13px;font-size:12.5px;position:relative}
+  .tab.on::after{content:'';position:absolute;left:9px;right:9px;bottom:-1px;height:2px;border-radius:2px}
+  .tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}
+  .tile{border-radius:14px;min-height:118px;position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;padding:11px}
+  .tile .nm{font-weight:700;font-size:12.5px;position:relative}
+  .tile .tp{font-size:8.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;position:relative}
+  .gold-btn{background:linear-gradient(135deg,#c9a96a,#a87f3d);color:#1a1206;font-weight:700;border:none;border-radius:10px;padding:8px 14px;font-size:12px}
+  /* minimal one-color magnifier */
+  .mag{width:13px;height:13px;display:inline-block;vertical-align:-2px;flex:none}
+
+  /* ── DARK A — current (navy-charcoal) ── */
+  .DA{background:#0D1320}
+  .DA .panel{background:linear-gradient(120deg,#101828 0%,#0c1220 55%,#1d1607 130%);border:1px solid #1c2536;border-radius:16px;padding:14px;position:relative;overflow:hidden;color:#fff}
+  .DA .glow{position:absolute;right:-50px;top:-70px;width:240px;height:240px;border-radius:50%;background:radial-gradient(circle,rgba(176,141,79,.2),transparent 70%)}
+  .DA .kicker{color:#c9a96a}
+  .DA .srch{flex:1;display:flex;align-items:center;gap:7px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:7px 11px;font-size:11.5px;color:rgba(255,255,255,.45)}
+  .DA .sel{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:7px 10px;font-size:11.5px;color:rgba(255,255,255,.85)}
+  .DA .chip{border:1px solid rgba(255,255,255,.16);color:rgba(255,255,255,.7)}
+  .DA .chip.on{background:#c9a96a;border-color:#c9a96a;color:#1a1206}
+  .DA .tabs{border-color:#243349}
+  .DA .tab{color:#7C8AA0}.DA .tab.on{color:#fff;font-weight:600}.DA .tab.on::after{background:#c9a96a}
+  .DA .tile{color:#fff;border:1px solid rgba(255,255,255,.08)}
+  .DA .tile .s{position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,12,20,.05) 30%,rgba(8,12,20,.9))}
+  .DA .tile .tp{color:#c9a96a}
+  .da1{background:linear-gradient(135deg,#1a2b4a,#0e1726 55%,#3d2c12)}
+  .da2{background:radial-gradient(120% 120% at 20% 0%,#5a1f1f,#1c0f18 70%)}
+  .da3{background:linear-gradient(160deg,#0f3530,#0b1d2e 60%,#10243f)}
+
+  /* ── DARK B — charcoal black (neutral, no blue cast) ── */
+  .DB{background:#0B0B0D}
+  .DB .panel{background:linear-gradient(120deg,#141416 0%,#0E0E10 55%,#1c1407 130%);border:1px solid #232326;border-radius:16px;padding:14px;position:relative;overflow:hidden;color:#fff}
+  .DB .glow{position:absolute;right:-50px;top:-70px;width:240px;height:240px;border-radius:50%;background:radial-gradient(circle,rgba(201,169,106,.16),transparent 70%)}
+  .DB .kicker{color:#c9a96a}
+  .DB .srch{flex:1;display:flex;align-items:center;gap:7px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:7px 11px;font-size:11.5px;color:rgba(255,255,255,.42)}
+  .DB .sel{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:7px 10px;font-size:11.5px;color:rgba(255,255,255,.85)}
+  .DB .chip{border:1px solid rgba(255,255,255,.14);color:rgba(255,255,255,.65)}
+  .DB .chip.on{background:#c9a96a;border-color:#c9a96a;color:#1a1206}
+  .DB .tabs{border-color:#26262a}
+  .DB .tab{color:#8a8a93}.DB .tab.on{color:#fff;font-weight:600}.DB .tab.on::after{background:#c9a96a}
+  .DB .tile{color:#fff;border:1px solid rgba(255,255,255,.07)}
+  .DB .tile .s{position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,10,11,.05) 30%,rgba(10,10,11,.92))}
+  .DB .tile .tp{color:#c9a96a}
+  .db1{background:linear-gradient(135deg,#2a2a2e,#121214 55%,#3a2c12)}
+  .db2{background:radial-gradient(120% 120% at 20% 0%,#46201c,#161214 70%)}
+  .db3{background:linear-gradient(160deg,#1d2b26,#121416 60%,#1b2330)}
+
+  /* ── BLUEPRINT LIGHT — with LIGHT tiles ── */
+  .BL{background:#F2F5FA}
+  .BL .panel{background:linear-gradient(120deg,#FBFCFE 0%,#EFF3FA 70%,#E8EEF8 130%);border:1px solid #D7E0EE;border-radius:16px;padding:14px;position:relative;overflow:hidden}
+  .BL .glow{position:absolute;right:-50px;top:-70px;width:240px;height:240px;border-radius:50%;background:radial-gradient(circle,rgba(62,108,214,.12),transparent 70%)}
+  .BL .kicker{color:#3E6CD6}
+  .BL .h-title{color:#13233F}
+  .BL .srch{flex:1;display:flex;align-items:center;gap:7px;background:#fff;border:1px solid #D7E0EE;border-radius:10px;padding:7px 11px;font-size:11.5px;color:#93A2B8}
+  .BL .sel{background:#fff;border:1px solid #D7E0EE;border-radius:10px;padding:7px 10px;font-size:11.5px;color:#2C3D5C}
+  .BL .blue-btn{background:linear-gradient(135deg,#3E6CD6,#2B53B8);color:#fff;font-weight:700;border:none;border-radius:10px;padding:8px 14px;font-size:12px;box-shadow:0 3px 10px rgba(62,108,214,.3)}
+  .BL .chip{background:#fff;border:1px solid #D7E0EE;color:#5B6B7E}
+  .BL .chip.on{background:#3E6CD6;border-color:#3E6CD6;color:#fff}
+  .BL .tabs{border-color:#D7E0EE}
+  .BL .tab{color:#8B97A6}.BL .tab.on{color:#13233F;font-weight:700}.BL .tab.on::after{background:#3E6CD6}
+  /* LIGHT tiles: soft tinted gradients, navy ink, white glass info band */
+  .BL .tile{color:#13233F;border:1px solid #D7E0EE;box-shadow:0 1px 3px rgba(19,35,63,.06)}
+  .BL .tile .s{position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,0) 35%,rgba(255,255,255,.88) 75%,rgba(255,255,255,.96))}
+  .BL .tile .tp{color:#3E6CD6}
+  .bl1{background:linear-gradient(135deg,#DCE7FA,#EEF3FC 55%,#F4E9D4)}
+  .bl2{background:radial-gradient(120% 120% at 20% 0%,#F6DFDC,#FBF0EE 70%)}
+  .bl3{background:linear-gradient(160deg,#D9EFE7,#E9F2FB 60%,#E2EAF8)}
+  /* poster variant in light mode: image stays, info band is white glass */
+  .BL .tile.poster{background:linear-gradient(135deg,#1a2b4a,#0e1726 55%,#3d2c12)}
+  .BL .tile.poster .s{background:linear-gradient(180deg,rgba(255,255,255,0) 30%,rgba(255,255,255,.86) 72%,rgba(255,255,255,.95))}
+</style>
+</head>
+<body>
+  <h1>Dark vs Dark — and Blueprint light with light tiles</h1>
+  <p class="sub">Left: today's new dark (navy-charcoal). Right: proposed <b>Charcoal Black</b> — same marquee language with the blue cast removed: pure neutral blacks, gold reads warmer. Below: Blueprint light where the tiles go light too. All magnifiers are now minimal single-color strokes.</p>
+
+  <h2>Dark A (current) vs Dark B (charcoal black)</h2>
+  <div class="row2">
+    <div class="frame DA"><span class="tag" style="color:#7C8AA0">Dark A — navy charcoal (as built)</span>
+      <div class="panel"><div class="glow"></div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div><div class="kicker">The Film Makers · Production Slate</div>
+          <div class="h-title">Film Slate</div></div>
+          <span style="flex:1"></span><button class="gold-btn">+ New Project</button>
+        </div>
+        <div class="toolrow">
+          <div class="srch"><svg class="mag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg> Search…</div>
+          <div class="sel">Status: All</div><div class="sel">Sort: Newest</div>
+        </div>
+        <div class="chips"><span class="chip on">All</span><span class="chip">Feature Film</span><span class="chip">TVC</span></div>
+      </div>
+      <div class="tabs"><span class="tab">Develop</span><span class="tab on">Plan</span><span class="tab">Budget</span></div>
+      <div class="tiles">
+        <div class="tile da1"><div class="s"></div><span class="tp">Feature Film</span><span class="nm">The Misfits II</span></div>
+        <div class="tile da2"><div class="s"></div><span class="tp">Series</span><span class="nm">Red Harvest</span></div>
+        <div class="tile da3"><div class="s"></div><span class="tp">Documentary</span><span class="nm">Saltwater</span></div>
+      </div>
+    </div>
+
+    <div class="frame DB"><span class="tag" style="color:#8a8a93">Dark B — charcoal black (proposed)</span>
+      <div class="panel"><div class="glow"></div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div><div class="kicker">The Film Makers · Production Slate</div>
+          <div class="h-title">Film Slate</div></div>
+          <span style="flex:1"></span><button class="gold-btn">+ New Project</button>
+        </div>
+        <div class="toolrow">
+          <div class="srch"><svg class="mag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg> Search…</div>
+          <div class="sel">Status: All</div><div class="sel">Sort: Newest</div>
+        </div>
+        <div class="chips"><span class="chip on">All</span><span class="chip">Feature Film</span><span class="chip">TVC</span></div>
+      </div>
+      <div class="tabs"><span class="tab">Develop</span><span class="tab on">Plan</span><span class="tab">Budget</span></div>
+      <div class="tiles">
+        <div class="tile db1"><div class="s"></div><span class="tp">Feature Film</span><span class="nm">The Misfits II</span></div>
+        <div class="tile db2"><div class="s"></div><span class="tp">Series</span><span class="nm">Red Harvest</span></div>
+        <div class="tile db3"><div class="s"></div><span class="tp">Documentary</span><span class="nm">Saltwater</span></div>
+      </div>
+    </div>
+  </div>
+  <p class="note">Differences in B: page #0B0B0D, panels #141416→#0E0E10 (zero blue), borders neutral graphite, tile fallback gradients de-saturated to smoke tones, scrims pure black. Gold pops harder against neutral black; status colors unchanged.</p>
+
+  <h2>Blueprint light — tiles follow light colors</h2>
+  <p class="note">Fallback tiles become soft tinted pastels (blue / blush / mint) with navy ink on a white glass band; the type line goes working-blue. Tiles WITH an uploaded poster keep the artwork but swap the dark scrim for a white glass band (first tile below) so text stays navy. Active chips/buttons = working blue; gold retires from light mode.</p>
+  <div class="frame BL">
+    <div class="panel"><div class="glow"></div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div><div class="kicker">The Film Makers · Production Slate</div>
+        <div class="h-title">Film Slate</div></div>
+        <span style="flex:1"></span><button class="blue-btn">+ New Project</button>
+      </div>
+      <div class="toolrow">
+        <div class="srch"><svg class="mag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg> Search…</div>
+        <div class="sel">Status: All</div><div class="sel">Sort: Newest</div>
+      </div>
+      <div class="chips"><span class="chip on">All</span><span class="chip">Feature Film</span><span class="chip">TVC</span></div>
+    </div>
+    <div class="tabs"><span class="tab">Develop</span><span class="tab on">Plan</span><span class="tab">Budget</span></div>
+    <div class="tiles">
+      <div class="tile poster"><div class="s"></div><span class="tp">Feature Film · poster</span><span class="nm">The Misfits II</span></div>
+      <div class="tile bl2"><div class="s"></div><span class="tp">Series</span><span class="nm">Red Harvest</span></div>
+      <div class="tile bl3"><div class="s"></div><span class="tp">Documentary</span><span class="nm">Saltwater</span></div>
+    </div>
+  </div>
+</body>
+</html>

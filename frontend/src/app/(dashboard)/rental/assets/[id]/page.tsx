@@ -87,13 +87,15 @@ function DocUploadCard({
 // ── Photo gallery (multi-upload up to 15, with drag & drop) ─────────────────────
 const MAX_PHOTOS = 15;
 function PhotoGallery({
-  photos, onAddPhotos, onRemovePhoto, uploadingPhoto, progress,
+  photos, onAddPhotos, onRemovePhoto, uploadingPhoto, progress, tilePhoto, onSetTilePhoto,
 }: {
   photos: string[];
   onAddPhotos: (files: File[]) => Promise<void>;
   onRemovePhoto: (url: string) => void;
   uploadingPhoto: boolean;
   progress?: string;
+  tilePhoto?: string | null;
+  onSetTilePhoto?: (url: string | null) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -118,7 +120,7 @@ function PhotoGallery({
         {photos.map((url, i) => {
           const full = `${API_BASE}${url}`;
           return (
-            <div key={i} className="relative group rounded-lg overflow-hidden border border-gray-200 aspect-video bg-gray-100">
+            <div key={i} className={cn('relative group rounded-lg overflow-hidden border aspect-video bg-gray-100', tilePhoto === url ? 'border-amber-400 ring-2 ring-amber-300' : 'border-gray-200')}>
               <a href={full} target="_blank" rel="noopener noreferrer">
                 <img src={full} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" />
               </a>
@@ -126,6 +128,13 @@ function PhotoGallery({
                 className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                 <X size={11} />
               </button>
+              {onSetTilePhoto && (
+                tilePhoto === url
+                  ? <button onClick={() => onSetTilePhoto(null)} title="Remove tile-background tag"
+                      className="absolute bottom-1 left-1 text-[9.5px] font-semibold rounded-md px-1.5 py-0.5 bg-amber-400 text-amber-950">★ Tile background</button>
+                  : <button onClick={() => onSetTilePhoto(url)} title="Use this photo behind the asset's tile in the grid view"
+                      className="absolute bottom-1 left-1 text-[9.5px] font-semibold rounded-md px-1.5 py-0.5 bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity">☆ Use as tile</button>
+              )}
             </div>
           );
         })}
@@ -488,8 +497,9 @@ export default function AssetDetailPage() {
   const handleRemovePhoto = async (url: string) => {
     try {
       const newPhotos = (asset.photos || []).filter((p: string) => p !== url);
-      await rentalApi.assets.update(id, { photos: newPhotos });
-      setAsset((a: any) => ({ ...a, photos: newPhotos }));
+      const clearTile = asset.tilePhoto === url; // removing the tagged photo clears the tile tag
+      await rentalApi.assets.update(id, { photos: newPhotos, ...(clearTile ? { tilePhoto: '' } : {}) });
+      setAsset((a: any) => ({ ...a, photos: newPhotos, ...(clearTile ? { tilePhoto: null } : {}) }));
     } catch (e: any) { alert(e?.response?.data?.message || 'Could not remove the photo.'); }
   };
 
@@ -804,6 +814,13 @@ export default function AssetDetailPage() {
               onRemovePhoto={handleRemovePhoto}
               uploadingPhoto={uploadingPhoto}
               progress={photoProgress}
+              tilePhoto={asset.tilePhoto}
+              onSetTilePhoto={async (url) => {
+                try {
+                  await rentalApi.assets.update(id, { tilePhoto: url || '' });
+                  setAsset((a: any) => ({ ...a, tilePhoto: url }));
+                } catch (e: any) { alert(e?.response?.data?.message || 'Could not tag the photo.'); }
+              }}
             />
           </div>
 

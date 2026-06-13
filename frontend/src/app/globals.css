@@ -12,24 +12,26 @@
     /* ── SYS-14 semantic token sheet — the single source of truth.
        Every color in the app should resolve to one of these. AA-checked in both
        modes. Legacy vars below alias into them so nothing breaks. ─────────── */
-    --surface-0:      #F4F5F7;   /* page background */
+    /* LIGHT = "Graphite & Gold": warm paper, charcoal ink, gold the only accent. */
+    --surface-0:      #F5F5F4;   /* page background — warm paper */
     --surface-1:      #FFFFFF;   /* cards, bars, popovers */
-    --surface-2:      #EEF0F3;   /* wells, hovers, table stripes */
-    --text-1:         #16202E;   /* primary */
-    --text-2:         #51606F;   /* secondary */
-    --text-3:         #8A96A3;   /* metadata only — never for content */
-    --border-1:       #D4DAE1;   /* structural */
-    --border-2:       #AFB9C4;   /* emphasis / hover */
-    --accent:         #0F172A;   /* brand action (kept = current brand) */
-    --accent-soft:    #E8EFFD;
-    --accent-soft-text: #1D4ED8;
+    --surface-2:      #F0EFEC;   /* wells, hovers, table stripes */
+    --text-1:         #1C2433;   /* primary — charcoal ink */
+    --text-2:         #5B6B7E;   /* secondary */
+    --text-3:         #8B97A6;   /* metadata only — never for content */
+    --border-1:       #E3E1DB;   /* structural — warm stone */
+    --border-2:       #C9C6BD;   /* emphasis / hover */
+    --accent:         #1C2433;   /* brand action = charcoal (selection, primary buttons) */
+    --accent-soft:    #ECEBE7;
+    --accent-soft-text: #1C2433;
+    --gold:           #b08d4f;   /* the single decorative accent: kickers, active underlines */
     --ok:             #15803D;  --ok-soft:     #E8F6EE;
     --warn:           #B45309;  --warn-soft:   #FDF3E3;
     --danger:         #B91C1C;  --danger-soft: #FDECEC;
 
     /* legacy aliases (existing components keep working) */
     --brand:          var(--accent);
-    --brand-hover:    #1E293B;
+    --brand-hover:    #232327;
     --brand-dark:     var(--accent);
     --sidebar-bg:     #2B2E31;
     --sidebar-hover:  #363A3E;
@@ -259,31 +261,33 @@
 /* Slate charcoal — one family with the icon rail. Depth: page ‹ rail ‹ card.
    SYS-14: dark values are set on the SEMANTIC tokens; legacy aliases follow.
    text-2/text-3 deliberately lifted vs the old #94A3B8/#64748B — those failed
-   contrast on #1E293B cards (the "unreadable dark text" bug). */
+   contrast on #232327 cards (the "unreadable dark text" bug). */
 html.dark {
-  --surface-0:      #0D1320;
-  --surface-1:      #161E2E;
-  --surface-2:      #202A3C;
-  --text-1:         #E6EBF2;   /* 13.9:1 on surface-1 */
-  --text-2:         #9FB0C2;   /*  6.2:1 on surface-1 — AA */
-  --text-3:         #7C8AA0;   /*  4.5:1 on surface-1 — AA */
-  --border-1:       #2B3850;
-  --border-2:       #3D4D6A;
-  --accent:         #5B8DEF;
-  --accent-soft:    #1D2C4D;
-  --accent-soft-text: #9DB9F5;
-  --ok:             #4ADE80;  --ok-soft:     #10301F;
-  --warn:           #FBBF24;  --warn-soft:   #33270E;
-  --danger:         #F87171;  --danger-soft: #3A1414;
+  /* DARK = "Charcoal Black": pure neutral blacks (zero blue cast), gold is the accent. */
+  --surface-0:      #0B0B0D;
+  --surface-1:      #141416;
+  --surface-2:      #1C1C1F;
+  --text-1:         #EDEDEA;   /* warm off-white */
+  --text-2:         #A8A8AD;   /* AA on surface-1 */
+  --text-3:         #7E7E85;   /* AA on surface-1 */
+  --border-1:       #26262A;
+  --border-2:       #3A3A40;
+  --accent:         #C9A96A;   /* gold IS the accent in the dark theme */
+  --accent-soft:    #2A2310;
+  --accent-soft-text: #DFC18A;
+  --gold:           #C9A96A;
+  --ok:             #4ADE80;  --ok-soft:     #122B1C;
+  --warn:           #FBBF24;  --warn-soft:   #2E250D;
+  --danger:         #F87171;  --danger-soft: #361212;
 
-  --brand-hover:    #34466B;
-  --sidebar-bg:     #0F172A;
-  --sidebar-hover:  #1E293B;
-  --sidebar-active: #1E293B;
-  --sidebar-border: #243349;
+  --brand-hover:    #2A2A2E;
+  --sidebar-bg:     #0E0E10;
+  --sidebar-hover:  #1A1A1D;
+  --sidebar-active: #1F1F23;
+  --sidebar-border: #232327;
 }
 html.dark body { background-color: var(--page-bg); color: var(--text-primary); }
-html.dark ::-webkit-scrollbar-thumb { background: #334155; }
+html.dark ::-webkit-scrollbar-thumb { background: #303034; }
 
 /* NATIVE form controls: color-scheme makes the browser render dropdown lists, date
    pickers, checkboxes and scrollbars dark — fixes white-on-white option lists. */
@@ -306,9 +310,9 @@ html.dark { color-scheme: dark; }
 @media not print {
   html.dark .bg-white { background-color: var(--card-bg) !important; }
   html.dark .bg-gray-50, html.dark .bg-gray-100, html.dark .bg-gray-50\/60,
-  html.dark .bg-gray-100\/70, html.dark .bg-gray-50\/40 { background-color: #172132 !important; }
+  html.dark .bg-gray-100\/70, html.dark .bg-gray-50\/40 { background-color: #1A1A1D !important; }
   html.dark .hover\:bg-gray-50:hover, html.dark .hover\:bg-gray-100:hover,
-  html.dark .hover\:bg-gray-50\/60:hover { background-color: #243349 !important; }
+  html.dark .hover\:bg-gray-50\/60:hover { background-color: #242428 !important; }
   html.dark .bg-blue-50 { background-color: #1B2735 !important; }
   html.dark .bg-amber-50 { background-color: #2E2718 !important; }
   html.dark .bg-sky-50 { background-color: #182832 !important; }
@@ -320,7 +324,7 @@ html.dark { color-scheme: dark; }
   html.dark .text-gray-900, html.dark .text-gray-800 { color: var(--text-primary) !important; }
   html.dark .text-gray-700, html.dark .text-gray-600 { color: var(--text-secondary) !important; }
   html.dark .text-gray-500, html.dark .text-gray-400 { color: var(--text-muted) !important; }
-  html.dark .text-gray-300 { color: #475569 !important; }
+  html.dark .text-gray-300 { color: #4F4F56 !important; }
 
   html.dark .border-gray-100, html.dark .border-gray-200, html.dark .border-gray-50,
   html.dark .divide-gray-100 > *, html.dark .border-blue-100, html.dark .border-sky-100,
@@ -344,20 +348,20 @@ html.dark { color-scheme: dark; }
   html.dark .text-sky-700, html.dark .text-sky-600 { color: #6CB8DD !important; }
   html.dark .bg-cyan-100 { background-color: #14333A !important; }
   html.dark .text-cyan-700 { color: #5BC6DC !important; }
-  html.dark .text-brand-600, html.dark .text-brand-700 { color: #CBD5E1 !important; }
-  html.dark .bg-brand-100 { background-color: #243349 !important; }
+  html.dark .text-brand-600, html.dark .text-brand-700 { color: #DFC18A !important; } /* gold accent */
+  html.dark .bg-brand-100 { background-color: #2A2310 !important; } /* gold soft */
 
   /* form controls */
   html.dark .input, html.dark select.input, html.dark textarea.input {
-    background-color: #0F172A; color: var(--text-primary); border-color: var(--card-border);
+    background-color: #1A1A1D; color: var(--text-primary); border-color: var(--card-border);
   }
   html.dark .input::placeholder { color: var(--text-muted); }
   html.dark input[type='checkbox'] { color-scheme: dark; }
   html.dark input[type='date'] { color-scheme: dark; }
 
   /* remaining tints & neutrals seen across pages */
-  html.dark .bg-gray-200 { background-color: #334155 !important; }
-  html.dark .bg-slate-50 { background-color: #172132 !important; }
+  html.dark .bg-gray-200 { background-color: #303034 !important; }
+  html.dark .bg-slate-50 { background-color: #1A1A1D !important; }
   html.dark .bg-orange-50 { background-color: #2E2114 !important; }
   html.dark .bg-orange-100 { background-color: #3A2A16 !important; }
   html.dark .text-orange-700, html.dark .text-orange-600 { color: #EFA45C !important; }
@@ -366,32 +370,32 @@ html.dark { color-scheme: dark; }
   html.dark .bg-blue-50\/40 { background-color: #1B2735 !important; }
   html.dark .bg-amber-50\/40 { background-color: #2E2718 !important; }
   html.dark .bg-red-50\/40 { background-color: #2E1B1B !important; }
-  html.dark .bg-brand-50\/40 { background-color: #1E293B !important; }
+  html.dark .bg-brand-50\/40 { background-color: #232327 !important; }
   html.dark .bg-purple-50, html.dark .bg-violet-50 { background-color: #232136 !important; }
   html.dark .bg-cyan-50 { background-color: #14333A !important; }
   html.dark .bg-emerald-50 { background-color: #18291E !important; }
   html.dark .bg-pink-50, html.dark .bg-rose-50 { background-color: #2E1A22 !important; }
-  html.dark .hover\:bg-gray-200:hover { background-color: #3A4D6B !important; }
-  html.dark .hover\:bg-brand-50:hover { background-color: #1E293B !important; }
-  html.dark .bg-brand-50 { background-color: #1E293B !important; }
+  html.dark .hover\:bg-gray-200:hover { background-color: #3A3A40 !important; }
+  html.dark .hover\:bg-brand-50:hover { background-color: #232327 !important; }
+  html.dark .bg-brand-50 { background-color: #232327 !important; }
   html.dark .border-amber-200, html.dark .border-blue-200, html.dark .border-red-200,
-  html.dark .border-indigo-300, html.dark .border-brand-300, html.dark .border-green-200 { border-color: #334155 !important; }
+  html.dark .border-indigo-300, html.dark .border-brand-300, html.dark .border-green-200 { border-color: #303034 !important; }
   /* modals / popovers built on plain bg-white are covered by the .bg-white rule;
      shadows read harsh on dark — soften */
   html.dark .shadow-xl, html.dark .shadow-md, html.dark .shadow-sm { box-shadow: 0 4px 16px rgba(0,0,0,.5) !important; }
   /* sticky table headers inside scroll panes */
   html.dark thead tr { background-color: var(--card-bg); }
-  html.dark .table-th { background-color: #172132; }
+  html.dark .table-th { background-color: #1A1A1D; }
 
   /* component classes whose light colors are inlined via @apply */
-  html.dark .btn-secondary { background-color: #1E293B; color: var(--text-secondary); border-color: var(--card-border); }
-  html.dark .btn-secondary:hover:not(:disabled) { background-color: #243349; border-color: #334155; }
+  html.dark .btn-secondary { background-color: #232327; color: var(--text-secondary); border-color: var(--card-border); }
+  html.dark .btn-secondary:hover:not(:disabled) { background-color: #242428; border-color: #303034; }
   html.dark .btn-ghost { color: var(--text-secondary); }
-  html.dark .btn-ghost:hover:not(:disabled) { background-color: #1E293B; color: var(--text-primary); }
-  html.dark .table-row:hover { background-color: #243349; }
+  html.dark .btn-ghost:hover:not(:disabled) { background-color: #232327; color: var(--text-primary); }
+  html.dark .table-row:hover { background-color: #242428; }
   html.dark .table-row:nth-child(even) { background-color: #16202F; }
   html.dark .page-header { background: var(--card-bg); }
-  html.dark .input:hover { border-color: #334155; }
+  html.dark .input:hover { border-color: #303034; }
 
   /* ── SYS-14: SLATE family remap — the Script/production panels are built on
      slate utilities, which the original remap never covered. This is the fix
@@ -413,15 +417,15 @@ html.dark { color-scheme: dark; }
   html.dark .divide-slate-100 > *, html.dark .divide-slate-200 > * { border-color: var(--border-1) !important; }
   html.dark .hover\:border-slate-400:hover, html.dark .hover\:border-slate-900:hover { border-color: var(--border-2) !important; }
 
-  /* dark "active" chips/buttons (bg-slate-900 + text-white) become accent fills */
-  html.dark .bg-slate-900 { background-color: #3E6CD6 !important; }
-  html.dark .border-slate-900 { border-color: #3E6CD6 !important; }
-  html.dark .bg-slate-800 { background-color: #34466B !important; }
+  /* dark "active" chips/buttons (bg-slate-900 + text-white) become GOLD fills */
+  html.dark .bg-slate-900 { background-color: #C9A96A !important; color: #1a1206 !important; }
+  html.dark .border-slate-900 { border-color: #C9A96A !important; }
+  html.dark .bg-slate-800 { background-color: #2A2A2E !important; }
 
-  /* primary actions: readable accent fill instead of invisible navy-on-navy */
-  html.dark .btn-primary { background-color: #3E6CD6; border-color: #3E6CD6; }
-  html.dark .btn-primary:hover:not(:disabled) { background-color: #5B8DEF; }
-  html.dark .bg-brand-600 { background-color: #3E6CD6 !important; }
-  html.dark .hover\:bg-brand-700:hover, html.dark .bg-brand-700 { background-color: #5B8DEF !important; }
+  /* primary actions: gold fill with dark ink — the cinematic accent */
+  html.dark .btn-primary { background-color: #C9A96A; border-color: #C9A96A; color: #1a1206 !important; }
+  html.dark .btn-primary:hover:not(:disabled) { background-color: #DFC18A; color: #1a1206; }
+  html.dark .bg-brand-600 { background-color: #C9A96A !important; color: #1a1206 !important; }
+  html.dark .hover\:bg-brand-700:hover, html.dark .bg-brand-700 { background-color: #DFC18A !important; color: #1a1206 !important; }
   html.dark .hover\:bg-gray-100\/70:hover { background-color: var(--surface-2) !important; }
 }

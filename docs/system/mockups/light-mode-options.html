@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Light mode — three directions</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Inter,'Segoe UI',Arial,sans-serif;background:#E9EBEF;color:#15202E;font-size:13px;padding:28px;line-height:1.5}
+  h1{font-size:18px;margin-bottom:4px}.sub{color:#5B6B7E;margin-bottom:26px}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:.07em;color:#8B97A6;margin:36px 0 10px}
+  .frame{border-radius:18px;padding:20px;border:1px solid #D9DEE6;margin-bottom:8px}
+  .note{color:#5B6B7E;font-size:12px;margin-bottom:6px;max-width:800px}
+  .gold-btn{background:linear-gradient(135deg,#c9a96a,#a87f3d);color:#1a1206;font-weight:700;border:none;border-radius:10px;padding:8px 14px;font-size:12px;box-shadow:0 3px 10px rgba(176,141,79,.3)}
+  .tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}
+  .tile{border-radius:14px;min-height:96px;position:relative;overflow:hidden;color:#fff;display:flex;align-items:flex-end;padding:10px;font-weight:700;font-size:12.5px}
+  .tile .s{position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,12,20,.05) 30%,rgba(8,12,20,.9))}
+  .tile b{position:relative}
+  .t1{background:linear-gradient(135deg,#1a2b4a,#0e1726 55%,#3d2c12)}
+  .t2{background:radial-gradient(120% 120% at 20% 0%,#5a1f1f,#1c0f18 70%)}
+  .t3{background:linear-gradient(160deg,#0f3530,#0b1d2e 60%,#10243f)}
+  .kicker{font-size:9px;font-weight:800;letter-spacing:.22em;text-transform:uppercase}
+  .h-title{font-size:17px;font-weight:800}
+  .toolrow{display:flex;gap:6px;margin-top:10px;align-items:center;flex-wrap:wrap}
+  .chips{display:flex;gap:5px;margin-top:9px;flex-wrap:wrap}
+  .chip{border-radius:99px;padding:4px 12px;font-size:11px;font-weight:600}
+  .tabs{display:flex;margin-top:14px;border-bottom-width:1px;border-bottom-style:solid}
+  .tab{padding:8px 13px;font-size:12.5px;position:relative}
+  .tab.on::after{content:'';position:absolute;left:9px;right:9px;bottom:-1px;height:2px;border-radius:2px}
+
+  /* ── L1 · GALLERY WHITE ── */
+  .L1{background:#F7F8FA}
+  .L1 .panel{background:#FFFFFF;border:1px solid #E8EAEE;border-radius:16px;padding:14px;position:relative;overflow:hidden}
+  .L1 .panel::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(180deg,#c9a96a,#a87f3d)}
+  .L1 .kicker{color:#b08d4f}
+  .L1 .h-title{color:#0F1722}
+  .L1 .srch{flex:1;background:#F3F4F7;border:1px solid #E8EAEE;border-radius:10px;padding:7px 11px;font-size:11.5px;color:#9AA3B2}
+  .L1 .sel{background:#fff;border:1px solid #E1E4EA;border-radius:10px;padding:7px 10px;font-size:11.5px;color:#3C4656}
+  .L1 .chip{background:#fff;border:1px solid #E1E4EA;color:#5B6B7E}
+  .L1 .chip.on{background:#0F1722;border-color:#0F1722;color:#fff}
+  .L1 .tabs{border-bottom-color:#E8EAEE}
+  .L1 .tab{color:#8B97A6}.L1 .tab.on{color:#0F1722;font-weight:700}.L1 .tab.on::after{background:#b08d4f}
+
+  /* ── L2 · SILVER SCREEN (dark marquee stays, page is cool platinum) ── */
+  .L2{background:#EDF0F4}
+  .L2 .panel{border-radius:16px;padding:14px;position:relative;overflow:hidden;color:#fff;border:1px solid #1c2536;
+    background:linear-gradient(120deg,#101828 0%,#0c1220 55%,#1d1607 130%)}
+  .L2 .glow{position:absolute;right:-50px;top:-70px;width:240px;height:240px;border-radius:50%;background:radial-gradient(circle,rgba(176,141,79,.2),transparent 70%)}
+  .L2 .kicker{color:#c9a96a}
+  .L2 .h-title{color:#fff}
+  .L2 .srch{flex:1;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:7px 11px;font-size:11.5px;color:rgba(255,255,255,.4)}
+  .L2 .sel{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:7px 10px;font-size:11.5px;color:rgba(255,255,255,.85)}
+  .L2 .chip{border:1px solid rgba(255,255,255,.16);color:rgba(255,255,255,.7)}
+  .L2 .chip.on{background:#c9a96a;border-color:#c9a96a;color:#1a1206}
+  .L2 .tabs{border-bottom-color:#D5DAE2}
+  .L2 .tab{color:#7E8A9B}.L2 .tab.on{color:#15202E;font-weight:700}.L2 .tab.on::after{background:#b08d4f}
+
+  /* ── L3 · BLUEPRINT (production-office paper: cool blue-gray + navy ink) ── */
+  .L3{background:#F2F5FA}
+  .L3 .panel{background:linear-gradient(120deg,#FBFCFE 0%,#EFF3FA 70%,#E8EEF8 130%);border:1px solid #D7E0EE;border-radius:16px;padding:14px;position:relative;overflow:hidden}
+  .L3 .glow{position:absolute;right:-50px;top:-70px;width:240px;height:240px;border-radius:50%;background:radial-gradient(circle,rgba(62,108,214,.12),transparent 70%)}
+  .L3 .kicker{color:#3E6CD6}
+  .L3 .h-title{color:#13233F}
+  .L3 .srch{flex:1;background:#fff;border:1px solid #D7E0EE;border-radius:10px;padding:7px 11px;font-size:11.5px;color:#93A2B8}
+  .L3 .sel{background:#fff;border:1px solid #D7E0EE;border-radius:10px;padding:7px 10px;font-size:11.5px;color:#2C3D5C}
+  .L3 .gold-btn{background:linear-gradient(135deg,#3E6CD6,#2B53B8);color:#fff;box-shadow:0 3px 10px rgba(62,108,214,.3)}
+  .L3 .chip{background:#fff;border:1px solid #D7E0EE;color:#5B6B7E}
+  .L3 .chip.on{background:#3E6CD6;border-color:#3E6CD6;color:#fff}
+  .L3 .tabs{border-bottom-color:#D7E0EE}
+  .L3 .tab{color:#8B97A6}.L3 .tab.on{color:#13233F;font-weight:700}.L3 .tab.on::after{background:#3E6CD6}
+  .L3 .gold-note{color:#b08d4f}
+</style>
+</head>
+<body>
+  <h1>Light mode — three directions</h1>
+  <p class="sub">Same sample everywhere: marquee header, toolbar, type chips, phase tabs, three tiles. The dark theme stays the cinematic marquee in all three.</p>
+
+  <h2>L1 · Gallery White — minimal, gold as a thin signature</h2>
+  <p class="note">Pure white cards on a whisper-gray page; gold lives only in a left edge-bar, the kicker, and active underlines. Quietest option, maximum readability for finance-heavy screens; selection color is charcoal, not gold.</p>
+  <div class="frame L1">
+    <div class="panel">
+      <div style="display:flex;align-items:center;gap:10px;padding-left:8px">
+        <div><div class="kicker">The Film Makers · Production Slate</div>
+        <div class="h-title">Film Slate <span style="font-size:11px;color:#9AA3B2;font-weight:400">12 active</span></div></div>
+        <span style="flex:1"></span><button class="gold-btn">+ New Project</button>
+      </div>
+      <div class="toolrow" style="padding-left:8px"><div class="srch">🔎 Search…</div><div class="sel">Status: All</div><div class="sel">Sort: Newest</div></div>
+      <div class="chips" style="padding-left:8px"><span class="chip on">All</span><span class="chip">Feature Film</span><span class="chip">Documentary</span><span class="chip">TVC</span></div>
+    </div>
+    <div class="tabs"><span class="tab">Develop</span><span class="tab on">Plan</span><span class="tab">Budget</span><span class="tab">Shoot</span></div>
+    <div class="tiles"><div class="tile t1"><div class="s"></div><b>The Misfits II</b></div><div class="tile t2"><div class="s"></div><b>Red Harvest</b></div><div class="tile t3"><div class="s"></div><b>Saltwater</b></div></div>
+  </div>
+
+  <h2>L2 · Silver Screen — the marquee stays dark, the page goes platinum</h2>
+  <p class="note">Highest-drama option: hero panels and tiles keep their dark cinematic identity as "contrast islands", everything else is cool platinum gray. Light mode and dark mode share the SAME headers — only the page around them changes. Cheapest to build, most consistent branding.</p>
+  <div class="frame L2">
+    <div class="panel"><div class="glow"></div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div><div class="kicker">The Film Makers · Production Slate</div>
+        <div class="h-title">Film Slate <span style="font-size:11px;color:rgba(255,255,255,.5);font-weight:400">12 active</span></div></div>
+        <span style="flex:1"></span><button class="gold-btn">+ New Project</button>
+      </div>
+      <div class="toolrow"><div class="srch">🔎 Search…</div><div class="sel">Status: All</div><div class="sel">Sort: Newest</div></div>
+      <div class="chips"><span class="chip on">All</span><span class="chip">Feature Film</span><span class="chip">Documentary</span><span class="chip">TVC</span></div>
+    </div>
+    <div class="tabs"><span class="tab">Develop</span><span class="tab on">Plan</span><span class="tab">Budget</span><span class="tab">Shoot</span></div>
+    <div class="tiles"><div class="tile t1"><div class="s"></div><b>The Misfits II</b></div><div class="tile t2"><div class="s"></div><b>Red Harvest</b></div><div class="tile t3"><div class="s"></div><b>Saltwater</b></div></div>
+  </div>
+
+  <h2>L3 · Blueprint — production-office paper, accent flips to working blue</h2>
+  <p class="note">Cool blue-gray paper like a tech scout binder: navy ink, the accent becomes the system's working blue (gold retires to purely decorative moments — kickers on reports, the slate). Feels most "ERP", most neutral for long days in budgets; the cinematic gold stays exclusive to the dark theme.</p>
+  <div class="frame L3">
+    <div class="panel"><div class="glow"></div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div><div class="kicker">The Film Makers · Production Slate</div>
+        <div class="h-title">Film Slate <span style="font-size:11px;color:#93A2B8;font-weight:400">12 active</span></div></div>
+        <span style="flex:1"></span><button class="gold-btn">+ New Project</button>
+      </div>
+      <div class="toolrow"><div class="srch">🔎 Search…</div><div class="sel">Status: All</div><div class="sel">Sort: Newest</div></div>
+      <div class="chips"><span class="chip on">All</span><span class="chip">Feature Film</span><span class="chip">Documentary</span><span class="chip">TVC</span></div>
+    </div>
+    <div class="tabs"><span class="tab">Develop</span><span class="tab on">Plan</span><span class="tab">Budget</span><span class="tab">Shoot</span></div>
+    <div class="tiles"><div class="tile t1"><div class="s"></div><b>The Misfits II</b></div><div class="tile t2"><div class="s"></div><b>Red Harvest</b></div><div class="tile t3"><div class="s"></div><b>Saltwater</b></div></div>
+  </div>
+</body>
+</html>

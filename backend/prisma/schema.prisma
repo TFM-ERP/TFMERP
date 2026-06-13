@@ -895,6 +895,7 @@ model Asset {
   condition         String      @default("GOOD") // EXCELLENT | GOOD | FAIR | POOR
   status            AssetStatus @default(AVAILABLE)
   photos            String[]
+  tilePhoto         String?     // photo tagged as the asset's tile background (grid view)
   notes             String?
   qrCode            String?     @unique
 

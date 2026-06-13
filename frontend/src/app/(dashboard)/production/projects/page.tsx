@@ -15,15 +15,24 @@ const TYPE_LABEL: Record<string, string> = {
   TVC: 'TVC', CORPORATE: 'Corporate Film', DOCUMENTARY: 'Documentary',
   FEATURE: 'Feature Film', SHORT: 'Short Film', MUSIC_VIDEO: 'Music Video', OTHER: 'Production',
 };
-/** Tiles without an uploaded poster fall back to a type-keyed brand gradient. */
+/** Tiles without an uploaded poster fall back to a type-keyed gradient — per theme. */
 const TYPE_FALLBACK: Record<string, string> = {
-  FEATURE: 'linear-gradient(135deg,#1a2b4a,#0e1726 55%,#3d2c12)',
-  DOCUMENTARY: 'linear-gradient(160deg,#0f3530,#0b1d2e 60%,#10243f)',
-  TVC: 'linear-gradient(150deg,#4a3413,#241607 60%,#0d0a05)',
-  MUSIC_VIDEO: 'radial-gradient(120% 120% at 20% 0%,#5a1f1f,#1c0f18 70%)',
-  SHORT: 'linear-gradient(140deg,#2c1f4a,#141026 60%,#0d1830)',
-  CORPORATE: 'linear-gradient(145deg,#16324a,#0d1c2a 60%,#102337)',
-  OTHER: 'linear-gradient(135deg,#222b3a,#10161f 60%,#1d2433)',
+  FEATURE: 'linear-gradient(135deg,#2a2a2e,#121214 55%,#3a2c12)',
+  DOCUMENTARY: 'linear-gradient(160deg,#1d2b26,#121416 60%,#1b2330)',
+  TVC: 'linear-gradient(150deg,#3a2c12,#1c1407 60%,#0d0a05)',
+  MUSIC_VIDEO: 'radial-gradient(120% 120% at 20% 0%,#46201c,#161214 70%)',
+  SHORT: 'linear-gradient(140deg,#262033,#141118 60%,#101418)',
+  CORPORATE: 'linear-gradient(145deg,#23272d,#141416 60%,#1a1d22)',
+  OTHER: 'linear-gradient(135deg,#26262a,#121214 60%,#1d1d21)',
+};
+const TYPE_FALLBACK_LIGHT: Record<string, string> = {
+  FEATURE: 'linear-gradient(135deg,#E6E4DF,#F3F1EC 55%,#F2EBD8)',
+  DOCUMENTARY: 'linear-gradient(160deg,#DCEAE4,#EFF4F1 60%,#E5EEE8)',
+  TVC: 'linear-gradient(150deg,#F0E6D5,#F8F3E8 60%,#F2EBD8)',
+  MUSIC_VIDEO: 'radial-gradient(120% 120% at 20% 0%,#F2DCDA,#F9EEED 70%)',
+  SHORT: 'linear-gradient(140deg,#E4E0EC,#F2F0F6 60%,#EBE9F0)',
+  CORPORATE: 'linear-gradient(145deg,#E0E3E7,#F0F1F4 60%,#E9ECEF)',
+  OTHER: 'linear-gradient(135deg,#E6E4DF,#F2F1EE 60%,#EBEAE6)',
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -57,7 +66,68 @@ export default function ProductionProjectsPage() {
   const [selectedArc, setSelectedArc] = useState<Set<string>>(new Set());  // archived cards
   const [archiving, setArchiving] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
-  const activeItems = useMemo(() => items.filter((p: any) => p.status !== 'ARCHIVED'), [items]);
+  // Theme: marquee + tiles follow the global mode (Graphite light · Charcoal Black dark).
+  const [isDark, setIsDark] = useState(false);
+  useEffect(() => {
+    const root = document.documentElement;
+    const sync = () => setIsDark(root.classList.contains('dark'));
+    sync();
+    const mo = new MutationObserver(sync);
+    mo.observe(root, { attributes: true, attributeFilter: ['class'] });
+    return () => mo.disconnect();
+  }, []);
+  // Marquee palette per theme
+  const MQ = isDark ? {
+    panel: 'linear-gradient(120deg,#141416 0%,#0E0E10 55%,#1c1407 130%)', border: '#232326',
+    glow: 'radial-gradient(circle,rgba(201,169,106,.16),transparent 70%)', kicker: '#c9a96a',
+    title: '#fff', count: 'rgba(255,255,255,.55)',
+    fieldBg: 'rgba(255,255,255,.07)', fieldBd: '1px solid rgba(255,255,255,.14)', fieldText: 'rgba(255,255,255,.85)',
+    searchText: '#ffffff', searchPh: 'placeholder-white/40', icon: 'rgba(255,255,255,.45)',
+    btnBg: 'linear-gradient(135deg,#c9a96a,#a87f3d)', btnText: '#1a1206', btnShadow: '0 4px 14px rgba(176,141,79,.35)',
+    chipBd: '1px solid rgba(255,255,255,.16)', chipText: 'rgba(255,255,255,.7)',
+    chipOnBg: '#c9a96a', chipOnBd: '1px solid #c9a96a', chipOnText: '#1a1206',
+    colorScheme: 'dark' as const,
+  } : {
+    panel: 'linear-gradient(120deg,#FCFCFB 0%,#F3F2EF 70%,#EFEBE2 130%)', border: '#E3E1DB',
+    glow: 'radial-gradient(circle,rgba(176,141,79,.14),transparent 70%)', kicker: '#b08d4f',
+    title: '#1C2433', count: '#8B97A6',
+    fieldBg: '#ffffff', fieldBd: '1px solid #E3E1DB', fieldText: '#3C4656',
+    searchText: '#1C2433', searchPh: 'placeholder-gray-400', icon: '#8B97A6',
+    btnBg: 'linear-gradient(135deg,#1C2433,#0F1722)', btnText: '#fff', btnShadow: '0 4px 14px rgba(28,36,51,.25)',
+    chipBd: '1px solid #E1E4EA', chipText: '#5B6B7E',
+    chipOnBg: '#1C2433', chipOnBd: '1px solid #1C2433', chipOnText: '#fff',
+    colorScheme: 'light' as const,
+  };
+  // Tile palette per theme
+  const TL = isDark ? {
+    scrim: 'linear-gradient(180deg, rgba(8,12,20,.05) 30%, rgba(8,12,20,.82) 78%, rgba(8,12,20,.93))',
+    letterbox: '#0b0f17', ink: '#fff', meta: 'rgba(255,255,255,.8)', code: 'rgba(255,255,255,.75)',
+    glass: { background: 'rgba(8,12,20,.55)', backdropFilter: 'blur(6px)', color: '#fff' } as any,
+    fallback: TYPE_FALLBACK, border: 'border-gray-200', gold: '#c9a96a',
+  } : {
+    scrim: 'linear-gradient(180deg, rgba(255,255,255,0) 35%, rgba(255,255,255,.88) 75%, rgba(255,255,255,.96))',
+    letterbox: '#E8E6E1', ink: '#1C2433', meta: '#5B6B7E', code: '#6A7077',
+    glass: { background: 'rgba(255,255,255,.72)', backdropFilter: 'blur(6px)', color: '#1C2433', border: '1px solid rgba(0,0,0,.07)' } as any,
+    fallback: TYPE_FALLBACK_LIGHT, border: 'border-[#E3E1DB]', gold: '#b08d4f',
+  };
+
+  // Tile filters + sort: production type, project status, and ordering.
+  const [typeFilter, setTypeFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [sortBy, setSortBy] = useState<'newest' | 'type' | 'status' | 'title'>('newest');
+  const STATUS_ORDER = ['PRODUCTION', 'PRE_PRODUCTION', 'POST_PRODUCTION', 'DEVELOPMENT', 'DELIVERED', 'CANCELLED'];
+  const activeItems = useMemo(() => {
+    let list = items.filter((p: any) => p.status !== 'ARCHIVED');
+    if (typeFilter) list = list.filter((p: any) => p.projectType === typeFilter);
+    if (statusFilter) list = list.filter((p: any) => p.status === statusFilter);
+    const by: Record<string, (a: any, b: any) => number> = {
+      newest: (a, b) => String(b.createdAt).localeCompare(String(a.createdAt)),
+      title: (a, b) => String(a.title).localeCompare(String(b.title)),
+      type: (a, b) => String(a.projectType).localeCompare(String(b.projectType)) || String(a.title).localeCompare(String(b.title)),
+      status: (a, b) => (STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status)) || String(a.title).localeCompare(String(b.title)),
+    };
+    return [...list].sort(by[sortBy]);
+  }, [items, typeFilter, statusFilter, sortBy]);
   const archivedItems = useMemo(() => items.filter((p: any) => p.status === 'ARCHIVED'), [items]);
   const toggleSelect = (id: string) => setSelected(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const toggleArc = (id: string) => setSelectedArc(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -213,14 +283,59 @@ export default function ProductionProjectsPage() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Production Projects</h1>
-          <p className="text-gray-500 text-sm mt-0.5">{total} projects</p>
+      {/* ── Marquee header — theme-aware: Charcoal Black panel in dark, Graphite paper in light ── */}
+      <div className="relative rounded-[20px] overflow-hidden mb-6" style={{ background: MQ.panel, border: `1px solid ${MQ.border}`, color: MQ.title }}>
+        <div aria-hidden className="absolute pointer-events-none" style={{ right: -60, top: -80, width: 300, height: 300, borderRadius: '50%', background: MQ.glow }} />
+        <div className="relative px-5 pt-5 pb-4">
+          <div className="flex items-center gap-3.5">
+            <div>
+              <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.22em', color: MQ.kicker }}>The Film Makers · Production Slate</div>
+              <div className="text-[20px] font-extrabold leading-tight" style={{ color: MQ.title }}>Film Slate <span className="text-[11.5px] font-normal ml-1" style={{ color: MQ.count }}>{activeItems.length} active{archivedItems.length ? ` · ${archivedItems.length} archived` : ''}</span></div>
+            </div>
+            <span className="flex-1" />
+            <button onClick={() => setShowForm(true)} className="rounded-xl px-4 py-2 text-[12.5px] font-bold cursor-pointer"
+              style={{ background: MQ.btnBg, color: MQ.btnText, boxShadow: MQ.btnShadow }}>
+              + New Project
+            </button>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 mt-4">
+            <div className="flex items-center gap-2 flex-1 min-w-[220px] rounded-xl px-3 py-2" style={{ background: MQ.fieldBg, border: MQ.fieldBd }}>
+              <Search size={13} className="shrink-0" style={{ color: MQ.icon }} />
+              <input className={`bg-transparent outline-none border-none text-[12.5px] flex-1 ${MQ.searchPh}`}
+                style={{ color: MQ.searchText }}
+                placeholder="Search title, number, client…" value={search} onChange={e => setSearch(e.target.value)} />
+            </div>
+            <select className="rounded-xl px-2.5 py-2 text-[12px] outline-none" style={{ background: MQ.fieldBg, border: MQ.fieldBd, color: MQ.fieldText, colorScheme: MQ.colorScheme }}
+              value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+              <option value="">Status: All</option>
+              {STATUSES.filter(s => s !== 'ARCHIVED').map(s => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}
+            </select>
+            <select className="rounded-xl px-2.5 py-2 text-[12px] outline-none" style={{ background: MQ.fieldBg, border: MQ.fieldBd, color: MQ.fieldText, colorScheme: MQ.colorScheme }}
+              value={sortBy} onChange={e => setSortBy(e.target.value as any)}>
+              <option value="newest">Sort: Newest</option><option value="type">Sort: Type</option>
+              <option value="status">Sort: Status</option><option value="title">Sort: Title</option>
+            </select>
+            <button onClick={() => setShowArchived(v => !v)}
+              className="rounded-xl px-3 py-2 text-[11.5px] cursor-pointer"
+              style={{ border: MQ.fieldBd, color: showArchived ? MQ.kicker : MQ.count, background: showArchived ? 'rgba(176,141,79,.12)' : 'transparent' }}>
+              🗂 Archived{archivedItems.length ? ` (${archivedItems.length})` : ''}
+            </button>
+            <button onClick={load} title="Refresh" className="rounded-xl p-2 cursor-pointer" style={{ border: MQ.fieldBd, color: MQ.count }}>
+              <RefreshCw size={13} className={cn(loading && 'animate-spin')} />
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-1.5 mt-3">
+            {[['', 'All'], ...PROJECT_TYPES.map(t => [t, TYPE_LABEL[t] || t])].map(([val, label]) => (
+              <button key={val || 'all'} onClick={() => setTypeFilter(val as string)}
+                className="rounded-full px-3 py-1 text-[11px] font-semibold cursor-pointer transition-colors"
+                style={typeFilter === val
+                  ? { background: MQ.chipOnBg, border: MQ.chipOnBd, color: MQ.chipOnText }
+                  : { background: 'transparent', border: MQ.chipBd, color: MQ.chipText }}>
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
-        <button onClick={() => setShowForm(true)} className="btn btn-primary">
-          <Plus size={14} className="mr-1" /> New Project
-        </button>
       </div>
 
       {/* New Project Form */}
@@ -327,62 +442,58 @@ export default function ProductionProjectsPage() {
         </div>
       )}
 
-      {/* Search */}
-      <div className="flex gap-3 mb-4">
-        <div className="relative flex-1">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input className="input pl-9 w-full" placeholder="Search projects..." value={search} onChange={e => setSearch(e.target.value)} />
-        </div>
-        <button onClick={() => setShowArchived(v => !v)}
-          className={cn('btn text-xs whitespace-nowrap', showArchived ? 'bg-gray-200 text-gray-700' : 'btn-secondary')}>
-          {showArchived ? 'Hide archived' : 'Show archived'}
-        </button>
-        {selected.size > 0 && (
+      {/* Contextual bulk action — appears only while tiles are selected */}
+      {selected.size > 0 && (
+        <div className="flex items-center gap-3 mb-4 bg-white border border-gray-200 rounded-xl px-3 py-2">
+          <span className="text-xs text-gray-500 font-medium">{selected.size} selected</span>
+          <span className="flex-1" />
+          <button onClick={() => setSelected(new Set())} className="btn btn-secondary text-xs">Clear</button>
           <button onClick={archiveSelected} disabled={archiving} className="btn btn-primary text-xs whitespace-nowrap">
             {archiving ? 'Archiving…' : `Archive selected (${selected.size})`}
           </button>
-        )}
-        <button onClick={load} className="btn btn-secondary p-2">
-          <RefreshCw size={14} className={cn(loading && 'animate-spin')} />
-        </button>
-      </div>
+        </div>
+      )}
 
       {/* ── Project grid — cinematic poster tiles (Option A). No delete here: archive first. ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {activeItems.map((p: any) => {
           const t = (p.posterTransform || {}) as any;
-          const chip = 'rounded-full px-2 py-0.5 text-[10.5px] font-semibold text-white border border-white/25';
-          const glass = { background: 'rgba(8,12,20,.55)', backdropFilter: 'blur(6px)' } as any;
+          const chip = 'rounded-full px-2 py-0.5 text-[10.5px] font-semibold';
           return (
             <Link key={p.id} href={`/production/projects/${p.id}`}
-              className={cn('group relative rounded-2xl overflow-hidden border border-gray-200 min-h-[205px] flex flex-col justify-end text-white shadow-sm hover:shadow-xl hover:-translate-y-0.5 transition-all', selected.has(p.id) && 'ring-2 ring-indigo-400')}>
-              {/* poster (uploaded, with saved framing) or a type-keyed gradient fallback */}
-              <div aria-hidden style={{
-                position: 'absolute', inset: '-18%',
-                backgroundImage: p.posterUrl ? `url(${assetUrl(p.posterUrl)})` : (TYPE_FALLBACK[p.projectType] || TYPE_FALLBACK.OTHER),
-                backgroundSize: 'cover', backgroundPosition: 'center',
-                transform: `translate(${Number(t.x) || 0}%, ${Number(t.y) || 0}%) scale(${Number(t.zoom) || 1}) rotate(${Number(t.rot) || 0}deg)`,
-              }} />
-              <div aria-hidden className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(8,12,20,.05) 30%, rgba(8,12,20,.82) 78%, rgba(8,12,20,.93))' }} />
+              className={cn('group relative rounded-2xl overflow-hidden border min-h-[205px] flex flex-col justify-end shadow-sm hover:shadow-xl hover:-translate-y-0.5 transition-all', TL.border, selected.has(p.id) && 'ring-2 ring-indigo-400')}
+              style={{ color: TL.ink }}>
+              {/* poster — framed exactly as saved in the editor (natural proportions on a
+                  theme letterbox); unframed posters fall back to cover; no poster = gradient */}
+              <div aria-hidden className="absolute inset-0" style={{ background: p.posterUrl ? TL.letterbox : undefined, backgroundImage: p.posterUrl ? undefined : (TL.fallback[p.projectType] || TL.fallback.OTHER) }} />
+              {p.posterUrl && (p.posterTransform ? (
+                <img src={assetUrl(p.posterUrl)} alt="" aria-hidden draggable={false} style={{
+                  position: 'absolute', left: '50%', top: '50%', width: `${(Number(t.zoom) || 1) * 100}%`, height: 'auto', maxWidth: 'none',
+                  transform: `translate(-50%, -50%) translate(${Number(t.x) || 0}%, ${Number(t.y) || 0}%) rotate(${Number(t.rot) || 0}deg)`,
+                }} />
+              ) : (
+                <div aria-hidden className="absolute inset-0" style={{ backgroundImage: `url(${assetUrl(p.posterUrl)})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
+              ))}
+              <div aria-hidden className="absolute inset-0" style={{ background: TL.scrim }} />
               {/* top chips */}
               <div className="absolute top-3 left-3 flex items-center gap-2">
                 <input type="checkbox" checked={selected.has(p.id)}
                   onClick={(e) => e.stopPropagation()}
                   onChange={(e) => { e.stopPropagation(); toggleSelect(p.id); }}
                   className="w-4 h-4 accent-indigo-500 cursor-pointer" title="Select for bulk archive" />
-                <span className={chip} style={glass}>{p.status.replace(/_/g, ' ')}</span>
+                <span className={chip} style={TL.glass}>{p.status.replace(/_/g, ' ')}</span>
               </div>
               <div className="absolute top-3 right-3 flex items-center gap-1.5">
-                {p.totalBudget ? <span className="rounded-lg px-2.5 py-1 text-[11.5px] font-semibold" style={glass}>{formatCurrency(p.totalBudget)}</span> : null}
+                {p.totalBudget ? <span className="rounded-lg px-2.5 py-1 text-[11.5px] font-semibold" style={TL.glass}>{formatCurrency(p.totalBudget)}</span> : null}
                 <button title="Duplicate project" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDup(p); }}
-                  className="rounded-lg p-1.5 text-white/70 hover:text-white" style={glass}><Copy size={13} /></button>
+                  className="rounded-lg p-1.5 opacity-80 hover:opacity-100" style={TL.glass}><Copy size={13} /></button>
               </div>
               {/* body */}
               <div className="relative p-4">
-                <div className="text-[10.5px] tracking-[.08em] opacity-75">{p.projectNumber}</div>
-                <div className="text-[16.5px] font-bold leading-tight" style={{ textShadow: '0 1px 8px rgba(0,0,0,.4)' }}>{p.title}</div>
-                <div className="text-[10.5px] font-bold uppercase tracking-[.14em] mb-1.5" style={{ color: '#c9a96a' }}>{TYPE_LABEL[p.projectType] || p.projectType.replace(/_/g, ' ')}</div>
-                <div className="flex gap-3.5 text-[11.5px] text-white/80">
+                <div className="text-[9.5px] tracking-[.08em]" style={{ color: TL.code }}>{p.projectNumber}</div>
+                <div className="text-[14.5px] font-bold leading-tight" style={{ color: TL.ink, textShadow: isDark ? '0 1px 8px rgba(0,0,0,.4)' : 'none' }}>{p.title}</div>
+                <div className="text-[9.5px] font-bold uppercase tracking-[.14em] mb-1.5" style={{ color: TL.gold }}>{TYPE_LABEL[p.projectType] || p.projectType.replace(/_/g, ' ')}</div>
+                <div className="flex gap-3.5 text-[11px]" style={{ color: TL.meta }}>
                   {p.client && <span className="truncate max-w-[45%]">{p.client.companyName}</span>}
                   <span>{p._count?.crew || 0} crew</span>
                   {p.startDate && <span>{formatDate(p.startDate)}</span>}

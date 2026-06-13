@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { rentalApi } from '@/lib/api';
+import { rentalApi, assetUrl } from '@/lib/api';
 import { formatDate, cn } from '@/lib/utils';
 import {
   Search, RefreshCw, AlertTriangle, Plus, X, CheckCircle2, ChevronRight,
@@ -16,6 +16,24 @@ import {
 } from '@/lib/assetCategories';
 
 const ALL_TYPES = Object.values(TYPES_BY_CATEGORY).flat();
+
+/** Tile fallback gradients per category (no photo tagged yet) — per theme. */
+const ASSET_FALLBACK: Record<string, string> = {
+  VEHICLE: 'linear-gradient(135deg,#23272d,#141416 60%,#1a1d22)',
+  GENERATOR: 'linear-gradient(150deg,#3a2c12,#1c1407 60%,#0d0a05)',
+  TRAILER: 'linear-gradient(160deg,#1d2b26,#121416 60%,#1b2330)',
+  MOBILE_OFFICE: 'linear-gradient(140deg,#262033,#141118 60%,#101418)',
+  EQUIPMENT: 'linear-gradient(135deg,#2a2a2e,#121214 55%,#3a2c12)',
+  OTHER: 'linear-gradient(135deg,#26262a,#121214 60%,#1d1d21)',
+};
+const ASSET_FALLBACK_LIGHT: Record<string, string> = {
+  VEHICLE: 'linear-gradient(135deg,#E0E3E7,#F0F1F4 60%,#E9ECEF)',
+  GENERATOR: 'linear-gradient(150deg,#F0E6D5,#F8F3E8 60%,#F2EBD8)',
+  TRAILER: 'linear-gradient(160deg,#DCEAE4,#EFF4F1 60%,#E5EEE8)',
+  MOBILE_OFFICE: 'linear-gradient(140deg,#E4E0EC,#F2F0F6 60%,#EBE9F0)',
+  EQUIPMENT: 'linear-gradient(135deg,#E6E4DF,#F3F1EC 55%,#F2EBD8)',
+  OTHER: 'linear-gradient(135deg,#E6E4DF,#F2F1EE 60%,#EBEAE6)',
+};
 
 const EMPTY_FORM = {
   category: 'VEHICLE' as AssetCategory,
@@ -329,6 +347,56 @@ export default function AssetsPage() {
   const [search, setSearch] = useState('');
   const [assetType, setAssetType] = useState('');
   const [status, setStatus] = useState('');
+  const [category, setCategory] = useState(''); // marquee chips — server-side filter
+  // Tiles view (cinematic, like the Projects grid) alongside the classic list.
+  const [view, setView] = useState<'list' | 'tiles'>(() =>
+    (typeof window !== 'undefined' && window.localStorage.getItem('assets-view') as any) || 'list');
+  const switchView = (v: 'list' | 'tiles') => { setView(v); try { window.localStorage.setItem('assets-view', v); } catch {} };
+  const [sortBy, setSortBy] = useState<'name' | 'type' | 'availability'>('type');
+  // Theme: marquee + tiles follow the global mode (Graphite light · Charcoal Black dark).
+  const [isDark, setIsDark] = useState(false);
+  useEffect(() => {
+    const root = document.documentElement;
+    const sync = () => setIsDark(root.classList.contains('dark'));
+    sync();
+    const mo = new MutationObserver(sync);
+    mo.observe(root, { attributes: true, attributeFilter: ['class'] });
+    return () => mo.disconnect();
+  }, []);
+  const MQ = isDark ? {
+    panel: 'linear-gradient(120deg,#141416 0%,#0E0E10 55%,#1c1407 130%)', border: '#232326',
+    glow: 'radial-gradient(circle,rgba(201,169,106,.16),transparent 70%)', kicker: '#c9a96a',
+    title: '#fff', count: 'rgba(255,255,255,.55)',
+    fieldBg: 'rgba(255,255,255,.07)', fieldBd: '1px solid rgba(255,255,255,.14)', fieldText: 'rgba(255,255,255,.85)',
+    searchText: '#fff', searchPh: 'placeholder-white/40', icon: 'rgba(255,255,255,.45)',
+    btnBg: 'linear-gradient(135deg,#c9a96a,#a87f3d)', btnText: '#1a1206', btnShadow: '0 4px 14px rgba(176,141,79,.35)',
+    chipBd: '1px solid rgba(255,255,255,.16)', chipText: 'rgba(255,255,255,.7)',
+    chipOnBg: '#c9a96a', chipOnBd: '1px solid #c9a96a', chipOnText: '#1a1206',
+    colorScheme: 'dark' as const,
+  } : {
+    panel: 'linear-gradient(120deg,#FCFCFB 0%,#F3F2EF 70%,#EFEBE2 130%)', border: '#E3E1DB',
+    glow: 'radial-gradient(circle,rgba(176,141,79,.14),transparent 70%)', kicker: '#b08d4f',
+    title: '#1C2433', count: '#8B97A6',
+    fieldBg: '#fff', fieldBd: '1px solid #E3E1DB', fieldText: '#3C4656',
+    searchText: '#1C2433', searchPh: 'placeholder-gray-400', icon: '#8B97A6',
+    btnBg: 'linear-gradient(135deg,#1C2433,#0F1722)', btnText: '#fff', btnShadow: '0 4px 14px rgba(28,36,51,.25)',
+    chipBd: '1px solid #E1E4EA', chipText: '#5B6B7E',
+    chipOnBg: '#1C2433', chipOnBd: '1px solid #1C2433', chipOnText: '#fff',
+    colorScheme: 'light' as const,
+  };
+  const TL = isDark ? {
+    scrim: 'linear-gradient(180deg, rgba(10,10,11,.06) 32%, rgba(10,10,11,.84) 80%, rgba(10,10,11,.94))',
+    ink: '#fff', meta: 'rgba(255,255,255,.8)', code: 'rgba(255,255,255,.75)', gold: '#c9a96a',
+    glass: { background: 'rgba(8,12,20,.55)', backdropFilter: 'blur(6px)', color: '#fff' } as any,
+    availBg: 'rgba(22,101,52,.62)', hireBg: 'rgba(146,64,14,.62)', otherBg: 'rgba(8,12,20,.55)',
+    chipText: '#fff', fallback: ASSET_FALLBACK, border: 'border-gray-200',
+  } : {
+    scrim: 'linear-gradient(180deg, rgba(255,255,255,0) 35%, rgba(255,255,255,.88) 75%, rgba(255,255,255,.96))',
+    ink: '#1C2433', meta: '#5B6B7E', code: '#6A7077', gold: '#b08d4f',
+    glass: { background: 'rgba(255,255,255,.72)', backdropFilter: 'blur(6px)', color: '#1C2433', border: '1px solid rgba(0,0,0,.07)' } as any,
+    availBg: '#E2F2E8', hireBg: '#F6E8D8', otherBg: 'rgba(255,255,255,.72)',
+    chipText: '#1C2433', fallback: ASSET_FALLBACK_LIGHT, border: 'border-[#E3E1DB]',
+  };
   const [loading, setLoading] = useState(false);
   const [listError, setListError] = useState('');
   const [alerts, setAlerts] = useState<any[]>([]);
@@ -337,28 +405,86 @@ export default function AssetsPage() {
   const load = useCallback(() => {
     setLoading(true);
     setListError('');
-    rentalApi.assets.list({ search: search || undefined, assetType: assetType || undefined, status: status || undefined, page, limit: 25 })
+    rentalApi.assets.list({ search: search || undefined, assetType: assetType || undefined, status: status || undefined, category: category || undefined, page, limit: 25 })
       .then(r => { setItems(r.data.items); setTotal(r.data.total); setPages(r.data.pages); })
       .catch((e: any) => {
         const msg = e.response?.data?.message || e.message || 'Failed to load assets';
         setListError(Array.isArray(msg) ? msg.join(', ') : msg);
       })
       .finally(() => setLoading(false));
-  }, [search, assetType, status, page]);
+  }, [search, assetType, status, category, page]);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { rentalApi.assets.expiryAlerts().then(r => setAlerts(r.data)).catch(() => {}); }, []);
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Assets</h1>
-          <p className="text-gray-500 text-sm mt-0.5">{total} total assets</p>
+      {/* ── Marquee header — theme-aware, same language as the Film Slate ── */}
+      <div className="relative rounded-[20px] overflow-hidden mb-6" style={{ background: MQ.panel, border: `1px solid ${MQ.border}`, color: MQ.title }}>
+        <div aria-hidden className="absolute pointer-events-none" style={{ right: -60, top: -80, width: 300, height: 300, borderRadius: '50%', background: MQ.glow }} />
+        <div className="relative px-5 pt-5 pb-4">
+          <div className="flex items-center gap-3.5">
+            <div>
+              <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.22em', color: MQ.kicker }}>The Film Makers · Fleet &amp; Equipment</div>
+              <div className="text-[20px] font-extrabold leading-tight" style={{ color: MQ.title }}>Assets <span className="text-[11.5px] font-normal ml-1" style={{ color: MQ.count }}>{total} total</span></div>
+            </div>
+            <span className="flex-1" />
+            <button onClick={() => setShowWizard(true)} className="rounded-xl px-4 py-2 text-[12.5px] font-bold cursor-pointer"
+              style={{ background: MQ.btnBg, color: MQ.btnText, boxShadow: MQ.btnShadow }}>
+              + Add Asset
+            </button>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 mt-4">
+            <div className="flex items-center gap-2 flex-1 min-w-[220px] rounded-xl px-3 py-2" style={{ background: MQ.fieldBg, border: MQ.fieldBd }}>
+              <Search size={13} className="shrink-0" style={{ color: MQ.icon }} />
+              <input className={`bg-transparent outline-none border-none text-[12.5px] flex-1 ${MQ.searchPh}`}
+                style={{ color: MQ.searchText }}
+                placeholder="Search by name, plate, serial, VIN…" value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
+            </div>
+            <select className="rounded-xl px-2.5 py-2 text-[12px] outline-none max-w-[170px]" style={{ background: MQ.fieldBg, border: MQ.fieldBd, color: MQ.fieldText, colorScheme: MQ.colorScheme }}
+              value={assetType} onChange={e => { setAssetType(e.target.value); setPage(1); }}>
+              <option value="">Type: All</option>
+              {ALL_TYPES.map(t => <option key={t} value={t}>{ASSET_TYPE_LABELS[t] || t}</option>)}
+            </select>
+            <select className="rounded-xl px-2.5 py-2 text-[12px] outline-none" style={{ background: MQ.fieldBg, border: MQ.fieldBd, color: MQ.fieldText, colorScheme: MQ.colorScheme }}
+              value={status} onChange={e => { setStatus(e.target.value); setPage(1); }}>
+              <option value="">Status: All</option>
+              <option value="AVAILABLE">Available</option>
+              <option value="ON_HIRE">On Hire</option>
+              <option value="IN_MAINTENANCE">In Maintenance</option>
+              <option value="RESERVED">Reserved</option>
+              <option value="RETIRED">Retired</option>
+            </select>
+            {view === 'tiles' && (
+              <select className="rounded-xl px-2.5 py-2 text-[12px] outline-none" style={{ background: MQ.fieldBg, border: MQ.fieldBd, color: MQ.fieldText, colorScheme: MQ.colorScheme }}
+                value={sortBy} onChange={e => setSortBy(e.target.value as any)}>
+                <option value="type">Sort: Type</option>
+                <option value="availability">Sort: Availability</option>
+                <option value="name">Sort: Name</option>
+              </select>
+            )}
+            <div className="inline-flex rounded-xl overflow-hidden" style={{ border: MQ.fieldBd }}>
+              <button onClick={() => switchView('list')} className="px-3 py-2 text-[11.5px] font-semibold cursor-pointer"
+                style={view === 'list' ? { background: MQ.chipOnBg, color: MQ.chipOnText } : { background: 'transparent', color: MQ.chipText }}>List</button>
+              <button onClick={() => switchView('tiles')} className="px-3 py-2 text-[11.5px] font-semibold cursor-pointer"
+                style={view === 'tiles' ? { background: MQ.chipOnBg, color: MQ.chipOnText } : { background: 'transparent', color: MQ.chipText }}>Tiles</button>
+            </div>
+            <button onClick={load} title="Refresh" className="rounded-xl p-2 cursor-pointer" style={{ border: MQ.fieldBd, color: MQ.count }}>
+              <RefreshCw size={13} className={cn(loading && 'animate-spin')} />
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-1.5 mt-3">
+            {[['', 'All'], ...CATEGORIES.map((c: any) => [c.value, c.label])].map(([val, label]) => (
+              <button key={val || 'all'} onClick={() => { setCategory(val as string); setPage(1); }}
+                className="rounded-full px-3 py-1 text-[11px] font-semibold cursor-pointer transition-colors"
+                style={category === val
+                  ? { background: MQ.chipOnBg, border: MQ.chipOnBd, color: MQ.chipOnText }
+                  : { background: 'transparent', border: MQ.chipBd, color: MQ.chipText }}>
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
-        <button onClick={() => setShowWizard(true)} className="btn btn-primary">
-          <Plus size={14} className="mr-1" /> Add Asset
-        </button>
       </div>
 
       {listError && (
@@ -385,29 +511,58 @@ export default function AssetsPage() {
         </div>
       )}
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3 mb-4">
-        <div className="relative flex-1 min-w-48">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input className="input pl-9 w-full" placeholder="Search by name, plate, serial, VIN..."
-            value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
+
+      {/* ── Tiles view — cinematic cards (poster = tagged tile photo › first photo › gradient) ── */}
+      {view === 'tiles' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[...items].sort((a: any, b: any) => {
+            if (sortBy === 'name') return String(a.name).localeCompare(String(b.name));
+            if (sortBy === 'availability') return String(a.status).localeCompare(String(b.status)) || String(a.name).localeCompare(String(b.name));
+            return String(a.assetType).localeCompare(String(b.assetType)) || String(a.name).localeCompare(String(b.name));
+          }).map((item: any) => {
+            const photo = item.tilePhoto || (item.photos || [])[0];
+            const cat = item.category || categoryForType(item.assetType);
+            const avail = item.status === 'AVAILABLE';
+            const anyExpired = (item.registrationExpiry && new Date(item.registrationExpiry) < new Date())
+              || (item.insuranceExpiry && new Date(item.insuranceExpiry) < new Date())
+              || (item.warrantyExpiry && new Date(item.warrantyExpiry) < new Date());
+            return (
+              <Link key={item.id} href={`/rental/assets/${item.id}`}
+                className={cn('group relative rounded-2xl overflow-hidden border min-h-[185px] flex flex-col justify-end shadow-sm hover:shadow-xl hover:-translate-y-0.5 transition-all', TL.border)}
+                style={{ color: TL.ink }}>
+                <div aria-hidden style={{
+                  position: 'absolute', inset: 0,
+                  backgroundImage: photo ? `url(${assetUrl(photo)})` : (TL.fallback[cat] || TL.fallback.OTHER),
+                  backgroundSize: 'cover', backgroundPosition: 'center',
+                }} />
+                <div aria-hidden className="absolute inset-0" style={{ background: TL.scrim }} />
+                <div className="absolute top-3 left-3">
+                  <span className="rounded-full px-2 py-0.5 text-[10.5px] font-semibold"
+                    style={{ ...TL.glass, background: avail ? TL.availBg : item.status === 'ON_HIRE' ? TL.hireBg : TL.otherBg, color: TL.chipText }}>
+                    {String(item.status).replace(/_/g, ' ')}
+                  </span>
+                </div>
+                {anyExpired && <span className="absolute top-3 right-3 rounded-lg px-2 py-1 text-[10.5px] font-semibold" style={{ ...TL.glass, color: isDark ? '#FCD34D' : '#B45309' }}>⚠ compliance</span>}
+                <div className="relative p-4">
+                  <div className="text-[9.5px] tracking-[.08em] font-mono" style={{ color: TL.code }}>{item.plateNumber || item.serialNumber || item.vinNumber || ''}</div>
+                  <div className="text-[13.5px] font-bold leading-tight" style={{ color: TL.ink, textShadow: isDark ? '0 1px 8px rgba(0,0,0,.4)' : 'none' }}>{item.name}</div>
+                  <div className="text-[9.5px] font-bold uppercase tracking-[.14em] mb-1" style={{ color: TL.gold }}>{ASSET_TYPE_LABELS[item.assetType] || item.assetType}</div>
+                  <div className="flex gap-3 text-[10.5px]" style={{ color: TL.meta }}>
+                    <span>{CATEGORIES.find(c => c.value === cat)?.label || cat}</span>
+                    {item.condition && <span>{item.condition}</span>}
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
+          {items.length === 0 && !loading && (
+            <div className="col-span-3 text-center py-16 text-gray-400 text-sm">No assets found. Click "Add Asset" to get started.</div>
+          )}
         </div>
-        <select className="input w-44" value={assetType} onChange={e => { setAssetType(e.target.value); setPage(1); }}>
-          <option value="">All Types</option>
-          {ALL_TYPES.map(t => <option key={t} value={t}>{ASSET_TYPE_LABELS[t] || t}</option>)}
-        </select>
-        <select className="input w-44" value={status} onChange={e => { setStatus(e.target.value); setPage(1); }}>
-          <option value="">All Statuses</option>
-          <option value="AVAILABLE">Available</option>
-          <option value="ON_HIRE">On Hire</option>
-          <option value="IN_MAINTENANCE">In Maintenance</option>
-          <option value="RESERVED">Reserved</option>
-          <option value="RETIRED">Retired</option>
-        </select>
-        <button onClick={load} className="btn btn-secondary p-2"><RefreshCw size={14} className={cn(loading && 'animate-spin')} /></button>
-      </div>
+      )}
 
       {/* Table */}
+      {view === 'list' && (
       <div className="card overflow-hidden p-0">
         <table className="w-full">
           <thead>
@@ -457,6 +612,7 @@ export default function AssetsPage() {
           </tbody>
         </table>
       </div>
+      )}
 
       {pages > 1 && (
         <div className="flex items-center justify-between mt-4 text-sm text-gray-600">

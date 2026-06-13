@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Light mode — Graphite, deeper charcoal shades</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Inter,'Segoe UI',Arial,sans-serif;background:#E9EBEF;color:#15202E;font-size:13px;padding:28px;line-height:1.5}
+  h1{font-size:18px;margin-bottom:4px}.sub{color:#5B6B7E;margin-bottom:26px;max-width:840px}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:.07em;color:#8B97A6;margin:34px 0 10px}
+  .note{color:#5B6B7E;font-size:12px;margin-bottom:10px;max-width:820px}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+  @media(max-width:1100px){.row2{grid-template-columns:1fr}}
+  .mag{width:13px;height:13px;flex:none}
+  .toolrow{display:flex;gap:6px;margin-top:10px;align-items:center;flex-wrap:wrap}
+  .chips{display:flex;gap:5px;margin-top:9px;flex-wrap:wrap}
+  .tabs{display:flex;margin-top:14px;border-bottom:1px solid}
+  .tab{padding:8px 13px;font-size:12.5px;position:relative}
+  .tab.on::after{content:'';position:absolute;left:9px;right:9px;bottom:-1px;height:2px;border-radius:2px;background:#b08d4f}
+  .tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}
+  .tile{border-radius:14px;min-height:112px;position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;padding:11px;box-shadow:0 1px 3px rgba(16,19,23,.07)}
+  .tile .s{position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,0) 35%,rgba(255,255,255,.9) 75%,rgba(255,255,255,.97))}
+  .tile .tp{font-size:8.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;position:relative;color:#b08d4f}
+  .gold-kick{font-size:9px;font-weight:800;letter-spacing:.22em;text-transform:uppercase;color:#b08d4f}
+
+  /* A — Graphite (previous proposal) */
+  .A{--pg:#F5F5F4;--bd:#E3E1DB;--ink:#1C2433;--mut:#5B6B7E;--fnt:#8B97A6;background:var(--pg);border-radius:18px;padding:18px;border:1px solid #D9DEE6}
+  .A .panel{background:linear-gradient(120deg,#FCFCFB 0%,#F3F2EF 70%,#EFEBE2 130%);border:1px solid var(--bd);border-radius:16px;padding:14px;position:relative;overflow:hidden}
+  .A .glow{position:absolute;right:-50px;top:-70px;width:240px;height:240px;border-radius:50%;background:radial-gradient(circle,rgba(176,141,79,.14),transparent 70%)}
+  .A .title{font-size:17px;font-weight:800;color:var(--ink)}
+  .A .srch{flex:1;display:flex;align-items:center;gap:7px;background:#fff;border:1px solid var(--bd);border-radius:10px;padding:7px 11px;font-size:11.5px;color:var(--fnt)}
+  .A .sel{background:#fff;border:1px solid var(--bd);border-radius:10px;padding:7px 10px;font-size:11.5px;color:var(--mut)}
+  .A .btn{background:linear-gradient(135deg,#1C2433,#0F1722);color:#fff;font-weight:700;border:none;border-radius:10px;padding:8px 14px;font-size:12px}
+  .A .chip{border-radius:99px;padding:4px 12px;font-size:11px;font-weight:600;background:#fff;border:1px solid var(--bd);color:var(--mut)}
+  .A .chip.on{background:#1C2433;border-color:#1C2433;color:#fff}
+  .A .tabs{border-color:var(--bd)}
+  .A .tab{color:var(--fnt)}.A .tab.on{color:var(--ink);font-weight:700}
+  .A .tile{border:1px solid var(--bd)}
+  .A .nm{font-weight:700;font-size:12.5px;position:relative;color:var(--ink)}
+  .A .t1{background:linear-gradient(135deg,#E6E4DF,#F3F1EC 55%,#F2EBD8)}
+  .A .t2{background:radial-gradient(120% 120% at 20% 0%,#EAE2D2,#F7F3EA 70%)}
+  .A .t3{background:linear-gradient(160deg,#E0E3E7,#EFF1F4 60%,#E9ECEF)}
+
+  /* B — DEEP GRAPHITE: more charcoal, darker font shades, charcoal surfaces in the chrome */
+  .B{--pg:#EFEFED;--bd:#D8D6D0;--ink:#101317;--ink2:#23272D;--mut:#3E444C;--fnt:#6A7077;background:var(--pg);border-radius:18px;padding:18px;border:1px solid #D9DEE6}
+  .B .panel{background:linear-gradient(120deg,#1A1D22 0%,#14171B 60%,#241B0B 135%);border:1px solid #2A2D33;border-radius:16px;padding:14px;position:relative;overflow:hidden;color:#fff}
+  .B .glow{position:absolute;right:-50px;top:-70px;width:240px;height:240px;border-radius:50%;background:radial-gradient(circle,rgba(201,169,106,.18),transparent 70%)}
+  .B .kick{color:#c9a96a}
+  .B .title{font-size:17px;font-weight:800;color:#F4F4F2}
+  .B .srch{flex:1;display:flex;align-items:center;gap:7px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.13);border-radius:10px;padding:7px 11px;font-size:11.5px;color:rgba(255,255,255,.45)}
+  .B .sel{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.13);border-radius:10px;padding:7px 10px;font-size:11.5px;color:rgba(255,255,255,.85)}
+  .B .btn{background:linear-gradient(135deg,#c9a96a,#a87f3d);color:#1a1206;font-weight:700;border:none;border-radius:10px;padding:8px 14px;font-size:12px}
+  .B .chip{border-radius:99px;padding:4px 12px;font-size:11px;font-weight:600;border:1px solid rgba(255,255,255,.16);color:rgba(255,255,255,.7)}
+  .B .chip.on{background:#c9a96a;border-color:#c9a96a;color:#1a1206}
+  .B .tabs{border-color:var(--bd)}
+  .B .tab{color:var(--fnt)}.B .tab.on{color:var(--ink);font-weight:800}
+  .B .tile{border:1px solid var(--bd)}
+  .B .nm{font-weight:800;font-size:12.5px;position:relative;color:var(--ink)}
+  .B .t1{background:linear-gradient(135deg,#DEDCD6,#EFEDE8 55%,#EFE6D0)}
+  .B .t2{background:radial-gradient(120% 120% at 20% 0%,#E3DAC8,#F2EEE3 70%)}
+  .B .t3{background:linear-gradient(160deg,#D8DBDF,#EAECEF 60%,#E2E5E9)}
+  .B .body-card{background:#FBFBFA;border:1px solid var(--bd);border-radius:14px;padding:12px;margin-top:14px}
+
+  .shades{display:flex;gap:14px;flex-wrap:wrap;margin-top:8px}
+  .sh{font-size:12px}
+  .sw{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin-right:5px;border:1px solid rgba(0,0,0,.08)}
+</style>
+</head>
+<body>
+  <h1>Light mode — Graphite, pushed darker</h1>
+  <p class="sub">Left: the earlier Graphite &amp; Gold. Right: <b>Deep Graphite</b> — the marquee goes genuinely charcoal even in light mode (a dark "stage" floating on paper), and every font shade steps darker for stronger contrast. Gold stays the only accent.</p>
+
+  <div class="row2">
+    <div class="A">
+      <span style="font-size:9.5px;font-weight:800;letter-spacing:.14em;color:#8B97A6;text-transform:uppercase;display:block;margin-bottom:10px">A — Graphite (previous)</span>
+      <div class="panel"><div class="glow"></div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div><div class="gold-kick">The Film Makers · Production Slate</div><div class="title">Film Slate</div></div>
+          <span style="flex:1"></span><button class="btn">+ New Project</button>
+        </div>
+        <div class="toolrow"><div class="srch"><svg class="mag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg> Search…</div><div class="sel">Status: All</div></div>
+        <div class="chips"><span class="chip on">All</span><span class="chip">Feature Film</span><span class="chip">TVC</span></div>
+      </div>
+      <div class="tabs"><span class="tab">Develop</span><span class="tab on">Plan</span><span class="tab">Budget</span></div>
+      <div class="tiles">
+        <div class="tile t1"><div class="s"></div><span class="tp">Feature Film</span><span class="nm">The Misfits II</span></div>
+        <div class="tile t2"><div class="s"></div><span class="tp">Series</span><span class="nm">Red Harvest</span></div>
+        <div class="tile t3"><div class="s"></div><span class="tp">Documentary</span><span class="nm">Saltwater</span></div>
+      </div>
+      <div class="shades">
+        <span class="sh"><span class="sw" style="background:#1C2433"></span>title #1C2433</span>
+        <span class="sh"><span class="sw" style="background:#5B6B7E"></span>body #5B6B7E</span>
+        <span class="sh"><span class="sw" style="background:#8B97A6"></span>muted #8B97A6</span>
+      </div>
+    </div>
+
+    <div class="B">
+      <span style="font-size:9.5px;font-weight:800;letter-spacing:.14em;color:#6A7077;text-transform:uppercase;display:block;margin-bottom:10px">B — Deep Graphite (more charcoal)</span>
+      <div class="panel"><div class="glow"></div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div><div class="gold-kick kick">The Film Makers · Production Slate</div><div class="title">Film Slate</div></div>
+          <span style="flex:1"></span><button class="btn">+ New Project</button>
+        </div>
+        <div class="toolrow"><div class="srch"><svg class="mag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg> Search…</div><div class="sel">Status: All</div></div>
+        <div class="chips"><span class="chip on">All</span><span class="chip">Feature Film</span><span class="chip">TVC</span></div>
+      </div>
+      <div class="tabs"><span class="tab">Develop</span><span class="tab on">Plan</span><span class="tab">Budget</span></div>
+      <div class="tiles">
+        <div class="tile t1"><div class="s"></div><span class="tp">Feature Film</span><span class="nm">The Misfits II</span></div>
+        <div class="tile t2"><div class="s"></div><span class="tp">Series</span><span class="nm">Red Harvest</span></div>
+        <div class="tile t3"><div class="s"></div><span class="tp">Documentary</span><span class="nm">Saltwater</span></div>
+      </div>
+      <div class="body-card">
+        <div style="font-size:12.5px;font-weight:800;color:var(--ink)">Card title — near-black #101317</div>
+        <div style="font-size:12px;color:var(--mut);margin-top:2px">Body text steps to #3E444C — darker than today's gray, easier in daylight.</div>
+        <div style="font-size:11px;color:var(--fnt);margin-top:2px">Muted/captions #6A7077 — still readable, never washed out.</div>
+      </div>
+      <div class="shades">
+        <span class="sh"><span class="sw" style="background:#101317"></span>title #101317</span>
+        <span class="sh"><span class="sw" style="background:#23272D"></span>heading #23272D</span>
+        <span class="sh"><span class="sw" style="background:#3E444C"></span>body #3E444C</span>
+        <span class="sh"><span class="sw" style="background:#6A7077"></span>muted #6A7077</span>
+      </div>
+    </div>
+  </div>
+
+  <p class="note" style="margin-top:18px"><b>What changes in B:</b> the marquee stays a charcoal stage in BOTH themes (brand constant); page paper cools to #EFEFED so the white cards still lift; all four font shades step ~25% darker; tab labels and tile titles go font-weight 800 near-black; tile pastels de-saturate toward stone so the dark panel doesn't fight them. Gold remains the single accent everywhere.</p>
+</body>
+</html>

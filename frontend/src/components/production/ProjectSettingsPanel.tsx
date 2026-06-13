@@ -286,13 +286,17 @@ export default function ProjectSettingsPanel({ projectId, project, activeVersion
                 <div>
                   <div onMouseDown={posterDrag}
                     className="relative rounded-2xl overflow-hidden border border-gray-200 select-none"
-                    style={{ width: 330, height: 205, cursor: posterUrl ? 'grab' : 'default' }}>
-                    <div aria-hidden style={{
-                      position: 'absolute', inset: '-18%',
-                      backgroundImage: posterUrl ? `url(${assetUrl(posterUrl)})` : 'linear-gradient(135deg,#1a2b4a,#0e1726 55%,#3d2c12)',
-                      backgroundSize: 'cover', backgroundPosition: 'center',
-                      transform: `translate(${pt.x}%, ${pt.y}%) scale(${pt.zoom}) rotate(${pt.rot}deg)`,
-                    }} />
+                    style={{ width: 330, height: 205, cursor: posterUrl ? 'grab' : 'default', background: '#0b0f17' }}>
+                    {/* Natural-proportion image (NOT pre-cropped): zoom out to see the whole
+                        poster on the dark letterbox, zoom in to crop — full freedom. */}
+                    {posterUrl ? (
+                      <img src={assetUrl(posterUrl)} alt="" draggable={false} style={{
+                        position: 'absolute', left: '50%', top: '50%', width: `${pt.zoom * 100}%`, height: 'auto', maxWidth: 'none',
+                        transform: `translate(-50%, -50%) translate(${pt.x}%, ${pt.y}%) rotate(${pt.rot}deg)`,
+                      }} />
+                    ) : (
+                      <div aria-hidden style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg,#1a2b4a,#0e1726 55%,#3d2c12)' }} />
+                    )}
                     <div aria-hidden style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg,rgba(8,12,20,.05) 30%,rgba(8,12,20,.85))' }} />
                     <div className="absolute left-4 bottom-3 text-white pointer-events-none">
                       <div style={{ fontSize: 10, letterSpacing: '.14em', color: '#c9a96a', fontWeight: 700, textTransform: 'uppercase' }}>{(project?.projectType || '').replace(/_/g, ' ')}</div>
@@ -307,8 +311,8 @@ export default function ProjectSettingsPanel({ projectId, project, activeVersion
                     {posterUrl && <button onClick={removePoster} className="btn btn-secondary text-xs text-red-600"><X size={13} className="mr-1" /> Remove</button>}
                   </div>
                   <div>
-                    <label className="label text-xs">Zoom — {Math.round(pt.zoom * 100)}%</label>
-                    <input type="range" min="1" max="3" step="0.05" value={pt.zoom} disabled={!posterUrl}
+                    <label className="label text-xs">Zoom — {Math.round(pt.zoom * 100)}% (under 100% = see the whole image)</label>
+                    <input type="range" min="0.4" max="3" step="0.05" value={pt.zoom} disabled={!posterUrl}
                       onChange={(e) => { setPt(p => ({ ...p, zoom: Number(e.target.value) })); setPosterDirty(true); }} className="w-full" />
                   </div>
                   <div>

@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Cinematic theme rollout — old vs new (dark + light)</title>
+<style>
+  :root{--ink:#15202E;--mut:#5B6B7E;--faint:#8B97A6;--bd:#E4E8EE;--gold:#b08d4f;--gold2:#c9a96a;
+    /* LIGHT cinematic palette */
+    --ivory:#FAF7F1;--ivory-2:#F2EDE3;--warm-bd:#E7DFD0;--char:#1C2433}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Inter,'Segoe UI',Arial,sans-serif;background:#EFF1F4;color:var(--ink);font-size:13px;padding:28px;line-height:1.5}
+  h1{font-size:18px;margin-bottom:4px}.sub{color:var(--mut);margin-bottom:8px}
+  .legend{font-size:11.5px;color:var(--mut);margin-bottom:24px}
+  .legend b{color:var(--ink)}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:.07em;color:var(--faint);margin:36px 0 10px}
+  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;align-items:start}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+  .cell{background:#fff;border:1px solid var(--bd);border-radius:14px;padding:14px}
+  .cell.dark{background:#0D1320}
+  .cell.ivory{background:var(--ivory)}
+  .tag{font-size:9.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;margin-bottom:10px;display:block}
+  .tag.old{color:#b91c1c}.tag.new{color:var(--gold)}
+  .note{color:var(--mut);font-size:11.5px;margin-top:10px}
+
+  /* OLD elements */
+  .old-tabs{display:flex;gap:2px;border-bottom:1px solid var(--bd)}
+  .old-tab{padding:8px 13px;font-size:13px;color:var(--mut)}
+  .old-tab.on{color:var(--ink);font-weight:600;border-bottom:2px solid #0f172a}
+  .old-pill{display:inline-block;background:#2D63D8;color:#fff;border-radius:99px;padding:5px 14px;font-size:12.5px;font-weight:600;margin-right:6px}
+  .old-pill2{display:inline-block;color:var(--mut);padding:5px 10px;font-size:12.5px}
+  .old-step{display:flex;align-items:center;gap:8px;margin-right:18px}
+  .old-step .n{width:26px;height:26px;border-radius:50%;background:#4f46e5;color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center}
+  .old-step .n.off{background:#e5e7eb;color:#9ca3af}
+  .old-step span{font-size:11.5px;color:var(--mut)}
+
+  /* NEW DARK */
+  .nd-tabs{display:flex;gap:0;border-bottom:1px solid #243349}
+  .nd-tab{padding:9px 14px;font-size:12.5px;color:#7C8AA0;position:relative}
+  .nd-tab.on{color:#fff;font-weight:600}
+  .nd-tab.on::after{content:'';position:absolute;left:10px;right:10px;bottom:-1px;height:2px;background:var(--gold2);border-radius:2px}
+  .nd-chip{display:inline-block;border:1px solid rgba(255,255,255,.16);color:rgba(255,255,255,.7);border-radius:99px;padding:4px 12px;font-size:11px;font-weight:600;margin-right:5px}
+  .nd-chip.on{background:var(--gold2);border-color:var(--gold2);color:#1a1206}
+  .nd-step{display:flex;align-items:center;gap:8px;margin-right:14px}
+  .nd-step .n{width:24px;height:24px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:800}
+  .nd-step .n.done{background:var(--gold2);color:#1a1206}
+  .nd-step .n.cur{background:transparent;border:1.5px solid var(--gold2);color:var(--gold2)}
+  .nd-step .n.off{background:#1c2536;color:#56627a}
+  .nd-step span{font-size:11px;color:#9FB0C2}
+  .nd-step .ln{width:26px;height:1px;background:#2B3850}
+
+  /* NEW LIGHT (cinematic light = warm ivory + charcoal + gold) */
+  .nl-panel{border-radius:16px;border:1px solid var(--warm-bd);background:linear-gradient(120deg,#FBF8F2 0%,#F6F1E7 70%,#F2E9D8 130%);position:relative;overflow:hidden;padding:14px}
+  .nl-glow{position:absolute;right:-50px;top:-70px;width:240px;height:240px;border-radius:50%;background:radial-gradient(circle,rgba(176,141,79,.14),transparent 70%)}
+  .nl-kicker{font-size:9px;font-weight:800;letter-spacing:.22em;color:var(--gold);text-transform:uppercase}
+  .nl-title{font-size:17px;font-weight:800;color:var(--char)}
+  .nl-search{display:flex;align-items:center;gap:7px;background:#fff;border:1px solid var(--warm-bd);border-radius:11px;padding:7px 11px;color:var(--faint);font-size:12px;flex:1}
+  .nl-sel{background:#fff;border:1px solid var(--warm-bd);border-radius:11px;padding:7px 10px;font-size:11.5px;color:var(--ink)}
+  .nl-gold-btn{background:linear-gradient(135deg,#c9a96a,#a87f3d);color:#1a1206;font-weight:700;border:none;border-radius:10px;padding:8px 14px;font-size:12px;box-shadow:0 3px 10px rgba(176,141,79,.3)}
+  .nl-chip{display:inline-block;border:1px solid var(--warm-bd);color:var(--mut);background:#fff;border-radius:99px;padding:4px 12px;font-size:11px;font-weight:600;margin-right:5px}
+  .nl-chip.on{background:var(--char);border-color:var(--char);color:#F2E9D8}
+  .nl-tabs{display:flex;border-bottom:1px solid var(--warm-bd)}
+  .nl-tab{padding:9px 14px;font-size:12.5px;color:var(--faint);position:relative}
+  .nl-tab.on{color:var(--char);font-weight:700}
+  .nl-tab.on::after{content:'';position:absolute;left:10px;right:10px;bottom:-1px;height:2px;background:var(--gold);border-radius:2px}
+  .nl-step .n.done{background:var(--gold);color:#fff}
+  .nl-step .n.cur{background:transparent;border:1.5px solid var(--gold);color:var(--gold)}
+  .nl-step .n.off{background:#EDE6D8;color:#A99F8C}
+  .nl-step{display:flex;align-items:center;gap:8px;margin-right:14px}
+  .nl-step .n{width:24px;height:24px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:800}
+  .nl-step span{font-size:11px;color:var(--mut)}
+  .nl-step .ln{width:26px;height:1px;background:var(--warm-bd)}
+</style>
+</head>
+<body>
+  <h1>Cinematic theme rollout — old vs new</h1>
+  <p class="sub">The marquee language becomes the app's DARK theme; the light theme gets a warm "screening room daylight" interpretation: ivory paper, charcoal ink, the same gold.</p>
+  <p class="legend"><b>Each section:</b> current design → cinematic dark → cinematic light. Approve per-section ("tabs new", "wizard new" …) or "all new".</p>
+
+  <h2>1 · Page header (every list page: Bookings, Crew, Locations, Casting…)</h2>
+  <div class="row3">
+    <div class="cell"><span class="tag old">Old — plain title + button</span>
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div><div style="font-size:18px;font-weight:700">Bookings</div><div style="font-size:11.5px;color:var(--faint)">34 total</div></div>
+        <span class="old-pill" style="border-radius:10px">+ New Booking</span>
+      </div>
+    </div>
+    <div class="cell dark"><span class="tag new">New dark — marquee (as built)</span>
+      <div class="nl-kicker" style="color:#c9a96a">The Film Makers · Rentals</div>
+      <div style="font-size:17px;font-weight:800;color:#fff">Bookings <span style="font-size:11px;color:rgba(255,255,255,.5);font-weight:400">34 total</span></div>
+      <div style="display:flex;gap:6px;margin-top:10px">
+        <div style="flex:1;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:7px 10px;color:rgba(255,255,255,.4);font-size:11.5px">🔎 Search…</div>
+        <button class="nl-gold-btn">+ New</button>
+      </div>
+    </div>
+    <div class="cell ivory"><span class="tag new">New light — ivory marquee</span>
+      <div class="nl-panel"><div class="nl-glow"></div>
+        <div class="nl-kicker">The Film Makers · Rentals</div>
+        <div class="nl-title">Bookings <span style="font-size:11px;color:var(--faint);font-weight:400">34 total</span></div>
+        <div style="display:flex;gap:6px;margin-top:10px">
+          <div class="nl-search">🔎 Search…</div>
+          <button class="nl-gold-btn">+ New</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h2>2 · Phase tabs (project page: Overview · Develop · Plan · Budget · Shoot…)</h2>
+  <div class="row3">
+    <div class="cell"><span class="tag old">Old — blue pill</span>
+      <div><span class="old-pill">Plan</span><span class="old-pill2">Develop</span><span class="old-pill2">Budget</span><span class="old-pill2">Shoot</span></div>
+    </div>
+    <div class="cell dark"><span class="tag new">New dark — gold underline</span>
+      <div class="nd-tabs"><span class="nd-tab">Develop</span><span class="nd-tab on">Plan</span><span class="nd-tab">Budget</span><span class="nd-tab">Shoot</span></div>
+    </div>
+    <div class="cell ivory"><span class="tag new">New light — charcoal text, gold underline</span>
+      <div class="nl-tabs"><span class="nl-tab">Develop</span><span class="nl-tab on">Plan</span><span class="nl-tab">Budget</span><span class="nl-tab">Shoot</span></div>
+    </div>
+  </div>
+  <p class="note">Same treatment for ScriptON surface tabs and Audio Studio tabs — they already use this underline; phases join the family.</p>
+
+  <h2>3 · Sub-tabs / filter chips (Schedule · Breakdowns · Casting… and any chip filter)</h2>
+  <div class="row3">
+    <div class="cell"><span class="tag old">Old — gray text row</span>
+      <div style="font-size:12.5px;color:var(--mut)"><b style="color:var(--ink)">Schedule</b> &nbsp; Breakdowns &nbsp; Locations &nbsp; Casting</div>
+    </div>
+    <div class="cell dark"><span class="tag new">New dark — chips, active = gold</span>
+      <div><span class="nd-chip on">Schedule</span><span class="nd-chip">Breakdowns</span><span class="nd-chip">Locations</span><span class="nd-chip">Casting</span></div>
+    </div>
+    <div class="cell ivory"><span class="tag new">New light — chips, active = charcoal</span>
+      <div><span class="nl-chip on">Schedule</span><span class="nl-chip">Breakdowns</span><span class="nl-chip">Locations</span><span class="nl-chip">Casting</span></div>
+    </div>
+  </div>
+
+  <h2>4 · Wizard steps (Add Asset, onboarding, imports)</h2>
+  <div class="row3">
+    <div class="cell"><span class="tag old">Old — indigo circles</span>
+      <div style="display:flex">
+        <div class="old-step"><div class="n">✓</div><span>Identity</span></div>
+        <div class="old-step"><div class="n">2</div><span>Specs</span></div>
+        <div class="old-step"><div class="n off">3</div><span>Done</span></div>
+      </div>
+    </div>
+    <div class="cell dark"><span class="tag new">New dark — gold slate steps</span>
+      <div style="display:flex;align-items:center">
+        <div class="nd-step"><div class="n done">✓</div><span>Identity</span></div><div class="nd-step ln"></div>
+        <div class="nd-step"><div class="n cur">2</div><span style="color:#fff;font-weight:600">Specs</span></div><div class="nd-step ln"></div>
+        <div class="nd-step"><div class="n off">3</div><span>Done</span></div>
+      </div>
+    </div>
+    <div class="cell ivory"><span class="tag new">New light — same geometry on ivory</span>
+      <div style="display:flex;align-items:center">
+        <div class="nl-step"><div class="n done">✓</div><span>Identity</span></div><div class="nl-step ln"></div>
+        <div class="nl-step"><div class="n cur">2</div><span style="color:var(--char);font-weight:700">Specs</span></div><div class="nl-step ln"></div>
+        <div class="nl-step"><div class="n off">3</div><span>Done</span></div>
+      </div>
+    </div>
+  </div>
+
+  <h2>5 · In-page section tabs (Company settings, Project settings nav)</h2>
+  <div class="row3">
+    <div class="cell"><span class="tag old">Old — left nav, plain links</span>
+      <div style="font-size:12.5px;line-height:2"><b>Identity &amp; branding</b><br><span style="color:var(--mut)">Currency</span><br><span style="color:var(--mut)">Schedule</span></div>
+    </div>
+    <div class="cell dark"><span class="tag new">New dark — gold left-rail markers</span>
+      <div style="font-size:12.5px;line-height:2.1">
+        <div style="border-left:2px solid #c9a96a;padding-left:10px;color:#fff;font-weight:600">Identity &amp; branding</div>
+        <div style="border-left:2px solid transparent;padding-left:10px;color:#7C8AA0">Currency</div>
+        <div style="border-left:2px solid transparent;padding-left:10px;color:#7C8AA0">Schedule</div>
+      </div>
+    </div>
+    <div class="cell ivory"><span class="tag new">New light — same markers on ivory</span>
+      <div style="font-size:12.5px;line-height:2.1">
+        <div style="border-left:2px solid var(--gold);padding-left:10px;color:var(--char);font-weight:700">Identity &amp; branding</div>
+        <div style="border-left:2px solid transparent;padding-left:10px;color:var(--faint)">Currency</div>
+        <div style="border-left:2px solid transparent;padding-left:10px;color:var(--faint)">Schedule</div>
+      </div>
+    </div>
+  </div>
+
+  <h2>Light-mode theme summary (if adopted globally)</h2>
+  <div class="cell ivory" style="max-width:760px">
+    <div class="nl-panel"><div class="nl-glow"></div>
+      <div class="nl-kicker">Cinematic Light — token sheet</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-top:10px;font-size:11.5px;color:var(--mut)">
+        <div><b style="color:var(--char)">Surfaces</b><br>page #FAF7F1 ivory<br>cards #FFFFFF<br>marquee ivory→sand gradient</div>
+        <div><b style="color:var(--char)">Ink</b><br>title charcoal #1C2433<br>body #44506100<br>muted warm gray</div>
+        <div><b style="color:var(--char)">Accents</b><br>gold #b08d4f (active, kickers)<br>charcoal chips for selection<br>status colors unchanged</div>
+        <div><b style="color:var(--char)">Effects</b><br>soft gold glow on heroes<br>frosted glass stays on sticky bars<br>tiles unchanged (always dark art)</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
