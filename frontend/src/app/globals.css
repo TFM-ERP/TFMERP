@@ -16,9 +16,9 @@
     --surface-0:      #F5F5F4;   /* page background — warm paper */
     --surface-1:      #FFFFFF;   /* cards, bars, popovers */
     --surface-2:      #F0EFEC;   /* wells, hovers, table stripes */
-    --text-1:         #1C2433;   /* primary — charcoal ink */
-    --text-2:         #5B6B7E;   /* secondary */
-    --text-3:         #8B97A6;   /* metadata only — never for content */
+    --text-1:         #161C28;   /* primary — deep charcoal ink */
+    --text-2:         #44505F;   /* secondary — darker for daylight contrast */
+    --text-3:         #6E7A88;   /* metadata only — never for content */
     --border-1:       #E3E1DB;   /* structural — warm stone */
     --border-2:       #C9C6BD;   /* emphasis / hover */
     --accent:         #1C2433;   /* brand action = charcoal (selection, primary buttons) */
@@ -304,6 +304,23 @@ html.dark { color-scheme: dark; }
   }
   html.dark input::placeholder, html.dark textarea::placeholder { color: var(--text-3) !important; }
   html.dark option { background-color: var(--surface-1); color: var(--text-1); }
+}
+
+/* (1b) LIGHT-mode Graphite remap — warms every page's text + page surfaces to the
+   Graphite palette system-wide, without hand-editing each page. Cards stay white
+   (no bg remap) so they lift off the warm paper; only ink + page wells shift.
+   Scoped to light (html:not(.dark)) and excluded from print. */
+@media not print {
+  html:not(.dark) body { background-color: var(--surface-0); }
+  html:not(.dark) .text-gray-900, html:not(.dark) .text-slate-900,
+  html:not(.dark) .text-gray-800, html:not(.dark) .text-slate-800 { color: var(--text-1) !important; }
+  html:not(.dark) .text-gray-700, html:not(.dark) .text-slate-700,
+  html:not(.dark) .text-gray-600, html:not(.dark) .text-slate-600 { color: var(--text-2) !important; }
+  html:not(.dark) .text-gray-500, html:not(.dark) .text-slate-500,
+  html:not(.dark) .text-gray-400, html:not(.dark) .text-slate-400 { color: var(--text-3) !important; }
+  html:not(.dark) .bg-gray-50, html:not(.dark) .bg-slate-50 { background-color: var(--surface-2) !important; }
+  html:not(.dark) .border-gray-200, html:not(.dark) .border-slate-200,
+  html:not(.dark) .border-gray-100, html:not(.dark) .border-slate-100 { border-color: var(--border-1) !important; }
 }
 
 /* (2) raw Tailwind utility remap — scoped to dark, print excluded */
