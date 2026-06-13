@@ -43,7 +43,7 @@ export default function DamagePage() {
   };
 
   return (
-    <div className="p-6 max-w-[1700px] mx-auto">
+    <div className="p-6 max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
           <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>Rentals · Fleet</div>
@@ -142,4 +142,10 @@ export default function DamagePage() {
           <span>Page {page} of {pages}</span>
           <div className="flex gap-2">
             <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="btn btn-secondary py-1 px-3 disabled:opacity-40">Prev</button>
-            <button onClick={
+            <button onClick={() => setPage(p => Math.min(pages, p + 1))} disabled={page === pages} className="btn btn-secondary py-1 px-3 disabled:opacity-40">Next</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

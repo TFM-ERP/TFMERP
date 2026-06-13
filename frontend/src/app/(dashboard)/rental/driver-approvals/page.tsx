@@ -24,7 +24,7 @@ export default function DriverApprovalsPage() {
   };
 
   return (
-    <div className="p-6 max-w-[1700px] mx-auto space-y-5">
+    <div className="p-6 max-w-4xl mx-auto space-y-5">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center"><Wallet size={18} className="text-brand-600" /></div>
@@ -54,4 +54,12 @@ export default function DriverApprovalsPage() {
                 </div>
                 {s.receiptUrl && <a href={fileSrc(s.receiptUrl)} target="_blank" rel="noreferrer" className="text-brand-600 hover:text-brand-700 text-xs flex items-center gap-1"><Receipt size={13} /> Receipt</a>}
                 <button disabled={!!busy} onClick={() => review(s.id, 'APPROVED')} className="p-1.5 rounded hover:bg-green-50 text-gray-400 hover:text-green-600" title="Approve"><CheckCircle2 size={18} /></button>
-                <button disabled={!!busy} onClick={() => review(s.id, 'REJECTED')} classNa
+                <button disabled={!!busy} onClick={() => review(s.id, 'REJECTED')} className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-500" title="Reject"><XCircle size={18} /></button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

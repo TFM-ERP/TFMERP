@@ -27,7 +27,7 @@ export default function TransportMaster() {
   const postV = async (id: string) => { if (!confirm('Post this hire as an actual to the project ledger? (Blocked if the period is locked.)')) return; try { const r = await transportApi.postVehicle(id); alert(`Posted actual — AED ${Number(r.data?.amount || 0).toLocaleString()}`); load(); } catch (e: any) { alert(e?.response?.data?.message || 'Could not post (period may be locked)'); } };
 
   return (
-    <div className="font-sans p-6 max-w-[1700px] mx-auto">
+    <div className="font-sans p-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-1">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900 flex items-center gap-2"><Car className="text-[#0f172a]" /> Transport</h1>
         <button onClick={() => (view === 'vehicles' ? setAddV(true) : setAddD(true))} className="inline-flex items-center gap-2 rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800"><Plus size={16} /> {view === 'vehicles' ? 'Add vehicle' : 'Add driver'}</button>

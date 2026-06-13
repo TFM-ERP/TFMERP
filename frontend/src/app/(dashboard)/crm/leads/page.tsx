@@ -29,7 +29,7 @@ export default function LeadsPage() {
   const del = async (id: string) => { if (confirm('Delete lead?')) { await crmApi.removeLead(id); load(); } };
 
   return (
-    <div className="p-6 max-w-[1700px] mx-auto">
+    <div className="p-6 max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
           <Link href="/crm" className="btn-ghost p-2"><ArrowLeft size={16} /></Link>
@@ -99,4 +99,8 @@ function LeadModal({ lead, onClose, onSaved }: any) {
           </div>
           <div><label className="label">Notes</label><textarea className="input w-full h-16 resize-none" value={f.notes || ''} onChange={e => setF({ ...f, notes: e.target.value })} /></div>
         </div>
-        <div className="px-6 py-4 border-t border-gray-100 flex gap-3"><button onClick={on
+        <div className="px-6 py-4 border-t border-gray-100 flex gap-3"><button onClick={onClose} className="btn-secondary flex-1">Cancel</button><button onClick={save} disabled={saving} className="btn-primary flex-1">{saving ? 'Saving…' : 'Save'}</button></div>
+      </div>
+    </div>
+  );
+}

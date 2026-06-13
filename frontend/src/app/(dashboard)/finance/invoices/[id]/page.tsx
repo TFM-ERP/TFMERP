@@ -178,7 +178,7 @@ export default function InvoiceDetailPage() {
         />
       )}
 
-      <div className="p-6 max-w-[1700px] mx-auto space-y-6">
+      <div className="p-6 max-w-5xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-start justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">

@@ -31,7 +31,7 @@ export default function ContractsMaster() {
   const byStatus = (g: any[] = [], ks: string[]) => g.filter((x) => ks.includes(x.status)).reduce((a, x) => a + (x._count || 0), 0);
 
   return (
-    <div className="font-sans p-6 max-w-[1700px] mx-auto">
+    <div className="font-sans p-6 max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900 flex items-center gap-2"><FileSignature className="text-[#0f172a]" /> Contracts</h1>

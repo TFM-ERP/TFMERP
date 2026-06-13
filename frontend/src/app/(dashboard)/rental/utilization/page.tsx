@@ -25,7 +25,7 @@ export default function UtilizationPage() {
   const maxRev = Math.max(1, ...rows.map((r: any) => r.revenue));
 
   return (
-    <div className="p-6 max-w-[1700px] mx-auto space-y-5">
+    <div className="p-6 max-w-5xl mx-auto space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center"><BarChart2 size={18} className="text-brand-600" /></div>
@@ -82,4 +82,13 @@ export default function UtilizationPage() {
                   </td>
                   <td className="px-3 py-3 text-right text-gray-600">{r.daysBooked}</td>
                   <td className="px-3 py-3 text-right font-medium">{formatCurrency(r.revenue)}</td>
-                  <t
+                  <td className="px-5 py-3 text-right text-gray-500">{formatCurrency(r.revenuePerDay)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}

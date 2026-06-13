@@ -69,7 +69,7 @@ export default function QuotationDetailPage() {
           onClose={() => setShowStatusModal(false)}
         />
       )}
-    <div className="p-6 max-w-[1700px] mx-auto space-y-6">
+    <div className="p-6 max-w-5xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">

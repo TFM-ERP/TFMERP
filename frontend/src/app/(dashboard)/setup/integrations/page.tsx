@@ -30,7 +30,7 @@ export default function IntegrationsPage() {
   const connOf = (p: string) => data?.connections?.find((c: any) => c.provider === p);
 
   return (
-    <div className="p-6 max-w-[1700px] mx-auto">
+    <div className="p-6 max-w-3xl mx-auto">
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center"><Cloud size={18} className="text-brand-600" /></div>
@@ -85,4 +85,8 @@ export default function IntegrationsPage() {
           <div>OAUTH_REDIRECT_BASE=http://localhost:3001/api/v1</div>
           <div>APP_URL=http://localhost:3000</div>
         </div>
-        <p className="mt-2">Add redirect URIs <span classNa
+        <p className="mt-2">Add redirect URIs <span className="font-mono">{'{OAUTH_REDIRECT_BASE}'}/integrations/gdrive/callback</span> and <span className="font-mono">.../dropbox/callback</span> in the Google / Dropbox app consoles.</p>
+      </div>
+    </div>
+  );
+}

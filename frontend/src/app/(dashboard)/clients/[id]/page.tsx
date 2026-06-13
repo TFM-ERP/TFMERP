@@ -81,7 +81,7 @@ export default function ClientDetailPage() {
   ];
 
   return (
-    <div className="p-6 max-w-[1700px] mx-auto">
+    <div className="p-6 max-w-6xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <Link href="/clients" className="btn btn-secondary p-1.5"><ArrowLeft size={16} /></Link>

@@ -288,7 +288,7 @@ export default function SupplierDetailPage() {
   ] as const;
 
   return (
-    <div className="p-6 max-w-[1700px] mx-auto">
+    <div className="p-6 max-w-5xl mx-auto">
       <Link href="/finance/suppliers" className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-5">
         <ArrowLeft size={14} /> Back to Supplier Directory
       </Link>

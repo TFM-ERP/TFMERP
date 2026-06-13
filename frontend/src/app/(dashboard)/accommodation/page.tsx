@@ -18,7 +18,7 @@ export default function AccommodationMaster() {
   useEffect(() => { load(); }, [load]);
 
   return (
-    <div className="font-sans p-6 max-w-[1700px] mx-auto">
+    <div className="font-sans p-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-5">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900 flex items-center gap-2"><BedDouble className="text-[#0f172a]" /> Accommodation</h1>

@@ -69,7 +69,7 @@ export default function NewDriverPage() {
   const isHire = form.driverType === 'EMPLOYEE';
 
   return (
-    <div className="p-6 max-w-[1700px] mx-auto">
+    <div className="p-6 max-w-3xl mx-auto">
       <div className="flex items-center gap-3 mb-6">
         <Link href="/rental/drivers" className="btn btn-secondary p-1.5"><ArrowLeft size={16} /></Link>
         <h1 className="text-2xl font-bold text-gray-900">Add Driver</h1>

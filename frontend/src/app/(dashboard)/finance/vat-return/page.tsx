@@ -53,7 +53,7 @@ export default function VatReturnPage() {
   );
 
   return (
-    <div className="p-6 max-w-[1700px] mx-auto">
+    <div className="p-6 max-w-4xl mx-auto">
       <div className="mb-6 flex items-start justify-between gap-3">
         <div>
           <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>Finance · Tax</div>
@@ -221,4 +221,15 @@ export default function VatReturnPage() {
                       <td className="table-td font-medium text-sm">{c.companyName}</td>
                       <td className="table-td text-xs text-gray-500 font-mono">{c.trn || '—'}</td>
                       <td className="table-td text-sm text-right">{formatCurrency(c.sales)}</td>
-                      <td className="table-td text-sm text-right font-semib
+                      <td className="table-td text-sm text-right font-semibold">{formatCurrency(c.vat)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}

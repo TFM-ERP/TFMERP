@@ -96,7 +96,7 @@ export default function NewEmployeePage() {
   };
 
   return (
-    <div className="p-6 max-w-[1700px] mx-auto">
+    <div className="p-6 max-w-3xl mx-auto">
       <div className="flex items-center gap-3 mb-5">
         <Link href="/hr/employees" className="btn btn-secondary p-1.5"><ArrowLeft size={16} /></Link>
         <div>

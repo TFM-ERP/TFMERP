@@ -52,7 +52,7 @@ export default function InventoryPage() {
   };
 
   return (
-    <div className="p-6 max-w-[1700px] mx-auto">
+    <div className="p-6 max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center"><Package size={18} className="text-brand-600" /></div>
@@ -141,4 +141,13 @@ export default function InventoryPage() {
                     <td className="px-3 py-3 text-right text-gray-500">{Number(i.reorderLevel)}</td>
                     <td className="px-3 py-3 text-right text-gray-600">{formatCurrency(Number(i.unitCost))}</td>
                     <td className="px-3 py-3 text-right font-medium text-gray-800">{formatCurrency(i.value)}</td>
-                  
+                    <td className="px-3 py-3 text-gray-500 text-xs">{i.location || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+      </div>
+    </div>
+  );
+}

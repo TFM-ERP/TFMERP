@@ -39,7 +39,7 @@ export default function ProductionEmailSettingsPage() {
   const f = (label: string, child: any) => <div><label className="label text-xs">{label}</label>{child}</div>;
 
   return (
-    <div className="p-6 max-w-[1700px] mx-auto">
+    <div className="p-6 max-w-2xl mx-auto">
       <div className="flex items-center gap-3 mb-5">
         <Link href="/production/dashboard" className="btn btn-secondary p-1.5"><ArrowLeft size={16} /></Link>
         <div className="flex items-center gap-3 flex-1">

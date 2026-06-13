@@ -24,7 +24,7 @@ export default function GeneralLedgerPage() {
   const acc = data?.account;
 
   return (
-    <div className="p-6 max-w-[1700px] mx-auto">
+    <div className="p-6 max-w-4xl mx-auto">
       <div className="flex items-center gap-3 mb-5">
         <Link href="/accounting/accounts" className="btn btn-secondary p-1.5"><ArrowLeft size={16} /></Link>
         <div className="flex items-center gap-3 flex-1">

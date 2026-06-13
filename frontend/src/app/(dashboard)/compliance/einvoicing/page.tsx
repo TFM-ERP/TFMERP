@@ -20,7 +20,7 @@ export default function EInvoicingPage() {
   };
 
   return (
-    <div className="p-6 max-w-[1700px] mx-auto space-y-5">
+    <div className="p-6 max-w-4xl mx-auto space-y-5">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center"><FileCheck2 size={18} className="text-brand-600" /></div>

@@ -52,7 +52,7 @@ export default function ServiceCatalogPage() {
   const toggle = async (id: string) => { await servicesApi.toggleActive(id); load(); };
 
   return (
-    <div className="p-6 max-w-[1700px] mx-auto">
+    <div className="p-6 max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
           <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>Finance · Catalog</div>
@@ -197,4 +197,10 @@ function CostCentersModal({ costCenters, onClose, onChange }: { costCenters: any
                 {c.isActive && <button onClick={() => remove(c.id)} className="text-xs text-red-500 hover:text-red-700">Remove</button>}
               </div>
             ))}
-            {costCenters
+            {costCenters.length === 0 && <p className="text-sm text-gray-400 text-center py-4">No cost centers yet.</p>}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
