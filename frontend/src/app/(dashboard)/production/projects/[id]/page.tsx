@@ -396,7 +396,7 @@ export default function ProjectDetailPage() {
   const money = (n: any) => formatCurrency(n, cur);
 
   return (
-    <div className="p-6 max-w-[1700px] mx-auto">
+    <div className="p-6 max-w-7xl mx-auto">
       {/* Sticky header — poster-backed marquee hero + phase tabs + chip sub-tabs */}
       <div className="glass-bar sticky top-0 z-20 -mx-6 -mt-6 px-6 pt-4 pb-2 mb-4 border-b border-gray-200/60 [&>*:last-child]:mb-0" style={{ ['--glass-base' as any]: 'var(--page-bg)' }}>
       {(() => {

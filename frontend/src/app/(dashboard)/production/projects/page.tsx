@@ -282,7 +282,7 @@ export default function ProductionProjectsPage() {
   };
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-6 max-w-7xl mx-auto">
       {/* ── Marquee header — theme-aware: Charcoal Black panel in dark, Graphite paper in light ── */}
       <div className="relative rounded-[20px] overflow-hidden mb-6" style={{ background: MQ.panel, border: `1px solid ${MQ.border}`, color: MQ.title }}>
         <div aria-hidden className="absolute pointer-events-none" style={{ right: -60, top: -80, width: 300, height: 300, borderRadius: '50%', background: MQ.glow }} />
