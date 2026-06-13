@@ -54,7 +54,7 @@ export default function AvailabilityCalendarPage() {
   const shift = (n: number) => setAnchor(new Date(anchor.getTime() + n * days * dayMs));
 
   return (
-    <div className="p-6 w-full">
+    <div className="p-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <Link href="/rental/bookings" className="btn-ghost p-2"><ArrowLeft size={16} /></Link>

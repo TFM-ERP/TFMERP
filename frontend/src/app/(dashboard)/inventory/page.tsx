@@ -52,7 +52,7 @@ export default function InventoryPage() {
   };
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center"><Package size={18} className="text-brand-600" /></div>
