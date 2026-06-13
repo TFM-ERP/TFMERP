@@ -133,6 +133,18 @@ export default function LogisticsCommandPage() {
     if (v == null || v === '') return;
     await act(() => rentalApi.logistics.recordReading(u.itemId, { kind, odometer: Number(v) }), 'odo' + u.itemId);
   };
+  const inspect = async (u: any, type: 'DELIVERY' | 'RETURN') => {
+    const fuelLevel = prompt(`${type === 'DELIVERY' ? 'Check-OUT' : 'Check-IN'} inspection for ${u.asset?.name}\nFuel level (e.g. Full, 3/4, 1/2)`, 'Full');
+    if (fuelLevel == null) return;
+    const damageNotes = prompt('Any new damage? (leave blank if none)', '') || '';
+    await act(() => rentalApi.logistics.logInspection(u.itemId, { type, fuelLevel, damageNotes }), 'insp' + u.itemId);
+  };
+  // any driver across hires with a compliance issue
+  const complianceIssues = useMemo(() => {
+    const out: any[] = [];
+    for (const h of (data?.hires || [])) for (const d of (h.drivers || [])) if ((d.compliance || []).length) out.push({ ...d, hire: h.bookingNumber });
+    return out;
+  }, [data]);
 
   const summary = data?.summary || {};
   const tabBtn = (k: typeof tab, label: string, n?: number) => (
@@ -159,6 +171,12 @@ export default function LogisticsCommandPage() {
       </div>
 
       {tab === 'map' && (<>
+        {complianceIssues.length > 0 && (
+          <div className="rounded-xl border px-3 py-2 mb-3 text-[12px] flex items-center gap-2 flex-wrap" style={{ borderColor: '#F3C8C8', background: '#FBE9E7', color: '#B91C1C' }}>
+            <span className="font-semibold">⚠ Dispatch blocked:</span>
+            {complianceIssues.map((d, i) => <span key={i}>{d.name} ({d.compliance.join(', ')}) · {d.hire}{i < complianceIssues.length - 1 ? ' ·' : ''}</span>)}
+          </div>
+        )}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           {[['On hire', summary.onHire ?? 0, 'var(--text-1)'], ['On location', summary.onLocation ?? 0, '#16A34A'], ['In transit', summary.inTransit ?? 0, '#D97706'], ['Alerts', summary.alerts ?? 0, '#DC2626']].map(([l, v, c]: any) => (
             <div key={l} className="rounded-2xl border bg-white p-3.5" style={{ borderColor: 'var(--border-1)', background: 'var(--surface-1)' }}>
@@ -199,10 +217,15 @@ export default function LogisticsCommandPage() {
                 {(loc.units || []).map((u: any) => {
                   const Icon = unitIcon(u.asset?.assetType, u.asset?.category); const towed = !u.asset?.tracksMileage;
                   return (
-                    <div key={u.itemId} className="flex items-center gap-2 text-[11.5px] py-0.5" style={{ color: 'var(--text-2)' }}>
+                    <div key={u.itemId} className="flex items-center gap-1.5 text-[11.5px] py-0.5 flex-wrap" style={{ color: 'var(--text-2)' }}>
                       <Icon size={13} style={{ color: 'var(--text-3)' }} /><span className="truncate">{u.asset?.name}</span>
                       {towed ? <span className="text-[9px] rounded-full px-1.5" style={{ background: '#EDE9FE', color: '#6D28D9' }}>towed</span>
-                        : <button onClick={() => recordOdo(u, u.checkoutOdometer == null ? 'CHECKOUT' : 'RETURN')} className="ml-auto inline-flex items-center gap-0.5 text-[10.5px]" style={{ color: u.milesThisHire != null ? 'var(--text-3)' : 'var(--gold)' }}><Gauge size={10} /> {u.milesThisHire != null ? `${u.milesThisHire.toLocaleString()} km` : (u.checkoutOdometer == null ? 'check-out' : 'return')}</button>}
+                        : <button onClick={() => recordOdo(u, u.checkoutOdometer == null ? 'CHECKOUT' : 'RETURN')} className="inline-flex items-center gap-0.5 text-[10.5px]" style={{ color: u.milesThisHire != null ? 'var(--text-3)' : 'var(--gold)' }}><Gauge size={10} /> {u.milesThisHire != null ? `${u.milesThisHire.toLocaleString()} km` : (u.checkoutOdometer == null ? 'check-out' : 'return')}</button>}
+                      {u.kmPerL != null && <span className="text-[9.5px]" style={{ color: 'var(--text-3)' }}>{u.kmPerL} km/L</span>}
+                      {u.excessKm > 0 && <span className="text-[9px] rounded-full px-1.5 font-semibold" style={{ background: '#FBE9E7', color: '#B91C1C' }}>+{u.excessKm.toLocaleString()} km excess</span>}
+                      {/* inspection dots */}
+                      <button title="Check-out inspection" onClick={() => inspect(u, 'DELIVERY')} className="ml-auto text-[9px] rounded-full px-1.5 font-semibold" style={u.inspectedOut ? { background: '#E7F6EC', color: '#15803D' } : { background: 'var(--surface-2)', color: 'var(--text-3)' }}>{u.inspectedOut ? '✓ out' : '○ out'}</button>
+                      <button title="Check-in inspection" onClick={() => inspect(u, 'RETURN')} className="text-[9px] rounded-full px-1.5 font-semibold" style={u.inspectedIn ? { background: '#E7F6EC', color: '#15803D' } : { background: 'var(--surface-2)', color: 'var(--text-3)' }}>{u.inspectedIn ? '✓ in' : '○ in'}</button>
                     </div>
                   );
                 })}

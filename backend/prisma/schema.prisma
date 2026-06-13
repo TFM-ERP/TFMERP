@@ -1132,6 +1132,7 @@ model BookingItem {
   returnOdometer    Int?
   checkoutAt        DateTime?
   returnAt          DateTime?
+  mileageAllowanceKm Int?        // included km on this hire; beyond = excess (chargeable)
   allocationStatus  String       @default("RESERVED") // RESERVED | DISPATCHED | ON_LOCATION | RETURNED
 
   @@map("booking_items")

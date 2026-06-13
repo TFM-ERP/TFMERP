@@ -164,6 +164,7 @@ export const rentalApi = {
     recordReading: (itemId: string, data: { kind: 'CHECKOUT' | 'RETURN'; odometer: number }) => api.patch(`/rental/logistics/unit/${itemId}/reading`, data),
     setLocationStatus: (locationId: string, status: string) => api.patch(`/rental/logistics/location/${locationId}/status`, { status }),
     updateLocation: (locationId: string, data: any) => api.patch(`/rental/logistics/location/${locationId}`, data),
+    logInspection: (itemId: string, data: any) => api.post(`/rental/logistics/unit/${itemId}/inspection`, data),
   },
 
   // Assets

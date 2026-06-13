@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { LogisticsService } from './logistics.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
@@ -42,5 +42,11 @@ export class LogisticsController {
   @ApiOperation({ summary: 'Update a site map pin / crew count / details' })
   updateLocation(@Param('locationId') locationId: string, @Body() b: any) {
     return this.service.updateLocation(locationId, b || {});
+  }
+
+  @Post('unit/:itemId/inspection')
+  @ApiOperation({ summary: 'Log a check-out (DELIVERY) or check-in (RETURN) inspection' })
+  logInspection(@Param('itemId') itemId: string, @Body() b: any) {
+    return this.service.logInspection(itemId, b || {});
   }
 }
