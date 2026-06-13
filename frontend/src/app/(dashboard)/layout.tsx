@@ -388,7 +388,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   };
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ background: darkMode ? '#0B1120' : '#F4F5F7' }}>
+    <div className="flex h-screen overflow-hidden" style={{ background: darkMode ? '#0B0B0D' : '#F5F5F4' }}>
 
       {/* ── Rail (Option A — grouped, theme-following) ── */}
       <aside className="flex flex-col shrink-0 transition-all" style={{ width: RAIL_W, background: pal.bg, borderRight: `1px solid ${pal.border}` }}>
