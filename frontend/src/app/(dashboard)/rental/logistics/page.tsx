@@ -139,6 +139,18 @@ export default function LogisticsCommandPage() {
     const damageNotes = prompt('Any new damage? (leave blank if none)', '') || '';
     await act(() => rentalApi.logistics.logInspection(u.itemId, { type, fuelLevel, damageNotes }), 'insp' + u.itemId);
   };
+  const nameOf = useMemo(() => { const m = new Map<string, string>(); for (const u of allItems) m.set(u.itemId, u.asset?.name || ''); return m; }, [allItems]);
+  const selfDrivenInHire = (h: any) => {
+    const out: any[] = [];
+    for (const loc of (h.locations || [])) for (const u of (loc.units || [])) if (u.asset?.tracksMileage) out.push(u);
+    for (const u of (h.unplaced || [])) if (u.asset?.tracksMileage) out.push(u);
+    return out;
+  };
+  const hitch = (itemId: string, val: string) => {
+    if (val === 'EXTERNAL') return act(() => rentalApi.logistics.confirmHitch(itemId, { externalTow: true }), 'h' + itemId);
+    if (val === '') return act(() => rentalApi.logistics.unhitch(itemId), 'h' + itemId);
+    return act(() => rentalApi.logistics.confirmHitch(itemId, { towVehicleItemId: val }), 'h' + itemId);
+  };
   // any driver across hires with a compliance issue
   const complianceIssues = useMemo(() => {
     const out: any[] = [];
@@ -219,7 +231,14 @@ export default function LogisticsCommandPage() {
                   return (
                     <div key={u.itemId} className="flex items-center gap-1.5 text-[11.5px] py-0.5 flex-wrap" style={{ color: 'var(--text-2)' }}>
                       <Icon size={13} style={{ color: 'var(--text-3)' }} /><span className="truncate">{u.asset?.name}</span>
-                      {towed ? <span className="text-[9px] rounded-full px-1.5" style={{ background: '#EDE9FE', color: '#6D28D9' }}>towed</span>
+                      {towed
+                        ? (u.towedById
+                            ? <button onClick={() => hitch(u.itemId, '')} title="Click to unhitch" className="text-[9px] rounded-full px-1.5 inline-flex items-center gap-0.5" style={{ background: '#EDE9FE', color: '#6D28D9' }}>🔗 {nameOf.get(u.towedById) || 'hitched'}</button>
+                            : <select defaultValue="" disabled={busy === 'h' + u.itemId} onChange={(e) => hitch(u.itemId, e.target.value)} className="text-[10px] rounded-md border px-1 py-0.5" style={{ borderColor: 'var(--border-1)', background: 'var(--surface-1)', color: 'var(--text-2)' }}>
+                                <option value="">hitch to…</option>
+                                {selfDrivenInHire(h).map((v: any) => <option key={v.itemId} value={v.itemId}>{v.asset?.name}</option>)}
+                                <option value="EXTERNAL">External / 3rd-party</option>
+                              </select>)
                         : <button onClick={() => recordOdo(u, u.checkoutOdometer == null ? 'CHECKOUT' : 'RETURN')} className="inline-flex items-center gap-0.5 text-[10.5px]" style={{ color: u.milesThisHire != null ? 'var(--text-3)' : 'var(--gold)' }}><Gauge size={10} /> {u.milesThisHire != null ? `${u.milesThisHire.toLocaleString()} km` : (u.checkoutOdometer == null ? 'check-out' : 'return')}</button>}
                       {u.kmPerL != null && <span className="text-[9.5px]" style={{ color: 'var(--text-3)' }}>{u.kmPerL} km/L</span>}
                       {u.excessKm > 0 && <span className="text-[9px] rounded-full px-1.5 font-semibold" style={{ background: '#FBE9E7', color: '#B91C1C' }}>+{u.excessKm.toLocaleString()} km excess</span>}

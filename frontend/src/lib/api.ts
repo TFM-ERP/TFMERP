@@ -165,6 +165,9 @@ export const rentalApi = {
     setLocationStatus: (locationId: string, status: string) => api.patch(`/rental/logistics/location/${locationId}/status`, { status }),
     updateLocation: (locationId: string, data: any) => api.patch(`/rental/logistics/location/${locationId}`, data),
     logInspection: (itemId: string, data: any) => api.post(`/rental/logistics/unit/${itemId}/inspection`, data),
+    confirmHitch: (itemId: string, data: { towVehicleItemId?: string | null; externalTow?: boolean; hitchedBy?: string; lat?: number; lng?: number }) => api.patch(`/rental/logistics/unit/${itemId}/hitch`, data),
+    unhitch: (itemId: string, by?: string) => api.patch(`/rental/logistics/unit/${itemId}/unhitch`, { by }),
+    dispatchCheck: (bookingId: string) => api.get(`/rental/logistics/booking/${bookingId}/dispatch-check`),
   },
 
   // Assets

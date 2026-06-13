@@ -49,4 +49,22 @@ export class LogisticsController {
   logInspection(@Param('itemId') itemId: string, @Body() b: any) {
     return this.service.logInspection(itemId, b || {});
   }
+
+  @Patch('unit/:itemId/hitch')
+  @ApiOperation({ summary: 'Confirm a trailer is hitched to a tow vehicle (or external)' })
+  confirmHitch(@Param('itemId') itemId: string, @Body() b: any) {
+    return this.service.confirmHitch(itemId, b || {});
+  }
+
+  @Patch('unit/:itemId/unhitch')
+  @ApiOperation({ summary: 'Unhitch a trailer (close the coupling)' })
+  unhitch(@Param('itemId') itemId: string, @Body() b: { by?: string }) {
+    return this.service.unhitch(itemId, b?.by);
+  }
+
+  @Get('booking/:bookingId/dispatch-check')
+  @ApiOperation({ summary: 'Check whether all units are dispatchable (none in maintenance)' })
+  dispatchCheck(@Param('bookingId') bookingId: string) {
+    return this.service.dispatchCheck(bookingId);
+  }
 }

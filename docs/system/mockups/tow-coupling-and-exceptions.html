@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tow coupling & ground exceptions — workflow</title>
+<style>
+  :root{--s0:#F5F5F4;--s1:#fff;--t1:#161C28;--t2:#44505F;--t3:#6E7A88;--bd:#E3E1DB;--gold:#b08d4f;--char:#1C2433;--ok:#16A34A;--warn:#D97706;--danger:#DC2626;--blue:#2B53B8;--violet:#6D28D9}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Inter,'Segoe UI',Arial,sans-serif;background:var(--s0);color:var(--t1);font-size:13px;padding:24px;line-height:1.55}
+  h1{font-size:18px;margin-bottom:4px}.sub{color:var(--t2);margin-bottom:18px;max-width:940px}
+  h2{font-size:12.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin:26px 0 8px}
+  .page{max-width:1180px;margin:0 auto}
+  .card{background:var(--s1);border:1px solid var(--bd);border-radius:14px;padding:14px;margin-bottom:12px}
+  .kick{font-size:9.5px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--gold)}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th{text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);padding:8px 10px;background:var(--s0);border-bottom:1px solid var(--bd)}
+  td{padding:8px 10px;border-bottom:1px solid var(--bd);color:var(--t2);vertical-align:top}
+  td b{color:var(--t1)}
+  .who{font-size:9px;font-weight:800;border-radius:99px;padding:2px 8px}
+  .w-admin{background:#EAF0FF;color:var(--blue)}.w-driver{background:#E7F6EC;color:var(--ok)}.w-system{background:#F0EFEC;color:var(--t3)}
+  /* phone */
+  .phone{width:300px;border:1px solid var(--bd);border-radius:20px;overflow:hidden;background:#0E0E10;color:#EDEDEA}
+  .phh{padding:12px 14px;background:#141416;border-bottom:1px solid #232326}
+  .phh .k{font-size:8.5px;letter-spacing:.2em;color:#c9a96a;font-weight:800}
+  .phb{padding:14px}
+  .ub{border:1px solid #232326;border-radius:12px;padding:11px;margin-bottom:10px;background:#141416}
+  .ub .nm{font-weight:700;font-size:13px}
+  .ub .mt{font-size:10.5px;color:#7E7E85}
+  .btn{display:block;width:100%;text-align:center;border-radius:10px;padding:9px;font-weight:700;font-size:12px;border:none;margin-top:8px;cursor:pointer}
+  .b-gold{background:linear-gradient(135deg,#c9a96a,#a87f3d);color:#1a1206}
+  .b-ghost{background:transparent;border:1px solid #2a2a2e;color:#9a9aa2}
+  .b-red{background:transparent;border:1px solid #5a2424;color:#F08585}
+  .pair{display:flex;align-items:center;gap:8px;justify-content:center;margin:6px 0;font-size:12px;color:#EDEDEA}
+  .flow{display:flex;gap:10px;flex-wrap:wrap}
+  .step{flex:1;min-width:210px;border:1px solid var(--bd);border-radius:12px;padding:11px;background:var(--s1)}
+  .step .n{width:22px;height:22px;border-radius:50%;background:var(--char);color:#fff;font-size:11px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;margin-right:6px}
+  .arrow{align-self:center;color:var(--t3);font-weight:800}
+  .pill{font-size:9px;font-weight:700;border-radius:99px;padding:1px 7px}
+  .p-block{background:#FBE9E7;color:var(--danger)}.p-sub{background:#EDE9FE;color:var(--violet)}.p-ok{background:#E7F6EC;color:var(--ok)}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Tow coupling &amp; ground exceptions</h1>
+  <p class="sub">Who pairs trailers to vehicles, when, and what happens when reality doesn't match the plan (asset under maintenance, damaged, or missing). The rule: the coordinator <b>plans</b>, the driver <b>confirms actual</b>, and asset status changes stay with admin — drivers <b>report</b>, they don't overwrite.</p>
+
+  <h2>1 · Responsibility matrix</h2>
+  <div class="card"><table>
+    <thead><tr><th>Action</th><th>Owner</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td><b>Plan the tow pairing</b> (which trailer behind which vehicle, to which site)</td><td><span class="who w-admin">Coordinator</span></td><td>It's contractual intent &amp; routing; needs the full picture of the hire.</td></tr>
+      <tr><td><b>Confirm the actual coupling</b> at pickup ("hitched to MAN TGX")</td><td><span class="who w-driver">Driver</span></td><td>Only the person at the yard knows what was really hitched; reality drifts from plan.</td></tr>
+      <tr><td><b>Unhitch / re-couple</b> mid-job (drop a trailer, take another)</td><td><span class="who w-driver">Driver</span></td><td>Field event — logged with timestamp + location.</td></tr>
+      <tr><td><b>Change an asset's status</b> (Available ⇄ In&nbsp;Maintenance ⇄ Damaged)</td><td><span class="who w-admin">Admin / Maintenance</span></td><td>Liability, billing, audit. A driver flipping this would corrupt the fleet's truth.</td></tr>
+      <tr><td><b>Report "asset unfit / not as planned"</b> on the ground</td><td><span class="who w-driver">Driver</span></td><td>Driver flags it; system raises a maintenance/incident so it isn't re-assigned.</td></tr>
+      <tr><td><b>Approve a substitution</b> of a contracted asset</td><td><span class="who w-admin">Coordinator</span></td><td>Swapping a contracted unit touches the client contract, insurance &amp; billing.</td></tr>
+      <tr><td><b>Block invalid dispatch</b> (maintenance/expired driver)</td><td><span class="who w-system">System gate</span></td><td>Catch it before the driver leaves the yard.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>2 · The coupling lifecycle — driver confirms what's hitched</h2>
+  <div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start">
+    <div class="phone">
+      <div class="phh"><div class="k">Driver Portal · Pickup</div><div style="font-size:14px;font-weight:800;margin-top:2px">MAN TGX 26.500</div><div style="font-size:10.5px;color:#7E7E85">Job: deliver to Liwa · Desert Unit</div></div>
+      <div class="phb">
+        <div style="font-size:10px;letter-spacing:.1em;color:#7E7E85;font-weight:700;margin-bottom:6px">PLANNED TO HITCH</div>
+        <div class="ub">
+          <div class="nm">35ft Catering Trailer <span class="pill p-ok">match</span></div>
+          <div class="mt">SH 45678 · scan QR or confirm</div>
+          <button class="btn b-gold">✓ Confirm hitched</button>
+          <button class="btn b-ghost">⤿ Hitched a different trailer</button>
+        </div>
+        <div style="font-size:10px;letter-spacing:.1em;color:#7E7E85;font-weight:700;margin:10px 0 6px">ALSO LOADED (no tow)</div>
+        <div class="ub"><div class="nm">⚡ Cummins 200kVA</div><button class="btn b-gold">✓ Loaded</button></div>
+        <button class="btn b-red" style="margin-top:12px">⚠ Report a problem with an asset</button>
+      </div>
+    </div>
+    <div style="flex:1;min-width:260px">
+      <div class="card">
+        <div class="kick">What "Confirm hitched" does</div>
+        <p style="font-size:12.5px;color:var(--t2);margin-top:6px">Creates a <b>coupling record</b>: trailer SH-45678 ↔ MAN TGX, hitched at 06:04, by driver Omar, at the yard's GPS. On the map the trailer now <b>moves with the truck</b>; mileage is attributed to the truck. Drop it at the site → "Unhitch" closes the coupling.</p>
+        <div class="pair" style="color:var(--t1);margin-top:8px">🚚 MAN TGX <span style="color:var(--gold)">⇄ hitched 06:04 ⇄</span> 🚐 SH 45678</div>
+      </div>
+      <div class="card">
+        <div class="kick">"Hitched a different trailer"</div>
+        <p style="font-size:12.5px;color:var(--t2);margin-top:6px">Driver picks the trailer he actually coupled from a list of units on this hire. If it's <b>not</b> on the hire, it becomes a <b>substitution request</b> → coordinator approves (next section). The plan is preserved for the record; the actual is logged.</p>
+      </div>
+    </div>
+  </div>
+
+  <h2>3 · Exception — planned trailer is under maintenance / unfit</h2>
+  <div class="flow">
+    <div class="step"><span class="n">1</span><b>Driver flags it</b><br><span style="font-size:11.5px;color:var(--t2)">"SH-45678 has a flat / is tagged for service." Driver taps <span class="pill p-block">Report problem</span>. He cannot mark it available — only report.</span></div>
+    <div class="arrow">→</div>
+    <div class="step"><span class="n">2</span><b>System reacts instantly</b><br><span style="font-size:11.5px;color:var(--t2)">Auto-creates a maintenance flag/incident on SH-45678 so it can't be re-assigned. Surfaces <span class="pill p-sub">available equivalents</span> — same category/spec, not on hire, not in maintenance.</span></div>
+    <div class="arrow">→</div>
+    <div class="step"><span class="n">3</span><b>Driver proposes substitute</b><br><span style="font-size:11.5px;color:var(--t2)">Picks "40ft Catering Trailer SH-12345" as a replacement and confirms hitched — status goes <span class="pill p-sub">pending approval</span>.</span></div>
+    <div class="arrow">→</div>
+    <div class="step"><span class="n">4</span><b>Coordinator approves</b><br><span style="font-size:11.5px;color:var(--t2)">Sees the swap on the command center, approves (or calls the driver). Contract/billing updates to the substitute; the hire continues. <span class="pill p-ok">resolved</span></span></div>
+  </div>
+  <p class="sub" style="margin-top:10px"><b>Two guardrails so it rarely gets this far:</b> ① <u>Planning gate</u> — when the coordinator assigns an asset that's In&nbsp;Maintenance or double-booked for those dates, the booking warns/blocks immediately. ② <u>Dispatch gate</u> — the hire can't move to "Dispatched" while any assigned unit isn't Available (same pattern as the driver-compliance gate already built).</p>
+
+  <h2>4 · Edge cases &amp; the rule for each</h2>
+  <div class="card"><table>
+    <thead><tr><th>Situation</th><th>Best practice</th></tr></thead>
+    <tbody>
+      <tr><td>Driver couples a trailer <b>not on the hire</b></td><td>Allowed but flagged as substitution → coordinator approves; keeps contract honest.</td></tr>
+      <tr><td>Asset found <b>damaged</b> at pickup</td><td>Driver runs the <b>check-out inspection</b> (photos) → if damage &gt; baseline, auto-incident + can't dispatch until reviewed.</td></tr>
+      <tr><td>No equivalent available for a substitute</td><td>System says so; coordinator decides: delay, source externally, or partial dispatch. Never a silent gap.</td></tr>
+      <tr><td>Driver offline at the yard (no signal)</td><td>Portal queues the confirm/coupling locally and syncs when back online (same offline pattern the driver portal already uses).</td></tr>
+      <tr><td>One truck makes <b>multiple trips</b> (drops trailer A, returns for B)</td><td>Each coupling is its own timestamped event; the truck's mileage spans all legs.</td></tr>
+      <tr><td>Trailer moved by a <b>third-party / client truck</b></td><td>Coupling can record "external tow" (no internal vehicle) so the map still tracks the trailer.</td></tr>
+    </tbody>
+  </table></div>
+</div>
+</body>
+</html>

@@ -89,6 +89,42 @@ export class LogisticsService {
     return { summary: { onHire, onLocation, inTransit, alerts }, hires };
   }
 
+  /** Driver/coordinator confirms a trailer is hitched to a tow vehicle (or external). */
+  async confirmHitch(trailerItemId: string, b: { towVehicleItemId?: string | null; externalTow?: boolean; hitchedBy?: string; lat?: number; lng?: number }) {
+    const trailer = await this.prisma.bookingItem.findUnique({ where: { id: trailerItemId }, include: { asset: true } });
+    if (!trailer) throw new NotFoundException('Trailer unit not found.');
+    if (trailer.asset?.tracksMileage) throw new BadRequestException('That unit is self-driven — it is not towed.');
+    // Close any open coupling for this trailer first.
+    await this.prisma.towCoupling.updateMany({ where: { trailerItemId, unhitchedAt: null }, data: { unhitchedAt: new Date() } });
+    const coupling = await this.prisma.towCoupling.create({
+      data: {
+        bookingId: trailer.bookingId, trailerItemId,
+        towVehicleItemId: b.externalTow ? null : (b.towVehicleItemId || null),
+        externalTow: !!b.externalTow, hitchedBy: b.hitchedBy || null,
+        lat: b.lat ?? null, lng: b.lng ?? null,
+      },
+    });
+    // Keep the quick pointer in sync (used by the overview tree).
+    await this.prisma.bookingItem.update({ where: { id: trailerItemId }, data: { towedById: b.externalTow ? null : (b.towVehicleItemId || null) } });
+    return coupling;
+  }
+
+  /** Unhitch a trailer — closes the open coupling and clears the pointer. */
+  async unhitch(trailerItemId: string, by?: string) {
+    await this.prisma.towCoupling.updateMany({ where: { trailerItemId, unhitchedAt: null }, data: { unhitchedAt: new Date(), unhitchedBy: by || null } });
+    await this.prisma.bookingItem.update({ where: { id: trailerItemId }, data: { towedById: null } });
+    return { ok: true };
+  }
+
+  /** Dispatch gate: is every unit on the hire dispatchable (asset AVAILABLE/reserved, not in maintenance)? */
+  async dispatchCheck(bookingId: string) {
+    const items = await this.prisma.bookingItem.findMany({ where: { bookingId }, include: { asset: { select: { id: true, name: true, status: true } } } });
+    const blockers = items
+      .filter((i) => i.asset && !['AVAILABLE', 'RESERVED', 'ON_HIRE'].includes(String(i.asset.status)))
+      .map((i) => ({ itemId: i.id, asset: i.asset?.name, status: i.asset?.status }));
+    return { ok: blockers.length === 0, blockers };
+  }
+
   /** Log a check-out (DELIVERY) or check-in (RETURN) inspection for a unit's asset. */
   async logInspection(itemId: string, b: { type: 'DELIVERY' | 'RETURN'; odometer?: number; fuelLevel?: string; damageNotes?: string; photos?: string[]; checklist?: any }) {
     const item = await this.prisma.bookingItem.findUnique({ where: { id: itemId } });

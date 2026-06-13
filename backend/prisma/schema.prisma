@@ -1104,6 +1104,7 @@ model RentalBooking {
   incidents    IncidentReport[]
   conditionReports ConditionReport[]
   locations    BookingLocation[]
+  towCouplings TowCoupling[]
 
   @@map("rental_bookings")
 }
@@ -1134,8 +1135,30 @@ model BookingItem {
   returnAt          DateTime?
   mileageAllowanceKm Int?        // included km on this hire; beyond = excess (chargeable)
   allocationStatus  String       @default("RESERVED") // RESERVED | DISPATCHED | ON_LOCATION | RETURNED
+  substitutionStatus String?     // null | PENDING | APPROVED | REJECTED  (when a unit was swapped on the ground)
+  substitutedFromAssetId String? // the originally-planned asset, if this line was substituted
 
   @@map("booking_items")
+}
+
+// Tow coupling log — the actual "this trailer is hitched to this vehicle" event, set by
+// the driver (or a coordinator) at pickup. Open coupling = currently hitched; unhitchedAt closes it.
+model TowCoupling {
+  id            String        @id @default(cuid())
+  bookingId     String
+  booking       RentalBooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  trailerItemId String        // BookingItem id of the towed unit
+  towVehicleItemId String?    // BookingItem id of the self-driven unit towing it (null = external/3rd-party)
+  externalTow   Boolean       @default(false) // towed by a client/3rd-party vehicle
+  hitchedAt     DateTime      @default(now())
+  hitchedBy     String?       // user/driver id or name
+  lat           Float?
+  lng           Float?
+  unhitchedAt   DateTime?
+  unhitchedBy   String?
+  notes         String?
+
+  @@map("tow_couplings")
 }
 
 // â”€â”€ Rental: Contracts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
