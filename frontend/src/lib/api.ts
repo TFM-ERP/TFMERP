@@ -156,6 +156,16 @@ export const rentalApi = {
   // Dashboard
   dashboard: () => api.get('/rental/bookings/dashboard'),
 
+  // Live Logistics command center
+  logistics: {
+    overview: () => api.get('/rental/logistics/overview'),
+    assignUnit: (itemId: string, bookingLocationId: string | null) => api.patch(`/rental/logistics/unit/${itemId}/location`, { bookingLocationId }),
+    setTow: (itemId: string, towedById: string | null) => api.patch(`/rental/logistics/unit/${itemId}/tow`, { towedById }),
+    recordReading: (itemId: string, data: { kind: 'CHECKOUT' | 'RETURN'; odometer: number }) => api.patch(`/rental/logistics/unit/${itemId}/reading`, data),
+    setLocationStatus: (locationId: string, status: string) => api.patch(`/rental/logistics/location/${locationId}/status`, { status }),
+    updateLocation: (locationId: string, data: any) => api.patch(`/rental/logistics/location/${locationId}`, data),
+  },
+
   // Assets
   assets: {
     list: (params?: any) => api.get('/rental/assets', { params }),

@@ -7,6 +7,7 @@ import { MaintenanceModule } from './maintenance/maintenance.module';
 import { FuelModule } from './fuel/fuel.module';
 import { DamageModule } from './damage/damage.module';
 import { IncidentsModule } from './incidents/incidents.module';
+import { LogisticsModule } from './logistics/logistics.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { IncidentsModule } from './incidents/incidents.module';
     FuelModule,
     DamageModule,
     IncidentsModule,
+    LogisticsModule,
   ],
   exports: [AssetsModule, BookingsModule, ContractsModule, DriversModule, IncidentsModule],
 })
