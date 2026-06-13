@@ -33,7 +33,7 @@ export default function MyApprovalsPage() {
   };
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-6 max-w-7xl mx-auto">
       <div className="marquee-panel flex items-center justify-between flex-wrap gap-3">
         <div>
           <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>Production · Approvals</div>

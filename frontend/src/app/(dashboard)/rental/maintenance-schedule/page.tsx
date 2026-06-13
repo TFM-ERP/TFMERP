@@ -61,7 +61,7 @@ export default function PmSchedulePage() {
   };
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-5">
+    <div className="p-6 max-w-7xl mx-auto space-y-5">
       <div className="marquee-panel flex items-center justify-between flex-wrap gap-3">
         <div>
           <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>Rentals · Servicing</div>

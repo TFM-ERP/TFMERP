@@ -33,7 +33,7 @@ export default function FuelPage() {
   useEffect(() => { load(); }, [load]);
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-6 max-w-7xl mx-auto">
       <CinematicHeader kicker="Rentals · Fleet" title="Fuel Logs" count={`${total} entries`}>
         <button onClick={load} className="btn btn-secondary p-2">
           <RefreshCw size={14} className={cn(loading && 'animate-spin')} />

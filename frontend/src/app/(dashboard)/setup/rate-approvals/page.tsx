@@ -69,7 +69,7 @@ export default function RateApprovalsPage() {
   const fmtVal = (v: any) => (v === null || v === undefined || v === '') ? '—' : String(v);
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-6 max-w-7xl mx-auto">
       <div className="marquee-panel flex items-center justify-between flex-wrap gap-3">
         <div>
           <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>Setup · Approvals</div>

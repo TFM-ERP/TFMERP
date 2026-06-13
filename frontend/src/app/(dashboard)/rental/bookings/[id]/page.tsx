@@ -49,7 +49,7 @@ export default function BookingDetailPage() {
           onClose={() => setShowStatusModal(false)}
         />
       )}
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <Link href="/rental/bookings" className="btn btn-secondary p-1.5"><ArrowLeft size={16} /></Link>

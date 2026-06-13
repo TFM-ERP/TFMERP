@@ -35,7 +35,7 @@ export default function DriversPage() {
   };
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-6 max-w-7xl mx-auto">
       <CinematicHeader kicker="Rentals · People" title="Drivers" count={`${total} drivers`}>
         <Link href="/rental/drivers/new" className="btn btn-primary">+ Add Driver</Link>
       </CinematicHeader>
