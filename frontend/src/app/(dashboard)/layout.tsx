@@ -472,38 +472,39 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* ── SYS-14 shell: TOPBAR (row 1 of 2) — breadcrumb IS the page title.
              The old big-title block + pinned/recents rows are gone; pins and
              recents live in the ⌘K palette. ─────────────────────────────────── */}
-        <header className="flex items-center gap-2 px-4 h-12 bg-white shrink-0" style={{ borderBottom: `1px solid ${darkMode ? '#232327' : '#E3E1DB'}` }}>
+        <header className="flex items-center gap-2 px-4 h-12 shrink-0" style={{ background: 'var(--surface-1)', borderBottom: '1px solid var(--border-1)' }}>
           <nav className="flex items-center gap-0.5 min-w-0" aria-label="Breadcrumb">
             <Link href={activeModule.pages.find(p => !p.divider)?.href || '/'}
-              className="text-[13px] text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-md px-2 py-1 whitespace-nowrap transition-colors">
+              className="text-[13px] rounded-md px-2 py-1 whitespace-nowrap transition-colors" style={{ color: 'var(--text-2)' }}>
               {activeModule.label}
             </Link>
             {activePage && (
               <>
-                <ChevronRight size={13} className="text-gray-300 shrink-0" />
-                <span className="text-[13px] font-semibold text-gray-900 px-1.5 py-1 truncate">{activePage.label}</span>
+                <ChevronRight size={13} className="shrink-0" style={{ color: 'var(--border-2)' }} />
+                <span className="text-[13px] font-semibold px-1.5 py-1 truncate" style={{ color: 'var(--text-1)' }}>{activePage.label}</span>
                 <button onClick={togglePin} title={isPinned ? 'Unpin' : 'Pin'} aria-label="Pin page"
-                  className="text-gray-300 hover:text-amber-500 p-1 shrink-0" style={{ color: isPinned ? GOLD : undefined }}>
+                  className="p-1 shrink-0" style={{ color: isPinned ? GOLD : 'var(--text-3)' }}>
                   <Star size={13} fill={isPinned ? GOLD : 'none'} />
                 </button>
               </>
             )}
-            {isDetail && <><ChevronRight size={13} className="text-gray-300 shrink-0" /><span className="text-[12px] text-gray-400 px-1 whitespace-nowrap">record</span></>}
+            {isDetail && <><ChevronRight size={13} className="shrink-0" style={{ color: 'var(--border-2)' }} /><span className="text-[12px] px-1 whitespace-nowrap" style={{ color: 'var(--text-3)' }}>record</span></>}
           </nav>
           <div className="flex-1" />
           <button onClick={() => { setPaletteOpen(true); setQuery(''); }}
-            className="flex items-center gap-2 text-sm text-gray-400 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg px-3 h-8 transition-colors w-[230px] shrink-0">
+            className="flex items-center gap-2 text-sm rounded-lg px-3 h-8 transition-colors w-[230px] shrink-0"
+            style={{ color: 'var(--text-3)', background: 'var(--surface-2)', border: '1px solid var(--border-1)' }}>
             <Search size={14} />
             <span className="text-[12.5px] truncate">Search or jump…</span>
-            <span className="ml-auto text-[11px] text-gray-400 border border-gray-200 rounded px-1.5 py-0.5">⌘K</span>
+            <span className="ml-auto text-[11px] rounded px-1.5 py-0.5" style={{ color: 'var(--text-3)', border: '1px solid var(--border-1)' }}>⌘K</span>
           </button>
           {newAction && (
-            <Link href={newAction.href} className="hidden sm:flex items-center gap-1.5 text-[12.5px] font-medium text-white rounded-lg px-3 h-8" style={{ background: GOLD }}>
+            <Link href={newAction.href} className="hidden sm:flex items-center gap-1.5 text-[12.5px] font-bold rounded-lg px-3 h-8" style={{ background: GOLD, color: darkMode ? '#1a1206' : '#1a1206' }}>
               <Plus size={14} /> {newAction.label}
             </Link>
           )}
           <button onClick={toggleTheme} title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'} aria-label="Toggle dark mode"
-            className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-50">
+            className="p-1.5 rounded-lg" style={{ color: 'var(--text-3)' }}>
             {darkMode ? <Sun size={16} /> : <Moon size={16} />}
           </button>
           <NotificationBell />
@@ -511,10 +512,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         {/* Sub-tabs — hidden on record-detail screens (they bring their own header) */}
         {!isDetail && (
-        <div className="flex items-stretch flex-wrap gap-0.5 px-4 bg-white" style={{ borderBottom: '1px solid var(--border-1)' }}>
+        <div className="flex items-stretch flex-wrap gap-0.5 px-4" style={{ background: 'var(--surface-1)', borderBottom: '1px solid var(--border-1)' }}>
           {visibleTabs.map(p => {
             if (p.divider) return (
-              <span key={p.href} className="flex items-center gap-1.5 pl-3 pr-1 text-[10px] uppercase tracking-wide text-gray-300 select-none" style={{ borderLeft: '1px solid var(--border-1)', marginLeft: 6 }}>
+              <span key={p.href} className="flex items-center gap-1.5 pl-3 pr-1 text-[10px] uppercase tracking-wide select-none" style={{ color: 'var(--text-3)', borderLeft: '1px solid var(--border-1)', marginLeft: 6 }}>
                 {p.label}
               </span>
             );
@@ -523,7 +524,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             return (
               <Link key={p.href} href={p.href}
                 className="flex items-center gap-1.5 text-[13px] px-3 py-2.5 transition-colors"
-                style={{ color: on ? '#1a1a2e' : '#6b7280', borderBottom: `2px solid ${on ? GOLD : 'transparent'}`, fontWeight: on ? 500 : 400 }}>
+                style={{ color: on ? 'var(--text-1)' : 'var(--text-2)', borderBottom: `2px solid ${on ? GOLD : 'transparent'}`, fontWeight: on ? 600 : 400 }}>
                 {p.label}
                 {cnt > 0 && <span className="text-[10.5px] rounded-full px-1.5 font-medium text-white" style={{ background: '#e24b4a' }}>{cnt}</span>}
               </Link>

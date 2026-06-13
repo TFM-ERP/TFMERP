@@ -230,6 +230,9 @@ const fmtDur = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2
 function StudioReader({ revision, projectId, onEditVoice, onTransport, onNow }: any) {
   const scenes = useMemo(() => parseStudioScenes(revision), [revision]);
   const [sel, setSel] = useState(0);
+  const [carryOn, setCarryOn] = useState(false);          // keep reading into the next scene
+  const carryOnRef = useRef(false);
+  useEffect(() => { carryOnRef.current = carryOn; }, [carryOn]);
   const [cast, setCast] = useState<any>(null);            // detect() — characters + profiles
   const [cursor, setCursor] = useState(-1);               // playing segment index
   const [playing, setPlaying] = useState(false);
@@ -385,10 +388,22 @@ function StudioReader({ revision, projectId, onEditVoice, onTransport, onNow }: 
     } catch { /* cue bed is optional — the reading must never fail because of it */ }
 
     let i = startAt;
+    let curScene = scene;            // mutable so carry-on can roll into the next scene
+    let curSel = sel;
     const step = () => {
       if (!playRef.current) return;
-      if (i >= scene.segs.length) { duckTo(false); setTimeout(() => { if (playRef.current) stop(); setCursor(-1); }, 1500); return; }
-      const seg = scene.segs[i];
+      if (i >= curScene.segs.length) {
+        // Carry on into the next scene if asked and one exists; else stop at scene end.
+        if (carryOnRef.current && curSel < scenes.length - 1) {
+          curSel += 1; curScene = scenes[curSel]; i = 0;
+          setSel(curSel); setCursor(-1);
+          duckTo(false);
+          setTimeout(() => { if (playRef.current) step(); }, 300);
+          return;
+        }
+        duckTo(false); setTimeout(() => { if (playRef.current) stop(); setCursor(-1); }, 1500); return;
+      }
+      const seg = curScene.segs[i];
       setCursor(i);
       bodyRef.current?.querySelector(`[data-seg="${i}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
       // fire any cues anchored to THIS line
@@ -399,7 +414,7 @@ function StudioReader({ revision, projectId, onEditVoice, onTransport, onNow }: 
       synth(seg, i).then(async (r: any) => {
         if (!playRef.current) return;
         setMsg('');
-        for (let j = i + 1, found = 0; j < scene.segs.length && found < 2; j++) if (speakable(scene.segs[j])) { synth(scene.segs[j], j); found++; }
+        for (let j = i + 1, found = 0; j < curScene.segs.length && found < 2; j++) if (speakable(curScene.segs[j])) { synth(curScene.segs[j], j); found++; }
         if (r.cached) setCached(c => c + 1); else setCost(c => c + Number(r.cost || 0));
         const next = () => { duckTo(false); i++; if (playRef.current) step(); };
         const ctx = mixCtx.current;
@@ -479,6 +494,10 @@ function StudioReader({ revision, projectId, onEditVoice, onTransport, onNow }: 
         <div style={{ position: 'sticky', top: 0, zIndex: 3, background: 'var(--son-surface)', borderBottom: '1px solid var(--son-border)', padding: '10px 16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <SonBtn primary onClick={() => playing ? stop() : play(cursor >= 0 ? cursor : 0)}>{playing ? <Pause size={13} /> : <Play size={13} />} {playing ? 'Pause' : 'Read scene'}</SonBtn>
+            <label className="son-faint" title="Keep reading into the next scenes instead of stopping at this scene's end"
+              style={{ fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 4, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+              <input type="checkbox" checked={carryOn} onChange={(e) => setCarryOn(e.target.checked)} /> continue past scene
+            </label>
             <SonBtn onClick={directScene} disabled={directing} title="AI Director: Claude reads the scene and gives per-line delivery direction (the writer's parentheticals always win)">
               {directing ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />} Direct
             </SonBtn>

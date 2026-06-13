@@ -357,6 +357,8 @@ export default function ScriptReader({ revision, onClose, inline }: { revision: 
     } else if (scope === 'page') {
       const s = els.findIndex((e) => (e.page || 1) >= fromPage);
       start = s >= 0 ? s : 0;
+      // Stop at the end of this page unless carry-on is checked.
+      if (!carryOn) { let last = start; for (let k = start; k < els.length; k++) { if ((els[k].page || 1) === fromPage) last = k; else if ((els[k].page || 1) > fromPage) break; } endRef.current = last; }
     }
     run(start);
   };
@@ -564,9 +566,9 @@ export default function ScriptReader({ revision, onClose, inline }: { revision: 
                   <input type="range" min={0.5} max={8} step={0.5} value={gap} onChange={(e) => setGap(Number(e.target.value))} className="w-full" />
                 </label>
               )}
-              {scope === 'scene' && (
-                <label className="inline-flex items-center gap-1.5 text-slate-500" title="Keep reading into the following scenes instead of stopping at the scene end">
-                  <input type="checkbox" checked={carryOn} onChange={(e) => { stop(); setCarryOn(e.target.checked); }} /> continue past scene
+              {(scope === 'scene' || scope === 'page') && (
+                <label className="inline-flex items-center gap-1.5 text-slate-500" title={`Keep reading past this ${scope} instead of stopping at its end`}>
+                  <input type="checkbox" checked={carryOn} onChange={(e) => { stop(); setCarryOn(e.target.checked); }} /> continue past {scope}
                 </label>
               )}
             </div>

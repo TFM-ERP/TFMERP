@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>System header & inner pages — cinematic rollout</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Inter,'Segoe UI',Arial,sans-serif;background:#E9EBEF;color:#15202E;font-size:13px;padding:24px;line-height:1.5}
+  h1{font-size:18px;margin-bottom:4px}.sub{color:#5B6B7E;margin-bottom:24px;max-width:880px}
+  h2{font-size:12.5px;text-transform:uppercase;letter-spacing:.07em;color:#8B97A6;margin:30px 0 8px}
+  .tag{font-size:9.5px;font-weight:800;letter-spacing:.13em;text-transform:uppercase;display:block;margin-bottom:8px}
+  .tag.old{color:#b91c1c}.tag.new{color:#b08d4f}
+  .wrap{border-radius:14px;overflow:hidden;border:1px solid #D9DEE6;margin-bottom:6px}
+  .note{color:#5B6B7E;font-size:12px;margin:8px 0 4px;max-width:880px}
+  .mag{width:13px;height:13px;flex:none;vertical-align:-2px}
+
+  /* shared topbar pieces */
+  .crumb{display:flex;align-items:center;gap:6px;font-size:13px}
+  .ct-row{display:flex;align-items:center;gap:8px;padding:0 16px;height:46px}
+  .search{display:flex;align-items:center;gap:7px;border-radius:10px;padding:6px 11px;width:230px;font-size:12px}
+  .tabrow{display:flex;align-items:stretch;gap:0;padding:0 12px;overflow-x:auto}
+  .tab{padding:11px 13px;font-size:12.5px;white-space:nowrap;position:relative;cursor:pointer}
+  .tab.on::after{content:'';position:absolute;left:11px;right:11px;bottom:0;height:2px;border-radius:2px}
+  .divider{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;align-self:center;padding:0 8px 0 14px;border-left:1px solid;margin-left:6px}
+
+  /* ===== OLD (current) ===== */
+  .old .ct-row{background:#fff;border-bottom:1px solid #e6e7ea}
+  .old .crumb .mod{color:#6b7280}.old .crumb .pg{font-weight:600;color:#111827}
+  .old .search{background:#f9fafb;border:1px solid #e5e7eb;color:#9ca3af;margin-left:auto}
+  .old .kbd{margin-left:auto;font-size:10px;color:#9ca3af;border:1px solid #e5e7eb;border-radius:4px;padding:1px 5px}
+  .old .tabrow{background:#fff;border-bottom:1px solid #e6e7ea}
+  .old .tab{color:#6b7280}.old .tab.on{color:#1a1a2e;font-weight:500}.old .tab.on::after{background:#b08d4f}
+  .old .divider{color:#cbd5e1;border-color:#e6e7ea}
+
+  /* ===== NEW DARK (Charcoal Black) ===== */
+  .nd{background:#0B0B0D}
+  .nd .ct-row{background:#0E0E10;border-bottom:1px solid #232327}
+  .nd .crumb .mod{color:#8a8a93}.nd .crumb .pg{font-weight:700;color:#EDEDEA}.nd .crumb .sep{color:#3a3a40}
+  .nd .star{color:#c9a96a}
+  .nd .search{background:#141416;border:1px solid #26262A;color:#7e7e85;margin-left:auto}
+  .nd .ico{color:#8a8a93;padding:6px;border-radius:8px}
+  .nd .tabrow{background:#0E0E10;border-bottom:1px solid #232327}
+  .nd .tab{color:#8a8a93}.nd .tab.on{color:#EDEDEA;font-weight:700}.nd .tab.on::after{background:#c9a96a}
+  .nd .divider{color:#56565e;border-color:#232327}
+
+  /* ===== NEW LIGHT (Graphite) ===== */
+  .nl{background:#F5F5F4}
+  .nl .ct-row{background:#FBFBFA;border-bottom:1px solid #E3E1DB}
+  .nl .crumb .mod{color:#5B6B7E}.nl .crumb .pg{font-weight:700;color:#1C2433}.nl .crumb .sep{color:#C9C6BD}
+  .nl .star{color:#b08d4f}
+  .nl .search{background:#fff;border:1px solid #E3E1DB;color:#8B97A6;margin-left:auto}
+  .nl .ico{color:#8B97A6;padding:6px;border-radius:8px}
+  .nl .tabrow{background:#FBFBFA;border-bottom:1px solid #E3E1DB}
+  .nl .tab{color:#8B97A6}.nl .tab.on{color:#1C2433;font-weight:700}.nl .tab.on::after{background:#b08d4f}
+  .nl .divider{color:#A99F8C;border-color:#E3E1DB}
+
+  /* inner page body samples */
+  .body{padding:16px}
+  .secthead{font-size:9.5px;font-weight:800;letter-spacing:.13em;text-transform:uppercase}
+  .card{border-radius:12px;padding:13px;margin-top:8px}
+  .nd .secthead{color:#c9a96a}.nd .card{background:#141416;border:1px solid #26262A;color:#A8A8AD}.nd .card b{color:#EDEDEA}
+  .nl .secthead{color:#b08d4f}.nl .card{background:#fff;border:1px solid #E3E1DB;color:#5B6B7E}.nl .card b{color:#1C2433}
+  .chiprow{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+  .chip{border-radius:99px;padding:4px 12px;font-size:11px;font-weight:600}
+  .nd .chip{border:1px solid rgba(255,255,255,.14);color:rgba(255,255,255,.65)}.nd .chip.on{background:#c9a96a;border-color:#c9a96a;color:#1a1206}
+  .nl .chip{border:1px solid #E1E4EA;color:#5B6B7E;background:#fff}.nl .chip.on{background:#1C2433;border-color:#1C2433;color:#fff}
+</style>
+</head>
+<body>
+  <h1>System header &amp; inner pages — cinematic rollout</h1>
+  <p class="sub">The shell keeps its current WIDE two-row layout (breadcrumb topbar + full module tab row) — nothing gets narrower. Only the <b>finish</b> changes: charcoal/paper surfaces, gold active-underline (already there), gold star, neutral borders, one-color icons. Same structure, new skin, both themes.</p>
+
+  <h2>Top header — OLD (current)</h2>
+  <div class="wrap old">
+    <div class="ct-row">
+      <div class="crumb"><span class="mod">Production</span> <span>›</span> <span class="pg">Crew Directory</span> <span style="color:#d1d5db">☆</span></div>
+      <div class="search"><svg class="mag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg> Search or jump…<span class="kbd">⌘K</span></div>
+      <span style="color:#9ca3af;padding:6px">☾</span><span style="color:#9ca3af;padding:6px">🔔</span>
+    </div>
+    <div class="tabrow">
+      <span class="tab">Dashboard</span><span class="tab">Projects</span><span class="tab on">Crew Directory</span>
+      <span class="tab">My Approvals</span><span class="tab">Email Sender</span>
+      <span class="divider">Masters</span>
+      <span class="tab">Labor &amp; Fringe Master</span><span class="tab">Rate Approvals</span>
+    </div>
+  </div>
+
+  <h2>Top header — NEW dark (Charcoal Black) · same width, new finish</h2>
+  <div class="wrap nd">
+    <div class="ct-row">
+      <div class="crumb"><span class="mod">Production</span> <span class="sep">›</span> <span class="pg">Crew Directory</span> <span class="star">★</span></div>
+      <div class="search"><svg class="mag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg> Search or jump…<span style="margin-left:auto;font-size:10px;border:1px solid #2a2a2e;border-radius:4px;padding:1px 5px">⌘K</span></div>
+      <span class="ico">☀</span><span class="ico">🔔</span>
+    </div>
+    <div class="tabrow">
+      <span class="tab">Dashboard</span><span class="tab">Projects</span><span class="tab on">Crew Directory</span>
+      <span class="tab">My Approvals</span><span class="tab">Email Sender</span>
+      <span class="divider">Masters</span>
+      <span class="tab">Labor &amp; Fringe Master</span><span class="tab">Rate Approvals</span>
+    </div>
+  </div>
+
+  <h2>Top header — NEW light (Graphite) · same width, new finish</h2>
+  <div class="wrap nl">
+    <div class="ct-row">
+      <div class="crumb"><span class="mod">Production</span> <span class="sep">›</span> <span class="pg">Crew Directory</span> <span class="star">★</span></div>
+      <div class="search"><svg class="mag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg> Search or jump…<span style="margin-left:auto;font-size:10px;border:1px solid #E3E1DB;border-radius:4px;padding:1px 5px">⌘K</span></div>
+      <span class="ico">☾</span><span class="ico">🔔</span>
+    </div>
+    <div class="tabrow">
+      <span class="tab">Dashboard</span><span class="tab">Projects</span><span class="tab on">Crew Directory</span>
+      <span class="tab">My Approvals</span><span class="tab">Email Sender</span>
+      <span class="divider">Masters</span>
+      <span class="tab">Labor &amp; Fringe Master</span><span class="tab">Rate Approvals</span>
+    </div>
+  </div>
+
+  <h2>Inner page (a non-project list page, e.g. Crew Directory) — dark vs light</h2>
+  <p class="note">Inner pages keep their layout; the page header becomes a slim title bar with a gold kicker, and any sub-tabs / filters become the same chips. No marquee poster here (those are reserved for the Project &amp; Asset detail pages) — but the gold-and-charcoal language carries through.</p>
+  <div class="wrap nd">
+    <div class="body">
+      <div class="secthead">Production · People</div>
+      <div style="font-size:17px;font-weight:800;color:#EDEDEA">Crew Directory <span style="font-size:11px;color:#7e7e85;font-weight:400">128 people</span></div>
+      <div class="chiprow"><span class="chip on">All</span><span class="chip">Camera</span><span class="chip">G&amp;E</span><span class="chip">Sound</span><span class="chip">Art</span></div>
+      <div class="card"><b>Aisha Rahman — 1st AC</b><br>Standard list rows live on charcoal cards; the topbar &amp; tabs above carry the finish.</div>
+    </div>
+  </div>
+  <div class="wrap nl">
+    <div class="body">
+      <div class="secthead">Production · People</div>
+      <div style="font-size:17px;font-weight:800;color:#1C2433">Crew Directory <span style="font-size:11px;color:#8B97A6;font-weight:400">128 people</span></div>
+      <div class="chiprow"><span class="chip on">All</span><span class="chip">Camera</span><span class="chip">G&amp;E</span><span class="chip">Sound</span><span class="chip">Art</span></div>
+      <div class="card"><b>Aisha Rahman — 1st AC</b><br>White cards on warm paper; gold kicker + active chip tie it to the rest of the system.</div>
+    </div>
+  </div>
+
+  <p class="note" style="margin-top:18px"><b>Scope of the change (all via the global token sheet, so it's one edit, not per-page):</b> topbar surface charcoal/paper · breadcrumb page-name bold ink · gold pin star · ⌘K search on theme surface · one-color icons · module tab row keeps its full width + the Masters divider, active tab already has the gold underline. Inner list pages get a slim gold-kicker title + chip filters where they have sub-tabs. Project &amp; Asset detail pages keep the richer poster marquee built earlier.</p>
+</body>
+</html>
