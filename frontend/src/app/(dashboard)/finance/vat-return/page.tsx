@@ -54,7 +54,7 @@ export default function VatReturnPage() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
-      <div className="mb-6 flex items-start justify-between gap-3">
+      <div className="marquee-panel flex items-start justify-between flex-wrap gap-3">
         <div>
           <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>Finance · Tax</div>
           <h1 className="text-[20px] font-extrabold leading-tight" style={{ color: 'var(--text-1)' }}>VAT Return</h1>

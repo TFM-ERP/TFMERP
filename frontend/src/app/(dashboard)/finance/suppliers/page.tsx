@@ -524,7 +524,7 @@ export default function SuppliersPage() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
+      <div className="marquee-panel flex items-center justify-between flex-wrap gap-3">
         <div>
           <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>Finance · Directory</div>
           <h1 className="text-[20px] font-extrabold leading-tight" style={{ color: 'var(--text-1)' }}>Supplier Directory</h1>

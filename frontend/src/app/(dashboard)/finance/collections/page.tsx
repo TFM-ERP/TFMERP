@@ -47,14 +47,11 @@ export default function CollectionsPage() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-5">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center"><Banknote size={18} className="text-brand-600" /></div>
-          <div>
-            <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>Finance · Receivables</div>
-            <h1 className="text-[20px] font-extrabold leading-tight" style={{ color: 'var(--text-1)' }}>Collections</h1>
-            <p className="text-sm" style={{ color: 'var(--text-3)' }}>Receivables aging, payment reminders and statements of account.</p>
-          </div>
+      <div className="marquee-panel flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>Finance · Receivables</div>
+          <h1 className="text-[20px] font-extrabold leading-tight" style={{ color: 'var(--text-1)' }}>Collections</h1>
+          <p className="text-sm" style={{ color: 'var(--text-3)' }}>Receivables aging, payment reminders and statements of account.</p>
         </div>
         <div className="flex gap-2">
           <button onClick={runScan} disabled={busy === 'scan'} className="btn-secondary"><Play size={14} /> Run reminders</button>

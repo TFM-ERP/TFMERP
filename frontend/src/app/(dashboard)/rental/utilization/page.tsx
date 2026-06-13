@@ -26,14 +26,11 @@ export default function UtilizationPage() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-5">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center"><BarChart2 size={18} className="text-brand-600" /></div>
-          <div>
-            <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>Rentals · Analytics</div>
-            <h1 className="text-[19px] font-extrabold leading-tight" style={{ color: 'var(--text-1)' }}>Asset Utilization &amp; Revenue</h1>
-            <p className="text-sm" style={{ color: 'var(--text-3)' }}>How hard each asset works and what it earns over a period.</p>
-          </div>
+      <div className="marquee-panel flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>Rentals · Analytics</div>
+          <h1 className="text-[19px] font-extrabold leading-tight" style={{ color: 'var(--text-1)' }}>Asset Utilization &amp; Revenue</h1>
+          <p className="text-sm" style={{ color: 'var(--text-3)' }}>How hard each asset works and what it earns over a period.</p>
         </div>
         <div className="flex items-end gap-2">
           <div><label className="label">From</label><input type="date" className="input" value={from} onChange={e => setFrom(e.target.value)} /></div>

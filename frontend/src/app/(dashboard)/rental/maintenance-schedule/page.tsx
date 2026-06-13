@@ -62,14 +62,11 @@ export default function PmSchedulePage() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-5">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center"><Wrench size={18} className="text-brand-600" /></div>
-          <div>
-            <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>Rentals · Servicing</div>
-            <h1 className="text-[19px] font-extrabold leading-tight" style={{ color: 'var(--text-1)' }}>Preventive Maintenance</h1>
-            <p className="text-sm" style={{ color: 'var(--text-3)' }}>Service schedules by date, kilometres or engine-hours — with due alerts.</p>
-          </div>
+      <div className="marquee-panel flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>Rentals · Servicing</div>
+          <h1 className="text-[19px] font-extrabold leading-tight" style={{ color: 'var(--text-1)' }}>Preventive Maintenance</h1>
+          <p className="text-sm" style={{ color: 'var(--text-3)' }}>Service schedules by date, kilometres or engine-hours — with due alerts.</p>
         </div>
         <div className="flex gap-2">
           <button onClick={() => setShowReadings(true)} className="btn-secondary"><Gauge size={14} /> Update readings</button>

@@ -13,12 +13,14 @@ import { ReactNode } from 'react';
  *   {chips && <CinematicChips items={[...]} value={f} onChange={setF} />}
  */
 export function CinematicHeader({
-  kicker, title, count, children,
+  kicker, title, count, children, plain = false,
 }: {
   kicker?: string; title: string; count?: string | number; children?: ReactNode;
+  /** plain = no marquee panel (just the kicker title row). Default renders the marquee. */
+  plain?: boolean;
 }) {
-  return (
-    <div className="flex items-end justify-between gap-3 mb-5 flex-wrap">
+  const inner = (
+    <div className="flex items-end justify-between gap-3 flex-wrap w-full">
       <div className="min-w-0">
         {kicker && (
           <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>
@@ -33,6 +35,8 @@ export function CinematicHeader({
       {children && <div className="flex items-center gap-2 flex-wrap">{children}</div>}
     </div>
   );
+  if (plain) return <div className="mb-5">{inner}</div>;
+  return <div className="marquee-panel">{inner}</div>;
 }
 
 /** Gold/charcoal filter chips — active fills with the accent, matching tiles. */

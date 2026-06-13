@@ -25,14 +25,11 @@ export default function DriverApprovalsPage() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-5">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center"><Wallet size={18} className="text-brand-600" /></div>
-          <div>
-            <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>Rentals · Approvals</div>
-            <h1 className="text-[19px] font-extrabold leading-tight" style={{ color: 'var(--text-1)' }}>Driver Submissions</h1>
-            <p className="text-sm" style={{ color: 'var(--text-3)' }}>Fuel and expenses submitted by drivers, awaiting approval.</p>
-          </div>
+      <div className="marquee-panel flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>Rentals · Approvals</div>
+          <h1 className="text-[19px] font-extrabold leading-tight" style={{ color: 'var(--text-1)' }}>Driver Submissions</h1>
+          <p className="text-sm" style={{ color: 'var(--text-3)' }}>Fuel and expenses submitted by drivers, awaiting approval.</p>
         </div>
         <button onClick={load} className="btn-secondary"><RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh</button>
       </div>
