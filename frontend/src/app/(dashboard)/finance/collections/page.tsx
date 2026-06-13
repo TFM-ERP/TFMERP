@@ -194,4 +194,11 @@ function SettingsModal({ onClose, onSaved }: any) {
 
           <div><label className="label">Statement / email footer</label><textarea className="input w-full h-16 resize-none text-xs" value={s.statementFooter || ''} onChange={e => setS({ ...s, statementFooter: e.target.value })} /></div>
         </div>
-        <div className="px-6 py-4 border-t border-gray-100 flex gap-3"><button onClick={onClose} classN
+        <div className="px-6 py-4 border-t border-gray-100 flex gap-3 justify-end">
+          <button onClick={onClose} className="btn btn-secondary">Cancel</button>
+          <button onClick={save} disabled={saving} className="btn btn-primary">{saving ? 'Saving…' : 'Save settings'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
