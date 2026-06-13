@@ -47,7 +47,7 @@ export default function ChartOfAccountsPage() {
   const filtered = accounts.filter(a => !q || `${a.code} ${a.name} ${a.subtype || ''}`.toLowerCase().includes(q.toLowerCase()));
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-6 max-w-[1700px] mx-auto">
       <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center"><BookOpen size={18} className="text-brand-600" /></div>
@@ -118,16 +118,4 @@ export default function ChartOfAccountsPage() {
                       </td>
                       <td className="px-3 py-2.5 text-gray-400 text-xs">{a.subtype || ''}</td>
                       <td className="px-3 py-2.5 text-right">
-                        <Link href={`/accounting/ledger/${a.id}`} className="text-xs text-brand-600 opacity-0 group-hover:opacity-100">Ledger →</Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
+                        <Link href={`/accounting/ledger/${a.id}`} className="text-xs text-brand-600 opacity-0 group-hover:opacity-100">Ledger 

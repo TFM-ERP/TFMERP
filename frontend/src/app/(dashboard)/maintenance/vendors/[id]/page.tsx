@@ -431,7 +431,7 @@ export default function VendorDetailPage() {
   ] as const;
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-6 max-w-[1700px] mx-auto">
 
       {/* Toast */}
       {toast && (

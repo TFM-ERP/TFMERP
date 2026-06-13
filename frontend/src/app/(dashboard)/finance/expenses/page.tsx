@@ -102,7 +102,7 @@ export default function ExpensesPage() {
   };
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-6 max-w-[1700px] mx-auto">
       <CinematicHeader kicker="Finance · Spend" title="Expenses" count={`${total} records`}>
         <button onClick={() => setShowForm(true)} className="btn btn-primary">
           <Plus size={14} className="mr-1" /> Log Expense
@@ -294,3 +294,4 @@ export default function ExpensesPage() {
     </div>
   );
 }
+                                                                     

@@ -25,7 +25,7 @@ export default function AuditLogPage() {
   useEffect(() => { load(); }, [entity, action]); // eslint-disable-line
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-6 max-w-[1700px] mx-auto">
       <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center"><ScrollText size={18} className="text-brand-600" /></div>
@@ -63,13 +63,4 @@ export default function AuditLogPage() {
                     <td className="px-3 py-2.5 text-gray-700">{a.user?.fullName || '—'}{a.user?.role ? <span className="text-[11px] text-gray-400"> · {a.user.role}</span> : ''}</td>
                     <td className="px-3 py-2.5"><span className={cn('badge text-[11px]', ACTION_CLS[a.action] || 'bg-gray-100 text-gray-600')}>{a.action}</span></td>
                     <td className="px-3 py-2.5 text-gray-600 font-mono text-xs">{a.resource}</td>
-                    <td className="px-3 py-2.5 text-gray-400 font-mono text-[11px] truncate max-w-xs">{a.resourceId || '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-      </div>
-    </div>
-  );
-}
+                    <td className="px-3 py-2.5 text-gray

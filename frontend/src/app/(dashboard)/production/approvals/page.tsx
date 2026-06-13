@@ -33,7 +33,7 @@ export default function MyApprovalsPage() {
   };
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-6 max-w-[1700px] mx-auto">
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center"><Inbox size={18} className="text-brand-600" /></div>
@@ -70,8 +70,4 @@ export default function MyApprovalsPage() {
             </div>
           ))}
         </div>
-      )}
-      <p className="text-[11px] text-gray-400 mt-4">Sequential routing — approving advances to the next step; the workflow only takes effect once every step approves. Rejecting stops it.</p>
-    </div>
-  );
-}
+      )

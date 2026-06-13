@@ -37,7 +37,7 @@ export default function ApprovalsPage() {
   };
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-6 max-w-[1700px] mx-auto">
       <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center"><CheckSquare size={18} className="text-brand-600" /></div>
@@ -118,15 +118,4 @@ export default function ApprovalsPage() {
                       <div className="flex gap-2">
                         <input className="input text-sm flex-1" placeholder="Comment (optional)" value={comments[req.id] || ''} onChange={e => setComments(c => ({ ...c, [req.id]: e.target.value }))} />
                         <button onClick={() => act(req.id, 'approve')} disabled={acting === req.id} className="btn btn-primary text-sm"><CheckCircle size={14} className="mr-1" /> Approve</button>
-                        <button onClick={() => act(req.id, 'reject')} disabled={acting === req.id} className="btn btn-secondary text-sm text-red-600"><XCircle size={14} className="mr-1" /> Reject</button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-    </div>
-  );
-}
+                        <button onClick={() => act(req.id, 'reject')} disabled={acting === req.id} className="btn btn-secondary text-sm text-red-600"><XCircle size={14} class

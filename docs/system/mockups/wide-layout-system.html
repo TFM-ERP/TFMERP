@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Unified wide layout — design language</title>
+<style>
+  :root{--s0:#F5F5F4;--s1:#fff;--s2:#F0EFEC;--t1:#161C28;--t2:#44505F;--t3:#6E7A88;--bd:#E3E1DB;--gold:#b08d4f;--char:#1C2433}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Inter,'Segoe UI',Arial,sans-serif;background:var(--s0);color:var(--t1);font-size:13px;padding:24px;line-height:1.5}
+  h1{font-size:18px;margin-bottom:4px}.sub{color:var(--t2);margin-bottom:22px;max-width:900px}
+  h2{font-size:12.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin:30px 0 8px}
+  .note{color:var(--t2);font-size:12px;margin:8px 0;max-width:920px}
+  .mag{width:13px;height:13px;flex:none;vertical-align:-2px}
+  .kick{font-size:9.5px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--gold)}
+  .title{font-size:20px;font-weight:800;color:var(--t1)}
+  .meta{font-size:12px;color:var(--t3)}
+  .btn{border:1px solid var(--bd);background:var(--s1);border-radius:10px;padding:7px 13px;font-size:12px;font-weight:600;color:var(--t1);cursor:pointer}
+  .btn.dark{background:var(--char);border-color:var(--char);color:#fff}
+  .card{background:var(--s1);border:1px solid var(--bd);border-radius:14px}
+  .pad{padding:14px}
+
+  /* THE STANDARD WIDE PAGE FRAME */
+  .page{max-width:1700px;margin:0 auto;border:1px dashed #C9C6BD;border-radius:16px;padding:18px;background:var(--s0)}
+  .hdr{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+  .actions{display:flex;gap:8px}
+
+  /* stat strip — full width, equal columns */
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px}
+  .stat{background:var(--s1);border:1px solid var(--bd);border-radius:14px;padding:14px;position:relative;overflow:hidden}
+  .stat .glow{position:absolute;right:-30px;top:-40px;width:120px;height:120px;border-radius:50%;background:radial-gradient(circle,rgba(176,141,79,.08),transparent 70%)}
+  .stat .l{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3)}
+  .stat .v{font-size:22px;font-weight:800;color:var(--t1);margin-top:3px}
+  .stat .d{font-size:10.5px;color:var(--t3);margin-top:2px}
+
+  /* toolbar */
+  .toolbar{display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+  .search{flex:1;min-width:240px;display:flex;align-items:center;gap:7px;background:var(--s1);border:1px solid var(--bd);border-radius:11px;padding:8px 12px;color:var(--t3);font-size:12px}
+  .sel{background:var(--s1);border:1px solid var(--bd);border-radius:11px;padding:8px 10px;font-size:12px;color:var(--t1)}
+
+  /* wide table card */
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th{text-align:left;font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);padding:11px 14px;border-bottom:1px solid var(--bd);background:var(--s2)}
+  td{padding:11px 14px;border-bottom:1px solid var(--bd);color:var(--t2)}
+  td.strong{color:var(--t1);font-weight:600}
+  tr:last-child td{border-bottom:none}
+  .badge{font-size:10px;font-weight:700;border-radius:99px;padding:2px 9px}
+  .b-paid{background:#E7F6EC;color:#15803D}.b-draft{background:#F0EFEC;color:#6E7A88}.b-over{background:#FBE9E7;color:#C0392B}
+
+  /* two-column split (dashboard) — also full width */
+  .split{display:grid;grid-template-columns:1.6fr 1fr;gap:14px}
+  .chartbox{height:180px;background:linear-gradient(180deg,var(--s1),var(--s2));border:1px solid var(--bd);border-radius:14px;display:flex;align-items:flex-end;gap:10px;padding:16px}
+  .bar{flex:1;background:var(--char);border-radius:4px 4px 0 0;opacity:.85}
+  .bar.gold{background:var(--gold)}
+</style>
+</head>
+<body>
+  <h1>Unified wide layout — the design language for every page</h1>
+  <p class="sub">The fix for the inconsistency you spotted: <b>every page and inner page uses one frame</b> — full bleed up to a 1700px guardrail, never a narrow centered column. The Casting, Talent and Travel pages (currently centered) adopt this and gain the whole width. Three page archetypes share the same frame, kicker header, stat strip and card system.</p>
+
+  <h2>A · List page (Invoices, Crew, Bookings, Talent…) — full width</h2>
+  <div class="page">
+    <div class="hdr">
+      <div><div class="kick">Finance · Receivables</div><div class="title">Invoices <span class="meta">8 total</span></div></div>
+      <div class="actions"><button class="btn dark">+ New Invoice</button></div>
+    </div>
+    <div class="toolbar">
+      <div class="search"><svg class="mag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg> Search invoice number, client, PO…</div>
+      <div class="sel">All Statuses</div><div class="sel">Overdue only</div>
+    </div>
+    <div class="card" style="overflow:hidden">
+      <table>
+        <thead><tr><th>Invoice #</th><th>Client</th><th>Issue</th><th>Due</th><th style="text-align:right">Total</th><th style="text-align:right">Due</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td class="strong" style="font-family:monospace">INV-2026-0006</td><td>Netflix MENA</td><td>08 Jun</td><td>23 Jul</td><td style="text-align:right" class="strong">AED 120,000</td><td style="text-align:right;color:#b8860b">AED 120,000</td><td><span class="badge b-draft">Draft</span></td></tr>
+          <tr><td class="strong" style="font-family:monospace">INV-2026-0002</td><td>Netflix MENA</td><td>20 Feb</td><td style="color:#C0392B">20 Mar · 85d</td><td style="text-align:right" class="strong">AED 86,000</td><td style="text-align:right;color:#b8860b">AED 43,000</td><td><span class="badge" style="background:#FDF3E3;color:#B45309">Partial</span></td></tr>
+          <tr><td class="strong" style="font-family:monospace">INV-2026-0001</td><td>MBC Group</td><td>05 Feb</td><td>05 Mar</td><td style="text-align:right" class="strong">AED 73,500</td><td style="text-align:right" class="strong">AED 0.00</td><td><span class="badge b-paid">Paid</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <h2>B · Dashboard (Finance, Casting, Production…) — stat strip + wide split</h2>
+  <div class="page">
+    <div class="hdr">
+      <div><div class="kick">Finance · Overview</div><div class="title">Finance Dashboard <span class="meta">Year to date 2026</span></div></div>
+      <div class="actions"><button class="btn">⟳ Refresh</button></div>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="glow"></div><div class="l">YTD Invoiced</div><div class="v">AED 388k</div><div class="d">This month: AED 120k</div></div>
+      <div class="stat"><div class="glow"></div><div class="l">Collected YTD</div><div class="v">AED 184k</div><div class="d">48% collection rate</div></div>
+      <div class="stat"><div class="glow"></div><div class="l">Outstanding</div><div class="v" style="color:#C0392B">AED 43k</div><div class="d">1 invoice overdue</div></div>
+      <div class="stat"><div class="glow"></div><div class="l">Active Quotations</div><div class="v">1</div><div class="d">Pending conversion</div></div>
+    </div>
+    <div class="split">
+      <div class="card pad"><div style="font-weight:700;margin-bottom:8px">Monthly Revenue — 2026</div>
+        <div class="chartbox"><div class="bar" style="height:90%"></div><div class="bar gold" style="height:30%"></div><div class="bar" style="height:55%"></div><div class="bar gold" style="height:60%"></div><div class="bar" style="height:20%"></div><div class="bar" style="height:0"></div></div>
+      </div>
+      <div class="card pad"><div style="font-weight:700;margin-bottom:8px">Recent Invoices</div>
+        <div style="font-size:12px;color:var(--t2);line-height:2.1">
+          <div style="display:flex;justify-content:space-between"><span class="strong">INV-2026-0006</span><span>AED 120k</span></div>
+          <div style="display:flex;justify-content:space-between"><span class="strong">INV-2026-0005</span><span>AED 110k</span></div>
+          <div style="display:flex;justify-content:space-between"><span class="strong">INV-2026-0004</span><span>AED 18k</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h2>C · Master/agency page (Casting, Talent Database, Travel) — was centered, now full width</h2>
+  <p class="note">These were trapped in a ~700px centered column with huge empty margins. Same frame now: stat strip across the top, then a two-pane "open items + recent activity" split, then the records — all using the page's full width.</p>
+  <div class="page">
+    <div class="hdr">
+      <div><div class="kick">Casting · Talent</div><div class="title">Casting <span class="meta">636 calls</span></div></div>
+      <div class="actions"><button class="btn dark">+ New standalone call</button></div>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="l">Total calls</div><div class="v">636</div></div>
+      <div class="stat"><div class="l">Open / in review</div><div class="v">3</div></div>
+      <div class="stat"><div class="l">At offer</div><div class="v">3</div></div>
+      <div class="stat"><div class="l">Standalone</div><div class="v">2</div></div>
+    </div>
+    <div class="split">
+      <div class="card pad"><div style="font-weight:700;margin-bottom:8px">Open calls</div>
+        <div style="font-size:12px;color:var(--t2);line-height:2"><div style="display:flex;justify-content:space-between"><span>Priya · The Misfits II</span><span class="badge" style="background:#EDE9FE;color:#6D28D9">OFFER</span></div><div style="display:flex;justify-content:space-between"><span>Dr. Aiko · The Misfits II</span><span class="badge b-paid">OPEN</span></div></div>
+      </div>
+      <div class="card pad"><div style="font-weight:700;margin-bottom:8px">Recent submissions</div>
+        <div style="font-size:12px;color:var(--t2);line-height:2"><div style="display:flex;justify-content:space-between"><span>Sara Bianchi</span><span class="meta">UNDER REVIEW</span></div><div style="display:flex;justify-content:space-between"><span>Vince Carter</span><span class="meta">CONFIRMED</span></div></div>
+      </div>
+    </div>
+  </div>
+
+  <p class="note" style="margin-top:18px"><b>The rule, applied everywhere:</b> ① one page frame — <code>p-6 max-w-[1700px] mx-auto</code>, never <code>max-w-4xl</code> centered; ② gold-kicker header (done on ~50 pages); ③ stat cards as an equal-column strip with a faint gold glow; ④ tables/records in the warm card with the stone header row; ⑤ deep-graphite ink throughout. Action: widen the ~8 still-centered pages (Casting, Talent, Travel, VAT return, a few setup screens) to the 1700px frame and give their dashboards this stat-strip + split treatment.</p>
+</body>
+</html>

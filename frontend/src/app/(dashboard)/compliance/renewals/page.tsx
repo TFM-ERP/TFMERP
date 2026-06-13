@@ -55,7 +55,7 @@ export default function RenewalsPage() {
   ];
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-5">
+    <div className="p-6 max-w-[1700px] mx-auto space-y-5">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center"><ShieldCheck size={18} className="text-brand-600" /></div>
@@ -164,9 +164,4 @@ export default function RenewalsPage() {
         )}
       </div>
 
-      <p className="text-xs text-gray-400 flex items-center gap-1.5">
-        <AlertTriangle size={12} /> Reminders are based on each record's expiry date. Keep asset and employee documents up to date so this stays accurate.
-      </p>
-    </div>
-  );
-}
+      <p className="text-xs text-gray-400 fl

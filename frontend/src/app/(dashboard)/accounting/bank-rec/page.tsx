@@ -64,7 +64,7 @@ export default function BankReconciliationPage() {
   // ── Workspace view ──
   if (selected && ws) {
     return (
-      <div className="p-6 max-w-5xl mx-auto">
+      <div className="p-6 max-w-[1700px] mx-auto">
         <div className="flex items-center gap-3 mb-5">
           <button onClick={() => { setSelected(null); setWs(null); }} className="btn btn-secondary p-1.5"><ArrowLeft size={16} /></button>
           <div className="flex-1">
@@ -119,7 +119,7 @@ export default function BankReconciliationPage() {
 
   // ── Bank list view ──
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-6 max-w-[1700px] mx-auto">
       <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center"><Landmark size={18} className="text-brand-600" /></div>

@@ -69,7 +69,7 @@ export default function RateApprovalsPage() {
   const fmtVal = (v: any) => (v === null || v === undefined || v === '') ? '—' : String(v);
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-6 max-w-[1700px] mx-auto">
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-2">
           <GitPullRequest size={20} className="text-brand-600" />

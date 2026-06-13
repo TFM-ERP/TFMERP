@@ -44,7 +44,7 @@ export default function ProductionDashboardPage() {
   const projects = data?.projects || [];
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-6 max-w-[1700px] mx-auto">
       <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center"><Film size={18} className="text-brand-600" /></div>
@@ -123,10 +123,4 @@ export default function ProductionDashboardPage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
-          )}
-      </div>
-      <p className="text-[11px] text-gray-400 mt-2">Combined totals may span multiple currencies; per-project figures use each project's currency.</p>
-    </div>
-  );
-}
+    

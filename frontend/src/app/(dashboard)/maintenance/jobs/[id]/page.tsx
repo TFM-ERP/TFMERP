@@ -157,7 +157,7 @@ export default function MaintenanceJobDetailPage() {
         onClose={() => setShowStatusModal(false)}
       />
     )}
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-6 max-w-[1700px] mx-auto">
       {showHistory && (
         <div className="card mb-6">
           <div className="flex items-center justify-between mb-4">

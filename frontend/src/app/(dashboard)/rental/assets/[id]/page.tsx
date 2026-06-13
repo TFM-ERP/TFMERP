@@ -541,7 +541,7 @@ export default function AssetDetailPage() {
   const warWarn = asset.warrantyExpiry && !warExpired && new Date(asset.warrantyExpiry) < new Date(Date.now() + 60 * 86400000);
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-6 max-w-[1700px] mx-auto">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <Link href="/rental/assets" className="btn btn-secondary p-1.5"><ArrowLeft size={16} /></Link>

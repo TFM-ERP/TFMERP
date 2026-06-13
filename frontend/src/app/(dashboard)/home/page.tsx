@@ -50,7 +50,7 @@ export default function HomePage() {
   ].filter(a => a.show);
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
+    <div className="p-6 max-w-[1700px] mx-auto space-y-6">
       <div>
         <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>The Film Makers · Workspace</div>
         <h1 className="text-[22px] font-extrabold leading-tight" style={{ color: 'var(--text-1)' }}>{greeting}{firstName ? `, ${firstName}` : ''}</h1>
@@ -96,14 +96,4 @@ export default function HomePage() {
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium text-gray-800">{n.title}</div>
                     <div className="text-xs text-gray-500">{n.message}</div>
-                  </div>
-                  <ArrowRight size={13} className="text-gray-300 mt-1" />
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
+      

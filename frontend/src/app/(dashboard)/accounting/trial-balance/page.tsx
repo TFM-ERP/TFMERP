@@ -31,7 +31,7 @@ export default function TrialBalancePage() {
   };
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-6 max-w-[1700px] mx-auto">
       <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center"><BarChart3 size={18} className="text-brand-600" /></div>
@@ -89,9 +89,4 @@ export default function TrialBalancePage() {
             </table>
           )}
       </div>
-      {data && Math.round(data.totalDebit * 100) !== Math.round(data.totalCredit * 100) && (
-        <p className="text-xs text-red-500 mt-2">⚠ Trial balance does not tie — check journal postings.</p>
-      )}
-    </div>
-  );
-}
+      {data && Math.r

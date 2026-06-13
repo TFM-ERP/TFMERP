@@ -208,7 +208,7 @@ export default function ClientsPage() {
   useEffect(() => { const t = setTimeout(load, 250); return () => clearTimeout(t); }, [load]);
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-6 max-w-[1700px] mx-auto">
       <CinematicHeader kicker="Partners · Clients" title="Clients" count={`${items.length} clients`}>
         <button onClick={() => setShowWizard(true)} className="btn btn-primary">
           <Plus size={14} className="mr-1" /> Add Client
@@ -267,3 +267,4 @@ export default function ClientsPage() {
     </div>
   );
 }
+                                                                  

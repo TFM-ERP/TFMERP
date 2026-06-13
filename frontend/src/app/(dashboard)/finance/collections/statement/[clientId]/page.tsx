@@ -30,7 +30,7 @@ export default function StatementPage() {
   const aging = data?.aging || {};
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-4">
+    <div className="p-6 max-w-[1700px] mx-auto space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-3 print:hidden">
         <div className="flex items-center gap-3">
           <Link href="/finance/collections" className="btn-ghost p-2"><ArrowLeft size={16} /></Link>

@@ -61,7 +61,7 @@ export default function PmSchedulePage() {
   };
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-5">
+    <div className="p-6 max-w-[1700px] mx-auto space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center"><Wrench size={18} className="text-brand-600" /></div>
@@ -188,12 +188,4 @@ export default function PmSchedulePage() {
               </div>
             </div>
             <div className="px-6 py-4 border-t border-gray-100 flex gap-3">
-              <button onClick={() => setShowReadings(false)} className="btn-secondary flex-1">Cancel</button>
-              <button onClick={saveReading} className="btn-primary flex-1">Save</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+              <button onClick={() => setShowReadings(false)} classN

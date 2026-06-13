@@ -23,7 +23,7 @@ export default function LogisticsDashboard() {
   );
 
   return (
-    <div className="font-sans p-6 max-w-5xl mx-auto">
+    <div className="font-sans p-6 max-w-[1700px] mx-auto">
       <div className="mb-5">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900 flex items-center gap-2"><BarChart3 className="text-[#0f172a]" /> Logistics dashboard</h1>
         <p className="text-sm text-slate-500 mt-0.5">Cross-project accommodation, transport &amp; arrival activity.</p>

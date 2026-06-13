@@ -50,7 +50,7 @@ export default function FxPage() {
   };
 
   return (
-    <div className="p-6 max-w-2xl mx-auto">
+    <div className="p-6 max-w-[1700px] mx-auto">
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center"><Coins size={18} className="text-brand-600" /></div>
@@ -91,7 +91,4 @@ export default function FxPage() {
         )}
       </div>
       <p className="text-[11px] text-gray-400 mt-3">Example: if 1 USD = 3.6725 AED, enter currency <b>USD</b> and rate <b>3.6725</b>. The Executive and Production dashboards then total mixed‑currency projects in {base}.</p>
-      <p className="text-[11px] text-gray-400 mt-1"><b>Fetch online</b> compares two independent rate sources per currency and keeps the one giving the higher AED value (prudent for foreign‑currency costs); USD is pinned to the CBUAE peg 3.6725. Add <code>FX_MARGIN_PCT</code> to backend/.env for an extra safety margin. Manual edits always win until the next fetch.</p>
-    </div>
-  );
-}
+      <p className="text-[11px] text-gray-400 mt-1"><b>Fetch online</b> compares two independent rate sources per currency and keeps the one giving the higher AED value (prudent for for

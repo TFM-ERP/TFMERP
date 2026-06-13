@@ -16,7 +16,7 @@ export default function ReportsCenterPage() {
   const groups = catalog.reduce((acc: any, r: any) => { (acc[r.category] = acc[r.category] || []).push(r); return acc; }, {});
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
+    <div className="p-6 max-w-[1700px] mx-auto space-y-6">
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center"><BarChart3 size={18} className="text-brand-600" /></div>
         <div>
@@ -37,14 +37,4 @@ export default function ReportsCenterPage() {
                   <div>
                     <div className="font-medium text-gray-800">{r.name}</div>
                     <div className="text-[11px] text-gray-400">{r.dateRange ? 'Date range' : 'Snapshot'}</div>
-                  </div>
-                  <ArrowRight size={15} className="text-gray-300" />
-                </Link>
-              ))}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
+  

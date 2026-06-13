@@ -40,7 +40,7 @@ export default function ReportViewerPage() {
   const print = () => window.open(`/print/report/${key}?from=${from}&to=${to}`, '_blank');
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-4">
+    <div className="p-6 max-w-[1700px] mx-auto space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <Link href="/reports" className="btn-ghost p-2"><ArrowLeft size={16} /></Link>

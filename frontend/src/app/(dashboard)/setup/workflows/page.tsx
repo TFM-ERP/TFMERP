@@ -41,7 +41,7 @@ export default function WorkflowsAdminPage() {
   };
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-6 max-w-[1700px] mx-auto">
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center"><GitBranch size={18} className="text-brand-600" /></div>
@@ -119,12 +119,4 @@ export default function WorkflowsAdminPage() {
 
             <div className="flex justify-end">
               <button onClick={save} disabled={saving} className="btn btn-primary text-xs"><Save size={13} className="mr-1" /> {saving ? 'Saving…' : 'Save workflow'}</button>
-            </div>
-          </div>
-        ) : (
-          <div className="card p-10 text-center text-gray-400 text-sm">Pick a workflow to edit, or create a new one.</div>
-        )}
-      </div>
-    </div>
-  );
-}
+       

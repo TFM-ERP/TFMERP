@@ -38,7 +38,7 @@ export default function JournalsPage() {
   const pendingCount = post ? (post.invoices + post.expenses + post.payments) : 0;
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-6 max-w-[1700px] mx-auto">
       <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center"><FileText size={18} className="text-brand-600" /></div>
@@ -84,13 +84,4 @@ export default function JournalsPage() {
                     <td className="px-3 py-3 text-gray-500">{formatDate(e.date)}</td>
                     <td className="px-3 py-3 text-gray-600">{e.memo || e.reference || '—'}</td>
                     <td className="px-3 py-3 text-right font-medium text-gray-800">{formatCurrency(e.totalDebit)}</td>
-                    <td className="px-3 py-3"><span className={cn('badge text-xs', STATUS_META[e.status])}>{e.status}</span></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-      </div>
-    </div>
-  );
-}
+                    <td className="px-3 py-3"><span 

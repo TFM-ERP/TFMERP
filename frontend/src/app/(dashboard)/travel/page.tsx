@@ -29,7 +29,7 @@ export default function TravelMaster() {
   const total = (rows: any[] = []) => rows.reduce((a, x) => a + (x._count || 0), 0);
 
   return (
-    <div className="font-sans p-6 max-w-6xl mx-auto">
+    <div className="font-sans p-6 max-w-[1700px] mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
           <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>Logistics · Mobility</div>
@@ -101,5 +101,4 @@ function Row({ left, sub, right }: any) {
 }
 function Empty({ children }: any) { return <p className="text-xs text-slate-400 py-2">{children}</p>; }
 function Toggle({ active, onClick, children }: any) {
-  return <button onClick={onClick} className={`text-xs px-3 py-1.5 rounded-lg font-medium transition ${active ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>{children}</button>;
-}
+  return <bu

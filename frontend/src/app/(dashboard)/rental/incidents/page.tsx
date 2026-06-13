@@ -124,7 +124,7 @@ export default function IncidentsPage() {
   };
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-6 max-w-[1700px] mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
           <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>Rentals · Safety</div>
@@ -335,12 +335,4 @@ export default function IncidentsPage() {
                 </td>
               </tr>
             ))}
-            {items.length === 0 && !loading && (
-              <tr><td colSpan={10} className="text-center py-12 text-gray-400">No incident reports found</td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
+            {items.length === 0 && !loadin

@@ -35,7 +35,7 @@ export default function EmailSettingsPage() {
   const f = (label: string, child: any) => <div><label className="label text-xs">{label}</label>{child}</div>;
 
   return (
-    <div className="p-6 max-w-2xl mx-auto">
+    <div className="p-6 max-w-[1700px] mx-auto">
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center"><Mail size={18} className="text-brand-600" /></div>
@@ -71,10 +71,4 @@ export default function EmailSettingsPage() {
         <h3 className="text-sm font-semibold text-gray-700 mb-2">Send a test</h3>
         <div className="flex gap-2">
           <input className="input flex-1" value={testTo} onChange={e => setTestTo(e.target.value)} placeholder="your@email.com" />
-          <button onClick={test} className="btn btn-secondary"><Send size={14} className="mr-1" /> Send test</button>
-        </div>
-        <p className="text-[11px] text-gray-400 mt-2">Save first, then send a test to confirm the connection works.</p>
-      </div>
-    </div>
-  );
-}
+          <button onClick={test} className="btn btn-secondary"><Send size=

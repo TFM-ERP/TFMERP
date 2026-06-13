@@ -46,7 +46,7 @@ export default function CollectionsPage() {
   const summary = data?.summary || {};
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-5">
+    <div className="p-6 max-w-[1700px] mx-auto space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center"><Banknote size={18} className="text-brand-600" /></div>
@@ -194,8 +194,4 @@ function SettingsModal({ onClose, onSaved }: any) {
 
           <div><label className="label">Statement / email footer</label><textarea className="input w-full h-16 resize-none text-xs" value={s.statementFooter || ''} onChange={e => setS({ ...s, statementFooter: e.target.value })} /></div>
         </div>
-        <div className="px-6 py-4 border-t border-gray-100 flex gap-3"><button onClick={onClose} className="btn-secondary flex-1">Cancel</button><button onClick={save} disabled={saving} className="btn-primary flex-1"><Check size={14} /> {saving ? 'Saving…' : 'Save'}</button></div>
-      </div>
-    </div>
-  );
-}
+        <div className="px-6 py-4 border-t border-gray-100 flex gap-3"><button onClick={onClose} classN

@@ -58,7 +58,7 @@ export default function CrewDirectoryPage() {
   useEffect(() => { crewApi.departments().then(r => setDepts(r.data || [])).catch(() => {}); }, []);
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-6 max-w-[1700px] mx-auto">
       <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center"><Clapperboard size={18} className="text-brand-600" /></div>
@@ -165,13 +165,4 @@ function DeptView({ items }: { items: any[] }) {
                       </div>
                     )}
                   </div>
-                  <div className="text-right text-xs text-gray-500 shrink-0">{fmtRate(c)}</div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
+  

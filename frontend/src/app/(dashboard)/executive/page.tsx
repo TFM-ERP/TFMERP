@@ -28,7 +28,7 @@ export default function ExecutivePage() {
   };
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-6 max-w-[1700px] mx-auto">
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center"><LayoutDashboard size={18} className="text-brand-600" /></div>
@@ -92,15 +92,4 @@ export default function ExecutivePage() {
                   {d.topDebtors.map((t: any, i: number) => (
                     <tr key={i} className="border-b border-gray-50">
                       <td className="py-2 text-gray-700">{t.client}</td>
-                      <td className="py-2 text-right font-medium text-gray-900">{m(t.due)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
+                      <td className="py-2 text-right 

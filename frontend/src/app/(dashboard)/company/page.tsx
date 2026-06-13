@@ -76,7 +76,7 @@ export default function CompanyPage() {
   const cls = data?.classification;
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-6 max-w-[1700px] mx-auto">
       {/* Header */}
       <div className="mb-6">
         <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>Setup · Organization</div>
@@ -682,12 +682,4 @@ function DocumentsTab({ documents, reload }: { documents: any[]; reload: () => v
               <div><label className="label">Expiry Date</label><input type="date" className="input w-full" value={form.expiryDate?.slice(0, 10) ?? ''} onChange={e => setForm({ ...form, expiryDate: e.target.value })} /></div>
             </div>
             <div className="flex justify-end gap-2 mt-5">
-              <button onClick={() => setForm(null)} className="px-4 py-2 text-sm text-gray-500">Cancel</button>
-              <button onClick={save} className="btn btn-primary">Save</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+              <button onClick={() => setForm(null)} className="
