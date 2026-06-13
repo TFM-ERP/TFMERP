@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Rental logistics — data model & standard features</title>
+<style>
+  :root{--s0:#F5F5F4;--s1:#fff;--t1:#161C28;--t2:#44505F;--t3:#6E7A88;--bd:#E3E1DB;--gold:#b08d4f;--char:#1C2433;--ok:#16A34A;--warn:#D97706;--danger:#DC2626;--blue:#2B53B8}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Inter,'Segoe UI',Arial,sans-serif;background:var(--s0);color:var(--t1);font-size:13px;padding:24px;line-height:1.55}
+  h1{font-size:18px;margin-bottom:4px}.sub{color:var(--t2);margin-bottom:18px;max-width:940px}
+  h2{font-size:12.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin:26px 0 8px}
+  .page{max-width:1280px;margin:0 auto}
+  .card{background:var(--s1);border:1px solid var(--bd);border-radius:14px;padding:14px;margin-bottom:12px}
+  .kick{font-size:9.5px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--gold)}
+  /* tree */
+  .job{border:1px solid var(--bd);border-radius:12px;margin-bottom:12px;overflow:hidden}
+  .job>.hd{background:var(--char);color:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center}
+  .job>.hd .t{font-weight:800;font-size:14px}
+  .loc{border-top:1px solid var(--bd);padding:10px 14px 12px}
+  .loc .lh{display:flex;align-items:center;gap:8px;font-weight:700;font-size:12.5px}
+  .loc .lm{font-size:11px;color:var(--t3);margin:1px 0 8px 22px}
+  .unit{display:flex;align-items:center;gap:10px;font-size:12px;padding:5px 0 5px 22px;border-top:1px dashed var(--bd)}
+  .unit .ic{width:22px;text-align:center}
+  .tag{font-size:9px;font-weight:700;border-radius:99px;padding:1px 7px;margin-left:4px}
+  .t-tow{background:#EDE9FE;color:#6D28D9}.t-self{background:#E7F6EC;color:var(--ok)}.t-gen{background:#FDF3E3;color:var(--warn)}
+  .mi{margin-left:auto;font-size:11px;color:var(--t2);font-weight:600}
+  .feat{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .f{border:1px solid var(--bd);border-radius:10px;padding:10px 12px;background:var(--s1)}
+  .f b{color:var(--t1)}.f span{color:var(--t2);font-size:12px}
+  .badge{font-size:9px;font-weight:700;border-radius:99px;padding:1px 7px;background:#EAF0FF;color:var(--blue)}
+  .p1{background:#E7F6EC;color:var(--ok)}.p2{background:#FDF3E3;color:var(--warn)}.p3{background:#F0EFEC;color:var(--t3)}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Rental logistics — model &amp; standard features</h1>
+  <p class="sub">Supports a job with multiple locations, each holding multiple units; tracks self-driven mileage (towed units excluded); and adds the rental-industry standards that turn this into a real fleet-hire operation.</p>
+
+  <h2>1 · The hierarchy — Job ▸ Location ▸ Units</h2>
+  <div class="job">
+    <div class="hd"><span class="t">🎬 The Misfits II</span><span style="font-size:11px;opacity:.7">3 locations · 8 units · 2 drivers</span></div>
+
+    <div class="loc">
+      <div class="lh">📍 Desert Unit — Liwa, Abu Dhabi <span class="tag t-self">on location</span></div>
+      <div class="lm">14–22 Jun · arrived 06:12 · 6 crew on site · base camp</div>
+      <div class="unit"><span class="ic">🚚</span> MAN TGX 26.500 Towing Truck <span class="tag t-self">self-drive</span> <span class="mi">1,240 km this hire</span></div>
+      <div class="unit"><span class="ic">🚐</span> 35ft Catering Trailer <span class="tag t-tow">towed</span> <span class="mi">moved by MAN TGX</span></div>
+      <div class="unit"><span class="ic">🚐</span> 30ft Makeup &amp; Wardrobe <span class="tag t-tow">towed</span> <span class="mi">moved by MAN TGX</span></div>
+      <div class="unit"><span class="ic">⚡</span> Cummins 200kVA Generator <span class="tag t-gen">power</span> <span class="mi">142 run-hrs</span></div>
+    </div>
+
+    <div class="loc">
+      <div class="lh">📍 Studio Base — Dubai Studio City <span class="tag t-self">on location</span></div>
+      <div class="lm">10–30 Jun · production office + green room</div>
+      <div class="unit"><span class="ic">🚐</span> 45ft Production Office Trailer <span class="tag t-tow">towed</span> <span class="mi">stationary</span></div>
+      <div class="unit"><span class="ic">🚙</span> Toyota HiAce Production Van <span class="tag t-self">self-drive</span> <span class="mi">880 km this hire</span></div>
+    </div>
+
+    <div class="loc">
+      <div class="lh">🚚 City Unit — in transit → Abu Dhabi <span class="tag t-gen">ETA 14:30</span></div>
+      <div class="lm">Mobilising · 62 km out</div>
+      <div class="unit"><span class="ic">🚙</span> Mercedes Sprinter Equipment Van <span class="tag t-self">self-drive</span> <span class="mi">2,310 km · ⚠ excess</span></div>
+      <div class="unit"><span class="ic">🚐</span> 25ft Green Room Trailer <span class="tag t-tow">towed</span> <span class="mi">moved by Sprinter</span></div>
+    </div>
+  </div>
+  <p class="sub" style="margin-top:6px">New entities: <b>HireLocation</b> (belongs to a project hire; name, place/geo, dates, crew count, status) and <b>HireAllocation</b> (asset ↔ location, with check-out/return readings). An asset can move between locations via a <b>transfer leg</b>, which is what animates on the map.</p>
+
+  <h2>2 · Mileage — self-driven only</h2>
+  <div class="card">
+    <div class="feat">
+      <div class="f"><b>Per-vehicle odometer</b><br><span>Check-out &amp; return readings on motorized assets → miles driven this hire, plus per-leg deltas. Trailers show "moved by &lt;tow vehicle&gt;".</span></div>
+      <div class="f"><b>Fuel efficiency</b><br><span>km ÷ litres from fuel logs → km/L per vehicle; flags sudden drops (mechanical issue or fuel leakage/theft).</span></div>
+      <div class="f"><b>Mileage allowance &amp; excess</b><br><span>Optional included-km per hire; auto-flag &amp; chargeable excess (e.g. Sprinter ⚠ above).</span></div>
+      <div class="f"><b>Service triggers</b><br><span>Odometer feeds the existing Preventive Maintenance schedule — "service due in 800 km".</span></div>
+    </div>
+  </div>
+
+  <h2>3 · Rental-industry standards worth adding</h2>
+  <div class="feat">
+    <div class="f"><span class="badge p1">core</span> <b>Check-out / Check-in inspection</b><br><span>Walkaround with photos at dispatch &amp; return; sets the damage baseline, auto-creates an Incident on new damage.</span></div>
+    <div class="f"><span class="badge p1">core</span> <b>Hire lifecycle</b><br><span>Reserved → Dispatched → On-hire → Off-hire → Returned, with timestamps; early-return proration.</span></div>
+    <div class="f"><span class="badge p1">core</span> <b>Rate cards</b><br><span>Day / week / month rates, minimum hire, delivery &amp; collection fees — feeds the quote &amp; the production budget.</span></div>
+    <div class="f"><span class="badge p1">core</span> <b>Utilization &amp; idle</b><br><span>% on-hire vs idle per asset; "idle on location 3 days" nudge to off-hire and save cost.</span></div>
+    <div class="f"><span class="badge p2">field</span> <b>Geofence per location</b><br><span>Alert if a unit leaves its assigned location/route; the off-route alert on the map.</span></div>
+    <div class="f"><span class="badge p2">field</span> <b>Driver compliance gate</b><br><span>Block dispatch if driver licence/visa expired (ties to Compliance &amp; Renewals).</span></div>
+    <div class="f"><span class="badge p2">field</span> <b>Fuel policy</b><br><span>Full-to-full; refuel charge if returned low; fuel-card reconciliation against odometer.</span></div>
+    <div class="f"><span class="badge p3">nice</span> <b>Damage waiver / insurance</b><br><span>Per-hire waiver option &amp; excess; attached to the contract.</span></div>
+    <div class="f"><span class="badge p3">nice</span> <b>Consumables on hire</b><br><span>Jerry cans, cables, leveling blocks issued with a unit; reconciled on return (ties to Inventory).</span></div>
+    <div class="f"><span class="badge p3">nice</span> <b>Cost allocation</b><br><span>Roll hire cost up per location → per project → into the production budget cost report.</span></div>
+  </div>
+</div>
+</body>
+</html>

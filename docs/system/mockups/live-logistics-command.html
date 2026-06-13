@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Live Logistics — command center concept</title>
+<style>
+  :root{--s0:#F5F5F4;--s1:#fff;--t1:#161C28;--t2:#44505F;--t3:#6E7A88;--bd:#E3E1DB;--gold:#b08d4f;--char:#1C2433;--ok:#16A34A;--warn:#D97706;--danger:#DC2626}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Inter,'Segoe UI',Arial,sans-serif;background:var(--s0);color:var(--t1);font-size:13px;padding:24px;line-height:1.5}
+  h1{font-size:18px;margin-bottom:4px}.sub{color:var(--t2);margin-bottom:20px;max-width:920px}
+  h2{font-size:12.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin:28px 0 8px}
+  .note{color:var(--t2);font-size:12px;margin:8px 0;max-width:920px}
+  .kick{font-size:9.5px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--gold)}
+  .page{max-width:1280px;margin:0 auto}
+  .marquee{position:relative;border-radius:18px;overflow:hidden;padding:16px 18px;margin-bottom:16px;background:linear-gradient(120deg,#141416,#0E0E10 55%,#1c1407 130%);border:1px solid #232326;color:#fff}
+  .marquee .glow{position:absolute;right:-50px;top:-70px;width:240px;height:240px;border-radius:50%;background:radial-gradient(circle,rgba(201,169,106,.18),transparent 70%)}
+  .marquee .kick{color:#c9a96a}
+  .tabs{display:flex;gap:2px;border-bottom:1px solid var(--bd);margin-bottom:14px}
+  .tab{padding:9px 14px;font-size:12.5px;color:var(--t3);position:relative;cursor:pointer}
+  .tab.on{color:var(--t1);font-weight:700}.tab.on::after{content:'';position:absolute;left:10px;right:10px;bottom:-1px;height:2px;background:var(--gold);border-radius:2px}
+  .grid{display:grid;grid-template-columns:1.7fr 1fr;gap:14px}
+  .card{background:var(--s1);border:1px solid var(--bd);border-radius:14px;overflow:hidden}
+  .pad{padding:14px}
+  /* fake map */
+  .map{height:420px;position:relative;background:
+      linear-gradient(0deg,rgba(176,141,79,.05),rgba(176,141,79,.05)),
+      repeating-linear-gradient(0deg,#eef1f4 0 39px,#e6eaef 39px 40px),
+      repeating-linear-gradient(90deg,#eef1f4 0 39px,#e6eaef 39px 40px);
+      border-radius:14px;border:1px solid var(--bd)}
+  .pin{position:absolute;transform:translate(-50%,-100%);text-align:center}
+  .pin .dot{width:34px;height:34px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:11px;box-shadow:0 3px 8px rgba(0,0,0,.25);border:2px solid #fff}
+  .pin .dot span{transform:rotate(45deg)}
+  .pin .lbl{font-size:10px;font-weight:700;background:#fff;border:1px solid var(--bd);border-radius:6px;padding:1px 6px;margin-top:4px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+  .loc{border:1px solid var(--bd);border-radius:12px;padding:11px;margin-bottom:10px;background:var(--s1)}
+  .loc h4{font-size:13px;font-weight:800;display:flex;align-items:center;gap:6px}
+  .loc .meta{font-size:11px;color:var(--t3);margin:2px 0 8px}
+  .row{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--t2);padding:3px 0}
+  .chip{font-size:9.5px;font-weight:700;border-radius:99px;padding:1px 7px}
+  .c-ontime{background:#E7F6EC;color:var(--ok)}.c-late{background:#FBE9E7;color:var(--danger)}.c-idle{background:#FDF3E3;color:var(--warn)}
+  .stat{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px}
+  .stat .b{background:var(--s1);border:1px solid var(--bd);border-radius:12px;padding:12px}
+  .stat .l{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3)}
+  .stat .v{font-size:22px;font-weight:800;margin-top:2px}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th{text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);padding:8px 10px;background:var(--s0);border-bottom:1px solid var(--bd)}
+  td{padding:8px 10px;border-bottom:1px solid var(--bd);color:var(--t2)}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Live Logistics — rental command center (concept)</h1>
+  <p class="sub">Turns the rental module from a list into a live operation. One map shows every on-hire caravan, generator, vehicle and equipment package — where it should be, where it actually is, who's driving, what's loaded, and which crew are on that location. Driver Approvals, Incidents and Fuel Logs become tabs because they're all field events tied to an asset + location.</p>
+
+  <div class="marquee"><div class="glow"></div>
+    <div class="kick">Rentals · Live Operations</div>
+    <div style="font-size:20px;font-weight:800">Logistics Command</div>
+    <div style="font-size:12px;color:rgba(255,255,255,.55)">13 units on hire · 4 active locations · 1 alert</div>
+  </div>
+
+  <div class="tabs">
+    <span class="tab on">Live Map</span><span class="tab">Active Hires</span><span class="tab">Driver Approvals</span><span class="tab">Incidents</span><span class="tab">Fuel Logs</span>
+  </div>
+
+  <div class="stat">
+    <div class="b"><div class="l">On hire</div><div class="v">13</div></div>
+    <div class="b"><div class="l">On location</div><div class="v" style="color:var(--ok)">9</div></div>
+    <div class="b"><div class="l">In transit</div><div class="v" style="color:var(--warn)">3</div></div>
+    <div class="b"><div class="l">Alerts</div><div class="v" style="color:var(--danger)">1</div></div>
+  </div>
+
+  <div class="grid">
+    <!-- MAP -->
+    <div class="card"><div class="map">
+      <div class="pin" style="left:30%;top:38%"><div class="dot" style="background:var(--ok)"><span>5</span></div><div class="lbl">The Misfits II · Desert Unit</div></div>
+      <div class="pin" style="left:62%;top:55%"><div class="dot" style="background:var(--warn)"><span>3</span></div><div class="lbl">In transit → Abu Dhabi</div></div>
+      <div class="pin" style="left:48%;top:24%"><div class="dot" style="background:var(--ok)"><span>4</span></div><div class="lbl">Studio Base · Dubai</div></div>
+      <div class="pin" style="left:75%;top:33%"><div class="dot" style="background:var(--danger)"><span>1</span></div><div class="lbl">⚠ Off-route</div></div>
+    </div></div>
+
+    <!-- LOCATION ROLL-UP -->
+    <div>
+      <div class="loc">
+        <h4>📍 The Misfits II — Desert Unit <span class="chip c-ontime">On location</span></h4>
+        <div class="meta">Liwa, Abu Dhabi · arrived 06:12 · since 2 days</div>
+        <div class="row">🚐 35ft Catering Trailer <span style="color:var(--t3)">· SH 45678</span></div>
+        <div class="row">🚐 30ft Makeup &amp; Wardrobe <span style="color:var(--t3)">· SH 23456</span></div>
+        <div class="row">⚡ Cummins 200kVA Generator</div>
+        <div class="row">👤 Driver: Omar Farouk · 👥 6 crew on site</div>
+      </div>
+      <div class="loc">
+        <h4>🚚 In transit → Abu Dhabi <span class="chip c-idle">ETA 14:30</span></h4>
+        <div class="meta">MAN TGX towing · 62 km out · last ping 4 min ago</div>
+        <div class="row">🚐 25ft Green Room Trailer</div>
+        <div class="row">👤 Driver: Vince Carter</div>
+      </div>
+      <div class="loc" style="border-color:#F3C8C8">
+        <h4>⚠ Mercedes Sprinter — Off-route <span class="chip c-late">Alert</span></h4>
+        <div class="meta">14 km from expected route · no fuel log in 320 km</div>
+        <div class="row">👤 Driver: Khalid Mansour · tap to call</div>
+      </div>
+    </div>
+  </div>
+
+  <h2>What each tab does inside the command center</h2>
+  <div class="card pad" style="margin-bottom:14px">
+    <table>
+      <thead><tr><th>Tab</th><th>Purpose</th><th>New capability</th></tr></thead>
+      <tbody>
+        <tr><td class="strong" style="color:var(--t1)">Live Map</td><td>Real-time pins of every on-hire unit</td><td>GPS pings from driver portal; expected-vs-actual route; off-route &amp; idle alerts</td></tr>
+        <tr><td class="strong" style="color:var(--t1)">Active Hires</td><td>The on-hire list, grouped by location</td><td>Per-location manifest: assets + generator load + crew + driver; "arrived/return" status</td></tr>
+        <tr><td class="strong" style="color:var(--t1)">Driver Approvals</td><td>Fuel/expense submissions awaiting sign-off</td><td>Now attached to the unit &amp; location on the map; approve from the asset's card</td></tr>
+        <tr><td class="strong" style="color:var(--t1)">Incidents</td><td>Damage / breakdown / accident reports</td><td>Geotagged to where it happened; raises a map alert; links to the asset's damage history</td></tr>
+        <tr><td class="strong" style="color:var(--t1)">Fuel Logs</td><td>Fuel fills per vehicle</td><td>Plotted on the route; "no fuel in N km" + consumption anomaly flags</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Where the location data comes from (build order)</h2>
+  <p class="note"><b>Phase 1 — Manual / booking-derived (no GPS needed):</b> each hire gets an <i>expected location</i> from its booking (link a Location/shoot or type a place + dates). Drivers/coordinators tap "Arrived / Departed / Returned" in the existing driver portal. The map plots expected locations and status. This alone gives the whole command center — zero hardware.</p>
+  <p class="note"><b>Phase 2 — Driver portal GPS:</b> the driver portal (already exists) adds an optional "Share location" that drops a ping on check-in or every N minutes while on a hire. Now pins show <i>actual</i> position, transit ETAs, and off-route/idle alerts. Privacy-respecting: only while on an active hire, only coarse pings.</p>
+  <p class="note"><b>Phase 3 — Telematics (optional, later):</b> ingest GPS from a hardware tracker / fuel-card API for live continuous tracking and automatic mileage→fuel reconciliation. Same map, richer feed.</p>
+</div>
+</body>
+</html>

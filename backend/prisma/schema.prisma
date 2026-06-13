@@ -899,6 +899,8 @@ model Asset {
   notes             String?
   qrCode            String?     @unique
 
+  // Self-propelled assets accrue their own mileage; towed units (trailers/caravans) do not.
+  tracksMileage      Boolean   @default(false)
   // Current readings (preventive maintenance)
   currentOdometer    Int?
   currentEngineHours Int?
@@ -1121,6 +1123,16 @@ model BookingItem {
   days        Int           @default(1)
   lineTotal   Decimal       @db.Decimal(15, 2)
   taxAmount   Decimal       @db.Decimal(15, 2) @default(0)
+
+  // Logistics: which site this unit is currently at, what tows it (for towed units),
+  // and per-hire mileage readings (self-driven units only).
+  bookingLocationId String?      // current site within the hire
+  towedById         String?      // BookingItem id of the self-driven unit towing this one
+  checkoutOdometer  Int?
+  returnOdometer    Int?
+  checkoutAt        DateTime?
+  returnAt          DateTime?
+  allocationStatus  String       @default("RESERVED") // RESERVED | DISPATCHED | ON_LOCATION | RETURNED
 
   @@map("booking_items")
 }
@@ -5233,9 +5245,13 @@ model BookingLocation {
   siteName    String?
   address     String?
   locationUrl String? // Google Maps link / pin
+  lat         Float?        // map pin latitude
+  lng         Float?        // map pin longitude
+  crewCount   Int?          // personnel on this site
+  arrivedAt   DateTime?     // when the unit(s) reached this site
   fromDate    DateTime?
   toDate      DateTime?
-  status      String        @default("PLANNED") // PLANNED | CURRENT | DONE
+  status      String        @default("PLANNED") // PLANNED | IN_TRANSIT | ON_LOCATION | DONE
   notes       String?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt

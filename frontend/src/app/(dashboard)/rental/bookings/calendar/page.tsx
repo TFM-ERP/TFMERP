@@ -55,12 +55,13 @@ export default function AvailabilityCalendarPage() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
+      <div className="marquee-panel flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <Link href="/rental/bookings" className="btn-ghost p-2"><ArrowLeft size={16} /></Link>
           <div>
-            <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2"><CalendarDays size={18} className="text-brand-600" /> Availability Calendar</h1>
-            <p className="text-sm text-gray-500">Who's on hire and when — spot free assets and clashes at a glance.</p>
+            <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>Rentals · Scheduling</div>
+            <h1 className="text-[20px] font-extrabold leading-tight" style={{ color: 'var(--text-1)' }}>Availability Calendar</h1>
+            <p className="text-sm" style={{ color: 'var(--text-3)' }}>Who's on hire and when — spot free assets and clashes at a glance.</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
