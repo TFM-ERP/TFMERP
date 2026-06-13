@@ -60,8 +60,9 @@ export default function RenewalsPage() {
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center"><ShieldCheck size={18} className="text-brand-600" /></div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">Renewals &amp; Document Expiry</h1>
-            <p className="text-sm text-gray-500">Trade licence, vehicle registration, insurance, visas, Emirates ID, passports — all in one place.</p>
+            <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>Compliance · Expiry</div>
+            <h1 className="text-[20px] font-extrabold leading-tight" style={{ color: 'var(--text-1)' }}>Renewals &amp; Document Expiry</h1>
+            <p className="text-sm" style={{ color: 'var(--text-3)' }}>Trade licence, vehicle registration, insurance, visas, Emirates ID, passports — all in one place.</p>
           </div>
         </div>
         <button onClick={load} className="btn-secondary"><RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh</button>

@@ -49,8 +49,9 @@ export default function ProductionDashboardPage() {
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center"><Film size={18} className="text-brand-600" /></div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">Production Dashboard</h1>
-            <p className="text-sm text-gray-500">{data?.totalProjects ?? 0} projects · combined &amp; per-project financials.</p>
+            <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>Production · Overview</div>
+            <h1 className="text-[20px] font-extrabold leading-tight" style={{ color: 'var(--text-1)' }}>Production Dashboard</h1>
+            <p className="text-sm" style={{ color: 'var(--text-3)' }}>{data?.totalProjects ?? 0} projects · combined &amp; per-project financials.</p>
           </div>
         </div>
         <button onClick={load} className="btn btn-secondary"><RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh</button>

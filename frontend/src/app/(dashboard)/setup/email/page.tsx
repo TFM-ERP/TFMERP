@@ -40,8 +40,9 @@ export default function EmailSettingsPage() {
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center"><Mail size={18} className="text-brand-600" /></div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">Email &amp; Notifications</h1>
-            <p className="text-sm text-gray-500">One mail connection powers call sheets, cost reports, deal memos, statements and the daily alert digest.</p>
+            <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>Setup · Connections</div>
+            <h1 className="text-[20px] font-extrabold leading-tight" style={{ color: 'var(--text-1)' }}>Email &amp; Notifications</h1>
+            <p className="text-sm" style={{ color: 'var(--text-3)' }}>One mail connection powers call sheets, cost reports, deal memos, statements and the daily alert digest.</p>
           </div>
         </div>
         <button onClick={save} disabled={saving || loading} className="btn btn-primary"><Save size={14} className="mr-1" /> {saving ? 'Saving…' : 'Save'}</button>
