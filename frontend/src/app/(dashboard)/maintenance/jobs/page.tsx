@@ -7,6 +7,7 @@ import { maintenanceApi, rentalApi } from '@/lib/api';
 import { formatDate, formatCurrency, cn } from '@/lib/utils';
 import StatusBadge from '@/components/StatusBadge';
 import { Search, RefreshCw, Plus, Cog, AlertTriangle } from 'lucide-react';
+import { CinematicHeader } from '@/components/CinematicHeader';
 
 const STATUSES = ['PENDING','APPROVED','IN_PROGRESS','WAITING_FOR_PARTS','COMPLETED','CANCELLED'];
 
@@ -80,17 +81,11 @@ export default function MaintenanceJobsPage() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Cog size={22} className="text-brand-600" /> Maintenance Jobs
-          </h1>
-          <p className="text-gray-500 text-sm mt-0.5">{total} total · {activeJobs} active</p>
-        </div>
+      <CinematicHeader kicker="Maintenance · Workshop" title="Maintenance Jobs" count={`${total} total · ${activeJobs} active`}>
         <button onClick={() => setShowForm(true)} className="btn btn-primary">
           <Plus size={14} className="mr-1" /> New Job
         </button>
-      </div>
+      </CinematicHeader>
 
       {/* Summary cards */}
       {summary && (

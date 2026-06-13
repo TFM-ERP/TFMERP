@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { rentalApi } from '@/lib/api';
 import { formatDate, cn } from '@/lib/utils';
 import { Search, RefreshCw, AlertTriangle } from 'lucide-react';
+import { CinematicHeader } from '@/components/CinematicHeader';
 
 export default function DriversPage() {
   const [items, setItems] = useState<any[]>([]);
@@ -35,13 +36,9 @@ export default function DriversPage() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Drivers</h1>
-          <p className="text-gray-500 text-sm mt-0.5">{total} drivers</p>
-        </div>
+      <CinematicHeader kicker="Rentals · People" title="Drivers" count={`${total} drivers`}>
         <Link href="/rental/drivers/new" className="btn btn-primary">+ Add Driver</Link>
-      </div>
+      </CinematicHeader>
 
       {alerts.length > 0 && (
         <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">

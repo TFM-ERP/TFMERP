@@ -19,6 +19,7 @@ import {
   ChevronRight, ExternalLink, Filter, Users, FileText, ShoppingCart,
 } from 'lucide-react';
 import { SUPPLIER_CATEGORIES } from '@/components/SupplierSelect';
+import { CinematicHeader } from '@/components/CinematicHeader';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -105,16 +106,11 @@ export default function BusinessPartnersPage() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Business Partners</h1>
-          <p className="text-gray-500 text-sm mt-0.5">Unified supplier &amp; vendor directory</p>
-        </div>
+      <CinematicHeader kicker="Finance · Directory" title="Business Partners" count="Unified supplier & vendor directory">
         <Link href="/finance/suppliers/new" className="btn btn-primary flex items-center gap-1.5">
           <Plus size={16} /> Add Partner
         </Link>
-      </div>
+      </CinematicHeader>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">

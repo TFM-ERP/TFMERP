@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { rentalApi, clientsApi } from '@/lib/api';
 import { formatDate, cn, STATUS_LABELS } from '@/lib/utils';
 import { Search, RefreshCw, Calendar } from 'lucide-react';
+import { CinematicHeader } from '@/components/CinematicHeader';
 import StatusBadge from '@/components/StatusBadge';
 
 export default function BookingsPage() {
@@ -37,18 +38,14 @@ export default function BookingsPage() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Rental Bookings</h1>
-          <p className="text-gray-500 text-sm mt-0.5">{total} bookings</p>
-        </div>
+      <CinematicHeader kicker="Rentals · Fleet" title="Rental Bookings" count={`${total} bookings`}>
         <div className="flex gap-2">
           <Link href="/rental/bookings/calendar" className="btn btn-secondary flex items-center gap-1.5">
             <Calendar size={14} /> Calendar
           </Link>
           <Link href="/rental/bookings/new" className="btn btn-primary">+ New Booking</Link>
         </div>
-      </div>
+      </CinematicHeader>
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-4">

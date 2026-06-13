@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import PhoneInput, { PhoneDisplay } from '@/components/PhoneInput';
 import EmailInput from '@/components/EmailInput';
+import { CinematicHeader } from '@/components/CinematicHeader';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -439,14 +440,7 @@ export default function ContactsPage() {
   return (
     <div className="p-6 space-y-6">
       {/* Page header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <BookUser className="w-7 h-7 text-indigo-600" />
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Contact Directory</h1>
-            <p className="text-sm text-gray-500 mt-0.5">{total} contact{total !== 1 ? 's' : ''}</p>
-          </div>
-        </div>
+      <CinematicHeader kicker="Partners · Directory" title="Contact Directory" count={`${total} contact${total !== 1 ? 's' : ''}`}>
         <button
           onClick={handleNew}
           className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-xl hover:bg-indigo-700 transition-colors"
@@ -454,7 +448,7 @@ export default function ContactsPage() {
           <Plus className="w-4 h-4" />
           New Contact
         </button>
-      </div>
+      </CinematicHeader>
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3">

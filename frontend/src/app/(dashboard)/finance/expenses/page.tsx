@@ -6,6 +6,7 @@ import { financeApi, approvalsApi } from '@/lib/api';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import Link from 'next/link';
 import { Plus, RefreshCw, CheckCircle, XCircle, DollarSign, GitBranch } from 'lucide-react';
+import { CinematicHeader } from '@/components/CinematicHeader';
 
 const CATEGORIES = ['Fuel', 'Maintenance', 'Office', 'Crew', 'Catering', 'Equipment', 'Travel', 'Accommodation', 'Insurance', 'Legal', 'Marketing', 'Utilities', 'Other'];
 const ACTIVITIES = ['RENTAL', 'PRODUCTION', 'BOTH'];
@@ -102,15 +103,11 @@ export default function ExpensesPage() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Expenses</h1>
-          <p className="text-gray-500 text-sm mt-0.5">{total} records</p>
-        </div>
+      <CinematicHeader kicker="Finance · Spend" title="Expenses" count={`${total} records`}>
         <button onClick={() => setShowForm(true)} className="btn btn-primary">
           <Plus size={14} className="mr-1" /> Log Expense
         </button>
-      </div>
+      </CinematicHeader>
 
       {/* Summary Cards */}
       {summary && (
