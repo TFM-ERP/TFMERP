@@ -32,7 +32,10 @@ export default function LeavePage() {
   return (
     <div className="p-8">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-slate-800">Leave Requests</h1>
+        <div>
+          <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>HR · Time</div>
+          <h1 className="text-[20px] font-extrabold leading-tight" style={{ color: 'var(--text-1)' }}>Leave Requests</h1>
+        </div>
         <button onClick={() => setForm({ type: 'Annual', status: 'Pending' })} className="rounded-lg bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700">+ New Request</button>
       </div>
 

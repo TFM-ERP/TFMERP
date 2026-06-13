@@ -55,8 +55,9 @@ export default function ServiceCatalogPage() {
     <div className="p-6 max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2"><Wrench size={22} /> Service Catalog</h1>
-          <p className="text-gray-500 text-sm mt-0.5">Billable services & consumables sold alongside rentals</p>
+          <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>Finance · Catalog</div>
+          <h1 className="text-[20px] font-extrabold leading-tight" style={{ color: 'var(--text-1)' }}>Service Catalog</h1>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--text-3)' }}>Billable services & consumables sold alongside rentals</p>
         </div>
         <div className="flex gap-2">
           <button onClick={() => setShowCC(true)} className="btn btn-secondary"><Settings2 size={14} className="mr-1" /> Cost Centers</button>

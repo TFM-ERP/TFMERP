@@ -56,8 +56,9 @@ export default function VatReturnPage() {
     <div className="p-6 max-w-4xl mx-auto">
       <div className="mb-6 flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">VAT Return</h1>
-          <p className="text-gray-500 text-sm mt-0.5">UAE VAT 201 — quarterly filing summary</p>
+          <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>Finance · Tax</div>
+          <h1 className="text-[20px] font-extrabold leading-tight" style={{ color: 'var(--text-1)' }}>VAT Return</h1>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--text-3)' }}>UAE VAT 201 — quarterly filing summary</p>
         </div>
         {report && (
           <div className="flex gap-2 print:hidden">

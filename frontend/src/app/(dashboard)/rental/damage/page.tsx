@@ -46,8 +46,9 @@ export default function DamagePage() {
     <div className="p-6 max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Damage Reports</h1>
-          <p className="text-gray-500 text-sm mt-0.5">{total} reports</p>
+          <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>Rentals · Fleet</div>
+          <h1 className="text-[20px] font-extrabold leading-tight" style={{ color: 'var(--text-1)' }}>Damage Reports</h1>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--text-3)' }}>{total} reports</p>
         </div>
         <div className="flex gap-2">
           <select className="input w-36" value={severity} onChange={e => { setSeverity(e.target.value); setPage(1); }}>

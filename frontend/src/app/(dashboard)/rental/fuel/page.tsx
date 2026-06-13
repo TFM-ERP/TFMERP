@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { rentalApi } from '@/lib/api';
 import { formatDate, cn } from '@/lib/utils';
 import { RefreshCw, Fuel } from 'lucide-react';
+import { CinematicHeader } from '@/components/CinematicHeader';
 
 export default function FuelPage() {
   const [items, setItems] = useState<any[]>([]);
@@ -33,15 +34,11 @@ export default function FuelPage() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Fuel Logs</h1>
-          <p className="text-gray-500 text-sm mt-0.5">{total} entries</p>
-        </div>
+      <CinematicHeader kicker="Rentals · Fleet" title="Fuel Logs" count={`${total} entries`}>
         <button onClick={load} className="btn btn-secondary p-2">
           <RefreshCw size={14} className={cn(loading && 'animate-spin')} />
         </button>
-      </div>
+      </CinematicHeader>
 
       {/* Summary */}
       {summary && (

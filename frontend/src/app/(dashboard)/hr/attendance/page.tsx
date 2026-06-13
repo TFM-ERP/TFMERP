@@ -31,7 +31,10 @@ export default function AttendancePage() {
 
   return (
     <div className="p-8">
-      <h1 className="text-2xl font-bold text-slate-800 mb-6">Attendance & Timesheets</h1>
+      <div className="mb-6">
+        <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>HR · Time</div>
+        <h1 className="text-[20px] font-extrabold leading-tight" style={{ color: 'var(--text-1)' }}>Attendance & Timesheets</h1>
+      </div>
 
       <div className="rounded-xl border border-slate-200 bg-white p-4 mb-6 flex items-end gap-3">
         <label className="block">

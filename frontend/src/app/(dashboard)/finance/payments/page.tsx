@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { financeApi } from '@/lib/api';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import { Search, RefreshCw, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { CinematicHeader } from '@/components/CinematicHeader';
 
 const STATUS_OPTIONS = ['', 'PENDING', 'CLEARED', 'BOUNCED', 'REFUNDED'];
 
@@ -54,15 +55,11 @@ export default function PaymentsPage() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Payments</h1>
-          <p className="text-gray-500 text-sm mt-0.5">{total} payments</p>
-        </div>
+      <CinematicHeader kicker="Finance · Cash" title="Payments" count={`${total} payments`}>
         <button onClick={load} className="btn btn-secondary p-2">
           <RefreshCw size={14} className={cn(loading && 'animate-spin')} />
         </button>
-      </div>
+      </CinematicHeader>
 
       {/* Summary Cards */}
       {summary && (

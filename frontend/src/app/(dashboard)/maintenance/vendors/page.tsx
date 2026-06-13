@@ -513,10 +513,9 @@ export default function VendorsPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Hammer size={20} className="text-brand-600" /> Vendors &amp; Workshops
-          </h1>
-          <p className="text-gray-500 text-sm mt-0.5">{total} third-party partner{total !== 1 ? 's' : ''}</p>
+          <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>Maintenance · Partners</div>
+          <h1 className="text-[20px] font-extrabold leading-tight" style={{ color: 'var(--text-1)' }}>Vendors &amp; Workshops</h1>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--text-3)' }}>{total} third-party partner{total !== 1 ? 's' : ''}</p>
         </div>
         <button onClick={() => setShowWizard(true)} className="btn btn-primary flex items-center gap-1.5">
           <Plus size={16} /> Add Vendor

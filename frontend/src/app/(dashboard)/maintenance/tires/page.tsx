@@ -76,10 +76,9 @@ export default function TiresPage() {
     <div className="p-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <CircleDot size={22} className="text-brand-600" /> Tire Records
-          </h1>
-          <p className="text-gray-500 text-sm mt-0.5">{total} tire records tracked</p>
+          <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>Maintenance · Inventory</div>
+          <h1 className="text-[20px] font-extrabold leading-tight" style={{ color: 'var(--text-1)' }}>Tire Records</h1>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--text-3)' }}>{total} tire records tracked</p>
         </div>
         <button onClick={() => setShowForm(true)} className="btn btn-primary">
           <Plus size={14} className="mr-1" /> Add Tire Record
