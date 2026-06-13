@@ -37,6 +37,7 @@ const MODULES: Module[] = [
   ]},
   { key: 'rentals', label: 'Rentals', icon: Truck, pages: [
     { label: 'Dashboard', href: '/rental' },
+    { label: 'Live Logistics', href: '/rental/logistics' },
     { label: 'Bookings', href: '/rental/bookings' },
     { label: 'Availability', href: '/rental/bookings/calendar' },
     { label: 'Utilization', href: '/rental/utilization' },
