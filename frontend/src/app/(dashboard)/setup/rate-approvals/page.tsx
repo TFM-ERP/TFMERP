@@ -70,10 +70,10 @@ export default function RateApprovalsPage() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between mb-1">
-        <div className="flex items-center gap-2">
-          <GitPullRequest size={20} className="text-brand-600" />
-          <h1 className="text-xl font-bold text-gray-900">Rate Approvals</h1>
+      <div className="marquee-panel flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>Setup · Approvals</div>
+          <h1 className="text-[20px] font-extrabold leading-tight" style={{ color: 'var(--text-1)' }}>Rate Approvals</h1>
         </div>
         <div className="flex gap-2">
           <button onClick={runRefresh} disabled={!!running} className="btn btn-secondary text-xs">

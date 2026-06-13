@@ -40,14 +40,12 @@ export default function ProductionEmailSettingsPage() {
 
   return (
     <div className="p-6 max-w-2xl mx-auto">
-      <div className="flex items-center gap-3 mb-5">
+      <div className="marquee-panel flex items-center gap-3">
         <Link href="/production/dashboard" className="btn btn-secondary p-1.5"><ArrowLeft size={16} /></Link>
-        <div className="flex items-center gap-3 flex-1">
-          <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center"><Mail size={18} className="text-brand-600" /></div>
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">Production Email Sender</h1>
-            <p className="text-sm text-gray-500">A dedicated sender for production emails — call sheets, deal memos and cost reports.</p>
-          </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>Production · Communications</div>
+          <h1 className="text-[20px] font-extrabold leading-tight" style={{ color: 'var(--text-1)' }}>Production Email Sender</h1>
+          <p className="text-sm" style={{ color: 'var(--text-3)' }}>A dedicated sender for production emails — call sheets, deal memos and cost reports.</p>
         </div>
         <button onClick={save} disabled={saving || loading} className="btn btn-primary"><Save size={14} className="mr-1" /> {saving ? 'Saving…' : 'Save'}</button>
       </div>
