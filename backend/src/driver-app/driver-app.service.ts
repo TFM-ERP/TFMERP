@@ -37,6 +37,7 @@ export class DriverAppService {
             id: true, bookingNumber: true, deliveryAddress: true, deliveryLocationUrl: true,
             client: { select: { companyName: true, googleMapsUrl: true } },
             locations: { orderBy: { sequence: 'asc' } },
+            items: { select: { id: true, towedById: true, asset: { select: { id: true, name: true, tracksMileage: true } } } },
           },
         },
       },

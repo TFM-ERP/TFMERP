@@ -81,6 +81,35 @@ export default function DriverHome() {
             </div>
           )}
 
+          {/* Couplings — driver confirms what each trailer is hitched to */}
+          {(() => {
+            const items = job.booking?.items || [];
+            const towed = items.filter((i: any) => i.asset && !i.asset.tracksMileage);
+            const vehicles = items.filter((i: any) => i.asset?.tracksMileage);
+            if (!towed.length) return null;
+            return (
+              <div style={{ marginTop: 8, borderTop: '1px solid #eee', paddingTop: 8 }}>
+                <div style={{ fontSize: 11, color: '#888', marginBottom: 4 }}>Couplings — confirm what's hitched</div>
+                {towed.map((t: any) => {
+                  const towName = t.towedById ? (items.find((x: any) => x.id === t.towedById)?.asset?.name || 'hitched') : null;
+                  return (
+                    <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, padding: '3px 0' }}>
+                      <span style={{ flex: 1 }}>🚐 {t.asset?.name}</span>
+                      {towName
+                        ? <button onClick={async () => { await rentalApi.logistics.unhitch(t.id); load(); }} style={{ fontSize: 11, borderRadius: 20, padding: '2px 8px', border: 'none', background: '#ede9fe', color: '#6d28d9' }}>🔗 {towName} ✕</button>
+                        : <select defaultValue="" onChange={async (e) => { const v = e.target.value; if (!v) return; await rentalApi.logistics.confirmHitch(t.id, v === 'EXTERNAL' ? { externalTow: true } : { towVehicleItemId: v }); load(); }}
+                            className="input" style={{ fontSize: 12, padding: '3px 6px', width: 'auto' }}>
+                            <option value="">hitch to…</option>
+                            {vehicles.map((v: any) => <option key={v.id} value={v.id}>{v.asset?.name}</option>)}
+                            <option value="EXTERNAL">External / 3rd-party</option>
+                          </select>}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+
           <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
             <a href={navUrl(job)} target="_blank" rel="noreferrer" className="btn btn-primary" style={{ flex: 1, justifyContent: 'center', minWidth: 120 }}><Navigation size={15} /> Navigate</a>
             {NEXT[job.status] && <button onClick={() => advance(job)} className="btn btn-secondary" style={{ flex: 1, justifyContent: 'center', minWidth: 120 }}><Check size={15} /> {NEXT[job.status].replace('_', ' ')}</button>}
