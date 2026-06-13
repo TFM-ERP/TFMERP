@@ -32,8 +32,9 @@ export default function TravelMaster() {
     <div className="font-sans p-6 max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900 flex items-center gap-2"><Plane className="text-[#0f172a]" /> Travel & Visas</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Master view across every project, plus standalone corporate travel.</p>
+          <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>Logistics · Mobility</div>
+          <h1 className="text-[20px] font-extrabold leading-tight flex items-center gap-2" style={{ color: 'var(--text-1)' }}><Plane size={20} style={{ color: 'var(--gold)' }} /> Travel & Visas</h1>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--text-3)' }}>Master view across every project, plus standalone corporate travel.</p>
         </div>
         <button onClick={() => setOpen(true)} className="inline-flex items-center gap-2 rounded-xl bg-slate-900 text-white px-4 py-2.5 text-sm font-medium hover:bg-slate-800"><Plus size={16} /> New standalone trip</button>
       </div>

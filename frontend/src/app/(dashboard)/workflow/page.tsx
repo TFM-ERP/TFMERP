@@ -310,10 +310,11 @@ export default function WorkflowPage() {
       {/* ── Page header ── */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-black text-gray-900 flex items-center gap-2">
-            <Columns size={22} className="text-brand-600" /> Workflow
+          <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>Workspace · Overview</div>
+          <h1 className="text-[20px] font-extrabold leading-tight flex items-center gap-2" style={{ color: 'var(--text-1)' }}>
+            <Columns size={20} style={{ color: 'var(--gold)' }} /> Workflow
           </h1>
-          <p className="text-sm text-gray-500 mt-0.5">Status boards · KPI dashboard · Analytics</p>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--text-3)' }}>Status boards · KPI dashboard · Analytics</p>
         </div>
         <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
           {([['kpi','KPI Dashboard'], ['kanban','Kanban Board'], ['analytics','Analytics']] as [View,string][]).map(([v,l]) => (

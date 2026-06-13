@@ -33,8 +33,9 @@ export default function ExecutivePage() {
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center"><LayoutDashboard size={18} className="text-brand-600" /></div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">Executive Dashboard</h1>
-            <p className="text-sm text-gray-500">Company‑wide snapshot across finance, production, people and operations.</p>
+            <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>Workspace · Leadership</div>
+            <h1 className="text-[20px] font-extrabold leading-tight" style={{ color: 'var(--text-1)' }}>Executive Dashboard</h1>
+            <p className="text-sm" style={{ color: 'var(--text-3)' }}>Company‑wide snapshot across finance, production, people and operations.</p>
           </div>
         </div>
         <button onClick={load} className="btn btn-secondary"><RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh</button>

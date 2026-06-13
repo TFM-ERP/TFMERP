@@ -368,6 +368,9 @@ export default function MaintenancePage() {
   const [typeFilter, setTypeFilter] = useState('');
   const [search,   setSearch]   = useState('');
   const [loading,  setLoading]  = useState(false);
+  const [view, setView] = useState<'list' | 'tiles'>(() =>
+    (typeof window !== 'undefined' && window.localStorage.getItem('maint-view') as any) || 'list');
+  const switchView = (v: 'list' | 'tiles') => { setView(v); try { window.localStorage.setItem('maint-view', v); } catch {} };
   const [listError, setListError] = useState('');
 
   const [showSchedule, setShowSchedule] = useState(false);
@@ -431,19 +434,22 @@ export default function MaintenancePage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Maintenance</h1>
-          <p className="text-gray-500 text-sm mt-0.5">
+          <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>Maintenance · Records</div>
+          <h1 className="text-[20px] font-extrabold leading-tight" style={{ color: 'var(--text-1)' }}>Maintenance</h1>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--text-3)' }}>
             {total} record{total !== 1 ? 's' : ''}
-            {overdueCount > 0 && (
-              <span className="ml-2 text-red-600 font-medium">
-                · {overdueCount} overdue
-              </span>
-            )}
+            {overdueCount > 0 && <span className="ml-2 font-medium" style={{ color: 'var(--danger)' }}>· {overdueCount} overdue</span>}
           </p>
         </div>
-        <button onClick={() => setShowSchedule(true)} className="btn btn-primary flex items-center gap-1.5">
-          <Plus size={16} /> Schedule Maintenance
-        </button>
+        <div className="flex items-center gap-2">
+          <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
+            <button onClick={() => switchView('list')} className={cn('px-3 py-2 text-xs font-medium', view === 'list' ? 'bg-gray-900 text-white' : 'bg-white text-gray-500 hover:text-gray-900')}>List</button>
+            <button onClick={() => switchView('tiles')} className={cn('px-3 py-2 text-xs font-medium', view === 'tiles' ? 'bg-gray-900 text-white' : 'bg-white text-gray-500 hover:text-gray-900')}>Tiles</button>
+          </div>
+          <button onClick={() => setShowSchedule(true)} className="btn btn-primary flex items-center gap-1.5">
+            <Plus size={16} /> Schedule Maintenance
+          </button>
+        </div>
       </div>
 
       {listError && (
@@ -481,7 +487,51 @@ export default function MaintenancePage() {
         </button>
       </div>
 
+      {/* Tiles view — info-rich cards (no photo), surfacing what the list shows */}
+      {view === 'tiles' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {items.map(item => {
+            const over = isOverdue(item);
+            return (
+              <div key={item.id} className={cn('relative rounded-2xl border bg-white p-4 shadow-sm hover:shadow-md transition-all', over ? 'border-red-200' : 'border-gray-200')}
+                style={{ background: 'var(--surface-1)', borderColor: over ? undefined : 'var(--border-1)' }}>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="text-[9px] font-bold uppercase tracking-[.14em]" style={{ color: 'var(--gold)' }}>{TYPE_LABELS[item.maintenanceType] ?? item.maintenanceType}</div>
+                    <Link href={`/rental/assets/${item.asset?.id}`} className="font-bold text-[14px] leading-tight hover:underline" style={{ color: 'var(--text-1)' }}>{item.asset?.name}</Link>
+                    <div className="text-[11px]" style={{ color: 'var(--text-3)' }}>{item.asset?.assetType?.replace(/_/g, ' ')}{item.asset?.plateNumber && ` · ${item.asset.plateNumber}`}</div>
+                  </div>
+                  <span className={cn('badge text-[10.5px] shrink-0', STATUS_COLORS[item.status] ?? 'bg-gray-100 text-gray-600')}>{item.status.replace('_', ' ')}</span>
+                </div>
+                <p className="text-[12.5px] mt-2.5 line-clamp-2" style={{ color: 'var(--text-2)' }} title={item.description}>{item.description}</p>
+                <div className="flex items-center justify-between mt-3 pt-3 border-t" style={{ borderColor: 'var(--border-1)' }}>
+                  <div className="text-[11px]" style={{ color: 'var(--text-3)' }}>
+                    <div className="flex items-center gap-1">{formatDate(item.scheduledDate)}{over && <span className="inline-flex items-center gap-0.5" style={{ color: 'var(--danger)' }}><AlertTriangle size={10} /> Overdue</span>}</div>
+                    {item.vendorName && <div className="truncate max-w-[160px]">{item.vendorName}</div>}
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[9px] uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>Cost</div>
+                    <div className="font-bold text-[13px]" style={{ color: 'var(--text-1)' }}>{item.cost != null ? `AED ${Number(item.cost).toLocaleString()}` : '—'}</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2.5 mt-2.5">
+                  {item.status !== 'COMPLETED' && item.status !== 'CANCELLED' && <button onClick={() => setEditItem(item)} className="text-[11px] text-brand-600 hover:underline">Edit</button>}
+                  {item.status === 'SCHEDULED' && <button onClick={() => handleStart(item)} className="text-[11px] text-amber-600 hover:underline flex items-center gap-0.5"><PlayCircle size={11} /> Start</button>}
+                  {(item.status === 'SCHEDULED' || item.status === 'IN_PROGRESS') && <button onClick={() => setCompleteItem(item)} className="text-[11px] text-green-600 hover:underline flex items-center gap-0.5"><CheckCircle2 size={11} /> Complete</button>}
+                </div>
+              </div>
+            );
+          })}
+          {items.length === 0 && !loading && (
+            <div className="col-span-3 text-center py-16" style={{ color: 'var(--text-3)' }}>
+              <Wrench size={32} className="mx-auto mb-3 opacity-40" />No maintenance records found
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Table */}
+      {view === 'list' && (
       <div className="card overflow-hidden p-0">
         <table className="w-full text-sm">
           <thead>
@@ -617,6 +667,7 @@ export default function MaintenancePage() {
           </tbody>
         </table>
       </div>
+      )}
 
       {/* Pagination */}
       {pages > 1 && (

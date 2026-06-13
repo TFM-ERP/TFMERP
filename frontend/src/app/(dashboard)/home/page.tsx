@@ -52,8 +52,9 @@ export default function HomePage() {
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">{greeting}{firstName ? `, ${firstName}` : ''}</h1>
-        <p className="text-sm text-gray-500">Here's what needs your attention today.</p>
+        <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>The Film Makers · Workspace</div>
+        <h1 className="text-[22px] font-extrabold leading-tight" style={{ color: 'var(--text-1)' }}>{greeting}{firstName ? `, ${firstName}` : ''}</h1>
+        <p className="text-sm" style={{ color: 'var(--text-3)' }}>Here's what needs your attention today.</p>
       </div>
 
       {/* Quick actions */}
