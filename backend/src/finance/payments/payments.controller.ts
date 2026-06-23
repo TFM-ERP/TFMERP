@@ -2,11 +2,14 @@ import { Controller, Get, Patch, Param, Query, Body, UseGuards } from '@nestjs/c
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { PaymentsService } from './payments.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../../permissions/permissions.guard';
+import { RequirePermission } from '../../permissions/require-permission.decorator';
 import { PaymentStatus } from '@prisma/client';
 
 @ApiTags('Finance')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@RequirePermission('finance', 1)
 @Controller('finance/payments')
 export class PaymentsController {
   constructor(private service: PaymentsService) {}

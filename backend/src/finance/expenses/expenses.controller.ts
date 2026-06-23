@@ -2,10 +2,13 @@ import { Controller, Get, Post, Put, Patch, Body, Param, Query, Req, UseGuards }
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { ExpensesService } from './expenses.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../../permissions/permissions.guard';
+import { RequirePermission } from '../../permissions/require-permission.decorator';
 
 @ApiTags('Finance')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@RequirePermission('finance', 1)
 @Controller('finance/expenses')
 export class ExpensesController {
   constructor(private service: ExpensesService) {}

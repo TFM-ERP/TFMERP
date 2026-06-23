@@ -2,10 +2,13 @@ import { Controller, Get, Post, Put, Patch, Delete, Param, Body, Query, UseGuard
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { ServicesService } from './services.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../../permissions/permissions.guard';
+import { RequirePermission } from '../../permissions/require-permission.decorator';
 
 @ApiTags('Service Catalog')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@RequirePermission('finance', 1)
 @Controller('finance/services')
 export class ServicesController {
   constructor(private service: ServicesService) {}

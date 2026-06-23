@@ -5,11 +5,14 @@ import { CreateQuotationDto } from './dto/create-quotation.dto';
 import { UpdateQuotationDto } from './dto/update-quotation.dto';
 import { QueryQuotationDto } from './dto/query-quotation.dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../../permissions/permissions.guard';
+import { RequirePermission } from '../../permissions/require-permission.decorator';
 import { QuotationStatus } from '@prisma/client';
 
 @ApiTags('Finance')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@RequirePermission('finance', 1)
 @Controller('finance/quotations')
 export class QuotationsController {
   constructor(private service: QuotationsService) {}

@@ -3,7 +3,13 @@ import * as jwt from 'jsonwebtoken';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
 const PURPOSE = 'vendor-onboarding';
-const secret = () => process.env.JWT_SECRET || 'dev-secret-change-me';
+const secret = () => {
+  const s = process.env.JWT_SECRET;
+  // Never fall back to a hardcoded default — a known secret lets anyone forge
+  // vendor-onboarding tokens (access any project, submit vendor bank details).
+  if (!s) throw new Error('JWT_SECRET is not configured');
+  return s;
+};
 const frontend = () => (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
 
 @Injectable()
