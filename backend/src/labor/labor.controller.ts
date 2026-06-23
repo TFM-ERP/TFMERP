@@ -4,6 +4,7 @@ import { LaborService } from './labor.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../permissions/permissions.guard';
 import { RequirePermission } from '../permissions/require-permission.decorator';
+import { CreateRateRuleDto } from './dto/create-rate-rule.dto';
 
 @ApiTags('Labor & Fringe')
 @ApiBearerAuth()
@@ -39,7 +40,7 @@ export class LaborController {
 
   // ── Rate rules ──────────────────────────────────────────────────────────────────
   @Get('rate-rules') @RequirePermission('production', 1) rateRules(@Query('agreementId') id: string) { return this.service.rateRules(id); }
-  @Post('rate-rules') @RequirePermission('setup', 2) createRule(@Body() b: any) { return this.service.createRateRule(b); }
+  @Post('rate-rules') @RequirePermission('setup', 2) createRule(@Body() b: CreateRateRuleDto) { return this.service.createRateRule(b); }
   @Put('rate-rules/:id') @RequirePermission('setup', 2) updateRule(@Param('id') id: string, @Body() b: any, @Req() req: any) { return this.service.updateRateRule(id, b, req.user?.id); }
   @Delete('rate-rules/:id') @RequirePermission('setup', 2) removeRule(@Param('id') id: string) { return this.service.removeRateRule(id); }
 
