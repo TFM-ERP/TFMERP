@@ -1,12 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
-
-// Approval ladder by amount (AED). Each tier defines the ordered approver roles.
-function chainForAmount(amount: number): string[] {
-  if (amount <= 5000) return ['Finance Manager'];
-  if (amount <= 25000) return ['Finance Manager', 'General Manager'];
-  return ['Finance Manager', 'General Manager', 'Director'];
-}
+import { chainForAmount } from './routing.util';
 
 @Injectable()
 export class ApprovalsService {
@@ -64,6 +58,25 @@ export class ApprovalsService {
     });
   }
 
+  async routeChange(dto: { projectId?: string; entityType: string; entityId: string; title?: string; payload?: any; roles?: string[] }, userId?: string) {
+    const existing = await this.prisma.approvalRequest.findFirst({ where: { entityType: dto.entityType, entityId: dto.entityId, status: 'PENDING' } });
+    if (existing) return existing;
+    const roles = dto.roles && dto.roles.length ? dto.roles : ['Producer'];
+    return this.prisma.approvalRequest.create({
+      data: {
+        entityType: dto.entityType, entityId: dto.entityId, title: dto.title || dto.entityType,
+        amount: 0, status: 'PENDING', currentStep: 0, createdById: userId || null,
+        projectId: dto.projectId || null, payload: (dto.payload ?? undefined),
+        steps: { create: roles.map((role, i) => ({ stepOrder: i, approverRole: role })) },
+      } as any,
+      include: { steps: { orderBy: { stepOrder: 'asc' } } },
+    });
+  }
+
+  async forProject(projectId: string) {
+    return this.prisma.approvalRequest.findMany({ where: ({ projectId } as any), orderBy: { createdAt: 'desc' }, take: 100, include: { steps: { orderBy: { stepOrder: 'asc' } } } });
+  }
+
   async listPending() {
     const requests = await this.prisma.approvalRequest.findMany({
       where: { status: 'PENDING' },
@@ -118,7 +131,7 @@ export class ApprovalsService {
 
     if (decision === 'REJECTED') {
       await this.prisma.approvalRequest.update({ where: { id: requestId }, data: { status: 'REJECTED' } });
-      await this.applyToEntity(req.entityType, req.entityId, 'REJECTED', user?.id);
+      await this.applyToEntity(req.entityType, req.entityId, 'REJECTED', user?.id, (req as any).payload);
       return this.getRequest(requestId);
     }
 
@@ -126,7 +139,7 @@ export class ApprovalsService {
     const isLast = req.currentStep >= req.steps.length - 1;
     if (isLast) {
       await this.prisma.approvalRequest.update({ where: { id: requestId }, data: { status: 'APPROVED' } });
-      await this.applyToEntity(req.entityType, req.entityId, 'APPROVED', user?.id);
+      await this.applyToEntity(req.entityType, req.entityId, 'APPROVED', user?.id, (req as any).payload);
     } else {
       await this.prisma.approvalRequest.update({ where: { id: requestId }, data: { currentStep: req.currentStep + 1 } });
     }
@@ -138,7 +151,7 @@ export class ApprovalsService {
   }
 
   /** Reflect the final decision on the source document. */
-  private async applyToEntity(entityType: string, entityId: string, decision: 'APPROVED' | 'REJECTED', userId?: string) {
+  private async applyToEntity(entityType: string, entityId: string, decision: 'APPROVED' | 'REJECTED', userId?: string, payload?: any) {
     if (entityType === 'EXPENSE') {
       const exp = await this.prisma.expense.findUnique({ where: { id: entityId } });
       if (!exp) return;
@@ -160,6 +173,13 @@ export class ApprovalsService {
         where: { id: entityId },
         data: { status: decision === 'APPROVED' ? 'APPROVED' : 'CANCELLED' },
       });
+    } else if (decision === 'APPROVED') {
+      try {
+        if (entityType === 'BREAKDOWN_ELEMENT') { const ids = (payload && Array.isArray(payload.ids) && payload.ids.length) ? payload.ids : [entityId]; await (this.prisma as any).breakdownElement.updateMany({ where: { id: { in: ids } }, data: (payload && payload.data) || {} }); }
+        else if (entityType === 'ANNOTATION_RESOLVE') { await (this.prisma as any).annotation.update({ where: { id: entityId }, data: { resolved: true } }); }
+        else if (entityType === 'REVISION_ACTIVATE') { const docId = payload && payload.documentId; if (docId) await (this.prisma as any).scriptDocument.update({ where: { id: docId }, data: { activeRevisionId: entityId } }); }
+        else if (entityType === 'STAGE_VERSION_APPROVE') { await (this.prisma as any).stageVersion.update({ where: { id: entityId }, data: { status: 'APPROVED' } }); }
+      } catch { /* tolerant: never break the approval flow on a downstream write */ }
     }
   }
 }
