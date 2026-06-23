@@ -2,6 +2,7 @@ import { Controller, Get, Post, Delete, Body, Param, Query, UseGuards } from '@n
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { FuelService } from './fuel.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { CreateFuelLogDto } from './dto/create-fuel-log.dto';
 
 @ApiTags('Rental')
 @ApiBearerAuth()
@@ -24,7 +25,7 @@ export class FuelController {
 
   @Post()
   @ApiOperation({ summary: 'Log a fuel fill-up for an asset' })
-  create(@Body() body: any) { return this.service.create(body); }
+  create(@Body() body: CreateFuelLogDto) { return this.service.create(body); }
 
   @Delete(':id')
   delete(@Param('id') id: string) { return this.service.delete(id); }

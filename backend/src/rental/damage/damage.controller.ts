@@ -2,6 +2,7 @@ import { Controller, Get, Post, Put, Patch, Body, Param, Query, UseGuards, Reque
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { DamageService } from './damage.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { CreateDamageDto } from './dto/create-damage.dto';
 
 @ApiTags('Rental')
 @ApiBearerAuth()
@@ -19,7 +20,7 @@ export class DamageController {
 
   @Post()
   @ApiOperation({ summary: 'File a new damage report' })
-  create(@Body() body: any, @Request() req: any) {
+  create(@Body() body: CreateDamageDto, @Request() req: any) {
     return this.service.create(body, req.user.id);
   }
 

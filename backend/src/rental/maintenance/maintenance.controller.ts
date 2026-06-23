@@ -2,6 +2,8 @@ import { Controller, Get, Post, Put, Patch, Body, Param, Query, UseGuards } from
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { MaintenanceService } from './maintenance.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { CreateMaintenanceDto } from './dto/create-maintenance.dto';
+import { UpdateMaintenanceDto } from './dto/update-maintenance.dto';
 
 @ApiTags('Rental')
 @ApiBearerAuth()
@@ -27,10 +29,10 @@ export class MaintenanceController {
 
   @Post()
   @ApiOperation({ summary: 'Schedule maintenance for an asset' })
-  create(@Body() body: any) { return this.service.create(body); }
+  create(@Body() body: CreateMaintenanceDto) { return this.service.create(body); }
 
   @Put(':id')
-  update(@Param('id') id: string, @Body() body: any) { return this.service.update(id, body); }
+  update(@Param('id') id: string, @Body() body: UpdateMaintenanceDto) { return this.service.update(id, body); }
 
   @Patch(':id/start')
   @ApiOperation({ summary: 'Mark maintenance as started (SCHEDULED → IN_PROGRESS)' })
