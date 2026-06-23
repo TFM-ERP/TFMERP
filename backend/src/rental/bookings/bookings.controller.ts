@@ -3,6 +3,8 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { BookingsService } from './bookings.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { BookingStatus } from '@prisma/client';
+import { CreateBookingDto } from './dto/create-booking.dto';
+import { CheckConflictsDto } from './dto/check-conflicts.dto';
 
 @ApiTags('Rental')
 @ApiBearerAuth()
@@ -39,7 +41,7 @@ export class BookingsController {
 
   @Post('check-conflicts')
   @ApiOperation({ summary: 'Check assets for double-booking conflicts in a date range' })
-  checkConflicts(@Body() body: { assetIds: string[]; startDate: string; endDate: string; excludeBookingId?: string }) {
+  checkConflicts(@Body() body: CheckConflictsDto) {
     return this.service.checkConflicts(body.assetIds, body.startDate, body.endDate, body.excludeBookingId);
   }
 
@@ -61,7 +63,7 @@ export class BookingsController {
 
   @Post()
   @ApiOperation({ summary: 'Create a new rental booking (starts at INQUIRY)' })
-  create(@Body() body: any, @Request() req: any) {
+  create(@Body() body: CreateBookingDto, @Request() req: any) {
     return this.service.create(body, req.user.id);
   }
 
