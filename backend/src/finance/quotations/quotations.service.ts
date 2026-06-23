@@ -6,6 +6,7 @@ import { UpdateQuotationDto } from './dto/update-quotation.dto';
 import { StatusService } from '../../status/status.service';
 import { QueryQuotationDto } from './dto/query-quotation.dto';
 import { Decimal } from '@prisma/client/runtime/library';
+import { sumLineItems, resolveDiscount, computeDocumentTotals } from '../totals.util';
 
 @Injectable()
 export class QuotationsService {
@@ -26,39 +27,11 @@ export class QuotationsService {
   }
 
   // ── Totals calculation ──────────────────────────────────────────────────
+  // Manual fixed deduction is applied BEFORE VAT (see totals.util.ts).
   private calculateTotals(items: CreateQuotationDto['items'], discountType?: string, discountValue?: number, deductionAmount?: number) {
-    let subtotal = 0;
-    let rawVat = 0;
-
-    for (const item of items) {
-      const days = (item as any).days || 1;
-      const lineTotal = item.quantity * days * item.unitPrice * (1 - (item.discountPct || 0) / 100);
-      subtotal += lineTotal;
-      rawVat += item.taxAmount || 0;
-    }
-
-    let discountAmount = 0;
-    if (discountType === 'PERCENT' && discountValue) {
-      discountAmount = subtotal * (discountValue / 100);
-    } else if (discountType === 'FIXED' && discountValue) {
-      discountAmount = discountValue;
-    }
-
-    // Manual fixed deduction is applied BEFORE VAT: it reduces the taxable base,
-    // so VAT is recalculated proportionally on the reduced base.
-    const taxableBase = subtotal - discountAmount;
-    const deduction = Math.min(Math.max(deductionAmount || 0, 0), Math.max(taxableBase, 0));
-    const vatRatio = taxableBase > 0 ? (taxableBase - deduction) / taxableBase : 0;
-    const vatAmount = rawVat * vatRatio;
-
-    const total = subtotal - discountAmount - deduction + vatAmount;
-    return {
-      subtotal: Math.round(subtotal * 100) / 100,
-      discountAmount: Math.round(discountAmount * 100) / 100,
-      deductionAmount: Math.round(deduction * 100) / 100,
-      vatAmount: Math.round(vatAmount * 100) / 100,
-      total: Math.round(total * 100) / 100,
-    };
+    const { subtotal, rawVat } = sumLineItems(items as any);
+    const discountAmount = resolveDiscount(subtotal, discountType, discountValue);
+    return computeDocumentTotals({ subtotal, rawVat, discountAmount, deductionAmount });
   }
 
   // ── CRUD ────────────────────────────────────────────────────────────────

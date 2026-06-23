@@ -5,6 +5,7 @@ import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { UpdateInvoiceDto } from './dto/update-invoice.dto';
 import { QueryInvoiceDto } from './dto/query-invoice.dto';
 import { StatusService } from '../../status/status.service';
+import { sumLineItems, computeDocumentTotals } from '../totals.util';
 
 @Injectable()
 export class InvoicesService {
@@ -24,23 +25,10 @@ export class InvoicesService {
   }
 
   // ── Totals calculation ──────────────────────────────────────────────────
-  // Manual fixed deduction is applied BEFORE VAT: it reduces the taxable base,
-  // so VAT is recalculated proportionally on the reduced base.
+  // Manual fixed deduction is applied BEFORE VAT (see totals.util.ts).
   private computeTotals(items: any[], discountAmount = 0, deductionAmount = 0) {
-    let subtotal = 0, rawVat = 0;
-    for (const item of items) {
-      const days = item.days || 1;
-      subtotal += item.quantity * days * item.unitPrice * (1 - (item.discountPct || 0) / 100);
-      rawVat += item.taxAmount || 0;
-    }
-    const disc = discountAmount || 0;
-    const taxableBase = subtotal - disc;
-    const deduction = Math.min(Math.max(deductionAmount || 0, 0), Math.max(taxableBase, 0));
-    const vatRatio = taxableBase > 0 ? (taxableBase - deduction) / taxableBase : 0;
-    const vatAmount = rawVat * vatRatio;
-    const total = subtotal - disc - deduction + vatAmount;
-    const r = (n: number) => Math.round(n * 100) / 100;
-    return { subtotal: r(subtotal), discountAmount: r(disc), deductionAmount: r(deduction), vatAmount: r(vatAmount), total: r(total) };
+    const { subtotal, rawVat } = sumLineItems(items);
+    return computeDocumentTotals({ subtotal, rawVat, discountAmount, deductionAmount });
   }
 
   async findAll(query: QueryInvoiceDto) {
