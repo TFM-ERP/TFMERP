@@ -152,6 +152,7 @@ enum TransactionType {
 // â”€â”€ Core: Users â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 model User {
+  tenantId         String?
   id               String    @id @default(cuid())
   fullName         String
   email            String    @unique
@@ -208,6 +209,7 @@ model User {
   breakdownSharesTo   BreakdownShare[] @relation("BreakdownShareTo")
 
   @@map("users")
+  @@index([tenantId])
 }
 
 // â”€â”€ Active sessions â€” one row per signed-in device; revoking deletes the row â†’ that token 401s â”€â”€
@@ -872,6 +874,7 @@ enum IncidentStatus {
 }
 
 model Asset {
+  tenantId         String?
   id                String      @id @default(cuid())
   name              String
   assetType         AssetType
@@ -938,6 +941,7 @@ model Asset {
   transportVehicle TransportVehicle? // SYS-12 transport wrapper when this in-house asset is used on a production
 
   @@map("assets")
+  @@index([tenantId])
 }
 
 // â”€â”€ Rental: Drivers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1358,6 +1362,7 @@ enum SupplierContactRole {
 }
 
 model Supplier {
+  tenantId         String?
   id           String         @id @default(cuid())
   supplierCode String?        @unique  // Auto-generated: SUP-0001
   name         String
@@ -1402,6 +1407,7 @@ model Supplier {
   bankAccount     String?
   iban            String?
   swiftCode       String?
+  routingNumber   String?  // US ACH routing (for NACHA export); IBAN/account used for non-US
   bankBranch      String?
   bankAddress     String?
 
@@ -1427,6 +1433,7 @@ model Supplier {
   transportDrivers        TransportDriver[]  @relation("TransportDriverSupplier")
 
   @@map("suppliers")
+  @@index([tenantId])
 }
 
 model SupplierContact {
@@ -1522,10 +1529,13 @@ enum ProductionCrewRole {
 // â”€â”€ Production: Projects â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 model ProductionProject {
+  tenantId         String?
   id            String           @id @default(cuid())
   projectNumber String           @unique // PRD-2024-0001
   title         String
   clientId      String?
+  agencyName    String?  // TVC — creative agency (client-vendor)
+  brandName     String?  // TVC — brand / advertiser
   client        Client?          @relation(fields: [clientId], references: [id])
   projectType   String           @default("TVC") // TVC | CORPORATE | DOCUMENTARY | FEATURE | SHORT | MUSIC_VIDEO | OTHER
   status        ProductionStatus @default(DEVELOPMENT)
@@ -1550,6 +1560,14 @@ model ProductionProject {
 
   description String?
   notes       String?
+
+  // ScripON — fields filled when a developed build is promoted from the Library (snapshot transfer)
+  logline          String?  @db.Text
+  genre            String?
+  creativeBrief    Json?    // snapshot of the build's creative brief at promote time
+  coverage         Json?    // snapshot of the coverage read at promote time
+  sourceBuildId    String?  // provenance back-link to the DevelopmentBuild this was promoted from
+  scriponWorkspace Boolean  @default(false) // hidden ScripON Library home; excluded from production project lists
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1607,6 +1625,8 @@ model ProductionProject {
 
   @@index([productionCountryId])
   @@map("production_projects")
+  scheduleConfig Json? // work-week + holidays {weekendDays:number[],holidays:string[]}
+  @@index([tenantId])
 }
 
 // â”€â”€ Production Globals staging â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1884,6 +1904,7 @@ model Location {
 
   @@index([projectId])
   @@index([masterLocationId])
+  strips      ProductionStrip[] @relation("StripLocation")
   @@map("locations")
 }
 
@@ -2630,6 +2651,7 @@ model Timecard {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  payrollRunId String? // batched production payroll run
   @@index([projectId])
   @@map("timecards")
 }
@@ -2682,6 +2704,7 @@ model ProductionStrip {
   setName     String?
   location    String?
   locationId  String? // link to a Location record (per-diem + grouping)
+  locationRef Location? @relation("StripLocation", fields: [locationId], references: [id], onDelete: SetNull)
   description String?
   pages       Decimal       @db.Decimal(6, 3) @default(0) // 1.125 = 1 â…› pages
   cast        Json? // array of cast names
@@ -2695,8 +2718,30 @@ model ProductionStrip {
 
   elements BreakdownElement[]
 
+  isLocked   Boolean @default(false)
+  isBanner   Boolean @default(false) // banner / day-break row
+  bannerText String?
   @@index([projectId])
   @@map("production_strips")
+}
+
+// -- Scheduling M6 -- Multi-board what-if scenarios. ADDITIVE & isolated: a scenario is a
+// JSON snapshot of the board (no scenarioId on ProductionStrip), so live board/DOOD/forecast
+// queries are completely untouched. "Apply" writes a scenario's day/order back to live strips
+// (auto-snapshotting live first as a BASELINE for rollback).
+model ScheduleScenario {
+  id        String   @id @default(cuid())
+  projectId String
+  name      String
+  notes     String?
+  kind      String   @default("SNAPSHOT") // SNAPSHOT | OPTIMIZED | BASELINE
+  strips    Json     // [{ stripId, sceneNumber, intExt, dayNight, setName, location, locationId, description, pages, cast, shootDay, sortOrder, isBanner, bannerText }]
+  metrics   Json?    // { shootDays, companyMoves, multiLocationDays, castHoldDays, dayNightSwitches, totalPages, totalScenes }
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+  @@map("schedule_scenarios")
 }
 
 // -- SYS-13 . D1 -- Digital Script & Document Hub: document/revision/scene spine --
@@ -2710,9 +2755,11 @@ model ScriptDocument {
   kind             String   @default("SCRIPT") // SCRIPT | SIDES | ONELINER | OTHER
   activeRevisionId String?  // the revision currently shown
   masterScriptId   String?  // SYS-13b P5 — optional link to a library MasterScript
+  buildVersionId   String?  // ScripON build version this script belongs to (null = legacy/unversioned)
   createdById      String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+  deletedAt        DateTime?
 
   revisions    ScriptRevision[]
   layers       AnnotationLayer[]
@@ -2726,6 +2773,7 @@ model ScriptDocument {
 // SYS-13b P5 — Standalone Script Library master (mirrors MasterLocation → Location).
 // A company-level script linkable into many projects; carries reusable palettes.
 model MasterScript {
+  tenantId         String?
   id           String   @id @default(cuid())
   code         String?  @unique // optional human ref e.g. SCR-0001
   title        String
@@ -2746,6 +2794,7 @@ model MasterScript {
   linkedDocs ScriptDocument[]
 
   @@map("master_scripts")
+  @@index([tenantId])
 }
 
 model MasterScriptRevision {
@@ -3104,6 +3153,14 @@ model ScriptRevision {
   // SYS-14 V3-B: AI Director — per-line delivery, { [sceneOrdinal]: { [segIdx]: { tag, take } } }
   lineDirections Json?
   uploadedById  String?
+  // P0 production-standard revision metadata (additive)
+  revisionColor String?        // WHITE|BLUE|PINK|YELLOW|GREEN|GOLDENROD|BUFF|SALMON|CHERRY|TAN
+  revisionRound Int            @default(0) // wheel cycle (1 = "Double …")
+  revisionDate  DateTime?
+  isLocked      Boolean        @default(false)
+  lockedAt      DateTime?
+  supersedesId  String?        // parent revision (for diffing)
+  changeSummary String?
   createdAt     DateTime       @default(now())
 
   scenes    ScriptScene[]
@@ -3166,9 +3223,19 @@ model ScriptScene {
   description       String?        // one-line scene synopsis
   storyDay          String?        // story-day label, e.g. "DAY 1"
   tagNote           String?        // free scene note
+  // P0 script-spine bridge (additive) — enough to generate a strip 1:1
+  setName           String?
+  locationId        String?
+  pages             Decimal?       @db.Decimal(6, 3)
+  estMinutes        Int?
+  breakdownStatus   String?        // NONE | AI | REVIEWED
+  brokenDownAt      DateTime?
+  revisionMark      Boolean        @default(false)
+  pageLabel         String?        // locked-page label e.g. "3A"
   createdAt         DateTime       @default(now())
 
   coverage ScriptCoverage[]
+  breakdownElements BreakdownElement[] @relation("SceneBreakdown")
 
   @@index([revisionId])
   @@map("script_scenes")
@@ -3321,6 +3388,7 @@ model Annotation {
   // Bridges / state
   associatedLineItemId String?       // D9 prop → draft BudgetLineItem
   conflict             Boolean       @default(false) // D7 offline collision flag
+  resolved             Boolean       @default(false) // note marked resolved (gated in-project)
 
   createdById String?
   createdAt   DateTime @default(now())
@@ -3359,8 +3427,8 @@ model BreakdownElement {
   id        String            @id @default(cuid())
   projectId String
   project   ProductionProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  stripId   String
-  strip     ProductionStrip   @relation(fields: [stripId], references: [id], onDelete: Cascade)
+  stripId   String?  // P1: optional — scene-owned elements may have no strip until projected
+  strip     ProductionStrip?  @relation(fields: [stripId], references: [id], onDelete: Cascade)
 
   category        BreakdownCategory
   name            String
@@ -3369,6 +3437,11 @@ model BreakdownElement {
   costCenterTitle String?
   estCost         Decimal @db.Decimal(15, 2) @default(0)
   notes           String?
+  // P0 script-spine bridge (additive) — element can attach to the master ScriptScene
+  sceneId         String?
+  scene           ScriptScene? @relation("SceneBreakdown", fields: [sceneId], references: [id], onDelete: SetNull)
+  source          String? @default("AI") // AI | MANUAL — preserved across re-sync
+  revisionId      String?
 
   createdAt DateTime @default(now())
 
@@ -3378,6 +3451,112 @@ model BreakdownElement {
   @@index([projectId])
   @@index([stripId])
   @@map("breakdown_elements")
+}
+
+// P0 — audit of every change-list applied from a script revision to downstream modules (reversible).
+model ScriptSyncLog {
+  id          String   @id @default(cuid())
+  projectId   String
+  revisionId  String?
+  action      String   @default("SYNC") // SYNC | RECONCILE | LOCK
+  diff        Json?    // the computed change-list that was applied
+  appliedById String?
+  appliedAt   DateTime @default(now())
+
+  @@index([projectId])
+  @@map("script_sync_logs")
+}
+
+// TVC P0 — the creative brief (the pre-script level). AI reads sourceText and fills the
+// structured fields; the on-brief compass (P1) measures script/deliverables against these.
+model CreativeBrief {
+  id           String   @id @default(cuid())
+  projectId    String
+  title        String?
+  sourceText   String?  // pasted/typed brief text (the AI input)
+  sourceDocUrl String?  // uploaded brief file
+  sourceFiles  Json?    // [{ name, url, ext }] — attached brief docs (PDF/Word/Pages)
+  status       String   @default("RAW") // RAW | STRUCTURED | REVIEWED
+  objective    String?
+  keyMessage   String?  // single-minded proposition
+  audience     String?
+  tone         String?
+  mandatories  Json?    // string[] — logo / legal supers / pack shot / tagline / claims
+  durations    Json?    // number[] seconds (60/30/15/6)
+  aspectRatios Json?    // string[] (16:9 / 9:16 / 1:1)
+  channels     Json?    // string[]
+  budgetTier   String?
+  references   Json?    // string[]
+  treatmentDraft String? // P1 — AI-scaffolded director's treatment
+  scriptDraft    String? // P1 — AI-scaffolded TVC script beats
+  extracted    Json?    // raw AI output (audit)
+  createdById  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([projectId])
+  @@map("creative_briefs")
+}
+
+// TVC P2 — a finished deliverable (a spot at a length × aspect ratio) with its post pipeline.
+// One shoot → many deliverables (cutdowns × ratios). The TVC 'side panel' spine.
+model Deliverable {
+  id             String   @id @default(cuid())
+  projectId      String
+  name           String
+  durationSec    Int?     // 60 / 30 / 15 / 6
+  aspectRatio    String?  // 16:9 / 9:16 / 1:1
+  parentId       String?  // cutdown-of a master deliverable
+  pipelineStatus String   @default("PLANNED") // PLANNED|OFFLINE|ONLINE|GRADE|MIX|DELIVERED
+  dueDate        DateTime?
+  spec           Json?    // codec/bitrate/captions per platform
+  channel        String?
+  sortOrder      Int      @default(0)
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([projectId])
+  @@map("deliverables")
+}
+
+// TVC P3 — usage / buyout / licence with the holding-fee clock (SAG-AFTRA: every 13 weeks).
+model UsageRight {
+  id            String   @id @default(cuid())
+  projectId     String
+  kind          String   @default("TALENT") // TALENT | MUSIC | STOCK | OTHER
+  title         String   // talent name / track / asset
+  deliverableId String?
+  territory     String?
+  media         String?  // TV / Digital / OOH / All
+  windowStart   DateTime?
+  windowEnd     DateTime?
+  exclusivity   Boolean  @default(false)
+  fee           Decimal? @db.Decimal(14, 2)
+  sessionFee    Decimal? @db.Decimal(14, 2)
+  holdingFeeEveryWeeks Int?
+  holdingFeeAmount     Decimal? @db.Decimal(14, 2)
+  nextHoldingFeeAt     DateTime?
+  status        String   @default("ACTIVE") // ACTIVE | EXPIRED | RELEASED
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  @@index([projectId])
+  @@map("usage_rights")
+}
+
+// TVC P3 — Pre-Production Meeting sign-off gate (agency + client approve before the shoot).
+model PpmChecklist {
+  id             String   @id @default(cuid())
+  projectId      String   @unique
+  items          Json?    // [{ key, label, done, note }]
+  agencyApproved Boolean  @default(false)
+  clientApproved Boolean  @default(false)
+  approvedAt     DateTime?
+  status         String   @default("DRAFT") // DRAFT | APPROVED
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  @@map("ppm_checklists")
 }
 
 // â”€â”€ Per-Project Accounting Ledger (standalone production books) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -3428,6 +3607,7 @@ model ProjectTransaction {
   paidAmount    Decimal?  @db.Decimal(15, 2)
   paidById      String? // who released the payment (segregation-of-duties audit)
   approvedById  String? // who/which workflow approved it as an actual (audit)
+  journalEntryId String? // GL bridge — posted JournalEntry once mirrored to the double-entry ledger
 
   // â”€â”€ E-invoicing: KSA ZATCA Phase 2 (Fatoora) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // Populated by the clearance/reporting middleware response â€” never hand-entered.
@@ -3480,6 +3660,232 @@ model AccountingPeriod {
 }
 
 // â”€â”€ Production Cost Management (Vendors, POs, Cost Report) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+enum PayrollRunStatus {
+  DRAFT
+  POSTED
+}
+
+model ProductionPayrollRun {
+  id            String   @id @default(cuid())
+  projectId     String
+  label         String?
+  weekEnding    DateTime?
+  status        PayrollRunStatus @default(DRAFT)
+  grossTotal    Decimal  @default(0) @db.Decimal(15, 2)
+  fringeTotal   Decimal  @default(0) @db.Decimal(15, 2)
+  total         Decimal  @default(0) @db.Decimal(15, 2)
+  timecardCount Int      @default(0)
+  postedAt      DateTime?
+  createdById   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  @@index([projectId])
+  @@map("production_payroll_runs")
+}
+
+enum BankReconStatus {
+  OPEN
+  RECONCILED
+}
+
+model ProjectBankRecon {
+  id               String   @id @default(cuid())
+  projectId        String
+  label            String?
+  statementDate    DateTime?
+  statementBalance Decimal  @default(0) @db.Decimal(15, 2)
+  openingBalance   Decimal  @default(0) @db.Decimal(15, 2)
+  clearedTxnIds    Json?
+  status           BankReconStatus @default(OPEN)
+  notes            String?
+  createdById      String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  @@index([projectId])
+  @@map("project_bank_recons")
+}
+
+
+enum DprStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+}
+
+model DailyProductionReport {
+  id              String   @id @default(cuid())
+  projectId       String
+  callSheetId     String?
+  dayNumber       Int      @default(1)
+  reportDate      DateTime
+  unitName        String?
+  status          DprStatus @default(DRAFT)
+  crewCall        String?
+  firstShot       String?
+  lunchOut        String?
+  lunchIn         String?
+  lastShot        String?
+  unitWrap        String?
+  scenesScheduled Decimal? @db.Decimal(8, 2)
+  scenesShot      Decimal? @db.Decimal(8, 2)
+  pagesScheduled  Decimal? @db.Decimal(8, 2)
+  pagesShot       Decimal? @db.Decimal(8, 2)
+  setupsPlanned   Int?
+  setupsActual    Int?
+  scheduleDayVariance Decimal? @db.Decimal(6, 2)
+  weather         String?
+  locationName    String?
+  scenesCompleted Json?
+  castDays        Json?
+  incidents       Json?
+  hotCosts        Json?
+  otHours         Decimal? @db.Decimal(8, 2)
+  mealPenalties   Int?
+  estimatedDayCost Decimal? @db.Decimal(14, 2)
+  notes           String?
+  preparedBy      String?
+  createdById     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  @@index([projectId])
+  @@index([reportDate])
+  @@map("daily_production_reports")
+}
+
+
+enum CashAdvanceStatus {
+  OUTSTANDING
+  PARTIALLY_CLEARED
+  CLEARED
+  RETURNED
+}
+
+model CashAdvance {
+  id              String   @id @default(cuid())
+  projectId       String
+  holderName      String
+  holderId        String?
+  purpose         String?
+  amount          Decimal  @default(0) @db.Decimal(14, 2)
+  clearedAmount   Decimal  @default(0) @db.Decimal(14, 2)
+  returnedAmount  Decimal  @default(0) @db.Decimal(14, 2)
+  currency        String   @default("AED")
+  costCenterCode  String?
+  costCenterTitle String?
+  dateIssued      DateTime?
+  status          CashAdvanceStatus @default(OUTSTANDING)
+  notes           String?
+  createdById     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  @@index([projectId])
+  @@index([status])
+  @@map("cash_advances")
+}
+
+enum CardTxnStatus {
+  UNRECONCILED
+  CODED
+  POSTED
+  DISPUTED
+}
+
+model CardTransaction {
+  id              String   @id @default(cuid())
+  projectId       String
+  cardLast4       String?
+  cardholderName  String?
+  merchant        String?
+  description     String?
+  amount          Decimal  @default(0) @db.Decimal(14, 2)
+  currency        String   @default("AED")
+  txnDate         DateTime?
+  costCenterCode  String?
+  costCenterTitle String?
+  statementRef    String?
+  status          CardTxnStatus @default(UNRECONCILED)
+  postedTxnId     String?
+  notes           String?
+  createdById     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  @@index([projectId])
+  @@index([status])
+  @@map("card_transactions")
+}
+
+enum ExpenseClaimStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  REIMBURSED
+}
+
+model ExpenseClaim {
+  id              String   @id @default(cuid())
+  projectId       String
+  claimNumber     String   @unique
+  claimantName    String
+  claimantId      String?
+  description     String?
+  amount          Decimal  @default(0) @db.Decimal(14, 2)
+  currency        String   @default("AED")
+  costCenterCode  String?
+  costCenterTitle String?
+  dateSubmitted   DateTime?
+  status          ExpenseClaimStatus @default(DRAFT)
+  approvedById    String?
+  approvedAt      DateTime?
+  reimbursedTxnId String?
+  receiptUrl      String?
+  notes           String?
+  createdById     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  @@index([projectId])
+  @@index([status])
+  @@map("expense_claims")
+}
+
+
+enum PurchaseRequestStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  CONVERTED
+  CANCELLED
+}
+
+model PurchaseRequest {
+  id               String   @id @default(cuid())
+  projectId        String
+  prNumber         String   @unique
+  description      String?
+  costCenterCode   String?
+  costCenterTitle  String?
+  budgetLineItemId String?
+  vendorId         String?
+  vendorName       String?
+  amount           Decimal  @default(0) @db.Decimal(14, 2)
+  taxAmount        Decimal  @default(0) @db.Decimal(14, 2)
+  currency         String   @default("AED")
+  neededBy         DateTime?
+  status           PurchaseRequestStatus @default(DRAFT)
+  poId             String? // the PurchaseOrder it converted into
+  notes            String?
+  requestedById    String?
+  approvedById     String?
+  approvedAt       DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  @@index([projectId])
+  @@index([status])
+  @@map("purchase_requests")
+}
+
 
 enum PurchaseOrderStatus {
   DRAFT
@@ -3569,6 +3975,7 @@ model PurchaseOrder {
   vendorName      String?
   costCenterCode  String? // budget account code
   costCenterTitle String?
+  budgetLineItemId String? // line-level commitment (SmartPO) — binds the PO to a specific budget line
   description     String
   date            DateTime          @default(now())
   expectedDate    DateTime?
@@ -3832,6 +4239,7 @@ model CallSheet {
 
   notes       String?
   safetyNotes String?
+  extra       Json? // studio extras: versions, shuttles, transport, elements, catering, alt hospital, walkie
 
   createdById String?
   createdAt   DateTime @default(now())
@@ -4023,6 +4431,8 @@ model ApprovalRequest {
   status      ApprovalStatus @default(PENDING)
   currentStep Int            @default(0)
   createdById String?
+  projectId   String?
+  payload     Json?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -4030,6 +4440,7 @@ model ApprovalRequest {
   steps ApprovalStep[]
 
   @@index([entityType, entityId])
+  @@index([projectId])
   @@map("approval_requests")
 }
 
@@ -4643,6 +5054,7 @@ enum ContactType {
 }
 
 model Contact {
+  tenantId         String?
   id          String      @id @default(cuid())
   name        String
   contactType ContactType @default(OTHER)
@@ -4676,6 +5088,7 @@ model Contact {
   updatedAt DateTime @updatedAt
 
   @@map("contacts")
+  @@index([tenantId])
 }
 
 // â”€â”€ Company Settings (singleton) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -7225,8 +7638,26 @@ enum TransportStatus {
   REQUESTED
   ASSIGNED
   EN_ROUTE
+  PASSENGER_ONBOARD
   COMPLETED
   CANCELLED
+}
+
+// Visual fleet classification for the Captain's garage (SYS-12 Transport Captain).
+enum TransportFleetClass {
+  WORKING // honeywagons, generators, grip/camera trucks
+  PASSENGER // cast SUVs, crew shuttles, vans
+  PICTURE // on-screen picture cars (special insurance/handling)
+  OTHER
+}
+
+// Recce / location-scouted route overlays pushed to the Captain map + driver nav.
+enum RouteKind {
+  STANDARD
+  TRUCK_SAFE // avoids low bridges / weight limits
+  NOISE_RESTRICTED // avoids noise-curfew zones
+  SCENIC
+  AVOID // a corridor to avoid
 }
 
 // A vehicle available to a production â€” in-house (Asset) OR hired (Supplier).
@@ -7269,6 +7700,10 @@ model TransportVehicle {
   projectId String?
   project   ProductionProject? @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
+  // Captain garage: visual class + where a hired vehicle must be returned
+  fleetClass     TransportFleetClass @default(PASSENGER)
+  returnLocation String? // rental desk / depot for off-hire (drives return countdown)
+
   status   String  @default("AVAILABLE") // AVAILABLE | ASSIGNED | MAINTENANCE | OFF_HIRE
   notes    String?
   isActive Boolean @default(true)
@@ -7307,6 +7742,11 @@ model TransportDriver {
   notes         String?
   isActive      Boolean   @default(true)
 
+  // Hours-of-service / legal turnaround (SYS-12 Captain fatigue rules)
+  minRestHours Int       @default(10) // mandatory rest between wrap and next call
+  onDutySince  DateTime? // first call of the current duty day
+  lastWrapAt   DateTime? // last completed run / wrap — drives the lockout window
+
   orders        TransportOrder[]
   shuttleRoutes ShuttleRoute[]
   arrivals      TravelArrival[]
@@ -7340,6 +7780,25 @@ model TransportOrder {
   passengerNote String? // free-text count when passengers aren't identity-tracked
   notes         String?
 
+  // Run lifecycle timestamps — the one-tap driver flow feeds the Captain board
+  acknowledgedAt DateTime?
+  enRouteAt      DateTime?
+  arrivedAt      DateTime?
+  onboardAt      DateTime? // critical: protects the driver if the passenger was late
+  completedAt    DateTime?
+
+  // Geofence auto-arrive (pickup) and auto-complete (drop)
+  pickupLat Decimal? @db.Decimal(10, 7)
+  pickupLng Decimal? @db.Decimal(10, 7)
+  dropLat   Decimal? @db.Decimal(10, 7)
+  dropLng   Decimal? @db.Decimal(10, 7)
+
+  // Dispatch context
+  priority      String? // NORMAL | VIP | URGENT
+  callSheetId   String? // generated from this call sheet's cast/crew call
+  genSource     String? // e.g. "callsheet:cast:Lead Actor" (dedupe key)
+  chatChannelId String? // auto-created run thread (driver + VIP + coordinator)
+
   passengers TransportPassenger[]
 
   createdById String?
@@ -7361,6 +7820,26 @@ model TransportPassenger {
 
   @@unique([orderId, travelerId])
   @@map("transport_passengers")
+}
+
+// Recce route overlay — scouted by the Locations dept, drawn on the Captain map and
+// pushed to drivers' nav with its constraints (low bridges, noise curfews, etc.).
+// projectId is a plain scalar (no relation) to keep this migration self-contained.
+model RouteOverlay {
+  id          String    @id @default(cuid())
+  projectId   String
+  label       String
+  kind        RouteKind @default(STANDARD)
+  points      Json // ordered [[lat,lng], …] polyline
+  constraints String? // human note synced to drivers ("avoid bridge <4m; curfew 22:00–06:00")
+  color       String?
+  active      Boolean   @default(true)
+  createdById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([projectId])
+  @@map("route_overlays")
 }
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -7658,4 +8137,888 @@ model SelfTapeSubmission {
   @@index([packageId])
   @@index([submissionId])
   @@map("self_tape_submissions")
+}
+
+// ── SYS-09 · Comms backbone (chat · PTT · broadcast · audit vault) ────────────
+enum ChannelScope {
+  COMPANY
+  BUSINESS_UNIT
+  PROJECT
+  UNIT
+  TEAM
+  DEPARTMENT
+  JOB
+  TRIP
+  DM
+  BROADCAST
+  PTT
+}
+
+enum ChannelMemberRole {
+  OWNER
+  ADMIN
+  MEMBER
+  GUEST
+}
+
+enum MessageType {
+  TEXT
+  VOICE
+  PHOTO
+  VIDEO
+  FILE
+  LOCATION
+  ENTITY_CARD
+  SYSTEM
+}
+
+enum AttachmentKind {
+  IMAGE
+  VIDEO
+  AUDIO
+  FILE
+}
+
+enum PttSessionStatus {
+  LIVE
+  ENDED
+}
+
+model Channel {
+  id          String       @id @default(cuid())
+  scopeType   ChannelScope
+  scopeId     String?
+  title       String
+  isPTT       Boolean      @default(false)
+  isBroadcast Boolean      @default(false)
+  projectId   String?
+  createdById String?
+  archivedAt  DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  members     ChannelMember[]
+  messages    Message[]
+  pttSessions PttSession[]
+
+  @@index([scopeType, scopeId])
+  @@index([projectId])
+}
+
+model ChannelMember {
+  id                    String            @id @default(cuid())
+  channelId             String
+  channel               Channel           @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  userId                String
+  role                  ChannelMemberRole @default(MEMBER)
+  derivedFromAssignment Boolean           @default(false)
+  mutedUntil            DateTime?
+  lastReadAt            DateTime?
+  joinedAt              DateTime          @default(now())
+
+  @@unique([channelId, userId])
+  @@index([userId])
+}
+
+model Message {
+  id          String           @id @default(cuid())
+  channelId   String
+  channel     Channel          @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  authorId    String?
+  body        String?
+  type        MessageType      @default(TEXT)
+  replyToId   String?
+  lat         Decimal?         @db.Decimal(10, 7)
+  lng         Decimal?         @db.Decimal(10, 7)
+  contentHash String?
+  clientId    String?
+  editedAt    DateTime?
+  deletedAt   DateTime?
+  deletedById String?
+  createdAt   DateTime         @default(now())
+  versions    MessageVersion[]
+  attachments Attachment[]
+
+  @@unique([channelId, clientId])
+  @@index([channelId, createdAt])
+}
+
+model MessageVersion {
+  id        String   @id @default(cuid())
+  messageId String
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  version   Int
+  body      String?
+  editedAt  DateTime @default(now())
+
+  @@unique([messageId, version])
+}
+
+model Attachment {
+  id            String         @id @default(cuid())
+  messageId     String
+  message       Message        @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  kind          AttachmentKind
+  sharedPath    String?
+  sharedBytes   Int?
+  originalPath  String?
+  originalBytes Int?
+  transcript    String?
+  contentHash   String?
+  createdAt     DateTime       @default(now())
+}
+
+model PttSession {
+  id            String           @id @default(cuid())
+  channelId     String
+  channel       Channel          @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  status        PttSessionStatus @default(LIVE)
+  participants  String[]
+  recordingPath String?
+  startedAt     DateTime         @default(now())
+  endedAt       DateTime?
+
+  @@index([channelId])
+}
+
+model AuditAccessLog {
+  id         String   @id @default(cuid())
+  adminId    String
+  targetType String
+  targetId   String
+  action     String   @default("VIEW")
+  at         DateTime @default(now())
+
+  @@index([targetType, targetId])
+}
+
+// ── SYS-08 · Meetings & notes (net-new) ──────────────────────────────────────
+enum MeetingType {
+  PRE_PRODUCTION
+  PRODUCTION
+  DEPARTMENT
+  TONE
+  CONCEPT
+  SAFETY
+  TECH_RECCE
+  WRAP
+  OTHER
+}
+
+enum MeetingStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum AgendaItemKind {
+  INFO
+  ACTION
+  DISCUSSION
+}
+
+enum ActionItemStatus {
+  OPEN
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+model Meeting {
+  id             String        @id @default(cuid())
+  projectId      String?
+  title          String
+  type           MeetingType   @default(PRODUCTION)
+  status         MeetingStatus @default(SCHEDULED)
+  startsAt       DateTime
+  endsAt         DateTime?
+  room           String?
+  location       String?
+  recurrenceRule String?
+  parentId       String?
+  createdById    String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  attendees      MeetingAttendee[]
+  agenda         AgendaItem[]
+  minutes        MeetingMinute[]
+  actionItems    ActionItem[]
+
+  @@index([projectId, startsAt])
+}
+
+model MeetingAttendee {
+  id         String   @id @default(cuid())
+  meetingId  String
+  meeting    Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  userId     String?
+  name       String?
+  role       String?
+  department String?
+  required   Boolean  @default(true)
+  rsvp       String?
+  attended   Boolean  @default(false)
+
+  @@index([meetingId])
+}
+
+model AgendaItem {
+  id         String         @id @default(cuid())
+  meetingId  String
+  meeting    Meeting        @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  order      Int            @default(0)
+  title      String
+  kind       AgendaItemKind @default(DISCUSSION)
+  minutes    Int?
+  presenter  String?
+  entityType String?
+  entityId   String?
+  notes      String?
+
+  @@index([meetingId])
+}
+
+model MeetingMinute {
+  id        String   @id @default(cuid())
+  meetingId String
+  meeting   Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  body      String
+  decision  Boolean  @default(false)
+  authorId  String?
+  createdAt DateTime @default(now())
+
+  @@index([meetingId])
+}
+
+model ActionItem {
+  id        String           @id @default(cuid())
+  meetingId String?
+  meeting   Meeting?         @relation(fields: [meetingId], references: [id], onDelete: SetNull)
+  projectId String?
+  title     String
+  ownerId   String?
+  ownerName String?
+  dueAt     DateTime?
+  status    ActionItemStatus @default(OPEN)
+  taskId    String?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@index([meetingId])
+  @@index([projectId, status])
+}
+
+// ── SYS-06 · Transport GPS telemetry (live map · driver on-shift) ─────────────
+enum ShiftStatus {
+  ON_SHIFT
+  ON_BREAK
+  OFF_SHIFT
+}
+
+model DriverShift {
+  id         String      @id @default(cuid())
+  driverId   String
+  vehicleId  String?
+  projectId  String?
+  status     ShiftStatus @default(ON_SHIFT)
+  startedAt  DateTime    @default(now())
+  endedAt    DateTime?
+  lastLat    Decimal?    @db.Decimal(10, 7)
+  lastLng    Decimal?    @db.Decimal(10, 7)
+  lastPingAt DateTime?
+
+  @@index([driverId, status])
+  @@index([projectId])
+}
+
+model LocationPing {
+  id               String   @id @default(cuid())
+  driverId         String?
+  vehicleId        String?
+  transportOrderId String?
+  shiftId          String?
+  lat              Decimal  @db.Decimal(10, 7)
+  lng              Decimal  @db.Decimal(10, 7)
+  speedKph         Float?
+  headingDeg       Float?
+  accuracyM        Float?
+  recordedAt       DateTime
+  createdAt        DateTime @default(now())
+
+  @@index([driverId, recordedAt])
+  @@index([transportOrderId, recordedAt])
+  @@index([shiftId])
+}
+
+// ── SYS-06 · Geofenced basecamp pins + arrival check-in ──────────────────────
+enum GeofenceKind {
+  BASECAMP
+  CREW_PARKING
+  CATERING
+  UNIT_BASE
+  SET
+  OTHER
+}
+
+model GeofencePin {
+  id              String            @id @default(cuid())
+  projectId       String
+  kind            GeofenceKind      @default(BASECAMP)
+  label           String
+  lat             Decimal           @db.Decimal(10, 7)
+  lng             Decimal           @db.Decimal(10, 7)
+  radiusM         Int               @default(120)
+  active          Boolean           @default(true)
+  notifyChannelId String?
+  createdById     String?
+  createdAt       DateTime          @default(now())
+  checkins        GeofenceCheckin[]
+
+  @@index([projectId, active])
+}
+
+model GeofenceCheckin {
+  id        String      @id @default(cuid())
+  pinId     String
+  pin       GeofencePin @relation(fields: [pinId], references: [id], onDelete: Cascade)
+  driverId  String?
+  userId    String?
+  vehicleId String?
+  lat       Decimal?    @db.Decimal(10, 7)
+  lng       Decimal?    @db.Decimal(10, 7)
+  at        DateTime    @default(now())
+
+  @@index([pinId, at])
+}
+
+// ── SYS-UX · Phase 0 · Appearance & theme governance (additive, non-destructive) ──
+model UserPreference {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  themeId      String   @default("graphite")
+  mode         String   @default("dark")
+  readingMode  Boolean  @default(true)
+  highContrast Boolean  @default(false)
+  density      String   @default("comfortable")
+  locale       String   @default("en")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model OrgThemePolicy {
+  id              String   @id @default(cuid())
+  scope           String   @unique @default("global")
+  mode            String   @default("restricted")
+  allowedThemeIds String[] @default(["graphite", "studio", "ink"])
+  forcedThemeId   String?
+  defaultThemeId  String   @default("graphite")
+  updatedAt       DateTime @updatedAt
+}
+
+// ── SYS-UX · Phase 3 · Per-user notifications feed (additive; distinct from role-alert Notification type) ──
+model UserNotification {
+  id        String    @id @default(cuid())
+  userId    String
+  type      String                       // CALL_SHEET_PUBLISHED | CONTRACT_SIGNED | RUN_WRAPPED | WEATHER_HOLD | MENTION
+  title     String
+  body      String?
+  href      String?
+  projectId String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, readAt])
+}
+
+// ── SYS-UX · Phase 3 · Saved views (per-user table filters/sorts; additive) ──
+model SavedView {
+  id        String   @id @default(cuid())
+  userId    String
+  module    String                        // e.g. "finance/invoices", "casting/talent"
+  name      String
+  query     Json                           // filters + sort, opaque to the server
+  shared    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, module])
+}
+
+model MovementOrder {
+  id             String    @id @default(cuid())
+  projectId      String
+  locationId     String?
+  title          String?
+  date           DateTime?
+  kind           String    @default("TO_LOCATION") // TO_LOCATION (base->set) | MOVE (company move)
+  fromLabel      String?
+  fromLat        Float?
+  fromLng        Float?
+  toLabel        String?
+  toLat          Float?
+  toLng          Float?
+  distanceKm     Float?
+  driveMinutes   Int?
+  convoyVehicles Int?
+  parkingNotes   String?
+  facilitiesNotes String?
+  mapUrl         String?
+  contacts       Json?
+  notes          String?
+  status         String    @default("DRAFT") // DRAFT | PLANNED | ISSUED
+  createdById    String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([projectId])
+  @@index([date])
+  @@map("movement_orders")
+}
+
+// Unified AI governance/audit — one row per model call (see src/ai/ai.service.ts).
+model AiRun {
+  id           String   @id @default(cuid())
+  task         String
+  provider     String? // anthropic | deepseek | gemini | openrouter | local (which engine served this call)
+  model        String
+  status       String   @default("RUNNING")
+  projectId    String?
+  refType      String?
+  refId        String?
+  promptChars  Int?
+  outputChars  Int?
+  inputTokens  Int?
+  outputTokens Int?
+  latencyMs    Int?
+  confidence   Decimal? @db.Decimal(5, 2)
+  error        String?
+  createdAt    DateTime @default(now())
+
+  @@index([projectId])
+  @@index([task])
+  @@index([createdAt])
+}
+
+// ============================================================================
+// Unified Engine Switchboard — LLM provider registry + per-capability failover
+// routing (the text-side mirror of AudioEngine/AudioRoutingPolicy). Keys live in
+// .env; only the env-var *reference* is stored here. See src/ai/llm-routing.service.ts.
+// ============================================================================
+model LlmEngine {
+  id              String   @id @default(cuid())
+  key             String   @unique // ANTHROPIC | DEEPSEEK | GEMINI | OPENROUTER | LOCAL
+  provider        String   // anthropic | deepseek | gemini | openrouter | local (adapter selector)
+  displayName     String
+  tier            String   @default("PAID") // PAID | LIMITED_FREE | ULTIMATE_FREE
+  enabled         Boolean  @default(false)
+  credentialRef   String?  // env var name (e.g. DEEPSEEK_API_KEY); never the raw key
+  baseUrl         String?  // local / OpenAI-compatible server URL or override
+  defaultModel    String?
+  models          Json?    // curated catalog [{ id, label, hint }]
+  capabilities    Json?    // { llm: true }
+  priority        Int      @default(100) // lower = earlier in the default failover chain
+  monthlyTokenCap Int?     // PAID tier: user-set monthly cap that drives the usage bar (null = untracked)
+  freeTokenCap    Int?     // LIMITED_FREE tier: free allocation for the tracker
+  costModel       Json?
+  status          String   @default("ACTIVE")
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("llm_engines")
+}
+
+model LlmRoutingPolicy {
+  id                     String   @id @default(cuid())
+  scope                  String   @default("ORG") // ORG | PROJECT
+  projectId              String?
+  capability             String // LLM_DEFAULT | BREAKDOWN | DRAFTING | POLISH | LEGAL
+  defaultEngineId        String?
+  allowedEngineIds       Json? // string[]
+  fallbackChain          Json? // string[] of LlmEngine ids — the ordered failover order
+  projectOverrideAllowed Boolean @default(false)
+  userMayOverride        Boolean  @default(false)
+  updatedById            String?
+  updatedAt              DateTime @updatedAt
+
+  @@unique([scope, projectId, capability])
+  @@index([projectId])
+  @@map("llm_routing_policies")
+}
+
+// ScripON Doctor — development/reader coverage (distinct from the camera-coverage ScriptCoverage).
+model CoverageReport {
+  id             String   @id @default(cuid())
+  projectId      String
+  documentId     String?
+  revisionId     String?
+  title          String?
+  logline        String?
+  genre          String?
+  synopsis       String?
+  comments       Json?
+  comps          Json?
+  characters     Json?
+  grades         Json?
+  recommendation String?
+  writerRecommendation String?
+  scores               Json?
+  analyticsId          String?
+  facts          Json?
+  status         String   @default("DRAFT")
+  createdById    String?
+  createdAt      DateTime @default(now())
+
+  @@index([projectId])
+  @@index([revisionId])
+}
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  status    String   @default("ACTIVE")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model DevelopmentStage {
+  id               String   @id @default(cuid())
+  projectId        String
+  documentId       String?
+  kind             String   // LOGLINE|SYNOPSIS|TREATMENT|BEATS|SCENES|STEP_OUTLINE|DRAFT|COVERAGE
+  order            Int      @default(0)
+  currentVersionId String?
+  buildId          String?
+  buildVersionId   String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  versions         StageVersion[]
+  @@index([projectId])
+  @@index([buildVersionId])
+  @@map("development_stages")
+}
+
+model StageVersion {
+  id          String           @id @default(cuid())
+  stageId     String
+  stage       DevelopmentStage @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  n           Int              @default(1)
+  title       String?
+  body        String?          @db.Text
+  data        Json?
+  framework   String?
+  colorCode   String?
+  status      String           @default("DRAFT") // DRAFT|REVIEW|APPROVED|LOCKED
+  aiRunId     String?
+  createdById String?
+  createdAt   DateTime         @default(now())
+  @@index([stageId])
+  @@map("stage_versions")
+}
+
+model IntakeProfile {
+  id               String   @id @default(cuid())
+  projectId        String   @unique
+  mode             String   @default("ORIGINAL") // ORIGINAL|ADAPT|SEED
+  sourceText       String?  @db.Text
+  sourceUrl        String?
+  sourceFileUrl    String?
+  realBased        Boolean  @default(false)
+  realityLevel     String?  // FAITHFUL|INSPIRED|LOOSE
+  researchSubject  Boolean  @default(true)
+  researchAmount   Int      @default(50)
+  genres           Json?
+  tone             String?
+  fantasyOn        Boolean  @default(false)
+  fantasyType      String?
+  mythicalElements Json?
+  mythologyCulture String?
+  blendLevel       String?  // REALISTIC|BALANCED|MYTHIC
+  format           String?
+  language         String?
+  country          String?
+  rating           String?
+  length           String?
+  comps            Json?
+  spine            Json?
+  constraints      Json?
+  researchScope    Json?
+  researchDepth    Int      @default(50)
+  // intake v2 (additive)
+  blendLayers      Json?
+  treatment        String?
+  settingPlace     Json?
+  settingEra       String?
+  settingWorld     Json?
+  cultureEra       String?
+  sensitivityTier  String?
+  guardrails       Json?
+  projectIntent    String?
+  budgetTier       String?
+  sourceKind       String?
+  buildId          String?
+  // lore atlas + consolidated intake (additive)
+  sources          Json?
+  projectType      String?
+  episodes         Int?
+  minutesPerEp     Int?
+  seasons          Int?
+  loreSelections   Json?
+  loreDensity      String?
+  lorePolicy       Json?
+  researchNotes    String?  @db.Text
+  characterBible   Json?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  @@map("intake_profiles")
+}
+
+// The one researched element library powering the Lore Atlas. Living-religion sacred figures are never seeded.
+model LoreElement {
+  id         String   @id @default(cuid())
+  slug       String   @unique
+  name       String
+  culture    String
+  region     String?
+  genres     Json
+  archetypes Json
+  tier       String   // FOLKLORE | SACRED_AWARE | HISTORICAL_PANTHEON | CARE
+  blurb      String   @db.Text
+  origin     String?  @db.Text
+  variants   Json?
+  hooks      Json?
+  aliases    Json?
+  sources    Json?
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  @@index([culture])
+  @@map("lore_elements")
+}
+
+// Standalone development build — born unlinked; promoted into a project on maturity (snapshot, not sync).
+model DevelopmentBuild {
+  id                String    @id @default(cuid())
+  name              String
+  status            String    @default("DRAFT") // DRAFT|REVIEW|GREENLIT|PROMOTED
+  projectId         String?
+  linkedProjectId   String?
+  linkedScriptId    String?
+  promotedVersionId String?
+  promotedAt        DateTime?
+  activeVersionId   String?   // ScripON build-version currently selected (null = unversioned, single implicit run)
+  brief             Json?
+  characterBible    Json?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  deletedAt         DateTime?
+  @@index([projectId])
+  @@index([linkedProjectId])
+  @@index([deletedAt])
+  @@map("development_builds")
+}
+
+// A full re-run of a ScripON build — its own frozen brief snapshot, develop ladder and script. V1/V2/V3.
+model BuildVersion {
+  id            String   @id @default(cuid())
+  buildId       String
+  n             Int      @default(1)
+  label         String?
+  briefSnapshot Json?
+  status        String   @default("DRAFT") // DRAFT|REVIEW|GREENLIT|PROMOTED
+  createdAt     DateTime @default(now())
+  @@index([buildId])
+  @@map("build_versions")
+}
+
+// Native-editable dialect exemplar bank — vetted colloquial lines used as few-shot to lock dialect fidelity.
+model DialectExemplar {
+  id          String   @id @default(cuid())
+  variety     String   // e.g. ar-EG-cairene
+  msa         String?  @db.Text   // optional MSA / English source line
+  dialect     String   @db.Text   // the authentic dialect line
+  note        String?
+  approved    Boolean  @default(true)
+  createdById String?
+  createdAt   DateTime @default(now())
+  @@index([variety])
+  @@map("dialect_exemplars")
+}
+
+// Computed screenplay analytics per revision (network/dialogue/pacing/arc/charge/structure/representation).
+model ScriptAnalytics {
+  id             String   @id @default(cuid())
+  projectId      String
+  documentId     String?
+  revisionId     String?
+  network        Json?
+  dialogue       Json?
+  pacing         Json?
+  arc            Json?
+  charge         Json?
+  structure      Json?
+  representation Json?
+  computedAt     DateTime @default(now())
+  @@index([projectId])
+  @@index([revisionId])
+  @@map("script_analytics")
+}
+
+// Scene-anchored, resolvable coverage note (anchored to a durable scene id, not a text offset).
+model CoverageNote {
+  id          String   @id @default(cuid())
+  projectId   String
+  revisionId  String?
+  sceneId     String?
+  sceneNumber String?
+  category    String?
+  kind        String   @default("NOTE") // STRENGTH|CONCERN|NOTE
+  body        String   @db.Text
+  resolved    Boolean  @default(false)
+  createdById String?
+  createdAt   DateTime @default(now())
+  @@index([projectId])
+  @@index([sceneId])
+  @@map("coverage_notes")
+}
+
+// Character/role TYPE profile — NO performer names, NO photos (right-of-publicity-free by design).
+model RoleProfile {
+  id           String   @id @default(cuid())
+  projectId    String
+  revisionId   String?
+  role         String
+  importance   String?
+  ageRange     String?
+  gender       String?
+  physicality  String?
+  energy       String?
+  arc          String?
+  wardrobeNote String?
+  lookRefs     Json?
+  scenesPct    Int?
+  createdAt    DateTime @default(now())
+  @@index([projectId])
+  @@map("role_profiles")
+}
+
+// World/location/era look-board image with captured licence + provenance (no faces/performers).
+model LookboardImage {
+  id          String   @id @default(cuid())
+  projectId   String
+  kind        String   @default("LOCATION") // LOCATION|WORLD|ERA|PALETTE|MOOD
+  url         String
+  source      String?
+  license     String?
+  attribution String?
+  provenance  Json?
+  caption     String?
+  sceneId     String?
+  createdAt   DateTime @default(now())
+  @@index([projectId])
+  @@map("lookboard_images")
+}
+
+// Comparable title (budget-tier matched) for the market read.
+model Comp {
+  id         String   @id @default(cuid())
+  projectId  String
+  title      String
+  year       Int?
+  budgetTier String?
+  metrics    Json?
+  source     String?
+  rationale  String?
+  createdAt  DateTime @default(now())
+  @@index([projectId])
+  @@map("comps")
+}
+
+// Honest market read — ranges + confidence, never a per-film guarantee.
+model MarketRead {
+  id         String   @id @default(cuid())
+  projectId  String
+  revisionId String?
+  quadrant   Json?
+  ranges     Json?
+  confidence String?
+  notes      String?  @db.Text
+  createdAt  DateTime @default(now())
+  @@index([projectId])
+  @@map("market_reads")
+}
+
+// ─────────── ScripON Review Protection (recipient-watermarked, permission-locked PDF export/print) ───────────
+// Resolved protection config is stored as JSON (`config`) to mirror the brief's rich ReviewProtectionSettings
+// shape without 25 columns; profiles carry reusable presets; every protected export writes an audit record.
+model ReviewProtectionSettings {
+  id              String   @id @default(cuid())
+  projectId       String?  @unique          // null row = organisation default
+  enabled         Boolean  @default(false)
+  mode            String   @default("standard") // standard | enhanced
+  activeProfileId String?
+  config          Json?                      // watermark/notice/recipient/permission settings (overrides the active profile)
+  settingsVersion Int      @default(1)
+  updatedBy       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  @@map("review_protection_settings")
+}
+
+model ReviewProtectionProfile {
+  id              String   @id @default(cuid())
+  organizationId  String?
+  name            String
+  slug            String   @unique
+  description     String?
+  isSystemProfile Boolean  @default(false)
+  isDefault       Boolean  @default(false)
+  isActive        Boolean  @default(true)
+  config          Json                       // a full ReviewProtectionSettings preset
+  createdById     String?
+  updatedById     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  @@map("review_protection_profiles")
+}
+
+model NoticeTemplate {
+  id             String   @id @default(cuid())
+  organizationId String?
+  name           String
+  slug           String   @unique
+  body           String   @db.Text
+  isSystem       Boolean  @default(false)
+  isDefault      Boolean  @default(false)
+  createdById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  @@map("notice_templates")
+}
+
+model ProtectedExportRecord {
+  id               String    @id @default(cuid())
+  projectId        String?
+  scriptDocumentId String?
+  revisionId       String?
+  copyId           String    @unique          // recipient-specific traceable id stamped on every page
+  mode             String                     // standard | enhanced
+  profileId        String?
+  recipientName    String?
+  recipientEmail   String?
+  recipientNote    String?
+  channel          String?                    // download | print | preview
+  pageCount        Int?
+  checksum         String?
+  bytes            Int?
+  status           String    @default("CREATED") // CREATED | PRINTED | FAILED
+  failureReason    String?
+  settingsSnapshot Json?                      // exact protection config used (immutable record)
+  createdById      String?
+  createdAt        DateTime  @default(now())
+  printedAt        DateTime?
+  @@index([projectId])
+  @@index([scriptDocumentId])
+  @@index([copyId])
+  @@map("protected_export_records")
 }
