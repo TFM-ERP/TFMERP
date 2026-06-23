@@ -116,6 +116,7 @@ export interface ComputeInput {
   taxable?: number; // taxable wages (defaults to gross)
   workedDays?: number; // for FLAT_PER_DAY
   weeks?: number; // for FLAT_PER_WEEK & weekly caps
+  months?: number; // for monthly caps
   hours?: number; // for FLAT_PER_HOUR
   // For cap-aware percent: the per-period wage that the cap applies to.
   // Line-level estimate uses straightTime/weeks as the per-week wage.
@@ -183,6 +184,14 @@ export function computeRule(rule: RuleLike, input: ComputeInput): { amount: numb
         amount = cappedWeekly * v * weeks;
         isEstimate = true;
         note = 'Weekly cap applied at line level (estimate)';
+      } else if (rule.capPeriod === 'MONTHLY') {
+        // Apply monthly cap across the number of months (line-level estimate).
+        const months = input.months ?? 1;
+        const perMonthWage = input.perPeriodWage ?? (months > 0 ? base / months : base);
+        const cappedMonthly = Math.min(perMonthWage, cap);
+        amount = cappedMonthly * v * months;
+        isEstimate = true;
+        note = 'Monthly cap applied at line level (estimate)';
       } else if (rule.capPeriod === 'ANNUAL' || rule.capPeriod === 'PER_PRODUCTION') {
         const capped = Math.min(base, cap);
         amount = capped * v;
