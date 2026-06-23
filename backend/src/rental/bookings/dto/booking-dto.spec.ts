@@ -12,6 +12,8 @@ import { strict as assert } from 'node:assert';
 import { ValidationPipe, type ArgumentMetadata } from '@nestjs/common';
 import { CreateBookingDto } from './create-booking.dto';
 import { CheckConflictsDto } from './check-conflicts.dto';
+import { UpdateBookingDto } from './update-booking.dto';
+import { AddLocationDto, UpdateLocationDto } from './booking-location.dto';
 
 const pipe = new ValidationPipe({ whitelist: true, transform: true, forbidNonWhitelisted: true });
 const meta = (metatype: any): ArgumentMetadata => ({ type: 'body', metatype, data: undefined });
@@ -65,4 +67,26 @@ test('CheckConflictsDto accepts the frontend conflict-check payload and rejects 
   assert.deepEqual(out.assetIds, ['a1', 'a2']);
   await assert.rejects(() => pipe.transform({ startDate: '2026-06-24', endDate: '2026-06-30' }, meta(CheckConflictsDto)), 'missing assetIds');
   await assert.rejects(() => pipe.transform({ ...real, junk: 1 }, meta(CheckConflictsDto)), 'extra field');
+});
+
+test('UpdateBookingDto accepts a partial edit; rejects unknown fields and status (state machine only)', async () => {
+  const out = await pipe.transform({ notes: 'updated', discountAmount: 50 }, meta(UpdateBookingDto));
+  assert.equal(out.notes, 'updated');
+  assert.equal(out.discountAmount, 50);
+  await assert.rejects(() => pipe.transform({ bogus: 1 }, meta(UpdateBookingDto)), 'unknown field');
+  await assert.rejects(() => pipe.transform({ status: 'ACTIVE' }, meta(UpdateBookingDto)), 'status must use the status endpoint');
+});
+
+test('AddLocationDto accepts the real add-location payload (null dates/crewCount, optional pin)', async () => {
+  const real = { siteName: 'Base Camp', address: 'Dubai', locationUrl: '', fromDate: null, toDate: null, notes: '', crewCount: null, sequence: 0 };
+  const out = await pipe.transform(real, meta(AddLocationDto));
+  assert.equal(out.siteName, 'Base Camp');
+  const withPin = await pipe.transform({ ...real, lat: 25.1, lng: 55.2 }, meta(AddLocationDto));
+  assert.equal(withPin.lat, 25.1);
+  await assert.rejects(() => pipe.transform({ ...real, junk: 1 }, meta(AddLocationDto)), 'extra field');
+});
+
+test('UpdateLocationDto accepts the status-only patch from the UI', async () => {
+  const out = await pipe.transform({ status: 'ARRIVED' }, meta(UpdateLocationDto));
+  assert.equal(out.status, 'ARRIVED');
 });

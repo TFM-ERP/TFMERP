@@ -5,6 +5,8 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { BookingStatus } from '@prisma/client';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { CheckConflictsDto } from './dto/check-conflicts.dto';
+import { UpdateBookingDto } from './dto/update-booking.dto';
+import { AddLocationDto, UpdateLocationDto } from './dto/booking-location.dto';
 
 @ApiTags('Rental')
 @ApiBearerAuth()
@@ -50,10 +52,10 @@ export class BookingsController {
   listLocations(@Param('id') id: string) { return this.service.listLocations(id); }
 
   @Post(':id/locations')
-  addLocation(@Param('id') id: string, @Body() body: any) { return this.service.addLocation(id, body); }
+  addLocation(@Param('id') id: string, @Body() body: AddLocationDto) { return this.service.addLocation(id, body); }
 
   @Put('locations/:locId')
-  updateLocation(@Param('locId') locId: string, @Body() body: any) { return this.service.updateLocation(locId, body); }
+  updateLocation(@Param('locId') locId: string, @Body() body: UpdateLocationDto) { return this.service.updateLocation(locId, body); }
 
   @Delete('locations/:locId')
   removeLocation(@Param('locId') locId: string) { return this.service.removeLocation(locId); }
@@ -68,7 +70,7 @@ export class BookingsController {
   }
 
   @Put(':id')
-  update(@Param('id') id: string, @Body() body: any) {
+  update(@Param('id') id: string, @Body() body: UpdateBookingDto) {
     return this.service.update(id, body);
   }
 
