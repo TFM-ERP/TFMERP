@@ -255,57 +255,60 @@ export class QuotationsService {
     const dueDate = new Date();
     dueDate.setDate(dueDate.getDate() + (q.client.paymentTermDays || 30));
 
-    const invoice = await this.prisma.invoice.create({
-      data: {
-        invoiceNumber,
-        clientId: q.clientId,
-        bankAccountId: q.bankAccountId,
-        quotationId: q.id,
-        activity: q.activity,
-        invoiceType: 'TAX_INVOICE',
-        status: 'DRAFT',
-        issueDate: new Date(),
-        dueDate,
-        currency: q.currency,
-        subtotal: q.subtotal,
-        discountAmount: q.discountAmount,
-        deductionAmount: q.deductionAmount,
-        deductionReason: q.deductionReason,
-        deductionAppliedById: q.deductionAppliedById,
-        deductionAppliedAt: q.deductionAppliedAt,
-        vatAmount: q.vatAmount,
-        total: q.total,
-        amountPaid: 0,
-        amountDue: q.total,
-        vatDisplay: q.vatDisplay,
-        subject: q.subject,
-        notes: q.notes,
-        termsConditions: q.termsConditions,
-        createdById: userId,
-        items: {
-          create: q.items.map((item, i) => ({
-            sortOrder: i,
-            kind: (item as any).kind || 'ASSET',
-            serviceItemId: (item as any).serviceItemId || undefined,
-            description: item.description,
-            details: item.details,
-            quantity: item.quantity,
-            unit: item.unit,
-            days: (item as any).days || 1,
-            unitPrice: item.unitPrice,
-            discountPct: item.discountPct,
-            lineTotal: item.lineTotal,
-            taxRateId: item.taxRateId,
-            taxAmount: item.taxAmount,
-          })),
+    // Atomic: create the invoice (+ items) and mark the quotation converted together,
+    // so a failure can't leave an orphan invoice or a re-convertible quotation.
+    const [invoice] = await this.prisma.$transaction([
+      this.prisma.invoice.create({
+        data: {
+          invoiceNumber,
+          clientId: q.clientId,
+          bankAccountId: q.bankAccountId,
+          quotationId: q.id,
+          activity: q.activity,
+          invoiceType: 'TAX_INVOICE',
+          status: 'DRAFT',
+          issueDate: new Date(),
+          dueDate,
+          currency: q.currency,
+          subtotal: q.subtotal,
+          discountAmount: q.discountAmount,
+          deductionAmount: q.deductionAmount,
+          deductionReason: q.deductionReason,
+          deductionAppliedById: q.deductionAppliedById,
+          deductionAppliedAt: q.deductionAppliedAt,
+          vatAmount: q.vatAmount,
+          total: q.total,
+          amountPaid: 0,
+          amountDue: q.total,
+          vatDisplay: q.vatDisplay,
+          subject: q.subject,
+          notes: q.notes,
+          termsConditions: q.termsConditions,
+          createdById: userId,
+          items: {
+            create: q.items.map((item, i) => ({
+              sortOrder: i,
+              kind: (item as any).kind || 'ASSET',
+              serviceItemId: (item as any).serviceItemId || undefined,
+              description: item.description,
+              details: item.details,
+              quantity: item.quantity,
+              unit: item.unit,
+              days: (item as any).days || 1,
+              unitPrice: item.unitPrice,
+              discountPct: item.discountPct,
+              lineTotal: item.lineTotal,
+              taxRateId: item.taxRateId,
+              taxAmount: item.taxAmount,
+            })),
+          },
         },
-      },
-    });
-
-    await this.prisma.quotation.update({
-      where: { id },
-      data: { status: QuotationStatus.CONVERTED },
-    });
+      }),
+      this.prisma.quotation.update({
+        where: { id },
+        data: { status: QuotationStatus.CONVERTED },
+      }),
+    ]);
 
     return invoice;
   }

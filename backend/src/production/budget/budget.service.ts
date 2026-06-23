@@ -377,12 +377,16 @@ export class BudgetService {
   async setActiveVersion(versionId: string) {
     const version = await this.prisma.budgetVersion.findUnique({ where: { id: versionId } });
     if (!version) throw new NotFoundException();
-    // Deactivate all other versions of this project
-    await this.prisma.budgetVersion.updateMany({
-      where: { projectId: version.projectId },
-      data: { isActive: false },
-    });
-    return this.prisma.budgetVersion.update({ where: { id: versionId }, data: { isActive: true } });
+    // Atomic: deactivate every version of this project, then activate this one — so a
+    // mid-operation failure can't leave the project with no active budget version.
+    const [, updated] = await this.prisma.$transaction([
+      this.prisma.budgetVersion.updateMany({
+        where: { projectId: version.projectId },
+        data: { isActive: false },
+      }),
+      this.prisma.budgetVersion.update({ where: { id: versionId }, data: { isActive: true } }),
+    ]);
+    return updated;
   }
 
   async lockVersion(versionId: string, userId?: string) {
