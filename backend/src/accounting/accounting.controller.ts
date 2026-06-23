@@ -4,6 +4,8 @@ import { AccountingService } from './accounting.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../permissions/permissions.guard';
 import { RequirePermission } from '../permissions/require-permission.decorator';
+import { CreateJournalDto } from './dto/create-journal.dto';
+import { UpdateJournalDto } from './dto/update-journal.dto';
 
 @ApiTags('Accounting')
 @ApiBearerAuth()
@@ -71,10 +73,10 @@ export class AccountingController {
   getJournal(@Param('id') id: string) { return this.service.getJournal(id); }
 
   @Post('journals')
-  createJournal(@Body() body: any, @Req() req: any) { return this.service.createJournal(body, req.user?.id); }
+  createJournal(@Body() body: CreateJournalDto, @Req() req: any) { return this.service.createJournal(body, req.user?.id); }
 
   @Put('journals/:id')
-  updateJournal(@Param('id') id: string, @Body() body: any) { return this.service.updateJournal(id, body); }
+  updateJournal(@Param('id') id: string, @Body() body: UpdateJournalDto) { return this.service.updateJournal(id, body); }
 
   @Patch('journals/:id/post')
   postJournal(@Param('id') id: string) { return this.service.postJournal(id); }
