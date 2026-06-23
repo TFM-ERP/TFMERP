@@ -1,8 +1,9 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { CalendarAnchoringService } from './calendar-anchoring.service';
+import { buildDoodMatrix } from './dood-calculation.util';
 
-const ON_SET_CODES = new Set(['SW', 'W', 'WF', 'SWF']); // H and D never make the call sheet
+const ON_SET_CODES = new Set(['SW', 'W', 'WF', 'SWF', 'PU']); // H and D never make the call sheet; PU works
 
 /**
  * DoodCalculationService — dynamic Day-Out-of-Days for EVERY breakdown category.
@@ -19,6 +20,7 @@ const ON_SET_CODES = new Set(['SW', 'W', 'WF', 'SWF']); // H and D never make th
  *   SWF = starts and finishes the same day
  *   H   = Hold (idle day between SW and WF, gap shorter than the drop threshold)
  *   D   = Drop (idle stretch ≥ dropAfter days — production stops paying/holding)
+ *   PU  = Pick-up (a work day resuming after a Drop stretch — the actor is recalled)
  */
 @Injectable()
 export class DoodCalculationService {
@@ -30,7 +32,6 @@ export class DoodCalculationService {
    * @param opts.dropAfter  idle days from which a gap counts as Drop instead of Hold (default 4)
    */
   async generateDoodMatrix(projectId: string, category: string, opts: { dropAfter?: number } = {}) {
-    const dropAfter = Math.max(2, Number(opts.dropAfter) || 4);
     const cat = String(category || '').toUpperCase();
 
     const project = await this.prisma.productionProject.findUnique({ where: { id: projectId }, select: { id: true, title: true } });
@@ -42,7 +43,6 @@ export class DoodCalculationService {
       orderBy: { shootDay: 'asc' },
       select: { id: true, shootDay: true, sceneNumber: true, cast: true },
     });
-    const days = [...new Set(strips.map((s) => s.shootDay))].sort((a, b) => a - b);
 
     // calendar dates for the day header, when the production schedule has them
     const schedule = await this.prisma.productionSchedule.findMany({
@@ -50,86 +50,14 @@ export class DoodCalculationService {
     });
     const dateByDay = new Map(schedule.map((d) => [d.dayNumber, d.date]));
 
-    // element name → set of working days (merged across strips by normalised name)
-    const stripDay = new Map(strips.map((s) => [s.id, s.shootDay]));
-    const rowsByKey = new Map<string, { name: string; quantity: number; days: Set<number>; elementIds: string[] }>();
-    const addAppearance = (name: string, day: number | undefined, quantity = 1, elementId?: string) => {
-      const label = (name || '').trim();
-      if (!label || !day) return;
-      const key = label.toLowerCase();
-      const row = rowsByKey.get(key) || { name: label, quantity: 0, days: new Set<number>(), elementIds: [] };
-      row.days.add(day);
-      row.quantity = Math.max(row.quantity, quantity);
-      if (elementId) row.elementIds.push(elementId);
-      rowsByKey.set(key, row);
-    };
-
     const elements = await this.prisma.breakdownElement.findMany({
       where: { projectId, category: cat as any, stripId: { in: strips.map((s) => s.id) } },
       select: { id: true, name: true, quantity: true, stripId: true },
     });
-    for (const el of elements) addAppearance(el.name, stripDay.get(el.stripId), el.quantity, el.id);
 
-    // CAST: strips also carry a legacy cast[] JSON list — merge it so older
-    // projects without CAST breakdown elements still get a full cast DOOD.
-    if (cat === 'CAST') {
-      for (const s of strips) {
-        const cast: string[] = Array.isArray(s.cast) ? (s.cast as any) : [];
-        for (const name of cast) addAppearance(name, s.shootDay);
-      }
-    }
-
-    // ── the algorithmic timeline per row ─────────────────────────────────────────
-    const rows = [...rowsByKey.values()].map((r) => {
-      const work = [...r.days].sort((a, b) => a - b);
-      const start = work[0];
-      const finish = work[work.length - 1];
-      const cells: Record<number, string> = {};
-      let holdDays = 0, dropDays = 0;
-
-      // pre-compute gap lengths between consecutive work days (in scheduled-day steps)
-      for (const d of days) {
-        if (d < start || d > finish) { cells[d] = ''; continue; }
-        if (r.days.has(d)) {
-          if (d === start && d === finish) cells[d] = 'SWF';
-          else if (d === start) cells[d] = 'SW';
-          else if (d === finish) cells[d] = 'WF';
-          else cells[d] = 'W';
-          continue;
-        }
-        // idle day inside the engagement: Hold or Drop depending on the gap length
-        const prevWork = work.filter((w) => w < d).pop()!;
-        const nextWork = work.find((w) => w > d)!;
-        const gapLen = days.filter((x) => x > prevWork && x < nextWork).length;
-        if (gapLen >= dropAfter) { cells[d] = 'D'; dropDays++; }
-        else { cells[d] = 'H'; holdDays++; }
-      }
-
-      return {
-        name: r.name,
-        quantity: r.quantity,
-        elementIds: r.elementIds,
-        start, finish,
-        cells,
-        totalWorkDays: work.length,
-        totalHoldDays: holdDays,
-        totalDropDays: dropDays,
-      };
-    }).sort((a, b) => a.start - b.start || a.name.localeCompare(b.name));
-
-    return {
-      projectId,
-      category: cat,
-      dropAfter,
-      days: days.map((d) => ({ day: d, date: dateByDay.get(d) || null })),
-      rows,
-      totals: {
-        elements: rows.length,
-        workDays: rows.reduce((t, r) => t + r.totalWorkDays, 0),
-        holdDays: rows.reduce((t, r) => t + r.totalHoldDays, 0),
-        shootDays: days.length,
-      },
-    };
+    // the timeline math is pure → dood-calculation.util.ts
+    const matrix = buildDoodMatrix({ category, strips, elements, dropAfter: opts.dropAfter, dateByDay });
+    return { projectId, ...matrix };
   }
 
   /** All categories that actually have elements on scheduled strips for this project. */
@@ -177,7 +105,7 @@ export class DoodCalculationService {
   async generateCallSheet(projectId: string, dateStr: string, opts: { dropAfter?: number } = {}) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr || '')) throw new BadRequestException('Pass date=YYYY-MM-DD.');
     const shootDay = await this.calendar.shootDayForDate(projectId, dateStr);
-    if (!shootDay) throw new BadRequestException('Date is before the anchored shoot start — no shoot day maps to it.');
+    if (!shootDay) throw new BadRequestException('No shoot day maps to that date — it is before the shoot start, a day off, or after the shoot wraps.');
 
     // scenes scheduled on that day
     const strips = await this.prisma.productionStrip.findMany({
