@@ -6,6 +6,9 @@ import { PermissionsGuard } from '../permissions/permissions.guard';
 import { RequirePermission } from '../permissions/require-permission.decorator';
 import { CreateJournalDto } from './dto/create-journal.dto';
 import { UpdateJournalDto } from './dto/update-journal.dto';
+import { CreateAccountDto } from './dto/create-account.dto';
+import { CreateBankAccountDto } from './dto/create-bank-account.dto';
+import { CompleteReconciliationDto } from './dto/complete-reconciliation.dto';
 
 @ApiTags('Accounting')
 @ApiBearerAuth()
@@ -20,7 +23,7 @@ export class AccountingController {
   listAccounts(@Query() q: any) { return this.service.listAccounts(q); }
 
   @Post('accounts')
-  createAccount(@Body() body: any) { return this.service.createAccount(body); }
+  createAccount(@Body() body: CreateAccountDto) { return this.service.createAccount(body); }
 
   @Post('accounts/seed')
   @ApiOperation({ summary: 'Seed the standard chart of accounts (only when empty)' })
@@ -52,7 +55,7 @@ export class AccountingController {
   bankAccounts() { return this.service.listBankAccounts(); }
 
   @Post('bank-accounts')
-  createBankAccount(@Body() body: any) { return this.service.createBankAccount(body); }
+  createBankAccount(@Body() body: CreateBankAccountDto) { return this.service.createBankAccount(body); }
 
   @Get('bank-accounts/:id/reconcile')
   reconcileWorkspace(@Param('id') id: string) { return this.service.reconciliationWorkspace(id); }
@@ -63,7 +66,7 @@ export class AccountingController {
   }
 
   @Post('reconciliations')
-  complete(@Body() body: any) { return this.service.completeReconciliation(body); }
+  complete(@Body() body: CompleteReconciliationDto) { return this.service.completeReconciliation(body); }
 
   // Journal entries
   @Get('journals')
