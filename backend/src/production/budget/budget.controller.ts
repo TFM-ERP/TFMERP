@@ -8,7 +8,9 @@ import { RequirePermission } from '../../permissions/require-permission.decorato
 @ApiTags('Production')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, PermissionsGuard)
-@RequirePermission('production', 1)
+// Budgets (cost structure/markup) require 'edit' — blocks view-only roles (CREW,
+// TALENT_REP at production:1) from reading budgets or creating/locking versions.
+@RequirePermission('production', 2)
 @Controller('production/budget')
 export class BudgetController {
   constructor(private service: BudgetService) {}

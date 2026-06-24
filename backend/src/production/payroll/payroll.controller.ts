@@ -13,8 +13,10 @@ import { RequirePermission } from '../../permissions/require-permission.decorato
 export class PayrollController {
   constructor(private service: PayrollService) {}
 
-  @Get(':projectId') list(@Param('projectId') projectId: string) { return this.service.list(projectId); }
-  @Post(':projectId/preview') preview(@Param('projectId') projectId: string, @Body() b: any) { return this.service.preview(projectId, b); }
+  // Payroll = salary/HR data → require finance permission, not just production:1
+  // (which CREW and TALENT_REP have). Overrides the class-level production:1.
+  @Get(':projectId') @RequirePermission('finance', 1) list(@Param('projectId') projectId: string) { return this.service.list(projectId); }
+  @Post(':projectId/preview') @RequirePermission('finance', 1) preview(@Param('projectId') projectId: string, @Body() b: any) { return this.service.preview(projectId, b); }
   @Post(':projectId') @RequirePermission('production', 2) create(@Param('projectId') projectId: string, @Body() b: any) { return this.service.create(projectId, b); }
   @Put('card/:id') @RequirePermission('production', 2) update(@Param('id') id: string, @Body() b: any) { return this.service.update(id, b); }
   @Delete('card/:id') @RequirePermission('production', 2) remove(@Param('id') id: string) { return this.service.remove(id); }
