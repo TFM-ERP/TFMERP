@@ -9074,6 +9074,7 @@ model CanonFact {
 
   @@index([scriptId, subject, predicate])
   @@index([scriptId, validFrom])
+  @@map("canon_facts")
 }
 
 model SceneRelation {
@@ -9087,6 +9088,7 @@ model SceneRelation {
 
   @@index([scriptId, fromSceneId])
   @@index([scriptId, toSceneId])
+  @@map("scene_relations")
 }
 
 // ─── ScripON Script OS · Version & Decision store (P0) ────────────────────────
@@ -9103,6 +9105,7 @@ model DecisionRecord {
   createdAt    DateTime @default(now())
 
   @@index([scriptId, createdAt])
+  @@map("decision_records")
 }
 
 model RevisionPass {
@@ -9117,6 +9120,7 @@ model RevisionPass {
   changes           SceneChange[]
 
   @@index([scriptId, status])
+  @@map("revision_passes")
 }
 
 model SceneChange {
@@ -9134,4 +9138,5 @@ model SceneChange {
   createdAt       DateTime     @default(now())
 
   @@index([passId])
+  @@map("scene_changes")
 }
