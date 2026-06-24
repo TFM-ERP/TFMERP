@@ -159,13 +159,4 @@ export class UsersService {
       select: this.userSelect,
     });
   }
-
-  async resetPassword(id: string, newPassword: string) {
-    await this.findOne(id);
-    if (!newPassword || newPassword.length < 8) {
-      throw new BadRequestException('Password must be at least 8 characters.');
-    }
-    const passwordHash = await bcrypt.hash(newPassword, 13);
-    return this.prisma.user.update({ where: { id }, data: { passwordHash } });
-  }
 }

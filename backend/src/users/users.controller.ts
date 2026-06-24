@@ -31,13 +31,9 @@ export class UsersController {
   @ApiOperation({ summary: 'Create a user account linked to an existing employee' })
   create(@Body() body: any) { return this.service.create(body); }
 
+  // Password reset is handled by update() (PUT :id accepts `password`), which the Edit User
+  // modal uses — the dedicated reset-password endpoint was a redundant duplicate, removed.
   @Put(':id')
   @RequirePermission('setup', 3)
   update(@Param('id') id: string, @Body() body: any) { return this.service.update(id, body); }
-
-  @Post(':id/reset-password')
-  @RequirePermission('setup', 3)
-  resetPassword(@Param('id') id: string, @Body('password') password: string) {
-    return this.service.resetPassword(id, password);
-  }
 }
