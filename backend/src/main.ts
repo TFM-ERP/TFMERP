@@ -3,6 +3,7 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { join } from 'path';
 import { mkdirSync } from 'fs';
 
@@ -13,6 +14,10 @@ async function bootstrap() {
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
+  // Allow large JSON bodies — the server-side PDF render receives a full script's print HTML.
+  app.useBodyParser('json', { limit: '15mb' });
+  app.useBodyParser('urlencoded', { limit: '15mb', extended: true });
+
   // Global validation pipe
   app.useGlobalPipes(
     new ValidationPipe({
@@ -21,6 +26,10 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
     }),
   );
+
+  // Consistent error responses across every module: standard shape, Prisma errors
+  // mapped to proper HTTP codes, unexpected 500s logged without leaking internals.
+  app.useGlobalFilters(new AllExceptionsFilter());
 
   // CORS
   app.enableCors({
@@ -36,8 +45,8 @@ async function bootstrap() {
 
   // Swagger docs
   const config = new DocumentBuilder()
-    .setTitle('TFM ERP API')
-    .setDescription('The Film Makers FZ LLC — ERP System API')
+    .setTitle('FilmOS API')
+    .setDescription('FilmOS — production platform · The Film Makers FZ LLC')
     .setVersion('1.0')
     .addBearerAuth()
     .addTag('Auth', 'Authentication endpoints')
