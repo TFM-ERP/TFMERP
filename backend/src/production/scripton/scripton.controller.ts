@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Body, Param, Query, Req, Res, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { ScripOnService } from './scripton.service';
+import { CanonService } from './canon/canon.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../permissions/permissions.guard';
 import { RequirePermission } from '../../permissions/require-permission.decorator';
@@ -11,7 +12,7 @@ import { RequirePermission } from '../../permissions/require-permission.decorato
 @RequirePermission('production', 1)
 @Controller('production/scripton')
 export class ScripOnController {
-  constructor(private service: ScripOnService) {}
+  constructor(private service: ScripOnService, private canon: CanonService) {}
   @Post('render-pdf') @RequirePermission('production', 1)
   async renderPdf(@Body() body: any, @Res() res: any) {
     try {
@@ -98,4 +99,8 @@ export class ScripOnController {
   @Post('note/:id/delete') @RequirePermission('production', 2) noteDelete(@Param('id') id: string) { return this.service.deleteNote(id); }
   @Post('notes-stale/:projectId') @RequirePermission('production', 2) notesStale(@Param('projectId') projectId: string, @Body() body: any) { return this.service.notesStale({ projectId, ...(body || {}) }); }
   @Get('lookbook/:projectId') lookbookGet(@Param('projectId') projectId: string) { return this.service.lookbook({ projectId }); }
+  @Post('revision-pass/:passId/render') @RequirePermission('production', 2)
+  async renderRevisionPass(@Param('passId') passId: string, @Body() body: any, @Req() req: any) {
+    return this.canon.renderPass(passId, body?.projectId, req?.user?.id);
+  }
 }

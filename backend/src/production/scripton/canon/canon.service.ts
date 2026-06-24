@@ -1,8 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { AiService } from '../../../ai/ai.service';
 import { PrismaService } from '../../../common/prisma/prisma.service';
-import type { CanonFactCore } from './canon.types';
+import type { CanonConflict, CanonFactCore } from './canon.types';
 import { mapAiFactsToCore } from './canon-map.util';
+import { assessPass } from './canon-assess.util';
+import { orderChanges } from './change-order.util';
 
 @Injectable()
 export class CanonService {
@@ -38,6 +40,109 @@ export class CanonService {
       raw = [];
     }
     return mapAiFactsToCore(raw, scene);
+  }
+
+  async renderPass(
+    passId: string,
+    projectId: string,
+    userId?: string,
+  ): Promise<{ versionId: string; continuityScore: number; conflicts: CanonConflict[] }> {
+    const pass: any = await (this.prisma as any).revisionPass.findUnique({
+      where: { id: passId },
+      include: { changes: true },
+    });
+    if (!pass) throw new Error('RevisionPass not found');
+    await (this.prisma as any).revisionPass.update({ where: { id: passId }, data: { status: 'RENDERING' } });
+
+    // Order staged changes deterministically (scene order is carried in spec.sceneOrder).
+    const staged = (pass.changes || []).filter((c: any) => c.status === 'STAGED');
+    const ordered = orderChanges(
+      staged.map((c: any) => ({ id: c.id, sceneOrder: Number(c?.spec?.sceneOrder ?? 0) })),
+    );
+
+    // The scenes this pass rewrites — their OLD facts must not be verified against the NEW ones (coherence rule).
+    const changedSceneIds: string[] = [...new Set<string>(staged.map((c: any) => c.sceneId as string).filter((s: any): s is string => !!s))];
+
+    // Verify: extract candidate facts from each change's resulting text.
+    const allFacts: CanonFactCore[] = (
+      await (this.prisma as any).canonFact.findMany({ where: { scriptId: pass.scriptId } }).catch(() => [])
+    ).map((r: any) => r as CanonFactCore);
+
+    const allCandidates: CanonFactCore[] = [];
+    for (const o of ordered) {
+      const ch = staged.find((c: any) => c.id === o.id);
+      const text = String(ch?.previewAfter ?? ch?.spec?.body ?? ch?.spec?.note ?? '');
+      if (!text) continue;
+      const facts = await this.extractFactsAI(
+        pass.scriptId,
+        { id: ch.sceneId, order: Number(ch?.spec?.sceneOrder ?? 0), text },
+        projectId,
+      );
+      allCandidates.push(...facts);
+    }
+
+    // The render loop's decision core — the exact logic proven in canon-assess.util.spec.ts.
+    const { conflicts, continuityScore: score } = assessPass(
+      allFacts, allCandidates, changedSceneIds, ordered.length,
+    );
+
+    // Commit: new BuildVersion (shape per scripton.service.ts:588). A missing build is a hard error — never
+    // mark RENDERED without producing a version (non-destructive contract: Render = a real new version).
+    const build: any = await (this.prisma as any).developmentBuild.findFirst({
+      where: { linkedScriptId: pass.scriptId },
+    });
+    if (!build) {
+      await (this.prisma as any).revisionPass.update({ where: { id: passId }, data: { status: 'OPEN' } });
+      throw new Error('No DevelopmentBuild linked to script ' + pass.scriptId + '; cannot render a version.');
+    }
+    const agg: any = await (this.prisma as any).buildVersion.aggregate({
+      where: { buildId: build.id },
+      _max: { n: true },
+    });
+    const maxN: number = agg?._max?.n ?? 0;
+    const ver: any = await (this.prisma as any).buildVersion.create({
+      data: {
+        buildId: build.id,
+        n: maxN + 1,
+        label: 'V' + (maxN + 1),
+        briefSnapshot: build.brief ?? undefined,
+        status: 'DRAFT',
+      },
+    });
+    const versionId = ver.id;
+
+    // Supersede the changed scenes' prior facts, then persist the new ones.
+    if (changedSceneIds.length) {
+      await (this.prisma as any).canonFact.updateMany({
+        where: { scriptId: pass.scriptId, sourceSceneId: { in: changedSceneIds }, status: 'ACTIVE' },
+        data: { status: 'SUPERSEDED' },
+      });
+    }
+    await this.persistFacts(pass.scriptId, allCandidates);
+    await (this.prisma as any).decisionRecord.create({
+      data: {
+        scriptId: pass.scriptId,
+        title: 'Render pass ' + passId.slice(0, 8),
+        status: 'ACCEPTED',
+        context: ordered.length + ' staged change(s) rendered into a new version.',
+        decision: 'Applied: ' + ordered.map((o) => o.id.slice(0, 6)).join(', '),
+        consequences:
+          conflicts.length === 0
+            ? 'No canon conflicts detected.'
+            : 'Continuity conflicts: ' + conflicts.map((c) => c.reason).join(' | '),
+        createdBy: userId ?? null,
+      },
+    });
+    await (this.prisma as any).sceneChange.updateMany({
+      where: { passId, status: 'STAGED' },
+      data: { status: 'APPLIED' },
+    });
+    await (this.prisma as any).revisionPass.update({
+      where: { id: passId },
+      data: { status: 'RENDERED', continuityScore: score, renderedVersionId: versionId || null },
+    });
+
+    return { versionId, continuityScore: score, conflicts };
   }
 
   /**
