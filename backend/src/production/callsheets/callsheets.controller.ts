@@ -50,6 +50,11 @@ export class CallSheetsController {
     return this.service.autofillDaylight(id, body?.tz ? Number(body.tz) : 240);
   }
 
+  @Post(':id/autofill-location')
+  autofillLocation(@Param('id') id: string, @Body() body: any) {
+    return this.service.autofillLocation(id, body?.tz ? Number(body.tz) : 240);
+  }
+
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.service.remove(id);

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from './common/prisma/prisma.module';
+import { AiModule } from './ai/ai.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { ClientsModule } from './clients/clients.module';
@@ -37,11 +38,24 @@ import { WorkflowModule } from './workflow/workflow.module';
 import { LocationsLibraryModule } from './locations-library/locations-library.module';
 import { OtpModule } from './security/otp.module';
 import { AccountModule } from './account/account.module';
+import { CommsModule } from './comms/comms.module';
+import { MeetingsModule } from './meetings/meetings.module';
+import { TelemetryModule } from './telemetry/telemetry.module';
+
+import { PreferencesModule } from './preferences/preferences.module';
+
+import { UserNotificationsModule } from './user-notifications/user-notifications.module';
+
+import { SavedViewsModule } from './saved-views/saved-views.module';
 
 @Module({
   imports: [
+    SavedViewsModule,
+    UserNotificationsModule,
+    PreferencesModule,
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
+    AiModule,
     StatusModule,
     AuthModule,
     UsersModule,
@@ -78,6 +92,9 @@ import { AccountModule } from './account/account.module';
     LocationsLibraryModule,
     OtpModule,
     AccountModule,
+    CommsModule,
+    MeetingsModule,
+    TelemetryModule,
   ],
 })
 export class AppModule {}

@@ -25,8 +25,24 @@ export class SchedulingController {
     return this.dood2.generateCallSheet(projectId, date, { dropAfter: dropAfter ? Number(dropAfter) : undefined });
   }
 
+  @Get('calendar-config/:projectId') getCalConfig(@Param('projectId') projectId: string) { return this.calendar.getConfig(projectId); }
+  @Put('calendar-config/:projectId') @RequirePermission('production', 2) setCalConfig(@Param('projectId') projectId: string, @Body() body: any) { return this.calendar.setConfig(projectId, body); }
   @Get('board/:projectId') board(@Param('projectId') projectId: string) { return this.service.board(projectId); }
   @Get('dood/:projectId') dood(@Param('projectId') projectId: string) { return this.service.dood(projectId); }
+  @Get('conflicts/:projectId') conflicts(@Param('projectId') projectId: string) { return this.service.conflicts(projectId); }
+  @Get('shooting-schedule/:projectId') shootingSchedule(@Param('projectId') projectId: string) { return this.service.shootingSchedule(projectId); }
+  // M6 — multi-board scenarios (additive JSON snapshots; live board untouched)
+  @Get('scenarios/:projectId') listScenarios(@Param('projectId') projectId: string) { return this.service.listScenarios(projectId); }
+  @Post('scenarios/:projectId') @RequirePermission('production', 2) snapshotScenario(@Param('projectId') projectId: string, @Body() body: any) { return this.service.snapshotScenario(projectId, body || {}); }
+  @Post('scenarios/:projectId/optimized') @RequirePermission('production', 2) optimizedScenario(@Param('projectId') projectId: string, @Body() body: any) { return this.service.optimizedScenario(projectId, body || {}); }
+  @Post('scenarios/:projectId/compare') compareScenarios(@Param('projectId') projectId: string, @Body() body: any) { return this.service.compareScenarios(projectId, body?.ids || []); }
+  @Get('scenario/:id') getScenario(@Param('id') id: string) { return this.service.getScenario(id); }
+  @Put('scenario/:id') @RequirePermission('production', 2) updateScenario(@Param('id') id: string, @Body() body: any) { return this.service.updateScenario(id, body || {}); }
+  @Delete('scenario/:id') @RequirePermission('production', 2) deleteScenario(@Param('id') id: string) { return this.service.deleteScenario(id); }
+  @Post('scenario/:id/apply') @RequirePermission('production', 2) applyScenario(@Param('id') id: string) { return this.service.applyScenario(id); }
+  // M6 — script <-> strip reconciliation (populates ScriptScene.productionStripId)
+  @Get('script-strip-status/:projectId') scriptStripStatus(@Param('projectId') projectId: string) { return this.service.scriptStripStatus(projectId, { apply: false }); }
+  @Post('script-strip-reconcile/:projectId') @RequirePermission('production', 2) reconcileScriptStrips(@Param('projectId') projectId: string) { return this.service.scriptStripStatus(projectId, { apply: true }); }
 
   // Dynamic multi-category DOOD — computed live from strips × breakdown elements
   @Get('dood-matrix/:projectId')
@@ -46,5 +62,6 @@ export class SchedulingController {
   @Put('strips/:id') updateStrip(@Param('id') id: string, @Body() body: any) { return this.service.updateStrip(id, body); }
   @Post('reorder') reorder(@Body() body: { items: any[] }) { return this.service.reorder(body?.items || []); }
   @Post('auto-schedule/:projectId') @RequirePermission('production', 2) autoSchedule(@Param('projectId') projectId: string, @Body() body: any) { return this.service.autoSchedule(projectId, body || {}); }
+  @Post('optimize/:projectId') @RequirePermission('production', 2) optimize(@Param('projectId') projectId: string, @Body() body: any) { return this.service.optimizeOrder(projectId, body || {}); }
   @Delete('strips/:id') removeStrip(@Param('id') id: string) { return this.service.removeStrip(id); }
 }

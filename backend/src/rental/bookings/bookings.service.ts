@@ -231,6 +231,9 @@ export class BookingsService {
       data: {
         bookingId, sequence: data.sequence ?? count,
         siteName: data.siteName, address: data.address, locationUrl: data.locationUrl,
+        lat: data.lat != null ? Number(data.lat) : null,
+        lng: data.lng != null ? Number(data.lng) : null,
+        crewCount: data.crewCount != null ? Number(data.crewCount) : null,
         fromDate: data.fromDate ? new Date(data.fromDate) : null,
         toDate: data.toDate ? new Date(data.toDate) : null,
         status: data.status || 'PLANNED', notes: data.notes,
@@ -240,6 +243,7 @@ export class BookingsService {
   updateLocation(id: string, data: any) {
     const patch: any = {};
     for (const k of ['siteName', 'address', 'locationUrl', 'status', 'notes']) if (data[k] !== undefined) patch[k] = data[k];
+    for (const k of ['lat', 'lng', 'crewCount']) if (data[k] !== undefined) patch[k] = data[k] === null ? null : Number(data[k]);
     if (data.sequence !== undefined) patch.sequence = Number(data.sequence);
     if (data.fromDate !== undefined) patch.fromDate = data.fromDate ? new Date(data.fromDate) : null;
     if (data.toDate !== undefined) patch.toDate = data.toDate ? new Date(data.toDate) : null;

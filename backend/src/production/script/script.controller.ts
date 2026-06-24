@@ -29,6 +29,9 @@ export class ScriptController {
   constructor(private service: ScriptService) {}
 
   @Get('project/:projectId') list(@Param('projectId') projectId: string) { return this.service.list(projectId); }
+  @Get('project/:projectId/bin') binList(@Param('projectId') projectId: string) { return this.service.binList(projectId); }
+  @Post('document/:id/trash') @RequirePermission('production', 2) trashDoc(@Param('id') id: string) { return this.service.trashDocument(id); }
+  @Post('document/:id/restore') @RequirePermission('production', 2) restoreDoc(@Param('id') id: string) { return this.service.restoreDocument(id); }
   @Get('document/:id') getDocument(@Param('id') id: string) { return this.service.getDocument(id); }
   @Get('revision/:id') getRevision(@Param('id') id: string) { return this.service.getRevision(id); }
 
@@ -49,4 +52,8 @@ export class ScriptController {
 
   @Delete('revision/:id') @RequirePermission('production', 2) removeRevision(@Param('id') id: string) { return this.service.removeRevision(id); }
   @Delete('document/:id') @RequirePermission('production', 2) removeDocument(@Param('id') id: string) { return this.service.removeDocument(id); }
+  // P0 script-spine — single-source projection status + revision metadata
+  @Get('projection-status/:projectId') projectionStatus(@Param('projectId') projectId: string) { return this.service.projectionStatus(projectId); }
+  @Put('revision/:id/meta') @RequirePermission('production', 2) setRevisionMeta(@Param('id') id: string, @Body() body: any) { return this.service.setRevisionMeta(id, body || {}); }
+  @Post('revision/:id/lock') @RequirePermission('production', 2) lockRevision(@Param('id') id: string, @Body() body: any) { return this.service.lockRevision(id, body?.lock !== false); }
 }

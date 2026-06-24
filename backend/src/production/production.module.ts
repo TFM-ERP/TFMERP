@@ -6,6 +6,8 @@ import { BudgetController } from './budget/budget.controller';
 import { BudgetService } from './budget/budget.service';
 import { CrewController } from './crew/crew.controller';
 import { CrewService } from './crew/crew.service';
+import { PresenceController } from './crew/presence.controller';
+import { PresenceService } from './crew/presence.service';
 import { CallSheetsController } from './callsheets/callsheets.controller';
 import { CallSheetsService } from './callsheets/callsheets.service';
 import { PerDiemController } from './perdiem/perdiem.controller';
@@ -18,6 +20,8 @@ import { LedgerController } from './ledger/ledger.controller';
 import { LedgerService } from './ledger/ledger.service';
 import { CostingController } from './costing/costing.controller';
 import { CostingService } from './costing/costing.service';
+import { ChatReceiptController } from './costing/chat-receipt.controller';
+import { ChatReceiptService } from './costing/chat-receipt.service';
 import { SchedulingController } from './scheduling/scheduling.controller';
 import { SchedulingService } from './scheduling/scheduling.service';
 import { DoodCalculationService } from './scheduling/dood-calculation.service';
@@ -25,11 +29,38 @@ import { CalendarAnchoringService } from './scheduling/calendar-anchoring.servic
 import { BreakdownController } from './breakdown/breakdown.controller';
 import { BreakdownService } from './breakdown/breakdown.service';
 import { ScriptImportService } from './breakdown/script-import.service';
+import { ScriptProjectionService } from './breakdown/script-projection.service';
+import { CreativeBriefService } from './brief/creative-brief.service';
+import { CreativeBriefController } from './brief/creative-brief.controller';
+import { ScripOnService } from './scripton/scripton.service';
+import { ScripOnController } from './scripton/scripton.controller';
+import { ReviewProtectionService } from './scripton/review-protection.service';
+import { ReviewProtectionController } from './scripton/review-protection.controller';
+import { ProtectedExportService } from './scripton/protected-export.service';
+import { DeliverablesService } from './deliverables/deliverables.service';
+import { DeliverablesController } from './deliverables/deliverables.controller';
+import { CommercialService } from './commercial/commercial.service';
+import { CommercialController } from './commercial/commercial.controller';
 import { PayrollController } from './payroll/payroll.controller';
 import { PayrollService } from './payroll/payroll.service';
 import { LocationsController } from './locations/locations.controller';
 import { LocationsService } from './locations/locations.service';
 import { LocationNeedsController } from './locations/location-needs.controller';
+import { MovementOrdersController } from './locations/movement-orders.controller';
+import { MovementOrdersService } from './locations/movement-orders.service';
+import { ProductionGlController } from './gl/production-gl.controller';
+import { ProductionGlService } from './gl/production-gl.service';
+import { PurchaseRequestsController } from './procurement/purchase-requests.controller';
+import { PurchaseRequestsService } from './procurement/purchase-requests.service';
+import { ProductionReportsController } from './reports/production-reports.controller';
+import { ProductionReportsService } from './reports/production-reports.service';
+import { PaymentsExportService } from './reports/payments-export.service';
+import { ProcurementTxnsController } from './procurement/procurement-txns.controller';
+import { ProcurementTxnsService } from './procurement/procurement-txns.service';
+import { DprController } from './dpr/dpr.controller';
+import { DprService } from './dpr/dpr.service';
+import { PayrollBankController } from './payroll-bank/payroll-bank.controller';
+import { PayrollBankService } from './payroll-bank/payroll-bank.service';
 import { LocationNeedsService } from './locations/location-needs.service';
 import { ScoutVisitsController } from './locations/scout-visits.controller';
 import { ScoutVisitsService } from './locations/scout-visits.service';
@@ -64,6 +95,7 @@ import { RenderService } from './script/audio/render.service';
 import { LayersService } from './script/audio/layers.service';
 import { AudioShareService } from './script/audio/audio-share.service';
 import { DocumentsController } from './documents/documents.controller';
+import { DocumentShareController } from './documents/document-share.controller';
 import { DocumentsService } from './documents/documents.service';
 import { MailController } from './mail/mail.controller';
 import { MailService } from './mail/mail.service';
@@ -76,6 +108,7 @@ import { DynamicContextService } from './context/dynamic-context.service';
 import { AiMappingService } from './movie-magic/ai-mapping.service';
 import { WorkflowModule } from '../workflow/workflow.module';
 import { LocationsLibraryModule } from '../locations-library/locations-library.module';
+import { CommsModule } from '../comms/comms.module';
 import { TravelController } from './travel/travel.controller';
 import { TravelService } from './travel/travel.service';
 import { AmadeusService } from './travel/integrations/amadeus.service';
@@ -88,6 +121,8 @@ import { AccommodationController } from './logistics/accommodation.controller';
 import { AccommodationService } from './logistics/accommodation.service';
 import { TransportController } from './logistics/transport.controller';
 import { TransportService } from './logistics/transport.service';
+import { CaptainController } from './logistics/captain.controller';
+import { CaptainService } from './logistics/captain.service';
 import { ShuttleController } from './logistics/shuttle.controller';
 import { ShuttleService } from './logistics/shuttle.service';
 import { ArrivalController } from './logistics/arrival.controller';
@@ -96,9 +131,9 @@ import { LogisticsReportsController } from './logistics/logistics-reports.contro
 import { LogisticsReportsService } from './logistics/logistics-reports.service';
 
 @Module({
-  imports: [PrismaModule, WorkflowModule, LocationsLibraryModule],
-  controllers: [ProjectsController, BudgetController, CrewController, CallSheetsController, PerDiemController, OveragesController, CreditsController, LedgerController, CostingController, SchedulingController, BreakdownController, DocumentsController, MailController, PayrollController, LocationsController, LocationNeedsController, ScoutVisitsController, ClearancePacksController, ClearancePacksPublicController, LocationReportsController, SunPathController, ScriptReadinessController, ScriptController, AnnotationsController, SidesController, LiningController, MasterScriptController, ScriptAnalyzeController, AudioEnginesController, VoiceCastingController, PronunciationController, RenderController, LayersController, AudioShareController, AudioSharePublicController, VendorOnboardingController, VendorOnboardingPublicController, MovieMagicController, TravelController, ContractsController, ContractsWebhookController, CastingController, CastingPublicController, AccommodationController, TransportController, ShuttleController, ArrivalController, LogisticsReportsController],
-  providers: [ProjectsService, BudgetService, CrewService, CallSheetsService, PerDiemService, OveragesService, CreditsService, LedgerService, CostingService, SchedulingService, DoodCalculationService, CalendarAnchoringService, BreakdownService, ScriptImportService, DocumentsService, MailService, EmailService, PayrollService, LocationsService, LocationNeedsService, ScoutVisitsService, ClearancePacksService, LocationReportsService, SunPathService, ScriptReadinessService, ScriptService, AnnotationsService, ScriptTransferService, ScriptExportService, ScriptProcurementService, SidesService, LiningService, MasterScriptService, ScriptAnalyzeService, AudioEnginesService, VoiceCastingService, PronunciationService, RenderService, LayersService, AudioShareService, VendorOnboardingService, MovieMagicService, DynamicContextService, AiMappingService, TravelService, AmadeusService, ConcurService, ContractsService, CastingService, AccommodationService, TransportService, ShuttleService, ArrivalService, LogisticsReportsService],
+  imports: [PrismaModule, WorkflowModule, LocationsLibraryModule, CommsModule],
+  controllers: [ProjectsController, BudgetController, CrewController, PresenceController, CallSheetsController, PerDiemController, OveragesController, CreditsController, LedgerController, CostingController, ChatReceiptController, SchedulingController, BreakdownController, DocumentsController, DocumentShareController, MailController, PayrollController, LocationsController, LocationNeedsController, ScoutVisitsController, ClearancePacksController, ClearancePacksPublicController, LocationReportsController, SunPathController, ScriptReadinessController, ScriptController, AnnotationsController, SidesController, LiningController, MasterScriptController, ScriptAnalyzeController, AudioEnginesController, VoiceCastingController, PronunciationController, RenderController, LayersController, AudioShareController, AudioSharePublicController, VendorOnboardingController, VendorOnboardingPublicController, MovieMagicController, TravelController, ContractsController, ContractsWebhookController, CastingController, CastingPublicController, AccommodationController, TransportController, CaptainController, ShuttleController, ArrivalController, LogisticsReportsController, MovementOrdersController, ProductionGlController, PurchaseRequestsController, ProductionReportsController, CreativeBriefController, DeliverablesController, CommercialController, ProcurementTxnsController, DprController, PayrollBankController, ScripOnController, ReviewProtectionController],
+  providers: [ProjectsService, BudgetService, CrewService, PresenceService, CallSheetsService, PerDiemService, OveragesService, CreditsService, LedgerService, CostingService, ChatReceiptService, SchedulingService, DoodCalculationService, CalendarAnchoringService, BreakdownService, ScriptImportService, ScriptProjectionService, DocumentsService, MailService, EmailService, PayrollService, LocationsService, LocationNeedsService, ScoutVisitsService, ClearancePacksService, LocationReportsService, SunPathService, ScriptReadinessService, ScriptService, AnnotationsService, ScriptTransferService, ScriptExportService, ScriptProcurementService, SidesService, LiningService, MasterScriptService, ScriptAnalyzeService, AudioEnginesService, VoiceCastingService, PronunciationService, RenderService, LayersService, AudioShareService, VendorOnboardingService, MovieMagicService, DynamicContextService, AiMappingService, TravelService, AmadeusService, ConcurService, ContractsService, CastingService, AccommodationService, TransportService, CaptainService, ShuttleService, ArrivalService, LogisticsReportsService, MovementOrdersService, ProductionGlService, PurchaseRequestsService, ProductionReportsService, PaymentsExportService, CreativeBriefService, DeliverablesService, CommercialService, ProcurementTxnsService, DprService, PayrollBankService, ScripOnService, ReviewProtectionService, ProtectedExportService],
   exports: [DynamicContextService, AiMappingService],
 })
 export class ProductionModule {}

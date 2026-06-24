@@ -36,6 +36,30 @@ export class ApprovalsController {
     return this.service.routePo(id, req.user?.id);
   }
 
+  @Post('change/route')
+  @RequirePermission('production', 1)
+  routeChange(@Body() body: any, @Req() req: any) {
+    return this.service.routeChange(body, req.user?.id);
+  }
+
+  @Get('project/:projectId')
+  @RequirePermission('production', 1)
+  forProject(@Param('projectId') projectId: string) {
+    return this.service.forProject(projectId);
+  }
+
+  @Post('change/:id/approve')
+  @RequirePermission('production', 1)
+  approveChange(@Param('id') id: string, @Body() body: { comment?: string }, @Req() req: any) {
+    return this.service.act(id, 'APPROVED', body, req.user);
+  }
+
+  @Post('change/:id/reject')
+  @RequirePermission('production', 1)
+  rejectChange(@Param('id') id: string, @Body() body: { comment?: string }, @Req() req: any) {
+    return this.service.act(id, 'REJECTED', body, req.user);
+  }
+
   @Post(':id/approve')
   approve(@Param('id') id: string, @Body() body: { comment?: string }, @Req() req: any) {
     return this.service.act(id, 'APPROVED', body, req.user);

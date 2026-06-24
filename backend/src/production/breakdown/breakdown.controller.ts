@@ -2,6 +2,7 @@ import { Controller, Get, Post, Put, Delete, Body, Param, Query, Request, UseGua
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { BreakdownService } from './breakdown.service';
 import { ScriptImportService } from './script-import.service';
+import { ScriptProjectionService } from './script-projection.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../permissions/permissions.guard';
 import { RequirePermission } from '../../permissions/require-permission.decorator';
@@ -12,13 +13,24 @@ import { RequirePermission } from '../../permissions/require-permission.decorato
 @RequirePermission('production', 1)
 @Controller('production/breakdown')
 export class BreakdownController {
-  constructor(private service: BreakdownService, private scriptImport: ScriptImportService) {}
+  constructor(private service: BreakdownService, private scriptImport: ScriptImportService, private projection: ScriptProjectionService) {}
 
   @Post('import-script/:projectId') @RequirePermission('production', 2)
   importScript(@Param('projectId') projectId: string, @Body() body: any) { return this.scriptImport.importScript(projectId, body); }
 
   @Post('import-script-full/:projectId') @RequirePermission('production', 2)
   fullSetup(@Param('projectId') projectId: string, @Body() body: any) { return this.scriptImport.fullSetup(projectId, body); }
+
+  // P1 — run the AI breakdown ONCE over a Script-hub revision's scenes (master)
+  @Post('revision/:revisionId/breakdown') @RequirePermission('production', 2)
+  breakdownRevision(@Param('revisionId') revisionId: string, @Body() body: any) { return this.scriptImport.breakdownRevision(revisionId, body || {}); }
+
+  // P2 — Script→strips projection engine (change-list + reversible sync)
+  @Get('projection/preview/:projectId') projPreview(@Param('projectId') projectId: string) { return this.projection.preview(projectId); }
+  @Post('projection/apply/:projectId') @RequirePermission('production', 2) projApply(@Param('projectId') projectId: string, @Body() body: any) { return this.projection.apply(projectId, body || {}); }
+  @Get('projection/logs/:projectId') projLogs(@Param('projectId') projectId: string) { return this.projection.logs(projectId); }
+  @Post('projection/rollback/:logId') @RequirePermission('production', 2) projRollback(@Param('logId') logId: string) { return this.projection.rollback(logId); }
+  @Post('projection/link') @RequirePermission('production', 2) projLink(@Body() body: any) { return this.projection.linkSceneToStrip(body?.sceneId, body?.stripId); }
 
   @Get('strip/:stripId') byStrip(@Param('stripId') stripId: string) { return this.service.byStrip(stripId); }
   @Get('sheet/:stripId') sheet(@Param('stripId') stripId: string) { return this.service.sheet(stripId); }

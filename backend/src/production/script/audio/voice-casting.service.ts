@@ -8,9 +8,10 @@ import { VoiceOption } from './adapters';
  * and bind characters → voices (+ a Narrator pseudo-character). Inherits the master script's
  * voicePalette where present (P5).
  */
+import { AiService } from '../../../ai/ai.service';
 @Injectable()
 export class VoiceCastingService {
-  constructor(private prisma: PrismaService, private engines: AudioEnginesService) {}
+  constructor(private prisma: PrismaService, private engines: AudioEnginesService, private ai: AiService) {}
 
   private readonly CUE_RE = /^\s*([A-Z][A-Z0-9 .'\-]{1,30})(\s*\((?:V\.?O\.?|O\.?S\.?|CONT'?D)\.?\))?\s*$/;
   private readonly NON_CUE = new Set(['INT', 'EXT', 'CUT TO', 'FADE IN', 'FADE OUT', 'DISSOLVE TO', 'CONTINUED', 'THE END', 'TITLE', 'MONTAGE', 'OMITTED']);
@@ -202,20 +203,8 @@ export class VoiceCastingService {
       'Respond ONLY by calling the submit_voice_casting tool.',
     ].join('\n');
     const model = process.env.SCRIPT_AUDIO_AI_MODEL || process.env.MM_AI_MODEL || 'claude-opus-4-8';
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY!, 'anthropic-version': '2023-06-01' } as any,
-      body: JSON.stringify({
-        model,
-        max_tokens: 4000,
-        system,
-        tools: [tool],
-        tool_choice: /fable|mythos/i.test(model) ? { type: 'auto' } : { type: 'tool', name: 'submit_voice_casting' },
-        messages: [{ role: 'user', content: JSON.stringify({ characters: chars }) }],
-      }),
-    });
-    if (!res.ok) throw new Error(`Anthropic API HTTP ${res.status}`);
-    const data: any = await res.json().catch(() => null);
+    const rr = await this.ai.raw({ task: 'audio.voiceCasting', system, messages: [{ role: 'user', content: JSON.stringify({ characters: chars }) }], tools: [tool], toolChoice: /fable|mythos/i.test(model) ? { type: 'auto' } : { type: 'tool', name: 'submit_voice_casting' }, maxTokens: 4000, model });
+    const data: any = rr.data;
     const toolUse = (data?.content || []).find((b: any) => b?.type === 'tool_use' && b?.name === 'submit_voice_casting');
     let list: any[] = Array.isArray(toolUse?.input?.characters) ? toolUse.input.characters : [];
     if (!list.length) {

@@ -20,6 +20,10 @@ export class ProjectsController {
   @Get()
   findAll(@Query() q: any) { return this.service.findAll(q); }
 
+  @Get('mine')
+  @ApiOperation({ summary: "Projects the signed-in user is crewed on (for the mobile app's project scoping)" })
+  findMine(@Req() req: any) { return this.service.mine(req.user?.id); }
+
   @Get(':id')
   findOne(@Param('id') id: string) { return this.service.findOne(id); }
 

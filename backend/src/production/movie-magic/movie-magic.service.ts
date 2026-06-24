@@ -411,41 +411,64 @@ export class MovieMagicService {
     const root = r.Schedule || r.schedule || r;
     const strips = arr(root?.Boneyard?.Strip ?? root?.Board?.Strip ?? root?.StripList?.Strip ?? root?.Strip);
 
-    let stripCount = 0, elCount = 0, order = 0;
+    // Idempotent: match existing strips by scene number (prefer the Movie Magic baseline strip),
+    // UPDATE in place (skip locked; the script link lives on ScriptScene.productionStripId and is
+    // preserved; only MOVIE_MAGIC elements are refreshed so script/MANUAL elements survive).
+    const px: any = this.prisma as any;
+    const existing: any[] = await this.prisma.productionStrip.findMany({ where: { projectId, isBanner: false } });
+    const norm = (n: any) => String(n ?? '').toUpperCase().replace(/\s+/g, '').trim();
+    const byNum = new Map<string, any>();
+    for (const e of existing) { const k = norm(e.sceneNumber); if (!k) continue; if (!byNum.has(k) || e.notes === 'Movie Magic') byNum.set(k, e); }
+    let baseOrder = existing.length;
+
+    let created = 0, updated = 0, skippedLocked = 0, elCount = 0;
     for (const st of strips) {
       const ie = String(st.IntExt ?? st.IE ?? 'INT').toUpperCase();
       const dn = String(st.DayNight ?? st.DN ?? 'DAY').toUpperCase();
-      const createdStrip = await this.prisma.productionStrip.create({
-        data: {
-          projectId,
-          sceneNumber: st.SceneNumber != null ? String(st.SceneNumber) : (st.Scene != null ? String(st.Scene) : null),
-          setName: st.Set ?? st.SetName ?? st.Setting ?? null,
-          location: st.Location ?? null,
-          description: st.Description ?? st.Synopsis ?? null,
-          intExt: ie.includes('INT') && ie.includes('EXT') ? 'INT_EXT' : ie.startsWith('EXT') ? 'EXT' : 'INT',
-          dayNight: dn.startsWith('NIGHT') ? 'NIGHT' : dn.startsWith('DUSK') ? 'DUSK' : dn.startsWith('DAWN') ? 'DAWN' : 'DAY',
-          pages: this.parsePages(st.Pages ?? st.PageCount ?? st.Eighths),
-          shootDay: num(st.ShootDay ?? st.Day, 0),
-          sortOrder: order++,
-          cast: arr(st?.CastList?.Cast ?? st?.Cast).map((c: any) => (typeof c === 'string' ? c : (c?.Name ?? c?._ ?? ''))).filter(Boolean),
-        },
-      });
-      stripCount++;
+      const sceneNumber = st.SceneNumber != null ? String(st.SceneNumber) : (st.Scene != null ? String(st.Scene) : null);
+      const fields: any = {
+        sceneNumber,
+        setName: st.Set ?? st.SetName ?? st.Setting ?? null,
+        location: st.Location ?? null,
+        description: st.Description ?? st.Synopsis ?? null,
+        intExt: (ie.includes('INT') && ie.includes('EXT') ? 'INT_EXT' : ie.startsWith('EXT') ? 'EXT' : 'INT'),
+        dayNight: (dn.startsWith('NIGHT') ? 'NIGHT' : dn.startsWith('DUSK') ? 'DUSK' : dn.startsWith('DAWN') ? 'DAWN' : 'DAY'),
+        pages: this.parsePages(st.Pages ?? st.PageCount ?? st.Eighths),
+        shootDay: num(st.ShootDay ?? st.Day, 0),
+        cast: arr(st?.CastList?.Cast ?? st?.Cast).map((c: any) => (typeof c === 'string' ? c : (c?.Name ?? c?._ ?? ''))).filter(Boolean),
+        notes: 'Movie Magic',
+      };
+      const key = norm(sceneNumber);
+      const match = key ? byNum.get(key) : null;
+      let stripId: string;
+      if (match) {
+        stripId = match.id;
+        if (match.isLocked) { skippedLocked++; }
+        else { await this.prisma.productionStrip.update({ where: { id: match.id }, data: fields }); updated++; }
+      } else {
+        const ns = await this.prisma.productionStrip.create({ data: { projectId, ...fields, sortOrder: baseOrder++ } });
+        stripId = ns.id; created++;
+        if (key) byNum.set(key, ns); // dedupe repeated scene numbers within one file
+      }
+      // refresh ONLY this strip's Movie Magic elements (keep script/MANUAL)
+      await px.breakdownElement.deleteMany({ where: { stripId, source: 'MOVIE_MAGIC' } }).catch(() => {});
       const els = arr(st?.ElementList?.Element ?? st?.Elements?.Element ?? st?.Element);
       if (els.length) {
-        await this.prisma.breakdownElement.createMany({
+        await px.breakdownElement.createMany({
           data: els.map((el: any) => ({
-            projectId, stripId: createdStrip.id,
-            category: this.mapMmsCategoryToInternal(String(el.Category ?? el.Type ?? 'OTHER')) as any,
+            projectId, stripId,
+            category: this.mapMmsCategoryToInternal(String(el.Category ?? el.Type ?? 'OTHER')),
             name: String(el.Name ?? el._ ?? el.Description ?? 'Element'),
             quantity: num(el.Quantity ?? el.Count, 1),
+            source: 'MOVIE_MAGIC',
           })),
         });
         elCount += els.length;
       }
     }
-    return { strips: stripCount, elements: elCount };
+    return { strips: created, updated, skippedLocked, elements: elCount };
   }
+
 
   private parsePages(p: any): number {
     if (p == null) return 0;

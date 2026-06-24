@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { FxService } from '../../fx/fx.service';
 import { ProductionStatus } from '@prisma/client';
+import { ChannelsService } from '../../comms/channels.service';
 
 // ── Master Chart of Accounts (docs/production/13 + 15) ─────────────────────────────
 // Line tuples: [code, description, fringeClassification?]
@@ -91,7 +92,7 @@ const DISTRIBUTION_COA: SeedSection[] = [
 
 @Injectable()
 export class ProjectsService {
-  constructor(private prisma: PrismaService, private fx: FxService) {}
+  constructor(private prisma: PrismaService, private fx: FxService, private channels: ChannelsService) {}
 
   private async nextNumber(): Promise<string> {
     const year = new Date().getFullYear();
@@ -104,7 +105,7 @@ export class ProjectsService {
   }
 
   async findAll(query: any) {
-    const where: any = {};
+    const where: any = { scriponWorkspace: { not: true } }; // hide the hidden ScripON Library home
     if (query.status) where.status = query.status;
     if (query.clientId) where.clientId = query.clientId;
     if (query.search) {
@@ -123,6 +124,20 @@ export class ProjectsService {
       orderBy: { createdAt: 'desc' },
     });
     return { items: projects, total: projects.length };
+  }
+
+  /** Projects the user is crewed on (mobile project scoping). Admins call findAll instead. */
+  async mine(userId?: string) {
+    if (!userId) return { items: [], total: 0 };
+    const crew = await this.prisma.productionCrew.findMany({ where: { userId }, select: { projectId: true } });
+    const ids = Array.from(new Set(crew.map((c) => c.projectId).filter(Boolean)));
+    if (!ids.length) return { items: [], total: 0 };
+    const items = await this.prisma.productionProject.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, title: true, projectNumber: true, status: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    return { items, total: items.length };
   }
 
   async findOne(id: string) {
@@ -189,6 +204,10 @@ export class ProjectsService {
 
     // Auto-create initial budget version with default sections
     await this.createDefaultBudget(project.id, data.includeDistribution === true);
+
+    // Spin up the standard production comms channels (all/announce/BTL/units/PTT).
+    // Wrapped so a comms hiccup never blocks project creation.
+    await this.channels.createHierarchyGroups(project.id, project.title).catch(() => null);
 
     return project;
   }

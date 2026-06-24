@@ -46,6 +46,9 @@ export class CostingController {
   @Patch('accounts/:accountId/etc') setEtc(@Param('accountId') accountId: string, @Body() body: { etcAmount: number | null }) { return this.service.setEtc(accountId, body.etcAmount); }
   @Get('finance-summary/:projectId') financeSummary(@Param('projectId') projectId: string) { return this.service.financeSummary(projectId); }
   @Get('overspend/:projectId') overspend(@Param('projectId') projectId: string) { return this.service.overspendSuggestions(projectId); }
+  @Get('forecast/:projectId') forecast(@Param('projectId') projectId: string) { return this.service.forecast(projectId); }
+  @Get('reporting-pack/:projectId') reportingPack(@Param('projectId') projectId: string) { return this.service.reportingPack(projectId); }
+  @Get('sync-warnings/:projectId') syncWarnings(@Param('projectId') projectId: string) { return this.service.syncWarnings(projectId); }
 
   // Budget transfers (line-to-line reallocation)
   @Get('transfers') listTransfers(@Query('projectId') projectId: string) { return this.service.listTransfers(projectId); }

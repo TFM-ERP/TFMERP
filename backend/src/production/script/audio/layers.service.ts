@@ -6,9 +6,10 @@ import { PrismaService } from '../../../common/prisma/prisma.service';
  * CRUD/approve. Suggested cues carry a genPrompt so a capable engine (ElevenLabs Sound Effects /
  * Music) can generate the audio at render time; uploaded/library assets are used as-is.
  */
+import { AiService } from '../../../ai/ai.service';
 @Injectable()
 export class LayersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private ai: AiService) {}
 
   private AMBIENCE: [RegExp, string][] = [
     [/\b(rain|storm|thunder|downpour)\b/i, 'rain ambience with distant thunder'],
@@ -131,19 +132,8 @@ export class LayersService {
       'Respond ONLY by calling submit_sound_design.',
     ].join('\n');
     const model = process.env.SCRIPT_AUDIO_AI_MODEL || process.env.MM_AI_MODEL || 'claude-opus-4-8';
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY!, 'anthropic-version': '2023-06-01' } as any,
-      body: JSON.stringify({
-        model,
-        max_tokens: 4000, system, tools: [tool],
-        tool_choice: /fable|mythos/i.test(model) ? { type: 'auto' } : { type: 'tool', name: 'submit_sound_design' },
-        messages: [{ role: 'user', content: JSON.stringify({ scenes }) }],
-      }),
-      signal: AbortSignal.timeout(90_000),
-    });
-    if (!res.ok) throw new Error(`Anthropic HTTP ${res.status}`);
-    const data: any = await res.json().catch(() => null);
+    const rr = await this.ai.raw({ task: 'audio.soundDesign', system, messages: [{ role: 'user', content: JSON.stringify({ scenes }) }], tools: [tool], toolChoice: /fable|mythos/i.test(model) ? { type: 'auto' } : { type: 'tool', name: 'submit_sound_design' }, maxTokens: 4000, model });
+    const data: any = rr.data;
     const toolUse = (data?.content || []).find((b: any) => b?.type === 'tool_use' && b?.name === 'submit_sound_design');
     if (Array.isArray(toolUse?.input?.cues)) return toolUse.input.cues;
     const text = (data?.content || []).filter((b: any) => b?.type === 'text').map((b: any) => b.text).join('\n');

@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { AiService } from '../ai/ai.service';
 import {
   resolveRules,
   computeLineFringes,
@@ -10,7 +11,7 @@ import {
 
 @Injectable()
 export class LaborService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private ai: AiService) {}
 
   // ════════════════════════════════════════════════════════════════════════════
   // A. MASTER DATA CRUD
@@ -315,20 +316,7 @@ export class LaborService {
   private aiConfigured(): boolean { return !!process.env.ANTHROPIC_API_KEY; }
 
   private async callLLM(system: string, user: string): Promise<string> {
-    const key = process.env.ANTHROPIC_API_KEY;
-    if (!key) throw new BadRequestException('AI assistant not configured. Set ANTHROPIC_API_KEY in the backend .env to enable AI research.');
-    const model = process.env.LABOR_AI_MODEL || 'claude-3-5-sonnet-20241022';
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' } as any,
-      body: JSON.stringify({ model, max_tokens: 2000, system, messages: [{ role: 'user', content: user }] }),
-    } as any);
-    if (!res.ok) {
-      const t = await res.text().catch(() => '');
-      throw new BadRequestException(`AI request failed (HTTP ${res.status}). ${t.slice(0, 200)}`);
-    }
-    const data: any = await res.json();
-    return (data?.content?.[0]?.text) || '';
+    return this.ai.complete({ task: 'labor.research', system, user, maxTokens: 2000 });
   }
 
   private parseJsonArray(text: string): any[] {

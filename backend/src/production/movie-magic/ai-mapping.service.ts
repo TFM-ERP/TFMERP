@@ -56,9 +56,10 @@ const MAPPING_TOOL = {
  * transactions. The caller surfaces the suggestions for human review and only
  * an explicit user action persists anything (house rule: nothing auto-applies).
  */
+import { AiService } from '../../ai/ai.service';
 @Injectable()
 export class AiMappingService {
-  constructor(private dynamicContext: DynamicContextService) {}
+  constructor(private dynamicContext: DynamicContextService, private ai: AiService) {}
 
   private aiConfigured(): boolean { return !!process.env.ANTHROPIC_API_KEY; }
   private model(): string { return process.env.MM_AI_MODEL || process.env.LABOR_AI_MODEL || 'claude-sonnet-4-6'; }
@@ -132,29 +133,8 @@ export class AiMappingService {
 
   // ── Anthropic call with forced tool use ──────────────────────────────────────────
   private async callAnthropicTool(system: string, user: string): Promise<any[]> {
-    const key = process.env.ANTHROPIC_API_KEY!;
-    let res: any;
-    try {
-      res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' } as any,
-        body: JSON.stringify({
-          model: this.model(),
-          max_tokens: 8000,
-          system,
-          tools: [MAPPING_TOOL],
-          tool_choice: { type: 'tool', name: 'submit_line_mappings' }, // forces strict, schema-shaped JSON
-          messages: [{ role: 'user', content: user }],
-        }),
-      });
-    } catch (e: any) {
-      throw new BadRequestException(`Anthropic API unreachable: ${e?.message || 'network error'}`);
-    }
-    if (!res.ok) {
-      const body = await res.text().catch(() => '');
-      throw new BadRequestException(`Anthropic API error HTTP ${res.status}: ${body.slice(0, 300)}`);
-    }
-    const data: any = await res.json().catch(() => null);
+    const r = await this.ai.raw({ task: 'mm.mapBudget', system, messages: [{ role: 'user', content: user }], tools: [MAPPING_TOOL], toolChoice: { type: 'tool', name: 'submit_line_mappings' }, maxTokens: 8000, model: this.model() });
+    const data: any = r.data;
     const toolUse = (data?.content || []).find((b: any) => b?.type === 'tool_use' && b?.name === 'submit_line_mappings');
     if (toolUse?.input?.mappings && Array.isArray(toolUse.input.mappings)) return toolUse.input.mappings;
 

@@ -25,6 +25,14 @@ export class SunPathController {
   @Get('location/:id') forLocation(@Param('id') id: string, @Query('date') date: string, @Query('tz') tz?: string) {
     return this.service.forLocation(id, date, tz ? Number(tz) : 240);
   }
+  // Hourly weather forecast for a coordinate + date (Open-Meteo)
+  @Get('weather') weather(@Query('lat') lat: string, @Query('lng') lng: string, @Query('date') date: string, @Query('tz') tz?: string) {
+    return this.service.weatherForecast(Number(lat), Number(lng), date, tz ? Number(tz) : 240);
+  }
+  // Nearest hospitals to a pin (OSM/Overpass, curated fallback)
+  @Get('hospitals-near') hospitalsNear(@Query('lat') lat: string, @Query('lng') lng: string, @Query('radiusKm') radiusKm?: string) {
+    return this.service.hospitalsNear(Number(lat), Number(lng), radiusKm ? Number(radiusKm) : 20);
+  }
   // Schedule gating: availability + permit + sun window
   @Get('gating/:locationId') gating(@Param('locationId') locationId: string, @Query('date') date: string, @Query('tz') tz?: string) {
     return this.service.gating(locationId, date, tz ? Number(tz) : 240);

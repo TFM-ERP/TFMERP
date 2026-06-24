@@ -15,9 +15,10 @@ import { buildAdapter, type Segment } from './adapters';
  * ($0); provider tier synthesizes per line (cached), concatenates, stores an AudioAsset, and
  * writes the usage ledger + debits the quota. Layer mixing (ffmpeg) is a later slice.
  */
+import { AiService } from '../../../ai/ai.service';
 @Injectable()
 export class RenderService implements OnModuleInit {
-  constructor(private prisma: PrismaService, private engines: AudioEnginesService, private pron: PronunciationService, private layers: LayersService) {}
+  constructor(private prisma: PrismaService, private engines: AudioEnginesService, private pron: PronunciationService, private layers: LayersService, private ai: AiService) {}
 
   private bullQueue: any = null;
 
@@ -644,24 +645,8 @@ export class RenderService implements OnModuleInit {
       'Respond ONLY by calling submit_direction.',
     ].join('\n');
     const model = process.env.SCRIPT_AUDIO_AI_MODEL || process.env.MM_AI_MODEL || 'claude-opus-4-8';
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY!, 'anthropic-version': '2023-06-01' } as any,
-      body: JSON.stringify({
-        model,
-        max_tokens: 3000, system, tools: [tool],
-        // Fable/Mythos-class models reject FORCED tool use — they get auto + a strict instruction.
-        tool_choice: /fable|mythos/i.test(model) ? { type: 'auto' } : { type: 'tool', name: 'submit_direction' },
-        messages: [{ role: 'user', content: JSON.stringify({ scene: b.scene, segs }) }],
-      }),
-      signal: AbortSignal.timeout(90_000),
-    });
-    if (!res.ok) {
-      const body = await res.text().catch(() => '');
-      const hint = res.status === 401 ? ' — the ANTHROPIC_API_KEY in backend/.env is invalid or was rotated; update it and restart the backend.' : '';
-      throw new BadRequestException(`AI direction failed: HTTP ${res.status}${hint} ${body.slice(0, 160)}`);
-    }
-    const data: any = await res.json().catch(() => null);
+    const rr = await this.ai.raw({ task: 'audio.direction', system, messages: [{ role: 'user', content: JSON.stringify({ scene: b.scene, segs }) }], tools: [tool], toolChoice: /fable|mythos/i.test(model) ? { type: 'auto' } : { type: 'tool', name: 'submit_direction' }, maxTokens: 3000, model });
+    const data: any = rr.data;
     const toolUse = (data?.content || []).find((x: any) => x?.type === 'tool_use' && x?.name === 'submit_direction');
     let lines: any[] = Array.isArray(toolUse?.input?.lines) ? toolUse.input.lines : [];
     if (!lines.length) {

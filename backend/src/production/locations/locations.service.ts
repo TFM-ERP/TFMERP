@@ -9,6 +9,7 @@ import { LocationsLibraryService } from '../../locations-library/locations-libra
 import { LocationOpsService } from '../../locations-library/location-ops.service';
 import { WorkflowService } from '../../workflow/workflow.service';
 
+import { AiService } from '../../ai/ai.service';
 @Injectable()
 export class LocationsService {
   constructor(
@@ -17,6 +18,7 @@ export class LocationsService {
     private library: LocationsLibraryService,
     private ops: LocationOpsService,
     private workflow: WorkflowService,
+    private ai: AiService,
   ) {}
 
   // ── SYS-07 slice 7 — project-scoped security & payments (delegate CRUD to the
@@ -271,9 +273,6 @@ export class LocationsService {
   }
 
   private async extractPermitFields(filePath: string, mime: string): Promise<any> {
-    const key = process.env.ANTHROPIC_API_KEY;
-    if (!key) throw new BadRequestException('OCR not configured. Set ANTHROPIC_API_KEY in the backend .env.');
-    const model = process.env.LABOR_AI_MODEL || 'claude-3-5-sonnet-20241022';
     const b64 = readFileSync(filePath).toString('base64');
     const isPdf = /pdf$/i.test(mime || '') || filePath.toLowerCase().endsWith('.pdf');
     const mediaBlock = isPdf
@@ -285,15 +284,8 @@ export class LocationsService {
       'authority (issuing body|null), jurisdiction (country/city/emirate|null), referenceNumber (string|null), ' +
       'applicationDate (YYYY-MM-DD|null), approvalDate (YYYY-MM-DD|null), expiryDate (YYYY-MM-DD|null), ' +
       'fee (number|null), currency (ISO code|null), conditions (short text of restrictions|null), confidence (0-1).';
-    const headers: any = { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' };
-    if (isPdf) headers['anthropic-beta'] = 'pdfs-2024-09-25';
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST', headers,
-      body: JSON.stringify({ model, max_tokens: 1024, messages: [{ role: 'user', content: [mediaBlock, { type: 'text', text: instruction }] }] }),
-    } as any);
-    if (!res.ok) { const t = await res.text().catch(() => ''); throw new BadRequestException(`OCR failed (HTTP ${res.status}). ${t.slice(0, 180)}`); }
-    const data: any = await res.json();
-    let text = (data?.content?.[0]?.text || '').trim();
+    const r = await this.ai.raw({ task: 'locations.permitOcr', messages: [{ role: 'user', content: [mediaBlock, { type: 'text', text: instruction }] }], maxTokens: 1024, beta: isPdf ? 'pdfs-2024-09-25' : undefined });
+    let text = (r.text || '').trim();
     const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/i); if (fence) text = fence[1].trim();
     const s = text.indexOf('{'), e = text.lastIndexOf('}');
     if (s >= 0 && e > s) text = text.slice(s, e + 1);

@@ -6,6 +6,8 @@ import { PrismaService } from '../../common/prisma/prisma.service';
  * Handles script documents + revisions; on upload extracts per-page text (pdf-parse) and parses
  * sluglines into ScriptScene rows (the outline + the FK target for later annotations / lining).
  */
+// WGA revision colour wheel (auto-advances on each new revision; round 1 = 'Double …')
+import { nextRevisionColor } from './revision-wheel.util';
 @Injectable()
 export class ScriptService {
   constructor(private prisma: PrismaService) {}
@@ -15,12 +17,22 @@ export class ScriptService {
 
   // ── Documents ────────────────────────────────────────────────────────────────
   list(projectId: string) {
+    void this.purgeExpiredDocs();
     return this.prisma.scriptDocument.findMany({
-      where: { projectId },
+      where: { projectId, deletedAt: null } as any,
       orderBy: { createdAt: 'desc' },
       include: { revisions: { orderBy: { createdAt: 'desc' }, select: { id: true, revisionLabel: true, colorCode: true, pageCount: true, createdAt: true } } },
     });
   }
+  async purgeExpiredDocs() {
+    const cutoff = new Date(Date.now() - 30 * 86400000);
+    await (this.prisma as any).scriptDocument.deleteMany({ where: { deletedAt: { lt: cutoff } } }).catch(() => {});
+  }
+  binList(projectId: string) {
+    return (this.prisma as any).scriptDocument.findMany({ where: { projectId, deletedAt: { not: null } }, orderBy: { deletedAt: 'desc' }, include: { revisions: { orderBy: { createdAt: 'desc' }, select: { id: true, revisionLabel: true, colorCode: true, pageCount: true, createdAt: true } } } }).catch(() => []);
+  }
+  async trashDocument(id: string) { await (this.prisma as any).scriptDocument.update({ where: { id }, data: { deletedAt: new Date() } }).catch(() => {}); return { ok: true }; }
+  async restoreDocument(id: string) { await (this.prisma as any).scriptDocument.update({ where: { id }, data: { deletedAt: null } }).catch(() => {}); return { ok: true }; }
 
   async createDocument(projectId: string, body: any, userId?: string) {
     if (!body?.title) throw new BadRequestException('A script title is required.');
@@ -71,6 +83,29 @@ export class ScriptService {
     }
 
     await this.prisma.scriptDocument.update({ where: { id: documentId }, data: { activeRevisionId: revision.id } });
+    // P3 — production-standard revision metadata: auto-advance the colour wheel, link the
+    // superseded revision, mark changed scenes (asterisks), and A-page new scenes if prior was locked.
+    try {
+      const px: any = this.prisma as any;
+      const prior: any = await px.scriptRevision.findFirst({ where: { documentId, id: { not: revision.id } }, orderBy: { createdAt: 'desc' } });
+      const col = nextRevisionColor(prior?.revisionColor ?? null, prior?.revisionRound || 0);
+      const round = col.round;
+      await px.scriptRevision.update({ where: { id: revision.id }, data: { revisionColor: col.key, colorCode: body?.colorCode || col.hex, revisionRound: round, revisionDate: new Date(), supersedesId: prior?.id || null } });
+      if (prior) {
+        const priorScenes: any[] = await this.prisma.scriptScene.findMany({ where: { revisionId: prior.id }, select: { sceneNumber: true, slugline: true } });
+        const priorMap = new Map(priorScenes.map((s) => [String(s.sceneNumber || '').toUpperCase(), s.slugline || '']));
+        const newScenes: any[] = await this.prisma.scriptScene.findMany({ where: { revisionId: revision.id }, select: { id: true, sceneNumber: true, slugline: true, pageStart: true } });
+        const locked = !!prior.isLocked; const aCount: Record<number, number> = {};
+        for (const sc of newScenes) {
+          const key = String(sc.sceneNumber || '').toUpperCase();
+          const had = priorMap.has(key);
+          const data: any = {};
+          if (!had || priorMap.get(key) !== (sc.slugline || '')) data.revisionMark = true;
+          if (locked && !had) { const pg = Number(sc.pageStart) || 0; const n = (aCount[pg] = (aCount[pg] || 0) + 1); data.pageLabel = `${pg}${String.fromCharCode(64 + n)}`; }
+          if (Object.keys(data).length) await px.scriptScene.update({ where: { id: sc.id }, data }).catch(() => {});
+        }
+      }
+    } catch { /* pre-db:push — colour/marks unavailable until pushed */ }
     return this.getRevision(revision.id);
   }
 
@@ -106,6 +141,70 @@ export class ScriptService {
   }
 
   removeRevision(id: string) { return this.prisma.scriptRevision.delete({ where: { id } }); }
+
+  /** P3 — lock the revision for production: freeze page numbering by stamping each scene's
+   *  pageLabel from its current page, so later revisions create A-pages instead of renumbering. */
+  async lockRevision(revisionId: string, lock = true) {
+    const px: any = this.prisma as any;
+    const rev: any = await this.prisma.scriptRevision.findUnique({ where: { id: revisionId } }).catch(() => null);
+    if (!rev) throw new NotFoundException('Revision not found.');
+    await px.scriptRevision.update({ where: { id: revisionId }, data: { isLocked: lock, lockedAt: lock ? new Date() : null } });
+    let frozen = 0;
+    if (lock) {
+      const scenes = await this.prisma.scriptScene.findMany({ where: { revisionId }, select: { id: true, pageStart: true } }).catch(() => [] as any[]);
+      for (const sc of scenes) { await px.scriptScene.update({ where: { id: sc.id }, data: { pageLabel: String((sc as any).pageStart || '') } }).catch(() => {}); frozen++; }
+    }
+    return { ok: true, locked: lock, frozen };
+  }
+
+  // ── P0 script-spine: single-source projection status + revision metadata ──────
+  /** Read-only drift snapshot — how downstream modules line up with the active revision.
+   *  Tolerant of pre-db:push (new columns/filters degrade to 0 rather than throwing). */
+  async projectionStatus(projectId: string) {
+    const docs = await this.prisma.scriptDocument.findMany({ where: { projectId }, include: { revisions: { orderBy: { createdAt: 'desc' } } } }).catch(() => [] as any[]);
+    if (!docs.length) return { hasScript: false };
+    const doc: any = docs.find((d: any) => d.activeRevisionId) || docs[0];
+    const revs: any[] = doc.revisions || [];
+    const rev: any = revs.find((r: any) => r.id === doc.activeRevisionId) || revs[0] || null;
+    const revId = rev?.id;
+    const scenes = revId ? await this.prisma.scriptScene.findMany({ where: { revisionId: revId }, select: { id: true, sceneNumber: true, productionStripId: true } }).catch(() => [] as any[]) : [];
+    const strips = await this.prisma.productionStrip.findMany({ where: { projectId, isBanner: false }, select: { id: true } }).catch(() => [] as any[]);
+    const stripIds = new Set(strips.map((s: any) => s.id));
+    const linked = scenes.filter((sc: any) => sc.productionStripId && stripIds.has(sc.productionStripId)).length;
+    const brokenDown = await (this.prisma as any).scriptScene.count({ where: { revisionId: revId, brokenDownAt: { not: null } } }).catch(() => 0);
+    const changed = await (this.prisma as any).scriptScene.count({ where: { revisionId: revId, revisionMark: true } }).catch(() => 0);
+    const elementsOnScenes = await (this.prisma as any).breakdownElement.count({ where: { projectId, sceneId: { not: null } } }).catch(() => 0);
+    const elementsTotal = await this.prisma.breakdownElement.count({ where: { projectId } }).catch(() => 0);
+    const budgetMapped = await this.prisma.breakdownElement.count({ where: { projectId, costCenterCode: { not: null } } }).catch(() => 0);
+    const castingCalls = await this.prisma.castingCall.count({ where: { projectId, breakdownElementId: { not: null } } }).catch(() => 0);
+
+    const st = (synced: boolean, none: boolean) => none ? 'none' : synced ? 'synced' : 'drift';
+    const modules = [
+      { key: 'scenes', label: 'Scenes parsed', count: scenes.length, status: st(scenes.length > 0, scenes.length === 0) },
+      { key: 'breakdown', label: 'Breakdown tagged', count: brokenDown, of: scenes.length, status: st(scenes.length > 0 && brokenDown >= scenes.length, brokenDown === 0) },
+      { key: 'strips', label: 'Strips linked', count: linked, of: scenes.length, status: st(scenes.length > 0 && linked >= scenes.length, scenes.length === 0 && linked === 0) },
+      { key: 'budget', label: 'Budget-mapped elements', count: budgetMapped, of: elementsTotal, status: st(elementsTotal > 0 && budgetMapped >= elementsTotal, budgetMapped === 0) },
+      { key: 'casting', label: 'Casting calls from breakdown', count: castingCalls, status: st(castingCalls > 0, castingCalls === 0) },
+    ];
+    return {
+      hasScript: true,
+      document: { id: doc.id, title: doc.title },
+      revision: rev ? { id: rev.id, label: rev.revisionLabel, color: (rev as any).revisionColor || null, colorCode: rev.colorCode || null, isLocked: !!(rev as any).isLocked, round: (rev as any).revisionRound || 0, pageCount: rev.pageCount } : null,
+      revisions: revs.map((r: any) => ({ id: r.id, label: r.revisionLabel, color: (r as any).revisionColor || null, isLocked: !!(r as any).isLocked, active: r.id === doc.activeRevisionId, createdAt: r.createdAt })),
+      counts: { scenes: scenes.length, strips: strips.length, linked, unlinked: Math.max(0, scenes.length - linked), brokenDown, changed, elementsOnScenes, elementsTotal, budgetMapped, castingCalls },
+      modules,
+    };
+  }
+
+  /** Set production-standard revision metadata (colour wheel / lock). Writes only new fields. */
+  async setRevisionMeta(revisionId: string, body: { revisionColor?: string; revisionRound?: number; isLocked?: boolean }) {
+    const data: any = {};
+    if (body?.revisionColor !== undefined) data.revisionColor = body.revisionColor || null;
+    if (body?.revisionRound !== undefined) data.revisionRound = Number(body.revisionRound) || 0;
+    if (body?.isLocked !== undefined) { data.isLocked = !!body.isLocked; data.lockedAt = body.isLocked ? new Date() : null; }
+    return (this.prisma as any).scriptRevision.update({ where: { id: revisionId }, data });
+  }
+
 
   // ── Helpers ───────────────────────────────────────────────────────────────────
   /** P5 — public reuse: extract per-page text + parse scenes (used by the master library).

@@ -18,6 +18,7 @@ export class CastingController {
   @Get('talent') talent(@Query('search') search?: string, @Query('status') status?: string, @Req() req?: any) { return this.service.listTalent({ search, status }, req?.user?.role, req?.user?.id); }
   @Get('talent/:id') getTalent(@Param('id') id: string, @Req() req: any) { return this.service.getTalent(id, req?.user?.role, req?.user?.id); }
   @Get('talent/:id/readiness') readiness(@Param('id') id: string, @Query('projectId') projectId?: string) { return this.service.talentReadiness(id, { projectId }); }
+  @Get('talent/:id/access-link') actorLink(@Param('id') id: string, @Query('projectId') projectId: string) { return this.service.actorAccessLink(id, projectId); }
   @Post('talent') @RequirePermission('production', 2) addTalent(@Body() b: any) { return this.service.createTalent(b); }
   @Put('talent/:id') @RequirePermission('production', 2) updTalent(@Param('id') id: string, @Body() b: any) { return this.service.updateTalent(id, b); }
   @Post('talent/:id/withdraw-consent') @RequirePermission('production', 2) withdraw(@Param('id') id: string, @Body() b: any) { return this.service.withdrawConsent(id, b?.reason); }
@@ -121,5 +122,6 @@ export class CastingPublicController {
   constructor(private service: CastingService) {}
 
   @Get('calls/:id') openCall(@Param('id') id: string) { return this.service.getCall(id); }
+  @Get('actor/:token') actorView(@Param('token') token: string) { return this.service.actorView(token); }
   @Post('submit') apply(@Body() b: any) { return this.service.submitProfile(b); }
 }

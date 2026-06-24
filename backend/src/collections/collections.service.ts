@@ -1,10 +1,10 @@
 import { Injectable, NotFoundException, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { EmailService } from './email.service';
+import { fmt, fmtD } from './collections.util';
 
 const OPEN = ['SENT', 'PARTIALLY_PAID', 'OVERDUE'];
-const fmt = (n: any) => Number(n ?? 0).toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const fmtD = (d: any) => d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+
 
 export const DEFAULT_RULES = [
   { key: 'BEFORE_DUE', label: 'Reminder before due', offsetDays: -3, subject: 'Upcoming invoice {{invoiceNumber}} due {{dueDate}}' },

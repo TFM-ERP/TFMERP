@@ -9,9 +9,10 @@ const periodOf = (d: Date | string) => { const x = new Date(d); return `${x.getF
 // capability rank for the project-role layer
 const CAP_RANK: Record<string, number> = { none: 0, view: 1, edit: 2, approve: 3, lock: 4 };
 
+import { AiService } from '../../ai/ai.service';
 @Injectable()
 export class CostingService {
-  constructor(private prisma: PrismaService, private workflow: WorkflowService) {}
+  constructor(private prisma: PrismaService, private workflow: WorkflowService, private ai: AiService) {}
 
   /** Submit a PO into its approval workflow (if one is defined for the type). */
   async submitPoForApproval(id: string, userId?: string) {
@@ -172,12 +173,13 @@ export class CostingService {
         projectId: data.projectId, poNumber,
         vendorId: data.vendorId || null, vendorName,
         costCenterCode: data.costCenterCode || null, costCenterTitle: data.costCenterTitle || null,
+        budgetLineItemId: data.budgetLineItemId || null,
         description: data.description || 'Purchase order',
         date: data.date ? new Date(data.date) : new Date(),
         expectedDate: data.expectedDate ? new Date(data.expectedDate) : null,
         amount, taxAmount: tax, total: amount + tax, currency: data.currency || 'AED',
         status: data.status || 'DRAFT', notes: data.notes || null, createdById: userId || null,
-      },
+      } as any,
     });
   }
 
@@ -268,24 +270,14 @@ export class CostingService {
 
   /** Vision OCR for a given task type. Returns the parsed JSON (or {} on failure). */
   private async extractDocFields(filePath: string, mime: string, task = 'INVOICE'): Promise<any> {
-    const key = process.env.ANTHROPIC_API_KEY;
-    if (!key) throw new BadRequestException('OCR not configured. Set ANTHROPIC_API_KEY in the backend .env.');
-    const model = process.env.LABOR_AI_MODEL || 'claude-3-5-sonnet-20241022';
     const b64 = readFileSync(filePath).toString('base64');
     const isPdf = /pdf$/i.test(mime || '') || filePath.toLowerCase().endsWith('.pdf');
     const mediaBlock = isPdf
       ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } }
       : { type: 'image', source: { type: 'base64', media_type: mime || 'image/jpeg', data: b64 } };
     const instruction = CostingService.OCR_PROMPTS[task] || CostingService.OCR_PROMPTS.INVOICE;
-    const headers: any = { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' };
-    if (isPdf) headers['anthropic-beta'] = 'pdfs-2024-09-25';
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST', headers,
-      body: JSON.stringify({ model, max_tokens: 1024, messages: [{ role: 'user', content: [mediaBlock, { type: 'text', text: instruction }] }] }),
-    } as any);
-    if (!res.ok) { const t = await res.text().catch(() => ''); throw new BadRequestException(`OCR failed (HTTP ${res.status}). ${t.slice(0, 180)}`); }
-    const data: any = await res.json();
-    let text = (data?.content?.[0]?.text || '').trim();
+    const r = await this.ai.raw({ task: 'costing.ocr', messages: [{ role: 'user', content: [mediaBlock, { type: 'text', text: instruction }] }], maxTokens: 1024, beta: isPdf ? 'pdfs-2024-09-25' : undefined });
+    let text = (r.text || '').trim();
     const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/i); if (fence) text = fence[1].trim();
     const s = text.indexOf('{'), e = text.lastIndexOf('}');
     if (s >= 0 && e > s) text = text.slice(s, e + 1);
@@ -294,6 +286,9 @@ export class CostingService {
 
   /** Back-compat alias — the invoice path still calls this name. */
   private extractInvoiceFields(filePath: string, mime: string) { return this.extractDocFields(filePath, mime, 'INVOICE'); }
+
+  /** Public: OCR a receipt image/PDF → extracted petty-cash fields (for the chat-to-ledger bot). */
+  async ocrReceipt(filePath: string, mime: string) { return this.extractDocFields(filePath, mime, 'PETTY_CASH_RECEIPT'); }
 
   /**
    * Petty-cash receipt OCR → a DRAFT petty-cash spend on the given float.
@@ -495,7 +490,166 @@ export class CostingService {
       efc: t.efc + s.efc, variance: t.variance + s.variance,
     }), { budget: 0, transfer: 0, approvedChange: 0, revisedBudget: 0, fringe: 0, committed: 0, actual: 0, efc: 0, variance: 0 });
 
-    return { projectId, currency: project.currency, versionName: version?.versionName, sections, totals };
+    const locations = await this.locationsSpend(projectId, project.currency);
+    return { projectId, currency: project.currency, versionName: version?.versionName, sections, totals, locations };
+  }
+
+  /**
+   * Location-spend rollup for the cost report (ADDITIVE, read-only).
+   * Surfaces fee/landlord payments, permit fees and security cost per project —
+   * split committed vs actual — WITHOUT touching the budget sections/totals that
+   * bond & financier snapshots reconcile against. Purely informational.
+   */
+  private async locationsSpend(projectId: string, currency: string) {
+    const [locsRaw, payments, permits, security] = await Promise.all([
+      this.prisma.location.findMany({ where: { projectId }, select: { id: true, name: true, locationFeePerDay: true } }),
+      this.prisma.locationPayment.findMany({ where: { location: { projectId } }, select: { locationId: true, amount: true, status: true } }),
+      this.prisma.locationPermit.findMany({ where: { location: { projectId } }, select: { locationId: true, fee: true, status: true } }),
+      this.prisma.locationSecurity.findMany({ where: { location: { projectId } }, select: { locationId: true, totalCost: true, ratePerGuard: true, guards: true, marshals: true, days: true, status: true, postedTxnId: true } }),
+    ]);
+    const PERMIT_LIVE: any[] = ['DRAFT', 'APPLIED', 'IN_REVIEW', 'APPROVED'];
+    const num = (v: any) => (v == null ? 0 : Number(v));
+    const per: Record<string, any> = {};
+    const row = (id: string | null, name?: string) => {
+      const k = id || '__none__';
+      return (per[k] = per[k] || { id: k, name: name || 'Unassigned', paid: 0, pending: 0, permitFees: 0, security: 0, securityActual: 0, feePerDay: 0 });
+    };
+    for (const l of locsRaw) row(l.id, l.name).feePerDay = num(l.locationFeePerDay);
+    for (const p of payments) {
+      const r = row(p.locationId);
+      if (p.status === 'PAID') r.paid += num(p.amount); else r.pending += num(p.amount); // PENDING + INVOICED = committed
+    }
+    for (const p of permits) {
+      if (!PERMIT_LIVE.includes(p.status)) continue;
+      row(p.locationId).permitFees += num(p.fee);
+    }
+    for (const s of security) {
+      if (s.status === 'CANCELLED') continue;
+      const cost = s.totalCost != null ? num(s.totalCost) : (num(s.ratePerGuard) * ((s.guards || 0) + (s.marshals || 0)) * num(s.days || 1));
+      const r = row(s.locationId);
+      r.security += cost;
+      if (s.postedTxnId) r.securityActual += cost; // posted to ledger → actual
+    }
+    const byLocation = Object.values(per).map((r: any) => ({
+      id: r.id, name: r.name, paid: r.paid, pending: r.pending, permitFees: r.permitFees,
+      security: r.security, securityActual: r.securityActual, feePerDay: r.feePerDay,
+      committed: r.pending + r.permitFees + (r.security - r.securityActual),
+      actual: r.paid + r.securityActual,
+      total: r.pending + r.permitFees + r.security + r.paid,
+    })).sort((a: any, b: any) => b.total - a.total);
+    const sum = (k: string) => byLocation.reduce((t, x: any) => t + (x[k] || 0), 0);
+    return {
+      currency, count: locsRaw.length,
+      payments: { paid: sum('paid'), pending: sum('pending') },
+      permitFees: sum('permitFees'),
+      security: { total: sum('security'), actual: sum('securityActual') },
+      feePerDayTotal: sum('feePerDay'),
+      committed: sum('committed'), actual: sum('actual'), total: sum('committed') + sum('actual'),
+      byLocation,
+    };
+  }
+
+  /**
+   * Schedule/burn-driven forecast (SYS-FIN). Augments the cost report with an automatically
+   * projected ETC from shoot-day progress + burn rate, so the EFC reacts to the schedule and
+   * flags lines projected to overspend before the actual does. Manual ETC overrides always win,
+   * and the projection never falls below open commitments.
+   */
+  async forecast(projectId: string) {
+    const report = await this.costReport(projectId);
+    const now = Date.now();
+    const sheets = await this.prisma.callSheet.findMany({ where: { projectId }, select: { shootDate: true } });
+    let totalDays = sheets.length;
+    let elapsed = sheets.filter(x => x.shootDate && new Date(x.shootDate).getTime() <= now).length;
+    if (totalDays === 0) {
+      const strips = await this.prisma.productionStrip.findMany({ where: { projectId }, select: { shootDay: true } });
+      totalDays = new Set(strips.map(x => x.shootDay).filter(Boolean)).size;
+    }
+    const pct = totalDays > 0 ? Math.min(1, Math.max(0, elapsed / totalDays)) : 0;
+    const projEtc = (actual: number, committed: number, etcManual: boolean, etc: number) => {
+      if (etcManual) return etc;
+      const burnRemaining = pct >= 0.02 ? Math.max(0, actual / pct - actual) : 0;
+      return Math.max(committed, burnRemaining);
+    };
+    const sections = report.sections.map((sec: any) => {
+      const accounts = sec.accounts.map((a: any) => {
+        const fEtc = projEtc(a.actual, a.committed, a.etcManual, a.etc);
+        const forecastEfc = a.actual + fEtc;
+        const forecastVariance = a.revisedBudget - forecastEfc;
+        return { ...a, projectedEtc: Math.round(fEtc), forecastEfc: Math.round(forecastEfc), forecastVariance: Math.round(forecastVariance), atRisk: forecastVariance < -0.01 };
+      });
+      const roll = (k: string) => accounts.reduce((t: number, x: any) => t + (x[k] || 0), 0);
+      return { ...sec, accounts, forecastEfc: roll('forecastEfc'), forecastVariance: roll('forecastVariance') };
+    });
+    const totals = sections.reduce((t: any, sec: any) => ({ forecastEfc: t.forecastEfc + sec.forecastEfc, forecastVariance: t.forecastVariance + sec.forecastVariance }), { forecastEfc: 0, forecastVariance: 0 });
+    const atRisk: any[] = [];
+    for (const sec of sections) for (const a of sec.accounts) if (a.atRisk) atRisk.push({ code: a.code, title: a.title, section: sec.title, revisedBudget: a.revisedBudget, forecastEfc: a.forecastEfc, over: Math.round(a.forecastEfc - a.revisedBudget) });
+    atRisk.sort((x, y) => y.over - x.over);
+    return {
+      projectId, currency: report.currency, method: 'schedule-burn',
+      schedule: { daysElapsed: elapsed, totalDays, pctElapsed: Math.round(pct * 100) },
+      budget: report.totals.revisedBudget, actual: report.totals.actual, committed: report.totals.committed, efc: report.totals.efc,
+      forecastEfc: totals.forecastEfc, forecastVariance: totals.forecastVariance, sections, atRisk,
+    };
+  }
+
+  /**
+   * Financier / bond reporting pack — one consolidated bundle: cost report (WCR), schedule/burn
+   * forecast + at-risk lines, weekly cash-flow, hot-cost summary (from DPRs), and snapshot history.
+   * Read-only assembly over the existing reports.
+   */
+  async reportingPack(projectId: string) {
+    const project = await this.prisma.productionProject.findUnique({ where: { id: projectId }, select: { title: true, projectNumber: true, projectType: true, currency: true } });
+    const report = await this.costReport(projectId);
+    const summary = await this.financeSummary(projectId);
+    const forecast = await this.forecast(projectId);
+    const cashflow = await this.cashflow(projectId);
+    const snapshots = await this.listSnapshots(projectId);
+    let dprs: any[] = [];
+    try { dprs = await (this.prisma as any).dailyProductionReport.findMany({ where: { projectId }, orderBy: { reportDate: 'asc' } }); } catch { /* pre-migration */ }
+    let cum = 0;
+    const hotDays = dprs.map((d: any) => {
+      const hot = (Array.isArray(d.hotCosts) ? d.hotCosts : []).reduce((t: number, h: any) => t + (Number(h.amount) || 0), 0);
+      const day = Number(d.estimatedDayCost) || hot; cum += day;
+      return { dayNumber: d.dayNumber, date: d.reportDate, scenesShot: Number(d.scenesShot) || 0, pagesShot: Number(d.pagesShot) || 0, hot: day, cumulative: cum };
+    });
+    return {
+      project, projectId, currency: report.currency, generatedAt: new Date(),
+      summary, sections: report.sections, totals: report.totals,
+      forecast: { schedule: forecast.schedule, forecastEfc: forecast.forecastEfc, forecastVariance: forecast.forecastVariance, atRisk: forecast.atRisk },
+      cashflow, snapshots, hotCosts: { days: hotDays, total: cum },
+    };
+  }
+
+  /**
+   * Sync-integrity / change-propagation warnings — flags where creative/schedule decisions have
+   * drifted from the locked budget: stripboard shoot-days vs the budget's shoot_days global, and
+   * script-breakdown estimated cost coded to a cost-centre exceeding that line's budget.
+   */
+  async syncWarnings(projectId: string) {
+    const warnings: any[] = [];
+    const strips = await this.prisma.productionStrip.findMany({ where: { projectId }, select: { shootDay: true } });
+    const scheduleDays = new Set(strips.map(x => x.shootDay).filter((x): x is number => !!x)).size;
+    const version = await this.prisma.budgetVersion.findFirst({ where: { projectId, isActive: true }, include: { globals: true } });
+    const sd = (version?.globals || []).find((g: any) => g.key === 'shoot_days');
+    const budgetDays = sd ? Number(sd.value) : null;
+    if (budgetDays && scheduleDays && Math.abs(scheduleDays - budgetDays) >= 1) {
+      warnings.push({ type: 'SCHEDULE', severity: scheduleDays > budgetDays ? 'high' : 'medium', title: 'Shoot-day drift',
+        message: `The stripboard has ${scheduleDays} shoot days but the locked budget assumes ${budgetDays}. Added days carry crew, fringe and overhead.`, delta: scheduleDays - budgetDays });
+    }
+    const els = await this.prisma.breakdownElement.findMany({ where: { strip: { projectId } }, select: { costCenterCode: true, estCost: true } });
+    const byCenter: Record<string, number> = {};
+    for (const e of els) if (e.costCenterCode) byCenter[e.costCenterCode] = (byCenter[e.costCenterCode] || 0) + Number(e.estCost || 0);
+    const report = await this.costReport(projectId);
+    const budgetByCode: Record<string, number> = {};
+    for (const sec of report.sections) for (const a of (sec as any).accounts) budgetByCode[a.code] = a.revisedBudget;
+    for (const [code, bd] of Object.entries(byCenter)) {
+      if (bd <= 0) continue;
+      const budget = budgetByCode[code] || 0;
+      if (bd > budget + 1) warnings.push({ type: 'BREAKDOWN', severity: budget === 0 ? 'high' : 'medium', code, title: 'Breakdown exceeds budget',
+        message: `Script breakdown coded to ${code} totals ${Math.round(bd).toLocaleString()} but the line is budgeted ${Math.round(budget).toLocaleString()}.`, delta: Math.round(bd - budget) });
+    }
+    return { count: warnings.length, warnings, scheduleDays, budgetDays };
   }
 
   async saveSnapshot(projectId: string, label?: string, userId?: string) {

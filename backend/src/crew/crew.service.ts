@@ -1,12 +1,13 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { AiService } from '../ai/ai.service';
 
 const DATE_FIELDS = ['passportExpiry', 'visaExpiry', 'emiratesIdExpiry'];
 const NUM_FIELDS = ['dayRateUsd', 'dayRateAed', 'weeklyRateUsd', 'weeklyRateAed'];
 
 @Injectable()
 export class CrewService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private ai: AiService) {}
 
   list(q: any = {}) {
     const where: any = {};
@@ -92,9 +93,6 @@ export class CrewService {
    */
   async parseProfile(text: string) {
     if (!text || text.trim().length < 10) throw new BadRequestException('Paste the crew member profile text first.');
-    const key = process.env.ANTHROPIC_API_KEY;
-    if (!key) throw new BadRequestException('AI not configured. Set ANTHROPIC_API_KEY in the backend .env.');
-    const model = process.env.LABOR_AI_MODEL || 'claude-3-5-sonnet-20241022';
     const instruction =
       'You extract a film crew member profile into STRICT JSON (no prose, no markdown). ' +
       'Keys: name (string), department (primary, UPPERCASE e.g. PRODUCTION|CAMERA|ART|LOCATIONS|…|null), ' +
@@ -105,18 +103,8 @@ export class CrewService {
       'credits (array of {year (string|null), title, role|null} — their filmography / previous work), ' +
       'affiliations (array of strings — e.g. "Emirati Crew & Talent","International Productions Experience"), ' +
       'confidence (0-1). Use null/empty arrays when unknown. Do NOT invent data.\n\nPROFILE TEXT:\n' + text.slice(0, 12000);
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({ model, max_tokens: 2048, messages: [{ role: 'user', content: [{ type: 'text', text: instruction }] }] }),
-    } as any);
-    if (!res.ok) { const t = await res.text().catch(() => ''); throw new BadRequestException(`AI parse failed (HTTP ${res.status}). ${t.slice(0, 160)}`); }
-    const data: any = await res.json();
-    let out = (data?.content?.[0]?.text || '').trim();
-    const fence = out.match(/```(?:json)?\s*([\s\S]*?)```/i); if (fence) out = fence[1].trim();
-    const s = out.indexOf('{'), e = out.lastIndexOf('}');
-    if (s >= 0 && e > s) out = out.slice(s, e + 1);
-    try { return { suggestion: JSON.parse(out) }; } catch { return { suggestion: {} }; }
+    const j: any = await this.ai.json({ task: 'crew.parseProfile', system: '', user: instruction, maxTokens: 2048 });
+    return { suggestion: j || {} };
   }
 
   // ── ERP identity link (V1.2 — doc system/05 §1) ─────────────────────────────────

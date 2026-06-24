@@ -102,54 +102,18 @@ export class BreakdownService {
 
   /** Create budget line items from breakdown estimated costs, tagged to their cost centers. Idempotent. */
   async pushToBudget(projectId: string) {
-    const version = await this.prisma.budgetVersion.findFirst({
-      where: { projectId, isActive: true },
-      include: { sections: { include: { accounts: true } } },
-    });
-    if (!version) throw new BadRequestException('No active budget version to push into.');
-    const project = await this.prisma.productionProject.findUnique({ where: { id: projectId } });
-
-    const codeToAccount: Record<string, string> = {};
-    const accountIds: string[] = [];
-    for (const s of version.sections) for (const a of s.accounts) { codeToAccount[a.code] = a.id; accountIds.push(a.id); }
-
-    // Remove any previously pushed breakdown lines so re-runs don't duplicate
-    await this.prisma.budgetLineItem.deleteMany({ where: { accountId: { in: accountIds }, subTitle: 'Breakdown' } });
-
-    const els = await this.prisma.breakdownElement.findMany({ where: { projectId, estCost: { gt: 0 }, costCenterCode: { not: null } } });
-    let created = 0;
-    for (const e of els) {
-      const accId = e.costCenterCode ? codeToAccount[e.costCenterCode] : null;
-      if (!accId) continue;
-      const total = Number(e.estCost);
-      const qty = e.quantity || 1;
-      const rate = qty ? total / qty : total;
-      const count = await this.prisma.budgetLineItem.count({ where: { accountId: accId } });
-      await this.prisma.budgetLineItem.create({
-        data: {
-          accountId: accId, sortOrder: count, subTitle: 'Breakdown',
-          description: `${e.name} · ${String(e.category).replace(/_/g, ' ').toLowerCase()}`,
-          quantity: qty, units: 'unit', rate, currency: (project?.currency as any) || 'AED', exchangeRate: 1,
-          fringePct: 0, origin: 'AUTO_BREAKDOWN', aiSuggestedRate: rate, aiSuggestedQuantity: qty,
-          subtotal: total, fringeAmount: 0, total,
-        },
-      });
-      created++;
+    // P3 — merged into one canonical auto-generator: clear legacy 'Breakdown' lines from the old
+    // estCost pusher, then delegate to budgetFromBreakdown ('Auto-Breakdown').
+    const version = await this.prisma.budgetVersion.findFirst({ where: { projectId, isActive: true }, include: { sections: { include: { accounts: { select: { id: true } } } } } });
+    if (version) {
+      const accountIds: string[] = [];
+      for (const sec of version.sections) for (const a of sec.accounts) accountIds.push(a.id);
+      if (accountIds.length) await this.prisma.budgetLineItem.deleteMany({ where: { accountId: { in: accountIds }, subTitle: 'Breakdown' } });
     }
-
-    // Recalculate the active version's grand total onto the project
-    const fresh = await this.prisma.budgetVersion.findUnique({
-      where: { id: version.id },
-      include: { sections: { include: { accounts: { include: { lineItems: { select: { total: true } } } } } } },
-    });
-    let grand = 0;
-    for (const s of fresh!.sections) for (const a of s.accounts) for (const i of a.lineItems) grand += Number(i.total);
-    await this.prisma.productionProject.update({ where: { id: projectId }, data: { totalBudget: grand } });
-
-    return { created, grandTotal: grand };
+    return this.budgetFromBreakdown(projectId, {});
   }
 
-  create(data: any) {
+    create(data: any) {
     return this.prisma.breakdownElement.create({
       data: {
         projectId: data.projectId, stripId: data.stripId,
@@ -432,8 +396,9 @@ export class BreakdownService {
         if (!cats.has(cat)) cats.set(cat, new Map());
         const m = cats.get(cat)!;
         let it = m.get(e.name);
-        if (!it) { it = { name: e.name, qty: 0, estCost: 0, scenes: new Set<string>(), days: new Set<number>(), costCenters: new Set<string>() }; m.set(e.name, it); }
+        if (!it) { it = { name: e.name, qty: 0, estCost: 0, scenes: new Set<string>(), days: new Set<number>(), costCenters: new Set<string>(), ids: new Set<string>() }; m.set(e.name, it); }
         it.qty += e.quantity || 1;
+        if (e.id) it.ids.add(e.id);
         it.estCost += Number(e.estCost || 0);
         if (s.sceneNumber) it.scenes.add(String(s.sceneNumber));
         if (s.shootDay && s.shootDay > 0) it.days.add(s.shootDay);
@@ -449,6 +414,7 @@ export class BreakdownService {
         scenes: Array.from(it.scenes),
         days: Array.from(it.days).sort((a: number, b: number) => a - b),
         costCenters: Array.from(it.costCenters),
+        ids: Array.from(it.ids),
       })).sort((a: any, b: any) => b.qty - a.qty || a.name.localeCompare(b.name));
       return {
         category,
