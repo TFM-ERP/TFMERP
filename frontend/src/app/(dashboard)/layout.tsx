@@ -13,6 +13,8 @@ import NotificationBell from '@/components/NotificationBell';
 import PwaRegister from '@/components/PwaRegister';
 import { settingsApi, statusApi, permissionsApi, accountApi, assetUrl } from '@/lib/api';
 import { useLocale, applyLocale } from '@/lib/i18n';
+import { useScriponShellFlag } from '@/components/scripon/osShellFlag';
+import { rememberFilmosRoute } from '@/components/scripon/os-workspaces';
 
 type Page = { label: string; href: string; divider?: boolean };
 type Module = { key: string; label: string; icon: any; pages: Page[] };
@@ -217,6 +219,9 @@ const lsSet = (k: string, v: any) => { try { localStorage.setItem(k, JSON.string
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const shellFlag = useScriponShellFlag();
+  const isScripon = pathname.startsWith('/scripon');
+  useEffect(() => { rememberFilmosRoute(pathname); }, [pathname]);
   const router = useRouter();
   const { locale, t, isRTL, setLocale } = useLocale();
   useEffect(() => { applyLocale(locale); }, [locale]);
@@ -449,6 +454,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return k === 'home' || !perms || (perms[k] ?? 0) >= 1;
   };
   const bottomNav = GROUPS.flatMap(g => g.keys).filter(canSee).slice(0, 4).map(k => MODULES.find(m => m.key === k)!);
+
+  if (isScripon && shellFlag === 'new') {
+    return (
+      <div style={{ height: '100vh', overflow: 'hidden', background: 'var(--page-bg)' }}>
+        <SetupGate>{children}</SetupGate>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: 'var(--page-bg)' }}>
