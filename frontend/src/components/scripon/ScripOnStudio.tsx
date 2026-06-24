@@ -5,9 +5,12 @@
  * `.sx`-scoped, self-contained. Engines run via the page; panels render their results, sample until run.
  */
 import React, { useState, useMemo, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { ScriptPaper } from './scriptPaper';
 import { useLocale } from '@/lib/i18n';
+import { useScriponShellFlag } from './osShellFlag';
+import { OS_WORKSPACES, activeWorkspaceKey, type OsWorkspace } from './os-workspaces';
+const lsGet = (k: string, fb: any) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : fb; } catch { return fb; } };
 
 export type SxLadder = { name: string; sub?: string; state: 'done' | 'on' | 'wait'; body?: string; kind?: string; stageId?: string; versionId?: string; versionN?: number; versionCount?: number; versionColor?: string; status?: string; framework?: string; scenes?: any[]; steps?: any[] };
 export type SxSpine = { k: string; v: string };
@@ -246,7 +249,35 @@ export const RAIL10: { k: string; lbl: string; d: React.ReactNode }[] = [
 const RAIL_ROUTES: Record<string, string> = { home: '/home', library: '/scripon/library', reader: '/scripon/reader', breakdown: '/scripon/breakdown', schedule: '/scripon/schedule', coverage: '/scripon/coverage', dialect: '/scripon/dialect', studio: '/scripon/studio', greenlight: '/scripon/greenlight', reports: '/scripon/reports', settings: '/scripon/settings' };
 export function SxRail(props: { active: string; onNav?: (k: string) => void }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { t, locale, setLocale } = useLocale();
+  const flag = useScriponShellFlag();
+
+  // RBAC perms — read post-mount only (no localStorage during render → no hydration mismatch). Fail-open while unknown.
+  const [perms, setPerms] = useState<Record<string, number> | null>(null);
+  useEffect(() => { setPerms(lsGet('tfm_perms', null)); }, []);
+  // active workspace — resolve the studio?tab=builds case from a post-mount search read.
+  const [osSearch, setOsSearch] = useState('');
+  useEffect(() => { setOsSearch(typeof window !== 'undefined' ? window.location.search : ''); }, [pathname]);
+
+  if (flag === 'new') {
+    const canSee = (w: OsWorkspace) => !w.perm || !perms || (perms[w.perm] ?? 0) >= 1;
+    const activeKey = activeWorkspaceKey(pathname, osSearch);
+    return (
+      <div className="rail">
+        {OS_WORKSPACES.filter(canSee).map((w) => (
+          <button key={w.key} className={'ritem' + (w.key === activeKey ? ' on' : '')} onClick={() => router.push(w.href)} title={t(w.label)} aria-label={t(w.label)}>
+            <div className="box"><w.icon size={18} /></div><div className="lbl">{t(w.label)}</div>
+          </button>
+        ))}
+        <button className="ritem" onClick={() => setLocale(locale === 'ar' ? 'en' : 'ar')} style={{ marginTop: 'auto' }} title={locale === 'ar' ? 'Switch to English' : 'التبديل إلى العربية'} aria-label="Toggle language">
+          <div className="box" style={{ fontWeight: 800, fontSize: 12, letterSpacing: '.5px' }}>{locale === 'ar' ? 'EN' : 'ع'}</div><div className="lbl">{locale === 'ar' ? 'English' : 'العربية'}</div>
+        </button>
+      </div>
+    );
+  }
+
+  // ── old (fallback) — current behavior, unchanged ──
   const go = (k: string) => { const r = RAIL_ROUTES[k]; if (r) router.push(r); else if (props.onNav) props.onNav(k); };
   return (
     <div className="rail">
