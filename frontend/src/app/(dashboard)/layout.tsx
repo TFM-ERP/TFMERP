@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { OS_WORKSPACES, activeWorkspaceKey, rememberFilmosRoute, lastFilmosRoute, type OsWorkspace } from './scripon/os-workspaces';
 import {
   Home, DollarSign, Truck, Building2, Film, Users, BarChart2, Settings, ShieldCheck, Target, Wrench,
@@ -258,9 +258,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const setThemeTo = (t: string) => { setTheme(t); applyTheme(t); lsSet('tfm_theme', t); setThemeMenuOpen(false); };
   const [perms, setPerms] = useState<Record<string, number> | null>(null);
 
-  const searchParams = useSearchParams();
+  const [osSearch, setOsSearch] = useState('');
+  useEffect(() => { setOsSearch(typeof window !== 'undefined' ? window.location.search : ''); }, [pathname]);
   const isScripon = pathname.startsWith('/scripon');
-  const osActiveKey = isScripon ? activeWorkspaceKey(pathname, searchParams?.toString() ?? '') : null;
+  const osActiveKey = isScripon ? activeWorkspaceKey(pathname, osSearch) : null;
   const canSeeOs = (w: OsWorkspace) => !w.perm || !perms || (perms[w.perm] ?? 0) >= 1;
   const osVisible = OS_WORKSPACES.filter(canSeeOs);
 
