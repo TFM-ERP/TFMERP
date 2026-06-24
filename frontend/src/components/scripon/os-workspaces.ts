@@ -41,5 +41,5 @@ export function rememberFilmosRoute(pathname: string): void {
   try { sessionStorage.setItem(LS_KEY, pathname); } catch { /* ignore */ }
 }
 export function lastFilmosRoute(): string {
-  try { return sessionStorage.getItem(LS_KEY) || '/'; } catch { return '/'; }
+  try { return sessionStorage.getItem(LS_KEY) || '/home'; } catch { return '/home'; }
 }
