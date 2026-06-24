@@ -6,7 +6,16 @@ const overlaps = (a: CanonFactCore, b: CanonFactCore): boolean => {
   return a.validFrom < bTo && b.validFrom < aTo;
 };
 
-/** Candidates that contradict established canon. Pure, fail-safe. */
+/**
+ * Candidates that contradict established canon. Pure, fail-safe.
+ *
+ * KNOWN P0 LIMITATION: facts are stored open-ended (validTo: null), so two same-subject+predicate
+ * facts with different objects always overlap. This means a LEGITIMATE later state change in a NEW
+ * scene (e.g. a character dies at scene 30 after being alive at scene 12) is conservatively flagged
+ * as a conflict — the detector cannot distinguish death from resurrection. This is non-destructive
+ * (it only lowers continuityScore and is logged for human review). P2 (Living-Canon) refinement:
+ * close the prior fact's validTo at supersede time so the windows stop overlapping.
+ */
 export function detectConflicts(
   established: CanonFactCore[],
   candidates: CanonFactCore[],

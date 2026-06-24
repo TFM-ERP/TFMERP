@@ -59,3 +59,14 @@ test('re-rendering scene 12 (alive→dead) is NOT a conflict once its old facts 
 test('factsExcludingScenes is fail-safe', () => {
   assert.deepEqual(factsExcludingScenes(null as any, ['x']), []);
 });
+
+test('KNOWN P0 LIMITATION: new-scene state evolution (alive@12 → dead@30) is conservatively flagged', () => {
+  // mapAiFactsToCore stores facts open-ended (validTo: null), so detectConflicts cannot tell a
+  // legitimate later death from a resurrection bug — it flags BOTH for human review. The render
+  // still completes non-destructively; this only lowers continuityScore. Pinned intentionally:
+  // change this test consciously (P2 closes validTo on supersede), never by accident.
+  const established = [f({ subject: 'MARIAM', predicate: 'status', object: 'alive', validFrom: 12, sourceSceneId: 'sc12' })];
+  const candidate = [f({ subject: 'MARIAM', predicate: 'status', object: 'dead', validFrom: 30, sourceSceneId: 'sc30' })];
+  // sc30 !== sc12, so factsExcludingScenes does not shield this; detectConflicts flags it.
+  assert.equal(detectConflicts(established, candidate).length, 1);
+});
