@@ -70,7 +70,7 @@ tmp/
 
 # Build copies, DB dumps, uploads, FUSE junk (never push)
 backend/dist*/
-backups/
+/backups/
 backend/backups/
 backend/uploads/
 **/.fuse_hidden*
