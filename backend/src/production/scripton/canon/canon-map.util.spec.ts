@@ -4,10 +4,11 @@ import { mapAiFactsToCore } from './canon-map.util';
 
 test('maps AI rows to CanonFactCore with story-order validFrom from the scene', () => {
   const scene = { id: 'sc1', order: 12, text: '' };
-  const raw = [{ kind: 'CHARACTER', subject: 'mariam', predicate: 'status', object: 'dead', statement: 'Mariam dies.' }];
+  const raw = [{ kind: 'CHARACTER', subject: 'mariam', predicate: 'STATUS', object: 'dead', statement: 'Mariam dies.' }];
   const out = mapAiFactsToCore(raw, scene);
   assert.equal(out.length, 1);
   assert.equal(out[0].subject, 'MARIAM');         // upper-cased
+  assert.equal(out[0].predicate, 'status');       // lower-cased
   assert.equal(out[0].validFrom, 12);             // from scene.order
   assert.equal(out[0].validTo, null);
   assert.equal(out[0].sourceSceneId, 'sc1');
