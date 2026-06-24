@@ -155,11 +155,29 @@ export default function ScripOnPackagePage() {
       + '</body></html>';
   };
   const dlBlob = (blob: Blob, name: string) => { try { const u = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 1500); } catch { /* */ } };
+  // Translated labels so the server-built .docx headings/meta match the on-screen (and RTL) UI.
+  const docxLabels = () => ({
+    sections: { overview: t('Overview'), spine: t('Development spine'), characters: t('Characters'), market: t('Market & Comps'), coverage: t('Coverage') },
+    meta: { format: t('Format'), length: t('Length'), periodLocale: t('Period · Locale'), languageMarket: t('Language · Market'), framework: t('Framework'), budgetTier: t('Budget tier'), scenesLocations: t('Scenes · Locations'), status: t('Status') },
+    stages: Object.fromEntries(Object.keys(STAGE_TITLES).map((k) => [k, t(STAGE_TITLES[k])])),
+    misc: { pages: t('pages'), contemporary: t('Contemporary'), verdict: t('Verdict'), draft: t('Draft'), promoted: t('Promoted'), dash: '—' },
+  });
   const doExport = async (kind: 'pdf' | 'doc') => {
     const html = dossierHtml();
-    if (kind === 'doc') { dlBlob(new Blob(['﻿' + html], { type: 'application/msword' }), fileBase() + '.doc'); flash(t('Word dossier downloaded.')); return; }
+    if (kind === 'doc') {
+      // Real .docx from the server (same model as the PDF dossier). Falls back to the legacy
+      // editable .doc (HTML) so the button never dead-ends if the Word service is unavailable.
+      try {
+        flash(t('Building Word…'));
+        const r: any = await productionApi.scripton.development.packageDocx({ docId, projectId: pkg.project?.id, buildId: pkg.build?.id, labels: docxLabels(), rtl: dir === 'rtl' });
+        dlBlob(r.data, fileBase() + '.docx'); flash(t('Word dossier downloaded.'));
+      } catch {
+        dlBlob(new Blob([html], { type: 'application/msword' }), fileBase() + '.doc'); flash(t('Word service unavailable — downloaded an editable .doc instead.'));
+      }
+      return;
+    }
     try { flash(t('Rendering PDF…')); const r: any = await productionApi.scripton.renderPdf(html, fileBase() + '.pdf'); dlBlob(r.data, fileBase() + '.pdf'); flash(t('PDF dossier downloaded.')); }
-    catch { dlBlob(new Blob(['﻿' + html], { type: 'application/msword' }), fileBase() + '.doc'); flash(t('PDF renderer unavailable — downloaded Word instead.')); }
+    catch { dlBlob(new Blob([html], { type: 'application/msword' }), fileBase() + '.doc'); flash(t('PDF renderer unavailable — downloaded Word instead.')); }
   };
 
   const NAV = [['ov', t('Overview')], ['log', t('Logline & Synopsis')], ['tr', t('Treatment')], ['str', t('Structure')], ['ch', t('Characters')], ['wl', t('World & Lore')], ['gt', t('Genre & Texture')], ['mk', t('Market & Comps')], ['cv', t('Coverage')], ['sc', t('Scenes & Script')]];

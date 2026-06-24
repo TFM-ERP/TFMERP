@@ -4,6 +4,8 @@ import { AiService } from '../../ai/ai.service';
 import { computeFacts, parseJsonArray } from './scripton.util';
 import { LORE_SEED } from './lore-seed.data';
 import { knowledgeDirective, stageLadderFor, normalizeFamily } from './knowledge';
+import { buildPackageDocModel } from './package-docx.util';
+import { packDocx } from './package-docx.renderer';
 
 /**
  * ScripON Doctor P0 — data-grounded coverage + scene diagnostics.
@@ -1332,6 +1334,17 @@ export class ScripOnService {
       ladder: stageLadderFor(briefObj || {}),
       characterBible: charBible,
     };
+  }
+
+  // ── Development Package → editable Word (.docx). Same model as the PDF dossier; client may pass
+  // localized `labels` + `rtl` so the document matches the UI. A .docx cannot be hardened like the
+  // protected review PDF, so this is explicitly an editable review copy (metadata is still neutral). ──
+  async developmentPackageDocx(opts: any, labels?: any, rtl?: boolean): Promise<{ buffer: Buffer; fileName: string }> {
+    const pkg = await this.developmentPackage(opts);
+    const doc = buildPackageDocModel(pkg, labels || undefined);
+    const buffer = await packDocx(doc, { rtl: !!rtl });
+    const base = String(doc.title || 'package').replace(/[^\w؀-ۿ\-]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 60) || 'package';
+    return { buffer, fileName: base + '.docx' };
   }
 
   // ── Character bible: enrich coverage characters into tagline/core-identity/traits/function/arc (cached) ──

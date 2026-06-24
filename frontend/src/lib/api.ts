@@ -506,6 +506,7 @@ export const productionApi = {
       scriptProgress: (documentId: string) => api.get(`/production/scripton/script-progress/${documentId}`),
       getIntake: (projectId: string) => api.get(`/production/scripton/intake/${projectId}`),
       getPackage: (opts: any = {}) => api.get('/production/scripton/development/package?docId=' + encodeURIComponent(opts.docId || '') + (opts.projectId ? '&projectId=' + encodeURIComponent(opts.projectId) : '') + (opts.buildId ? '&buildId=' + encodeURIComponent(opts.buildId) : '')),
+      packageDocx: (body: any) => api.post('/production/scripton/development/package/docx', body, { responseType: 'blob' }),
       characterBible: (projectId: string, buildId?: string) => api.post('/production/scripton/development/character-bible/' + projectId, buildId ? { buildId } : {}),
       listVersions: (buildId: string) => api.get('/production/scripton/development/versions/' + buildId),
       newVersion: (buildId: string, label?: string) => api.post('/production/scripton/development/versions/' + buildId + '/new', label ? { label } : {}),

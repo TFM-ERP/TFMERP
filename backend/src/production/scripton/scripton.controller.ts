@@ -50,6 +50,16 @@ export class ScripOnController {
   @Post('development/version/:versionId/promote-to-script') @RequirePermission('production', 2) devPromoteScript(@Param('versionId') versionId: string, @Req() req: any) { return this.service.promoteToScript(versionId, req?.user?.id); }
   @Post('development/script/:docId/regenerate') @RequirePermission('production', 2) devRegenerateFeature(@Param('docId') docId: string, @Body() body: any, @Req() req: any) { return this.service.regenerateFeature(docId, req?.user?.id, body?.mode === 'rewrite' ? 'rewrite' : 'extend'); }
   @Get('development/package') devPackage(@Query('docId') docId?: string, @Query('projectId') projectId?: string, @Query('buildId') buildId?: string) { return this.service.developmentPackage({ docId, projectId, buildId }); }
+  @Post('development/package/docx') @RequirePermission('production', 1)
+  async devPackageDocx(@Body() body: any, @Res() res: any) {
+    try {
+      const { buffer, fileName } = await this.service.developmentPackageDocx({ docId: body?.docId, projectId: body?.projectId, buildId: body?.buildId }, body?.labels, body?.rtl);
+      res.set({ 'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'Content-Disposition': 'attachment; filename="' + fileName + '"', 'Content-Length': buffer.length });
+      res.end(buffer);
+    } catch (e: any) {
+      res.status(e?.status || 500).json({ message: String((e && e.message) || 'docx export failed') });
+    }
+  }
   @Post('development/character-bible/:projectId') @RequirePermission('production', 2) devCharBible(@Param('projectId') projectId: string, @Body() body: any, @Req() req: any) { return this.service.generateCharacterBible(projectId, req?.user?.id, body?.buildId); }
   @Get('development/versions/:buildId') devVersions(@Param('buildId') buildId: string) { return this.service.listBuildVersions(buildId); }
   @Post('development/versions/:buildId/new') @RequirePermission('production', 2) devNewVersion(@Param('buildId') buildId: string, @Body() body: any) { return this.service.newBuildVersion(buildId, body?.label); }
