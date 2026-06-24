@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { OS_WORKSPACES, activeWorkspaceKey, rememberFilmosRoute, lastFilmosRoute, type OsWorkspace } from './scripon/os-workspaces';
 import {
   Home, DollarSign, Truck, Building2, Film, Users, BarChart2, Settings, ShieldCheck, Target, Wrench,
   Search, Plus, Star, ChevronLeft, ChevronRight, ChevronDown, ChevronUp,
@@ -256,6 +257,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const setThemeTo = (t: string) => { setTheme(t); applyTheme(t); lsSet('tfm_theme', t); setThemeMenuOpen(false); };
   const [perms, setPerms] = useState<Record<string, number> | null>(null);
 
+  const searchParams = useSearchParams();
+  const isScripon = pathname.startsWith('/scripon');
+  const osActiveKey = isScripon ? activeWorkspaceKey(pathname, searchParams?.toString() ?? '') : null;
+  const canSeeOs = (w: OsWorkspace) => !w.perm || !perms || (perms[w.perm] ?? 0) >= 1;
+  const osVisible = OS_WORKSPACES.filter(canSeeOs);
+
   const active = matchActive(pathname);
   const activeMkey = active?.mkey || 'home';
   const activeModule = MODULES.find(m => m.key === activeMkey)!;
@@ -440,6 +447,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     );
   };
 
+  const osRailBtn = (w: OsWorkspace) => {
+    const on = w.key === osActiveKey;
+    return (
+      <button key={w.key} onClick={() => router.push(w.href)} title={t(w.label)} aria-label={t(w.label)}
+        className="relative flex items-center rounded-md mx-1.5 my-0.5 transition-colors focus-visible:outline-none focus-visible:ring-2"
+        style={{
+          padding: expanded ? '7px 10px' : '10px 0',
+          justifyContent: expanded ? 'flex-start' : 'center',
+          gap: 10,
+          background: on ? pal.activeBg : 'transparent',
+          color: on ? pal.activeText : pal.item,
+          fontWeight: on ? 500 : 400,
+        }}
+        onMouseEnter={e => { if (!on) { (e.currentTarget as HTMLElement).style.background = pal.itemHover; (e.currentTarget as HTMLElement).style.color = pal.itemHoverText; } }}
+        onMouseLeave={e => { if (!on) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = pal.item; } }}
+      >
+        <w.icon size={18} style={{ flexShrink: 0 }} />
+        {expanded && <span className="text-[13px] truncate">{t(w.label)}</span>}
+      </button>
+    );
+  };
+
   // Overflow threshold counts real pages, not dividers.
   const realPageCount = activeModule.pages.filter(p => !p.divider).length;
   const visibleTabs = (showAll || realPageCount <= 7) ? activeModule.pages : activeModule.pages.slice(0, 7);
@@ -480,16 +509,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         {/* Grouped modules (search lives in the top bar to avoid duplication) */}
         <nav className="flex-1 overflow-y-auto py-1.5" style={{ scrollbarWidth: 'none' }}>
-          {GROUPS.map(g => {
-            const keys = g.keys.filter(canSee);
-            if (!keys.length) return null;
-            return (
-              <div key={g.caption}>
-                {expanded && <div className="px-3.5 pt-3 pb-1 text-[10.5px]" style={{ color: pal.cap, letterSpacing: '.04em' }}>{t(g.caption)}</div>}
-                {keys.map(k => railBtn(MODULES.find(m => m.key === k)!))}
-              </div>
-            );
-          })}
+          {isScripon ? (
+            <div>
+              {expanded && <div className="px-3.5 pt-3 pb-1 text-[10.5px]" style={{ color: pal.cap, letterSpacing: '.04em' }}>{t('Script OS')}</div>}
+              {osVisible.map(osRailBtn)}
+            </div>
+          ) : (
+            GROUPS.map(g => {
+              const keys = g.keys.filter(canSee);
+              if (!keys.length) return null;
+              return (
+                <div key={g.caption}>
+                  {expanded && <div className="px-3.5 pt-3 pb-1 text-[10.5px]" style={{ color: pal.cap, letterSpacing: '.04em' }}>{t(g.caption)}</div>}
+                  {keys.map(k => railBtn(MODULES.find(m => m.key === k)!))}
+                </div>
+              );
+            })
+          )}
         </nav>
 
         {/* Account footer + menu */}
