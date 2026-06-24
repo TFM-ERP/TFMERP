@@ -480,6 +480,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return k === 'home' || !perms || (perms[k] ?? 0) >= 1;
   };
   const bottomNav = GROUPS.flatMap(g => g.keys).filter(canSee).slice(0, 4).map(k => MODULES.find(m => m.key === k)!);
+  const osBottomNav = osVisible.slice(0, 4); // primary 4: Home, Write, Develop, Canon (or fewer if RBAC-hidden)
 
   // ── Shared shell pieces (consts extracted so both the FilmOS and ScripON returns reuse them) ──
 
@@ -579,7 +580,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const bottomNavEl = isPhone ? (
     <nav className="fixed bottom-0 inset-x-0 z-40 flex" style={{ background: pal.bg, borderTop: `1px solid ${pal.border}`, paddingBottom: 'env(safe-area-inset-bottom)' }}>
-      {bottomNav.map(m => {
+      {(isScripon ? osBottomNav.map(w => {
+        const on = w.key === osActiveKey;
+        return (
+          <button key={w.key} onClick={() => router.push(w.href)} className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2" style={{ color: on ? GOLD : pal.item }}>
+            <w.icon size={19} />
+            <span className="text-[9px] truncate max-w-[64px]">{t(w.label)}</span>
+          </button>
+        );
+      }) : bottomNav.map(m => {
         const on = m.key === activeMkey;
         return (
           <button key={m.key} onClick={() => goModule(m)} className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2" style={{ color: on ? GOLD : pal.item }}>
@@ -587,7 +596,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <span className="text-[9px] truncate max-w-[64px]">{t(m.label)}</span>
           </button>
         );
-      })}
+      }))}
+      {/* existing "More" button unchanged — opens the drawer with all 9 */}
       <button onClick={() => setMobileOpen(true)} className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2" style={{ color: pal.item }}>
         <Menu size={19} />
         <span className="text-[9px]">{t('More')}</span>
