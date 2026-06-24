@@ -1,37 +1,28 @@
-/** Canon type: subject categories (CHARACTER, LOCATION, OBJECT, CONCEPT, etc.) */
-export type CanonKind = 'CHARACTER' | 'LOCATION' | 'OBJECT' | 'CONCEPT' | 'EVENT';
-
-/** Canon conflict reason: why two facts can't coexist in the same validity window */
-export type CanonConflict = 'TEMPORAL' | 'RETCON' | 'AMBIGUOUS' | 'CORRECTED';
-
-/** Core fact in the canon (story-memory graph).
- *  Bi-temporal: what is true (validFrom..validTo) and when we learned it (recordedAt).
+/**
+ * Canon (story-memory) graph — shared types. The contract every canon task imports.
+ * Bi-temporal: when a fact is true in the story (validFrom..validTo) and when it was
+ * recorded (recordedAt). predicate/object are the structured pair that powers deterministic
+ * conflict detection; statement is the human-readable form.
  */
+export type CanonKind = 'CHARACTER' | 'WORLD' | 'LORE' | 'TIMELINE' | 'RELATIONSHIP' | 'PLOT';
+
 export interface CanonFactCore {
-  /** Type of entity being described */
   kind: CanonKind;
+  subject: string;          // canonical entity, upper-cased, e.g. "MARIAM"
+  predicate: string;        // normalized relation, e.g. "status" | "alliance_with" | "location"
+  object: string;           // value, e.g. "dead" | "KHALID" | "CAIRO"
+  statement: string;        // human sentence, e.g. "Mariam is killed in the raid."
+  validFrom: number;        // story-order index the fact becomes true
+  validTo: number | null;   // null = still true at end of story
+  status?: 'ACTIVE' | 'SUPERSEDED';
+  recordedAt?: number;      // monotonically increasing write order (real-time tiebreak)
+  sourceSceneId?: string | null;
+  supersedesId?: string | null;
+  id?: string;
+}
 
-  /** What is being described (e.g., "MARIAM") */
-  subject: string;
-
-  /** Property being asserted (e.g., "status") */
-  predicate: string;
-
-  /** The value (e.g., "alive") */
-  object: string;
-
-  /** Human-readable narrative (for author reference) */
-  statement: string;
-
-  /** Story order: when this fact begins to be true */
-  validFrom: number;
-
-  /** Story order: when this fact stops being true (null = forever) */
-  validTo: number | null;
-
-  /** ACTIVE or SUPERSEDED — marks whether this fact is in the current canon */
-  status: 'ACTIVE' | 'SUPERSEDED';
-
-  /** When (in real time / event order) this fact was recorded/amended */
-  recordedAt: number;
+export interface CanonConflict {
+  a: CanonFactCore;
+  b: CanonFactCore;
+  reason: string;
 }
