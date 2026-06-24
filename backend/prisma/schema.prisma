@@ -447,6 +447,7 @@ model BankAccount {
   payments   Payment[]
 
   @@map("bank_accounts")
+  @@index([projectId])
 }
 
 // â”€â”€ Core: VAT / Tax Rates â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -2901,6 +2902,7 @@ model VoiceProfile {
   @@index([scope, projectId])
   @@index([masterScriptId])
   @@map("voice_profiles")
+  @@index([projectId])
 }
 
 model CharacterVoiceAssignment {
@@ -2943,6 +2945,7 @@ model PronunciationEntry {
   @@index([scope, projectId])
   @@index([revisionId])
   @@map("pronunciation_entries")
+  @@index([projectId])
 }
 
 model AudioRenderJob {
@@ -3046,6 +3049,7 @@ model UsageQuota {
 
   @@unique([scope, projectId, userId, period])
   @@map("usage_quotas")
+  @@index([projectId])
 }
 
 model LineSynthesisCache {
@@ -3086,6 +3090,7 @@ model AudioLayerAsset {
   @@index([type, category])
   @@index([scope, projectId])
   @@map("audio_layer_assets")
+  @@index([projectId])
 }
 
 model SceneAudioCue {
@@ -3239,6 +3244,7 @@ model ScriptScene {
 
   @@index([revisionId])
   @@map("script_scenes")
+  @@index([projectId])
 }
 
 // -- SYS-13 . D6 -- Script-supervisor lining (coverage + takes) → Hot Cost --
@@ -4397,6 +4403,7 @@ model LedgerBankAccount {
   reconciliations BankReconciliation[]
 
   @@map("ledger_bank_accounts")
+  @@index([projectId])
 }
 
 model BankReconciliation {
@@ -4487,6 +4494,7 @@ model BudgetVersion {
   lifecycleLogs BudgetLifecycleLog[]
 
   @@map("budget_versions")
+  @@index([projectId])
 }
 
 // Audit trail for every budget lifecycle status change (who, what role, when, why)
@@ -4687,6 +4695,7 @@ model ProductionCrew {
   contracts ProjectContract[]
 
   @@map("production_crew")
+  @@index([projectId])
 }
 
 model ProductionSchedule {
@@ -4703,6 +4712,7 @@ model ProductionSchedule {
   notes     String?
 
   @@map("production_schedules")
+  @@index([projectId])
 }
 
 // â”€â”€ Maintenance Vendors â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -6261,6 +6271,7 @@ model WorkflowInstance {
   @@index([entityType, entityId])
   @@index([status])
   @@map("workflow_instances")
+  @@index([projectId])
 }
 
 model ApprovalAction {
@@ -8026,6 +8037,7 @@ model TalentInteraction {
   @@index([talentId])
   @@index([followUpDate])
   @@map("talent_interactions")
+  @@index([projectId])
 }
 
 // V3-E â€” a saved search template (reusable filter set).
@@ -8055,6 +8067,7 @@ model TalentList {
   updatedAt DateTime @updatedAt
 
   @@map("talent_lists")
+  @@index([projectId])
 }
 
 model TalentListMember {
@@ -8528,6 +8541,7 @@ model UserNotification {
   createdAt DateTime  @default(now())
 
   @@index([userId, readAt])
+  @@index([projectId])
 }
 
 // ── SYS-UX · Phase 3 · Saved views (per-user table filters/sorts; additive) ──
