@@ -9088,3 +9088,50 @@ model SceneRelation {
   @@index([scriptId, fromSceneId])
   @@index([scriptId, toSceneId])
 }
+
+// ─── ScripON Script OS · Version & Decision store (P0) ────────────────────────
+model DecisionRecord {
+  id           String   @id @default(cuid())
+  scriptId     String
+  title        String
+  status       String   @default("ACCEPTED") // PROPOSED | ACCEPTED | SUPERSEDED
+  context      String
+  decision     String
+  consequences String
+  supersedesId String?
+  createdBy    String?
+  createdAt    DateTime @default(now())
+
+  @@index([scriptId, createdAt])
+}
+
+model RevisionPass {
+  id                String        @id @default(cuid())
+  scriptId          String
+  baseVersionId     String
+  status            String        @default("OPEN") // OPEN | RENDERING | RENDERED | DISCARDED
+  continuityScore   Float?
+  renderedVersionId String?
+  createdBy         String?
+  createdAt         DateTime      @default(now())
+  changes           SceneChange[]
+
+  @@index([scriptId, status])
+}
+
+model SceneChange {
+  id              String       @id @default(cuid())
+  passId          String
+  pass            RevisionPass @relation(fields: [passId], references: [id], onDelete: Cascade)
+  sceneId         String
+  kind            String // NOTE|REVISE|RE_ENDING|REGENERATE|BUDGET_FIT|EMOTION|CANON
+  spec            Json
+  previewBefore   String?
+  previewAfter    String?
+  status          String       @default("STAGED") // STAGED | APPLIED | DISCARDED
+  relatedAffected Json?
+  integrity       Json?
+  createdAt       DateTime     @default(now())
+
+  @@index([passId])
+}
