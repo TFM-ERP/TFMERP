@@ -65,7 +65,7 @@ export class CanonService {
 
     // Verify: extract candidate facts from each change's resulting text.
     const allFacts: CanonFactCore[] = (
-      await (this.prisma as any).canonFact.findMany({ where: { scriptId: pass.scriptId } }).catch(() => [])
+      await (this.prisma as any).canonFact.findMany({ where: { scriptId: pass.scriptId, status: 'ACTIVE' } }).catch(() => [])
     ).map((r: any) => r as CanonFactCore);
 
     const allCandidates: CanonFactCore[] = [];
