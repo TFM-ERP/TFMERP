@@ -1,7 +1,10 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { ContractsService } from '../contracts/contracts.service';
+import { ChannelsService } from '../../comms/channels.service';
+import { MessagesService } from '../../comms/messages.service';
 import { SUBMISSION_PIPELINE, ENGAGED_STATUSES, nextStage } from './pipeline';
+import { createHmac } from 'crypto';
 
 /**
  * CastingService (Phase 4B)
@@ -18,7 +21,52 @@ export class CastingService {
   constructor(
     private prisma: PrismaService,
     private contracts: ContractsService,
+    private channels: ChannelsService,
+    private messages: MessagesService,
   ) {}
+
+  // ── Actor access link (public, own-info-only, HMAC-signed — no login) ─────────
+  private actorSecret() {
+    const s = process.env.JWT_SECRET || process.env.ACTOR_LINK_SECRET;
+    // No hardcoded fallback — a known secret lets anyone forge actor-access links.
+    if (!s) throw new Error('JWT_SECRET (or ACTOR_LINK_SECRET) is not configured');
+    return s;
+  }
+  private actorSig(talentId: string, projectId: string) { return createHmac('sha256', this.actorSecret()).update(`${talentId}:${projectId}`).digest('hex').slice(0, 20); }
+
+  /** Mint a shareable link/QR target so an actor can see ONLY their own call (no account). */
+  async actorAccessLink(talentId: string, projectId: string) {
+    if (!talentId || !projectId) throw new BadRequestException('talentId and projectId are required');
+    const t = await this.prisma.globalTalentProfile.findUnique({ where: { id: talentId }, select: { id: true, fullName: true } });
+    if (!t) throw new NotFoundException('Talent not found');
+    const token = Buffer.from(`${talentId}.${projectId}.${this.actorSig(talentId, projectId)}`).toString('base64url');
+    return { token, path: `/a/${token}`, talent: t.fullName };
+  }
+
+  /** Public resolve: returns ONLY this actor's call for today + safe project/day context. */
+  async actorView(token: string) {
+    let talentId = '', projectId = '', sig = '';
+    try { [talentId, projectId, sig] = Buffer.from(String(token), 'base64url').toString('utf8').split('.'); } catch { throw new BadRequestException('Invalid link'); }
+    if (!talentId || !projectId || sig !== this.actorSig(talentId, projectId)) throw new BadRequestException('Invalid or expired link');
+    const [talent, project] = await Promise.all([
+      this.prisma.globalTalentProfile.findUnique({ where: { id: talentId }, select: { fullName: true } }),
+      this.prisma.productionProject.findUnique({ where: { id: projectId }, select: { title: true } }),
+    ]);
+    if (!talent || !project) throw new NotFoundException('Not found');
+    const d = new Date().toISOString().slice(0, 10);
+    const cs: any = await this.prisma.callSheet.findFirst({ where: { projectId, shootDate: { gte: new Date(d + 'T00:00:00'), lte: new Date(d + 'T23:59:59.999') } }, orderBy: { dayNumber: 'desc' } });
+    const casts: any[] = Array.isArray(cs?.castCalls) ? cs.castCalls : [];
+    const nm = String(talent.fullName || '').toLowerCase();
+    const mine = casts.find((c) => { const cn = String(c?.cast || '').toLowerCase(); return cn && (cn.includes(nm) || nm.includes(cn)); }) || null;
+    return {
+      talent: talent.fullName, project: project.title, hasCallSheet: !!cs,
+      dayNumber: cs?.dayNumber || null, totalDays: cs?.totalDays || null,
+      location: cs?.locationName || null, locationAddress: cs?.locationAddress || null,
+      generalCall: cs?.generalCall || null, shootingCall: cs?.shootingCall || null,
+      myCall: mine ? { callTime: mine.callTime || mine.onSet || null, character: mine.character || null, hmw: mine.hmw || null, remarks: mine.remarks || null } : null,
+      hospitalName: cs?.hospitalName || null, hospitalPhone: cs?.hospitalPhone || null,
+    };
+  }
 
   // Breakdown categories that represent on-screen performers.
   private static CASTABLE = ['CAST', 'BACKGROUND', 'STUNTS'] as const;
@@ -809,9 +857,32 @@ export class CastingService {
     if (status === 'NEGOTIATION') { try { await this.ensureNegotiation(id); automations.push('Opened negotiation'); } catch { /* ignore */ } }
     if (status === 'OFFERED') await logInteraction('OFFER_MADE');
     if (status === 'DEAL_MEMO_SIGNED') await logInteraction('CONTRACT_SIGNED');
-    if (status === 'BOOKED' || status === 'CONFIRMED') await logInteraction('BOOKING_CONFIRMED');
+    if (status === 'BOOKED' || status === 'CONFIRMED') {
+      await logInteraction('BOOKING_CONFIRMED');
+      try { await this.castingHandoff(sub.castingCall?.projectId, sub.talentId); automations.push('Cast / Hair & Makeup / Wardrobe groups provisioned'); } catch { /* never block a booking on comms */ }
+    }
 
     return { ok: true, status, automations, suggestedNext: nextStage(status) };
+  }
+
+  /**
+   * Casting → comms handoff. On booking, ensure the project's performer-facing department
+   * channels exist (Cast · Hair & Makeup · Wardrobe) and announce the booking in the project
+   * channel so HMU/wardrobe leads know who's coming. External talent get their own access via
+   * the actor-access link; this readies the groups they hand off into.
+   */
+  private async castingHandoff(projectId?: string | null, talentId?: string | null) {
+    if (!projectId) return;
+    const groups: Array<[string, string]> = [
+      [`${projectId}:cast`, 'Cast'],
+      [`${projectId}:hairmakeup`, 'Hair & Makeup'],
+      [`${projectId}:wardrobe`, 'Wardrobe'],
+    ];
+    for (const [scopeId, title] of groups) await this.channels.ensureScoped('DEPARTMENT', scopeId, title, projectId);
+    const talent = talentId ? await this.prisma.globalTalentProfile.findUnique({ where: { id: talentId }, select: { fullName: true, stageName: true } }).catch(() => null) : null;
+    const name = talent?.stageName || talent?.fullName || 'A performer';
+    const main = await this.prisma.channel.findFirst({ where: { scopeType: 'PROJECT', scopeId: projectId } });
+    if (main) await this.messages.send(main.id, { type: 'SYSTEM', body: `🎬 ${name} booked — Cast · Hair & Makeup · Wardrobe groups are ready.` }).catch(() => null);
   }
 
   // ── Review + audition ─────────────────────────────────────────────────────────
