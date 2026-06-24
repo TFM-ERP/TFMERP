@@ -47,14 +47,14 @@ export default function PayrollRunDetail() {
 
       <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-left text-xs uppercase text-slate-400">
+          <thead className="bg-slate-50 text-start text-xs uppercase text-slate-400">
             <tr>
               <th className="px-4 py-3">Employee</th>
-              <th className="px-4 py-3 text-right">Basic</th>
-              <th className="px-4 py-3 text-right">Allowances</th>
-              <th className="px-4 py-3 text-right">Overtime</th>
-              <th className="px-4 py-3 text-right">Deductions</th>
-              <th className="px-4 py-3 text-right">Net</th>
+              <th className="px-4 py-3 text-end">Basic</th>
+              <th className="px-4 py-3 text-end">Allowances</th>
+              <th className="px-4 py-3 text-end">Overtime</th>
+              <th className="px-4 py-3 text-end">Deductions</th>
+              <th className="px-4 py-3 text-end">Net</th>
               <th className="px-4 py-3"></th>
             </tr>
           </thead>
@@ -62,12 +62,12 @@ export default function PayrollRunDetail() {
             {run.payslips.map((p: any) => (
               <tr key={p.id} className="hover:bg-slate-50">
                 <td className="px-4 py-3 text-slate-700">{p.employeeName}</td>
-                <td className="px-4 py-3 text-right text-slate-500">{aed(p.basicSalary)}</td>
-                <td className="px-4 py-3 text-right text-slate-500">{aed(p.allowances)}</td>
-                <td className="px-4 py-3 text-right text-slate-500">{aed(p.overtimePay)}</td>
-                <td className="px-4 py-3 text-right text-rose-500">{aed(p.deductions)}</td>
-                <td className="px-4 py-3 text-right font-medium text-slate-800">{aed(p.netPay)}</td>
-                <td className="px-4 py-3 text-right">{run.status === 'Draft' && <button onClick={() => setEdit({ ...p })} className="text-xs text-slate-500 hover:text-slate-800">Edit</button>}</td>
+                <td className="px-4 py-3 text-end text-slate-500">{aed(p.basicSalary)}</td>
+                <td className="px-4 py-3 text-end text-slate-500">{aed(p.allowances)}</td>
+                <td className="px-4 py-3 text-end text-slate-500">{aed(p.overtimePay)}</td>
+                <td className="px-4 py-3 text-end text-rose-500">{aed(p.deductions)}</td>
+                <td className="px-4 py-3 text-end font-medium text-slate-800">{aed(p.netPay)}</td>
+                <td className="px-4 py-3 text-end">{run.status === 'Draft' && <button onClick={() => setEdit({ ...p })} className="text-xs text-slate-500 hover:text-slate-800">Edit</button>}</td>
               </tr>
             ))}
           </tbody>

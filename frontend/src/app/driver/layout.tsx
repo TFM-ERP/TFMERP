@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { LogOut } from 'lucide-react';
+import DriverPwa from '@/components/DriverPwa';
 
 export default function DriverLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -12,13 +13,6 @@ export default function DriverLayout({ children }: { children: React.ReactNode }
     const token = localStorage.getItem('tfm_token');
     if (!token) { router.replace('/login'); return; }
     try { setName(JSON.parse(localStorage.getItem('tfm_user') || '{}')?.fullName || ''); } catch {}
-    // PWA manifest + theme
-    if (!document.querySelector('link[rel="manifest"]')) {
-      const l = document.createElement('link'); l.rel = 'manifest'; l.href = '/manifest.json'; document.head.appendChild(l);
-    }
-    let meta = document.querySelector('meta[name="theme-color"]') as HTMLMetaElement | null;
-    if (!meta) { meta = document.createElement('meta'); meta.name = 'theme-color'; document.head.appendChild(meta); }
-    meta.content = '#14213a';
   }, [router]);
 
   const logout = () => { localStorage.removeItem('tfm_token'); localStorage.removeItem('tfm_user'); router.replace('/login'); };
@@ -36,6 +30,7 @@ export default function DriverLayout({ children }: { children: React.ReactNode }
         </div>
       </header>
       <main style={{ maxWidth: 560, margin: '0 auto', padding: '12px' }}>{children}</main>
+      <DriverPwa />
     </div>
   );
 }

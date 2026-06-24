@@ -201,7 +201,7 @@ function DocUploadCard({
           className="flex items-center gap-2 p-2 bg-white border border-gray-200 rounded-lg mb-2 text-sm text-brand-700 hover:bg-brand-50 transition-colors">
           <FileText size={14} />
           <span className="truncate text-xs">View PDF</span>
-          <Eye size={12} className="ml-auto shrink-0 opacity-60" />
+          <Eye size={12} className="ms-auto shrink-0 opacity-60" />
         </a>
       )}
 
@@ -299,7 +299,7 @@ export default function DriverDetailPage() {
         <div className="flex-1">
           <h1 className="text-xl font-bold text-gray-900">{driver.fullName}</h1>
           <p className="text-sm text-gray-400">
-            <span className={cn('badge text-xs mr-2', driver.driverType === 'EMPLOYEE' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700')}>
+            <span className={cn('badge text-xs me-2', driver.driverType === 'EMPLOYEE' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700')}>
               {driver.driverType}
             </span>
             {driver.licenseClass && `Class ${driver.licenseClass} · `}
@@ -309,12 +309,12 @@ export default function DriverDetailPage() {
         <div className="flex gap-2">
           {!editing ? (
             <button onClick={() => setEditing(true)} className="btn btn-secondary text-sm">
-              <Edit2 size={13} className="mr-1" /> Edit
+              <Edit2 size={13} className="me-1" /> Edit
             </button>
           ) : (
             <>
               <button onClick={handleSave} disabled={saving} className="btn btn-primary text-sm disabled:opacity-50">
-                <Save size={13} className="mr-1" /> {saving ? 'Saving...' : 'Save'}
+                <Save size={13} className="me-1" /> {saving ? 'Saving...' : 'Save'}
               </button>
               <button onClick={() => { setEditing(false); setEditForm(driver); }} className="btn btn-secondary text-sm">
                 <X size={13} />
@@ -419,7 +419,7 @@ export default function DriverDetailPage() {
               <div className="card text-center">
                 <h3 className="text-sm font-semibold text-gray-700 mb-3">Performance</h3>
                 <ScoreRing score={perf.reliabilityScore} />
-                <div className="grid grid-cols-2 gap-2 mt-3 text-left">
+                <div className="grid grid-cols-2 gap-2 mt-3 text-start">
                   <div className="bg-gray-50 rounded p-2">
                     <p className="text-xs text-gray-400">Jobs Done</p>
                     <p className="text-base font-bold text-gray-900">{perf.completedJobs}</p>
@@ -458,7 +458,7 @@ export default function DriverDetailPage() {
             {/* Document uploads */}
             <div className="card">
               <h3 className="text-sm font-semibold text-gray-700 mb-3">
-                <Upload size={13} className="inline mr-1 text-brand-600" />Documents
+                <Upload size={13} className="inline me-1 text-brand-600" />Documents
               </h3>
               <div className="space-y-3">
                 <DocUploadCard
@@ -488,7 +488,7 @@ export default function DriverDetailPage() {
             {/* Availability calendar */}
             <div className="card">
               <h3 className="text-sm font-semibold text-gray-700 mb-3">
-                <Calendar size={13} className="inline mr-1 text-brand-600" />Availability
+                <Calendar size={13} className="inline me-1 text-brand-600" />Availability
               </h3>
               <AvailabilityCalendar jobs={driver.jobs || []} />
             </div>

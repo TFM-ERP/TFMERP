@@ -17,7 +17,7 @@ export default function TemplatesDirectory() {
     <div className="font-sans p-6 max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900 flex items-center gap-2"><ScrollText className="text-[#0f172a]" /> Contract Templates</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900 flex items-center gap-2"><ScrollText style={{ color: 'var(--accent)' }} /> Contract Templates</h1>
           <p className="text-sm text-slate-500 mt-0.5">Master template library — used by drafting and the casting deal-memo handoff.</p>
         </div>
         <button onClick={() => setOpen(true)} className="inline-flex items-center gap-2 rounded-xl bg-slate-900 text-white px-4 py-2.5 text-sm font-medium hover:bg-slate-800"><Plus size={16} /> New template</button>
@@ -25,7 +25,7 @@ export default function TemplatesDirectory() {
 
       <div className="grid gap-2">
         {rows.length === 0 ? <p className="text-sm text-slate-400 py-8 text-center">No templates. Seed the default with prisma/seed-deal-memo-template.js.</p> : rows.map((t) => (
-          <button key={t.id} onClick={() => contractsApi.template(t.id).then((r) => setView(r.data))} className="text-left rounded-2xl border border-slate-200 bg-white p-4 flex items-center justify-between hover:shadow-md transition">
+          <button key={t.id} onClick={() => contractsApi.template(t.id).then((r) => setView(r.data))} className="text-start rounded-2xl border border-slate-200 bg-white p-4 flex items-center justify-between hover:shadow-md transition">
             <div><div className="font-medium text-slate-900">{t.name}</div><div className="text-xs text-slate-500">{t.type?.replace(/_/g, ' ')} · {t._count?.projectContracts ?? 0} contracts · {t.clauses?.length ?? 0} clauses</div></div>
             <FileText size={16} className="text-slate-300" />
           </button>
@@ -43,7 +43,7 @@ function NewTemplateModal({ onClose, onDone }: any) {
   const [busy, setBusy] = useState(false);
   const set = (k: string, v: any) => setF((x: any) => ({ ...x, [k]: v }));
   const submit = async () => { if (!f.name || !f.bodyMarkdown) return; setBusy(true); try { await contractsApi.addTemplate(f); onDone(); } finally { setBusy(false); } };
-  const inp = 'w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-[#0f172a] focus:ring-2 focus:ring-[#0f172a]/20 outline-none';
+  const inp = 'input w-full';
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4" onClick={onClose}>
       <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>

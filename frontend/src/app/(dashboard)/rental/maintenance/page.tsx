@@ -438,13 +438,13 @@ export default function MaintenancePage() {
           <h1 className="text-[20px] font-extrabold leading-tight" style={{ color: 'var(--text-1)' }}>Maintenance</h1>
           <p className="text-sm mt-0.5" style={{ color: 'var(--text-3)' }}>
             {total} record{total !== 1 ? 's' : ''}
-            {overdueCount > 0 && <span className="ml-2 font-medium" style={{ color: 'var(--danger)' }}>· {overdueCount} overdue</span>}
+            {overdueCount > 0 && <span className="ms-2 font-medium" style={{ color: 'var(--danger)' }}>· {overdueCount} overdue</span>}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
-            <button onClick={() => switchView('list')} className={cn('px-3 py-2 text-xs font-medium', view === 'list' ? 'bg-gray-900 text-white' : 'bg-white text-gray-500 hover:text-gray-900')}>List</button>
-            <button onClick={() => switchView('tiles')} className={cn('px-3 py-2 text-xs font-medium', view === 'tiles' ? 'bg-gray-900 text-white' : 'bg-white text-gray-500 hover:text-gray-900')}>Tiles</button>
+          <div className="inline-flex rounded-lg overflow-hidden" style={{ border: '1px solid var(--border-1)' }}>
+            <button onClick={() => switchView('list')} className="px-3 py-2 text-xs font-medium transition-colors" style={view === 'list' ? { background: 'var(--accent)', color: 'var(--accent-on)' } : { background: 'var(--surface-1)', color: 'var(--text-3)' }}>List</button>
+            <button onClick={() => switchView('tiles')} className="px-3 py-2 text-xs font-medium transition-colors" style={view === 'tiles' ? { background: 'var(--accent)', color: 'var(--accent-on)' } : { background: 'var(--surface-1)', color: 'var(--text-3)' }}>Tiles</button>
           </div>
           <button onClick={() => setShowSchedule(true)} className="btn btn-primary flex items-center gap-1.5">
             <Plus size={16} /> Schedule Maintenance
@@ -461,9 +461,9 @@ export default function MaintenancePage() {
       {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-4">
         <div className="relative">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search size={14} className="absolute start-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
-            className="input pl-8 w-56"
+            className="input ps-8 w-56"
             placeholder="Search asset, vendor…"
             value={search}
             onChange={e => { setSearch(e.target.value); setPage(1); }}
@@ -509,7 +509,7 @@ export default function MaintenancePage() {
                     <div className="flex items-center gap-1">{formatDate(item.scheduledDate)}{over && <span className="inline-flex items-center gap-0.5" style={{ color: 'var(--danger)' }}><AlertTriangle size={10} /> Overdue</span>}</div>
                     {item.vendorName && <div className="truncate max-w-[160px]">{item.vendorName}</div>}
                   </div>
-                  <div className="text-right">
+                  <div className="text-end">
                     <div className="text-[9px] uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>Cost</div>
                     <div className="font-bold text-[13px]" style={{ color: 'var(--text-1)' }}>{item.cost != null ? `AED ${Number(item.cost).toLocaleString()}` : '—'}</div>
                   </div>
@@ -542,7 +542,7 @@ export default function MaintenancePage() {
               <th className="table-th">Scheduled</th>
               <th className="table-th">Vendor</th>
               <th className="table-th">Status</th>
-              <th className="table-th text-right">Cost (AED)</th>
+              <th className="table-th text-end">Cost (AED)</th>
               <th className="table-th"></th>
             </tr>
           </thead>
@@ -602,7 +602,7 @@ export default function MaintenancePage() {
                 </td>
 
                 {/* Cost */}
-                <td className="table-td text-right text-gray-600">
+                <td className="table-td text-end text-gray-600">
                   {item.cost != null
                     ? `${Number(item.cost).toLocaleString()}`
                     : <span className="text-gray-400">—</span>}

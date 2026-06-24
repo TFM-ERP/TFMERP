@@ -69,9 +69,9 @@ export default function IdentityChangesPage() {
                 </div>
                 <div className="flex gap-2 shrink-0">
                   <button onClick={() => act(r.id, true)} disabled={busy === r.id}
-                    className={cn('btn btn-primary text-xs', busy === r.id && 'opacity-50')}><Check size={13} className="mr-1" /> Approve</button>
+                    className={cn('btn btn-primary text-xs', busy === r.id && 'opacity-50')}><Check size={13} className="me-1" /> Approve</button>
                   <button onClick={() => act(r.id, false)} disabled={busy === r.id}
-                    className="btn btn-secondary text-xs text-red-600 border-red-200"><X size={13} className="mr-1" /> Reject</button>
+                    className="btn btn-secondary text-xs text-red-600 border-red-200"><X size={13} className="me-1" /> Reject</button>
                 </div>
               </div>
             </div>

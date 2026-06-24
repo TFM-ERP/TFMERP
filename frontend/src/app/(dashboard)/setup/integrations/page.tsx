@@ -68,7 +68,7 @@ export default function IntegrationsPage() {
                     <button onClick={() => disconnect(p.key)} className="btn btn-secondary text-xs py-1 px-3 text-red-600">Disconnect</button>
                   </>
                 ) : (
-                  <button onClick={() => connect(p.key)} className="btn btn-primary text-xs py-1.5 px-3"><Link2 size={13} className="mr-1" /> Connect</button>
+                  <button onClick={() => connect(p.key)} className="btn btn-primary text-xs py-1.5 px-3"><Link2 size={13} className="me-1" /> Connect</button>
                 )}
               </div>
             </div>

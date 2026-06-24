@@ -55,7 +55,7 @@ export default function ScoutingPage() {
     <div className="p-6 max-w-[1400px] mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-semibold flex items-center gap-2"><Compass className="text-[#0f172a]" /> Location Scouting</h1>
+          <h1 className="text-2xl font-semibold flex items-center gap-2"><Compass style={{ color: 'var(--accent)' }} /> Location Scouting</h1>
           <p className="text-sm text-gray-500 mt-1">Brief scouts, collect field candidates, accept the winners straight into the Master Library.</p>
         </div>
         <button onClick={() => setCreating(true)} className="inline-flex items-center gap-2 bg-[#0f172a] text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90">
@@ -76,7 +76,7 @@ export default function ScoutingPage() {
             {assignments.map((a) => {
               const pr = PRIORITIES.find((p) => p.v === a.priority);
               return (
-                <button key={a.id} onClick={() => setOpenId(a.id)} className="w-full text-left bg-white border rounded-xl p-4 hover:shadow-md transition flex items-center gap-4">
+                <button key={a.id} onClick={() => setOpenId(a.id)} className="w-full text-start bg-white border rounded-xl p-4 hover:shadow-md transition flex items-center gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-medium">{a.title}</span>
@@ -88,7 +88,7 @@ export default function ScoutingPage() {
                       {projName(a.projectId)}{a.sceneRefs ? ` · Sc. ${a.sceneRefs}` : ''}{a.dueDate ? ` · due ${new Date(a.dueDate).toLocaleDateString()}` : ''}
                     </p>
                   </div>
-                  <div className="text-right shrink-0">
+                  <div className="text-end shrink-0">
                     <div className="text-sm font-semibold flex items-center gap-1 justify-end"><Camera size={14} className="text-gray-400" /> {a._count?.submissions || 0}</div>
                     <div className="text-[11px] text-gray-400">candidates</div>
                   </div>

@@ -61,12 +61,12 @@ export default function TagToolsPanel({ projectId, revision, onChanged, onClose,
 
   return (
     <div className={inline ? 'absolute inset-0' : 'fixed inset-0 z-[80] bg-slate-900/50 flex items-stretch'} onClick={inline ? undefined : onClose}>
-      <div className={inline ? 'h-full w-full bg-white flex flex-col' : 'ml-auto h-full w-full max-w-2xl bg-white shadow-2xl flex flex-col'} onClick={(e) => e.stopPropagation()}>
+      <div className={inline ? 'h-full w-full bg-white flex flex-col' : 'ms-auto h-full w-full max-w-2xl bg-white shadow-2xl flex flex-col'} onClick={(e) => e.stopPropagation()}>
         {!inline && (
         <div className="flex items-center gap-2 px-4 h-12 border-b border-slate-200 shrink-0">
           <Tags size={16} className="text-slate-700" />
           <h3 className="text-sm font-semibold text-slate-800">Tagging — {revision?.revisionLabel}</h3>
-          <button onClick={onClose} className="ml-auto text-slate-400 hover:text-slate-700"><X size={18} /></button>
+          <button onClick={onClose} className="ms-auto text-slate-400 hover:text-slate-700"><X size={18} /></button>
         </div>
         )}
         <div className="flex border-b border-slate-100 text-xs shrink-0">
@@ -132,13 +132,13 @@ export default function TagToolsPanel({ projectId, revision, onChanged, onClose,
                     <span className="text-[10px] text-slate-400">{c.elements.length} element(s)</span>
                   </div>
                   <table className="w-full text-xs">
-                    <thead><tr className="text-slate-400 text-[10px] uppercase"><th className="text-left px-3 py-1">Element</th><th className="text-left px-3 py-1">Scenes</th><th className="text-right px-3 py-1">Count</th></tr></thead>
+                    <thead><tr className="text-slate-400 text-[10px] uppercase"><th className="text-start px-3 py-1">Element</th><th className="text-start px-3 py-1">Scenes</th><th className="text-end px-3 py-1">Count</th></tr></thead>
                     <tbody>
                       {c.elements.map((e: any) => (
                         <tr key={e.name} className="border-t border-slate-50">
                           <td className="px-3 py-1 text-slate-700">{e.name}</td>
                           <td className="px-3 py-1 text-slate-500">{e.scenes.join(', ')}</td>
-                          <td className="px-3 py-1 text-right text-slate-500">{e.count}</td>
+                          <td className="px-3 py-1 text-end text-slate-500">{e.count}</td>
                         </tr>
                       ))}
                     </tbody>

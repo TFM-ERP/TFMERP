@@ -154,12 +154,12 @@ export default function QuotationDetailPage() {
             <table className="w-full">
               <thead>
                 <tr className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-100">
-                  <th className="px-5 py-2.5 text-left">Description</th>
-                  <th className="px-3 py-2.5 text-right">Qty</th>
-                  <th className="px-3 py-2.5 text-right">Unit Price</th>
-                  <th className="px-3 py-2.5 text-right">Disc %</th>
-                  <th className="px-3 py-2.5 text-right">VAT</th>
-                  <th className="px-5 py-2.5 text-right">Total</th>
+                  <th className="px-5 py-2.5 text-start">Description</th>
+                  <th className="px-3 py-2.5 text-end">Qty</th>
+                  <th className="px-3 py-2.5 text-end">Unit Price</th>
+                  <th className="px-3 py-2.5 text-end">Disc %</th>
+                  <th className="px-3 py-2.5 text-end">VAT</th>
+                  <th className="px-5 py-2.5 text-end">Total</th>
                 </tr>
               </thead>
               <tbody>
@@ -169,20 +169,20 @@ export default function QuotationDetailPage() {
                       <p className="text-sm font-medium text-gray-800">{item.description}</p>
                       {item.details && <p className="text-xs text-gray-400 mt-0.5">{item.details}</p>}
                     </td>
-                    <td className="px-3 py-3 text-right text-sm text-gray-600">
+                    <td className="px-3 py-3 text-end text-sm text-gray-600">
                       {Number(item.quantity)} {item.unit}
                     </td>
-                    <td className="px-3 py-3 text-right text-sm">{formatCurrency(item.unitPrice, q.currency)}</td>
-                    <td className="px-3 py-3 text-right text-sm text-gray-400">
+                    <td className="px-3 py-3 text-end text-sm">{formatCurrency(item.unitPrice, q.currency)}</td>
+                    <td className="px-3 py-3 text-end text-sm text-gray-400">
                       {Number(item.discountPct) > 0 ? `${item.discountPct}%` : '—'}
                     </td>
-                    <td className="px-3 py-3 text-right text-xs text-gray-500">
+                    <td className="px-3 py-3 text-end text-xs text-gray-500">
                       {item.taxRate ? `${item.taxRate.name}` : '—'}
                       {Number(item.taxAmount) > 0 && (
                         <span className="block text-[10px]">{formatCurrency(item.taxAmount, q.currency)}</span>
                       )}
                     </td>
-                    <td className="px-5 py-3 text-right font-semibold text-gray-900">
+                    <td className="px-5 py-3 text-end font-semibold text-gray-900">
                       {formatCurrency(item.lineTotal, q.currency)}
                     </td>
                   </tr>
@@ -191,36 +191,36 @@ export default function QuotationDetailPage() {
               {/* Totals footer */}
               <tfoot className="bg-gray-50 border-t-2 border-gray-200">
                 <tr>
-                  <td colSpan={5} className="px-5 py-2.5 text-right text-sm text-gray-500">Subtotal</td>
-                  <td className="px-5 py-2.5 text-right font-semibold">{formatCurrency(q.subtotal, q.currency)}</td>
+                  <td colSpan={5} className="px-5 py-2.5 text-end text-sm text-gray-500">Subtotal</td>
+                  <td className="px-5 py-2.5 text-end font-semibold">{formatCurrency(q.subtotal, q.currency)}</td>
                 </tr>
                 {Number(q.discountAmount) > 0 && (
                   <tr>
-                    <td colSpan={5} className="px-5 py-1.5 text-right text-sm text-green-600">Discount</td>
-                    <td className="px-5 py-1.5 text-right text-green-600 font-semibold">
+                    <td colSpan={5} className="px-5 py-1.5 text-end text-sm text-green-600">Discount</td>
+                    <td className="px-5 py-1.5 text-end text-green-600 font-semibold">
                       − {formatCurrency(q.discountAmount, q.currency)}
                     </td>
                   </tr>
                 )}
                 {Number(q.deductionAmount) > 0 && (
                   <tr>
-                    <td colSpan={5} className="px-5 py-1.5 text-right text-sm text-amber-600">
+                    <td colSpan={5} className="px-5 py-1.5 text-end text-sm text-amber-600">
                       {q.deductionReason ? `Deduction (${q.deductionReason})` : 'Deduction'}
                     </td>
-                    <td className="px-5 py-1.5 text-right text-amber-600 font-semibold">
+                    <td className="px-5 py-1.5 text-end text-amber-600 font-semibold">
                       − {formatCurrency(q.deductionAmount, q.currency)}
                     </td>
                   </tr>
                 )}
                 {Number(q.vatAmount) > 0 && (
                   <tr>
-                    <td colSpan={5} className="px-5 py-1.5 text-right text-sm text-gray-500">VAT</td>
-                    <td className="px-5 py-1.5 text-right font-semibold">{formatCurrency(q.vatAmount, q.currency)}</td>
+                    <td colSpan={5} className="px-5 py-1.5 text-end text-sm text-gray-500">VAT</td>
+                    <td className="px-5 py-1.5 text-end font-semibold">{formatCurrency(q.vatAmount, q.currency)}</td>
                   </tr>
                 )}
                 <tr className="border-t border-gray-200">
-                  <td colSpan={5} className="px-5 py-3 text-right font-bold text-gray-900">Total</td>
-                  <td className="px-5 py-3 text-right font-bold text-xl text-brand-700">
+                  <td colSpan={5} className="px-5 py-3 text-end font-bold text-gray-900">Total</td>
+                  <td className="px-5 py-3 text-end font-bold text-xl text-brand-700">
                     {formatCurrency(q.total, q.currency)}
                   </td>
                 </tr>

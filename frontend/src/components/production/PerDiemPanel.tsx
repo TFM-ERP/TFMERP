@@ -111,10 +111,10 @@ export default function PerDiemPanel({ projectId, currency = 'AED' }: { projectI
           items.length === 0 ? <div className="p-6"><EmptyState icon={Wallet}>No per diem recorded yet.</EmptyState></div> : (
             <table className="w-full text-sm">
               <thead><tr className="text-[11px] text-slate-400 uppercase tracking-wide border-b border-slate-200">
-                <th className="px-4 py-2.5 text-left">Crew</th><th className="px-3 py-2.5 text-left">Location</th>
-                <th className="px-3 py-2.5 text-left">Dates</th><th className="px-3 py-2.5 text-right">Rate</th>
-                <th className="px-3 py-2.5 text-center">Days</th><th className="px-3 py-2.5 text-right">Total</th>
-                <th className="px-3 py-2.5 text-left">Status</th><th className="px-3 py-2.5"></th>
+                <th className="px-4 py-2.5 text-start">Crew</th><th className="px-3 py-2.5 text-start">Location</th>
+                <th className="px-3 py-2.5 text-start">Dates</th><th className="px-3 py-2.5 text-end">Rate</th>
+                <th className="px-3 py-2.5 text-center">Days</th><th className="px-3 py-2.5 text-end">Total</th>
+                <th className="px-3 py-2.5 text-start">Status</th><th className="px-3 py-2.5"></th>
               </tr></thead>
               <tbody>
                 {items.map(p => (
@@ -122,16 +122,16 @@ export default function PerDiemPanel({ projectId, currency = 'AED' }: { projectI
                     <td className="px-4 py-2.5 font-medium text-gray-800">{p.crewName}</td>
                     <td className="px-3 py-2.5 text-gray-500 text-xs">{p.location || '—'}</td>
                     <td className="px-3 py-2.5 text-gray-500 text-xs">{p.startDate ? formatDate(p.startDate) : '—'}{p.endDate ? ` → ${formatDate(p.endDate)}` : ''}</td>
-                    <td className="px-3 py-2.5 text-right text-gray-600">{money(Number(p.ratePerDay))}</td>
+                    <td className="px-3 py-2.5 text-end text-gray-600">{money(Number(p.ratePerDay))}</td>
                     <td className="px-3 py-2.5 text-center text-gray-600">{p.days}</td>
-                    <td className="px-3 py-2.5 text-right font-semibold text-gray-900">{money(Number(p.total))}</td>
+                    <td className="px-3 py-2.5 text-end font-semibold text-gray-900">{money(Number(p.total))}</td>
                     <td className="px-3 py-2.5">
                       <select value={p.status} onChange={e => setStatus(p.id, e.target.value)}
                         className={cn('text-[11px] rounded-full px-2 py-0.5 border-0 cursor-pointer', STATUS_META[p.status].cls)}>
                         {Object.keys(STATUS_META).map(k => <option key={k} value={k}>{STATUS_META[k].label}</option>)}
                       </select>
                     </td>
-                    <td className="px-3 py-2.5 text-right"><button onClick={() => remove(p.id)} className="text-gray-300 hover:text-red-500"><Trash2 size={13} /></button></td>
+                    <td className="px-3 py-2.5 text-end"><button onClick={() => remove(p.id)} className="text-gray-300 hover:text-red-500"><Trash2 size={13} /></button></td>
                   </tr>
                 ))}
               </tbody>

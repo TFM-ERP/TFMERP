@@ -67,17 +67,51 @@ export default function DriverHome() {
             <div style={{ fontSize: 12.5, color: '#444', display: 'flex', gap: 6 }}><MapPin size={14} style={{ flexShrink: 0, marginTop: 1 }} />{job.dropoffLocation || job.booking?.deliveryAddress}</div>
           )}
 
-          {/* Location schedule (multi-site) */}
+          {/* Route — sequential, navigable, status-aware multi-site schedule */}
           {(job.booking?.locations || []).length > 0 && (
             <div style={{ marginTop: 8, borderTop: '1px solid #eee', paddingTop: 8 }}>
-              <div style={{ fontSize: 11, color: '#888', marginBottom: 4 }}>Route</div>
-              {job.booking.locations.map((l: any, i: number) => (
-                <div key={l.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, padding: '2px 0' }}>
-                  <span style={{ width: 18, height: 18, borderRadius: 9, background: '#eef', color: '#33c', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{i + 1}</span>
-                  <span style={{ flex: 1 }}>{l.siteName || l.address}</span>
-                  {l.locationUrl && <a href={l.locationUrl} target="_blank" rel="noreferrer" style={{ color: '#2563eb' }}><Navigation size={14} /></a>}
-                </div>
-              ))}
+              <div style={{ fontSize: 11, color: '#888', marginBottom: 4 }}>Route — {job.booking.locations.length} stop{job.booking.locations.length > 1 ? 's' : ''}</div>
+              {job.booking.locations.map((l: any, i: number) => {
+                const ST: Record<string, { c: string; bg: string; label: string }> = {
+                  PLANNED: { c: '#6b7280', bg: '#f3f4f6', label: 'Planned' },
+                  IN_TRANSIT: { c: '#b45309', bg: '#fef3c7', label: 'En route' },
+                  ON_LOCATION: { c: '#15803d', bg: '#dcfce7', label: 'On site' },
+                  DONE: { c: '#3730a3', bg: '#e0e7ff', label: 'Done' },
+                };
+                const s = ST[l.status] || ST.PLANNED;
+                const stopNav = l.locationUrl || (l.lat != null && l.lng != null
+                  ? `https://www.google.com/maps/dir/?api=1&destination=${l.lat},${l.lng}`
+                  : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(l.address || l.siteName || '')}`);
+                const NEXT_LOC: Record<string, { to: string; label: string }> = {
+                  PLANNED: { to: 'IN_TRANSIT', label: 'Start' },
+                  IN_TRANSIT: { to: 'ON_LOCATION', label: 'Arrived' },
+                  ON_LOCATION: { to: 'DONE', label: 'Depart' },
+                };
+                const step = NEXT_LOC[l.status];
+                const advanceLoc = async () => {
+                  if (!step) return;
+                  await rentalApi.logistics.setLocationStatus(l.id, step.to);
+                  // On arrival, drop the driver's real GPS pin so the command-centre map updates
+                  if (step.to === 'ON_LOCATION' && navigator.geolocation) {
+                    try {
+                      const pos = await new Promise<GeolocationPosition>((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, { timeout: 5000 }));
+                      await rentalApi.logistics.updateLocation(l.id, { lat: pos.coords.latitude, lng: pos.coords.longitude });
+                    } catch {}
+                  }
+                  load();
+                };
+                return (
+                  <div key={l.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, padding: '3px 0' }}>
+                    <span style={{ width: 18, height: 18, borderRadius: 9, background: l.status === 'DONE' ? '#e0e7ff' : '#eef', color: '#33c', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{l.status === 'DONE' ? '✓' : i + 1}</span>
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.siteName || l.address}</span>
+                      <span style={{ fontSize: 10, color: s.c, background: s.bg, borderRadius: 10, padding: '0 6px' }}>{s.label}</span>
+                    </span>
+                    <a href={stopNav} target="_blank" rel="noreferrer" className="btn btn-secondary" style={{ padding: '3px 8px', fontSize: 11, flexShrink: 0 }}><Navigation size={13} /> Go</a>
+                    {step && <button onClick={advanceLoc} className="btn btn-primary" style={{ padding: '3px 8px', fontSize: 11, flexShrink: 0 }}>{step.label}</button>}
+                  </div>
+                );
+              })}
             </div>
           )}
 

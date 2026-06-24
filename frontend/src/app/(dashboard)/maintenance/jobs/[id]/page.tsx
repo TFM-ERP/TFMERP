@@ -183,12 +183,12 @@ export default function MaintenanceJobDetailPage() {
         <div className="flex gap-2">
           {!editing ? (
             <button onClick={() => setEditing(true)} className="btn btn-secondary text-sm">
-              <Edit2 size={13} className="mr-1" /> Edit
+              <Edit2 size={13} className="me-1" /> Edit
             </button>
           ) : (
             <>
               <button onClick={handleSave} disabled={saving} className="btn btn-primary text-sm disabled:opacity-50">
-                <Save size={13} className="mr-1" /> {saving ? 'Saving...' : 'Save'}
+                <Save size={13} className="me-1" /> {saving ? 'Saving...' : 'Save'}
               </button>
               <button onClick={() => { setEditing(false); setEditForm(job); }} className="btn btn-secondary text-sm"><X size={13} /></button>
             </>
@@ -331,7 +331,7 @@ export default function MaintenanceJobDetailPage() {
         <div>
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2"><Package size={14} />Spare Parts Used</h3>
-            <button onClick={() => setShowPartForm(!showPartForm)} className="btn btn-secondary text-xs"><Plus size={12} className="mr-1" />Add Part</button>
+            <button onClick={() => setShowPartForm(!showPartForm)} className="btn btn-secondary text-xs"><Plus size={12} className="me-1" />Add Part</button>
           </div>
           {showPartForm && (
             <div className="card mb-4">
@@ -357,7 +357,7 @@ export default function MaintenanceJobDetailPage() {
                 <th className="table-th">Manufacturer</th>
                 <th className="table-th">Installed</th>
                 <th className="table-th">Warranty Until</th>
-                <th className="table-th text-right">Price</th>
+                <th className="table-th text-end">Price</th>
               </tr></thead>
               <tbody>
                 {job.spareParts?.map((part: any) => (
@@ -373,7 +373,7 @@ export default function MaintenanceJobDetailPage() {
                         </span>
                       ) : '—'}
                     </td>
-                    <td className="table-td text-right text-sm">{part.purchasePrice ? formatCurrency(part.purchasePrice) : '—'}</td>
+                    <td className="table-td text-end text-sm">{part.purchasePrice ? formatCurrency(part.purchasePrice) : '—'}</td>
                   </tr>
                 ))}
                 {(!job.spareParts || job.spareParts.length === 0) && (
@@ -390,7 +390,7 @@ export default function MaintenanceJobDetailPage() {
         <div>
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2"><DollarSign size={14} />Vendor Invoices</h3>
-            <button onClick={() => setShowInvForm(!showInvForm)} className="btn btn-secondary text-xs"><Plus size={12} className="mr-1" />Add Invoice</button>
+            <button onClick={() => setShowInvForm(!showInvForm)} className="btn btn-secondary text-xs"><Plus size={12} className="me-1" />Add Invoice</button>
           </div>
           {showInvForm && (
             <div className="card mb-4">
@@ -421,7 +421,7 @@ export default function MaintenanceJobDetailPage() {
                 <div className="flex items-center justify-between mb-2">
                   <div>
                     <span className="font-mono text-sm font-semibold text-gray-900">{inv.invoiceNumber}</span>
-                    {inv.vendorInvoiceRef && <span className="text-xs text-gray-400 ml-2">Ref: {inv.vendorInvoiceRef}</span>}
+                    {inv.vendorInvoiceRef && <span className="text-xs text-gray-400 ms-2">Ref: {inv.vendorInvoiceRef}</span>}
                   </div>
                   <span className={cn('badge', inv.status === 'PAID' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700')}>{inv.status}</span>
                 </div>
@@ -475,7 +475,7 @@ export default function MaintenanceJobDetailPage() {
                     <img src={full} alt={`Photo ${i+1}`} className="w-full h-full object-cover" />
                   </a>
                   <button onClick={() => handleRemovePhoto(url)}
-                    className="absolute top-2 right-2 bg-black/60 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    className="absolute top-2 end-2 bg-black/60 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <X size={12} />
                   </button>
                 </div>

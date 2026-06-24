@@ -77,10 +77,10 @@ export default function RateApprovalsPage() {
         </div>
         <div className="flex gap-2">
           <button onClick={runRefresh} disabled={!!running} className="btn btn-secondary text-xs">
-            <RefreshCw size={13} className={cn('mr-1', running === 'refresh' && 'animate-spin')} /> {running === 'refresh' ? 'Checking sources…' : 'Refresh sources'}
+            <RefreshCw size={13} className={cn('me-1', running === 'refresh' && 'animate-spin')} /> {running === 'refresh' ? 'Checking sources…' : 'Refresh sources'}
           </button>
           <button onClick={runAi} disabled={!!running} className="btn btn-secondary text-xs">
-            <Sparkles size={13} className="mr-1" /> {running === 'ai' ? 'Researching…' : 'AI research'}
+            <Sparkles size={13} className="me-1" /> {running === 'ai' ? 'Researching…' : 'AI research'}
           </button>
         </div>
       </div>
@@ -130,8 +130,8 @@ export default function RateApprovalsPage() {
                   </div>
                   {status === 'PENDING' && (
                     <div className="flex gap-2">
-                      <button onClick={() => act(p.id, 'approve')} disabled={busy === p.id} className="btn btn-primary text-xs"><CheckCircle size={13} className="mr-1" /> {ctx.review ? 'Acknowledge' : 'Approve'}</button>
-                      <button onClick={() => act(p.id, 'reject')} disabled={busy === p.id} className="btn btn-secondary text-xs text-red-600 border-red-200"><XCircle size={13} className="mr-1" /> {ctx.review ? 'Dismiss' : 'Reject'}</button>
+                      <button onClick={() => act(p.id, 'approve')} disabled={busy === p.id} className="btn btn-primary text-xs"><CheckCircle size={13} className="me-1" /> {ctx.review ? 'Acknowledge' : 'Approve'}</button>
+                      <button onClick={() => act(p.id, 'reject')} disabled={busy === p.id} className="btn btn-secondary text-xs text-red-600 border-red-200"><XCircle size={13} className="me-1" /> {ctx.review ? 'Dismiss' : 'Reject'}</button>
                     </div>
                   )}
                   {status !== 'PENDING' && (
@@ -142,7 +142,7 @@ export default function RateApprovalsPage() {
                 {ctx.review && (
                   <div className="mt-2 text-xs text-gray-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
                     {ctx.note}
-                    {ctx.sourceUrl && <a href={ctx.sourceUrl} target="_blank" rel="noreferrer" className="text-brand-600 inline-flex items-center gap-0.5 ml-2"><ExternalLink size={11} /> Open source</a>}
+                    {ctx.sourceUrl && <a href={ctx.sourceUrl} target="_blank" rel="noreferrer" className="text-brand-600 inline-flex items-center gap-0.5 ms-2"><ExternalLink size={11} /> Open source</a>}
                   </div>
                 )}
 

@@ -284,7 +284,7 @@ function DocsSection({ traveler, onChange }: any) {
   return (
     <Section icon={<FileText size={13} />} title={`Documents repository (${traveler.documents?.length || 0})`} right={
       <label className="text-xs inline-flex items-center gap-1 text-slate-600 cursor-pointer">
-        <select className="text-[11px] rounded border border-slate-200 px-1 py-0.5 mr-1" value={type} onChange={(e) => setType(e.target.value)} onClick={(e) => e.stopPropagation()}>{DOC_TYPES.map((x) => <option key={x} value={x}>{x.replace(/_/g, ' ')}</option>)}</select>
+        <select className="text-[11px] rounded border border-slate-200 px-1 py-0.5 me-1" value={type} onChange={(e) => setType(e.target.value)} onClick={(e) => e.stopPropagation()}>{DOC_TYPES.map((x) => <option key={x} value={x}>{x.replace(/_/g, ' ')}</option>)}</select>
         {busy ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />} Upload
         <input type="file" className="hidden" accept=".pdf,image/*" onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
       </label>
@@ -324,8 +324,8 @@ function CompanionsSection({ traveler, onOpen, onChange }: any) {
       {(traveler.companions || []).length === 0 ? <p className="text-xs text-slate-400">No accompanying persons. Each becomes a full linked travel identity.</p> : (
         <div className="space-y-1.5">
           {traveler.companions.map((c: any) => (
-            <button key={c.id} onClick={() => onOpen(c.id)} className="w-full flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 hover:bg-slate-100 text-left">
-              <span className="inline-flex items-center gap-2"><Avatar t={c} size={28} /><span><span className="text-sm text-slate-800">{c.preferredName || c.fullName}</span>{c.relationship ? <span className="text-[11px] text-slate-400 ml-1">· {c.relationship}</span> : ''}</span></span>
+            <button key={c.id} onClick={() => onOpen(c.id)} className="w-full flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 hover:bg-slate-100 text-start">
+              <span className="inline-flex items-center gap-2"><Avatar t={c} size={28} /><span><span className="text-sm text-slate-800">{c.preferredName || c.fullName}</span>{c.relationship ? <span className="text-[11px] text-slate-400 ms-1">· {c.relationship}</span> : ''}</span></span>
               <span className="text-[11px] text-slate-400">{(c._count?.documents ?? 0)} docs · open →</span>
             </button>
           ))}

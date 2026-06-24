@@ -48,15 +48,15 @@ export default function LeadsPage() {
         ) : (
           <table className="w-full text-sm">
             <thead><tr className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-100">
-              <th className="px-5 py-2.5 text-left">Company / Contact</th><th className="px-3 py-2.5 text-left">Source</th><th className="px-3 py-2.5 text-left">Status</th><th className="px-3 py-2.5 text-right">Est. value</th><th className="px-5 py-2.5 text-right">Actions</th>
+              <th className="px-5 py-2.5 text-start">Company / Contact</th><th className="px-3 py-2.5 text-start">Source</th><th className="px-3 py-2.5 text-start">Status</th><th className="px-3 py-2.5 text-end">Est. value</th><th className="px-5 py-2.5 text-end">Actions</th>
             </tr></thead>
             <tbody>
               {items.map(l => (
                 <tr key={l.id} className="border-b border-gray-50 hover:bg-gray-50/60">
-                  <td className="px-5 py-3"><button onClick={() => setEdit(l)} className="text-left"><div className="font-medium text-gray-800">{l.companyName || '—'}</div><div className="text-xs text-gray-400">{l.contactName} {l.phone ? `· ${l.phone}` : ''}</div></button></td>
+                  <td className="px-5 py-3"><button onClick={() => setEdit(l)} className="text-start"><div className="font-medium text-gray-800">{l.companyName || '—'}</div><div className="text-xs text-gray-400">{l.contactName} {l.phone ? `· ${l.phone}` : ''}</div></button></td>
                   <td className="px-3 py-3 text-gray-600">{l.source || '—'}</td>
                   <td className="px-3 py-3"><span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${CLS[l.status] || ''}`}>{l.status}</span></td>
-                  <td className="px-3 py-3 text-right">{l.estimatedValue ? formatCurrency(Number(l.estimatedValue)) : '—'}</td>
+                  <td className="px-3 py-3 text-end">{l.estimatedValue ? formatCurrency(Number(l.estimatedValue)) : '—'}</td>
                   <td className="px-5 py-3">
                     <div className="flex items-center justify-end gap-2">
                       {l.status !== 'CONVERTED' && <button onClick={() => convert(l)} className="text-brand-600 hover:text-brand-700 text-xs flex items-center gap-1">Convert <ArrowRight size={12} /></button>}

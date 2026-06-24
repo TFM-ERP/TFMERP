@@ -55,11 +55,11 @@ export default function UtilizationPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-100">
-                <th className="px-5 py-2.5 text-left">Asset</th>
-                <th className="px-3 py-2.5 text-left w-44">Utilization</th>
-                <th className="px-3 py-2.5 text-right">Days</th>
-                <th className="px-3 py-2.5 text-right">Revenue</th>
-                <th className="px-5 py-2.5 text-right">Per day</th>
+                <th className="px-5 py-2.5 text-start">Asset</th>
+                <th className="px-3 py-2.5 text-start w-44">Utilization</th>
+                <th className="px-3 py-2.5 text-end">Days</th>
+                <th className="px-3 py-2.5 text-end">Revenue</th>
+                <th className="px-5 py-2.5 text-end">Per day</th>
               </tr>
             </thead>
             <tbody>
@@ -74,12 +74,12 @@ export default function UtilizationPage() {
                       <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
                         <div className="h-full rounded-full" style={{ width: `${r.utilizationPct}%`, background: r.utilizationPct >= 70 ? '#16a34a' : r.utilizationPct >= 35 ? '#d97706' : '#dc2626' }} />
                       </div>
-                      <span className="text-xs text-gray-500 w-9 text-right">{r.utilizationPct}%</span>
+                      <span className="text-xs text-gray-500 w-9 text-end">{r.utilizationPct}%</span>
                     </div>
                   </td>
-                  <td className="px-3 py-3 text-right text-gray-600">{r.daysBooked}</td>
-                  <td className="px-3 py-3 text-right font-medium">{formatCurrency(r.revenue)}</td>
-                  <td className="px-5 py-3 text-right text-gray-500">{formatCurrency(r.revenuePerDay)}</td>
+                  <td className="px-3 py-3 text-end text-gray-600">{r.daysBooked}</td>
+                  <td className="px-3 py-3 text-end font-medium">{formatCurrency(r.revenue)}</td>
+                  <td className="px-5 py-3 text-end text-gray-500">{formatCurrency(r.revenuePerDay)}</td>
                 </tr>
               ))}
             </tbody>

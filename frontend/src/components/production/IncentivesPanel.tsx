@@ -56,7 +56,7 @@ export default function IncentivesPanel({ projectId, currency, onNavigate }: { p
             <p className="text-xs text-gray-400">Estimated incentives for this project's jurisdiction, netted against the burdened budget.</p>
           </div>
         </div>
-        <button onClick={load} className="btn btn-secondary text-xs"><RefreshCw size={12} className={cn('mr-1', loading && 'animate-spin')} /> Refresh</button>
+        <button onClick={load} className="btn btn-secondary text-xs"><RefreshCw size={12} className={cn('me-1', loading && 'animate-spin')} /> Refresh</button>
       </div>
 
       {/* Summary */}
@@ -75,11 +75,11 @@ export default function IncentivesPanel({ projectId, currency, onNavigate }: { p
           <table className="w-full text-sm">
             <thead>
               <tr className="text-[10px] font-semibold text-gray-400 uppercase border-b border-gray-100">
-                <th className="py-2 text-left">Program</th>
-                <th className="py-2 text-left">Basis</th>
-                <th className="py-2 text-right">Qualified Spend</th>
-                <th className="py-2 text-right">Rate</th>
-                <th className="py-2 text-right">Est. Incentive</th>
+                <th className="py-2 text-start">Program</th>
+                <th className="py-2 text-start">Basis</th>
+                <th className="py-2 text-end">Qualified Spend</th>
+                <th className="py-2 text-end">Rate</th>
+                <th className="py-2 text-end">Est. Incentive</th>
                 <th className="py-2"></th>
               </tr>
             </thead>
@@ -88,7 +88,7 @@ export default function IncentivesPanel({ projectId, currency, onNavigate }: { p
                 <tr key={s.id} className="border-b border-gray-50">
                   <td className="py-1.5">
                     <span className="text-gray-800">{s.name}</span>
-                    {s.sourceUrl && <a href={s.sourceUrl} target="_blank" rel="noreferrer" className="ml-1.5 text-brand-600 inline-flex"><ExternalLink size={10} /></a>}
+                    {s.sourceUrl && <a href={s.sourceUrl} target="_blank" rel="noreferrer" className="ms-1.5 text-brand-600 inline-flex"><ExternalLink size={10} /></a>}
                     <span className="block text-[10px] text-gray-400">{s.incentiveType?.replace('_', ' ')}{s.capped ? ' · capped' : ''}{s.belowThreshold ? ' · below min spend' : ''}</span>
                   </td>
                   <td className="py-1.5">
@@ -96,13 +96,13 @@ export default function IncentivesPanel({ projectId, currency, onNavigate }: { p
                       {Object.keys(BASIS_LABEL).map((b) => <option key={b} value={b}>{BASIS_LABEL[b]}</option>)}
                     </select>
                   </td>
-                  <td className="py-1.5 text-right">
-                    <input className="input text-xs py-0.5 h-7 w-28 text-right" defaultValue={s.qualifiedSpend}
+                  <td className="py-1.5 text-end">
+                    <input className="input text-xs py-0.5 h-7 w-28 text-end" defaultValue={s.qualifiedSpend}
                       onBlur={(e) => { if (Number(e.target.value) !== s.qualifiedSpend) setOverride(s.id, e.target.value); }} />
                   </td>
-                  <td className="py-1.5 text-right text-gray-600">{pct(s.effectiveRate)}</td>
-                  <td className="py-1.5 text-right font-semibold text-green-700">{money(s.estimate)}</td>
-                  <td className="py-1.5 text-right"><button onClick={() => remove(s.id)} className="text-gray-300 hover:text-red-500"><Trash2 size={12} /></button></td>
+                  <td className="py-1.5 text-end text-gray-600">{pct(s.effectiveRate)}</td>
+                  <td className="py-1.5 text-end font-semibold text-green-700">{money(s.estimate)}</td>
+                  <td className="py-1.5 text-end"><button onClick={() => remove(s.id)} className="text-gray-300 hover:text-red-500"><Trash2 size={12} /></button></td>
                 </tr>
               ))}
             </tbody>
@@ -121,11 +121,11 @@ export default function IncentivesPanel({ projectId, currency, onNavigate }: { p
               <div key={p.id} className="flex items-center justify-between text-sm border-b border-gray-50 py-1.5">
                 <div>
                   <span className="text-gray-800">{p.name}</span>
-                  {p.geoNode?.name && <span className="ml-2 text-[10px] bg-gray-100 text-gray-500 rounded px-1">{p.geoNode.name}</span>}
-                  {p.isEstimate && <span className="ml-1 text-[10px] bg-amber-100 text-amber-700 rounded px-1">estimate</span>}
+                  {p.geoNode?.name && <span className="ms-2 text-[10px] bg-gray-100 text-gray-500 rounded px-1">{p.geoNode.name}</span>}
+                  {p.isEstimate && <span className="ms-1 text-[10px] bg-amber-100 text-amber-700 rounded px-1">estimate</span>}
                   <span className="block text-[10px] text-gray-400">{pct(p.effectiveRate)} of {BASIS_LABEL[p.basis] || p.basis} · est. {money(p.estimate)}{p.belowThreshold ? ' (below min spend)' : ''}</span>
                 </div>
-                <button onClick={() => addProgram(p.id)} disabled={busy} className="btn btn-secondary text-xs"><Plus size={12} className="mr-1" /> Add</button>
+                <button onClick={() => addProgram(p.id)} disabled={busy} className="btn btn-secondary text-xs"><Plus size={12} className="me-1" /> Add</button>
               </div>
             ))}
           </div>

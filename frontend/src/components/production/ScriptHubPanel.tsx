@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { productionApi } from '@/lib/api';
-import { FileText, Plus, Upload, Trash2, Loader2, ChevronLeft, Layers, MousePointer2, Highlighter, PenLine, Type, StickyNote, Tag, Eye, EyeOff, ArrowRightLeft, X, GitCompare, MapPin, Settings2, Lock, Scissors, Clapperboard, BookOpen, Bookmark, Tags } from 'lucide-react';
+import { FileText, Plus, Upload, Trash2, Loader2, ChevronLeft, Layers, MousePointer2, Highlighter, PenLine, Type, StickyNote, Tag, Eye, EyeOff, ArrowRightLeft, X, GitCompare, MapPin, Settings2, Lock, Scissors, Clapperboard, BookOpen, Bookmark, Tags, Activity, ArrowLeftRight, DollarSign } from 'lucide-react';
 import { Btn, EmptyState, Chip } from './ui';
 import ScriptViewer from './ScriptViewer';
 import AnnotationOverlay, { type Tool } from './AnnotationOverlay';
@@ -12,6 +12,13 @@ import ProcurementStagingPanel from './ProcurementStagingPanel';
 import ScriptReader from './ScriptReader';
 import TagToolsPanel from './TagToolsPanel';
 import ScriptAnalyzePanel from './ScriptAnalyzePanel';
+import ScriptProjectionsPanel from './ScriptProjectionsPanel';
+import CoveragePanel from './CoveragePanel';
+import DiagnosticsPanel from './DiagnosticsPanel';
+import ComparePanel from './ComparePanel';
+import BudgetFitPanel from './BudgetFitPanel';
+import CreativeFlowStrip from './CreativeFlowStrip';
+import CreativeBriefPanel from './CreativeBriefPanel';
 import AudioNotesPanel from './AudioNotesPanel';
 import { SonRoot, SonShell, SonThemeToggle, SonBtn } from './scripton/Son';
 import ScriptOnAudioPanel from './scripton/ScriptOnAudioPanel';
@@ -64,7 +71,7 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
   const [compare, setCompare] = useState<any>(null); // { other, data } when compare modal open
   const [settingsLayer, setSettingsLayer] = useState<any>(null);
   // SYS-14 takeover model: ONE surface open at a time — overlays can no longer stack.
-  type Surface = 'reader' | 'prep' | 'audiostudio' | 'memos' | 'procurement' | null;
+  type Surface = 'reader' | 'prep' | 'audiostudio' | 'memos' | 'procurement' | 'coverage' | 'diagnostics' | 'compare' | 'budgetfit' | null;
   type PrepSub = 'tags' | 'lining' | 'sides' | 'analyze';
   // Surface survives refresh: initialized from ?surface= and written back to the URL on change.
   // Legacy deep-links (tags/lining/sides/analyze) map to the Prep surface + sub-tab.
@@ -396,7 +403,7 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
             <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full ${online ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`} title={online ? 'Online — changes sync live' : 'Offline — changes saved locally'}>
               {online ? <Wifi size={12} /> : <WifiOff size={12} />}
               {online ? (syncing ? 'Syncing…' : 'Online') : 'Offline'}
-              {pending > 0 && <span className="ml-0.5 font-semibold">· {pending} queued</span>}
+              {pending > 0 && <span className="ms-0.5 font-semibold">· {pending} queued</span>}
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -416,22 +423,26 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
               {moreOpen && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setMoreOpen(false)} />
-                  <div className="absolute right-0 z-50 mt-1 w-64 rounded-xl border border-slate-200 bg-white shadow-xl p-2 space-y-1.5">
+                  <div className="absolute end-0 z-50 mt-1 w-64 rounded-xl border border-slate-200 bg-white shadow-xl p-2 space-y-1.5">
                     <label className="block text-[10px] uppercase tracking-wide text-slate-400 px-1">Upload as</label>
                     <select className={`${inp} w-full`} value={revLabel} onChange={(e) => setRevLabel(e.target.value)}>
                       {REV_PRESETS.map((c) => <option key={c} value={c}>{c} pages</option>)}
                     </select>
-                    {prevRevision() && <button className="flex items-center gap-2 w-full text-left text-xs px-2 py-1.5 rounded-lg hover:bg-slate-50 text-slate-700" onClick={() => { setMoreOpen(false); doTransfer(); }}><ArrowRightLeft size={13} /> Transfer notes from previous</button>}
+                    {prevRevision() && <button className="flex items-center gap-2 w-full text-start text-xs px-2 py-1.5 rounded-lg hover:bg-slate-50 text-slate-700" onClick={() => { setMoreOpen(false); doTransfer(); }}><ArrowRightLeft size={13} /> Transfer notes from previous</button>}
                     {(openDoc.revisions?.length || 0) > 1 && (
                       <select className={`${inp} w-full`} value="" onChange={(e) => { if (e.target.value) { setMoreOpen(false); openCompare(e.target.value); } }}>
                         <option value="">Compare with…</option>
                         {openDoc.revisions.filter((r: any) => r.id !== activeRev?.id).map((r: any) => <option key={r.id} value={r.id}>{r.revisionLabel}</option>)}
                       </select>
                     )}
-                    {activeRev && <button className="flex items-center gap-2 w-full text-left text-xs px-2 py-1.5 rounded-lg hover:bg-slate-50 text-slate-700" onClick={() => { setMoreOpen(false); exportPdf(); }} disabled={exporting}>{exporting ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />} Export visible layers (PDF)</button>}
-                    {activeRev && <button className="flex items-center gap-2 w-full text-left text-xs px-2 py-1.5 rounded-lg hover:bg-slate-50 text-slate-700" onClick={() => { setMoreOpen(false); setPagesOpen(true); }}><StickyNote size={13} /> Page maker (facing pages)</button>}
-                    {activeRev && <button className="flex items-center gap-2 w-full text-left text-xs px-2 py-1.5 rounded-lg hover:bg-slate-50 text-slate-700" onClick={() => { setMoreOpen(false); setSurface('memos'); }}><Mic size={13} /> Voice memos</button>}
-                    {activeRev && <button className="flex items-center gap-2 w-full text-left text-xs px-2 py-1.5 rounded-lg hover:bg-slate-50 text-slate-700" onClick={() => { setMoreOpen(false); setSurface('procurement'); }}><ShoppingCart size={13} /> Procurement staging</button>}
+                    {activeRev && <button className="flex items-center gap-2 w-full text-start text-xs px-2 py-1.5 rounded-lg hover:bg-slate-50 text-slate-700" onClick={() => { setMoreOpen(false); exportPdf(); }} disabled={exporting}>{exporting ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />} Export visible layers (PDF)</button>}
+                    {activeRev && <button className="flex items-center gap-2 w-full text-start text-xs px-2 py-1.5 rounded-lg hover:bg-slate-50 text-slate-700" onClick={() => { setMoreOpen(false); setPagesOpen(true); }}><StickyNote size={13} /> Page maker (facing pages)</button>}
+                    {activeRev && <button className="flex items-center gap-2 w-full text-start text-xs px-2 py-1.5 rounded-lg hover:bg-slate-50 text-slate-700" onClick={() => { setMoreOpen(false); setSurface('memos'); }}><Mic size={13} /> Voice memos</button>}
+                    {activeRev && <button className="flex items-center gap-2 w-full text-start text-xs px-2 py-1.5 rounded-lg hover:bg-slate-50 text-slate-700" onClick={() => { setMoreOpen(false); setSurface('procurement'); }}><ShoppingCart size={13} /> Procurement staging</button>}
+                    {activeRev && <button className="flex items-center gap-2 w-full text-start text-xs px-2 py-1.5 rounded-lg hover:bg-slate-50 text-slate-700" onClick={() => { setMoreOpen(false); setSurface('coverage'); }}><FileText size={13} /> Coverage report</button>}
+                    {activeRev && <button className="flex items-center gap-2 w-full text-start text-xs px-2 py-1.5 rounded-lg hover:bg-slate-50 text-slate-700" onClick={() => { setMoreOpen(false); setSurface('diagnostics'); }}><Activity size={13} /> Scene diagnostics</button>}
+                    {activeRev && <button className="flex items-center gap-2 w-full text-start text-xs px-2 py-1.5 rounded-lg hover:bg-slate-50 text-slate-700" onClick={() => { setMoreOpen(false); setSurface('compare'); }}><ArrowLeftRight size={13} /> Version compare</button>}
+                    {activeRev && <button className="flex items-center gap-2 w-full text-start text-xs px-2 py-1.5 rounded-lg hover:bg-slate-50 text-slate-700" onClick={() => { setMoreOpen(false); setSurface('budgetfit'); }}><DollarSign size={13} /> Budget-fit rewrite</button>}
                   </div>
                 </>
               )}
@@ -497,6 +508,10 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
         {surface && activeRev && (
           <div style={{ position: 'relative', minHeight: '78vh', transform: 'translateZ(0)', overflow: 'hidden', borderRadius: 16 }}>
             {surface === 'procurement' && <ProcurementStagingPanel projectId={projectId} revision={activeRev} onClose={() => setSurface(null)} />}
+            {surface === 'coverage' && <CoveragePanel projectId={projectId} revision={activeRev} onClose={() => setSurface(null)} />}
+            {surface === 'diagnostics' && <DiagnosticsPanel projectId={projectId} revision={activeRev} onClose={() => setSurface(null)} />}
+            {surface === 'compare' && <ComparePanel projectId={projectId} revision={activeRev} onClose={() => setSurface(null)} />}
+            {surface === 'budgetfit' && <BudgetFitPanel projectId={projectId} revision={activeRev} onClose={() => setSurface(null)} />}
             {surface === 'reader' && <ScriptReader revision={activeRev} inline onClose={() => setSurface(null)} />}
             {surface === 'prep' && (
               // Prep — the breakdown toolkit. Same card shell as Reader/Pages: white h-12
@@ -505,7 +520,7 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
                 <div className="flex items-center gap-2 px-4 h-12 border-b border-slate-200 shrink-0">
                   <Scissors size={16} className="text-slate-700" />
                   <h3 className="text-sm text-slate-800" style={{ fontWeight: 650 }}>Prep — {activeRev.revisionLabel}</h3>
-                  <div className="ml-4 flex items-stretch gap-0.5 self-stretch">
+                  <div className="ms-4 flex items-stretch gap-0.5 self-stretch">
                     {([['tags', 'Tags'], ['lining', 'Lining'], ['sides', 'Sides'], ['analyze', 'Analyze']] as const).map(([k, label]) => (
                       <button key={k} onClick={() => setPrepSub(k)}
                         className="px-3 text-[13px] transition-colors flex items-center"
@@ -541,7 +556,7 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
               <FileText size={16} className="text-slate-700" />
               <h3 className="text-sm text-slate-800" style={{ fontWeight: 650 }}>Pages — {activeRev.revisionLabel}</h3>
               <span className="text-[11px] text-slate-400">{activeRev.pageCount} pages · {activeRev.scenes?.length || 0} scenes · {annos.length} notes</span>
-              <Chip tone="slate"><span className="inline-block w-2 h-2 rounded-full mr-1" style={{ background: activeRev.colorCode || '#e2e8f0' }} />{activeRev.revisionLabel}</Chip>
+              <Chip tone="slate"><span className="inline-block w-2 h-2 rounded-full me-1" style={{ background: activeRev.colorCode || '#e2e8f0' }} />{activeRev.revisionLabel}</Chip>
               {orphans.length > 0 && <Chip tone="risk">{orphans.length} orphan{orphans.length === 1 ? '' : 's'}</Chip>}
             </div>
             <div className="p-3">
@@ -633,7 +648,7 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
                     {layers.map((l) => (
                       <div key={l.id} className={`flex items-center gap-1.5 rounded-lg px-1.5 py-1 ${activeLayerId === l.id ? 'bg-slate-100' : ''}`}>
                         <button onClick={() => toggleLayer(l.id)} className="text-slate-400 hover:text-slate-700">{hidden.has(l.id) ? <EyeOff size={13} /> : <Eye size={13} />}</button>
-                        <button onClick={() => setActiveLayerId(l.id)} className="flex-1 text-left text-xs truncate inline-flex items-center gap-1.5">
+                        <button onClick={() => setActiveLayerId(l.id)} className="flex-1 text-start text-xs truncate inline-flex items-center gap-1.5">
                           <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: l.color }} />
                           <span className={activeLayerId === l.id ? 'font-medium text-slate-900' : 'text-slate-600'}>{l.name}</span>
                         </button>
@@ -797,6 +812,10 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
       <div className="son-sec">
         <p className="son-faint" style={{ fontSize: 12, marginTop: -2, marginBottom: 12 }}>Upload revisions, browse scenes, annotate, read &amp; rehearse, tag, line, and generate audio.</p>
 
+      <CreativeFlowStrip projectId={projectId} />
+      <CreativeBriefPanel projectId={projectId} />
+      <ScriptProjectionsPanel projectId={projectId} />
+
       {creating && (
         <div className="son-card" style={{ padding: 14, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
           <input className="son-input" style={{ flex: 1 }} placeholder="Script title (e.g. Episode 101)" value={title} onChange={(e) => setTitle(e.target.value)} />
@@ -844,7 +863,7 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
             {docs.map((d) => (
               <div key={d.id} className="son-card son-row">
                 <FileText size={18} className="son-faint shrink-0" />
-                <button onClick={() => openDocument(d.id)} className="flex-1 text-left min-w-0" style={{ background: 'none', border: 0, cursor: 'pointer', padding: 0 }}>
+                <button onClick={() => openDocument(d.id)} className="flex-1 text-start min-w-0" style={{ background: 'none', border: 0, cursor: 'pointer', padding: 0 }}>
                   <span style={{ fontWeight: 600 }}>{d.title}</span>
                   <span className="son-faint" style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11 }}><Layers size={11} /> {d.revisions?.length || 0} revision{d.revisions?.length === 1 ? '' : 's'}
                     {d.revisions?.[0] && <> · latest {d.revisions[0].revisionLabel}</>}</span>

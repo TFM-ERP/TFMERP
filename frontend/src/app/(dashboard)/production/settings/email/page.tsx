@@ -47,7 +47,7 @@ export default function ProductionEmailSettingsPage() {
           <h1 className="text-[20px] font-extrabold leading-tight" style={{ color: 'var(--text-1)' }}>Production Email Sender</h1>
           <p className="text-sm" style={{ color: 'var(--text-3)' }}>A dedicated sender for production emails — call sheets, deal memos and cost reports.</p>
         </div>
-        <button onClick={save} disabled={saving || loading} className="btn btn-primary"><Save size={14} className="mr-1" /> {saving ? 'Saving…' : 'Save'}</button>
+        <button onClick={save} disabled={saving || loading} className="btn btn-primary"><Save size={14} className="me-1" /> {saving ? 'Saving…' : 'Save'}</button>
       </div>
 
       <div className="card mb-4">
@@ -78,7 +78,7 @@ export default function ProductionEmailSettingsPage() {
         <h3 className="text-sm font-semibold text-gray-700 mb-2">Send a test</h3>
         <div className="flex gap-2">
           <input className="input flex-1" value={testTo} onChange={e => setTestTo(e.target.value)} placeholder="your@email.com" />
-          <button onClick={test} className="btn btn-secondary"><Send size={14} className="mr-1" /> Send test</button>
+          <button onClick={test} className="btn btn-secondary"><Send size={14} className="me-1" /> Send test</button>
         </div>
         <p className="text-[11px] text-gray-400 mt-2">Save first. If the dedicated sender is off, the test uses the company email.</p>
       </div>

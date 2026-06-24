@@ -121,7 +121,7 @@ export default function MasterScoutVisitsPanel() {
                   {['PLANNED', 'CONFIRMED', 'IN_PROGRESS', 'DONE', 'CANCELLED'].map((s) => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
                 </select>
                 <button onClick={() => buildClearance(v)} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-slate-600 hover:border-slate-900 text-xs"><ShieldCheck size={12} /> Clearance pack</button>
-                <button onClick={() => removeVisit(v.id)} className="text-slate-300 hover:text-rose-500 ml-auto"><Trash2 size={14} /></button>
+                <button onClick={() => removeVisit(v.id)} className="text-slate-300 hover:text-rose-500 ms-auto"><Trash2 size={14} /></button>
               </div>
 
               {/* Route from library candidates */}
@@ -154,7 +154,7 @@ export default function MasterScoutVisitsPanel() {
                   <div className="space-y-1.5">
                     {v.members.map((m: any) => (
                       <div key={m.id} className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2">
-                        <span className="font-medium text-slate-800 text-sm flex-1 truncate">{m.name}<span className="text-[11px] text-slate-400 ml-1.5">{[m.roleTitle, m.department].filter(Boolean).join(' · ')}</span></span>
+                        <span className="font-medium text-slate-800 text-sm flex-1 truncate">{m.name}<span className="text-[11px] text-slate-400 ms-1.5">{[m.roleTitle, m.department].filter(Boolean).join(' · ')}</span></span>
                         <button onClick={() => toggleLead(m.id, m.isLead)} className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-xs ${m.isLead ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 text-slate-500 hover:border-slate-900'}`}><Crown size={12} /> Lead</button>
                         <button onClick={() => removeMember(m.id)} className="text-slate-300 hover:text-rose-500"><Trash2 size={13} /></button>
                       </div>
@@ -175,8 +175,8 @@ export default function MasterScoutVisitsPanel() {
                 <div>
                   <SectionLabel icon={Bus}>Available house fleet</SectionLabel>
                   <div className="flex flex-wrap gap-1.5">
-                    {opts.vehicles.slice(0, 8).map((veh: any) => <Chip key={veh.id} tone="slate"><Truck size={11} className="inline mr-1" />{[veh.make, veh.model].filter(Boolean).join(' ') || veh.vehicleType}{veh.capacity ? ` · ${veh.capacity}p` : ''}</Chip>)}
-                    {opts.drivers.slice(0, 6).map((d: any) => <Chip key={d.id} tone="link"><Car size={11} className="inline mr-1" />{d.fullName}</Chip>)}
+                    {opts.vehicles.slice(0, 8).map((veh: any) => <Chip key={veh.id} tone="slate"><Truck size={11} className="inline me-1" />{[veh.make, veh.model].filter(Boolean).join(' ') || veh.vehicleType}{veh.capacity ? ` · ${veh.capacity}p` : ''}</Chip>)}
+                    {opts.drivers.slice(0, 6).map((d: any) => <Chip key={d.id} tone="link"><Car size={11} className="inline me-1" />{d.fullName}</Chip>)}
                   </div>
                 </div>
               )}

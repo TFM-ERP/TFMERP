@@ -83,7 +83,7 @@ export default function SparePartsPage() {
           <p className="text-sm mt-0.5" style={{ color: 'var(--text-3)' }}>{total} parts tracked</p>
         </div>
         <button onClick={() => setShowForm(true)} className="btn btn-primary">
-          <Plus size={14} className="mr-1" /> Add Part
+          <Plus size={14} className="me-1" /> Add Part
         </button>
       </div>
 
@@ -93,7 +93,7 @@ export default function SparePartsPage() {
           <div className="text-sm text-amber-800">
             <span className="font-semibold">{warrantyAlerts.length} part(s)</span> have warranty expiring within 60 days.
             {warrantyAlerts.slice(0,3).map((p: any) => (
-              <span key={p.id} className="ml-1 text-xs">· {p.name} ({p.asset?.name})</span>
+              <span key={p.id} className="ms-1 text-xs">· {p.name} ({p.asset?.name})</span>
             ))}
           </div>
         </div>
@@ -164,8 +164,8 @@ export default function SparePartsPage() {
       {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-4">
         <div className="relative flex-1 min-w-48">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input className="input pl-9 w-full" placeholder="Search parts..." value={search}
+          <Search size={14} className="absolute start-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input className="input ps-9 w-full" placeholder="Search parts..." value={search}
             onChange={e => { setSearch(e.target.value); setPage(1); }} />
         </div>
         <button onClick={load} className="btn btn-secondary p-2">
@@ -182,7 +182,7 @@ export default function SparePartsPage() {
             <th className="table-th">Installed</th>
             <th className="table-th">Warranty</th>
             <th className="table-th">Condition</th>
-            <th className="table-th text-right">Price</th>
+            <th className="table-th text-end">Price</th>
           </tr></thead>
           <tbody>
             {items.map(part => {
@@ -214,7 +214,7 @@ export default function SparePartsPage() {
                       {part.condition || 'N/A'}
                     </span>
                   </td>
-                  <td className="table-td text-right text-sm">{part.purchasePrice ? formatCurrency(part.purchasePrice) : '—'}</td>
+                  <td className="table-td text-end text-sm">{part.purchasePrice ? formatCurrency(part.purchasePrice) : '—'}</td>
                 </tr>
               );
             })}

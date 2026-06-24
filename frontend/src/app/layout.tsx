@@ -3,7 +3,7 @@ import './globals.css';
 import './scripton-ds.css';
 
 export const metadata: Metadata = {
-  title: 'TFM ERP — The Film Makers FZ LLC',
+  title: 'FilmOS — The Film Makers FZ LLC',
   description: 'Enterprise Resource Planning System',
 };
 

@@ -32,7 +32,7 @@ export default function CostReportPrintPage() {
   const cur = data.currency || 'USD';
   const t = data.totals;
   const th: any = { padding: '5px 8px', color: '#fff', fontSize: 8.5, textTransform: 'uppercase', fontWeight: 700 };
-  const num: any = (extra = {}) => ({ padding: '3px 8px', textAlign: 'right', fontSize: 9, borderBottom: '1px solid #f0f0f0', ...extra });
+  const num: any = (extra = {}) => ({ padding: '3px 8px', textAlign: 'end', fontSize: 9, borderBottom: '1px solid #f0f0f0', ...extra });
 
   return (
     <>
@@ -53,7 +53,7 @@ export default function CostReportPrintPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               {project?.logoUrl && <img src={logoSrc(project.logoUrl)} alt="" style={{ height: 40, maxWidth: 150, objectFit: 'contain' }} />}
               {logoSrc(co?.logoUrl) ? <img src={logoSrc(co.logoUrl)} alt="" style={{ height: 44, objectFit: 'contain' }} /> :
-                <div style={{ fontSize: 9, color: '#999', textAlign: 'right' }}>{co?.name || 'The Film Makers FZ LLC'}</div>}
+                <div style={{ fontSize: 9, color: '#999', textAlign: 'end' }}>{co?.name || 'The Film Makers FZ LLC'}</div>}
             </div>
           </div>
           <div style={{ borderTop: `2px solid ${GOLD}`, margin: '10px 0 6px' }} />
@@ -72,13 +72,13 @@ export default function CostReportPrintPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: NAVY }}>
-                <th style={{ ...th, textAlign: 'left' }}>Cost Center</th>
-                <th style={{ ...th, textAlign: 'right' }}>Budget</th>
-                <th style={{ ...th, textAlign: 'right' }}>Revised</th>
-                <th style={{ ...th, textAlign: 'right' }}>Committed</th>
-                <th style={{ ...th, textAlign: 'right' }}>Actual</th>
-                <th style={{ ...th, textAlign: 'right' }}>EFC</th>
-                <th style={{ ...th, textAlign: 'right' }}>Variance</th>
+                <th style={{ ...th, textAlign: 'start' }}>Cost Center</th>
+                <th style={{ ...th, textAlign: 'end' }}>Budget</th>
+                <th style={{ ...th, textAlign: 'end' }}>Revised</th>
+                <th style={{ ...th, textAlign: 'end' }}>Committed</th>
+                <th style={{ ...th, textAlign: 'end' }}>Actual</th>
+                <th style={{ ...th, textAlign: 'end' }}>EFC</th>
+                <th style={{ ...th, textAlign: 'end' }}>Variance</th>
               </tr>
             </thead>
             <tbody>
@@ -119,6 +119,46 @@ export default function CostReportPrintPage() {
           </table>
 
           <div style={{ fontSize: 8, color: '#888', marginTop: 6 }}>Revised = Budget ± transfers + approved overages. EFC = Actual + Estimate&nbsp;to&nbsp;Complete. Variance = Revised − EFC. Figures in parentheses are over budget.</div>
+          {/* Location spend — additive, informational (outside the EFC reconciliation) */}
+          {data.locations && data.locations.count > 0 && data.locations.total > 0 && (
+            <>
+              <div style={{ fontSize: 11, fontWeight: 800, color: NAVY, marginTop: 16, marginBottom: 4 }}>LOCATION SPEND <span style={{ fontSize: 8, fontWeight: 600, color: '#999' }}>· fees, permits &amp; security — informational, outside the EFC above</span></div>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: NAVY }}>
+                    <th style={{ ...th, textAlign: 'start' }}>Location</th>
+                    <th style={{ ...th, textAlign: 'end' }}>Fee paid</th>
+                    <th style={{ ...th, textAlign: 'end' }}>Fee pending</th>
+                    <th style={{ ...th, textAlign: 'end' }}>Permit fees</th>
+                    <th style={{ ...th, textAlign: 'end' }}>Security</th>
+                    <th style={{ ...th, textAlign: 'end' }}>Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.locations.byLocation.map((l: any) => (
+                    <tr key={l.id}>
+                      <td style={{ padding: '3px 8px', borderBottom: '1px solid #f0f0f0', color: '#444' }}>{l.name}</td>
+                      <td style={num({ color: l.paid ? '#b45309' : '#bbb' })}>{l.paid ? fmt(l.paid) : '\u2014'}</td>
+                      <td style={num({ color: l.pending ? '#1d4ed8' : '#bbb' })}>{l.pending ? fmt(l.pending) : '\u2014'}</td>
+                      <td style={num({ color: l.permitFees ? '#444' : '#bbb' })}>{l.permitFees ? fmt(l.permitFees) : '\u2014'}</td>
+                      <td style={num({ color: l.security ? '#444' : '#bbb' })}>{l.security ? fmt(l.security) : '\u2014'}</td>
+                      <td style={num({ fontWeight: 700 })}>{fmt(l.total)}</td>
+                    </tr>
+                  ))}
+                  <tr style={{ background: '#FAF6EC', borderTop: `2px solid ${GOLD}` }}>
+                    <td style={{ padding: '6px 8px', fontWeight: 800, color: NAVY }}>LOCATIONS TOTAL</td>
+                    <td style={num({ fontWeight: 800 })}>{fmt(data.locations.payments.paid)}</td>
+                    <td style={num({ fontWeight: 800 })}>{fmt(data.locations.payments.pending)}</td>
+                    <td style={num({ fontWeight: 800 })}>{fmt(data.locations.permitFees)}</td>
+                    <td style={num({ fontWeight: 800 })}>{fmt(data.locations.security.total)}</td>
+                    <td style={num({ fontWeight: 800, fontSize: 10 })}>{fmt(data.locations.total)}</td>
+                  </tr>
+                </tbody>
+              </table>
+              <div style={{ fontSize: 8, color: '#888', marginTop: 6 }}>Committed {fmt(data.locations.committed)} · Actual (paid) {fmt(data.locations.actual)}{data.locations.feePerDayTotal > 0 ? ` · combined day-rate ${fmt(data.locations.feePerDayTotal)}/day (reference)` : ''}. Location costs sit outside the budgeted cost centers above and are shown for producer visibility.</div>
+            </>
+          )}
+
 
           {/* Sign-off */}
           <div style={{ display: 'flex', gap: 40, marginTop: 40 }}>

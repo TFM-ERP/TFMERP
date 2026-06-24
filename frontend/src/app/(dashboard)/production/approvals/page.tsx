@@ -61,8 +61,8 @@ export default function MyApprovalsPage() {
                 </p>
               </div>
               <div className="flex gap-2 shrink-0">
-                <button onClick={() => act(i.id, 'approve')} disabled={busy === i.id} className="btn btn-primary text-xs"><CheckCircle2 size={13} className="mr-1" /> Approve</button>
-                <button onClick={() => act(i.id, 'reject')} disabled={busy === i.id} className="btn btn-secondary text-xs text-red-600 border-red-200"><XCircle size={13} className="mr-1" /> Reject</button>
+                <button onClick={() => act(i.id, 'approve')} disabled={busy === i.id} className="btn btn-primary text-xs"><CheckCircle2 size={13} className="me-1" /> Approve</button>
+                <button onClick={() => act(i.id, 'reject')} disabled={busy === i.id} className="btn btn-secondary text-xs text-red-600 border-red-200"><XCircle size={13} className="me-1" /> Reject</button>
               </div>
             </div>
           ))}

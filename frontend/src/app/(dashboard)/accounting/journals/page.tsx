@@ -50,7 +50,7 @@ export default function JournalsPage() {
         </div>
         <div className="flex gap-2">
           <button onClick={runPost} disabled={posting} className="btn btn-secondary" title="Auto-post invoices, expenses & payments to the GL">
-            <Zap size={14} className="mr-1" /> {posting ? 'Posting…' : `Auto-post${pendingCount ? ` (${pendingCount})` : ''}`}
+            <Zap size={14} className="me-1" /> {posting ? 'Posting…' : `Auto-post${pendingCount ? ` (${pendingCount})` : ''}`}
           </button>
           <Link href="/accounting/journals/new" className="btn btn-primary"><Plus size={14} /> New entry</Link>
         </div>
@@ -74,8 +74,8 @@ export default function JournalsPage() {
           entries.length === 0 ? <div className="p-10 text-center text-gray-400 text-sm">No journal entries yet.</div> : (
             <table className="w-full text-sm">
               <thead><tr className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-100">
-                <th className="px-5 py-2.5 text-left">Entry</th><th className="px-3 py-2.5 text-left">Date</th>
-                <th className="px-3 py-2.5 text-left">Memo</th><th className="px-3 py-2.5 text-right">Amount</th><th className="px-3 py-2.5 text-left">Status</th>
+                <th className="px-5 py-2.5 text-start">Entry</th><th className="px-3 py-2.5 text-start">Date</th>
+                <th className="px-3 py-2.5 text-start">Memo</th><th className="px-3 py-2.5 text-end">Amount</th><th className="px-3 py-2.5 text-start">Status</th>
               </tr></thead>
               <tbody>
                 {entries.map(e => (
@@ -83,7 +83,7 @@ export default function JournalsPage() {
                     <td className="px-5 py-3"><Link href={`/accounting/journals/${e.id}`} className="font-mono font-medium text-gray-800 hover:text-brand-600">{e.entryNumber}</Link></td>
                     <td className="px-3 py-3 text-gray-500">{formatDate(e.date)}</td>
                     <td className="px-3 py-3 text-gray-600">{e.memo || e.reference || '—'}</td>
-                    <td className="px-3 py-3 text-right font-medium text-gray-800">{formatCurrency(e.totalDebit)}</td>
+                    <td className="px-3 py-3 text-end font-medium text-gray-800">{formatCurrency(e.totalDebit)}</td>
                     <td className="px-3 py-3"><span className={cn('badge text-xs', STATUS_META[e.status])}>{e.status}</span></td>
                   </tr>
                 ))}

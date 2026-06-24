@@ -245,7 +245,7 @@ export default function ReportDesignerPage() {
           <div className="flex items-center gap-2 mb-3">
             <button onClick={() => setPreview('invoice')} className={`btn-secondary ${preview === 'invoice' ? 'bg-brand-50 text-brand-700 border-brand-200' : ''}`}><Receipt size={14} /> Invoice</button>
             <button onClick={() => setPreview('quotation')} className={`btn-secondary ${preview === 'quotation' ? 'bg-brand-50 text-brand-700 border-brand-200' : ''}`}><FileText size={14} /> Quotation</button>
-            <span className="text-xs text-gray-400 ml-2">Live preview — sample data</span>
+            <span className="text-xs text-gray-400 ms-2">Live preview — sample data</span>
           </div>
           <div className="bg-gray-100 rounded-xl p-4 border border-gray-200 overflow-auto" style={{ maxHeight: 'calc(100vh - 220px)' }}>
             <div style={{ width: 794, margin: '0 auto', boxShadow: '0 2px 16px rgba(0,0,0,0.12)' }}>

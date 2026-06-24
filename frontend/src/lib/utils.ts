@@ -15,7 +15,7 @@ export function formatCurrency(amount: number | string, currency = 'AED'): strin
 
 export function formatDate(date: string | Date | null): string {
   if (!date) return '—';
-  return new Intl.DateTimeFormat('en-AE', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(date));
+  return new Intl.DateTimeFormat('en-AE', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Dubai' }).format(new Date(date));
 }
 
 export function daysUntil(date: string | Date | null): number | null {

@@ -60,28 +60,79 @@ const EMO_TWEAK: Record<string, [number, number]> = {
  * re-renders zero rows. Inline styles on rows never change after mount.
  */
 const RDR_CSS = `
-.rdr .rdr-sceneno,.rdr .rdr-8ths,.rdr .rdr-dlgno{display:none}
+@import url('https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap');
+:root,html.daylight{--sheet:#FFFFFF;--ink:#1B2230;--sheet-edge:rgba(16,24,40,.12)}
+html.dark{--sheet:#191F2B;--ink:#ECEFF4;--sheet-edge:rgba(0,0,0,.5)}
+html[data-theme="ink"]{--sheet:#FCFAF4;--ink:#16120C;--sheet-edge:rgba(60,40,20,.16)}
+html[data-theme="slate"]{--sheet:#0F1726;--ink:#E7EEF8;--sheet-edge:rgba(0,0,0,.5)}
+html[data-theme="aurora"]{--sheet:#14122A;--ink:#EFEBFF;--sheet-edge:rgba(0,0,0,.45)}
+html[data-theme="midnight"]{--sheet:#0A0D12;--ink:#FFFFFF;--sheet-edge:rgba(0,0,0,.7)}
+.rdr-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px;background:var(--surface-1);border-bottom:1px solid var(--border-1)}
+.rdr-tabs{display:flex;gap:4px;background:var(--surface-2);padding:3px;border-radius:999px}
+.rdr-tab{font-size:12px;font-weight:600;color:var(--text-3);padding:6px 13px;border-radius:999px;cursor:pointer;border:none;background:none}
+.rdr-tab.on{background:var(--accent);color:var(--accent-on)}
+.rdr-play{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--accent-on);background:var(--accent);border:none;border-radius:8px;padding:7px 13px;cursor:pointer}
+.rdr-play:disabled{opacity:.5;cursor:default}
+.rdr-tbtn{border:1px solid var(--border-1);background:var(--surface-2);color:var(--text-2);min-width:32px;height:32px;padding:0 8px;border-radius:8px;display:inline-grid;place-items:center;cursor:pointer;font-size:12px;font-weight:700}
+.rdr-tbtn:hover{color:var(--text-1);border-color:var(--accent)}
+.rdr-revchip{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;font-weight:700;color:var(--text-2);background:var(--surface-2);border:1px solid var(--border-1);padding:6px 11px;border-radius:999px}
+.rdr-revchip .sw{width:11px;height:11px;border-radius:3px;flex-shrink:0}
+.rdr-scope{font-size:11.5px;font-weight:600;color:var(--text-2)}
+.rdr-msg{font-size:11px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rdr-sp{flex:1}
+.rdr-engine{display:inline-flex;border:1px solid var(--border-1);border-radius:8px;overflow:hidden}
+.rdr-engine button{font-size:11px;font-weight:600;padding:6px 10px;background:var(--surface-1);color:var(--text-3);border:none;cursor:pointer}
+.rdr-engine button.on{background:var(--accent);color:var(--accent-on)}
+.rdr-work{flex:1;display:grid;grid-template-columns:212px 1fr 240px;min-height:0;overflow:hidden}
+.rdr-rail{border-right:1px solid var(--border-1);padding:12px 10px;background:var(--surface-1);overflow:auto}
+.rdr-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-3);font-weight:700;margin:4px 6px 8px}
+.rdr-scenecard{display:flex;gap:9px;padding:8px 9px;border-radius:8px;cursor:pointer;margin-bottom:2px}
+.rdr-scenecard:hover{background:var(--surface-2)}
+.rdr-scenecard.on{background:var(--accent-soft)}
+.rdr-scenecard .no{font-weight:800;color:var(--accent);font-size:12px;min-width:18px;flex-shrink:0}
+.rdr-scenecard .tx{font-size:11.5px;color:var(--text-2);line-height:1.3}
+.rdr-scenecard.on .tx{color:var(--text-1)}
+.rdr-scenecard .tx small{display:block;color:var(--text-3);font-size:10px;margin-top:1px}
+.rdr-scenecard.reading .no{color:var(--ok)}
+.rdr-empty{font-size:11px;color:var(--text-3);padding:8px}
+.rdr-sheetwrap{padding:28px 20px;display:flex;justify-content:center;overflow:auto;background:color-mix(in srgb,var(--bg) 55%,var(--surface-2))}
+.rdr.sheet{width:640px;max-width:100%;flex-shrink:0;background:var(--sheet);color:var(--ink);border-radius:3px;padding:54px 76px 54px 92px;position:relative;box-shadow:0 2px 4px var(--sheet-edge),0 16px 40px var(--sheet-edge);font-family:'Courier Prime','Courier New',monospace;line-height:1.5;transition:background .3s,color .3s}
+.rdr.sheet .pageno{position:absolute;top:22px;right:42px;font-size:.95em;opacity:.55}
+.rdr.sheet .punch{position:absolute;left:30px;top:56px;display:flex;flex-direction:column;gap:96px;pointer-events:none}
+.rdr.sheet .punch span{width:13px;height:13px;border-radius:50%;background:color-mix(in srgb,var(--ink) 12%,transparent);box-shadow:inset 0 1px 2px var(--sheet-edge)}
+.rdr-scene{font-weight:700;text-transform:uppercase;letter-spacing:.01em;margin:18px 0 12px;position:relative}
+.rdr-scene:first-of-type{margin-top:0}
+.rdr-action{margin:0 0 13px}
+.rdr-character{margin:0 0 1px;padding-left:36%;font-weight:700;text-transform:uppercase}
+.rdr-paren{margin:0 0 1px;padding-left:28%;font-style:italic;opacity:.85}
+.rdr-dialogue{margin:0 0 13px;padding-left:21%;padding-right:14%}
+.rdr-transition{text-align:right;text-transform:uppercase;margin:0 0 13px}
+.rdr-sceneno{position:absolute;left:-58px;font-weight:700;opacity:.5;display:none}
+.rdr-sceneno.r{left:auto;right:-46px}
 .rdr.rdr-info-sceneno .rdr-sceneno{display:inline}
+.rdr-8ths{opacity:.5;font-weight:400;margin-left:10px;font-size:.8em;display:none}
 .rdr.rdr-info-8ths .rdr-8ths{display:inline}
+.rdr-dlgno{opacity:.5;margin-left:3px;font-size:.7em;display:none}
 .rdr.rdr-info-dlgno .rdr-dlgno{display:inline}
-.rdr.rdr-info-div .rdr-scene:not(:first-child){border-top:1px solid #cbd5e1;padding-top:12px}
-.rdr.rdr-hl-scene .rdr-scene{background:#fef9c3;border-radius:4px;padding:1px 4px}
-.rdr.rdr-hl-action .rdr-action{background:#dbeafe;border-radius:4px;padding:1px 4px}
-.rdr.rdr-hl-character .rdr-character{background:#ede9fe;border-radius:4px;padding:1px 4px}
-.rdr.rdr-hl-dialogue .rdr-dialogue{background:#dcfce7;border-radius:4px;padding:1px 4px}
-.rdr.rdr-am-name .rdr-mine.rdr-character,.rdr.rdr-am-both .rdr-mine.rdr-character{background:#bbf7d0;border-radius:4px;padding:1px 4px}
-.rdr.rdr-am-dialogue .rdr-mine.rdr-dialogue,.rdr.rdr-am-both .rdr-mine.rdr-dialogue{background:#bbf7d0;border-radius:4px;padding:1px 4px}
-.rdr .rdr-active{background:#fde68a !important;border-radius:4px;padding:1px 4px}
-.rdr{color:#1f1f1f}
-.rdr-scene{font-weight:700;text-transform:uppercase;margin-top:18px;color:#1f1f1f}
-.rdr-transition{text-align:right;font-weight:600;color:#1f1f1f}
-.rdr-character{text-align:center;font-weight:600;margin-top:10px;color:#1f1f1f}
-.rdr-paren{text-align:center;font-style:italic;color:#666}
-.rdr-dialogue{max-width:62%;margin:0 auto;color:#1f1f1f}
-.rdr-action{margin-top:8px;color:#3c3c3c}
-.rdr-sceneno{color:#8a8a82;font-weight:700;margin-right:8px}
-.rdr-8ths{color:#8a8a82;font-weight:400;margin-left:8px;font-size:.78em}
-.rdr-dlgno{color:#8a8a82;margin-left:4px;font-size:.66em}
+.rdr.rdr-info-div .rdr-scene:not(:first-of-type){border-top:1px solid var(--sheet-edge);padding-top:14px}
+.rdr.rdr-hl-scene .rdr-scene{background:var(--warn-soft);border-radius:4px;padding:1px 4px}
+.rdr.rdr-hl-action .rdr-action{background:var(--accent-soft);border-radius:4px;padding:1px 4px}
+.rdr.rdr-hl-character .rdr-character{background:var(--accent-soft);border-radius:4px}
+.rdr.rdr-hl-dialogue .rdr-dialogue{background:var(--ok-soft);border-radius:4px}
+.rdr.rdr-am-name .rdr-mine.rdr-character,.rdr.rdr-am-both .rdr-mine.rdr-character{background:var(--ok-soft);border-radius:4px}
+.rdr.rdr-am-dialogue .rdr-mine.rdr-dialogue,.rdr.rdr-am-both .rdr-mine.rdr-dialogue{background:var(--ok-soft);border-radius:4px}
+.rdr .rdr-active{background:var(--warn-soft) !important;border-radius:4px}
+.rdr-tags{border-left:1px solid var(--border-1);padding:14px 13px;background:var(--surface-1);overflow:auto}
+.rdr-tags .lbl{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-3);font-weight:700;margin:0 0 8px}
+.rdr-group{margin-bottom:15px}
+.rdr-tag{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:4px 9px;border-radius:7px;margin:0 5px 5px 0;background:var(--surface-2);color:var(--text-2);border:1px solid var(--border-1);cursor:pointer;text-transform:capitalize}
+.rdr-tag.on{background:var(--accent);color:var(--accent-on);border-color:var(--accent)}
+.rdr-tag.ok.on{background:var(--ok);color:#fff;border-color:var(--ok)}
+.rdr-tag .d{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.rdr-sel{width:100%;font-size:11.5px;border:1px solid var(--border-1);background:var(--surface-2);color:var(--text-1);border-radius:7px;padding:5px 7px;margin-bottom:8px}
+.rdr-range{width:100%;accent-color:var(--accent)}
+.rdr-note{font-size:11px;color:var(--text-3);margin:2px 0 0}
+@media(max-width:900px){.rdr-work{grid-template-columns:1fr}.rdr-rail,.rdr-tags{display:none}.rdr.sheet{width:100%;padding:36px 26px 36px 46px}.rdr.sheet .punch{display:none}.rdr-sceneno{left:-30px}.rdr-sceneno.r{display:none}}
 `;
 
 /** One script line, memoized — its props only change for cursor moves, actor change, or blackout. */
@@ -91,12 +142,13 @@ const Row = memo(function Row({ e, idx, mine, active, sceneNo, eighthsLabel, dlg
 }) {
   return (
     <div data-el={idx} className={`rdr-${e.type}${mine ? ' rdr-mine' : ''}${active ? ' rdr-active' : ''}`}>
-      {sceneNo != null && <span className="rdr-sceneno">#{sceneNo}</span>}
+      {sceneNo != null && <span className="rdr-sceneno">{sceneNo}</span>}
       {hidden
-        ? <button onClick={() => onReveal(idx)} className="inline-block bg-slate-900 text-slate-900 rounded select-none" style={{ minWidth: 120 }}>{e.text}</button>
+        ? <button onClick={() => onReveal(idx)} className="rounded select-none" style={{ minWidth: 120, background: 'var(--ink)', color: 'var(--ink)' }}>{e.text}</button>
         : e.text}
       {eighthsLabel && <span className="rdr-8ths">{eighthsLabel} pg</span>}
       {dlgNo != null && <sup className="rdr-dlgno">{dlgNo}</sup>}
+      {sceneNo != null && <span className="rdr-sceneno r">{sceneNo}</span>}
     </div>
   );
 });
@@ -120,8 +172,8 @@ export default function ScriptReader({ revision, onClose, inline }: { revision: 
     mo.observe(root, { attributes: true, attributeFilter: ['class'] });
     return () => mo.disconnect();
   }, []);
-  const [font, setFont] = useState(16);
-  const [serif, setSerif] = useState(true);
+  const [font, setFont] = useState(13);
+  const [serif, setSerif] = useState(false);
   const [hl, setHl] = useState<{ scene: boolean; action: boolean; character: boolean; dialogue: boolean }>({ scene: true, action: false, character: false, dialogue: false });
 
   // Actor controls
@@ -447,207 +499,159 @@ export default function ScriptReader({ revision, onClose, inline }: { revision: 
   const mmss = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
   const readingSceneN = playing && cursor >= 0 ? meta.sceneOf[cursor] : null;
   const scopeDesc = scope === 'scene' ? `Sc ${sceneSel}${carryOn ? ' →' : ''}` : scope === 'page' ? `from p.${fromPage}` : 'Whole script';
-  const chip = (on: boolean, accent = 'slate') => `px-2 py-0.5 rounded-full border text-[10.5px] capitalize ${on ? (accent === 'emerald' ? 'border-emerald-600 bg-emerald-600 text-white' : accent === 'sky' ? 'border-sky-600 bg-sky-600 text-white' : 'border-slate-900 bg-slate-900 text-white') : 'border-slate-200 text-slate-500'}`;
-
   return (
-    <div className={inline ? 'absolute inset-0 flex items-stretch' : 'fixed inset-0 z-[80] bg-slate-900/50 flex items-stretch'} onClick={inline ? undefined : handleClose}>
-      <div className={`son ${sonDark ? 'son-dark' : ''} h-full w-full bg-slate-50 flex flex-col ${inline ? 'rounded-2xl border border-slate-200' : 'ml-auto max-w-5xl shadow-2xl'}`} onClick={(e) => e.stopPropagation()}>
-        {/* Header */}
-        <div className="flex items-center gap-2 px-4 h-12 bg-white border-b border-slate-200 shrink-0">
-          <BookOpen size={16} className="text-slate-700" />
-          <h3 className="text-sm text-slate-800" style={{ fontWeight: 650 }}>Reader — {revision?.revisionLabel}</h3>
-          <span className="text-[11px] text-slate-400">{characters.length} characters · {els.length} lines</span>
-          <div className="ml-auto flex items-center gap-1.5">
-            {!inline && <button onClick={handleClose} className="text-slate-400 hover:text-slate-700 p-1"><X size={18} /></button>}
+    <div className={inline ? 'absolute inset-0 flex' : 'fixed inset-0 z-[80] flex'} style={inline ? undefined : { background: 'rgba(0,0,0,.5)' }} onClick={inline ? undefined : handleClose}>
+      <div className={`flex flex-col h-full w-full ${inline ? '' : 'ms-auto max-w-6xl shadow-2xl'}`} style={{ background: 'var(--bg)', backgroundImage: 'var(--bg-image, none)', color: 'var(--text-1)', fontFamily: 'var(--font-sans)' }} onClick={(e) => e.stopPropagation()}>
+        <style>{RDR_CSS}</style>
+
+        {/* Toolbar */}
+        <div className="rdr-toolbar">
+          <div className="rdr-tabs">
+            <button className={`rdr-tab ${mode === 'read' ? 'on' : ''}`} onClick={() => setMode('read')}>Reader</button>
+            <button className={`rdr-tab ${mode === 'rehearse' ? 'on' : ''}`} onClick={() => setMode('rehearse')}>Rehearse</button>
           </div>
+          <button className="rdr-play" onClick={togglePlay} disabled={!speak && !studio}>{playing ? <Pause size={13} /> : <Play size={13} />}{playing ? 'Pause' : 'Read'}</button>
+          <button className="rdr-tbtn" onClick={stop} title="Stop"><Square size={12} /></button>
+          <button className="rdr-tbtn" onClick={() => { stop(); setCursor(-1); }} title="Restart"><RotateCcw size={12} /></button>
+          {studio && <button className="rdr-tbtn" style={warm ? { borderColor: 'var(--warn)', color: 'var(--warn)' } : undefined} onClick={warmScene} title="Warm cache">{warm ? `${warm.done}/${warm.total}` : '⚡'}</button>}
+          <span className="rdr-revchip"><span className="sw" style={{ background: ((): string => { const c = (revision?.colorCode || '') as string; if (/^#[0-9a-fA-F]{6}$/.test(c)) return c; const m: Record<string, string> = { BLUE: '#5b8def', PINK: '#ec4899', YELLOW: '#eab308', GREEN: '#22c55e', GOLDENROD: '#d4a017', BUFF: '#e0c068', SALMON: '#fb7185', CHERRY: '#ef4444' }; return m[c.toUpperCase()] || 'var(--accent)'; })() }} />{revision?.revisionLabel || 'Reader'}</span>
+          <span className="rdr-scope">{scopeDesc}</span>
+          <span className="rdr-sp" />
+          {studioMsg ? <span className="rdr-msg" style={{ color: 'var(--warn)' }}>{studioMsg}</span>
+            : studio && (sessionCost > 0 || cachedLines > 0) ? <span className="rdr-msg" style={{ color: 'var(--accent)' }}>{`≈ $${sessionCost.toFixed(2)}${cachedLines ? ` · ${cachedLines} cached` : ''}`}</span>
+            : null}
+          <div className="rdr-engine" title="Studio = live ElevenLabs/OpenAI cast voices">
+            <button className={!studio ? 'on' : ''} onClick={() => setStudio(false)}>Browser</button>
+            <button className={studio ? 'on' : ''} onClick={() => { setStudio(true); setStudioMsg(''); }}>Studio ✨</button>
+          </div>
+          <button className="rdr-tbtn" onClick={() => setFont((f) => Math.max(11, f - 1))} title="Smaller">A−</button>
+          <button className="rdr-tbtn" onClick={() => setFont((f) => Math.min(22, f + 1))} title="Larger">A+</button>
+          <button className="rdr-tbtn" onClick={() => setSerif((s) => !s)} title="Serif / Courier">{serif ? 'Aa' : 'A'}</button>
+          <button className="rdr-tbtn" onClick={() => setRecOpen(true)} title="Self-tape"><Video size={13} /></button>
+          {!inline && <button className="rdr-tbtn" onClick={handleClose} title="Close"><X size={14} /></button>}
         </div>
 
-        {/* SYS-14: Pages-skeleton body — left rail · centered paper · right tool rail */}
-        <style>{RDR_CSS}</style>
-        <div className="flex-1 flex gap-3 min-h-0 p-3">
-
-          {/* LEFT RAIL — identical to Pages: Scenes / Pages */}
-          <div className="w-52 shrink-0 rounded-2xl border border-slate-200 bg-white overflow-hidden flex flex-col">
-            <div className="flex border-b border-slate-100 text-xs">
-              <button onClick={() => setRailTab('scenes')} className={`flex-1 py-2 ${railTab === 'scenes' ? 'bg-slate-900 text-white' : 'text-slate-500'}`}>Scenes</button>
-              <button onClick={() => setRailTab('pages')} className={`flex-1 py-2 ${railTab === 'pages' ? 'bg-slate-900 text-white' : 'text-slate-500'}`}>Pages</button>
+        {/* Work grid: scene navigator | screenplay sheet | breakdown rail */}
+        <div className="rdr-work">
+          <aside className="rdr-rail">
+            <div className="rdr-lbl">Scenes · {scenesList.length}</div>
+            <div className={`rdr-scenecard ${scope === 'script' ? 'on' : ''}`} onClick={() => { stop(); setScope('script'); setCursor(-1); }}>
+              <span className="no">▶</span><span className="tx">Whole script<small>{pageCount} pages · {scenesList.length} scenes</small></span>
             </div>
-            <div className="overflow-y-auto p-2 flex-1">
-              {railTab === 'scenes' ? (
-                <>
-                  <button onClick={() => { stop(); setScope('script'); setCursor(-1); }}
-                    className={`block w-full text-left px-2 py-1.5 rounded-lg text-xs mb-1 ${scope === 'script' ? 'bg-slate-100 font-medium text-slate-900' : 'text-slate-600 hover:bg-slate-50'}`}>
-                    ▶ Whole script <span className="block text-[10px] text-slate-400">{pageCount} pages · {scenesList.length} scenes</span>
-                  </button>
-                  {sceneCards.map((s) => (
-                    <button key={s.n} onClick={() => { stop(); setScope('scene'); setSceneSel(s.n); setCursor(-1); }}
-                      className={`block w-full text-left px-2 py-1.5 rounded-lg text-xs mb-0.5 ${scope === 'scene' && sceneSel === s.n ? 'bg-slate-100 font-medium text-slate-900' : 'text-slate-600 hover:bg-slate-50'}`}>
-                      <span className="text-slate-400">{s.n}</span> {s.label}
-                      <span className="block text-[10px] text-slate-400">p.{s.page} · {mmss(s.durSec)}{readingSceneN === s.n ? ' · reading…' : ''}</span>
-                    </button>
+            {sceneCards.map((s) => (
+              <div key={s.n} className={`rdr-scenecard ${scope === 'scene' && sceneSel === s.n ? 'on' : ''} ${readingSceneN === s.n ? 'reading' : ''}`} onClick={() => { stop(); setScope('scene'); setSceneSel(s.n); setCursor(-1); }}>
+                <span className="no">{s.n}</span><span className="tx">{s.label}<small>p.{s.page} · {mmss(s.durSec)}{readingSceneN === s.n ? ' · reading…' : ''}</small></span>
+              </div>
+            ))}
+            {sceneCards.length === 0 && <p className="rdr-empty">No scenes parsed.</p>}
+          </aside>
+
+          <div className="rdr-sheetwrap">
+            <div ref={bodyRef} className={[
+                'rdr sheet',
+                hl.scene ? 'rdr-hl-scene' : '', hl.action ? 'rdr-hl-action' : '',
+                hl.character ? 'rdr-hl-character' : '', hl.dialogue ? 'rdr-hl-dialogue' : '',
+                info.sceneNo ? 'rdr-info-sceneno' : '', info.dividers ? 'rdr-info-div' : '',
+                info.dialogueNo ? 'rdr-info-dlgno' : '', info.eighths ? 'rdr-info-8ths' : '',
+                actor ? `rdr-am-${actorMode}` : '',
+              ].filter(Boolean).join(' ')}
+              style={{ fontFamily: serif ? "'Fraunces', Georgia, serif" : "'Courier Prime', 'Courier New', monospace", fontSize: font, ...(info.tint ? { background: tintFor(revision?.colorCode) } : {}) }}>
+              <div className="pageno">{els[0]?.page || 1}.</div>
+              <div className="punch"><span /><span /><span /></div>
+              {els.length === 0 && <p className="rdr-empty">No extractable text in this revision. (Scanned PDFs have no text layer.)</p>}
+              {els.map((e, idx) => (
+                <Row key={idx} e={e} idx={idx}
+                  mine={!!actor && e.character === actor && (e.type === 'character' || e.type === 'dialogue')}
+                  active={cursor === idx}
+                  sceneNo={e.type === 'scene' ? meta.sceneOf[idx] : null}
+                  eighthsLabel={e.type === 'scene' ? eighths(meta.counts[meta.sceneOf[idx]]) : null}
+                  dlgNo={e.type === 'dialogue' ? meta.dlgOf[idx] : null}
+                  hidden={!!isHidden(e, idx)}
+                  onReveal={onReveal} />
+              ))}
+            </div>
+          </div>
+
+          <aside className="rdr-tags">
+            <div className="rdr-group">
+              <div className="lbl">My role</div>
+              <select className="rdr-sel" value={actor} onChange={(e) => { setActor(e.target.value); setRevealed(new Set()); }}>
+                <option value="">My character…</option>
+                {characters.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <div>
+                {characters.slice(0, 14).map((c) => (
+                  <span key={c} className={`rdr-tag ${actor === c ? 'on' : ''}`} onClick={() => { setActor(actor === c ? '' : c); setRevealed(new Set()); }}>
+                    <span className="d" style={{ background: 'var(--accent)' }} />{c}
+                  </span>
+                ))}
+                {characters.length === 0 && <p className="rdr-note">No characters parsed.</p>}
+              </div>
+              {actor && (
+                <div style={{ marginTop: 6 }}>
+                  {(['name', 'dialogue', 'both'] as const).map((m) => (
+                    <span key={m} className={`rdr-tag ${actorMode === m ? 'on' : ''}`} onClick={() => setActorMode(m)}>{m}</span>
                   ))}
-                  {sceneCards.length === 0 && <p className="text-[11px] text-slate-400 p-2">No scenes parsed.</p>}
-                </>
-              ) : (
-                <div className="grid grid-cols-3 gap-1.5">
-                  {Array.from({ length: pageCount }, (_, i) => i + 1).map((n) => (
-                    <button key={n} onClick={() => { stop(); setScope('page'); setFromPage(n); setCursor(-1); }}
-                      className={`aspect-[3/4] rounded-md border text-xs flex items-center justify-center ${scope === 'page' && fromPage === n ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 text-slate-500 hover:border-slate-400'}`}>{n}</button>
-                  ))}
+                  <span className={`rdr-tag ${blackout ? 'on' : ''}`} onClick={() => { setBlackout((b) => !b); setRevealed(new Set()); }}>
+                    {blackout ? <EyeOff size={10} /> : <Eye size={10} />} Off-book
+                  </span>
                 </div>
               )}
             </div>
-          </div>
 
-          {/* CENTER — transport mini-bar + the paper, same position as the Pages canvas */}
-          <div className="flex-1 min-w-0 flex flex-col">
-            <div className="flex items-center gap-1.5 mb-2 text-xs flex-wrap">
-              <button onClick={togglePlay} disabled={!speak && !studio} className="inline-flex items-center gap-1 rounded-lg bg-slate-900 text-white px-3 py-1.5 disabled:opacity-50">
-                {playing ? <Pause size={13} /> : <Play size={13} />} {playing ? 'Pause' : 'Read'}
-              </button>
-              <button onClick={stop} title="Stop" className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:border-slate-900"><Square size={13} /></button>
-              <button onClick={() => { stop(); setCursor(-1); }} title="Restart" className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:border-slate-900"><RotateCcw size={13} /></button>
-              {studio && (
-                <button onClick={warmScene} title="Pre-generate all lines in scope into the cache — Read then plays instantly. Click again to cancel."
-                  className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1.5 ${warm ? 'border-amber-500 text-amber-600' : 'border-slate-200 text-slate-600 hover:border-slate-900'}`}>
-                  ⚡ {warm ? `${warm.done}/${warm.total}` : 'Warm'}
-                </button>
-              )}
-              <span className="text-slate-600 font-medium px-1">{scopeDesc}</span>
-              {studioMsg ? <span className="text-amber-600 truncate">{studioMsg}</span>
-                : studio && (sessionCost > 0 || cachedLines > 0) ? <span className="text-indigo-600">≈ ${sessionCost.toFixed(2)}{cachedLines ? ` · ${cachedLines} cached` : ''}</span>
-                : <span className="text-slate-400">space = play · click a scene to scope</span>}
-              <span className="flex-1" />
-              <div className="inline-flex rounded-lg border border-slate-200 overflow-hidden bg-white" title="Studio = live ElevenLabs/OpenAI with the cast voices from Audio Studio">
-                <button onClick={() => setStudio(false)} className={`px-2.5 py-1 ${!studio ? 'bg-slate-900 text-white' : 'text-slate-600'}`}>Browser</button>
-                <button onClick={() => { setStudio(true); setStudioMsg(''); }} className={`px-2.5 py-1 ${studio ? 'bg-indigo-600 text-white' : 'text-slate-600'}`}>Studio ✨</button>
-              </div>
-            </div>
-            <div ref={bodyRef} className="flex-1 overflow-y-auto rounded-2xl border border-slate-200 bg-slate-200/60 px-4 py-6">
-              <div className={[
-                  'rdr mx-auto rounded-md px-8 sm:px-14 py-10 max-w-3xl',
-                  hl.scene ? 'rdr-hl-scene' : '', hl.action ? 'rdr-hl-action' : '',
-                  hl.character ? 'rdr-hl-character' : '', hl.dialogue ? 'rdr-hl-dialogue' : '',
-                  info.sceneNo ? 'rdr-info-sceneno' : '', info.dividers ? 'rdr-info-div' : '',
-                  info.dialogueNo ? 'rdr-info-dlgno' : '', info.eighths ? 'rdr-info-8ths' : '',
-                  actor ? `rdr-am-${actorMode}` : '',
-                ].filter(Boolean).join(' ')}
-                style={{ fontFamily: serif ? 'Georgia, serif' : '"Courier New", Courier, monospace', fontSize: font, lineHeight: 1.6,
-                  background: info.tint ? tintFor(revision?.colorCode) : '#fdfdf9', color: '#1f1f1f',
-                  border: '1px solid rgba(0,0,0,.07)', boxShadow: '0 2px 5px rgba(0,0,0,.16), 0 14px 34px rgba(0,0,0,.12)' }}>
-                {els.length === 0 && <p className="text-slate-400 text-sm">No extractable text in this revision. (Scanned PDFs have no text layer.)</p>}
-                {els.map((e, idx) => (
-                  <Row key={idx} e={e} idx={idx}
-                    mine={!!actor && e.character === actor && (e.type === 'character' || e.type === 'dialogue')}
-                    active={cursor === idx}
-                    sceneNo={e.type === 'scene' ? meta.sceneOf[idx] : null}
-                    eighthsLabel={e.type === 'scene' ? eighths(meta.counts[meta.sceneOf[idx]]) : null}
-                    dlgNo={e.type === 'dialogue' ? meta.dlgOf[idx] : null}
-                    hidden={!!isHidden(e, idx)}
-                    onReveal={onReveal} />
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* RIGHT RAIL — every Reader control as a tool card, where Pages keeps its tools */}
-          <div className="w-48 shrink-0 overflow-y-auto space-y-2.5 text-xs">
-            <div className="rounded-2xl border border-slate-200 bg-white p-3">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-2">Playback</p>
-              <div className="flex gap-1 mb-2">
-                <button onClick={() => setMode('read')} className={chip(mode === 'read')}>Read aloud</button>
-                <button onClick={() => setMode('rehearse')} className={chip(mode === 'rehearse')}>Rehearse</button>
-              </div>
-              <label className="block text-slate-500 mb-1.5">Speed {rate.toFixed(1)}×
-                <input type="range" min={0.5} max={2} step={0.1} value={rate} onChange={(e) => setRate(Number(e.target.value))} className="w-full" />
+            <div className="rdr-group">
+              <div className="lbl">Read aloud</div>
+              {([['scene', 'Scenes'], ['action', 'Action'], ['character', 'Names'], ['dialogue', 'Dialogue']] as const).map(([k, lbl]) => (
+                <span key={k} className={`rdr-tag ok ${readSet[k] ? 'on' : ''}`} onClick={() => setReadSet((s) => ({ ...s, [k]: !s[k] }))}>{lbl}</span>
+              ))}
+              <label className="rdr-note" style={{ display: 'block', marginTop: 6 }}>Speed {rate.toFixed(1)}×
+                <input className="rdr-range" type="range" min={0.5} max={2} step={0.1} value={rate} onChange={(e) => setRate(Number(e.target.value))} />
               </label>
               {mode === 'rehearse' && (
-                <label className="block text-slate-500 mb-1.5">Your-line gap {gap}s
-                  <input type="range" min={0.5} max={8} step={0.5} value={gap} onChange={(e) => setGap(Number(e.target.value))} className="w-full" />
+                <label className="rdr-note" style={{ display: 'block' }}>Your-line gap {gap}s
+                  <input className="rdr-range" type="range" min={0.5} max={8} step={0.5} value={gap} onChange={(e) => setGap(Number(e.target.value))} />
                 </label>
               )}
               {(scope === 'scene' || scope === 'page') && (
-                <label className="inline-flex items-center gap-1.5 text-slate-500" title={`Keep reading past this ${scope} instead of stopping at its end`}>
+                <label className="rdr-note" style={{ display: 'inline-flex', gap: 5, alignItems: 'center', marginTop: 4 }}>
                   <input type="checkbox" checked={carryOn} onChange={(e) => { stop(); setCarryOn(e.target.checked); }} /> continue past {scope}
                 </label>
               )}
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-3">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-2">Read aloud</p>
-              <div className="flex flex-wrap gap-1">
-                {([['scene', 'Scenes'], ['action', 'Action'], ['character', 'Names'], ['dialogue', 'Dialogue']] as const).map(([k, lbl]) => (
-                  <button key={k} onClick={() => setReadSet((s) => ({ ...s, [k]: !s[k] }))} title={`Read ${lbl.toLowerCase()} aloud`} className={chip(readSet[k], 'emerald')}>{lbl}</button>
-                ))}
-              </div>
+            <div className="rdr-group">
+              <div className="lbl">Highlight</div>
+              {(['scene', 'action', 'character', 'dialogue'] as const).map((k) => (
+                <span key={k} className={`rdr-tag ${hl[k] ? 'on' : ''}`} onClick={() => setHl((h) => ({ ...h, [k]: !h[k] }))}>{k}</span>
+              ))}
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-3">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-2">Highlight</p>
-              <div className="flex flex-wrap gap-1 mb-2">
-                {(['scene', 'action', 'character', 'dialogue'] as const).map((k) => (
-                  <button key={k} onClick={() => setHl((h) => ({ ...h, [k]: !h[k] }))} className={chip(hl[k])}>{k}</button>
-                ))}
-              </div>
-              <select value={actor} onChange={(e) => { setActor(e.target.value); setRevealed(new Set()); }} className="w-full rounded-lg border border-slate-200 px-2 py-1 mb-1.5">
-                <option value="">My character…</option>
-                {characters.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
-              {actor && (
-                <div className="flex flex-wrap gap-1">
-                  {(['name', 'dialogue', 'both'] as const).map((m) => (
-                    <button key={m} onClick={() => setActorMode(m)} className={chip(actorMode === m)}>{m}</button>
-                  ))}
-                  <button onClick={() => { setBlackout((b) => !b); setRevealed(new Set()); }} className={chip(blackout)}>
-                    {blackout ? <EyeOff size={10} className="inline mr-0.5" /> : <Eye size={10} className="inline mr-0.5" />}Off-book
-                  </button>
-                </div>
-              )}
+            <div className="rdr-group">
+              <div className="lbl">Info layers</div>
+              {([['sceneNo', 'Scene #'], ['dividers', 'Dividers'], ['dialogueNo', 'Dlg #'], ['eighths', '8ths'], ['tint', 'Tint']] as const).map(([k, lbl]) => (
+                <span key={k} className={`rdr-tag ${info[k as keyof typeof info] ? 'on' : ''}`} onClick={() => setInfo((s) => ({ ...s, [k]: !s[k as keyof typeof s] }))}>{lbl}</span>
+              ))}
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-3">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-2">Info layers</p>
-              <div className="flex flex-wrap gap-1">
-                {([['sceneNo', 'Scene #'], ['dividers', 'Dividers'], ['dialogueNo', 'Dlg #'], ['eighths', '8ths'], ['tint', 'Tint']] as const).map(([k, lbl]) => (
-                  <button key={k} onClick={() => setInfo((s) => ({ ...s, [k]: !s[k as keyof typeof s] }))} className={chip(!!info[k as keyof typeof info], 'sky')}>{lbl}</button>
-                ))}
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-white p-3">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-2">Voices</p>
-              <button onClick={() => setShowVoices((s) => !s)} className="w-full inline-flex items-center justify-between rounded-lg border border-slate-200 px-2 py-1 text-slate-600">
-                <span className="inline-flex items-center gap-1"><Volume2 size={12} /> Browser voices</span><ChevronDown size={12} style={{ transform: showVoices ? 'rotate(180deg)' : 'none' }} />
-              </button>
+            <div className="rdr-group">
+              <div className="lbl">Voices</div>
+              <span className="rdr-tag" onClick={() => setShowVoices((s) => !s)}><Volume2 size={11} /> Browser voices <ChevronDown size={11} style={{ transform: showVoices ? 'rotate(180deg)' : 'none' }} /></span>
               {showVoices && (
-                <div className="mt-2 space-y-1 max-h-56 overflow-y-auto">
-                  {studio && <p className="text-[10px] text-indigo-600">Studio mode uses the cast voices from Audio Studio — these picks apply to Browser mode only.</p>}
+                <div style={{ marginTop: 6 }}>
                   {['_narrator', ...characters].map((c) => (
-                    <div key={c}>
-                      <span className="text-[10px] text-slate-500 block truncate">{c === '_narrator' ? 'Narrator' : c}</span>
-                      <select value={voiceMap[c] || ''} onChange={(e) => setVoiceMap((m) => ({ ...m, [c]: e.target.value }))}
-                        className="w-full text-[10.5px] rounded border border-slate-200 px-1 py-0.5">
+                    <div key={c} style={{ marginBottom: 4 }}>
+                      <span className="rdr-note" style={{ display: 'block' }}>{c === '_narrator' ? 'Narrator' : c}</span>
+                      <select className="rdr-sel" style={{ marginBottom: 0 }} value={voiceMap[c] || ''} onChange={(e) => setVoiceMap((m) => ({ ...m, [c]: e.target.value }))}>
                         <option value="">Default</option>
                         {voices.map((v) => <option key={v.voiceURI} value={v.voiceURI}>{v.name} ({v.lang})</option>)}
                       </select>
                     </div>
                   ))}
-                  {voices.length === 0 && <p className="text-[10px] text-slate-400">No system voices in this browser.</p>}
+                  {voices.length === 0 && <p className="rdr-note">No system voices in this browser.</p>}
                 </div>
               )}
             </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-white p-3">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-2">Type · capture</p>
-              <div className="flex items-center gap-1 mb-2">
-                <TypeIcon size={12} className="text-slate-400" />
-                <button onClick={() => setFont((f) => Math.max(12, f - 1))} className="px-1.5 rounded border border-slate-200">A-</button>
-                <button onClick={() => setFont((f) => Math.min(28, f + 1))} className="px-1.5 rounded border border-slate-200">A+</button>
-                <button onClick={() => setSerif((s) => !s)} className="px-1.5 rounded border border-slate-200">{serif ? 'Serif' : 'Courier'}</button>
-              </div>
-              <button onClick={() => setRecOpen(true)} className="w-full inline-flex items-center justify-center gap-1 rounded-lg border border-slate-200 px-2 py-1.5 text-slate-600 hover:border-slate-900"><Video size={13} /> Self-tape</button>
-            </div>
-          </div>
+          </aside>
         </div>
       </div>
 
@@ -728,7 +732,7 @@ function SelfTape({ onClose, body }: { onClose: () => void; body: React.ReactNod
           <div className="relative bg-black rounded-xl overflow-hidden aspect-video">
             <video ref={videoRef} className="w-full h-full object-cover" playsInline />
             {count > 0 && <div className="absolute inset-0 flex items-center justify-center text-white text-7xl font-bold bg-black/40">{count}</div>}
-            {recording && <span className="absolute top-2 left-2 inline-flex items-center gap-1 text-[11px] text-white bg-red-600 px-2 py-0.5 rounded-full"><Mic size={11} /> REC</span>}
+            {recording && <span className="absolute top-2 start-2 inline-flex items-center gap-1 text-[11px] text-white bg-red-600 px-2 py-0.5 rounded-full"><Mic size={11} /> REC</span>}
             {err && <div className="absolute inset-0 flex items-center justify-center text-rose-300 text-sm p-4 text-center">{err}</div>}
           </div>
           <div ref={promptRef} className="bg-slate-950 rounded-xl p-5 h-[300px] overflow-y-auto">{body}</div>
@@ -740,7 +744,7 @@ function SelfTape({ onClose, body }: { onClose: () => void; body: React.ReactNod
           <label className="inline-flex items-center gap-1 text-slate-300">Scroll
             <input type="range" min={10} max={120} value={speed} onChange={(e) => setSpeed(Number(e.target.value))} className="w-24" />
           </label>
-          {url && <a href={url} download="self-tape.webm" className="ml-auto inline-flex items-center gap-1 rounded-lg bg-emerald-600 text-white px-3 py-1.5">Download .webm</a>}
+          {url && <a href={url} download="self-tape.webm" className="ms-auto inline-flex items-center gap-1 rounded-lg bg-emerald-600 text-white px-3 py-1.5">Download .webm</a>}
         </div>
       </div>
     </div>

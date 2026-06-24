@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { transportApi } from '@/lib/api';
-import { Car, Bus, Plus, X, Loader2, Trash2, User, Building2, Home, Key, FileCheck2, Coins } from 'lucide-react';
+import { Car, Bus, Plus, X, Loader2, Trash2, User, Building2, Home, Key, FileCheck2, Coins, Navigation2 } from 'lucide-react';
 
 const VEHICLE_TYPES = ['SEDAN', 'SUV', 'VAN', 'MINIBUS', 'BUS', 'LUXURY', 'PICKUP', 'TRUCK', 'PRODUCTION_VEHICLE', 'OTHER'];
 const RANK: Record<string, string> = { PREFERRED: 'bg-emerald-100 text-emerald-700', APPROVED: 'bg-blue-100 text-blue-700', RESTRICTED: 'bg-amber-100 text-amber-700', BLACKLISTED: 'bg-rose-100 text-rose-700' };
@@ -29,14 +29,14 @@ export default function TransportMaster() {
   return (
     <div className="font-sans p-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-1">
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900 flex items-center gap-2"><Car className="text-[#0f172a]" /> Transport</h1>
-        <button onClick={() => (view === 'vehicles' ? setAddV(true) : setAddD(true))} className="inline-flex items-center gap-2 rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800"><Plus size={16} /> {view === 'vehicles' ? 'Add vehicle' : 'Add driver'}</button>
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-900 flex items-center gap-2"><Car style={{ color: 'var(--accent)' }} /> Transport</h1>
+        <button onClick={() => (view === 'vehicles' ? setAddV(true) : setAddD(true))} className="btn btn-primary"><Plus size={16} /> {view === 'vehicles' ? 'Add vehicle' : 'Add driver'}</button>
       </div>
       <p className="text-sm text-slate-500 mb-4">Vehicles &amp; drivers <span className="font-medium">hired for productions</span> — in-house fleet (🏠) or hired from rental companies (🔑). Separate from the Rentals business that rents out in-house vehicles.</p>
 
       <div className="flex gap-1 mb-4">
         {(['vehicles', 'drivers'] as const).map((v) => (
-          <button key={v} onClick={() => setView(v)} className={`text-sm px-3 py-1.5 rounded-lg ${view === v ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>{v === 'vehicles' ? `Vehicles (${vehicles.length})` : `Drivers (${drivers.length})`}</button>
+          <button key={v} onClick={() => setView(v)} className="text-sm px-3 py-1.5 rounded-lg transition-colors" style={view === v ? { background: 'var(--accent)', color: 'var(--accent-on)' } : { color: 'var(--text-3)' }}>{v === 'vehicles' ? `Vehicles (${vehicles.length})` : `Drivers (${drivers.length})`}</button>
         ))}
       </div>
 
@@ -54,7 +54,7 @@ export default function TransportMaster() {
                     {v.plateNumber && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500">{[v.plateEmirate, v.plateNumber].filter(Boolean).join(' ')}</span>}
                     <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${VSTATUS[v.status] || 'bg-slate-100'}`}>{v.status}</span>
                   </div>
-                  <div className="text-xs text-slate-500 mt-0.5">{[v.source === 'HIRED' ? v.supplier?.name : (v.asset?.name || 'In-house fleet'), v.capacity ? `${v.capacity} seats` : null, v.dailyRate ? `${v.currency} ${Number(v.dailyRate).toLocaleString()}/day` : null].filter(Boolean).join(' · ') || '—'}{v.supplier?.ranking && <span className={`ml-2 text-[10px] px-1.5 py-0.5 rounded-full ${RANK[v.supplier.ranking]}`}>{v.supplier.ranking}</span>}</div>
+                  <div className="text-xs text-slate-500 mt-0.5">{[v.source === 'HIRED' ? v.supplier?.name : (v.asset?.name || 'In-house fleet'), v.capacity ? `${v.capacity} seats` : null, v.dailyRate ? `${v.currency} ${Number(v.dailyRate).toLocaleString()}/day` : null].filter(Boolean).join(' · ') || '—'}{v.supplier?.ranking && <span className={`ms-2 text-[10px] px-1.5 py-0.5 rounded-full ${RANK[v.supplier.ranking]}`}>{v.supplier.ranking}</span>}</div>
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
@@ -84,7 +84,10 @@ export default function TransportMaster() {
                   <div className="text-xs text-slate-500 mt-0.5">{[d.mobile, d.licenseNumber, d.supplier?.name, (d.languages || []).join('/')].filter(Boolean).join(' · ') || '—'}</div>
                 </div>
               </div>
-              <button onClick={() => delD(d.id)} className="text-slate-300 hover:text-rose-600"><Trash2 size={15} /></button>
+              <div className="flex items-center gap-2 shrink-0">
+                <a href={`/driver/dispatch?driverId=${d.id}`} target="_blank" rel="noreferrer" title="Open this driver's run view" className="text-[11px] inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"><Navigation2 size={12} /> Driver app</a>
+                <button onClick={() => delD(d.id)} className="text-slate-300 hover:text-rose-600"><Trash2 size={15} /></button>
+              </div>
             </div>
           ))}
         </div>
@@ -96,7 +99,7 @@ export default function TransportMaster() {
   );
 }
 
-const inp = 'w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-[#0f172a] focus:ring-2 focus:ring-[#0f172a]/20 outline-none';
+const inp = 'input w-full';
 function L({ label, full, children }: any) { return <label className={`text-sm ${full ? 'col-span-2' : ''}`}><span className="block text-xs font-medium text-slate-500 mb-1">{label}</span>{children}</label>; }
 
 function VehicleModal({ onClose, onDone }: any) {
@@ -118,7 +121,7 @@ function VehicleModal({ onClose, onDone }: any) {
         <div className="p-5">
           <div className="flex gap-2 mb-4">
             {(['HIRED', 'IN_HOUSE'] as const).map((s) => (
-              <button key={s} onClick={() => set('source', s)} className={`flex-1 rounded-xl border px-3 py-2 text-sm flex items-center justify-center gap-2 ${f.source === s ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 text-slate-600'}`}>{s === 'IN_HOUSE' ? <Home size={14} /> : <Key size={14} />}{s === 'IN_HOUSE' ? 'In-house fleet' : 'Hired (rental co.)'}</button>
+              <button key={s} onClick={() => set('source', s)} className="flex-1 rounded-xl border px-3 py-2 text-sm flex items-center justify-center gap-2" style={f.source === s ? { borderColor: 'var(--accent)', background: 'var(--accent)', color: 'var(--accent-on)' } : { borderColor: 'var(--border-1)', color: 'var(--text-2)' }}>{s === 'IN_HOUSE' ? <Home size={14} /> : <Key size={14} />}{s === 'IN_HOUSE' ? 'In-house fleet' : 'Hired (rental co.)'}</button>
             ))}
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -142,8 +145,8 @@ function VehicleModal({ onClose, onDone }: any) {
           </div>
         </div>
         <div className="flex justify-end gap-2 px-5 py-4 border-t border-slate-100">
-          <button onClick={onClose} className="rounded-xl px-4 py-2 text-sm border border-slate-200 text-slate-600">Cancel</button>
-          <button onClick={submit} disabled={busy || !valid} className="rounded-xl px-4 py-2 text-sm bg-slate-900 text-white disabled:opacity-40 inline-flex items-center gap-2">{busy && <Loader2 size={14} className="animate-spin" />} Save</button>
+          <button onClick={onClose} className="btn btn-secondary">Cancel</button>
+          <button onClick={submit} disabled={busy || !valid} className="btn btn-primary disabled:opacity-40">{busy && <Loader2 size={14} className="animate-spin" />} Save</button>
         </div>
       </div>
     </div>
@@ -169,7 +172,7 @@ function DriverModal({ onClose, onDone }: any) {
         <div className="p-5">
           <div className="flex gap-2 mb-4">
             {(['HIRED', 'IN_HOUSE', 'FREELANCE'] as const).map((s) => (
-              <button key={s} onClick={() => set('source', s)} className={`flex-1 rounded-xl border px-2 py-2 text-xs flex items-center justify-center gap-1 ${f.source === s ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 text-slate-600'}`}>{s === 'IN_HOUSE' ? <Home size={13} /> : <Key size={13} />}{s === 'IN_HOUSE' ? 'In-house' : s === 'HIRED' ? 'Hired' : 'Freelance'}</button>
+              <button key={s} onClick={() => set('source', s)} className="flex-1 rounded-xl border px-2 py-2 text-xs flex items-center justify-center gap-1" style={f.source === s ? { borderColor: 'var(--accent)', background: 'var(--accent)', color: 'var(--accent-on)' } : { borderColor: 'var(--border-1)', color: 'var(--text-2)' }}>{s === 'IN_HOUSE' ? <Home size={13} /> : <Key size={13} />}{s === 'IN_HOUSE' ? 'In-house' : s === 'HIRED' ? 'Hired' : 'Freelance'}</button>
             ))}
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -187,8 +190,8 @@ function DriverModal({ onClose, onDone }: any) {
           </div>
         </div>
         <div className="flex justify-end gap-2 px-5 py-4 border-t border-slate-100">
-          <button onClick={onClose} className="rounded-xl px-4 py-2 text-sm border border-slate-200 text-slate-600">Cancel</button>
-          <button onClick={submit} disabled={busy || !valid} className="rounded-xl px-4 py-2 text-sm bg-slate-900 text-white disabled:opacity-40 inline-flex items-center gap-2">{busy && <Loader2 size={14} className="animate-spin" />} Save</button>
+          <button onClick={onClose} className="btn btn-secondary">Cancel</button>
+          <button onClick={submit} disabled={busy || !valid} className="btn btn-primary disabled:opacity-40">{busy && <Loader2 size={14} className="animate-spin" />} Save</button>
         </div>
       </div>
     </div>

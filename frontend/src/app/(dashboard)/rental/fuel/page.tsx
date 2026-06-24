@@ -64,10 +64,10 @@ export default function FuelPage() {
               <th className="table-th">Date</th>
               <th className="table-th">Asset</th>
               <th className="table-th">Station</th>
-              <th className="table-th text-right">Liters</th>
-              <th className="table-th text-right">Price/L</th>
-              <th className="table-th text-right">Total Cost</th>
-              <th className="table-th text-right">Odometer</th>
+              <th className="table-th text-end">Liters</th>
+              <th className="table-th text-end">Price/L</th>
+              <th className="table-th text-end">Total Cost</th>
+              <th className="table-th text-end">Odometer</th>
             </tr>
           </thead>
           <tbody>
@@ -79,14 +79,14 @@ export default function FuelPage() {
                   <div className="text-xs text-gray-400">{item.asset?.assetType}</div>
                 </td>
                 <td className="table-td text-sm text-gray-600">{item.fuelStation || '—'}</td>
-                <td className="table-td text-right text-sm text-gray-700">{Number(item.liters).toFixed(1)}</td>
-                <td className="table-td text-right text-sm text-gray-700">
+                <td className="table-td text-end text-sm text-gray-700">{Number(item.liters).toFixed(1)}</td>
+                <td className="table-td text-end text-sm text-gray-700">
                   {Number(item.pricePerLiter).toFixed(3)}
                 </td>
-                <td className="table-td text-right text-sm font-medium text-gray-800">
+                <td className="table-td text-end text-sm font-medium text-gray-800">
                   AED {Number(item.totalCost).toLocaleString('en-AE', { minimumFractionDigits: 2 })}
                 </td>
-                <td className="table-td text-right text-sm text-gray-600">
+                <td className="table-td text-end text-sm text-gray-600">
                   {item.odometer ? `${item.odometer.toLocaleString()} km` : '—'}
                 </td>
               </tr>

@@ -32,15 +32,15 @@ export default function CrewBookings({ id }: { id: string }) {
         ) : (
           <table className="w-full text-sm">
             <thead><tr className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-100">
-              <th className="px-2 py-2 text-left">Project</th><th className="px-2 py-2 text-left">Role</th>
-              <th className="px-2 py-2 text-left">Dates</th><th className="px-2 py-2 text-left">Location</th><th className="px-2 py-2 text-left">Deal memo</th>
+              <th className="px-2 py-2 text-start">Project</th><th className="px-2 py-2 text-start">Role</th>
+              <th className="px-2 py-2 text-start">Dates</th><th className="px-2 py-2 text-start">Location</th><th className="px-2 py-2 text-start">Deal memo</th>
             </tr></thead>
             <tbody>
               {bookings.map((b: any) => (
                 <tr key={b.id} className={cn('border-b border-gray-50', b.conflict && 'bg-red-50/40')}>
                   <td className="px-2 py-2">
                     <Link href={`/production/projects/${b.projectId}`} className="font-medium text-gray-800 hover:text-brand-600">{b.project?.title || '—'}</Link>
-                    {b.conflict && <AlertTriangle size={11} className="inline ml-1 text-red-500" />}
+                    {b.conflict && <AlertTriangle size={11} className="inline ms-1 text-red-500" />}
                     <div className="text-[11px] text-gray-400">{b.project?.projectNumber}</div>
                   </td>
                   <td className="px-2 py-2 text-gray-600 text-xs">{String(b.role).replace(/_/g, ' ')}</td>

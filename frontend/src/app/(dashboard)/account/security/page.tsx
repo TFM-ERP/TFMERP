@@ -132,7 +132,7 @@ export default function AccountSecurityPage() {
               {p?.avatarUrl ? <img src={assetUrl(p.avatarUrl)} alt="" className="w-full h-full object-cover" /> : initial}
             </div>
             <button onClick={() => fileRef.current?.click()} disabled={avatarBusy}
-              className="absolute -bottom-1.5 -right-1.5 w-7 h-7 rounded-full bg-slate-900 text-white flex items-center justify-center border-2 border-white disabled:opacity-60"
+              className="absolute -bottom-1.5 -end-1.5 w-7 h-7 rounded-full bg-slate-900 text-white flex items-center justify-center border-2 border-white disabled:opacity-60"
               aria-label="Change avatar">
               {avatarBusy ? <Loader2 size={13} className="animate-spin" /> : <Camera size={13} />}
             </button>
@@ -208,7 +208,7 @@ export default function AccountSecurityPage() {
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-slate-800 truncate">
                     {label}
-                    {s.current && <span className="ml-2 text-[10px] rounded-full bg-emerald-100 text-emerald-700 px-1.5 py-0.5 align-middle">This device</span>}
+                    {s.current && <span className="ms-2 text-[10px] rounded-full bg-emerald-100 text-emerald-700 px-1.5 py-0.5 align-middle">This device</span>}
                   </p>
                   <p className="text-[11px] text-slate-400 truncate" title={fmtWhen(s.lastSeenAt)}>{s.ipAddress || 'IP unknown'} · active {fmtAgo(s.lastSeenAt)}</p>
                 </div>
@@ -275,7 +275,7 @@ function TwoFactorSection({ enabled, onChanged }: { enabled: boolean; onChanged:
   const copyCodes = () => { if (codes) navigator.clipboard?.writeText(codes.join('\n')).catch(() => {}); };
   const downloadCodes = () => {
     if (!codes) return;
-    const blob = new Blob([`TFM ERP — two-factor recovery codes\nKeep these safe. Each works once.\n\n${codes.join('\n')}\n`], { type: 'text/plain' });
+    const blob = new Blob([`FilmOS — two-factor recovery codes\nKeep these safe. Each works once.\n\n${codes.join('\n')}\n`], { type: 'text/plain' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'tfm-recovery-codes.txt'; a.click(); URL.revokeObjectURL(a.href);
   };
 
@@ -298,7 +298,7 @@ function TwoFactorSection({ enabled, onChanged }: { enabled: boolean; onChanged:
           <div className="mt-3 flex gap-2">
             <button onClick={copyCodes} className="text-xs rounded-lg border border-emerald-300 bg-white px-2.5 py-1.5 text-emerald-800 hover:border-emerald-500">Copy</button>
             <button onClick={downloadCodes} className="text-xs rounded-lg border border-emerald-300 bg-white px-2.5 py-1.5 text-emerald-800 hover:border-emerald-500">Download .txt</button>
-            <button onClick={() => setCodes(null)} className="text-xs rounded-lg bg-emerald-600 text-white px-3 py-1.5 ml-auto">I've saved them</button>
+            <button onClick={() => setCodes(null)} className="text-xs rounded-lg bg-emerald-600 text-white px-3 py-1.5 ms-auto">I've saved them</button>
           </div>
         </div>
       )}
@@ -342,7 +342,7 @@ function TwoFactorSection({ enabled, onChanged }: { enabled: boolean; onChanged:
             </span>
           )}
           <button onClick={() => { setStage('regenerating'); setCode(''); setErr(''); }} className="text-xs rounded-lg border border-slate-200 px-2.5 py-1.5 text-slate-600 hover:border-slate-400">Regenerate recovery codes</button>
-          <button onClick={() => { setStage('disabling'); setCode(''); setErr(''); }} className="text-xs rounded-lg border border-slate-200 px-2.5 py-1.5 text-slate-600 hover:border-rose-400 hover:text-rose-600 ml-auto">Disable two-factor</button>
+          <button onClick={() => { setStage('disabling'); setCode(''); setErr(''); }} className="text-xs rounded-lg border border-slate-200 px-2.5 py-1.5 text-slate-600 hover:border-rose-400 hover:text-rose-600 ms-auto">Disable two-factor</button>
         </div>
       )}
 

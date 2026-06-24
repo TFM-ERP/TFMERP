@@ -115,7 +115,7 @@ export default function ScriptOnAudioPanel({ revision, projectId, onClose }: { r
                 No back/close buttons: surfaces are tabs now, switching happens in the binder's tab row. */}
             <div className="son-topbar" style={{ height: 48, minHeight: 48, paddingTop: 0, paddingBottom: 0, alignItems: 'center', gap: 8 }}>
               <div style={{ fontSize: 14, fontWeight: 650, whiteSpace: 'nowrap' }} title={TITLES[tab]}>Audio Studio — {revision?.revisionLabel}</div>
-              <div style={{ marginLeft: 10, display: 'flex', alignItems: 'center', alignSelf: 'stretch' }}>
+              <div style={{ marginInlineStart: 10, display: 'flex', alignItems: 'center', alignSelf: 'stretch' }}>
                 <SonTabs tabs={TABS} active={tab} onChange={setTab} />
               </div>
               <span className="son-grow" />
@@ -478,7 +478,7 @@ function StudioReader({ revision, projectId, onEditVoice, onTransport, onNow }: 
         <div className="son-faint" style={{ fontSize: 10, letterSpacing: '.06em', padding: '12px 12px 6px' }}>SCENES · {scenes.length}</div>
         {scenes.map((s, i) => (
           <button key={i} onClick={() => { stop(); setSel(i); setCursor(-1); }}
-            style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', background: i === sel ? 'var(--son-surface-2)' : 'transparent', border: 'none', borderLeft: i === sel ? '2px solid var(--son-accent)' : '2px solid transparent', cursor: 'pointer', color: 'var(--son-text)' }}>
+            style={{ display: 'block', width: '100%', textAlign: 'start', padding: '9px 12px', background: i === sel ? 'var(--son-surface-2)' : 'transparent', border: 'none', borderLeft: i === sel ? '2px solid var(--son-accent)' : '2px solid transparent', cursor: 'pointer', color: 'var(--son-text)' }}>
             <div style={{ fontSize: 12, fontWeight: 600, display: 'flex', justifyContent: 'space-between', gap: 6 }}>
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.n} · {s.slug.replace(/^\d+[A-Z]?\.?\s+/, '')}</span>
               <span className="son-faint" style={{ fontWeight: 400 }}>{fmtDur(s.durationSec)}</span>
@@ -550,9 +550,9 @@ function StudioReader({ revision, projectId, onEditVoice, onTransport, onNow }: 
                 const d = dirs[String(i)];
                 return (
                   <div key={i} data-seg={i} onClick={() => !playing && setCursor(i)} style={{ ...base, textAlign: 'center', maxWidth: '64%', margin: '0 auto', cursor: 'pointer' }}>
-                    {d?.tag && !seg.hint && <span title={d.note || 'AI direction'} style={{ fontSize: '0.74em', color: '#7c3aed', marginRight: 6 }}>[{d.tag}]</span>}
+                    {d?.tag && !seg.hint && <span title={d.note || 'AI direction'} style={{ fontSize: '0.74em', color: '#7c3aed', marginInlineEnd: 6 }}>[{d.tag}]</span>}
                     {seg.text}
-                    {(d?.take || 0) > 1 && <span style={{ fontSize: '0.7em', marginLeft: 6, color: '#999' }}>take {d!.take}</span>}
+                    {(d?.take || 0) > 1 && <span style={{ fontSize: '0.7em', marginInlineStart: 6, color: '#999' }}>take {d!.take}</span>}
                   </div>
                 );
               }
@@ -1010,7 +1010,7 @@ function Render({ revision, projectId, onPlayPlan }: any) {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 8 }}>
             {RENDER_PROFILES.map(p => (
               <button key={p.key} onClick={() => setProfile(p.key)}
-                style={{ textAlign: 'left', padding: '10px 12px', borderRadius: 12, cursor: 'pointer', font: 'inherit', color: 'var(--son-text)',
+                style={{ textAlign: 'start', padding: '10px 12px', borderRadius: 12, cursor: 'pointer', font: 'inherit', color: 'var(--son-text)',
                   background: profile === p.key ? 'var(--son-surface)' : 'transparent',
                   border: profile === p.key ? '2px solid var(--son-accent)' : '1px solid var(--son-border)' }}>
                 <div style={{ fontSize: 13, fontWeight: 650 }}>{p.name}</div>
@@ -1076,7 +1076,7 @@ function Render({ revision, projectId, onPlayPlan }: any) {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
                     <SonChip color={j.status === 'DONE' ? 'var(--son-ok)' : j.status === 'FAILED' ? 'var(--son-danger)' : 'var(--son-warn)'}>{j.status}{j.status !== 'DONE' && j.status !== 'FAILED' && j.progress ? ` ${j.progress}%` : ''}</SonChip>
                     <span className="son-faint">{j.scope} · {new Date(j.createdAt).toLocaleString('en-GB', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
-                    {j.asset?.url && <a className="son-iconbtn" style={{ marginLeft: 'auto' }} href={assetUrl(j.asset.url)} download title="Download"><Download size={13} /></a>}
+                    {j.asset?.url && <a className="son-iconbtn" style={{ marginInlineStart: 'auto' }} href={assetUrl(j.asset.url)} download title="Download"><Download size={13} /></a>}
                   </div>
                   {j.asset?.url && <audio controls src={assetUrl(j.asset.url)} style={{ width: '100%', height: 28, marginTop: 4 }} />}
                   {j.status === 'FAILED' && j.error && <div style={{ fontSize: 10, color: 'var(--son-danger)', marginTop: 2 }}>{String(j.error).slice(0, 160)}</div>}
@@ -1261,7 +1261,7 @@ function Layers({ revision }: any) {
     }, 100));
     // Scene-tagged cues AND whole-script cues (no scene number) — beds apply everywhere.
     const inScope = (c: any) => String(c.sceneNumber || '') === selScene || !c.sceneNumber;
-    const sceneCues = cues.filter((c: any) => inScope(c) && c.uploadUrl);
+    const sceneCues = (cues || []).filter((c: any) => inScope(c) && c.uploadUrl);
     let failed = 0;
     for (const c of sceneCues) {
       fetch(assetUrl(c.uploadUrl)).then(r => r.arrayBuffer()).then(buf => ctx.decodeAudioData(buf)).then(audio => {
@@ -1277,7 +1277,7 @@ function Layers({ revision }: any) {
         liveGains.current.set(c.id, gain); // live volume slider hooks in here
       }).catch(() => { failed += 1; setMsg(`${failed} cue(s) could not be decoded.`); });
     }
-    const missing = cues.filter((c: any) => inScope(c) && !c.uploadUrl);
+    const missing = (cues || []).filter((c: any) => inScope(c) && !c.uploadUrl);
     setMsg(`${sceneCues.length} cue(s) scheduled${missing.length > 0 ? ` · no audio on: ${missing.map((c: any) => c.genPrompt || c.layerType).join(', ')} — hit ✨ on each` : ''}.`);
     // Dialogue + narration sequentially over the bed
     const segs = sc.segs.filter((s: any) => s.kind === 'dialogue' || s.kind === 'action');
@@ -1306,7 +1306,7 @@ function Layers({ revision }: any) {
   };
   /** One click: generate audio for EVERY cue (in the selected scene + whole-script beds) that has none. */
   const generateMissing = async () => {
-    const missing = cues.filter((c: any) => !c.uploadUrl && c.status !== 'REMOVED' && c.genPrompt &&
+    const missing = (cues || []).filter((c: any) => !c.uploadUrl && c.status !== 'REMOVED' && c.genPrompt &&
       (String(c.sceneNumber || '') === selScene || !c.sceneNumber || selScene === ''));
     if (!missing.length) { setMsg('Every cue already has audio.'); return; }
     setGenBusy('ALL');

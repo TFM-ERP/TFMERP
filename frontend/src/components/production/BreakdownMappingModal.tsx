@@ -5,7 +5,7 @@ import { X, GripVertical, Wand2, RotateCcw, Pencil } from 'lucide-react';
 import { productionApi } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
 
-const TIER_CLS: Record<string, string> = { ATL: 'border-l-purple-400', BTL: 'border-l-cyan-400', POST: 'border-l-indigo-400', OTHER: 'border-l-gray-300' };
+const TIER_CLS: Record<string, string> = { ATL: 'border-s-purple-400', BTL: 'border-s-cyan-400', POST: 'border-s-indigo-400', OTHER: 'border-s-gray-300' };
 
 /**
  * Visual drag-and-drop step inserted before budget generation.
@@ -69,14 +69,14 @@ export default function BreakdownMappingModal({ projectId, currency = 'AED', onC
         {c.classification && <span className="text-[9px] font-mono bg-indigo-100 text-indigo-700 rounded px-1">{c.classification}</span>}
         {isOverride(c) && <span className="text-[9px] font-semibold bg-amber-100 text-amber-700 rounded px-1">edited</span>}
       </div>
-      <div className="flex items-center gap-1.5 mt-1 pl-4">
+      <div className="flex items-center gap-1.5 mt-1 ps-4">
         <span className="text-[11px] text-gray-400">{c.quantity} {c.unit} ×</span>
         <input type="number" value={rates[c.category] ?? c.aiRate} onChange={e => setRates(r => ({ ...r, [c.category]: Number(e.target.value) }))}
           onClick={e => e.stopPropagation()} className="input text-[11px] h-6 w-20 px-1" title={`AI suggested ${money(c.aiRate)}`} />
-        <span className="text-[11px] font-medium text-gray-700 ml-auto">{money(lineTotal(c))}</span>
+        <span className="text-[11px] font-medium text-gray-700 ms-auto">{money(lineTotal(c))}</span>
         {isOverride(c) && <button onClick={(e) => { e.stopPropagation(); resetCat(c); }} title="Reset to AI suggestion" className="text-gray-300 hover:text-gray-600"><RotateCcw size={11} /></button>}
       </div>
-      {inBucket && <button onClick={() => unassign(c.category)} className="text-[10px] text-gray-400 hover:text-red-500 mt-1 pl-4">remove</button>}
+      {inBucket && <button onClick={() => unassign(c.category)} className="text-[10px] text-gray-400 hover:text-red-500 mt-1 ps-4">remove</button>}
     </div>
   );
 
@@ -95,7 +95,7 @@ export default function BreakdownMappingModal({ projectId, currency = 'AED', onC
             in view while you scroll the account list on the right to find the code. */}
         <div className="flex-1 min-h-0 p-4 grid grid-cols-[1fr_1.2fr] gap-4">
           {/* Left — categories to place (own scrollbar, stays put) */}
-          <div className="overflow-y-auto pr-1 min-h-0">
+          <div className="overflow-y-auto pe-1 min-h-0">
             <h4 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2 sticky top-0 glass-bar py-1 z-10">AI breakdown categories {unassigned.length > 0 && <span className="text-amber-600">· {unassigned.length} unplaced</span>}</h4>
             <div className="space-y-1.5">
               {cats.length === 0 && <p className="text-xs text-gray-400">No breakdown elements yet — import a script first.</p>}
@@ -105,14 +105,14 @@ export default function BreakdownMappingModal({ projectId, currency = 'AED', onC
           </div>
 
           {/* Right — account buckets (scrolls on its own while dragging) */}
-          <div className="overflow-y-auto pr-1 min-h-0">
+          <div className="overflow-y-auto pe-1 min-h-0">
             <h4 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2 sticky top-0 glass-bar py-1 z-10">Budget accounts</h4>
             <div className="space-y-1.5">
               {accounts.map(a => {
                 const placed = cats.filter(c => assign[c.category] === a.code);
                 return (
                   <div key={a.code} onDragOver={e => e.preventDefault()} onDrop={() => drop(a.code)}
-                    className={cn('rounded-lg border border-l-4 bg-gray-50/60 px-2.5 py-2 min-h-[44px]', TIER_CLS[a.tier || 'OTHER'], drag && 'ring-1 ring-brand-300 bg-brand-50/40')}>
+                    className={cn('rounded-lg border border-s-4 bg-gray-50/60 px-2.5 py-2 min-h-[44px]', TIER_CLS[a.tier || 'OTHER'], drag && 'ring-1 ring-brand-300 bg-brand-50/40')}>
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-semibold text-gray-700">{a.code} · {a.title}</span>
                       {a.tier && <span className="text-[9px] text-gray-400">{a.tier}</span>}

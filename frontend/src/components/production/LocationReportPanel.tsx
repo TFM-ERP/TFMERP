@@ -197,13 +197,13 @@ export default function LocationReportPanel({ projectId }: { projectId: string }
         <div className="space-y-4">
           {PURPOSES.filter((p) => byPurpose[p]?.length).map((p) => (
             <div key={p}>
-              <SectionLabel><Chip tone={PURPOSE_TONE[p] || 'slate'}>{p.charAt(0) + p.slice(1).toLowerCase()}</Chip> <span className="ml-1">{byPurpose[p].length}</span></SectionLabel>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <SectionLabel><Chip tone={PURPOSE_TONE[p] || 'slate'}>{p.charAt(0) + p.slice(1).toLowerCase()}</Chip> <span className="ms-1">{byPurpose[p].length}</span></SectionLabel>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 12 }}>
                 {byPurpose[p].map((pl) => (
                   <div key={pl.id} className="rounded-xl border border-slate-200 overflow-hidden bg-white">
                     <div className="relative">
                       <img src={assetUrl(pl.url)} alt={pl.caption || ''} className="w-full h-32 object-cover" />
-                      <button onClick={() => removePlate(pl.id)} className="absolute top-1 right-1 bg-white/90 rounded-lg p-1 text-slate-400 hover:text-rose-500"><Trash2 size={13} /></button>
+                      <button onClick={() => removePlate(pl.id)} className="absolute top-1 end-1 bg-white/90 rounded-lg p-1 text-slate-400 hover:text-rose-500"><Trash2 size={13} /></button>
                     </div>
                     <div className="p-2 space-y-1.5">
                       <input className={`${inp} w-full`} placeholder="Caption" defaultValue={pl.caption || ''} onBlur={(e) => e.target.value !== (pl.caption || '') && updatePlate(pl.id, { caption: e.target.value })} />

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { financeApi } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
 import { Search, FileText, AlertCircle, CheckCircle } from 'lucide-react';
+import { useLocale } from '@/lib/i18n';
 
 function quarterDates(year: number, q: number) {
   const starts = ['01-01', '04-01', '07-01', '10-01'];
@@ -12,6 +13,7 @@ function quarterDates(year: number, q: number) {
 }
 
 export default function VatReturnPage() {
+  const { t } = useLocale();
   const currentYear = new Date().getFullYear();
   const currentQ = Math.ceil((new Date().getMonth() + 1) / 3);
 
@@ -28,13 +30,13 @@ export default function VatReturnPage() {
     const { start, end } = useCustom
       ? { start: customStart, end: customEnd }
       : quarterDates(year, quarter);
-    if (!start || !end) { setError('Please set a valid date range'); return; }
+    if (!start || !end) { setError(t('Please set a valid date range')); return; }
     setLoading(true); setError(''); setReport(null);
     try {
       const r = await financeApi.reports.vatReturn(start, end);
       setReport(r.data);
     } catch (e: any) {
-      setError(e.response?.data?.message || 'Failed to generate VAT return');
+      setError(e.response?.data?.message || t('Failed to generate VAT return'));
     } finally { setLoading(false); }
   };
 
@@ -42,7 +44,7 @@ export default function VatReturnPage() {
     <div className={cn('flex items-center justify-between py-3 px-4 rounded-lg border', highlight ? 'border-brand-200 bg-brand-50' : 'border-gray-100 bg-white')}>
       <div className="flex items-center gap-3">
         <span className={cn('text-xs font-bold w-12 text-center py-1 rounded', highlight ? 'bg-brand-600 text-white' : 'bg-gray-100 text-gray-500')}>
-          Box {num}
+          {t('Box')} {num}
         </span>
         <span className={cn('text-sm', highlight ? 'font-semibold text-brand-800' : 'text-gray-700')}>{label}</span>
       </div>
@@ -56,9 +58,9 @@ export default function VatReturnPage() {
     <div className="p-6 max-w-4xl mx-auto">
       <div className="marquee-panel flex items-start justify-between flex-wrap gap-3">
         <div>
-          <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>Finance · Tax</div>
-          <h1 className="text-[20px] font-extrabold leading-tight" style={{ color: 'var(--text-1)' }}>VAT Return</h1>
-          <p className="text-sm mt-0.5" style={{ color: 'var(--text-3)' }}>UAE VAT 201 — quarterly filing summary</p>
+          <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>{t('Finance · Tax')}</div>
+          <h1 className="text-[20px] font-extrabold leading-tight" style={{ color: 'var(--text-1)' }}>{t('VAT Return')}</h1>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--text-3)' }}>{t('UAE VAT 201 — quarterly filing summary')}</p>
         </div>
         {report && (
           <div className="flex gap-2 print:hidden">
@@ -78,53 +80,53 @@ export default function VatReturnPage() {
               const a = document.createElement('a'); a.href = url;
               a.download = `vat-201-${report.period?.startDate}_${report.period?.endDate}.csv`; a.click();
               URL.revokeObjectURL(url);
-            }} className="btn btn-secondary text-sm">Export CSV</button>
-            <button onClick={() => window.print()} className="btn btn-secondary text-sm">Print / PDF</button>
+            }} className="btn btn-secondary text-sm">{t('Export CSV')}</button>
+            <button onClick={() => window.print()} className="btn btn-secondary text-sm">{t('Print / PDF')}</button>
           </div>
         )}
       </div>
 
       {/* Period selector */}
       <div className="card mb-6">
-        <h3 className="text-sm font-semibold text-gray-700 mb-4">Select Tax Period</h3>
+        <h3 className="text-sm font-semibold text-gray-700 mb-4">{t('Select Tax Period')}</h3>
 
         <div className="flex items-center gap-4 mb-4">
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="radio" checked={!useCustom} onChange={() => setUseCustom(false)} />
-            <span className="text-sm text-gray-700">Quarter</span>
+            <span className="text-sm text-gray-700">{t('Quarter')}</span>
           </label>
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="radio" checked={useCustom} onChange={() => setUseCustom(true)} />
-            <span className="text-sm text-gray-700">Custom range</span>
+            <span className="text-sm text-gray-700">{t('Custom range')}</span>
           </label>
         </div>
 
         {!useCustom ? (
           <div className="flex gap-3">
             <div>
-              <label className="label">Year</label>
+              <label className="label">{t('Year')}</label>
               <select className="input" value={year} onChange={e => setYear(Number(e.target.value))}>
                 {[currentYear - 1, currentYear, currentYear + 1].map(y => <option key={y} value={y}>{y}</option>)}
               </select>
             </div>
             <div>
-              <label className="label">Quarter</label>
+              <label className="label">{t('Quarter')}</label>
               <select className="input" value={quarter} onChange={e => setQuarter(Number(e.target.value))}>
-                <option value={1}>Q1 — Jan–Mar</option>
-                <option value={2}>Q2 — Apr–Jun</option>
-                <option value={3}>Q3 — Jul–Sep</option>
-                <option value={4}>Q4 — Oct–Dec</option>
+                <option value={1}>{t('Q1 — Jan–Mar')}</option>
+                <option value={2}>{t('Q2 — Apr–Jun')}</option>
+                <option value={3}>{t('Q3 — Jul–Sep')}</option>
+                <option value={4}>{t('Q4 — Oct–Dec')}</option>
               </select>
             </div>
           </div>
         ) : (
           <div className="flex gap-3">
             <div>
-              <label className="label">Start Date</label>
+              <label className="label">{t('Start Date')}</label>
               <input type="date" className="input" value={customStart} onChange={e => setCustomStart(e.target.value)} />
             </div>
             <div>
-              <label className="label">End Date</label>
+              <label className="label">{t('End Date')}</label>
               <input type="date" className="input" value={customEnd} onChange={e => setCustomEnd(e.target.value)} />
             </div>
           </div>
@@ -134,8 +136,8 @@ export default function VatReturnPage() {
 
         <div className="mt-4">
           <button onClick={run} disabled={loading} className="btn btn-primary disabled:opacity-50">
-            <Search size={14} className="mr-1" />
-            {loading ? 'Calculating...' : 'Generate VAT Return'}
+            <Search size={14} className="me-1" />
+            {loading ? t('Calculating...') : t('Generate VAT Return')}
           </button>
         </div>
       </div>
@@ -147,38 +149,38 @@ export default function VatReturnPage() {
           <div className="card mb-4 bg-gray-900 text-white">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-400 uppercase tracking-wide">UAE VAT 201 Return</p>
+                <p className="text-xs text-gray-400 uppercase tracking-wide">{t('UAE VAT 201 Return')}</p>
                 <p className="font-bold text-lg mt-0.5">The Film Makers FZ LLC</p>
-                <p className="text-sm text-gray-400">Period: {report.period.startDate} to {report.period.endDate}</p>
+                <p className="text-sm text-gray-400">{t('Period:')} {report.period.startDate} {t('to')} {report.period.endDate}</p>
               </div>
-              <div className="text-right">
-                <p className="text-xs text-gray-400">Based on</p>
-                <p className="font-semibold">{report.invoiceCount} invoices</p>
-                <p className="text-sm text-gray-400">{report.expenseCount} expense records</p>
+              <div className="text-end">
+                <p className="text-xs text-gray-400">{t('Based on')}</p>
+                <p className="font-semibold">{report.invoiceCount} {t('invoices')}</p>
+                <p className="text-sm text-gray-400">{report.expenseCount} {t('expense records')}</p>
               </div>
             </div>
           </div>
 
           {/* Part 1 — Sales */}
           <div className="card mb-4">
-            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Part 1 — Sales & All Other Outputs</h3>
+            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">{t('Part 1 — Sales & All Other Outputs')}</h3>
             <div className="space-y-2">
-              <Box num="1" label="Standard Rated Sales (5%)" value={report.box1_standardRatedSales} />
-              <Box num="2" label="Zero Rated Sales (0%)" value={report.box2_zeroRatedSales} />
-              <Box num="3" label="Exempt Sales" value={report.box3_exemptSales} />
-              <Box num="4" label="Total Sales (Box 1 + 2 + 3)" value={report.box4_totalSales} />
+              <Box num="1" label={t('Standard Rated Sales (5%)')} value={report.box1_standardRatedSales} />
+              <Box num="2" label={t('Zero Rated Sales (0%)')} value={report.box2_zeroRatedSales} />
+              <Box num="3" label={t('Exempt Sales')} value={report.box3_exemptSales} />
+              <Box num="4" label={t('Total Sales (Box 1 + 2 + 3)')} value={report.box4_totalSales} />
             </div>
           </div>
 
           {/* Part 2 — VAT */}
           <div className="card mb-4">
-            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Part 2 — VAT on Sales & Purchases</h3>
+            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">{t('Part 2 — VAT on Sales & Purchases')}</h3>
             <div className="space-y-2">
-              <Box num="6" label="Output VAT (VAT on sales)" value={report.box6_outputVat} />
-              <Box num="9" label="Input VAT (Recoverable VAT on expenses)" value={report.box9_inputVat} />
-              <Box num="10" label="Other Adjustments" value={report.box10_adjustments} />
+              <Box num="6" label={t('Output VAT (VAT on sales)')} value={report.box6_outputVat} />
+              <Box num="9" label={t('Input VAT (Recoverable VAT on expenses)')} value={report.box9_inputVat} />
+              <Box num="10" label={t('Other Adjustments')} value={report.box10_adjustments} />
               <Box num="11"
-                label={report.box11_netVatPayable >= 0 ? 'Net VAT Payable to FTA' : 'VAT Refund Due from FTA'}
+                label={report.box11_netVatPayable >= 0 ? t('Net VAT Payable to FTA') : t('VAT Refund Due from FTA')}
                 value={Math.abs(report.box11_netVatPayable)}
                 highlight />
             </div>
@@ -193,11 +195,11 @@ export default function VatReturnPage() {
             <div>
               <p className={cn('font-semibold text-sm', report.box11_netVatPayable >= 0 ? 'text-red-700' : 'text-green-700')}>
                 {report.box11_netVatPayable >= 0
-                  ? `AED ${formatCurrency(report.box11_netVatPayable)} due to FTA`
-                  : `AED ${formatCurrency(Math.abs(report.box11_netVatPayable))} refund claimable`}
+                  ? `AED ${formatCurrency(report.box11_netVatPayable)} ${t('due to FTA')}`
+                  : `AED ${formatCurrency(Math.abs(report.box11_netVatPayable))} ${t('refund claimable')}`}
               </p>
               <p className="text-xs text-gray-500 mt-0.5">
-                Output VAT {formatCurrency(report.box6_outputVat)} − Input VAT {formatCurrency(report.box9_inputVat)}
+                {t('Output VAT')} {formatCurrency(report.box6_outputVat)} − {t('Input VAT')} {formatCurrency(report.box9_inputVat)}
               </p>
             </div>
           </div>
@@ -205,14 +207,14 @@ export default function VatReturnPage() {
           {/* Client breakdown */}
           {report.clientBreakdown?.length > 0 && (
             <div className="card">
-              <h3 className="text-sm font-semibold text-gray-700 mb-3">Sales by Client</h3>
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">{t('Sales by Client')}</h3>
               <table className="w-full">
                 <thead>
                   <tr>
-                    <th className="table-th">Client</th>
-                    <th className="table-th">TRN</th>
-                    <th className="table-th text-right">Sales (excl. VAT)</th>
-                    <th className="table-th text-right">VAT</th>
+                    <th className="table-th">{t('Client')}</th>
+                    <th className="table-th">{t('TRN')}</th>
+                    <th className="table-th text-end">{t('Sales (excl. VAT)')}</th>
+                    <th className="table-th text-end">{t('VAT')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -220,8 +222,8 @@ export default function VatReturnPage() {
                     <tr key={c.companyName} className="table-row">
                       <td className="table-td font-medium text-sm">{c.companyName}</td>
                       <td className="table-td text-xs text-gray-500 font-mono">{c.trn || '—'}</td>
-                      <td className="table-td text-sm text-right">{formatCurrency(c.sales)}</td>
-                      <td className="table-td text-sm text-right font-semibold">{formatCurrency(c.vat)}</td>
+                      <td className="table-td text-sm text-end">{formatCurrency(c.sales)}</td>
+                      <td className="table-td text-sm text-end font-semibold">{formatCurrency(c.vat)}</td>
                     </tr>
                   ))}
                 </tbody>

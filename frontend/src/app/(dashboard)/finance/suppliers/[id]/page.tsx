@@ -50,7 +50,7 @@ function ContactCard({ contact, onDelete, onEdit }: { contact: any; onDelete: ()
   return (
     <div className="border border-gray-200 rounded-xl p-4 relative">
       {contact.isPrimary && (
-        <span className="absolute top-3 right-3 text-[10px] bg-brand-100 text-brand-700 px-1.5 py-0.5 rounded font-medium">Primary</span>
+        <span className="absolute top-3 end-3 text-[10px] bg-brand-100 text-brand-700 px-1.5 py-0.5 rounded font-medium">Primary</span>
       )}
       <div className="flex items-start gap-3">
         <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
@@ -153,7 +153,7 @@ function DocumentRow({ doc, onDelete }: { doc: any; onDelete: () => void }) {
         <p className="text-xs text-gray-400">
           {DOC_TYPE_LABELS[doc.docType] ?? doc.docType}
           {doc.expiryDate && (
-            <span className={cn('ml-2', expired ? 'text-red-600 font-semibold' : warn ? 'text-amber-600' : '')}>
+            <span className={cn('ms-2', expired ? 'text-red-600 font-semibold' : warn ? 'text-amber-600' : '')}>
               · Expires: {formatDate(doc.expiryDate)}{expired ? ' ⚠ EXPIRED' : warn ? ' ⚠ Expiring soon' : ''}
             </span>
           )}
@@ -404,7 +404,7 @@ export default function SupplierDetailPage() {
                                           : 'bg-brand-100 border-brand-400 text-brand-700'
                               : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-gray-400'
                           }`}>
-                          {isWorkshop && sel && <Wrench size={10} className="inline mr-1" />}{cat}
+                          {isWorkshop && sel && <Wrench size={10} className="inline me-1" />}{cat}
                         </button>
                       );
                     })}
@@ -438,7 +438,7 @@ export default function SupplierDetailPage() {
                     <a href={`/rental/maintenance/vendors/${supplier.vendor.id}`}
                       className="inline-flex items-center gap-1.5 text-sm text-orange-700 bg-orange-50 border border-orange-200 rounded-lg px-3 py-1.5 hover:bg-orange-100">
                       <Wrench size={13} /> {supplier.vendor.name}
-                      <ExternalLink size={11} className="ml-0.5 opacity-60" />
+                      <ExternalLink size={11} className="ms-0.5 opacity-60" />
                     </a>
                   </div>
                 )}
@@ -658,8 +658,8 @@ export default function SupplierDetailPage() {
                   <th className="table-th">Description</th>
                   <th className="table-th">Date</th>
                   <th className="table-th">Status</th>
-                  <th className="table-th text-right">VAT (AED)</th>
-                  <th className="table-th text-right">Total (AED)</th>
+                  <th className="table-th text-end">VAT (AED)</th>
+                  <th className="table-th text-end">Total (AED)</th>
                 </tr>
               </thead>
               <tbody>
@@ -670,8 +670,8 @@ export default function SupplierDetailPage() {
                     <td className="table-td text-gray-700 max-w-xs truncate">{e.description}</td>
                     <td className="table-td text-gray-600 whitespace-nowrap">{formatDate(e.expenseDate)}</td>
                     <td className="table-td"><span className="badge text-xs bg-gray-100 text-gray-600">{e.status}</span></td>
-                    <td className="table-td text-right text-gray-600">{Number(e.vatAmount||0).toLocaleString()}</td>
-                    <td className="table-td text-right font-medium text-gray-800">{Number(e.totalAmount||0).toLocaleString()}</td>
+                    <td className="table-td text-end text-gray-600">{Number(e.vatAmount||0).toLocaleString()}</td>
+                    <td className="table-td text-end font-medium text-gray-800">{Number(e.totalAmount||0).toLocaleString()}</td>
                   </tr>
                 ))}
                 {(supplier.expenses||[]).length === 0 && (

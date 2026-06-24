@@ -132,14 +132,14 @@ export default function IncidentsPage() {
           <p className="text-sm mt-0.5" style={{ color: 'var(--text-3)' }}>{total} records</p>
         </div>
         <button onClick={() => setShowForm(true)} className="btn btn-primary">
-          <Plus size={14} className="mr-1" /> Log Incident
+          <Plus size={14} className="me-1" /> Log Incident
         </button>
       </div>
 
       {/* Summary */}
       {summary && (
         <div className="grid grid-cols-4 gap-4 mb-6">
-          <div className="card border-l-4 border-red-400">
+          <div className="card border-s-4 border-red-400">
             <p className="text-xs text-gray-400 mb-1">Open Incidents</p>
             <p className="text-2xl font-bold text-red-600">{summary.openCount}</p>
           </div>
@@ -329,7 +329,7 @@ export default function IncidentsPage() {
                     )}
                     {inc.status === 'CLOSED' && <span className="text-xs text-gray-300">—</span>}
                     {inc.resolutionCost && (
-                      <span className="text-xs text-gray-400 ml-1">({formatCurrency(inc.resolutionCost)})</span>
+                      <span className="text-xs text-gray-400 ms-1">({formatCurrency(inc.resolutionCost)})</span>
                     )}
                   </div>
                 </td>

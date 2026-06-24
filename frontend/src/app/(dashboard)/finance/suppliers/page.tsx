@@ -12,6 +12,7 @@ import {
 import { SUPPLIER_CATEGORIES } from '@/components/SupplierSelect';
 import EmailInput from '@/components/EmailInput';
 import PhoneInput from '@/components/PhoneInput';
+import { useLocale } from '@/lib/i18n';
 
 // -- Constants -----------------------------------------------------------------
 
@@ -171,7 +172,7 @@ function NewSupplierModal({ onClose, onCreated }: {
                     ? 'border-green-400 text-green-700'
                     : 'border-transparent text-gray-400 hover:text-gray-600'
               )}>
-              {i < tabIdx ? <Check size={10} className="inline mr-1" /> : null}
+              {i < tabIdx ? <Check size={10} className="inline me-1" /> : null}
               {t.label}
             </button>
           ))}
@@ -222,7 +223,7 @@ function NewSupplierModal({ onClose, onCreated }: {
                                 : 'bg-brand-100 border-brand-400 text-brand-700'
                               : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-gray-400'
                           )}>
-                          {isWorkshop && sel && <Wrench size={10} className="inline mr-1" />}
+                          {isWorkshop && sel && <Wrench size={10} className="inline me-1" />}
                           {cat}
                         </button>
                       );
@@ -485,6 +486,7 @@ function NewSupplierModal({ onClose, onCreated }: {
 // -- Main Page -----------------------------------------------------------------
 
 export default function SuppliersPage() {
+  const { t } = useLocale();
   const [items,      setItems]      = useState<any[]>([]);
   const [total,      setTotal]      = useState(0);
   const [page,       setPage]       = useState(1);
@@ -526,12 +528,12 @@ export default function SuppliersPage() {
     <div className="p-6 max-w-7xl mx-auto">
       <div className="marquee-panel flex items-center justify-between flex-wrap gap-3">
         <div>
-          <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>Finance · Directory</div>
-          <h1 className="text-[20px] font-extrabold leading-tight" style={{ color: 'var(--text-1)' }}>Supplier Directory</h1>
-          <p className="text-sm mt-0.5" style={{ color: 'var(--text-3)' }}>{total} supplier{total !== 1 ? 's' : ''}</p>
+          <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>{t('Finance · Directory')}</div>
+          <h1 className="text-[20px] font-extrabold leading-tight" style={{ color: 'var(--text-1)' }}>{t('Supplier Directory')}</h1>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--text-3)' }}>{total} {t('suppliers')}</p>
         </div>
         <button onClick={() => setShowNew(true)} className="btn btn-primary flex items-center gap-1.5">
-          <Plus size={16} /> Add Supplier
+          <Plus size={16} /> {t('Add Supplier')}
         </button>
       </div>
 
@@ -540,12 +542,12 @@ export default function SuppliersPage() {
           <div className="flex items-start gap-3">
             <FileWarning size={18} className="text-amber-500 mt-0.5 shrink-0" />
             <div className="text-sm text-amber-800 space-y-1">
-              <p className="font-semibold">{totalAlerts} expiry alert{totalAlerts > 1 ? 's' : ''} within 60 days</p>
+              <p className="font-semibold">{totalAlerts} {t('expiry alerts within 60 days')}</p>
               {alerts.suppliers?.map((a: any) => (
                 <div key={a.id} className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs">
                   <Link href={`/finance/suppliers/${a.id}`} className="font-medium underline">{a.name}</Link>
                   {a.tradeLicenseExpiry && (
-                    <span>Trade licence: <span className="font-mono">{formatDate(a.tradeLicenseExpiry)}</span></span>
+                    <span>{t('Trade licence:')} <span className="font-mono">{formatDate(a.tradeLicenseExpiry)}</span></span>
                   )}
                 </div>
               ))}
@@ -564,18 +566,18 @@ export default function SuppliersPage() {
 
       <div className="flex flex-wrap gap-3 mb-4">
         <div className="relative flex-1 min-w-48">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input className="input pl-9 w-full" placeholder="Search name, code, TRN..."
+          <Search size={14} className="absolute start-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input className="input ps-9 w-full" placeholder={t('Search name, code, TRN...')}
             value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
         </div>
         <select className="input w-52" value={catFilter}
           onChange={e => { setCatFilter(e.target.value); setPage(1); }}>
-          <option value="">All Categories</option>
+          <option value="">{t('All Categories')}</option>
           {SUPPLIER_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
         <select className="input w-40" value={statFilter}
           onChange={e => { setStatFilter(e.target.value); setPage(1); }}>
-          <option value="">All Statuses</option>
+          <option value="">{t('All Statuses')}</option>
           <option value="ACTIVE">Active</option>
           <option value="INACTIVE">Inactive</option>
           <option value="BLACKLISTED">Blacklisted</option>
@@ -589,15 +591,15 @@ export default function SuppliersPage() {
         <table className="w-full text-sm">
           <thead>
             <tr>
-              <th className="table-th">Supplier</th>
-              <th className="table-th">Category</th>
-              <th className="table-th">TRN / VAT</th>
-              <th className="table-th">Trade Licence</th>
-              <th className="table-th">Contact</th>
-              <th className="table-th text-center">Contacts</th>
-              <th className="table-th text-center">Docs</th>
-              <th className="table-th text-center">Expenses</th>
-              <th className="table-th">Status</th>
+              <th className="table-th">{t('Supplier')}</th>
+              <th className="table-th">{t('Category')}</th>
+              <th className="table-th">{t('TRN / VAT')}</th>
+              <th className="table-th">{t('Trade Licence')}</th>
+              <th className="table-th">{t('Contact')}</th>
+              <th className="table-th text-center">{t('Contacts')}</th>
+              <th className="table-th text-center">{t('Docs')}</th>
+              <th className="table-th text-center">{t('Expenses')}</th>
+              <th className="table-th">{t('Status')}</th>
               <th className="table-th"></th>
             </tr>
           </thead>
@@ -626,7 +628,7 @@ export default function SuppliersPage() {
                       ))}
                       {s.vendor && (
                         <span className="badge bg-orange-100 text-orange-700 text-xs flex items-center gap-0.5">
-                          <Wrench size={10} /> Workshop
+                          <Wrench size={10} /> {t('Workshop')}
                         </span>
                       )}
                       {!s.categories?.length && !s.category && <span className="text-gray-300 text-xs">-</span>}
@@ -639,7 +641,7 @@ export default function SuppliersPage() {
                     <p className="text-gray-600">{s.tradeLicenseNumber || '-'}</p>
                     {s.tradeLicenseExpiry && (
                       <p className={cn(licExpired ? 'text-red-600 font-semibold' : licWarn ? 'text-amber-600' : 'text-gray-400')}>
-                        {licExpired ? 'Expired' : licWarn ? 'Soon' : ''} {formatDate(s.tradeLicenseExpiry)}
+                        {licExpired ? t('Expired') : licWarn ? t('Soon') : ''} {formatDate(s.tradeLicenseExpiry)}
                       </p>
                     )}
                   </td>
@@ -669,9 +671,9 @@ export default function SuppliersPage() {
               <tr>
                 <td colSpan={10} className="text-center py-16">
                   <Building2 size={32} className="mx-auto text-gray-300 mb-3" />
-                  <p className="text-gray-400">No suppliers found.</p>
+                  <p className="text-gray-400">{t('No suppliers found.')}</p>
                   <button onClick={() => setShowNew(true)} className="mt-3 text-brand-600 text-sm hover:underline">
-                    + Add your first supplier
+                    {t('+ Add your first supplier')}
                   </button>
                 </td>
               </tr>
@@ -682,12 +684,12 @@ export default function SuppliersPage() {
 
       {pages > 1 && (
         <div className="flex items-center justify-between mt-4 text-sm text-gray-600">
-          <span>Page {page} of {pages} - {total} total</span>
+          <span>{t('Page')} {page} {t('of')} {pages} - {total} {t('total')}</span>
           <div className="flex gap-2">
             <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-              className="btn btn-secondary py-1 px-3 disabled:opacity-40">Prev</button>
+              className="btn btn-secondary py-1 px-3 disabled:opacity-40">{t('Prev')}</button>
             <button onClick={() => setPage(p => Math.min(pages, p + 1))} disabled={page === pages}
-              className="btn btn-secondary py-1 px-3 disabled:opacity-40">Next</button>
+              className="btn btn-secondary py-1 px-3 disabled:opacity-40">{t('Next')}</button>
           </div>
         </div>
       )}

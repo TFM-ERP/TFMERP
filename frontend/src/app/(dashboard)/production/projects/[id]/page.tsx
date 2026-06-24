@@ -11,11 +11,20 @@ import OveragesPanel from '@/components/production/OveragesPanel';
 import EndCreditsPanel from '@/components/production/EndCreditsPanel';
 import AccountingPanel from '@/components/production/AccountingPanel';
 import CostReportPanel from '@/components/production/CostReportPanel';
+import ProductionForecastPanel from '@/components/production/ProductionForecastPanel';
+import ReportsIndexPanel from '@/components/production/ReportsIndexPanel';
+import PurchaseRequestsPanel from '@/components/production/PurchaseRequestsPanel';
+import GlReconcilePanel from '@/components/production/GlReconcilePanel';
+import CashClaimsPanel from '@/components/production/CashClaimsPanel';
+import BankReconPanel from '@/components/production/BankReconPanel';
+import PayrollRunsPanel from '@/components/production/PayrollRunsPanel';
+import DprPanel from '@/components/production/DprPanel';
 import PurchasingPanel from '@/components/production/PurchasingPanel';
 import CashPanel from '@/components/production/CashPanel';
 import FinanceSummaryStrip from '@/components/production/FinanceSummaryStrip';
 import StripboardPanel from '@/components/production/StripboardPanel';
 import OverviewPanel from '@/components/production/OverviewPanel';
+import CustomizableOverview from '@/components/production/CustomizableOverview';
 import DocumentsPanel from '@/components/production/DocumentsPanel';
 import ProjectEmailPanel from '@/components/production/ProjectEmailPanel';
 import ProjectLaborPanel from '@/components/production/ProjectLaborPanel';
@@ -31,12 +40,15 @@ import ContractsPanel from '@/components/production/ContractsPanel';
 import CastingPanel from '@/components/production/CastingPanel';
 import AccommodationPanel from '@/components/production/AccommodationPanel';
 import TransportPanel from '@/components/production/TransportPanel';
+import CaptainConsole from '@/components/production/CaptainConsole';
 import ShuttlePanel from '@/components/production/ShuttlePanel';
 import ArrivalsPanel from '@/components/production/ArrivalsPanel';
 import LogisticsReportsPanel from '@/components/production/LogisticsReportsPanel';
 import FuelPanel from '@/components/production/FuelPanel';
 import BreakdownsTab from '@/components/production/BreakdownsTab';
 import ScriptHubPanel from '@/components/production/ScriptHubPanel';
+import DeliverablesPanel from '@/components/production/DeliverablesPanel';
+import CommercialPanel from '@/components/production/CommercialPanel';
 
 // Stored section tier wins; fallback follows the industry numbering (1=ATL, 2–4=BTL, 5=POST, 6+=OTHER)
 const tierOf = (code?: string, tier?: string | null) => tier || (!code ? 'OTHER' : code.startsWith('1') ? 'ATL' : ['2', '3', '4'].includes(code[0]) ? 'BTL' : code.startsWith('5') ? 'POST' : 'OTHER');
@@ -122,7 +134,7 @@ import {
   Plane, FileSignature, Clapperboard, BedDouble, Car, Bus, Droplet,
 } from 'lucide-react';
 
-type Tab = 'settings' | 'overview' | 'budget' | 'topsheet' | 'actual' | 'costreport' | 'purchasing' | 'accounting' | 'cash' | 'callsheets' | 'globals' | 'crew' | 'perdiem' | 'overages' | 'credits' | 'schedule' | 'documents' | 'projectemail' | 'labor' | 'fringe' | 'incentives' | 'locations' | 'travel' | 'contracts' | 'casting' | 'accommodation' | 'transport' | 'shuttle' | 'arrivals' | 'fuel' | 'logistics' | 'breakdowns' | 'script';
+type Tab = 'settings' | 'overview' | 'budget' | 'topsheet' | 'actual' | 'costreport' | 'purchasing' | 'accounting' | 'cash' | 'callsheets' | 'globals' | 'crew' | 'perdiem' | 'overages' | 'credits' | 'schedule' | 'documents' | 'projectemail' | 'labor' | 'fringe' | 'incentives' | 'locations' | 'travel' | 'contracts' | 'casting' | 'accommodation' | 'transport' | 'dispatch' | 'shuttle' | 'arrivals' | 'fuel' | 'logistics' | 'breakdowns' | 'script' | 'deliverables' | 'commercial';
 
 const TAB_META: Record<string, { label: string; icon: any }> = {
   overview: { label: 'Overview', icon: LayoutDashboard },
@@ -148,6 +160,7 @@ const TAB_META: Record<string, { label: string; icon: any }> = {
   casting: { label: 'Casting', icon: Clapperboard },
   accommodation: { label: 'Accommodation', icon: BedDouble },
   transport: { label: 'Transport', icon: Car },
+  dispatch: { label: 'Captain', icon: MapPin },
   shuttle: { label: 'Shuttle', icon: Bus },
   arrivals: { label: 'Arrivals', icon: Plane },
   fuel: { label: 'Fuel & rental', icon: Droplet },
@@ -155,6 +168,8 @@ const TAB_META: Record<string, { label: string; icon: any }> = {
   crew: { label: 'Crew', icon: Users },
   perdiem: { label: 'Per Diem', icon: Wallet },
   credits: { label: 'End Credits', icon: Film },
+  deliverables: { label: 'Deliverables', icon: Film },
+  commercial: { label: 'Commercial', icon: FolderOpen },
   documents: { label: 'Documents', icon: FolderOpen },
   projectemail: { label: 'Email Sender', icon: Mail },
   settings: { label: 'Project Settings', icon: Edit2 },
@@ -165,11 +180,11 @@ const TAB_META: Record<string, { label: string; icon: any }> = {
 const TAB_GROUPS: { key: string; label: string; tabs: Tab[] }[] = [
   { key: 'overview', label: 'Overview', tabs: ['overview'] },
   { key: 'develop', label: 'Develop', tabs: ['script'] },
-  { key: 'plan', label: 'Plan', tabs: ['schedule', 'breakdowns', 'locations', 'casting', 'crew', 'contracts', 'travel', 'accommodation', 'transport'] },
+  { key: 'plan', label: 'Plan', tabs: ['schedule', 'breakdowns', 'locations', 'casting', 'crew', 'contracts', 'travel', 'accommodation', 'transport', 'dispatch'] },
   { key: 'budget', label: 'Budget', tabs: ['budget', 'topsheet', 'fringe', 'incentives'] },
   { key: 'shoot', label: 'Shoot', tabs: ['callsheets', 'perdiem', 'shuttle', 'arrivals', 'fuel', 'logistics', 'overages'] },
   { key: 'account', label: 'Account', tabs: ['actual', 'costreport', 'purchasing', 'accounting', 'cash'] },
-  { key: 'deliver', label: 'Deliver', tabs: ['credits', 'documents'] },
+  { key: 'deliver', label: 'Deliver', tabs: ['deliverables', 'commercial', 'credits', 'documents'] },
   { key: 'setup', label: '⚙ Settings', tabs: ['settings', 'labor'] },
 ];
 
@@ -185,6 +200,9 @@ const STATUS_COLORS: Record<string, string> = {
 export default function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const [navDock, setNavDock] = useState<'top' | 'left' | 'right' | 'hide'>('top');
+  useEffect(() => { try { const v = localStorage.getItem('tfm_proj_nav_dock'); if (v === 'top' || v === 'left' || v === 'right' || v === 'hide') setNavDock(v as any); } catch { /* */ } }, []);
+  const setDock = (v: 'top' | 'left' | 'right' | 'hide') => { setNavDock(v); try { localStorage.setItem('tfm_proj_nav_dock', v); } catch { /* */ } };
   const [project, setProject] = useState<any>(null);
   const [activeVersion, setActiveVersion] = useState<any>(null);
   const [finKey, setFinKey] = useState(0);
@@ -218,8 +236,8 @@ export default function ProjectDetailPage() {
   // router rewriting the URL). Restore order: URL param → sessionStorage → overview.
   const [tab, setTabState] = useState<Tab>(() => {
     if (typeof window === 'undefined') return 'overview';
-    return ((new URLSearchParams(window.location.search).get('tab')
-      || window.sessionStorage.getItem(`proj-tab:${id}`)) as Tab) || 'overview';
+    // Always open on Overview unless an explicit ?tab= deep-link is present (don't restore last tab).
+    return ((new URLSearchParams(window.location.search).get('tab')) as Tab) || 'overview';
   });
   const setTab = useCallback((t: Tab) => {
     setTabState(t);
@@ -396,7 +414,7 @@ export default function ProjectDetailPage() {
   const money = (n: any) => formatCurrency(n, cur);
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6 max-w-[1580px] mx-auto">
       {/* Sticky header — poster-backed marquee hero + phase tabs + chip sub-tabs */}
       <div className="glass-bar sticky top-0 z-20 -mx-6 -mt-6 px-6 pt-4 pb-2 mb-4 border-b border-gray-200/60 [&>*:last-child]:mb-0" style={{ ['--glass-base' as any]: 'var(--page-bg)' }}>
       {(() => {
@@ -448,6 +466,7 @@ export default function ProjectDetailPage() {
                   </div>
                   <div className="flex items-center gap-2 min-w-0">
                     <h1 className="text-[16.5px] font-extrabold leading-tight truncate max-w-[340px]" style={{ color: H.ink }}>{project.title}</h1>
+                    {['TVC', 'CORPORATE', 'MUSIC_VIDEO'].includes(project.projectType) && <span className="rounded-full px-2 py-0.5 text-[9.5px] font-bold shrink-0" style={{ background: '#f1ebff', color: '#7c3aed' }}>{typeLabel}</span>}
                     <span className="rounded-full px-2 py-0.5 text-[9.5px] font-bold shrink-0" style={H.glass}>{project.status.replace(/_/g, ' ')}</span>
                   </div>
                 </div>
@@ -459,7 +478,7 @@ export default function ProjectDetailPage() {
                     <span className="rounded-full px-2 py-0.5 text-[9.5px] font-bold" style={{ ...H.glass, color: activeVersion.status === 'LOCKED' ? '#f87171' : '#4ade80' }}>{activeVersion.status}</span>
                     {activeVersion.status !== 'LOCKED' ? (
                       <button onClick={async () => { if (confirm('Lock this budget? It becomes read-only — changes will require a working copy or an approved transfer.')) { await productionApi.budget.lockVersion(activeVersion.id); reload(); } }}
-                        className="rounded-lg px-2 py-1 text-[11px] font-semibold" style={H.glass}><Lock size={10} className="inline mr-1" />Lock</button>
+                        className="rounded-lg px-2 py-1 text-[11px] font-semibold" style={H.glass}><Lock size={10} className="inline me-1" />Lock</button>
                     ) : (
                       <button onClick={async () => {
                         const name = prompt('Name for the working copy:', `${activeVersion.versionName} (Working Copy)`);
@@ -468,7 +487,7 @@ export default function ProjectDetailPage() {
                         await productionApi.budget.activateVersion(r.data.id);
                         reload();
                       }} className="rounded-lg px-2 py-1 text-[11px] font-bold" style={{ background: isDark ? '#c9a96a' : '#1C2433', color: isDark ? '#1a1206' : '#fff' }}>
-                        <Plus size={10} className="inline mr-1" />Working copy
+                        <Plus size={10} className="inline me-1" />Working copy
                       </button>
                     )}
                     <button onClick={async () => { await productionApi.budget.recalculate(activeVersion.id); reload(); }} title="Recalculate"
@@ -478,14 +497,15 @@ export default function ProjectDetailPage() {
                   </div>
                 )}
                 {project.totalBudget && (
-                  <div className="text-right shrink-0">
+                  <div className="text-end shrink-0">
                     <div className="text-[8.5px] font-bold uppercase" style={{ letterSpacing: '.08em', color: H.sub }}>Budget</div>
                     <div className="text-[13.5px] font-extrabold leading-tight" style={{ color: H.ink }}>{money(project.totalBudget)}</div>
                   </div>
                 )}
               </div>
 
-              {/* Phase tabs ride the hero's bottom edge on glass */}
+              {/* Phase tabs ride the hero's bottom edge on glass (hidden when the menu is docked elsewhere) */}
+              {navDock === 'top' && (
               <div className="relative flex px-2 overflow-x-auto" style={{ background: H.band, backdropFilter: 'blur(8px)', borderTop: `1px solid ${H.bandBd}` }}>
                 {TAB_GROUPS.map(g => {
                   const on = activeGroup.key === g.key;
@@ -494,15 +514,16 @@ export default function ProjectDetailPage() {
                       className="px-3.5 py-2 text-[12.5px] whitespace-nowrap relative"
                       style={{ color: on ? H.ink : H.tabOff, fontWeight: on ? 700 : 400 }}>
                       {g.label}
-                      {on && <span aria-hidden className="absolute left-2.5 right-2.5 bottom-0 h-[2px] rounded" style={{ background: H.gold }} />}
+                      {on && <span aria-hidden className="absolute start-2.5 end-2.5 bottom-0 h-[2px] rounded" style={{ background: H.gold }} />}
                     </button>
                   );
                 })}
               </div>
+              )}
             </div>
 
             {/* Sub-tabs as marquee chips */}
-            {activeGroup.tabs.length > 1 && (
+            {navDock === 'top' && activeGroup.tabs.length > 1 && (
               <div className="flex gap-1.5 mb-2 flex-wrap">
                 {activeGroup.tabs.map(tid => {
                   const m = TAB_META[tid];
@@ -523,12 +544,37 @@ export default function ProjectDetailPage() {
       })()}
       </div>{/* /sticky header */}
 
+      {navDock === 'hide' && (
+        <button onClick={() => setDock('top')} className="mb-3 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold" style={{ background: 'var(--surface-2)', border: '1px solid var(--border-1)', color: 'var(--text-2)' }}>☰ Show sections</button>
+      )}
+      <div className={(navDock === 'left' || navDock === 'right') ? 'flex gap-5 items-start' : ''} style={(navDock === 'right') ? { flexDirection: 'row-reverse' } : undefined}>
+        {(navDock === 'left' || navDock === 'right') && (
+          <aside className="shrink-0 self-start sticky" style={{ width: 200, top: 130 }}>
+            <div className="rounded-2xl p-2" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-1)' }}>
+              {TAB_GROUPS.map(g => {
+                const gon = g.tabs.includes(tab);
+                return (
+                  <div key={g.key}>
+                    <button onClick={() => setTab(g.tabs[0])} className="w-full text-start px-2.5 py-2 rounded-lg text-[12.5px] font-semibold"
+                      style={gon ? { background: 'var(--accent-soft)', color: 'var(--accent)' } : { color: 'var(--text-2)' }}>{g.label}</button>
+                    {gon && g.tabs.length > 1 && (
+                      <div className="ms-2 ps-2 mb-1" style={{ borderInlineStart: '1px solid var(--border-1)' }}>
+                        {g.tabs.map(tid => { const m = TAB_META[tid]; const on = tab === tid; return (
+                          <button key={tid} onClick={() => setTab(tid)} className="w-full text-start px-2 py-1.5 rounded-lg text-[11.5px] flex items-center gap-1.5"
+                            style={on ? { background: 'var(--accent-soft)', color: 'var(--accent)', fontWeight: 700 } : { color: 'var(--text-3)' }}><m.icon size={12} /> {m.label}</button>); })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </aside>
+        )}
+        <div className={(navDock === 'left' || navDock === 'right') ? 'flex-1 min-w-0' : ''}>
+
       {/* ── Overview ───────────────────────────────────────────────────────────── */}
       {tab === 'overview' && (
-        <div className="space-y-4">
-          <WorkflowChecklist projectId={id} onNavigate={(t) => setTab(t as Tab)} />
-          <OverviewPanel projectId={id} project={project} currency={cur} onNavigate={(t) => setTab(t as Tab)} />
-        </div>
+        <CustomizableOverview projectId={id} project={project} currency={cur} onNavigate={(t) => setTab(t as Tab)} navDock={navDock} setDock={setDock} />
       )}
 
       {/* ── Budget Spreadsheet ──────────────────────────────────────────────────── */}
@@ -537,7 +583,7 @@ export default function ProjectDetailPage() {
           <div className="flex justify-end">
             <button onClick={toggleDetailed}
               className={cn('btn text-xs', detailedLines ? 'bg-indigo-50 text-indigo-700 border border-indigo-300' : 'btn-secondary')}>
-              <Layers size={13} className="mr-1" /> Detailed lines: {detailedLines ? 'ON' : 'OFF'}
+              <Layers size={13} className="me-1" /> Detailed lines: {detailedLines ? 'ON' : 'OFF'}
             </button>
           </div>
           {activeVersion.status === 'LOCKED' && (
@@ -666,10 +712,10 @@ export default function ProjectDetailPage() {
                                 <div className="grid gap-x-2 px-4 py-2 items-center hover:bg-gray-50 group" style={{ gridTemplateColumns: '56px 2fr 1fr 0.7fr 1fr 1fr 0.8fr 1fr 40px' }}>
                                   <span className="text-xs font-mono font-semibold text-brand-600" title={item.subTitle || ''}>{item.code || ''}</span>
                                   <span className="text-sm text-gray-800">{item.description}
-                                    {crewName(item.crewMemberId) && <span className="ml-1.5 text-[9px] font-semibold bg-sky-100 text-sky-700 rounded px-1 py-0.5">{crewName(item.crewMemberId)}</span>}
-                                    {item.classificationCode && <span className="ml-1.5 text-[9px] font-mono bg-indigo-100 text-indigo-700 rounded px-1 py-0.5">{item.classificationCode}</span>}
+                                    {crewName(item.crewMemberId) && <span className="ms-1.5 text-[9px] font-semibold bg-sky-100 text-sky-700 rounded px-1 py-0.5">{crewName(item.crewMemberId)}</span>}
+                                    {item.classificationCode && <span className="ms-1.5 text-[9px] font-mono bg-indigo-100 text-indigo-700 rounded px-1 py-0.5">{item.classificationCode}</span>}
                                     {item.origin && ORIGIN_META[item.origin] && (
-                                      <span className={cn('ml-1.5 text-[9px] font-semibold rounded px-1 py-0.5', ORIGIN_META[item.origin].cls)}
+                                      <span className={cn('ms-1.5 text-[9px] font-semibold rounded px-1 py-0.5', ORIGIN_META[item.origin].cls)}
                                         title={item.origin === 'MANUAL_OVERRIDE' && item.aiSuggestedRate != null ? `AI/import suggested rate ${money(Number(item.aiSuggestedRate))}${item.aiSuggestedQuantity != null ? `, qty ${Number(item.aiSuggestedQuantity)}` : ''}` : 'Source of this line'}>
                                         {ORIGIN_META[item.origin].label}
                                       </span>
@@ -708,7 +754,7 @@ export default function ProjectDetailPage() {
                                 {showStages && stages.map((s: any, si: number) => (
                                   <div key={si} className="grid gap-x-2 px-4 py-0.5 items-center" style={{ gridTemplateColumns: '56px 2fr 1fr 0.7fr 1fr 1fr 0.8fr 1fr 40px' }}>
                                     <span className="justify-self-end"><span className="inline-block w-0.5 h-4 bg-indigo-300" /></span>
-                                    <span className="pl-1.5 text-[11px] font-semibold tracking-wider text-indigo-600">{String(s.stage || '').toUpperCase()}</span>
+                                    <span className="ps-1.5 text-[11px] font-semibold tracking-wider text-indigo-600">{String(s.stage || '').toUpperCase()}</span>
                                     <span className="text-xs text-gray-500 font-mono">{Number(s.qty)}</span>
                                     <span className="text-xs text-gray-500">{s.unit || ''}</span>
                                     <span className="text-xs text-gray-500 font-mono">{money(Number(s.rate))}</span>
@@ -807,7 +853,7 @@ export default function ProjectDetailPage() {
                                   <span className="font-semibold">Available globals: </span>
                                   {globals.map((g: any) => (
                                     <button key={g.key} onClick={() => setNewItem(v => ({ ...v, quantityFormula: v.quantityFormula ? v.quantityFormula + ' + ' + g.key : g.key }))}
-                                      className="mr-2 bg-purple-100 text-purple-700 rounded px-1 hover:bg-purple-200">
+                                      className="me-2 bg-purple-100 text-purple-700 rounded px-1 hover:bg-purple-200">
                                       {g.key}={Number(g.value)}
                                     </button>
                                   ))}
@@ -880,7 +926,7 @@ export default function ProjectDetailPage() {
               account (e.g. 2200) when recording it to track it here.
             </p>
             <button onClick={loadBva} className="btn btn-secondary text-xs py-1 px-2">
-              <RefreshCw size={11} className={cn('mr-1', bvaLoading && 'animate-spin')} /> Refresh
+              <RefreshCw size={11} className={cn('me-1', bvaLoading && 'animate-spin')} /> Refresh
             </button>
           </div>
 
@@ -917,12 +963,12 @@ export default function ProjectDetailPage() {
                 <table className="w-full text-sm min-w-[760px]">
                   <thead>
                     <tr className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-100">
-                      <th className="px-4 py-2.5 text-left">Account</th>
-                      <th className="px-3 py-2.5 text-right">Orig Budget</th>
-                      <th className="px-3 py-2.5 text-right">Revised</th>
-                      <th className="px-3 py-2.5 text-right">Actual</th>
-                      <th className="px-3 py-2.5 text-right">Variance</th>
-                      <th className="px-3 py-2.5 text-left w-40">Used</th>
+                      <th className="px-4 py-2.5 text-start">Account</th>
+                      <th className="px-3 py-2.5 text-end">Orig Budget</th>
+                      <th className="px-3 py-2.5 text-end">Revised</th>
+                      <th className="px-3 py-2.5 text-end">Actual</th>
+                      <th className="px-3 py-2.5 text-end">Variance</th>
+                      <th className="px-3 py-2.5 text-start w-40">Used</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -932,10 +978,10 @@ export default function ProjectDetailPage() {
                           <td className="px-4 py-2 font-semibold text-gray-800" style={{ borderLeft: `3px solid ${s.color || '#6366f1'}` }}>
                             {s.code} — {s.title}
                           </td>
-                          <td className="px-3 py-2 text-right font-semibold text-gray-500">{money(s.budget)}</td>
-                          <td className="px-3 py-2 text-right font-semibold text-gray-800">{money(s.revisedBudget ?? s.budget)}</td>
-                          <td className="px-3 py-2 text-right font-semibold text-gray-800">{money(s.actual)}</td>
-                          <td className={cn('px-3 py-2 text-right font-semibold', s.variance < 0 ? 'text-red-600' : 'text-gray-600')}>
+                          <td className="px-3 py-2 text-end font-semibold text-gray-500">{money(s.budget)}</td>
+                          <td className="px-3 py-2 text-end font-semibold text-gray-800">{money(s.revisedBudget ?? s.budget)}</td>
+                          <td className="px-3 py-2 text-end font-semibold text-gray-800">{money(s.actual)}</td>
+                          <td className={cn('px-3 py-2 text-end font-semibold', s.variance < 0 ? 'text-red-600' : 'text-gray-600')}>
                             {s.variance < 0 ? '-' : ''}{money(Math.abs(s.variance))}
                           </td>
                           <td className="px-3 py-2"></td>
@@ -947,11 +993,11 @@ export default function ProjectDetailPage() {
                           const adjusted = Math.abs(revised - a.budget) > 0.01;
                           return (
                             <tr key={a.code} className="border-b border-gray-50">
-                              <td className="px-4 py-2 pl-8 text-gray-600 text-xs">{a.code} · {a.title}</td>
-                              <td className="px-3 py-2 text-right text-gray-400">{money(a.budget)}</td>
-                              <td className={cn('px-3 py-2 text-right', adjusted ? 'text-gray-800 font-medium' : 'text-gray-600')} title={adjusted ? `Transfers ${money(a.transfer)} · Approved overages ${money(a.approvedChange)}` : undefined}>{money(revised)}</td>
-                              <td className="px-3 py-2 text-right text-gray-700">{a.actual ? money(a.actual) : '—'}</td>
-                              <td className={cn('px-3 py-2 text-right', a.variance < 0 ? 'text-red-600' : 'text-gray-500')}>
+                              <td className="px-4 py-2 ps-8 text-gray-600 text-xs">{a.code} · {a.title}</td>
+                              <td className="px-3 py-2 text-end text-gray-400">{money(a.budget)}</td>
+                              <td className={cn('px-3 py-2 text-end', adjusted ? 'text-gray-800 font-medium' : 'text-gray-600')} title={adjusted ? `Transfers ${money(a.transfer)} · Approved overages ${money(a.approvedChange)}` : undefined}>{money(revised)}</td>
+                              <td className="px-3 py-2 text-end text-gray-700">{a.actual ? money(a.actual) : '—'}</td>
+                              <td className={cn('px-3 py-2 text-end', a.variance < 0 ? 'text-red-600' : 'text-gray-500')}>
                                 {a.actual ? `${a.variance < 0 ? '-' : ''}${money(Math.abs(a.variance))}` : '—'}
                               </td>
                               <td className="px-3 py-2">
@@ -972,10 +1018,10 @@ export default function ProjectDetailPage() {
                     ))}
                     <tr className="bg-gray-50 border-t-2 border-gray-200">
                       <td className="px-4 py-3 font-bold text-gray-900">TOTAL</td>
-                      <td className="px-3 py-3 text-right font-bold text-gray-500">{money(bva.grandBudget)}</td>
-                      <td className="px-3 py-3 text-right font-bold text-gray-900">{money(bva.grandRevised ?? bva.grandBudget)}</td>
-                      <td className="px-3 py-3 text-right font-bold text-gray-900">{money(bva.grandActual)}</td>
-                      <td className={cn('px-3 py-3 text-right font-bold', bva.grandVariance < 0 ? 'text-red-600' : 'text-green-600')}>
+                      <td className="px-3 py-3 text-end font-bold text-gray-500">{money(bva.grandBudget)}</td>
+                      <td className="px-3 py-3 text-end font-bold text-gray-900">{money(bva.grandRevised ?? bva.grandBudget)}</td>
+                      <td className="px-3 py-3 text-end font-bold text-gray-900">{money(bva.grandActual)}</td>
+                      <td className={cn('px-3 py-3 text-end font-bold', bva.grandVariance < 0 ? 'text-red-600' : 'text-green-600')}>
                         {bva.grandVariance < 0 ? '-' : ''}{money(Math.abs(bva.grandVariance))}
                       </td>
                       <td className="px-3 py-3"></td>
@@ -993,7 +1039,7 @@ export default function ProjectDetailPage() {
                       {bva.unallocated.map((u: any) => (
                         <tr key={u.code} className="border-b border-gray-50">
                           <td className="py-1.5 text-gray-600">{u.code === 'Untagged' ? 'Untagged (no account code)' : `Code ${u.code} (no matching account)`}</td>
-                          <td className="py-1.5 text-right text-gray-700">{money(u.actual)}</td>
+                          <td className="py-1.5 text-end text-gray-700">{money(u.actual)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -1019,6 +1065,8 @@ export default function ProjectDetailPage() {
         <div className="space-y-4">
           <FinanceSummaryStrip projectId={id} currency={cur} refreshKey={finKey} />
           <CostReportPanel projectId={id} currency={cur} onMutate={() => setFinKey(k => k + 1)} />
+          <ProductionForecastPanel projectId={id} currency={cur} />
+          <ReportsIndexPanel projectId={id} currency={cur} />
         </div>
       )}
 
@@ -1027,6 +1075,8 @@ export default function ProjectDetailPage() {
         <div className="space-y-4">
           <FinanceSummaryStrip projectId={id} currency={cur} refreshKey={finKey} />
           <PurchasingPanel projectId={id} currency={cur}
+            accounts={(activeVersion?.sections || []).flatMap((s: any) => s.accounts.map((a: any) => ({ code: a.code, title: a.title })))} />
+          <PurchaseRequestsPanel projectId={id} currency={cur}
             accounts={(activeVersion?.sections || []).flatMap((s: any) => s.accounts.map((a: any) => ({ code: a.code, title: a.title })))} />
         </div>
       )}
@@ -1037,6 +1087,8 @@ export default function ProjectDetailPage() {
           <FinanceSummaryStrip projectId={id} currency={cur} refreshKey={finKey} />
           <AccountingPanel projectId={id} currency={cur}
             accounts={(activeVersion?.sections || []).flatMap((s: any) => s.accounts.map((a: any) => ({ code: a.code, title: a.title })))} />
+          <GlReconcilePanel projectId={id} currency={cur} />
+          <PayrollRunsPanel projectId={id} currency={cur} />
         </div>
       )}
 
@@ -1046,11 +1098,13 @@ export default function ProjectDetailPage() {
           <FinanceSummaryStrip projectId={id} currency={cur} refreshKey={finKey} />
           <CashPanel projectId={id} currency={cur}
             accounts={(activeVersion?.sections || []).flatMap((s: any) => s.accounts.map((a: any) => ({ code: a.code, title: a.title })))} />
+          <CashClaimsPanel projectId={id} currency={cur} accounts={(activeVersion?.sections || []).flatMap((s: any) => s.accounts.map((a: any) => ({ code: a.code, title: a.title })))} />
+          <BankReconPanel projectId={id} currency={cur} />
         </div>
       )}
 
       {/* ── Call Sheets ────────────────────────────────────────────────────────── */}
-      {tab === 'callsheets' && <CallSheetsPanel projectId={id} />}
+      {tab === 'callsheets' && (<div className="space-y-4"><CallSheetsPanel projectId={id} /><DprPanel projectId={id} currency={cur} /></div>)}
 
       {/* ── Locations ──────────────────────────────────────────────────────────── */}
       {tab === 'locations' && <LocationsTab projectId={id} currency={cur} />}
@@ -1061,6 +1115,7 @@ export default function ProjectDetailPage() {
       {tab === 'casting' && <CastingPanel projectId={id} />}
       {tab === 'accommodation' && <AccommodationPanel projectId={id} />}
       {tab === 'transport' && <TransportPanel projectId={id} />}
+      {tab === 'dispatch' && <CaptainConsole projectId={id} />}
       {tab === 'shuttle' && <ShuttlePanel projectId={id} />}
       {tab === 'arrivals' && <ArrivalsPanel projectId={id} />}
       {tab === 'fuel' && <FuelPanel projectId={id} />}
@@ -1081,7 +1136,7 @@ export default function ProjectDetailPage() {
                 <p className="text-xs text-gray-400 mt-0.5">Variables referenced in budget formulas (e.g. shoot_days × daily_rate)</p>
               </div>
               <button onClick={() => setAddingGlobal(true)} className="btn btn-primary text-xs py-1 px-3">
-                <Plus size={12} className="mr-1" /> Add Global
+                <Plus size={12} className="me-1" /> Add Global
               </button>
             </div>
 
@@ -1198,6 +1253,8 @@ export default function ProjectDetailPage() {
 
       {/* ── Documents ──────────────────────────────────────────────────────────── */}
       {tab === 'documents' && <DocumentsPanel projectId={id} />}
+      {tab === 'deliverables' && <DeliverablesPanel projectId={id} currency={cur} />}
+      {tab === 'commercial' && <CommercialPanel projectId={id} project={project} currency={cur} />}
 
       {/* ── Project Settings (logo + currency convert) ─────────────────────────── */}
       {tab === 'settings' && <ProjectSettingsPanel projectId={id} project={project} activeVersion={activeVersion} fringes={fringes} onChanged={reload} />}
@@ -1214,6 +1271,8 @@ export default function ProjectDetailPage() {
           onClose={() => setLaborLine(null)}
           onSaved={() => { setLaborLine(null); reload(); }} />
       )}
+        </div>{/* /dock content */}
+      </div>{/* /dock wrap */}
     </div>
   );
 }

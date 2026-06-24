@@ -1,0 +1,15 @@
+{
+  "name": "FilmOS Driver",
+  "short_name": "FilmOS Driver",
+  "description": "Transport runs — pickups, navigation, and the digital glovebox.",
+  "start_url": "/driver/dispatch",
+  "scope": "/driver/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0E1117",
+  "theme_color": "#14213a",
+  "icons": [
+    { "src": "/icons/driver-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icons/driver-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

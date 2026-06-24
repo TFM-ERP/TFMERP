@@ -108,7 +108,7 @@ export default function StatusChangeModal({
                     <button
                       key={s}
                       onClick={() => { setSelected(s); setNotes(''); setError(''); }}
-                      className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border-2 text-left text-xs font-semibold transition-all
+                      className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border-2 text-start text-xs font-semibold transition-all
                         ${isSelected
                           ? `${def.color} ${def.textColor} ${def.borderColor} shadow-sm`
                           : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
@@ -131,7 +131,7 @@ export default function StatusChangeModal({
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1.5">
                 Notes / Comment
-                {needsNote ? <span className="text-red-500 ml-1">* Required</span> : <span className="text-gray-400 ml-1">(optional)</span>}
+                {needsNote ? <span className="text-red-500 ms-1">* Required</span> : <span className="text-gray-400 ms-1">(optional)</span>}
               </label>
               <textarea
                 className="input w-full h-20 resize-none text-sm"

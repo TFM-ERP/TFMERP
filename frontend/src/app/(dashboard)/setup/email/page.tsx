@@ -45,7 +45,7 @@ export default function EmailSettingsPage() {
             <p className="text-sm" style={{ color: 'var(--text-3)' }}>One mail connection powers call sheets, cost reports, deal memos, statements and the daily alert digest.</p>
           </div>
         </div>
-        <button onClick={save} disabled={saving || loading} className="btn btn-primary"><Save size={14} className="mr-1" /> {saving ? 'Saving…' : 'Save'}</button>
+        <button onClick={save} disabled={saving || loading} className="btn btn-primary"><Save size={14} className="me-1" /> {saving ? 'Saving…' : 'Save'}</button>
       </div>
 
       <div className="card space-y-4">
@@ -71,7 +71,7 @@ export default function EmailSettingsPage() {
         <h3 className="text-sm font-semibold text-gray-700 mb-2">Send a test</h3>
         <div className="flex gap-2">
           <input className="input flex-1" value={testTo} onChange={e => setTestTo(e.target.value)} placeholder="your@email.com" />
-          <button onClick={test} className="btn btn-secondary"><Send size={14} className="mr-1" /> Send test</button>
+          <button onClick={test} className="btn btn-secondary"><Send size={14} className="me-1" /> Send test</button>
         </div>
         <p className="text-[11px] text-gray-400 mt-2">Save first, then send a test to confirm the connection works.</p>
       </div>

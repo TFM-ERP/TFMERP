@@ -41,7 +41,7 @@ export default function LeavePage() {
 
       <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-400">
+          <thead className="bg-slate-50 text-start text-xs uppercase tracking-wider text-slate-400">
             <tr>
               <th className="px-4 py-3">Employee</th>
               <th className="px-4 py-3">Type</th>
@@ -61,7 +61,7 @@ export default function LeavePage() {
                 <td className="px-4 py-3 text-slate-500">{l.endDate?.slice(0, 10)}</td>
                 <td className="px-4 py-3 text-slate-500">{l.days}</td>
                 <td className="px-4 py-3"><span className={`rounded px-2 py-0.5 text-xs ${STATUS_COLORS[l.status] || 'bg-slate-100'}`}>{l.status}</span></td>
-                <td className="px-4 py-3 text-right">
+                <td className="px-4 py-3 text-end">
                   {l.status === 'Pending' && (
                     <span className="flex gap-2 justify-end">
                       <button onClick={() => setStatus(l.id, 'Approved')} className="text-xs text-emerald-600 hover:underline">Approve</button>

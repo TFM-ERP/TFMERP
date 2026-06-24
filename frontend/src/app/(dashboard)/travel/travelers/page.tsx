@@ -20,7 +20,7 @@ export default function TravelersDirectory() {
     <div className="font-sans p-6 max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900 flex items-center gap-2"><Users className="text-[#0f172a]" /> Travelers</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900 flex items-center gap-2"><Users style={{ color: 'var(--accent)' }} /> Travelers</h1>
           <p className="text-sm text-slate-500 mt-0.5">Master traveller directory — passports, nationality, GDPR consent.</p>
         </div>
         <button onClick={() => setOpen(true)} className="inline-flex items-center gap-2 rounded-xl bg-slate-900 text-white px-4 py-2.5 text-sm font-medium hover:bg-slate-800"><Plus size={16} /> Add traveller</button>
@@ -28,12 +28,12 @@ export default function TravelersDirectory() {
 
       <div className="grid gap-2">
         {rows.length === 0 ? <p className="text-sm text-slate-400 py-8 text-center">No travellers yet.</p> : rows.map((t) => (
-          <button key={t.id} onClick={() => setViewId(t.id)} className="text-left rounded-2xl border border-slate-200 bg-white p-4 flex items-center justify-between hover:shadow-md transition">
+          <button key={t.id} onClick={() => setViewId(t.id)} className="text-start rounded-2xl border border-slate-200 bg-white p-4 flex items-center justify-between hover:shadow-md transition">
             <div>
               <div className="font-medium text-slate-900 flex items-center gap-2">{t.fullName}<span className={`text-[10px] px-1.5 py-0.5 rounded-full ${PTYPE_CLS[t.personType] || 'bg-slate-100'}`}>{t.personType}</span></div>
               <div className="text-xs text-slate-500">{[t.nationality, t.email, t.phone].filter(Boolean).join(' · ') || '—'}{t._count?.companions ? ` · ${t._count.companions} accompanying` : ''}</div>
             </div>
-            <div className="text-right text-xs">
+            <div className="text-end text-xs">
               {t.passportNumber && <div className="text-slate-500">Passport {t.passportExpiry ? `· exp ${new Date(t.passportExpiry).toLocaleDateString()}` : ''}</div>}
               <span className={`inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full ${t.gdprConsent ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}><ShieldCheck size={11} /> {t.gdprConsent ? 'Consent on file' : 'No consent'}</span>
             </div>
@@ -58,7 +58,7 @@ function AddTravelerModal({ onClose, onDone }: any) {
   const [busy, setBusy] = useState(false);
   const set = (k: string, v: any) => setF((x: any) => ({ ...x, [k]: v }));
   const submit = async () => { if (!f.fullName) return; setBusy(true); try { await travelApi.addTraveler({ ...f, consentAt: f.gdprConsent ? new Date().toISOString() : undefined }); onDone(); } finally { setBusy(false); } };
-  const inp = 'w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-[#0f172a] focus:ring-2 focus:ring-[#0f172a]/20 outline-none';
+  const inp = 'input w-full';
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4" onClick={onClose}>
       <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>

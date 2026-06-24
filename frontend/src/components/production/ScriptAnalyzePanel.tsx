@@ -32,7 +32,7 @@ export default function ScriptAnalyzePanel({ revision, onClose, inline }: { revi
     <div className="flex items-center gap-2 text-xs">
       <span className="w-20 text-slate-500 shrink-0">{label}</span>
       <div className="flex-1 bg-slate-100 rounded-full h-2.5 overflow-hidden"><div className="h-full rounded-full" style={{ width: `${max ? (value / max) * 100 : 0}%`, background: color || '#0f172a' }} /></div>
-      <span className="w-8 text-right text-slate-600">{value}</span>
+      <span className="w-8 text-end text-slate-600">{value}</span>
     </div>
   );
 
@@ -92,10 +92,10 @@ export default function ScriptAnalyzePanel({ revision, onClose, inline }: { revi
                 </div>
                 <div className="max-h-64 overflow-y-auto border border-slate-100 rounded-xl">
                   <table className="w-full text-xs">
-                    <thead className="text-slate-400 text-[10px] uppercase sticky top-0 glass-bar"><tr><th className="text-left px-3 py-1.5">Character</th><th className="text-right px-3 py-1.5">Cues</th><th className="text-right px-3 py-1.5">Scenes</th></tr></thead>
+                    <thead className="text-slate-400 text-[10px] uppercase sticky top-0 glass-bar"><tr><th className="text-start px-3 py-1.5">Character</th><th className="text-end px-3 py-1.5">Cues</th><th className="text-end px-3 py-1.5">Scenes</th></tr></thead>
                     <tbody>
                       {data.characters.map((c: any) => (
-                        <tr key={c.name} className="border-t border-slate-50"><td className="px-3 py-1 text-slate-700">{c.name}</td><td className="px-3 py-1 text-right text-slate-500">{c.cues}</td><td className="px-3 py-1 text-right text-slate-500">{c.scenes}</td></tr>
+                        <tr key={c.name} className="border-t border-slate-50"><td className="px-3 py-1 text-slate-700">{c.name}</td><td className="px-3 py-1 text-end text-slate-500">{c.cues}</td><td className="px-3 py-1 text-end text-slate-500">{c.scenes}</td></tr>
                       ))}
                     </tbody>
                   </table>

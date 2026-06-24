@@ -88,9 +88,9 @@ export default function BookingDetailPage() {
               <thead>
                 <tr>
                   <th className="table-th">Asset / Description</th>
-                  <th className="table-th text-right">Days</th>
-                  <th className="table-th text-right">Rate/Day</th>
-                  <th className="table-th text-right">Line Total</th>
+                  <th className="table-th text-end">Days</th>
+                  <th className="table-th text-end">Rate/Day</th>
+                  <th className="table-th text-end">Line Total</th>
                 </tr>
               </thead>
               <tbody>
@@ -103,11 +103,11 @@ export default function BookingDetailPage() {
                       )}
                       {item.asset?.plateNumber && <div className="text-xs text-gray-400">{item.asset.plateNumber}</div>}
                     </td>
-                    <td className="table-td text-right text-sm text-gray-700">{item.days}</td>
-                    <td className="table-td text-right text-sm text-gray-700">
+                    <td className="table-td text-end text-sm text-gray-700">{item.days}</td>
+                    <td className="table-td text-end text-sm text-gray-700">
                       {formatCurrency(item.unitPrice)}
                     </td>
-                    <td className="table-td text-right text-sm font-medium text-gray-800">
+                    <td className="table-td text-end text-sm font-medium text-gray-800">
                       {formatCurrency(item.lineTotal)}
                     </td>
                   </tr>
@@ -115,24 +115,24 @@ export default function BookingDetailPage() {
               </tbody>
               <tfoot>
                 <tr className="border-t border-gray-100">
-                  <td colSpan={3} className="px-4 py-2 text-right text-sm text-gray-500">Subtotal</td>
-                  <td className="px-4 py-2 text-right text-sm font-medium">{formatCurrency(booking.subtotal)}</td>
+                  <td colSpan={3} className="px-4 py-2 text-end text-sm text-gray-500">Subtotal</td>
+                  <td className="px-4 py-2 text-end text-sm font-medium">{formatCurrency(booking.subtotal)}</td>
                 </tr>
                 {booking.discountAmount > 0 && (
                   <tr>
-                    <td colSpan={3} className="px-4 py-1 text-right text-sm text-gray-500">Discount</td>
-                    <td className="px-4 py-1 text-right text-sm text-red-600">-{formatCurrency(booking.discountAmount)}</td>
+                    <td colSpan={3} className="px-4 py-1 text-end text-sm text-gray-500">Discount</td>
+                    <td className="px-4 py-1 text-end text-sm text-red-600">-{formatCurrency(booking.discountAmount)}</td>
                   </tr>
                 )}
                 {booking.vatAmount > 0 && (
                   <tr>
-                    <td colSpan={3} className="px-4 py-1 text-right text-sm text-gray-500">VAT</td>
-                    <td className="px-4 py-1 text-right text-sm">{formatCurrency(booking.vatAmount)}</td>
+                    <td colSpan={3} className="px-4 py-1 text-end text-sm text-gray-500">VAT</td>
+                    <td className="px-4 py-1 text-end text-sm">{formatCurrency(booking.vatAmount)}</td>
                   </tr>
                 )}
                 <tr className="border-t border-gray-200 bg-gray-50">
-                  <td colSpan={3} className="px-4 py-3 text-right text-sm font-semibold text-gray-700">Total</td>
-                  <td className="px-4 py-3 text-right font-bold text-gray-900">{formatCurrency(booking.total)}</td>
+                  <td colSpan={3} className="px-4 py-3 text-end text-sm font-semibold text-gray-700">Total</td>
+                  <td className="px-4 py-3 text-end font-bold text-gray-900">{formatCurrency(booking.total)}</td>
                 </tr>
               </tfoot>
             </table>
@@ -185,7 +185,7 @@ export default function BookingDetailPage() {
                     className="flex items-center justify-between p-3 rounded-lg border border-gray-100 hover:border-brand-200 hover:bg-brand-50 transition-all">
                     <div>
                       <span className="text-sm font-medium text-gray-800">{inv.invoiceNumber}</span>
-                      <span className={cn('ml-2 badge text-xs', inv.status === 'PAID' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700')}>
+                      <span className={cn('ms-2 badge text-xs', inv.status === 'PAID' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700')}>
                         {inv.status}
                       </span>
                     </div>
@@ -208,7 +208,7 @@ export default function BookingDetailPage() {
                     className="flex items-center justify-between p-3 rounded-lg border border-gray-100 hover:border-amber-200 hover:bg-amber-50 transition-all">
                     <div>
                       <span className="text-sm font-medium text-gray-800">{dr.reportNumber}</span>
-                      <span className={cn('ml-2 badge text-xs',
+                      <span className={cn('ms-2 badge text-xs',
                         dr.severity === 'CRITICAL' ? 'bg-red-100 text-red-700' :
                         dr.severity === 'MAJOR' ? 'bg-orange-100 text-orange-700' : 'bg-yellow-100 text-yellow-700'
                       )}>{dr.severity}</span>
@@ -325,10 +325,10 @@ export default function BookingDetailPage() {
             <h3 className="text-sm font-semibold text-gray-700 mb-3">Actions</h3>
             <div className="space-y-2">
               <Link href={`/rental/contracts/new?bookingId=${id}`} className="btn btn-secondary w-full text-sm justify-center">
-                <FileText size={13} className="mr-1.5" /> Create Contract
+                <FileText size={13} className="me-1.5" /> Create Contract
               </Link>
               <Link href={`/rental/damage/new?bookingId=${id}`} className="btn btn-secondary w-full text-sm justify-center text-amber-600 hover:bg-amber-50">
-                <AlertTriangle size={13} className="mr-1.5" /> Report Damage
+                <AlertTriangle size={13} className="me-1.5" /> Report Damage
               </Link>
             </div>
           </div>

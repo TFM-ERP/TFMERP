@@ -112,11 +112,11 @@ export default function LineItemsEditor({ items, vatRates, onChange, currency = 
         <span>Asset / Service / Description</span>
         <span>Unit</span>
         <span>Unit/Duration</span>
-        <span className="text-right">Qty</span>
-        <span className="text-right">Unit Price</span>
-        <span className="text-right">Disc %</span>
+        <span className="text-end">Qty</span>
+        <span className="text-end">Unit Price</span>
+        <span className="text-end">Disc %</span>
         <span>VAT</span>
-        <span className="text-right">Line Total</span>
+        <span className="text-end">Line Total</span>
         <span />
       </div>
 
@@ -180,7 +180,7 @@ export default function LineItemsEditor({ items, vatRates, onChange, currency = 
           {/* Unit (0.5 step: 0.5, 1, 1.5, 2 …) */}
           <input
             type="number" min="0.5" step="0.5"
-            className="input text-right text-sm"
+            className="input text-end text-sm"
             value={item.quantity}
             onChange={e => update(item.id, { quantity: parseFloat(e.target.value) || 0 })}
           />
@@ -199,7 +199,7 @@ export default function LineItemsEditor({ items, vatRates, onChange, currency = 
           {/* Days — per-item rental duration */}
           <input
             type="number" min="1" step="1"
-            className="input text-right text-sm font-semibold text-brand-700"
+            className="input text-end text-sm font-semibold text-brand-700"
             title="Number of days this item is rented"
             value={item.days}
             onChange={e => update(item.id, { days: Math.max(1, parseInt(e.target.value) || 1) })}
@@ -208,7 +208,7 @@ export default function LineItemsEditor({ items, vatRates, onChange, currency = 
           {/* Unit Price */}
           <input
             type="number" min="0" step="0.01"
-            className="input text-right text-sm"
+            className="input text-end text-sm"
             value={item.unitPrice}
             onChange={e => update(item.id, { unitPrice: parseFloat(e.target.value) || 0 })}
           />
@@ -216,7 +216,7 @@ export default function LineItemsEditor({ items, vatRates, onChange, currency = 
           {/* Discount % */}
           <input
             type="number" min="0" max="100" step="0.1"
-            className="input text-right text-sm"
+            className="input text-end text-sm"
             value={item.discountPct}
             onChange={e => update(item.id, { discountPct: parseFloat(e.target.value) || 0 })}
           />
@@ -232,7 +232,7 @@ export default function LineItemsEditor({ items, vatRates, onChange, currency = 
           </select>
 
           {/* Line Total */}
-          <div className="text-right">
+          <div className="text-end">
             <p className="text-sm font-semibold text-gray-900 pt-2">
               {formatCurrency(item.lineTotal, currency)}
             </p>

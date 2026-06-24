@@ -453,9 +453,9 @@ export default function ContactsPage() {
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+          <Search className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
           <input
-            className="pl-9 pr-4 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-64"
+            className="ps-9 pe-4 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-64"
             placeholder="Search name, mobile, email…"
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}
@@ -464,7 +464,7 @@ export default function ContactsPage() {
 
         <div className="relative">
           <select
-            className="appearance-none pl-3 pr-8 py-2 border border-gray-300 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="appearance-none ps-3 pe-8 py-2 border border-gray-300 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
             value={typeFilter}
             onChange={(e) => { setTypeFilter(e.target.value); setPage(1); }}
           >
@@ -473,7 +473,7 @@ export default function ContactsPage() {
               <option key={t.value} value={t.value}>{t.label}</option>
             ))}
           </select>
-          <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+          <ChevronDown className="absolute end-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
         </div>
 
         {(search || typeFilter) && (

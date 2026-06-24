@@ -95,7 +95,7 @@ export default function AvailabilityCalendarPage() {
               {dayList.map((d, i) => {
                 const weekend = d.getDay() === 5 || d.getDay() === 6;
                 return (
-                  <div key={i} style={{ width: COL }} className={`shrink-0 text-center py-1 border-l border-gray-100 ${weekend ? 'bg-gray-100' : ''}`}>
+                  <div key={i} style={{ width: COL }} className={`shrink-0 text-center py-1 border-s border-gray-100 ${weekend ? 'bg-gray-100' : ''}`}>
                     <div className="text-[9px] text-gray-400">{d.toLocaleDateString('en-GB', { weekday: 'narrow' })}</div>
                     <div className="text-[11px] font-medium text-gray-600">{d.getDate()}</div>
                   </div>
@@ -112,7 +112,7 @@ export default function AvailabilityCalendarPage() {
                 <div className="relative flex-1" style={{ height: 38 }}>
                   {dayList.map((d, i) => {
                     const weekend = d.getDay() === 5 || d.getDay() === 6;
-                    return <div key={i} style={{ left: i * COL, width: COL }} className={`absolute top-0 bottom-0 border-l border-gray-50 ${weekend ? 'bg-gray-50/60' : ''}`} />;
+                    return <div key={i} style={{ left: i * COL, width: COL }} className={`absolute top-0 bottom-0 border-s border-gray-50 ${weekend ? 'bg-gray-50/60' : ''}`} />;
                   })}
                   {(rangesByAsset[a.id] || []).map((r: any, idx: number) => {
                     const b = barFor(r);

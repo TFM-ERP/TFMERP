@@ -128,8 +128,8 @@ export default function LaborBlockEditor({ line, currency = 'AED', onClose, onSa
         {/* Stage rows */}
         <table className="w-full text-sm">
           <thead><tr className="text-[10px] font-semibold text-gray-400 uppercase border-b border-gray-100">
-            <th className="py-1.5 text-left">Stage</th><th className="py-1.5 text-right">Qty</th><th className="py-1.5 text-left pl-3">Unit</th>
-            <th className="py-1.5 text-right">Rate ({currency})</th><th className="py-1.5 text-right">Amount</th><th></th>
+            <th className="py-1.5 text-start">Stage</th><th className="py-1.5 text-end">Qty</th><th className="py-1.5 text-start ps-3">Unit</th>
+            <th className="py-1.5 text-end">Rate ({currency})</th><th className="py-1.5 text-end">Amount</th><th></th>
           </tr></thead>
           <tbody>
             {computed.map((r, i) => (
@@ -137,24 +137,24 @@ export default function LaborBlockEditor({ line, currency = 'AED', onClose, onSa
                 <td className="py-1.5">
                   <select className="input text-xs h-7 py-0" value={r.stage} onChange={e => setRow(i, { stage: e.target.value })}>{STAGES.map(s => <option key={s} value={s}>{STAGE_LABEL[s]}</option>)}</select>
                 </td>
-                <td className="py-1.5 text-right"><input type="number" className="input text-xs h-7 py-0 w-16 text-right" value={r.qty} onChange={e => setRow(i, { qty: e.target.value })} /></td>
-                <td className="py-1.5 pl-3"><select className="input text-xs h-7 py-0" value={r.unit} onChange={e => setRow(i, { unit: e.target.value })}>{UNIT_TYPES.map(u => <option key={u}>{u}</option>)}</select></td>
-                <td className="py-1.5 text-right"><input type="number" className="input text-xs h-7 py-0 w-24 text-right" value={r.rate} onChange={e => setRow(i, { rate: e.target.value })} /></td>
-                <td className="py-1.5 text-right font-medium text-gray-800">{money(r.amount)}</td>
-                <td className="py-1.5 text-right"><button onClick={() => delRow(i)} className="text-gray-300 hover:text-red-500"><Trash2 size={13} /></button></td>
+                <td className="py-1.5 text-end"><input type="number" className="input text-xs h-7 py-0 w-16 text-end" value={r.qty} onChange={e => setRow(i, { qty: e.target.value })} /></td>
+                <td className="py-1.5 ps-3"><select className="input text-xs h-7 py-0" value={r.unit} onChange={e => setRow(i, { unit: e.target.value })}>{UNIT_TYPES.map(u => <option key={u}>{u}</option>)}</select></td>
+                <td className="py-1.5 text-end"><input type="number" className="input text-xs h-7 py-0 w-24 text-end" value={r.rate} onChange={e => setRow(i, { rate: e.target.value })} /></td>
+                <td className="py-1.5 text-end font-medium text-gray-800">{money(r.amount)}</td>
+                <td className="py-1.5 text-end"><button onClick={() => delRow(i)} className="text-gray-300 hover:text-red-500"><Trash2 size={13} /></button></td>
               </tr>
             ))}
           </tbody>
           <tfoot>
-            <tr><td colSpan={4} className="py-2 text-right font-semibold text-gray-700">Line subtotal</td><td className="py-2 text-right font-bold text-gray-900">{money(subtotal)}</td><td /></tr>
+            <tr><td colSpan={4} className="py-2 text-end font-semibold text-gray-700">Line subtotal</td><td className="py-2 text-end font-bold text-gray-900">{money(subtotal)}</td><td /></tr>
           </tfoot>
         </table>
 
         <div className="flex items-center justify-between mt-3">
-          <button onClick={addRow} className="btn btn-secondary text-xs"><Plus size={12} className="mr-1" /> Add stage</button>
+          <button onClick={addRow} className="btn btn-secondary text-xs"><Plus size={12} className="me-1" /> Add stage</button>
           <div className="flex gap-2">
             <button onClick={onClose} className="btn btn-secondary text-xs">Cancel</button>
-            <button onClick={save} disabled={busy} className="btn btn-primary text-xs"><Save size={13} className="mr-1" /> {busy ? 'Saving…' : 'Save block'}</button>
+            <button onClick={save} disabled={busy} className="btn btn-primary text-xs"><Save size={13} className="me-1" /> {busy ? 'Saving…' : 'Save block'}</button>
           </div>
         </div>
         <p className="text-[10px] text-gray-400 mt-2">Tip: a few days → use <b>Day</b> (daily rate); a week or more → use <b>Week</b> (weekly rate). The rate auto‑fills from the card; you can override it.</p>

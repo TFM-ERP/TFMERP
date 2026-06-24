@@ -48,7 +48,7 @@ export default function ProjectEmailPanel({ projectId }: { projectId: string }) 
           <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5"><Mail size={15} /> Project Email Sender</h3>
           <p className="text-xs text-gray-400">A sender unique to this project. Leave off to use {fallback}.</p>
         </div>
-        <button onClick={save} disabled={saving || loading} className="btn btn-primary text-xs py-1.5 px-3"><Save size={13} className="mr-1" /> {saving ? 'Saving…' : 'Save'}</button>
+        <button onClick={save} disabled={saving || loading} className="btn btn-primary text-xs py-1.5 px-3"><Save size={13} className="me-1" /> {saving ? 'Saving…' : 'Save'}</button>
       </div>
 
       <div className="card">
@@ -77,7 +77,7 @@ export default function ProjectEmailPanel({ projectId }: { projectId: string }) 
         <h4 className="text-xs font-semibold text-gray-600 uppercase mb-2">Send a test</h4>
         <div className="flex gap-2">
           <input className="input flex-1" value={testTo} onChange={e => setTestTo(e.target.value)} placeholder="your@email.com" />
-          <button onClick={test} className="btn btn-secondary"><Send size={14} className="mr-1" /> Send test</button>
+          <button onClick={test} className="btn btn-secondary"><Send size={14} className="me-1" /> Send test</button>
         </div>
         <p className="text-[11px] text-gray-400 mt-2">Save first. The test follows the same project → production → company order and tells you which sender was used.</p>
       </div>

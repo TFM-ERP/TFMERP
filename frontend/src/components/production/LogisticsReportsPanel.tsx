@@ -52,8 +52,8 @@ export default function LogisticsReportsPanel({ projectId }: { projectId: string
         <Card title="Accommodation by property">
           {(r.accommodation?.byProperty || []).length === 0 ? <Empty /> : (
             <table className="w-full text-sm">
-              <thead><tr className="text-[11px] text-slate-400"><th className="text-left font-medium py-1">Property</th><th className="text-right font-medium">People</th><th className="text-right font-medium">Cost</th></tr></thead>
-              <tbody>{r.accommodation.byProperty.map((p: any, i: number) => <tr key={i} className="border-t border-slate-100"><td className="py-1.5 text-slate-700">{p.name}</td><td className="text-right text-slate-600">{p.people}</td><td className="text-right text-slate-600">{money(p.cost)}</td></tr>)}</tbody>
+              <thead><tr className="text-[11px] text-slate-400"><th className="text-start font-medium py-1">Property</th><th className="text-end font-medium">People</th><th className="text-end font-medium">Cost</th></tr></thead>
+              <tbody>{r.accommodation.byProperty.map((p: any, i: number) => <tr key={i} className="border-t border-slate-100"><td className="py-1.5 text-slate-700">{p.name}</td><td className="text-end text-slate-600">{p.people}</td><td className="text-end text-slate-600">{money(p.cost)}</td></tr>)}</tbody>
             </table>
           )}
         </Card>
@@ -83,7 +83,7 @@ export default function LogisticsReportsPanel({ projectId }: { projectId: string
 }
 
 function Mini({ icon, label, a, b }: any) {
-  return <div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5"><div className="flex items-center gap-1.5 text-[11px] text-slate-400">{icon}{label}</div><div className="text-lg font-semibold text-slate-900">{a}{b && <span className="text-[11px] font-normal text-slate-400 ml-1.5">{b}</span>}</div></div>;
+  return <div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5"><div className="flex items-center gap-1.5 text-[11px] text-slate-400">{icon}{label}</div><div className="text-lg font-semibold text-slate-900">{a}{b && <span className="text-[11px] font-normal text-slate-400 ms-1.5">{b}</span>}</div></div>;
 }
 function Card({ title, children }: any) { return <div className="rounded-2xl border border-slate-200 bg-white p-4"><p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-2">{title}</p>{children}</div>; }
 function Empty() { return <p className="text-xs text-slate-400 py-3">No data yet.</p>; }

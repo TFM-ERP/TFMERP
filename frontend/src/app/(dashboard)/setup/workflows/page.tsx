@@ -52,7 +52,7 @@ export default function WorkflowsAdminPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <button onClick={newDef} className="btn btn-secondary text-xs"><Plus size={14} className="mr-1" /> New</button>
+          <button onClick={newDef} className="btn btn-secondary text-xs"><Plus size={14} className="me-1" /> New</button>
           <button onClick={load} className="btn btn-secondary p-2"><RefreshCw size={14} className={loading ? 'animate-spin' : ''} /></button>
         </div>
       </div>
@@ -63,7 +63,7 @@ export default function WorkflowsAdminPage() {
           {loading ? <div className="p-8 text-center text-gray-400 text-sm">Loading…</div> : defs.length === 0 ? (
             <div className="p-8 text-center text-gray-400 text-sm">No workflows yet.</div>
           ) : defs.map((d: any) => (
-            <button key={d.id} onClick={() => pick(d)} className={cn('w-full flex items-center justify-between px-4 py-3 border-b border-gray-50 text-left hover:bg-gray-50', sel?.key === d.key && 'bg-brand-50')}>
+            <button key={d.id} onClick={() => pick(d)} className={cn('w-full flex items-center justify-between px-4 py-3 border-b border-gray-50 text-start hover:bg-gray-50', sel?.key === d.key && 'bg-brand-50')}>
               <div>
                 <div className="text-sm font-medium text-gray-800">{d.name}</div>
                 <div className="text-[11px] text-gray-400">{d.entityType.replace(/_/g, ' ')} · {(d.nodes || []).length} steps{d.isActive ? '' : ' · inactive'}</div>
@@ -99,7 +99,7 @@ export default function WorkflowsAdminPage() {
                       <button onClick={() => move(i, 1)} disabled={i === sel.nodes.length - 1} className="text-gray-300 hover:text-gray-600 disabled:opacity-30"><ArrowDown size={14} /></button>
                       <button onClick={() => delNode(i)} className="text-gray-300 hover:text-red-500"><Trash2 size={13} /></button>
                     </div>
-                    <div className="grid grid-cols-2 gap-2 pl-7">
+                    <div className="grid grid-cols-2 gap-2 ps-7">
                       <div><label className="text-[10px] text-gray-400">Project role (template)</label>
                         <select className="input text-xs h-8 w-full" value={n.approverTemplateKey || ''} onChange={e => setNode(i, { approverTemplateKey: e.target.value || null })}>
                           <option value="">— any —</option>{templates.map((t: any) => <option key={t.key} value={t.key}>{t.name}</option>)}
@@ -118,7 +118,7 @@ export default function WorkflowsAdminPage() {
             </div>
 
             <div className="flex justify-end">
-              <button onClick={save} disabled={saving} className="btn btn-primary text-xs"><Save size={13} className="mr-1" /> {saving ? 'Saving…' : 'Save workflow'}</button>
+              <button onClick={save} disabled={saving} className="btn btn-primary text-xs"><Save size={13} className="me-1" /> {saving ? 'Saving…' : 'Save workflow'}</button>
             </div>
           </div>
         ) : (

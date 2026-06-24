@@ -262,7 +262,7 @@ export default function SupplierSelect({
               <span className="flex-1 truncate text-gray-800">
                 {selected.name}
                 {selected.supplierCode && (
-                  <span className="ml-1.5 text-xs text-gray-400">{selected.supplierCode}</span>
+                  <span className="ms-1.5 text-xs text-gray-400">{selected.supplierCode}</span>
                 )}
               </span>
               {!disabled && (
@@ -282,14 +282,14 @@ export default function SupplierSelect({
 
         {/* Dropdown */}
         {open && (
-          <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">
+          <div className="absolute z-50 top-full start-0 end-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">
             {/* Search input */}
             <div className="p-2 border-b">
               <div className="relative">
-                <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Search size={13} className="absolute start-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   ref={inputRef}
-                  className="input w-full pl-8 py-1.5 text-sm"
+                  className="input w-full ps-8 py-1.5 text-sm"
                   placeholder="Type to search…"
                   value={query}
                   onChange={e => setQuery(e.target.value)}
@@ -314,8 +314,8 @@ export default function SupplierSelect({
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-800 truncate">{s.name}</p>
                     <p className="text-xs text-gray-400 truncate">
-                      {s.supplierCode && <span className="mr-2">{s.supplierCode}</span>}
-                      {s.category && <span className="mr-2">{s.category}</span>}
+                      {s.supplierCode && <span className="me-2">{s.supplierCode}</span>}
+                      {s.category && <span className="me-2">{s.category}</span>}
                       {s.trn && <span className="font-mono">TRN: {s.trn}</span>}
                     </p>
                   </div>

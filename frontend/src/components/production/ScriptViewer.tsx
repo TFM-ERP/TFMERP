@@ -103,11 +103,11 @@ export default function ScriptViewer({ pdfUrl, pdfData, scenes = [], page, onPag
 
   if (error === 'NOT_INSTALLED') return (
     <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-800">
-      <AlertTriangle size={18} className="inline mr-1.5" /> The PDF renderer isn’t installed yet. Run
+      <AlertTriangle size={18} className="inline me-1.5" /> The PDF renderer isn’t installed yet. Run
       <code className="mx-1 px-1.5 py-0.5 rounded bg-white border">npm i pdfjs-dist@^4</code> in <b>frontend/</b>, then reload.
     </div>
   );
-  if (error) return <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700"><AlertTriangle size={16} className="inline mr-1.5" /> {error}</div>;
+  if (error) return <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700"><AlertTriangle size={16} className="inline me-1.5" /> {error}</div>;
 
   return (
     <div className="flex gap-3 font-sans">
@@ -124,7 +124,7 @@ export default function ScriptViewer({ pdfUrl, pdfData, scenes = [], page, onPag
               const isolated = sceneOnly && sceneOnly.start === s.pageStart && sceneOnly.end === s.pageEnd;
               return (
                 <button key={s.id} onClick={() => pickScene(s)} title={isolated ? 'Click to show the whole script again' : 'Show only this scene'}
-                  className={`block w-full text-left px-2 py-1.5 rounded-lg text-xs mb-0.5 ${isolated ? 'bg-amber-100 font-medium text-amber-900 ring-1 ring-amber-300' : cur >= s.pageStart && cur <= s.pageEnd ? 'bg-slate-100 font-medium text-slate-900' : 'text-slate-600 hover:bg-slate-50'}`}>
+                  className={`block w-full text-start px-2 py-1.5 rounded-lg text-xs mb-0.5 ${isolated ? 'bg-amber-100 font-medium text-amber-900 ring-1 ring-amber-300' : cur >= s.pageStart && cur <= s.pageEnd ? 'bg-slate-100 font-medium text-slate-900' : 'text-slate-600 hover:bg-slate-50'}`}>
                   <span className="text-slate-400">{s.sceneNumber || '•'}</span> {s.slugline || '—'}
                   <span className="block text-[10px] text-slate-400">p.{s.pageStart}{s.pageEnd > s.pageStart ? `–${s.pageEnd}` : ''}{isolated ? ' · isolated' : ''}</span>
                 </button>
@@ -148,7 +148,7 @@ export default function ScriptViewer({ pdfUrl, pdfData, scenes = [], page, onPag
             <span className="text-xs text-slate-500 px-1">Page {cur} / {numPages || '…'}</span>
             <button onClick={() => go(cur + 1)} disabled={cur >= hi} className="p-1.5 rounded-lg border border-slate-200 disabled:opacity-40 hover:border-slate-900"><ChevronRight size={15} /></button>
             {sceneOnly && (
-              <span className="inline-flex items-center gap-1.5 ml-1 text-[11px] px-2 py-1 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
+              <span className="inline-flex items-center gap-1.5 ms-1 text-[11px] px-2 py-1 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
                 Scene {sceneOnly.num || ''} only · p.{sceneOnly.start}{sceneOnly.end > sceneOnly.start ? `–${sceneOnly.end}` : ''}
                 <button onClick={() => setSceneOnly(null)} className="underline hover:no-underline">show all</button>
               </span>

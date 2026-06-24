@@ -144,7 +144,7 @@ export default function ProjectLaborPanel({ projectId, projectType }: { projectI
           </div>
         </div>
         <button onClick={aiUpdateAll} disabled={busy} className="btn btn-secondary text-xs shrink-0" title="AI-update all union/guild/statutory rates + incentives (incl. Abu Dhabi) from official sources → Rate Approvals">
-          <Sparkles size={13} className={cn('mr-1', busy && 'animate-pulse')} /> AI update rates
+          <Sparkles size={13} className={cn('me-1', busy && 'animate-pulse')} /> AI update rates
         </button>
       </div>
 
@@ -205,9 +205,9 @@ export default function ProjectLaborPanel({ projectId, projectType }: { projectI
         </div>
 
         <div className="flex gap-2 pt-1">
-          <button onClick={saveDraft} disabled={busy} className="btn btn-secondary text-xs"><Save size={13} className="mr-1" /> Save draft</button>
-          <button onClick={doPreview} disabled={busy || !config.laborBodyIds.length} className="btn btn-secondary text-xs"><RefreshCw size={13} className={cn('mr-1', busy && 'animate-spin')} /> Preview rates</button>
-          <button onClick={freeze} disabled={busy} className="btn btn-primary text-xs"><Snowflake size={13} className="mr-1" /> Freeze snapshot</button>
+          <button onClick={saveDraft} disabled={busy} className="btn btn-secondary text-xs"><Save size={13} className="me-1" /> Save draft</button>
+          <button onClick={doPreview} disabled={busy || !config.laborBodyIds.length} className="btn btn-secondary text-xs"><RefreshCw size={13} className={cn('me-1', busy && 'animate-spin')} /> Preview rates</button>
+          <button onClick={freeze} disabled={busy} className="btn btn-primary text-xs"><Snowflake size={13} className="me-1" /> Freeze snapshot</button>
         </div>
       </div>
 
@@ -229,12 +229,12 @@ export default function ProjectLaborPanel({ projectId, projectType }: { projectI
                       </td>
                       <td className="py-1.5">
                         <span className="text-gray-800">{r.label}</span>
-                        {r.classificationCode && <span className="ml-2 text-[10px] bg-gray-100 text-gray-500 rounded px-1">{r.classificationCode}</span>}
-                        {r.isEstimate && <span className="ml-2 text-[10px] bg-amber-100 text-amber-700 rounded px-1">estimate</span>}
+                        {r.classificationCode && <span className="ms-2 text-[10px] bg-gray-100 text-gray-500 rounded px-1">{r.classificationCode}</span>}
+                        {r.isEstimate && <span className="ms-2 text-[10px] bg-amber-100 text-amber-700 rounded px-1">estimate</span>}
                       </td>
                       <td className="py-1.5 text-xs text-gray-500">{RATE_TYPE_LABEL[r.rateType] || r.rateType}</td>
                       <td className="py-1.5 text-xs text-gray-600">{r.humanText}</td>
-                      <td className="py-1.5 text-right">
+                      <td className="py-1.5 text-end">
                         {r.sourceUrl && <a href={r.sourceUrl} target="_blank" rel="noreferrer" className="text-brand-600 inline-flex items-center gap-0.5 text-[11px]" title={r.sourceTitle}><ExternalLink size={11} /></a>}
                       </td>
                     </tr>
@@ -255,7 +255,7 @@ export default function ProjectLaborPanel({ projectId, projectType }: { projectI
           </h4>
           {updatesAvailable > 0 && (
             <button onClick={applyUpdates} disabled={busy} className="btn btn-secondary text-xs text-amber-700 border-amber-300">
-              <AlertTriangle size={12} className="mr-1" /> {updatesAvailable} rate update(s) available
+              <AlertTriangle size={12} className="me-1" /> {updatesAvailable} rate update(s) available
             </button>
           )}
         </div>
@@ -265,12 +265,12 @@ export default function ProjectLaborPanel({ projectId, projectType }: { projectI
           <table className="w-full text-sm">
             <thead>
               <tr className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-100">
-                <th className="py-2 text-left">On</th>
-                <th className="py-2 text-left">Body</th>
-                <th className="py-2 text-left">Burden</th>
-                <th className="py-2 text-left">Class</th>
-                <th className="py-2 text-left">Basis</th>
-                <th className="py-2 text-left">Source</th>
+                <th className="py-2 text-start">On</th>
+                <th className="py-2 text-start">Body</th>
+                <th className="py-2 text-start">Burden</th>
+                <th className="py-2 text-start">Class</th>
+                <th className="py-2 text-start">Basis</th>
+                <th className="py-2 text-start">Source</th>
               </tr>
             </thead>
             <tbody>
@@ -279,7 +279,7 @@ export default function ProjectLaborPanel({ projectId, projectType }: { projectI
                   <td className="py-1.5"><input type="checkbox" checked={r.enabled} onChange={(e) => toggleFrozen(r.id, e.target.checked)} /></td>
                   <td className="py-1.5 text-xs text-gray-500">{r.laborBodyName}</td>
                   <td className="py-1.5 text-gray-800">{r.label}
-                    {r.isEstimate && <span className="ml-2 text-[10px] bg-amber-100 text-amber-700 rounded px-1">est</span>}</td>
+                    {r.isEstimate && <span className="ms-2 text-[10px] bg-amber-100 text-amber-700 rounded px-1">est</span>}</td>
                   <td className="py-1.5 text-xs text-gray-500">{r.classificationCode || '— all —'}</td>
                   <td className="py-1.5 text-xs text-gray-600">
                     {r.calcMethod === 'PERCENT' || r.calcMethod === 'PERCENT_WITH_CAP'

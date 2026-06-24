@@ -63,7 +63,7 @@ export default function StatusTimeline({ module, recordId, className = '' }: Pro
   return (
     <div className={`relative ${className}`}>
       {/* Vertical line */}
-      <div className="absolute left-3 top-4 bottom-4 w-px bg-gray-200" />
+      <div className="absolute start-3 top-4 bottom-4 w-px bg-gray-200" />
 
       <div className="space-y-5">
         {history.map((entry, idx) => {

@@ -147,7 +147,7 @@ export default function CrewAssignmentsPanel({ projectId, currency = 'AED' }: { 
             <div><label className="label text-xs">Start</label><input type="date" className={inputCls} value={form.startDate} onChange={e => setForm((f: any) => ({ ...f, startDate: e.target.value }))} /></div>
             <div><label className="label text-xs">End</label><input type="date" className={inputCls} value={form.endDate} onChange={e => setForm((f: any) => ({ ...f, endDate: e.target.value }))} /></div>
             <div><label className="label text-xs">Location</label><input className={inputCls} value={form.location} onChange={e => setForm((f: any) => ({ ...f, location: e.target.value }))} placeholder="Dubai / Abu Dhabi" /></div>
-            <div><label className="label text-xs">Daily rate ({currency}){form.crewMemberId && <span className="text-[9px] text-brand-500 ml-1">from directory</span>}</label><input type="number" className={inputCls} value={form.dailyRate} onChange={e => setForm((f: any) => ({ ...f, dailyRate: e.target.value }))} /></div>
+            <div><label className="label text-xs">Daily rate ({currency}){form.crewMemberId && <span className="text-[9px] text-brand-500 ms-1">from directory</span>}</label><input type="number" className={inputCls} value={form.dailyRate} onChange={e => setForm((f: any) => ({ ...f, dailyRate: e.target.value }))} /></div>
             <div><label className="label text-xs">Weekly rate ({currency})</label><input type="number" className={inputCls} value={form.weeklyRate} onChange={e => setForm((f: any) => ({ ...f, weeklyRate: e.target.value }))} /></div>
             <div><label className="label text-xs">Days</label><input type="number" className={inputCls} value={form.totalDays} onChange={e => setForm((f: any) => ({ ...f, totalDays: e.target.value }))} /></div>
           </div>
@@ -184,10 +184,10 @@ export default function CrewAssignmentsPanel({ projectId, currency = 'AED' }: { 
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead><tr className="text-[11px] text-slate-400 uppercase tracking-wide border-b border-slate-200">
-                  <th className="px-4 py-2.5 text-left">Crew</th><th className="px-3 py-2.5 text-left">Role</th>
-                  <th className="px-3 py-2.5 text-left">Dates</th><th className="px-3 py-2.5 text-left">Location</th>
-                  <th className="px-3 py-2.5 text-right">Rate</th><th className="px-3 py-2.5 text-left">Cost</th><th className="px-3 py-2.5 text-left">Deal memo</th>
-                  <th className="px-3 py-2.5 text-left">NDA</th><th className="px-3 py-2.5 text-right"></th>
+                  <th className="px-4 py-2.5 text-start">Crew</th><th className="px-3 py-2.5 text-start">Role</th>
+                  <th className="px-3 py-2.5 text-start">Dates</th><th className="px-3 py-2.5 text-start">Location</th>
+                  <th className="px-3 py-2.5 text-end">Rate</th><th className="px-3 py-2.5 text-start">Cost</th><th className="px-3 py-2.5 text-start">Deal memo</th>
+                  <th className="px-3 py-2.5 text-start">NDA</th><th className="px-3 py-2.5 text-end"></th>
                 </tr></thead>
                 <tbody>
                   {rows.map(r => (
@@ -207,7 +207,7 @@ export default function CrewAssignmentsPanel({ projectId, currency = 'AED' }: { 
                       <td className="px-3 py-2.5 text-gray-500 text-xs">
                         {r.startDate ? formatDate(r.startDate) : '—'}{r.endDate ? ` → ${formatDate(r.endDate)}` : ''}
                         {r.lifecycleState && r.lifecycleState !== 'UNDATED' && (
-                          <span className={cn('ml-1.5 text-[9px] font-semibold px-1.5 py-0.5 rounded-full',
+                          <span className={cn('ms-1.5 text-[9px] font-semibold px-1.5 py-0.5 rounded-full',
                             r.lifecycleState === 'ACTIVE' ? 'bg-emerald-100 text-emerald-700'
                             : r.lifecycleState === 'PRE_SHOOT' ? 'bg-amber-100 text-amber-700'
                             : 'bg-slate-100 text-slate-600')}>
@@ -216,7 +216,7 @@ export default function CrewAssignmentsPanel({ projectId, currency = 'AED' }: { 
                         )}
                       </td>
                       <td className="px-3 py-2.5 text-gray-500 text-xs">{r.location || '—'}</td>
-                      <td className="px-3 py-2.5 text-right text-gray-700">
+                      <td className="px-3 py-2.5 text-end text-gray-700">
                         {r.dailyRate ? `${money(r.dailyRate)}/day` : r.weeklyRate ? `${money(r.weeklyRate)}/wk` : '—'}
                         {r.dailyRate && r.totalDays ? <div className="text-[10px] text-gray-400">×{r.totalDays} = {money(Number(r.dailyRate) * r.totalDays)}</div> : null}
                       </td>
@@ -241,9 +241,9 @@ export default function CrewAssignmentsPanel({ projectId, currency = 'AED' }: { 
                           {Object.keys(NDA_META).map(k => <option key={k} value={k}>{NDA_META[k].label}</option>)}
                         </select>
                       </td>
-                      <td className="px-3 py-2.5 text-right whitespace-nowrap">
-                        <button onClick={() => window.open(`/print/dealmemo/${r.id}`, '_blank')} title="Deal memo PDF" className="text-gray-400 hover:text-brand-600 mr-2"><FileText size={14} /></button>
-                        <button onClick={() => emailMemo(r)} title="Email deal memo" className="text-gray-400 hover:text-brand-600 mr-2"><Mail size={14} /></button>
+                      <td className="px-3 py-2.5 text-end whitespace-nowrap">
+                        <button onClick={() => window.open(`/print/dealmemo/${r.id}`, '_blank')} title="Deal memo PDF" className="text-gray-400 hover:text-brand-600 me-2"><FileText size={14} /></button>
+                        <button onClick={() => emailMemo(r)} title="Email deal memo" className="text-gray-400 hover:text-brand-600 me-2"><Mail size={14} /></button>
                         <button onClick={() => remove(r.id)} className="text-gray-300 hover:text-red-500"><Trash2 size={13} /></button>
                       </td>
                     </tr>

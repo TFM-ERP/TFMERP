@@ -189,7 +189,7 @@ function VendorWizardModal({ onClose, onCreated }: {
                     ? 'border-green-400 text-green-700'
                     : 'border-transparent text-gray-400 hover:text-gray-600'
               )}>
-              {i < tabIdx ? <Check size={10} className="inline mr-1" /> : null}
+              {i < tabIdx ? <Check size={10} className="inline me-1" /> : null}
               {t.label}
             </button>
           ))}
@@ -525,8 +525,8 @@ export default function VendorsPage() {
       {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-5">
         <div className="relative flex-1 min-w-48">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input className="input pl-9 w-full" placeholder="Search name, contact, email…"
+          <Search size={14} className="absolute start-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input className="input ps-9 w-full" placeholder="Search name, contact, email…"
             value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
         </div>
         <select className="input w-52" value={typeFilter}
@@ -551,7 +551,7 @@ export default function VendorsPage() {
           <Link key={vendor.id} href={`/maintenance/vendors/${vendor.id}`}
             className="card hover:shadow-md hover:border-brand-200 transition-all cursor-pointer block group">
             <div className="flex items-start justify-between mb-3">
-              <div className="flex-1 min-w-0 mr-2">
+              <div className="flex-1 min-w-0 me-2">
                 <h3 className="font-semibold text-gray-900 text-sm leading-tight group-hover:text-brand-700 transition-colors line-clamp-2">
                   {vendor.name}
                 </h3>

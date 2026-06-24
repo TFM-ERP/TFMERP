@@ -95,8 +95,8 @@ export default function BankReconciliationPage() {
         <div className="card overflow-hidden p-0">
           <table className="w-full text-sm">
             <thead><tr className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-100">
-              <th className="px-4 py-2.5 text-center w-12">Clear</th><th className="px-3 py-2.5 text-left">Date</th>
-              <th className="px-3 py-2.5 text-left">Entry</th><th className="px-3 py-2.5 text-left">Memo</th><th className="px-3 py-2.5 text-right">Amount</th>
+              <th className="px-4 py-2.5 text-center w-12">Clear</th><th className="px-3 py-2.5 text-start">Date</th>
+              <th className="px-3 py-2.5 text-start">Entry</th><th className="px-3 py-2.5 text-start">Memo</th><th className="px-3 py-2.5 text-end">Amount</th>
             </tr></thead>
             <tbody>
               {ws.lines.length === 0 ? <tr><td colSpan={5} className="p-8 text-center text-gray-400 text-sm">No posted transactions on this account.</td></tr> :
@@ -106,7 +106,7 @@ export default function BankReconciliationPage() {
                     <td className="px-3 py-2.5 text-gray-500">{formatDate(l.date)}</td>
                     <td className="px-3 py-2.5 font-mono text-gray-500">{l.entryNumber}</td>
                     <td className="px-3 py-2.5 text-gray-700">{l.memo || '—'}</td>
-                    <td className={cn('px-3 py-2.5 text-right font-medium', l.amount < 0 ? 'text-red-600' : 'text-gray-800')}>{formatCurrency(l.amount)}</td>
+                    <td className={cn('px-3 py-2.5 text-end font-medium', l.amount < 0 ? 'text-red-600' : 'text-gray-800')}>{formatCurrency(l.amount)}</td>
                   </tr>
                 ))}
             </tbody>
@@ -157,17 +157,17 @@ export default function BankReconciliationPage() {
           banks.length === 0 ? <div className="p-10 text-center text-gray-400 text-sm">No bank accounts yet. Add one to start reconciling.</div> : (
             <table className="w-full text-sm">
               <thead><tr className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-100">
-                <th className="px-5 py-2.5 text-left">Account</th><th className="px-3 py-2.5 text-left">GL</th>
-                <th className="px-3 py-2.5 text-right">Ledger balance</th><th className="px-3 py-2.5 text-center">Uncleared</th><th className="px-3 py-2.5 text-right"></th>
+                <th className="px-5 py-2.5 text-start">Account</th><th className="px-3 py-2.5 text-start">GL</th>
+                <th className="px-3 py-2.5 text-end">Ledger balance</th><th className="px-3 py-2.5 text-center">Uncleared</th><th className="px-3 py-2.5 text-end"></th>
               </tr></thead>
               <tbody>
                 {banks.map(b => (
                   <tr key={b.id} className="border-b border-gray-50 hover:bg-gray-50/60">
                     <td className="px-5 py-3"><div className="font-medium text-gray-800">{b.name}</div><div className="text-xs text-gray-400">{b.bankName} {b.accountNumber}</div></td>
                     <td className="px-3 py-3 text-gray-500 font-mono text-xs">{b.glAccount?.code}</td>
-                    <td className="px-3 py-3 text-right font-medium text-gray-800">{formatCurrency(b.glBalance)}</td>
+                    <td className="px-3 py-3 text-end font-medium text-gray-800">{formatCurrency(b.glBalance)}</td>
                     <td className="px-3 py-3 text-center">{b.unclearedCount > 0 ? <span className="badge bg-amber-50 text-amber-700 text-xs">{b.unclearedCount}</span> : <span className="text-gray-300">0</span>}</td>
-                    <td className="px-3 py-3 text-right"><button onClick={() => openWorkspace(b)} className="btn btn-secondary text-xs py-1 px-3">Reconcile</button></td>
+                    <td className="px-3 py-3 text-end"><button onClick={() => openWorkspace(b)} className="btn btn-secondary text-xs py-1 px-3">Reconcile</button></td>
                   </tr>
                 ))}
               </tbody>

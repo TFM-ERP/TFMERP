@@ -58,10 +58,10 @@ export default function FringeDetailPanel({ versionId, currency }: { versionId?:
           </div>
         </div>
         <div className="flex gap-2">
-          <button onClick={apply} disabled={busy} className="btn btn-primary text-xs"><Play size={12} className="mr-1" /> {busy ? 'Applying…' : 'Apply fringes'}</button>
-          <button onClick={postBurden} disabled={busy} className="btn btn-secondary text-xs"><BookOpen size={12} className="mr-1" /> Post burden to GL</button>
-          <button onClick={() => versionId && window.open(`/print/fringe/${versionId}`, '_blank')} className="btn btn-secondary text-xs"><Printer size={12} className="mr-1" /> Print / PDF</button>
-          <button onClick={load} className="btn btn-secondary text-xs"><RefreshCw size={12} className={cn('mr-1', loading && 'animate-spin')} /> Refresh</button>
+          <button onClick={apply} disabled={busy} className="btn btn-primary text-xs"><Play size={12} className="me-1" /> {busy ? 'Applying…' : 'Apply fringes'}</button>
+          <button onClick={postBurden} disabled={busy} className="btn btn-secondary text-xs"><BookOpen size={12} className="me-1" /> Post burden to GL</button>
+          <button onClick={() => versionId && window.open(`/print/fringe/${versionId}`, '_blank')} className="btn btn-secondary text-xs"><Printer size={12} className="me-1" /> Print / PDF</button>
+          <button onClick={load} className="btn btn-secondary text-xs"><RefreshCw size={12} className={cn('me-1', loading && 'animate-spin')} /> Refresh</button>
         </div>
       </div>
 
@@ -96,10 +96,10 @@ export default function FringeDetailPanel({ versionId, currency }: { versionId?:
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-100">
-                  <th className="px-4 py-2.5 text-left">Cost Center</th>
-                  <th className="px-3 py-2.5 text-right">Wages</th>
-                  <th className="px-3 py-2.5 text-right">Burden</th>
-                  <th className="px-3 py-2.5 text-right">Burden %</th>
+                  <th className="px-4 py-2.5 text-start">Cost Center</th>
+                  <th className="px-3 py-2.5 text-end">Wages</th>
+                  <th className="px-3 py-2.5 text-end">Burden</th>
+                  <th className="px-3 py-2.5 text-end">Burden %</th>
                 </tr>
               </thead>
               <tbody>
@@ -108,32 +108,32 @@ export default function FringeDetailPanel({ versionId, currency }: { versionId?:
                     <tr className="bg-gray-50">
                       <td className="px-4 py-2 font-semibold text-gray-800">{s.code} — {s.title}</td>
                       <td className="px-3 py-2"></td>
-                      <td className="px-3 py-2 text-right font-semibold text-gray-800">{money(s.fringeTotal)}</td>
+                      <td className="px-3 py-2 text-end font-semibold text-gray-800">{money(s.fringeTotal)}</td>
                       <td className="px-3 py-2"></td>
                     </tr>
                     {s.accounts.map((a: any) => (
                       <tr key={a.code} className="border-b border-gray-50">
-                        <td className="px-4 py-2 pl-8 text-gray-600 text-xs">
+                        <td className="px-4 py-2 ps-8 text-gray-600 text-xs">
                           {a.code} · {a.title}
-                          {a.anyEstimate && <span className="ml-2 text-[10px] bg-amber-100 text-amber-700 rounded px-1">est</span>}
+                          {a.anyEstimate && <span className="ms-2 text-[10px] bg-amber-100 text-amber-700 rounded px-1">est</span>}
                           {Object.keys(a.burden || {}).length > 0 && (
-                            <span className="ml-2 text-[10px] text-gray-400">
+                            <span className="ms-2 text-[10px] text-gray-400">
                               {Object.entries(a.burden).map(([k, v]: any) => `${RATE_TYPE_LABEL[k] || k} ${money(v)}`).join(' · ')}
                             </span>
                           )}
                         </td>
-                        <td className="px-3 py-2 text-right text-gray-600">{money(a.wages)}</td>
-                        <td className="px-3 py-2 text-right text-gray-700">{a.fringeTotal ? money(a.fringeTotal) : '—'}</td>
-                        <td className="px-3 py-2 text-right text-gray-500">{a.burdenPct ? `${a.burdenPct}%` : '—'}</td>
+                        <td className="px-3 py-2 text-end text-gray-600">{money(a.wages)}</td>
+                        <td className="px-3 py-2 text-end text-gray-700">{a.fringeTotal ? money(a.fringeTotal) : '—'}</td>
+                        <td className="px-3 py-2 text-end text-gray-500">{a.burdenPct ? `${a.burdenPct}%` : '—'}</td>
                       </tr>
                     ))}
                   </Fragment>
                 ))}
                 <tr className="bg-gray-50 border-t-2 border-gray-200">
                   <td className="px-4 py-3 font-bold text-gray-900">TOTAL</td>
-                  <td className="px-3 py-3 text-right font-bold text-gray-900">{money(data.grandWages)}</td>
-                  <td className="px-3 py-3 text-right font-bold text-gray-900">{money(data.grandFringe)}</td>
-                  <td className="px-3 py-3 text-right font-bold text-gray-900">{data.grandBurdenPct}%</td>
+                  <td className="px-3 py-3 text-end font-bold text-gray-900">{money(data.grandWages)}</td>
+                  <td className="px-3 py-3 text-end font-bold text-gray-900">{money(data.grandFringe)}</td>
+                  <td className="px-3 py-3 text-end font-bold text-gray-900">{data.grandBurdenPct}%</td>
                 </tr>
               </tbody>
             </table>

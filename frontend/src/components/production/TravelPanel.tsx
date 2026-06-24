@@ -53,7 +53,7 @@ export default function TravelPanel({ projectId }: { projectId: string }) {
                     </div>
                     <p className="text-xs text-slate-500 mt-1">{t.traveler?.fullName}{t.traveler?.nationality ? ` · ${t.traveler.nationality}` : ''}{t.departDate ? ` · ${new Date(t.departDate).toLocaleDateString()}` : ''}{t.purpose ? ` · ${t.purpose}` : ''}</p>
                   </div>
-                  <div className="text-right shrink-0">
+                  <div className="text-end shrink-0">
                     <div className="text-sm font-semibold text-slate-800">{money(t.estimatedCost, t.currency)}</div>
                     {t.status === 'REQUESTED' && <button onClick={async () => { await travelApi.approve(t.id); load(); }} className="mt-1 text-xs text-emerald-700 hover:underline">Approve →</button>}
                   </div>

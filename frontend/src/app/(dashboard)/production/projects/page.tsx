@@ -173,6 +173,9 @@ export default function ProductionProjectsPage() {
   const scriptRef = useRef<HTMLInputElement>(null);
   const [scriptFile, setScriptFile] = useState<File | null>(null);
   const [scriptMode, setScriptMode] = useState<'full' | 'import'>('full');
+  // Promote-from-ScripON: opened with ?promoteBuild=<id> — the developed script binds as the WHITE draft
+  const [promoteBuildId, setPromoteBuildId] = useState('');
+  const [promoteTitle, setPromoteTitle] = useState('');
   // Optional Movie Magic import on create
   const [mmbFile, setMmbFile] = useState<File | null>(null);
   const [mmsFile, setMmsFile] = useState<File | null>(null);
@@ -200,6 +203,15 @@ export default function ProductionProjectsPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Promote-from-Library deep-link: open the wizard with the developed script bound as the WHITE draft.
+  useEffect(() => {
+    try {
+      const sp = new URLSearchParams(window.location.search);
+      const pb = sp.get('promoteBuild') || '';
+      if (pb) { setPromoteBuildId(pb); const t = sp.get('scriptTitle') || ''; setPromoteTitle(t); setShowForm(true); if (t) setForm(f => ({ ...f, title: t, projectType: 'FEATURE' })); }
+    } catch { /* */ }
+  }, []);
+
   useEffect(() => {
     import('@/lib/api').then(m => {
       m.clientsApi.list().then(r => setClients(r.data.items || r.data || [])).catch(() => {});
@@ -217,6 +229,7 @@ export default function ProductionProjectsPage() {
     setShowForm(false); setProgress('');
     setForm({ title: '', clientId: '', projectType: 'TVC', currency: 'AED', startDate: '', endDate: '', description: '' });
     setScriptFile(null); setMmbFile(null); setMmsFile(null); setIncludeDistribution(false);
+    setPromoteBuildId(''); setPromoteTitle('');
   };
 
   const handleSave = async () => {
@@ -233,6 +246,17 @@ export default function ProductionProjectsPage() {
         productionCountryId: countryId || undefined,
       });
       const created = res.data;
+
+      // Promote-from-ScripON: snapshot the developed build into this new project as the WHITE draft
+      if (promoteBuildId && created?.id) {
+        try {
+          setProgress('Attaching the developed script…');
+          await productionApi.scripton.development.promoteFromBuild(promoteBuildId, { target: 'existing', projectId: created.id });
+        } catch (pe: any) { alert('Project created, but attaching the developed script failed: ' + (pe.response?.data?.message || 'error') + '. You can promote again from the ScripON Library.'); }
+        resetForm();
+        router.push(`/production/projects/${created.id}`);
+        return;
+      }
 
       // optional: import a Movie Magic budget/schedule, then jump into the project
       if ((mmbFile || mmsFile) && created?.id) {
@@ -282,7 +306,7 @@ export default function ProductionProjectsPage() {
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6 max-w-[1580px] mx-auto">
       {/* ── Marquee header — theme-aware: Charcoal Black panel in dark, Graphite paper in light ── */}
       <div className="relative rounded-[20px] overflow-hidden mb-6" style={{ background: MQ.panel, border: `1px solid ${MQ.border}`, color: MQ.title }}>
         <div aria-hidden className="absolute pointer-events-none" style={{ right: -60, top: -80, width: 300, height: 300, borderRadius: '50%', background: MQ.glow }} />
@@ -290,7 +314,7 @@ export default function ProductionProjectsPage() {
           <div className="flex items-center gap-3.5">
             <div>
               <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.22em', color: MQ.kicker }}>The Film Makers · Production Slate</div>
-              <div className="text-[20px] font-extrabold leading-tight" style={{ color: MQ.title }}>Film Slate <span className="text-[11.5px] font-normal ml-1" style={{ color: MQ.count }}>{activeItems.length} active{archivedItems.length ? ` · ${archivedItems.length} archived` : ''}</span></div>
+              <div className="text-[20px] font-extrabold leading-tight" style={{ color: MQ.title }}>Film Slate <span className="text-[11.5px] font-normal ms-1" style={{ color: MQ.count }}>{activeItems.length} active{archivedItems.length ? ` · ${archivedItems.length} archived` : ''}</span></div>
             </div>
             <span className="flex-1" />
             <button onClick={() => setShowForm(true)} className="rounded-xl px-4 py-2 text-[12.5px] font-bold cursor-pointer"
@@ -389,35 +413,47 @@ export default function ProductionProjectsPage() {
               <textarea className="input w-full" rows={2} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
             </div>
 
-            {/* Optional script breakdown on create */}
+            {/* Optional script breakdown on create — or the bound ScripON developed script */}
             <div className="col-span-2 border-t border-gray-100 pt-3 mt-1">
-              <label className="label flex items-center gap-1.5"><Wand2 size={13} className="text-brand-600" /> Script (optional — auto-breakdown after save)</label>
-              <input ref={scriptRef} type="file" accept=".fdx,.pdf,.docx,.txt,.fountain" className="hidden" onChange={e => setScriptFile(e.target.files?.[0] || null)} />
-              {!scriptFile ? (
-                <button type="button" onClick={() => scriptRef.current?.click()} className="btn btn-secondary text-sm mt-1">
-                  <FileUp size={14} className="mr-1" /> Choose .fdx / .pdf / .docx
-                </button>
+              {promoteBuildId ? (
+                <>
+                  <label className="label flex items-center gap-1.5"><Wand2 size={13} className="text-brand-600" /> Script — from your ScripON build</label>
+                  <div className="mt-1 inline-flex items-center gap-2 text-sm text-gray-700 bg-amber-50 border border-amber-200 rounded px-2.5 py-1.5">
+                    <FileUp size={13} /> {promoteTitle || form.title || 'Developed draft'} <span className="text-gray-400">— WHITE master draft (already broken down)</span>
+                  </div>
+                  <p className="text-[11px] text-gray-400 mt-1.5">This developed script snapshots into the project on save — its title, format, genre, logline, brief &amp; coverage transfer too. No upload needed.</p>
+                </>
               ) : (
-                <div className="mt-1 flex items-center gap-2 flex-wrap">
-                  <span className="text-sm text-gray-700 bg-gray-100 rounded px-2 py-1 inline-flex items-center gap-1.5">
-                    <FileUp size={13} /> {scriptFile.name}
-                    <button type="button" onClick={() => setScriptFile(null)} className="text-gray-400 hover:text-red-500"><X size={12} /></button>
-                  </span>
-                  <select className="input text-sm h-8" value={scriptMode} onChange={e => setScriptMode(e.target.value as any)}>
-                    <option value="full">Full setup (breakdown + schedule + budget)</option>
-                    <option value="import">Breakdown only (scenes + elements)</option>
-                  </select>
-                </div>
+                <>
+                  <label className="label flex items-center gap-1.5"><Wand2 size={13} className="text-brand-600" /> Script (optional — auto-breakdown after save)</label>
+                  <input ref={scriptRef} type="file" accept=".fdx,.pdf,.docx,.txt,.fountain" className="hidden" onChange={e => setScriptFile(e.target.files?.[0] || null)} />
+                  {!scriptFile ? (
+                    <button type="button" onClick={() => scriptRef.current?.click()} className="btn btn-secondary text-sm mt-1">
+                      <FileUp size={14} className="me-1" /> Choose .fdx / .pdf / .docx
+                    </button>
+                  ) : (
+                    <div className="mt-1 flex items-center gap-2 flex-wrap">
+                      <span className="text-sm text-gray-700 bg-gray-100 rounded px-2 py-1 inline-flex items-center gap-1.5">
+                        <FileUp size={13} /> {scriptFile.name}
+                        <button type="button" onClick={() => setScriptFile(null)} className="text-gray-400 hover:text-red-500"><X size={12} /></button>
+                      </span>
+                      <select className="input text-sm h-8" value={scriptMode} onChange={e => setScriptMode(e.target.value as any)}>
+                        <option value="full">Full setup (breakdown + schedule + budget)</option>
+                        <option value="import">Breakdown only (scenes + elements)</option>
+                      </select>
+                    </div>
+                  )}
+                  <p className="text-[11px] text-gray-400 mt-1.5">Uses AI to tag scenes &amp; elements after the project is saved, then opens the project. Needs the AI key configured. You can also do this later from the Schedule tab.</p>
+                </>
               )}
-              <p className="text-[11px] text-gray-400 mt-1.5">Uses AI to tag scenes &amp; elements after the project is saved, then opens the project. Needs the AI key configured. You can also do this later from the Schedule tab.</p>
             </div>
 
             {/* Optional Movie Magic import on create (no AI) */}
             <div className="col-span-2 border-t border-gray-100 pt-3 mt-1">
               <label className="label flex items-center gap-1.5"><Clapperboard size={13} className="text-brand-600" /> Movie Magic (optional — import after save)</label>
               <div className="grid sm:grid-cols-2 gap-2 mt-1">
-                <label className="btn btn-secondary text-sm cursor-pointer justify-center inline-flex"><FileUp size={14} className="mr-1" /> <span className="truncate max-w-[180px]">{mmbFile ? mmbFile.name : 'MMB budget export (.xml/.csv)'}</span><input type="file" accept=".xml,.csv" className="hidden" onChange={e => setMmbFile(e.target.files?.[0] || null)} /></label>
-                <label className="btn btn-secondary text-sm cursor-pointer justify-center inline-flex"><FileUp size={14} className="mr-1" /> <span className="truncate max-w-[180px]">{mmsFile ? mmsFile.name : 'MMS schedule export (.sex)'}</span><input type="file" accept=".sex,.xml" className="hidden" onChange={e => setMmsFile(e.target.files?.[0] || null)} /></label>
+                <label className="btn btn-secondary text-sm cursor-pointer justify-center inline-flex"><FileUp size={14} className="me-1" /> <span className="truncate max-w-[180px]">{mmbFile ? mmbFile.name : 'MMB budget export (.xml/.csv)'}</span><input type="file" accept=".xml,.csv" className="hidden" onChange={e => setMmbFile(e.target.files?.[0] || null)} /></label>
+                <label className="btn btn-secondary text-sm cursor-pointer justify-center inline-flex"><FileUp size={14} className="me-1" /> <span className="truncate max-w-[180px]">{mmsFile ? mmsFile.name : 'MMS schedule export (.sex)'}</span><input type="file" accept=".sex,.xml" className="hidden" onChange={e => setMmsFile(e.target.files?.[0] || null)} /></label>
               </div>
               {(mmbFile || mmsFile) && <div className="mt-1 flex gap-2 text-[11px] text-gray-500">{mmbFile && <button type="button" onClick={() => setMmbFile(null)} className="hover:text-red-500 inline-flex items-center gap-1"><X size={11} /> clear budget</button>}{mmsFile && <button type="button" onClick={() => setMmsFile(null)} className="hover:text-red-500 inline-flex items-center gap-1"><X size={11} /> clear schedule</button>}</div>}
               <p className="text-[11px] text-gray-400 mt-1.5">Use a Movie Magic <b>export</b> (File ▸ Export → XML/CSV or .sex) — native .mmb/.mms binaries aren't readable. No AI; lines are tagged with the Movie Magic origin.</p>
@@ -455,7 +491,7 @@ export default function ProductionProjectsPage() {
       )}
 
       {/* ── Project grid — cinematic poster tiles (Option A). No delete here: archive first. ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {activeItems.map((p: any) => {
           const t = (p.posterTransform || {}) as any;
           const chip = 'rounded-full px-2 py-0.5 text-[10.5px] font-semibold';
@@ -476,14 +512,14 @@ export default function ProductionProjectsPage() {
               ))}
               <div aria-hidden className="absolute inset-0" style={{ background: TL.scrim }} />
               {/* top chips */}
-              <div className="absolute top-3 left-3 flex items-center gap-2">
+              <div className="absolute top-3 start-3 flex items-center gap-2">
                 <input type="checkbox" checked={selected.has(p.id)}
                   onClick={(e) => e.stopPropagation()}
                   onChange={(e) => { e.stopPropagation(); toggleSelect(p.id); }}
                   className="w-4 h-4 accent-indigo-500 cursor-pointer" title="Select for bulk archive" />
                 <span className={chip} style={TL.glass}>{p.status.replace(/_/g, ' ')}</span>
               </div>
-              <div className="absolute top-3 right-3 flex items-center gap-1.5">
+              <div className="absolute top-3 end-3 flex items-center gap-1.5">
                 {p.totalBudget ? <span className="rounded-lg px-2.5 py-1 text-[11.5px] font-semibold" style={TL.glass}>{formatCurrency(p.totalBudget)}</span> : null}
                 <button title="Duplicate project" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDup(p); }}
                   className="rounded-lg p-1.5 opacity-80 hover:opacity-100" style={TL.glass}><Copy size={13} /></button>
@@ -529,11 +565,11 @@ export default function ProductionProjectsPage() {
             <button onClick={() => deleteIds([...selectedArc])} disabled={bulkBusy || !selectedArc.size}
               className="btn text-xs text-red-600 border border-red-200 rounded-lg px-3 py-1.5 disabled:opacity-40">🗑 Delete selected</button>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {archivedItems.map((p: any) => (
               <div key={p.id} className={cn('relative card', selectedArc.has(p.id) ? 'ring-2 ring-indigo-400' : 'opacity-75')}>
                 <input type="checkbox" checked={selectedArc.has(p.id)} onChange={() => toggleArc(p.id)}
-                  className="absolute top-3 right-3 w-4 h-4 accent-indigo-600 cursor-pointer" />
+                  className="absolute top-3 end-3 w-4 h-4 accent-indigo-600 cursor-pointer" />
                 <span className="badge text-xs bg-gray-100 text-gray-400">ARCHIVED</span>
                 <Link href={`/production/projects/${p.id}`} className="block mt-2">
                   <p className="font-semibold text-gray-600 text-sm leading-tight">{p.title}</p>
@@ -575,7 +611,7 @@ export default function ProductionProjectsPage() {
                 ['none', 'Without personnel', 'Budget only — no crew, cast or department heads'],
               ].map(([scope, label, desc]) => (
                 <button key={scope} disabled={duping} onClick={() => runDuplicate(scope)}
-                  className="w-full text-left px-4 py-3 rounded-lg border border-gray-200 hover:border-brand-300 hover:bg-brand-50 transition-colors disabled:opacity-50">
+                  className="w-full text-start px-4 py-3 rounded-lg border border-gray-200 hover:border-brand-300 hover:bg-brand-50 transition-colors disabled:opacity-50">
                   <div className="font-medium text-gray-800 text-sm">{label}</div>
                   <div className="text-xs text-gray-400">{desc}</div>
                 </button>

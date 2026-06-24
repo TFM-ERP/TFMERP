@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { CalendarRange, RefreshCw, UploadCloud, Info } from 'lucide-react';
+import { CalendarRange, RefreshCw, UploadCloud, Info, Download, Printer } from 'lucide-react';
 import { productionApi } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
@@ -18,6 +18,7 @@ const CODE_CLS: Record<string, string> = {
   SWF: 'bg-green-100 text-green-800 font-bold',
   W: 'bg-gray-100 text-gray-700',
   WF: 'bg-blue-100 text-blue-800 font-bold',
+  PU: 'bg-teal-100 text-teal-800 font-bold',
   H: 'bg-amber-100 text-amber-700',
   D: 'bg-red-100 text-red-600',
 };
@@ -60,6 +61,20 @@ export default function UniversalDoodPanel({ projectId, defaultCategory = 'CAST'
     finally { setStaging(false); }
   };
 
+  const csv = (v: any) => { const s = String(v ?? ''); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+  const exportCsv = () => {
+    if (!data || !data.rows?.length) return;
+    const head = [CATEGORY_LABEL[category] || category, ...data.days.map((d: any) => `D${d.day}${d.date ? ' ' + new Date(d.date).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' }) : ''}`), 'Work', 'Hold'];
+    const lines = [head.map(csv).join(',')];
+    for (const r of data.rows) {
+      const cells = data.days.map((d: any) => r.cells[d.day] || '');
+      lines.push([csv(r.name + (r.quantity > 1 ? ` x${r.quantity}` : '')), ...cells, r.totalWorkDays, r.totalHoldDays].map(csv).join(','));
+    }
+    const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob); const a = document.createElement('a');
+    a.href = url; a.download = `DOOD-${category}.csv`; a.click(); URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="card">
       <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
@@ -80,9 +95,11 @@ export default function UniversalDoodPanel({ projectId, defaultCategory = 'CAST'
               onChange={e => setDropAfter(Math.max(2, Number(e.target.value) || 4))} />
             days
           </label>
-          <button onClick={load} className="btn btn-secondary text-xs p-2"><RefreshCw size={13} className={cn(loading && 'animate-spin')} /></button>
+          <button onClick={load} className="btn btn-secondary text-xs p-2" title="Recompute"><RefreshCw size={13} className={cn(loading && 'animate-spin')} /></button>
+          <button onClick={exportCsv} disabled={!data || !data.rows?.length} className="btn btn-secondary text-xs p-2" title="Export this DOOD to CSV"><Download size={13} /></button>
+          <button onClick={() => window.open(`/print/dood/${projectId}?category=${category}&dropAfter=${dropAfter}`, '_blank')} className="btn btn-secondary text-xs p-2" title="Print this DOOD"><Printer size={13} /></button>
           <button onClick={updateGlobals} disabled={staging} className="btn btn-primary text-xs">
-            <UploadCloud size={13} className="mr-1" /> {staging ? 'Staging…' : 'Refresh Globals'}
+            <UploadCloud size={13} className="me-1" /> {staging ? 'Staging…' : 'Refresh Globals'}
           </button>
         </div>
       </div>
@@ -100,22 +117,22 @@ export default function UniversalDoodPanel({ projectId, defaultCategory = 'CAST'
           <table className="text-xs border-collapse w-full">
             <thead>
               <tr>
-                <th className="sticky left-0 bg-white text-left px-2 py-1.5 text-[10px] font-semibold text-gray-400 uppercase whitespace-nowrap border-b border-gray-100 z-10">{CATEGORY_LABEL[category] || category} ({data.rows.length})</th>
+                <th className="sticky start-0 bg-white text-start px-2 py-1.5 text-[10px] font-semibold text-gray-400 uppercase whitespace-nowrap border-b border-gray-100 z-10">{CATEGORY_LABEL[category] || category} ({data.rows.length})</th>
                 {data.days.map((d: any) => (
                   <th key={d.day} className="px-1 py-1.5 text-center text-[10px] font-semibold text-gray-400 border-b border-gray-100 min-w-9" title={d.date ? new Date(d.date).toLocaleDateString('en-GB') : ''}>
                     D{d.day}
                     {d.date && <span className="block font-normal text-[8px] text-gray-300">{new Date(d.date).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' })}</span>}
                   </th>
                 ))}
-                <th className="px-2 py-1.5 text-right text-[10px] font-semibold text-gray-400 uppercase border-b border-gray-100 whitespace-nowrap">Work</th>
-                <th className="px-2 py-1.5 text-right text-[10px] font-semibold text-gray-400 uppercase border-b border-gray-100 whitespace-nowrap">Hold</th>
+                <th className="px-2 py-1.5 text-end text-[10px] font-semibold text-gray-400 uppercase border-b border-gray-100 whitespace-nowrap">Work</th>
+                <th className="px-2 py-1.5 text-end text-[10px] font-semibold text-gray-400 uppercase border-b border-gray-100 whitespace-nowrap">Hold</th>
               </tr>
             </thead>
             <tbody>
               {data.rows.map((r: any) => (
                 <tr key={r.name} className="border-b border-gray-50 hover:bg-gray-50/60">
-                  <td className="sticky left-0 bg-white px-2 py-1 font-medium text-gray-800 whitespace-nowrap z-10">
-                    {r.name}{r.quantity > 1 && <span className="ml-1 text-[9px] text-gray-400">×{r.quantity}</span>}
+                  <td className="sticky start-0 bg-white px-2 py-1 font-medium text-gray-800 whitespace-nowrap z-10">
+                    {r.name}{r.quantity > 1 && <span className="ms-1 text-[9px] text-gray-400">×{r.quantity}</span>}
                   </td>
                   {data.days.map((d: any) => {
                     const code = r.cells[d.day] || '';
@@ -125,14 +142,14 @@ export default function UniversalDoodPanel({ projectId, defaultCategory = 'CAST'
                       </td>
                     );
                   })}
-                  <td className="px-2 py-1 text-right font-semibold text-gray-800">{r.totalWorkDays}</td>
-                  <td className={cn('px-2 py-1 text-right', r.totalHoldDays ? 'text-amber-600 font-semibold' : 'text-gray-300')}>{r.totalHoldDays}</td>
+                  <td className="px-2 py-1 text-end font-semibold text-gray-800">{r.totalWorkDays}</td>
+                  <td className={cn('px-2 py-1 text-end', r.totalHoldDays ? 'text-amber-600 font-semibold' : 'text-gray-300')}>{r.totalHoldDays}</td>
                 </tr>
               ))}
             </tbody>
           </table>
           <p className="text-[10px] text-gray-400 mt-2">
-            <b>SW</b> start · <b>W</b> work · <b>WF</b> finish · <b>SWF</b> single day · <b>H</b> hold (paid idle) · <b>D</b> drop (gap ≥ {data.dropAfter} days) · {data.totals.shootDays} shoot days
+            <b>SW</b> start · <b>W</b> work · <b>WF</b> finish · <b>SWF</b> single day · <b className="text-teal-700">PU</b> pick-up (after a drop) · <b>H</b> hold (paid idle) · <b>D</b> drop (gap ≥ {data.dropAfter} days) · {data.totals.shootDays} shoot days
           </p>
         </div>
       )}

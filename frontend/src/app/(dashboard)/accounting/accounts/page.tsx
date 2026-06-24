@@ -93,8 +93,8 @@ export default function ChartOfAccountsPage() {
 
       {accounts.length > 0 && (
         <div className="relative mb-4 max-w-sm">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input className="input pl-9 w-full" placeholder="Search code or name…" value={q} onChange={e => setQ(e.target.value)} />
+          <Search size={14} className="absolute start-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input className="input ps-9 w-full" placeholder="Search code or name…" value={q} onChange={e => setQ(e.target.value)} />
         </div>
       )}
 
@@ -113,11 +113,11 @@ export default function ChartOfAccountsPage() {
                       <td className="px-4 py-2.5 font-mono text-gray-500 w-20">{a.code}</td>
                       <td className="px-3 py-2.5">
                         <Link href={`/accounting/ledger/${a.id}`} className="font-medium text-gray-800 hover:text-brand-600">{a.name}</Link>
-                        {a.isBank && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full bg-teal-50 text-teal-700">Bank</span>}
-                        {!a.isActive && <span className="ml-2 text-[10px] text-gray-400">inactive</span>}
+                        {a.isBank && <span className="ms-2 text-[10px] px-1.5 py-0.5 rounded-full bg-teal-50 text-teal-700">Bank</span>}
+                        {!a.isActive && <span className="ms-2 text-[10px] text-gray-400">inactive</span>}
                       </td>
                       <td className="px-3 py-2.5 text-gray-400 text-xs">{a.subtype || ''}</td>
-                      <td className="px-3 py-2.5 text-right">
+                      <td className="px-3 py-2.5 text-end">
                         <Link href={`/accounting/ledger/${a.id}`} className="text-xs text-brand-600 opacity-0 group-hover:opacity-100">Ledger →</Link>
                       </td>
                     </tr>

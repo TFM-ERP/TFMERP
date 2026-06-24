@@ -43,7 +43,7 @@ export default function NotificationBell() {
         <span className="relative inline-flex">
           <Bell size={16} />
           {visible.length > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 min-w-[15px] h-[15px] px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
+            <span className="absolute -top-1.5 -end-1.5 min-w-[15px] h-[15px] px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
               {visible.length}
             </span>
           )}
@@ -51,7 +51,7 @@ export default function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-2xl border border-gray-100 z-50 overflow-hidden">
+        <div className="absolute end-0 mt-2 w-80 bg-white rounded-xl shadow-2xl border border-gray-100 z-50 overflow-hidden">
           <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100">
             <span className="text-sm font-semibold text-gray-800">Notifications</span>
             <div className="flex items-center gap-3">
@@ -66,7 +66,7 @@ export default function NotificationBell() {
             ) : visible.map(n => (
               <div key={n.key} className="flex items-start gap-2.5 px-4 py-3 border-b border-gray-50 hover:bg-gray-50/60">
                 <span className="w-2 h-2 rounded-full mt-1.5 shrink-0" style={{ background: SEV[n.severity] || SEV.low }} />
-                <button onClick={() => go(n.link, n.key)} className="flex-1 text-left min-w-0">
+                <button onClick={() => go(n.link, n.key)} className="flex-1 text-start min-w-0">
                   <div className="text-sm font-medium text-gray-800">{n.title}</div>
                   <div className="text-xs text-gray-500">{n.message}</div>
                 </button>

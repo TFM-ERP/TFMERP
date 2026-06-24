@@ -1,6 +1,12 @@
 import axios from 'axios';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+const RAW_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+// Local dev: a relative base is proxied through Next's dev rewrite, which can drop long AI
+// requests (coverage/diagnostics). On localhost we call the backend directly (CORS allows it);
+// tunnels / other hosts keep the relative proxy path unchanged.
+const API_BASE = (typeof window !== 'undefined' && RAW_API_BASE.startsWith('/') && /^(localhost|127\.0\.0\.1)$/.test(window.location.hostname))
+  ? 'http://localhost:3001/api/v1'
+  : RAW_API_BASE;
 
 // Uploaded files are served by the backend at /uploads/... — turn a stored path
 // into an absolute URL so links/images resolve to the API server, not the frontend.
@@ -102,6 +108,8 @@ export const financeApi = {
   vat: {
     list: () => api.get('/finance/vat'),
     seed: () => api.post('/finance/vat/seed'),
+    create: (data: any) => api.post('/finance/vat', data),
+    update: (id: string, data: any) => api.put(`/finance/vat/${id}`, data),
   },
 
   // Expenses
@@ -286,6 +294,7 @@ export const productionApi = {
   dashboard: (role?: string) => api.get('/production/projects/dashboard', { params: role ? { role } : {} }),
   projects: {
     list: (params?: any) => api.get('/production/projects', { params }),
+    mine: () => api.get('/production/projects/mine'),
     get: (id: string) => api.get(`/production/projects/${id}`),
     workflow: (id: string) => api.get(`/production/projects/${id}/workflow`),
     create: (data: any) => api.post('/production/projects', data),
@@ -372,6 +381,9 @@ export const productionApi = {
     uploadInvoice: (id: string, file: File) => { const fd = new FormData(); fd.append('file', file); return api.post(`/production/costing/pos/${id}/upload-invoice`, fd, { headers: { 'Content-Type': 'multipart/form-data' } }); },
     removePo: (id: string) => api.delete(`/production/costing/pos/${id}`),
     report: (projectId: string) => api.get(`/production/costing/report/${projectId}`),
+    forecast: (projectId: string) => api.get(`/production/costing/forecast/${projectId}`),
+    reportingPack: (projectId: string) => api.get(`/production/costing/reporting-pack/${projectId}`),
+    syncWarnings: (projectId: string) => api.get(`/production/costing/sync-warnings/${projectId}`),
     financeSummary: (projectId: string) => api.get(`/production/costing/finance-summary/${projectId}`),
     overspend: (projectId: string) => api.get(`/production/costing/overspend/${projectId}`),
     transfers: (projectId: string) => api.get('/production/costing/transfers', { params: { projectId } }),
@@ -423,14 +435,141 @@ export const productionApi = {
     reject: (id: string) => api.post(`/production/vendor-onboarding/${id}/reject`),
   },
   // Scheduling — stripboard + Day Out of Days
+  brief: {
+    list: (projectId: string) => api.get(`/production/brief/project/${projectId}`),
+    get: (id: string) => api.get(`/production/brief/${id}`),
+    create: (projectId: string, body: any) => api.post(`/production/brief/project/${projectId}`, body),
+    update: (id: string, body: any) => api.put(`/production/brief/${id}`, body),
+    extract: (id: string) => api.post(`/production/brief/${id}/extract`, {}),
+    scaffold: (id: string) => api.post(`/production/brief/${id}/scaffold`, {}),
+    alignment: (projectId: string) => api.get(`/production/brief/alignment/${projectId}`),
+    remove: (id: string) => api.delete(`/production/brief/${id}`),
+  },
+  scripton: {
+    latestCoverage: (projectId: string) => api.get(`/production/scripton/coverage/${projectId}`),
+    coverageHistory: (projectId: string) => api.get(`/production/scripton/coverage-history/${projectId}`),
+    coverage: (projectId: string, body: any = {}) => api.post(`/production/scripton/coverage/${projectId}`, body),
+    diagnostics: (projectId: string, body: any = {}) => api.post(`/production/scripton/diagnostics/${projectId}`, body),
+    compare: (projectId: string, body: any = {}) => api.post(`/production/scripton/compare/${projectId}`, body),
+    budgetFit: (projectId: string, body: any = {}) => api.post(`/production/scripton/budget-fit/${projectId}`, body),
+    applyBudgetFit: (projectId: string, body: any = {}) => api.post(`/production/scripton/apply-budget-fit/${projectId}`, body),
+    transform: (projectId: string, body: any = {}) => api.post(`/production/scripton/transform/${projectId}`, body),
+    applyTransform: (projectId: string, body: any = {}) => api.post(`/production/scripton/apply-transform/${projectId}`, body),
+    rating: (projectId: string, body: any = {}) => api.post(`/production/scripton/rating/${projectId}`, body),
+    cultureScreen: (projectId: string, body: any = {}) => api.post(`/production/scripton/culture-screen/${projectId}`, body),
+    develop: (projectId: string, body: any = {}) => api.post(`/production/scripton/develop/${projectId}`, body),
+    adapt: (projectId: string, body: any = {}) => api.post(`/production/scripton/adapt/${projectId}`, body),
+    adaptOne: (projectId: string, body: any = {}) => api.post(`/production/scripton/adapt-one/${projectId}`, body),
+    formatConvert: (projectId: string, body: any = {}) => api.post(`/production/scripton/format-convert/${projectId}`, body),
+    analytics: (projectId: string, body: any = {}) => api.post(`/production/scripton/analytics/${projectId}`, body),
+    ingest: (body: any = {}) => api.post('/production/scripton/ingest', body),
+    roleProfiles: (projectId: string, body: any = {}) => api.post('/production/scripton/role-profiles/' + projectId, body),
+    lookboard: (projectId: string, body: any = {}) => api.post('/production/scripton/lookboard/' + projectId, body),
+    marketRead: (projectId: string, body: any = {}) => api.post('/production/scripton/market-read/' + projectId, body),
+    notes: (projectId: string, revisionId?: string) => api.get('/production/scripton/notes/' + projectId + (revisionId ? ('?revisionId=' + revisionId) : '')),
+    addNote: (projectId: string, body: any = {}) => api.post('/production/scripton/notes/' + projectId, body),
+    seedNotes: (projectId: string, body: any = {}) => api.post('/production/scripton/notes/' + projectId + '/seed', body),
+    resolveNote: (id: string, resolved = true) => api.post('/production/scripton/note/' + id + '/resolve', { resolved }),
+    deleteNote: (id: string) => api.post('/production/scripton/note/' + id + '/delete', {}),
+    notesStale: (projectId: string, body: any = {}) => api.post('/production/scripton/notes-stale/' + projectId, body),
+    lookbookData: (projectId: string) => api.get('/production/scripton/lookbook/' + projectId),
+    lore: (params: any = {}) => api.get('/production/scripton/lore', { params }),
+    research: (projectId: string) => api.post('/production/scripton/research/' + projectId, {}),
+    marketForecast: (projectId: string, body: any = {}) => api.post(`/production/scripton/market-forecast/${projectId}`, body),
+    greenlightDecision: (projectId: string, body: any = {}) => api.post(`/production/scripton/greenlight-decision/${projectId}`, body),
+    renderPdf: (html: string, filename?: string) => api.post('/production/scripton/render-pdf', { html, filename }, { responseType: 'blob' }),
+    reviewProtection: {
+      getSettings: (projectId?: string) => api.get('/production/scripton/review-protection/settings' + (projectId ? ('?projectId=' + encodeURIComponent(projectId)) : '')),
+      saveSettings: (body: any) => api.post('/production/scripton/review-protection/settings', body),
+      listProfiles: () => api.get('/production/scripton/review-protection/profiles'),
+      saveProfile: (body: any) => api.post('/production/scripton/review-protection/profiles', body),
+      deleteProfile: (id: string) => api.post('/production/scripton/review-protection/profiles/' + id + '/delete', {}),
+      listNotices: () => api.get('/production/scripton/review-protection/notices'),
+      saveNotice: (body: any) => api.post('/production/scripton/review-protection/notices', body),
+      deleteNotice: (id: string) => api.post('/production/scripton/review-protection/notices/' + id + '/delete', {}),
+      listExports: (projectId?: string) => api.get('/production/scripton/review-protection/exports' + (projectId ? ('?projectId=' + encodeURIComponent(projectId)) : '')),
+      exportProtected: (body: any) => api.post('/production/scripton/review-protection/export', body, { responseType: 'blob' }),
+    },
+    development: {
+      pipeline: (projectId: string, buildId?: string) => api.get('/production/scripton/development/pipeline/' + projectId + (buildId ? ('?buildId=' + buildId) : '')),
+      generate: (projectId: string, body: any = {}) => api.post(`/production/scripton/development/generate/${projectId}`, body),
+      setVersion: (stageId: string, versionId: string) => api.post(`/production/scripton/development/version/${stageId}/set`, { versionId }),
+      duplicate: (versionId: string, label?: string) => api.post(`/production/scripton/development/version/${versionId}/duplicate`, { label }),
+      read: (versionId: string) => api.post(`/production/scripton/development/version/${versionId}/read`, {}),
+      promoteToScript: (versionId: string) => api.post(`/production/scripton/development/version/${versionId}/promote-to-script`, {}),
+      regenerateFeature: (docId: string, mode: 'extend' | 'rewrite' = 'extend') => api.post('/production/scripton/development/script/' + docId + '/regenerate', { mode }),
+      listExemplars: (variety?: string) => api.get('/production/scripton/dialect/exemplars' + (variety ? ('?variety=' + encodeURIComponent(variety)) : '')),
+      saveExemplar: (body: any) => api.post('/production/scripton/dialect/exemplars', body),
+      deleteExemplar: (id: string) => api.post('/production/scripton/dialect/exemplars/' + id + '/delete', {}),
+      dialectCheck: (body: any) => api.post('/production/scripton/dialect/check', body),
+      dialectRepair: (body: any) => api.post('/production/scripton/dialect/repair', body),
+      scriptProgress: (documentId: string) => api.get(`/production/scripton/script-progress/${documentId}`),
+      getIntake: (projectId: string) => api.get(`/production/scripton/intake/${projectId}`),
+      getPackage: (opts: any = {}) => api.get('/production/scripton/development/package?docId=' + encodeURIComponent(opts.docId || '') + (opts.projectId ? '&projectId=' + encodeURIComponent(opts.projectId) : '') + (opts.buildId ? '&buildId=' + encodeURIComponent(opts.buildId) : '')),
+      characterBible: (projectId: string, buildId?: string) => api.post('/production/scripton/development/character-bible/' + projectId, buildId ? { buildId } : {}),
+      listVersions: (buildId: string) => api.get('/production/scripton/development/versions/' + buildId),
+      newVersion: (buildId: string, label?: string) => api.post('/production/scripton/development/versions/' + buildId + '/new', label ? { label } : {}),
+      switchVersion: (buildId: string, versionId: string) => api.post('/production/scripton/development/versions/' + buildId + '/switch', { versionId }),
+      versionBrief: (buildId: string, versionId?: string) => api.get('/production/scripton/development/versions/' + buildId + '/brief' + (versionId ? ('?versionId=' + encodeURIComponent(versionId)) : '')),
+      saveIntake: (projectId: string, data: any) => api.post(`/production/scripton/intake/${projectId}`, data),
+      listBuilds: (projectId?: string, bin?: boolean) => api.get('/production/scripton/builds?' + (projectId ? ('projectId=' + projectId) : '') + (bin ? '&bin=1' : '')),
+      createBuild: (body: any = {}) => api.post('/production/scripton/builds', body),
+      renameBuild: (id: string, name: string) => api.post('/production/scripton/builds/' + id + '/rename', { name }),
+      setBuildStatus: (id: string, status: string) => api.post('/production/scripton/builds/' + id + '/status', { status }),
+      deleteBuild: (id: string) => api.post('/production/scripton/builds/' + id + '/delete', {}),
+      restoreBuild: (id: string) => api.post('/production/scripton/builds/' + id + '/restore', {}),
+      purgeBuild: (id: string) => api.post('/production/scripton/builds/' + id + '/purge', {}),
+      resetStage: (stageId: string, cascade = false) => api.post('/production/scripton/development/stage/' + stageId + '/reset', { cascade }),
+      promoteBuild: (versionId: string, body: any = {}) => api.post('/production/scripton/development/version/' + versionId + '/promote-build', body),
+      promoteFromBuild: (buildId: string, body: any = {}) => api.post('/production/scripton/development/build/' + buildId + '/promote', body),
+      workspace: () => api.get('/production/scripton/workspace'),
+      setStatus: (versionId: string, status: string) => api.post(`/production/scripton/development/version/${versionId}/status`, { status }),
+      compare: (a: string, b: string) => api.get(`/production/scripton/development/compare`, { params: { a, b } }),
+    },
+  },
+  deliverables: {
+    list: (projectId: string) => api.get(`/production/deliverables/project/${projectId}`),
+    create: (projectId: string, body: any) => api.post(`/production/deliverables/project/${projectId}`, body),
+    generate: (projectId: string) => api.post(`/production/deliverables/generate/${projectId}`, {}),
+    update: (id: string, body: any) => api.put(`/production/deliverables/${id}`, body),
+    setStatus: (id: string, status: string) => api.post(`/production/deliverables/${id}/status`, { status }),
+    remove: (id: string) => api.delete(`/production/deliverables/${id}`),
+  },
+  commercial: {
+    usage: (projectId: string) => api.get(`/production/commercial/usage/${projectId}`),
+    createUsage: (projectId: string, body: any) => api.post(`/production/commercial/usage/${projectId}`, body),
+    updateUsage: (id: string, body: any) => api.put(`/production/commercial/usage/${id}`, body),
+    advanceHolding: (id: string) => api.post(`/production/commercial/usage/${id}/advance`, {}),
+    setUsageStatus: (id: string, status: string) => api.post(`/production/commercial/usage/${id}/status`, { status }),
+    removeUsage: (id: string) => api.delete(`/production/commercial/usage/${id}`),
+    setParties: (projectId: string, body: any) => api.put(`/production/commercial/parties/${projectId}`, body),
+    alerts: (projectId: string) => api.get(`/production/commercial/alerts/${projectId}`),
+    ppm: (projectId: string) => api.get(`/production/commercial/ppm/${projectId}`),
+    updatePpm: (projectId: string, body: any) => api.put(`/production/commercial/ppm/${projectId}`, body),
+  },
   scheduling: {
     board: (projectId: string) => api.get(`/production/scheduling/board/${projectId}`),
+    calendarConfig: (projectId: string) => api.get(`/production/scheduling/calendar-config/${projectId}`),
+    setCalendarConfig: (projectId: string, cfg: any) => api.put(`/production/scheduling/calendar-config/${projectId}`, cfg),
     dood: (projectId: string) => api.get(`/production/scheduling/dood/${projectId}`),
+    conflicts: (projectId: string) => api.get(`/production/scheduling/conflicts/${projectId}`),
     createStrip: (data: any) => api.post('/production/scheduling/strips', data),
     updateStrip: (id: string, data: any) => api.put(`/production/scheduling/strips/${id}`, data),
     reorder: (items: any[]) => api.post('/production/scheduling/reorder', { items }),
     removeStrip: (id: string) => api.delete(`/production/scheduling/strips/${id}`),
     autoSchedule: (projectId: string, opts: { pagesPerDay?: number; onlyUnscheduled?: boolean } = {}) => api.post(`/production/scheduling/auto-schedule/${projectId}`, opts),
+    optimize: (projectId: string, opts: { pagesPerDay?: number; respectLocks?: boolean; groupByDayNight?: boolean; apply?: boolean } = {}) => api.post(`/production/scheduling/optimize/${projectId}`, opts),
+    shootingSchedule: (projectId: string) => api.get(`/production/scheduling/shooting-schedule/${projectId}`),
+    scenarios: (projectId: string) => api.get(`/production/scheduling/scenarios/${projectId}`),
+    snapshotScenario: (projectId: string, body: any) => api.post(`/production/scheduling/scenarios/${projectId}`, body),
+    optimizedScenario: (projectId: string, body: any) => api.post(`/production/scheduling/scenarios/${projectId}/optimized`, body),
+    compareScenarios: (projectId: string, ids: string[]) => api.post(`/production/scheduling/scenarios/${projectId}/compare`, { ids }),
+    getScenario: (id: string) => api.get(`/production/scheduling/scenario/${id}`),
+    updateScenario: (id: string, body: any) => api.put(`/production/scheduling/scenario/${id}`, body),
+    deleteScenario: (id: string) => api.delete(`/production/scheduling/scenario/${id}`),
+    applyScenario: (id: string) => api.post(`/production/scheduling/scenario/${id}/apply`, {}),
+    scriptStripStatus: (projectId: string) => api.get(`/production/scheduling/script-strip-status/${projectId}`),
+    reconcileScriptStrips: (projectId: string) => api.post(`/production/scheduling/script-strip-reconcile/${projectId}`, {}),
     // Dynamic multi-category DOOD (computed live — never stored)
     doodMatrix: (projectId: string, category: string, dropAfter?: number) => api.get(`/production/scheduling/dood-matrix/${projectId}`, { params: { category, dropAfter } }),
     doodCategories: (projectId: string) => api.get(`/production/scheduling/dood-categories/${projectId}`),
@@ -476,6 +615,12 @@ export const productionApi = {
     pushToBudget: (projectId: string) => api.post(`/production/breakdown/push-to-budget/${projectId}`),
     importScript: (projectId: string, data: { fileUrl: string; originalName?: string; replace?: boolean }) => api.post(`/production/breakdown/import-script/${projectId}`, data),
     importScriptFull: (projectId: string, data: { fileUrl: string; originalName?: string; pagesPerDay?: number; rateCard?: Record<string, number>; skipBudget?: boolean }) => api.post(`/production/breakdown/import-script-full/${projectId}`, data),
+    breakdownRevision: (revisionId: string, force = false) => api.post(`/production/breakdown/revision/${revisionId}/breakdown`, { force }),
+    projectionPreview: (projectId: string) => api.get(`/production/breakdown/projection/preview/${projectId}`),
+    projectionApply: (projectId: string, body: any = {}) => api.post(`/production/breakdown/projection/apply/${projectId}`, body),
+    projectionLogs: (projectId: string) => api.get(`/production/breakdown/projection/logs/${projectId}`),
+    projectionRollback: (logId: string) => api.post(`/production/breakdown/projection/rollback/${logId}`, {}),
+    projectionLink: (sceneId: string, stripId: string) => api.post(`/production/breakdown/projection/link`, { sceneId, stripId }),
     budgetPreview: (projectId: string) => api.get(`/production/breakdown/budget-preview/${projectId}`),
     budgetGenerate: (projectId: string, rateCard: Record<string, number>) => api.post(`/production/breakdown/budget-generate/${projectId}`, { rateCard }),
     mappingPreview: (projectId: string) => api.get(`/production/breakdown/mapping-preview/${projectId}`),
@@ -535,6 +680,13 @@ export const productionApi = {
     requestTransport: (id: string, data: any = {}) => api.post(`/production/scout-visits/${id}/transport`, data),
     cancelTransport: (id: string) => api.delete(`/production/scout-visits/${id}/transport`),
   },
+  movementOrders: {
+    list: (projectId: string) => api.get(`/production/movement-orders/${projectId}`),
+    create: (data: any) => api.post('/production/movement-orders', data),
+    generate: (projectId: string) => api.post(`/production/movement-orders/generate/${projectId}`),
+    update: (id: string, data: any) => api.put(`/production/movement-orders/${id}`, data),
+    remove: (id: string) => api.delete(`/production/movement-orders/${id}`),
+  },
   clearancePacks: {
     list: (projectId?: string) => api.get(`/production/clearance-packs${projectId ? `?projectId=${projectId}` : ''}`),
     get: (id: string) => api.get(`/production/clearance-packs/${id}`),
@@ -575,6 +727,84 @@ export const productionApi = {
     compute: (lat: number, lng: number, date: string, tz?: number) => api.get(`/production/sun-path?lat=${lat}&lng=${lng}&date=${date}${tz ? `&tz=${tz}` : ''}`),
     forLocation: (id: string, date: string, tz?: number) => api.get(`/production/sun-path/location/${id}?date=${date}${tz ? `&tz=${tz}` : ''}`),
     gating: (locationId: string, date: string, tz?: number) => api.get(`/production/sun-path/gating/${locationId}?date=${date}${tz ? `&tz=${tz}` : ''}`),
+    weather: (lat: number, lng: number, date: string, tz?: number) => api.get('/production/sun-path/weather', { params: { lat, lng, date, ...(tz ? { tz } : {}) } }),
+    hospitalsNear: (lat: number, lng: number, radiusKm?: number) => api.get('/production/sun-path/hospitals-near', { params: { lat, lng, ...(radiusKm ? { radiusKm } : {}) } }),
+  },
+  gl: {
+    sync: (projectId: string) => api.post(`/production/gl/sync/${projectId}`),
+    reconcile: (projectId: string) => api.get(`/production/gl/reconcile/${projectId}`),
+  },
+  payrollRuns: {
+    list: (projectId: string) => api.get('/production/payroll-bank/payroll-runs', { params: { projectId } }),
+    preview: (projectId: string, weekEnding?: string) => api.get('/production/payroll-bank/payroll-runs/preview', { params: { projectId, ...(weekEnding ? { weekEnding } : {}) } }),
+    get: (id: string) => api.get(`/production/payroll-bank/payroll-runs/${id}`),
+    post: (data: any) => api.post('/production/payroll-bank/payroll-runs', data),
+  },
+  bankRecon: {
+    list: (projectId: string) => api.get('/production/payroll-bank/bank-recon', { params: { projectId } }),
+    get: (id: string) => api.get(`/production/payroll-bank/bank-recon/${id}`),
+    create: (data: any) => api.post('/production/payroll-bank/bank-recon', data),
+    toggle: (id: string, txnId: string) => api.post(`/production/payroll-bank/bank-recon/${id}/toggle`, { txnId }),
+    finalize: (id: string) => api.post(`/production/payroll-bank/bank-recon/${id}/finalize`),
+    remove: (id: string) => api.delete(`/production/payroll-bank/bank-recon/${id}`),
+  },
+  dpr: {
+    list: (projectId: string) => api.get('/production/dpr', { params: { projectId } }),
+    get: (id: string) => api.get(`/production/dpr/${id}`),
+    create: (data: any) => api.post('/production/dpr', data),
+    generate: (callSheetId: string) => api.post(`/production/dpr/generate/${callSheetId}`),
+    update: (id: string, data: any) => api.put(`/production/dpr/${id}`, data),
+    setStatus: (id: string, status: string) => api.patch(`/production/dpr/${id}/status`, { status }),
+    hotCosts: (projectId: string) => api.get(`/production/dpr/hot-costs/${projectId}`),
+    remove: (id: string) => api.delete(`/production/dpr/${id}`),
+  },
+  cashAdvances: {
+    list: (projectId: string) => api.get('/production/procurement/cash-advances', { params: { projectId } }),
+    create: (data: any) => api.post('/production/procurement/cash-advances', data),
+    update: (id: string, data: any) => api.put(`/production/procurement/cash-advances/${id}`, data),
+    clear: (id: string, data: any) => api.post(`/production/procurement/cash-advances/${id}/clear`, data),
+    returnFunds: (id: string, data: any) => api.post(`/production/procurement/cash-advances/${id}/return`, data),
+    remove: (id: string) => api.delete(`/production/procurement/cash-advances/${id}`),
+  },
+  cardTxns: {
+    list: (projectId: string, status?: string) => api.get('/production/procurement/card-txns', { params: { projectId, ...(status ? { status } : {}) } }),
+    create: (data: any) => api.post('/production/procurement/card-txns', data),
+    update: (id: string, data: any) => api.put(`/production/procurement/card-txns/${id}`, data),
+    post: (id: string) => api.post(`/production/procurement/card-txns/${id}/post`),
+    remove: (id: string) => api.delete(`/production/procurement/card-txns/${id}`),
+  },
+  expenseClaims: {
+    list: (projectId: string, status?: string) => api.get('/production/procurement/expense-claims', { params: { projectId, ...(status ? { status } : {}) } }),
+    create: (data: any) => api.post('/production/procurement/expense-claims', data),
+    setStatus: (id: string, status: string) => api.patch(`/production/procurement/expense-claims/${id}/status`, { status }),
+    reimburse: (id: string) => api.post(`/production/procurement/expense-claims/${id}/reimburse`),
+    remove: (id: string) => api.delete(`/production/procurement/expense-claims/${id}`),
+  },
+  reports: {
+    catalog: () => api.get('/production/reports/catalog'),
+    poLog: (projectId: string) => api.get(`/production/reports/po-log/${projectId}`),
+    payrollRegister: (projectId: string, period?: string) => api.get(`/production/reports/payroll-register/${projectId}`, { params: period ? { period } : {} }),
+    pettyCash: (projectId: string) => api.get(`/production/reports/petty-cash/${projectId}`),
+    vendorYtd: (projectId: string) => api.get(`/production/reports/vendor-ytd/${projectId}`),
+    costToComplete: (projectId: string) => api.get(`/production/reports/cost-to-complete/${projectId}`),
+    costOverage: (projectId: string) => api.get(`/production/reports/cost-overage/${projectId}`),
+    weeklyGreen: (projectId: string) => api.get(`/production/reports/weekly-green/${projectId}`),
+    checkRegister: (projectId: string) => api.get(`/production/reports/check-register/${projectId}`),
+    fringeDetail: (projectId: string) => api.get(`/production/reports/fringe-detail/${projectId}`),
+    box1099: (projectId: string) => api.get(`/production/reports/box-1099/${projectId}`),
+    trialBalance: (projectId: string) => api.get(`/production/reports/trial-balance/${projectId}`),
+    aicpBid: (projectId: string) => api.get(`/production/reports/aicp-bid/${projectId}`),
+    paymentsEligible: (projectId: string) => api.get(`/production/reports/payments/eligible/${projectId}`),
+    paymentsAch: (projectId: string, body: any = {}) => api.post(`/production/reports/payments/ach/${projectId}`, body),
+    paymentsCsv: (projectId: string) => api.get(`/production/reports/payments/csv/${projectId}`),
+  },
+  purchaseRequests: {
+    list: (projectId: string, status?: string) => api.get('/production/purchase-requests', { params: { projectId, ...(status ? { status } : {}) } }),
+    create: (data: any) => api.post('/production/purchase-requests', data),
+    update: (id: string, data: any) => api.put(`/production/purchase-requests/${id}`, data),
+    setStatus: (id: string, status: string) => api.patch(`/production/purchase-requests/${id}/status`, { status }),
+    convert: (id: string) => api.post(`/production/purchase-requests/${id}/convert`),
+    remove: (id: string) => api.delete(`/production/purchase-requests/${id}`),
   },
   scriptReadiness: {
     board: (projectId: string) => api.get(`/production/script-readiness/board/${projectId}`),
@@ -585,6 +815,10 @@ export const productionApi = {
   },
   script: {
     list: (projectId: string) => api.get(`/production/script/project/${projectId}`),
+    binList: (projectId: string) => api.get(`/production/script/project/${projectId}/bin`),
+    trash: (id: string) => api.post(`/production/script/document/${id}/trash`, {}),
+    restore: (id: string) => api.post(`/production/script/document/${id}/restore`, {}),
+    remove: (id: string) => api.delete(`/production/script/document/${id}`),
     getDocument: (id: string) => api.get(`/production/script/document/${id}`),
     getRevision: (id: string) => api.get(`/production/script/revision/${id}`),
     createDocument: (projectId: string, data: any) => api.post(`/production/script/project/${projectId}`, data),
@@ -592,6 +826,9 @@ export const productionApi = {
     setActive: (documentId: string, revisionId: string) => api.put(`/production/script/document/${documentId}/active/${revisionId}`),
     removeRevision: (id: string) => api.delete(`/production/script/revision/${id}`),
     removeDocument: (id: string) => api.delete(`/production/script/document/${id}`),
+    projectionStatus: (projectId: string) => api.get(`/production/script/projection-status/${projectId}`),
+    setRevisionMeta: (revisionId: string, body: any) => api.put(`/production/script/revision/${revisionId}/meta`, body),
+    lockRevision: (revisionId: string, lock = true) => api.post(`/production/script/revision/${revisionId}/lock`, { lock }),
     // P5 — library link/promote/pull from inside a project
     promoteToLibrary: (documentId: string, data: any = {}) => api.post(`/production/master-scripts/promote/${documentId}`, data),
     pullLatest: (documentId: string) => api.post(`/production/master-scripts/pull/${documentId}`),
@@ -751,6 +988,7 @@ export const productionApi = {
     publish: (id: string) => api.patch(`/production/callsheets/${id}/publish`),
     pullSchedule: (id: string) => api.post(`/production/callsheets/${id}/pull-schedule`),
     autofillDaylight: (id: string, tz?: number) => api.post(`/production/callsheets/${id}/autofill-daylight`, tz ? { tz } : {}),
+    autofillLocation: (id: string, tz?: number) => api.post(`/production/callsheets/${id}/autofill-location`, tz ? { tz } : {}),
     remove: (id: string) => api.delete(`/production/callsheets/${id}`),
   },
 };
@@ -765,6 +1003,10 @@ export const approvalsApi = {
   routePo: (id: string) => api.post(`/finance/approvals/po/${id}/route`),
   approve: (id: string, comment?: string) => api.post(`/finance/approvals/${id}/approve`, { comment }),
   reject: (id: string, comment?: string) => api.post(`/finance/approvals/${id}/reject`, { comment }),
+  forProject: (projectId: string) => api.get(`/finance/approvals/project/${projectId}`),
+  routeChange: (data: any) => api.post('/finance/approvals/change/route', data),
+  approveChange: (id: string, comment?: string) => api.post(`/finance/approvals/change/${id}/approve`, { comment }),
+  rejectChange: (id: string, comment?: string) => api.post(`/finance/approvals/change/${id}/reject`, { comment }),
 };
 
 // ── FX rates API ────────────────────────────────────────────────────────────
@@ -1252,6 +1494,35 @@ export const transportApi = {
   postVehicle:   (id: string) => api.post(`/logistics/transport/vehicles/${id}/post`),
 };
 
+// ── Transport Captain operations console (SYS-12.F) ───────────────────────────
+export const captainApi = {
+  // Dispatch board (Kanban) + HOS roster
+  board:        (params?: { projectId?: string; date?: string }) => api.get('/logistics/captain/board', { params }),
+  // The dispatch action — assign driver + vehicle (hard turnaround lockout; force to override)
+  assign:       (runId: string, d: { driverId?: string; vehicleId?: string; force?: boolean }) => api.post(`/logistics/captain/runs/${runId}/assign`, d),
+  // The one-tap FSM: ACK | ARRIVE | ONBOARD | COMPLETE | CANCEL (eventId = offline-outbox idempotency key)
+  runAction:    (runId: string, action: string, geo?: { lat?: number; lng?: number }, eventId?: string) => api.post(`/logistics/captain/runs/${runId}/action`, { action, ...(geo || {}), eventId }),
+  // Cryptographic 4-point condition report → tamper-evident Document Vault
+  conditionReport: (runId: string, photos: any[]) => api.post(`/logistics/captain/runs/${runId}/condition`, { photos }),
+  // Hours-of-service / turnaround
+  hos:          (projectId?: string) => api.get('/logistics/captain/hos', { params: { projectId } }),
+  wrapDriver:   (driverId: string) => api.post(`/logistics/captain/drivers/${driverId}/wrap`),
+  // Smart call-sheet sync → auto-generate pickup blocks
+  syncCallSheet:(d: { projectId: string; date: string; leadMinutes?: number }) => api.post('/logistics/captain/sync-callsheet', d),
+  // The Garage: fleet by class + rental return countdown
+  garage:       (projectId?: string) => api.get('/logistics/captain/garage', { params: { projectId } }),
+  // Recce route overlays
+  routes:       (projectId: string) => api.get('/logistics/captain/routes', { params: { projectId } }),
+  createRoute:  (d: any) => api.post('/logistics/captain/routes', d),
+  updateRoute:  (id: string, d: any) => api.put(`/logistics/captain/routes/${id}`, d),
+  removeRoute:  (id: string) => api.delete(`/logistics/captain/routes/${id}`),
+  // 2nd-AD "actor wrapped" → urgent car needed
+  wrapPickup:   (d: { projectId: string; label?: string; fromLocation?: string; toLocation?: string; lat?: number; lng?: number }) => api.post('/logistics/captain/wrap-pickup', d),
+  // Driver app — my runs + panic
+  myRuns:       (driverId?: string) => api.get('/logistics/captain/my-runs', { params: { driverId } }),
+  panic:        (runId: string) => api.post(`/logistics/captain/runs/${runId}/panic`),
+};
+
 // ── Shuttle & bus scheduling (SYS-12.D) ───────────────────────────────────────
 export const shuttleApi = {
   routes:    (params?: { projectId?: string; scope?: string }) => api.get('/logistics/shuttle/routes', { params }),
@@ -1278,6 +1549,14 @@ export const arrivalApi = {
   update:    (id: string, d: any) => api.put(`/logistics/arrivals/${id}`, d),
   advance:   (id: string) => api.post(`/logistics/arrivals/${id}/advance`),
   remove:    (id: string) => api.delete(`/logistics/arrivals/${id}`),
+};
+
+// Per-user saved views (board layouts, dashboard presets) — backend: /me/saved-views. Returns unwrapped data.
+export const savedViewsApi = {
+  list:   (module?: string) => api.get('/me/saved-views', { params: { module } }).then((r) => r.data),
+  create: (d: any) => api.post('/me/saved-views', d).then((r) => r.data),
+  update: (id: string, d: any) => api.put(`/me/saved-views/${id}`, d).then((r) => r.data),
+  remove: (id: string) => api.delete(`/me/saved-views/${id}`).then((r) => r.data),
 };
 
 // ── Logistics & executive reports (SYS-12.G) ──────────────────────────────────
@@ -1393,6 +1672,9 @@ export const castingApi = {
   // Public talent portal
   publicCall:    (id: string) => api.get(`/casting/public/calls/${id}`),
   publicSubmit:  (d: any) => api.post('/casting/public/submit', d),
+  // Actor access link (own-call view, no login)
+  actorAccessLink: (talentId: string, projectId: string) => api.get(`/casting/talent/${talentId}/access-link`, { params: { projectId } }),
+  actorView:       (token: string) => api.get(`/casting/public/actor/${token}`),
 };
 
 // ── CRM (leads & pipeline) ───────────────────────────────────────────────────
@@ -1504,6 +1786,20 @@ export const scriptAudioApi = {
   revokeShare:   (id: string) => api.post(`/production/audio/share/${id}/revoke`),
   emailShare:    (id: string, data: any) => api.post(`/production/audio/share/${id}/email`, data),
   resolveShare:  (token: string, passcode?: string) => api.get(`/public/audio-share/${token}`, { params: passcode ? { passcode } : {} }),
+};
+
+// ── AI / LLM Engines & Routing (Unified Engine Switchboard) ──────────────────
+export const aiEnginesApi = {
+  engines:         () => api.get('/production/ai/engines'),
+  engineStatus:    (key: string) => api.get(`/production/ai/engines/${encodeURIComponent(key)}/status`),
+  health:          () => api.get('/production/ai/health'),
+  seedEngines:     () => api.post('/production/ai/engines/seed'),
+  createEngine:    (data: any) => api.post('/production/ai/engines', data),
+  updateEngine:    (id: string, data: any) => api.put(`/production/ai/engines/${id}`, data),
+  removeEngine:    (id: string) => api.delete(`/production/ai/engines/${id}`),
+  routing:         (scope = 'ORG', projectId?: string) => api.get('/production/ai/routing', { params: { scope, projectId } }),
+  setRouting:      (capability: string, data: any) => api.put(`/production/ai/routing/${capability}`, data),
+  routingResolved: (projectId?: string) => api.get('/production/ai/routing-resolved', { params: { projectId } }),
 };
 
 // ── Master Location Library (SYS-07) ─────────────────────────────────────────
@@ -1662,4 +1958,92 @@ export const backupsApi = {
   restore: (id: string) => api.post(`/backups/${id}/restore`),
   remove: (id: string) => api.delete(`/backups/${id}`),
   download: (id: string) => api.get(`/backups/${id}/download`, { responseType: 'blob' }),
+};
+
+// ── Comms · Meetings · Telemetry (SYS-09 / SYS-08 / SYS-06) ───────────────────
+export const meetingsApi = {
+  list: (params?: any) => api.get('/meetings', { params }).then((r) => r.data),
+  get: (id: string) => api.get(`/meetings/${id}`).then((r) => r.data),
+  create: (data: any) => api.post('/meetings', data).then((r) => r.data),
+  update: (id: string, data: any) => api.put(`/meetings/${id}`, data).then((r) => r.data),
+  cancel: (id: string) => api.delete(`/meetings/${id}`).then((r) => r.data),
+  setAgenda: (id: string, items: any[]) => api.put(`/meetings/${id}/agenda`, { items }).then((r) => r.data),
+  addAttendees: (id: string, attendees: any[]) => api.post(`/meetings/${id}/attendees`, { attendees }).then((r) => r.data),
+  addMinute: (id: string, body: string, decision = false) => api.post(`/meetings/${id}/minutes`, { body, decision }).then((r) => r.data),
+  addAction: (id: string, data: any) => api.post(`/meetings/${id}/action-items`, data).then((r) => r.data),
+  updateAction: (id: string, data: any) => api.patch(`/meetings/action-items/${id}`, data).then((r) => r.data),
+  actionItems: (params?: any) => api.get('/meetings/action-items', { params }).then((r) => r.data),
+};
+
+export const commsApi = {
+  channels: (projectId?: string) => api.get('/comms/channels', { params: { projectId } }).then((r) => r.data),
+  channel: (id: string) => api.get(`/comms/channels/${id}`).then((r) => r.data),
+  createChannel: (data: any) => api.post('/comms/channels', data).then((r) => r.data),
+  createHierarchy: (projectId: string, projectTitle?: string) => api.post('/comms/channels/hierarchy', { projectId, projectTitle }).then((r) => r.data),
+  archiveChannel: (id: string) => api.put(`/comms/channels/${id}/archive`).then((r) => r.data),
+  addMember: (channelId: string, data: any) => api.post(`/comms/channels/${channelId}/members`, data).then((r) => r.data),
+  removeMember: (channelId: string, memberId: string) => api.delete(`/comms/channels/${channelId}/members/${memberId}`).then((r) => r.data),
+  messages: (channelId: string, params?: any) => api.get(`/comms/channels/${channelId}/messages`, { params }).then((r) => r.data),
+  send: (channelId: string, data: any) => api.post(`/comms/channels/${channelId}/messages`, data).then((r) => r.data),
+  editMessage: (channelId: string, messageId: string, body: string) => api.patch(`/comms/channels/${channelId}/messages/${messageId}`, { body }).then((r) => r.data),
+  deleteMessage: (channelId: string, messageId: string) => api.delete(`/comms/channels/${channelId}/messages/${messageId}`).then((r) => r.data),
+  markRead: (channelId: string) => api.post(`/comms/channels/${channelId}/read`).then((r) => r.data),
+  search: (params: { q?: string; channelId?: string; authorId?: string; from?: string; to?: string }) => api.get('/comms/search', { params }).then((r) => r.data),
+  createDm: (userId: string) => api.post('/comms/channels/dm', { userId }).then((r) => r.data),
+  // chat-to-ledger receipt bot
+  receiptIntake: (data: { channelId: string; projectId: string; imagePath: string; mime?: string; messageId?: string }) => api.post('/production/costing/chat-receipt', data).then((r) => r.data),
+  receiptApprove: (txnId: string) => api.post(`/production/costing/chat-receipt/${txnId}/approve`).then((r) => r.data),
+  receiptReject: (txnId: string) => api.post(`/production/costing/chat-receipt/${txnId}/reject`).then((r) => r.data),
+  // DOOD-driven presence + access expiry
+  presence: (projectId: string) => api.get(`/production/presence/${projectId}`).then((r) => r.data),
+  syncAccess: (projectId: string) => api.post(`/production/presence/${projectId}/sync-access`).then((r) => r.data),
+  // Read-&-Sign blasts
+  signoffCreate: (channelId: string, data: { title: string; body?: string }) => api.post(`/comms/signoffs/channel/${channelId}`, data).then((r) => r.data),
+  signoffAck: (messageId: string) => api.post(`/comms/signoffs/${messageId}/ack`).then((r) => r.data),
+  signoffsPending: () => api.get('/comms/signoffs/pending').then((r) => r.data),
+  signoffSigners: (messageId: string) => api.get(`/comms/signoffs/${messageId}/signers`).then((r) => r.data),
+  // Document vault share (per-user watermark on open)
+  projectDocs: (projectId: string) => api.get('/production/documents', { params: { projectId } }).then((r) => r.data),
+  docWatermarked: (id: string) => api.get(`/production/documents/${id}/watermarked`, { responseType: 'blob' }).then((r) => r.data),
+  // PTT live sessions (presence for walkie channels)
+  startPtt: (channelId: string) => api.post(`/comms/channels/${channelId}/ptt/start`).then((r) => r.data),
+  endPtt: (sessionId: string) => api.post(`/comms/channels/ptt/${sessionId}/end`).then((r) => r.data),
+  activePtt: (channelId: string) => api.get(`/comms/channels/${channelId}/ptt/active`).then((r) => r.data),
+  rtcToken: (channelId: string) => api.post(`/comms/channels/${channelId}/ptt/rtc-token`).then((r) => r.data),
+  vaultDeleted: (projectId?: string) => api.get('/comms/audit/deleted', { params: { projectId } }).then((r) => r.data),
+  vaultView: (id: string) => api.get(`/comms/audit/message/${id}`).then((r) => r.data),
+  vaultLog: (targetId?: string) => api.get('/comms/audit/log', { params: { targetId } }).then((r) => r.data),
+};
+
+export const telemetryApi = {
+  live: (projectId?: string) => api.get('/transport/telemetry/live', { params: { projectId } }).then((r) => r.data),
+  startShift: (data: any) => api.post('/transport/telemetry/shift', data).then((r) => r.data),
+  setShiftStatus: (id: string, status: string) => api.patch(`/transport/telemetry/shift/${id}`, { status }).then((r) => r.data),
+  ingest: (pings: any[]) => api.post('/transport/telemetry/pings', { pings }).then((r) => r.data),
+  track: (params: any) => api.get('/transport/telemetry/track', { params }).then((r) => r.data),
+  eta: (orderId: string) => api.get(`/transport/telemetry/eta/${orderId}`).then((r) => r.data),
+  // Geofenced basecamp pins + arrival check-ins
+  pins: (projectId: string) => api.get('/transport/telemetry/pins', { params: { projectId } }).then((r) => r.data),
+  createPin: (data: any) => api.post('/transport/telemetry/pins', data).then((r) => r.data),
+  updatePin: (id: string, data: any) => api.patch(`/transport/telemetry/pins/${id}`, data).then((r) => r.data),
+  removePin: (id: string) => api.delete(`/transport/telemetry/pins/${id}`).then((r) => r.data),
+  checkins: (projectId: string) => api.get('/transport/telemetry/pins/checkins', { params: { projectId } }).then((r) => r.data),
+};
+
+
+// ── SYS-UX Phase 0 · Appearance & theme governance ──
+export const preferencesApi = {
+  me:        () => api.get('/me/preferences').then((r) => r.data),
+  setMe:     (body: any) => api.put('/me/preferences', body).then((r) => r.data),
+  policy:    () => api.get('/org/theme-policy').then((r) => r.data),
+  setPolicy: (body: any) => api.put('/org/theme-policy', body).then((r) => r.data),
+};
+
+
+// ── SYS-UX Phase 3 · per-user notifications feed (distinct from role-alert notificationsApi) ──
+export const userNotificationsApi = {
+  list:        () => api.get('/me/notifications').then((r) => r.data),
+  unreadCount: () => api.get('/me/notifications/unread-count').then((r) => r.data),
+  markRead:    (id: string) => api.put(`/me/notifications/${id}/read`).then((r) => r.data),
+  markAll:     () => api.put('/me/notifications/read-all').then((r) => r.data),
 };

@@ -49,7 +49,7 @@ function DocField({ label, value, onUploaded, note, accept = '.pdf,.jpg,.jpeg,.p
         </div>
       ) : (
         <label className="btn btn-secondary text-xs cursor-pointer inline-flex">
-          <Upload size={13} className="mr-1" /> {busy ? 'Uploading…' : 'Attach'}
+          <Upload size={13} className="me-1" /> {busy ? 'Uploading…' : 'Attach'}
           <input type="file" accept={accept} className="hidden" onChange={onFile} />
         </label>
       )}
@@ -125,8 +125,8 @@ export default function CrewForm({ id }: { id?: string }) {
       <div className="flex items-center gap-3 mb-6">
         <Link href="/production/crew" className="btn btn-secondary p-1.5"><ArrowLeft size={16} /></Link>
         <h1 className="text-2xl font-bold text-gray-900 flex-1">{id ? 'Edit Crew Member' : 'Add Crew Member'}</h1>
-        {!id && <button onClick={() => setPasteOpen(true)} className="btn btn-secondary"><ClipboardPaste size={14} className="mr-1" /> Paste profile</button>}
-        <button onClick={save} disabled={saving} className={cn('btn', saved ? 'btn-secondary text-green-600' : 'btn-primary')}><Save size={14} className="mr-1" /> {saving ? 'Saving…' : saved ? 'Saved ✓' : id ? 'Save changes' : 'Add crew member'}</button>
+        {!id && <button onClick={() => setPasteOpen(true)} className="btn btn-secondary"><ClipboardPaste size={14} className="me-1" /> Paste profile</button>}
+        <button onClick={save} disabled={saving} className={cn('btn', saved ? 'btn-secondary text-green-600' : 'btn-primary')}><Save size={14} className="me-1" /> {saving ? 'Saving…' : saved ? 'Saved ✓' : id ? 'Save changes' : 'Add crew member'}</button>
         <Link href="/production/crew" className="btn btn-secondary">{saved ? 'Close' : 'Discard'}</Link>
       </div>
       {error && <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>}
@@ -368,7 +368,7 @@ function PasteProfileModal({ onClose, onParsed }: { onClose: () => void; onParse
         </div>
         <div className="border-t px-5 py-3 flex justify-end gap-2">
           <button onClick={onClose} className="btn btn-secondary">Cancel</button>
-          <button onClick={go} disabled={busy || text.trim().length < 10} className="btn btn-primary"><Sparkles size={14} className="mr-1" /> {busy ? 'Reading…' : 'Fill fields'}</button>
+          <button onClick={go} disabled={busy || text.trim().length < 10} className="btn btn-primary"><Sparkles size={14} className="me-1" /> {busy ? 'Reading…' : 'Fill fields'}</button>
         </div>
       </div>
     </div>

@@ -84,7 +84,7 @@ export default function NewDriverPage() {
           { v: 'FREELANCE', label: 'Freelancer', desc: 'External — own rate card, paid per job via payout', icon: Briefcase },
         ].map(o => (
           <button key={o.v} onClick={() => set('driverType', o.v)}
-            className={`text-left rounded-xl border p-4 transition-all ${form.driverType === o.v ? 'border-brand-400 ring-1 ring-brand-200 bg-brand-50/40' : 'border-gray-200 hover:border-gray-300'}`}>
+            className={`text-start rounded-xl border p-4 transition-all ${form.driverType === o.v ? 'border-brand-400 ring-1 ring-brand-200 bg-brand-50/40' : 'border-gray-200 hover:border-gray-300'}`}>
             <o.icon size={18} className={form.driverType === o.v ? 'text-brand-600' : 'text-gray-400'} />
             <div className="font-medium text-gray-900 mt-1.5">{o.label}</div>
             <div className="text-xs text-gray-500">{o.desc}</div>

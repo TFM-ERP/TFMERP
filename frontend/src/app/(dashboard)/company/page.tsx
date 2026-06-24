@@ -98,9 +98,8 @@ export default function CompanyPage() {
       <div className="flex gap-1 mb-6 border-b border-gray-200 overflow-x-auto">
         {TABS.map(t => (
           <button key={t.id} onClick={() => setActiveTab(t.id)}
-            className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
-              activeTab === t.id ? 'border-brand-600 text-brand-700' : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}>
+            className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 whitespace-nowrap transition-colors"
+            style={activeTab === t.id ? { borderColor: 'var(--accent)', color: 'var(--accent)' } : { borderColor: 'transparent', color: 'var(--text-3)' }}>
             <t.icon size={14} />
             {t.label}
           </button>
@@ -252,7 +251,7 @@ export default function CompanyPage() {
                 </div>
                 <div className="col-span-2 text-xs text-gray-400">
                   Upload the Trade License, Certificate of Incorporation, registrations, renewals &amp; amendments under the
-                  <button onClick={() => setActiveTab('documents')} className="mx-1 text-brand-700 underline">Documents</button>
+                  <button onClick={() => setActiveTab('documents')} className="mx-1 underline" style={{ color: 'var(--accent)' }}>Documents</button>
                   tab — each requires a type selection.
                 </div>
               </div>
@@ -462,7 +461,7 @@ function ImageUpload({ label, value, onChange }: { label: string; value: any; on
             {busy ? 'Uploading…' : value ? 'Replace' : 'Upload'}
             <input type="file" accept="image/*,.pdf" className="hidden" onChange={handle} disabled={busy} />
           </label>
-          {value && <button onClick={() => onChange('')} className="ml-2 text-xs text-red-500 hover:text-red-700">Remove</button>}
+          {value && <button onClick={() => onChange('')} className="ms-2 text-xs text-red-500 hover:text-red-700">Remove</button>}
         </div>
       </div>
     </div>
@@ -503,7 +502,7 @@ function BankingTab({ accounts, reload }: { accounts: any[]; reload: () => void 
         {accounts.map((a) => (
           <div key={a.id} className="flex items-center justify-between rounded-lg border border-gray-200 p-3">
             <div>
-              <div className="text-sm font-medium text-gray-800">{a.bankName} {a.isDefault && <span className="ml-2 rounded bg-green-100 px-1.5 py-0.5 text-[10px] text-green-700">Default</span>}</div>
+              <div className="text-sm font-medium text-gray-800">{a.bankName} {a.isDefault && <span className="ms-2 rounded bg-green-100 px-1.5 py-0.5 text-[10px] text-green-700">Default</span>}</div>
               <div className="text-xs text-gray-400">{a.accountName} · {a.iban || a.accountNumber} · {a.currency}</div>
             </div>
             <div className="flex gap-2">
@@ -560,7 +559,7 @@ function LocationsTab({ locations, reload }: { locations: any[]; reload: () => v
         {locations.map((l) => (
           <div key={l.id} className="flex items-center justify-between rounded-lg border border-gray-200 p-3">
             <div>
-              <div className="text-sm font-medium text-gray-800">{l.name} <span className="ml-1 text-xs text-gray-400">({l.type})</span></div>
+              <div className="text-sm font-medium text-gray-800">{l.name} <span className="ms-1 text-xs text-gray-400">({l.type})</span></div>
               <div className="text-xs text-gray-400">{l.address} {l.manager && `· ${l.manager}`}</div>
             </div>
             <div className="flex gap-2">
@@ -640,7 +639,7 @@ function DocumentsTab({ documents, reload }: { documents: any[]; reload: () => v
           return (
             <div key={d.id} className="flex items-center justify-between rounded-lg border border-gray-200 p-3">
               <div>
-                <div className="text-sm font-medium text-gray-800">{d.title} <span className="ml-1 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-600">{d.type}</span></div>
+                <div className="text-sm font-medium text-gray-800">{d.title} <span className="ms-1 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-600">{d.type}</span></div>
                 <div className="text-xs text-gray-400">{d.expiryDate && <span className={expired ? 'text-red-600' : ''}>Expires {d.expiryDate.slice(0, 10)}</span>}</div>
               </div>
               <div className="flex gap-2">

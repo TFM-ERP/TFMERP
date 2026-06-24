@@ -108,19 +108,19 @@ export default function CashPanel({ projectId, currency = 'AED', accounts = [] }
               !cf || cf.rows.length === 0 ? <div className="p-10 text-center text-gray-400 text-sm">No cash movements yet.</div> : (
                 <table className="w-full text-sm">
                   <thead><tr className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-100">
-                    <th className="px-4 py-2.5 text-left">Week of</th><th className="px-3 py-2.5 text-right">Inflow</th>
-                    <th className="px-3 py-2.5 text-right">Outflow</th><th className="px-3 py-2.5 text-right">Forecast out</th>
-                    <th className="px-3 py-2.5 text-right">Net</th><th className="px-3 py-2.5 text-right">Cumulative</th>
+                    <th className="px-4 py-2.5 text-start">Week of</th><th className="px-3 py-2.5 text-end">Inflow</th>
+                    <th className="px-3 py-2.5 text-end">Outflow</th><th className="px-3 py-2.5 text-end">Forecast out</th>
+                    <th className="px-3 py-2.5 text-end">Net</th><th className="px-3 py-2.5 text-end">Cumulative</th>
                   </tr></thead>
                   <tbody>
                     {cf.rows.map((r: any) => (
                       <tr key={r.week} className="border-b border-gray-50">
                         <td className="px-4 py-2 text-gray-600">{wk(r.week)}</td>
-                        <td className="px-3 py-2 text-right text-green-600">{r.inflow ? money(r.inflow) : '—'}</td>
-                        <td className="px-3 py-2 text-right text-amber-600">{r.outflow ? money(r.outflow) : '—'}</td>
-                        <td className="px-3 py-2 text-right text-blue-600">{r.forecastOut ? money(r.forecastOut) : '—'}</td>
-                        <td className={cn('px-3 py-2 text-right font-medium', r.net >= 0 ? 'text-gray-800' : 'text-red-600')}>{money(r.net)}</td>
-                        <td className={cn('px-3 py-2 text-right font-semibold', r.cumulative >= 0 ? 'text-gray-900' : 'text-red-600')}>{money(r.cumulative)}</td>
+                        <td className="px-3 py-2 text-end text-green-600">{r.inflow ? money(r.inflow) : '—'}</td>
+                        <td className="px-3 py-2 text-end text-amber-600">{r.outflow ? money(r.outflow) : '—'}</td>
+                        <td className="px-3 py-2 text-end text-blue-600">{r.forecastOut ? money(r.forecastOut) : '—'}</td>
+                        <td className={cn('px-3 py-2 text-end font-medium', r.net >= 0 ? 'text-gray-800' : 'text-red-600')}>{money(r.net)}</td>
+                        <td className={cn('px-3 py-2 text-end font-semibold', r.cumulative >= 0 ? 'text-gray-900' : 'text-red-600')}>{money(r.cumulative)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -150,7 +150,7 @@ export default function CashPanel({ projectId, currency = 'AED', accounts = [] }
             )}
             <div className="space-y-1.5">
               {floats.map(f => (
-                <button key={f.id} onClick={() => setSelFloat(f.id)} className={cn('w-full text-left px-3 py-2 rounded-lg border', selFloat === f.id ? 'border-brand-300 bg-brand-50' : 'border-gray-200 hover:bg-gray-50')}>
+                <button key={f.id} onClick={() => setSelFloat(f.id)} className={cn('w-full text-start px-3 py-2 rounded-lg border', selFloat === f.id ? 'border-brand-300 bg-brand-50' : 'border-gray-200 hover:bg-gray-50')}>
                   <div className="flex items-center justify-between">
                     <span className="font-medium text-gray-800 text-sm">{f.holder}</span>
                     {f.status === 'CLOSED' && <Lock size={11} className="text-gray-400" />}
@@ -187,7 +187,7 @@ export default function CashPanel({ projectId, currency = 'AED', accounts = [] }
                   <div className="flex items-center gap-2 mt-2">
                     <button onClick={addEntry} className="btn btn-primary text-xs py-1.5">Record</button>
                     <label className={cn('btn btn-secondary text-xs py-1.5 cursor-pointer', scanning && 'opacity-60')}>
-                      {scanning ? <><Loader2 size={13} className="mr-1 animate-spin" /> Reading…</> : <><ScanLine size={13} className="mr-1" /> Scan receipt</>}
+                      {scanning ? <><Loader2 size={13} className="me-1 animate-spin" /> Reading…</> : <><ScanLine size={13} className="me-1" /> Scan receipt</>}
                       <input type="file" accept=".pdf,image/*" className="hidden" disabled={scanning} onChange={scanReceipt} />
                     </label>
                     <span className="text-[11px] text-gray-400">Spends post to the project ledger as a cost. Scan pre-fills the form — review before recording.</span>
@@ -196,18 +196,18 @@ export default function CashPanel({ projectId, currency = 'AED', accounts = [] }
                 <div className="card overflow-hidden p-0">
                   <table className="w-full text-sm">
                     <thead><tr className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-100">
-                      <th className="px-4 py-2 text-left">Date</th><th className="px-3 py-2 text-left">Description</th>
-                      <th className="px-3 py-2 text-left">CC</th><th className="px-3 py-2 text-right">Amount</th><th></th>
+                      <th className="px-4 py-2 text-start">Date</th><th className="px-3 py-2 text-start">Description</th>
+                      <th className="px-3 py-2 text-start">CC</th><th className="px-3 py-2 text-end">Amount</th><th></th>
                     </tr></thead>
                     <tbody>
                       {txns.length === 0 ? <tr><td colSpan={5} className="p-6 text-center text-gray-400 text-sm">No entries.</td></tr> :
                         txns.map(t => (
                           <tr key={t.id} className={cn('border-b border-gray-50', t._offline && 'bg-amber-50/40')}>
                             <td className="px-4 py-2 text-gray-500 text-xs">{formatDate(t.date)}</td>
-                            <td className="px-3 py-2"><span className={cn('inline-flex items-center gap-1', t.type === 'TOPUP' ? 'text-green-600' : 'text-gray-800')}>{t.type === 'TOPUP' ? <ArrowDownLeft size={12} /> : <ArrowUpRight size={12} />}{t.description}{t._offline && <span className="ml-1 inline-flex items-center gap-0.5 text-[9px] font-semibold bg-amber-100 text-amber-700 rounded px-1 py-0.5"><CloudOff size={9} /> queued</span>}</span></td>
+                            <td className="px-3 py-2"><span className={cn('inline-flex items-center gap-1', t.type === 'TOPUP' ? 'text-green-600' : 'text-gray-800')}>{t.type === 'TOPUP' ? <ArrowDownLeft size={12} /> : <ArrowUpRight size={12} />}{t.description}{t._offline && <span className="ms-1 inline-flex items-center gap-0.5 text-[9px] font-semibold bg-amber-100 text-amber-700 rounded px-1 py-0.5"><CloudOff size={9} /> queued</span>}</span></td>
                             <td className="px-3 py-2 text-gray-400 text-xs">{t.costCenterCode || '—'}</td>
-                            <td className={cn('px-3 py-2 text-right font-medium', t.type === 'TOPUP' ? 'text-green-600' : 'text-gray-800')}>{t.type === 'TOPUP' ? '+' : '−'}{money(Number(t.amount))}</td>
-                            <td className="px-3 py-2 text-right">{!t._offline && <button onClick={() => delEntry(t.id)} className="text-gray-300 hover:text-red-500"><Trash2 size={12} /></button>}</td>
+                            <td className={cn('px-3 py-2 text-end font-medium', t.type === 'TOPUP' ? 'text-green-600' : 'text-gray-800')}>{t.type === 'TOPUP' ? '+' : '−'}{money(Number(t.amount))}</td>
+                            <td className="px-3 py-2 text-end">{!t._offline && <button onClick={() => delEntry(t.id)} className="text-gray-300 hover:text-red-500"><Trash2 size={12} /></button>}</td>
                           </tr>
                         ))}
                     </tbody>

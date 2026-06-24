@@ -101,10 +101,10 @@ export default function LocationLibraryPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-semibold flex items-center gap-2"><MapPin className="text-[#0f172a]" /> Master Location Library</h1>
+          <h1 className="text-2xl font-semibold flex items-center gap-2"><MapPin style={{ color: 'var(--accent)' }} /> Master Location Library</h1>
           <p className="text-sm text-gray-500 mt-1">The company&apos;s permanent location intelligence — vetted once, reused across every production.</p>
         </div>
-        <button onClick={() => setEditing({ ...EMPTY })} className="inline-flex items-center gap-2 bg-[#0f172a] text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90">
+        <button onClick={() => setEditing({ ...EMPTY })} className="btn btn-primary">
           <Plus size={16} /> Add Location
         </button>
       </div>
@@ -126,11 +126,11 @@ export default function LocationLibraryPage() {
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <div className="relative flex-1 min-w-[240px]">
-          <Search size={16} className="absolute left-3 top-2.5 text-gray-400" />
+          <Search size={16} className="absolute start-3 top-2.5 text-gray-400" />
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, city, address, description…"
-            className="w-full pl-9 pr-3 py-2 border rounded-lg text-sm" />
+            className="input w-full ps-9" />
         </div>
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="border rounded-lg px-3 py-2 text-sm">
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="input">
           <option value="">All statuses</option>
           {STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
         </select>
@@ -148,14 +148,14 @@ export default function LocationLibraryPage() {
             {items.map((loc) => {
               const primary = loc.media?.[0];
               return (
-                <button key={loc.id} onClick={() => openDetail(loc.id)} className="text-left bg-white border rounded-xl overflow-hidden hover:shadow-md transition group">
+                <button key={loc.id} onClick={() => openDetail(loc.id)} className="text-start bg-white border rounded-xl overflow-hidden hover:shadow-md transition group">
                   <div className="h-36 bg-gray-100 flex items-center justify-center overflow-hidden">
                     {primary ? <img src={primary.url} alt={loc.name} onError={imgFallback(loc.id)} className="w-full h-full object-cover" />
                       : <ImageIcon className="text-gray-300" size={32} />}
                   </div>
                   <div className="p-3">
                     <div className="flex items-start justify-between gap-2">
-                      <h3 className="font-medium text-sm group-hover:text-[#0f172a]">{loc.name}</h3>
+                      <h3 className="font-medium text-sm">{loc.name}</h3>
                       <StatusBadge status={loc.status} />
                     </div>
                     <p className="text-xs text-gray-500 mt-1 truncate">{[loc.city, loc.region, loc.country].filter(Boolean).join(', ') || '—'}</p>
@@ -181,7 +181,7 @@ function ComplianceAlerts({ alerts, onOpen }: { alerts: any; onOpen: (id: string
   const [open, setOpen] = useState(true);
   const Row = ({ i }: { i: any }) => (
     <div className="flex items-center justify-between text-sm px-3 py-1.5 border-b last:border-0">
-      <span className="truncate"><span className={`text-[10px] px-1.5 py-0.5 rounded mr-2 ${i.expired ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>{i.expired ? 'EXPIRED' : `${i.daysLeft}d`}</span>{i.label} · <span className="text-gray-500">{i.locationName}{i.project ? ` (${i.project})` : ''}</span></span>
+      <span className="truncate"><span className={`text-[10px] px-1.5 py-0.5 rounded me-2 ${i.expired ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>{i.expired ? 'EXPIRED' : `${i.daysLeft}d`}</span>{i.label} · <span className="text-gray-500">{i.locationName}{i.project ? ` (${i.project})` : ''}</span></span>
       <span className="text-xs text-gray-400 shrink-0">{new Date(i.expiryDate).toLocaleDateString()}</span>
     </div>
   );
@@ -245,7 +245,7 @@ function DetailDrawer({ loc, onClose, onEdit, onChanged, reloadList }: any) {
                 {loc.media.map((m: any) => (
                   <div key={m.id} className="relative group rounded-lg overflow-hidden border h-24 bg-gray-100">
                     <img src={m.url} alt={m.caption || ''} onError={imgFallback(m.id)} className="w-full h-full object-cover" />
-                    {m.isPrimary && <span className="absolute top-1 left-1 bg-[#0f172a] text-white rounded px-1 text-[10px]">Primary</span>}
+                    {m.isPrimary && <span className="absolute top-1 start-1 rounded px-1 text-[10px]" style={{ background: 'var(--accent)', color: 'var(--accent-on)' }}>Primary</span>}
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2 transition">
                       {!m.isPrimary && <button onClick={() => setPrimary(m.id)} title="Set primary"><Star size={16} className="text-white" /></button>}
                       <button onClick={() => removeMedia(m.id)} title="Remove"><Trash2 size={16} className="text-white" /></button>
@@ -255,8 +255,8 @@ function DetailDrawer({ loc, onClose, onEdit, onChanged, reloadList }: any) {
               </div>
             ) : <p className="text-sm text-gray-400">No media yet.</p>}
             <div className="flex gap-2 mt-2">
-              <input value={mediaUrl} onChange={(e) => setMediaUrl(e.target.value)} placeholder="Paste image URL (upload coming in slice 2)" className="flex-1 border rounded-lg px-3 py-1.5 text-sm" />
-              <button onClick={addMedia} disabled={adding} className="text-sm bg-gray-900 text-white px-3 rounded-lg disabled:opacity-50">Add</button>
+              <input value={mediaUrl} onChange={(e) => setMediaUrl(e.target.value)} placeholder="Paste image URL (upload coming in slice 2)" className="input flex-1" />
+              <button onClick={addMedia} disabled={adding} className="btn btn-primary text-sm disabled:opacity-50">Add</button>
             </div>
           </Section>
 
@@ -328,7 +328,7 @@ function MasterOpsPanel({ locationId }: { locationId: string }) {
       <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2 flex items-center gap-1.5"><Building2 size={13} /> Operations (standalone)</h3>
       <div className="flex border-b text-sm mb-3 flex-wrap">
         {tabs.map(([k, Icon]) => (
-          <button key={k} onClick={() => setTab(k as any)} className={`px-3 py-1.5 inline-flex items-center gap-1 capitalize ${tab === k ? 'border-b-2 border-[#0f172a] font-medium' : 'text-gray-500'}`}><Icon size={13} /> {k}</button>
+          <button key={k} onClick={() => setTab(k as any)} className={`px-3 py-1.5 inline-flex items-center gap-1 capitalize ${tab === k ? 'border-b-2 border-[color:var(--accent)] font-medium' : 'text-gray-500'}`}><Icon size={13} /> {k}</button>
         ))}
       </div>
       {tab === 'documents' && <DocumentsTab id={locationId} a={a} />}
@@ -357,7 +357,7 @@ function Mini({ label, value }: any) {
 
 function EditModal({ form, setForm, onClose, onSave, saving }: any) {
   const set = (k: string, v: any) => setForm((f: any) => ({ ...f, [k]: v }));
-  const inp = 'w-full border rounded-lg px-3 py-1.5 text-sm';
+  const inp = 'input w-full';
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
@@ -391,8 +391,8 @@ function EditModal({ form, setForm, onClose, onSave, saving }: any) {
           <L label="Notes" full><textarea className={inp} rows={2} value={form.notes} onChange={(e) => set('notes', e.target.value)} /></L>
         </div>
         <div className="sticky bottom-0 bg-white border-t px-5 py-3 flex justify-end gap-2">
-          <button onClick={onClose} className="px-4 py-2 text-sm border rounded-lg">Cancel</button>
-          <button onClick={onSave} disabled={saving || !form.name} className="inline-flex items-center gap-2 px-4 py-2 text-sm bg-[#0f172a] text-white rounded-lg disabled:opacity-50"><Save size={15} /> {saving ? 'Saving…' : 'Save'}</button>
+          <button onClick={onClose} className="btn btn-secondary">Cancel</button>
+          <button onClick={onSave} disabled={saving || !form.name} className="btn btn-primary disabled:opacity-50"><Save size={15} /> {saving ? 'Saving…' : 'Save'}</button>
         </div>
       </div>
     </div>

@@ -45,9 +45,9 @@ export default function GeneralLedgerPage() {
           !data || data.rows.length === 0 ? <div className="p-10 text-center text-gray-400 text-sm">No posted activity.</div> : (
             <table className="w-full text-sm">
               <thead><tr className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-100">
-                <th className="px-5 py-2.5 text-left">Date</th><th className="px-3 py-2.5 text-left">Entry</th>
-                <th className="px-3 py-2.5 text-left">Memo</th><th className="px-3 py-2.5 text-right">Debit</th>
-                <th className="px-3 py-2.5 text-right">Credit</th><th className="px-3 py-2.5 text-right">Balance</th>
+                <th className="px-5 py-2.5 text-start">Date</th><th className="px-3 py-2.5 text-start">Entry</th>
+                <th className="px-3 py-2.5 text-start">Memo</th><th className="px-3 py-2.5 text-end">Debit</th>
+                <th className="px-3 py-2.5 text-end">Credit</th><th className="px-3 py-2.5 text-end">Balance</th>
               </tr></thead>
               <tbody>
                 {data.rows.map((r: any, i: number) => (
@@ -55,14 +55,14 @@ export default function GeneralLedgerPage() {
                     <td className="px-5 py-2.5 text-gray-500">{formatDate(r.date)}</td>
                     <td className="px-3 py-2.5 font-mono text-gray-500">{r.entryNumber}</td>
                     <td className="px-3 py-2.5 text-gray-600">{r.memo || '—'}</td>
-                    <td className="px-3 py-2.5 text-right text-gray-700">{r.debit ? formatCurrency(r.debit) : ''}</td>
-                    <td className="px-3 py-2.5 text-right text-gray-700">{r.credit ? formatCurrency(r.credit) : ''}</td>
-                    <td className="px-3 py-2.5 text-right font-medium text-gray-900">{formatCurrency(r.balance)}</td>
+                    <td className="px-3 py-2.5 text-end text-gray-700">{r.debit ? formatCurrency(r.debit) : ''}</td>
+                    <td className="px-3 py-2.5 text-end text-gray-700">{r.credit ? formatCurrency(r.credit) : ''}</td>
+                    <td className="px-3 py-2.5 text-end font-medium text-gray-900">{formatCurrency(r.balance)}</td>
                   </tr>
                 ))}
                 <tr className="bg-gray-50 font-bold text-gray-900">
                   <td className="px-5 py-3" colSpan={5}>Closing balance</td>
-                  <td className="px-3 py-3 text-right">{formatCurrency(data.closingBalance)}</td>
+                  <td className="px-3 py-3 text-end">{formatCurrency(data.closingBalance)}</td>
                 </tr>
               </tbody>
             </table>

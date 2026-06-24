@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "noEmit": true, "skipLibCheck": true },
+  "include": [
+    "src/components/scripon/**/*.ts",
+    "src/components/scripon/**/*.tsx",
+    "src/app/(dashboard)/scripon/**/*.ts",
+    "src/app/(dashboard)/scripon/**/*.tsx"
+  ]
+}

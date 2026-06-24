@@ -72,7 +72,7 @@ export default function InventoryPage() {
           <div className="w-9 h-9 rounded-lg bg-green-50 flex items-center justify-center"><DollarSign size={16} className="text-green-600" /></div>
           <div><p className="text-xs text-gray-400">Stock value</p><p className="text-lg font-bold text-gray-900">{summary ? formatCurrency(summary.totalValue) : '—'}</p></div>
         </div>
-        <button onClick={() => setLowOnly(v => !v)} className={`card flex items-center gap-3 text-left transition-all ${lowOnly ? 'ring-1 ring-amber-300' : ''}`}>
+        <button onClick={() => setLowOnly(v => !v)} className={`card flex items-center gap-3 text-start transition-all ${lowOnly ? 'ring-1 ring-amber-300' : ''}`}>
           <div className="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center"><AlertTriangle size={16} className="text-amber-600" /></div>
           <div><p className="text-xs text-gray-400">Low stock</p><p className="text-lg font-bold text-amber-600">{summary?.lowStockCount ?? '—'}</p></div>
         </button>
@@ -104,8 +104,8 @@ export default function InventoryPage() {
       {/* Filters */}
       <div className="flex flex-wrap gap-2 mb-4">
         <div className="relative flex-1 min-w-48">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input className="input pl-9 w-full" placeholder="Search name, SKU, category…" value={q} onChange={e => setQ(e.target.value)} />
+          <Search size={14} className="absolute start-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input className="input ps-9 w-full" placeholder="Search name, SKU, category…" value={q} onChange={e => setQ(e.target.value)} />
         </div>
         <select className="input w-44" value={cat} onChange={e => setCat(e.target.value)}><option value="">All categories</option>{cats.map(c => <option key={c}>{c}</option>)}</select>
         <button onClick={refreshAll} className="btn btn-secondary p-2"><RefreshCw size={14} className={loading ? 'animate-spin' : ''} /></button>
@@ -117,27 +117,27 @@ export default function InventoryPage() {
           items.length === 0 ? <div className="p-10 text-center text-gray-400 text-sm">No items{lowOnly ? ' below reorder level' : ''} yet.</div> : (
             <table className="w-full text-sm">
               <thead><tr className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-100">
-                <th className="px-5 py-2.5 text-left">Item</th><th className="px-3 py-2.5 text-left">Category</th>
-                <th className="px-3 py-2.5 text-right">On hand</th><th className="px-3 py-2.5 text-right">Reorder</th>
-                <th className="px-3 py-2.5 text-right">Unit cost</th><th className="px-3 py-2.5 text-right">Value</th>
-                <th className="px-3 py-2.5 text-left">Location</th>
+                <th className="px-5 py-2.5 text-start">Item</th><th className="px-3 py-2.5 text-start">Category</th>
+                <th className="px-3 py-2.5 text-end">On hand</th><th className="px-3 py-2.5 text-end">Reorder</th>
+                <th className="px-3 py-2.5 text-end">Unit cost</th><th className="px-3 py-2.5 text-end">Value</th>
+                <th className="px-3 py-2.5 text-start">Location</th>
               </tr></thead>
               <tbody>
                 {items.map(i => (
                   <tr key={i.id} className="border-b border-gray-50 hover:bg-gray-50/60">
                     <td className="px-5 py-3">
                       <Link href={`/inventory/${i.id}`} className="font-medium text-gray-800 hover:text-brand-600">{i.name}</Link>
-                      {i.sku && <span className="text-xs text-gray-400 ml-2 font-mono">{i.sku}</span>}
+                      {i.sku && <span className="text-xs text-gray-400 ms-2 font-mono">{i.sku}</span>}
                     </td>
                     <td className="px-3 py-3 text-gray-500">{i.category || '—'}</td>
-                    <td className="px-3 py-3 text-right">
+                    <td className="px-3 py-3 text-end">
                       <span className={`font-semibold ${i.low ? 'text-amber-600' : 'text-gray-800'}`}>{Number(i.quantity)}</span>
-                      <span className="text-xs text-gray-400 ml-1">{i.unit}</span>
-                      {i.low && <AlertTriangle size={11} className="inline ml-1 text-amber-500" />}
+                      <span className="text-xs text-gray-400 ms-1">{i.unit}</span>
+                      {i.low && <AlertTriangle size={11} className="inline ms-1 text-amber-500" />}
                     </td>
-                    <td className="px-3 py-3 text-right text-gray-500">{Number(i.reorderLevel)}</td>
-                    <td className="px-3 py-3 text-right text-gray-600">{formatCurrency(Number(i.unitCost))}</td>
-                    <td className="px-3 py-3 text-right font-medium text-gray-800">{formatCurrency(i.value)}</td>
+                    <td className="px-3 py-3 text-end text-gray-500">{Number(i.reorderLevel)}</td>
+                    <td className="px-3 py-3 text-end text-gray-600">{formatCurrency(Number(i.unitCost))}</td>
+                    <td className="px-3 py-3 text-end font-medium text-gray-800">{formatCurrency(i.value)}</td>
                     <td className="px-3 py-3 text-gray-500 text-xs">{i.location || '—'}</td>
                   </tr>
                 ))}

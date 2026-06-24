@@ -62,9 +62,9 @@ export default function EndCreditsPanel({ projectId }: { projectId: string }) {
           <p className="text-xs text-gray-400">{generated ? 'Auto-generated from crew — edit then save.' : 'Edit roles, names and sections; export the credit roll.'}</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={regenerate} className="btn btn-secondary text-xs py-1.5 px-2"><RefreshCw size={12} className="mr-1" /> Regenerate crew</button>
-          <button onClick={print} className="btn btn-secondary text-xs py-1.5 px-2"><Printer size={12} className="mr-1" /> Export roll</button>
-          <button onClick={save} disabled={saving} className="btn btn-primary text-xs py-1.5 px-3"><Save size={12} className="mr-1" /> {saving ? 'Saving…' : 'Save'}</button>
+          <button onClick={regenerate} className="btn btn-secondary text-xs py-1.5 px-2"><RefreshCw size={12} className="me-1" /> Regenerate crew</button>
+          <button onClick={print} className="btn btn-secondary text-xs py-1.5 px-2"><Printer size={12} className="me-1" /> Export roll</button>
+          <button onClick={save} disabled={saving} className="btn btn-primary text-xs py-1.5 px-3"><Save size={12} className="me-1" /> {saving ? 'Saving…' : 'Save'}</button>
         </div>
       </div>
 
@@ -95,7 +95,7 @@ export default function EndCreditsPanel({ projectId }: { projectId: string }) {
         </div>
       ))}
 
-      <button onClick={addBlock} className="btn btn-secondary text-sm w-full"><Plus size={14} className="mr-1" /> Add section</button>
+      <button onClick={addBlock} className="btn btn-secondary text-sm w-full"><Plus size={14} className="me-1" /> Add section</button>
     </div>
   );
 }

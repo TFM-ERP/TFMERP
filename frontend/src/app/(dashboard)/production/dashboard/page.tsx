@@ -23,6 +23,21 @@ const STATUS_CLS: Record<string, string> = {
 // Combined figures may mix currencies; show in AED-style grouping without forcing a symbol per row.
 const fmt = (n: number, cur = 'USD') => formatCurrency(n || 0, cur);
 
+// Token-bound KPI tile (theme-aware in all 8 themes), with hover lift.
+function Kpi({ icon: Icon, label, value, fg }: { icon: any; label: string; value: string; fg?: string }) {
+  return (
+    <div className="rounded-xl p-4 transition-all" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-1)' }}
+      onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 6px 18px rgba(0,0,0,.07)'; e.currentTarget.style.borderColor = 'var(--border-2)'; }}
+      onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = 'var(--border-1)'; }}>
+      <div className="flex items-center gap-2 mb-1">
+        <Icon size={14} style={{ color: fg || 'var(--text-3)' }} />
+        <p className="text-xs" style={{ color: 'var(--text-3)' }}>{label}</p>
+      </div>
+      <p className="text-lg font-bold" style={{ color: fg || 'var(--text-1)' }}>{value}</p>
+    </div>
+  );
+}
+
 export default function ProductionDashboardPage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -43,8 +58,10 @@ export default function ProductionDashboardPage() {
   const c = data?.combined || { budget: 0, income: 0, cost: 0, net: 0, cash: 0 };
   const projects = data?.projects || [];
 
+  const th = 'px-3 py-2.5';
+
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-6xl mx-auto">
       <div className="marquee-panel flex items-center justify-between flex-wrap gap-3">
         <div>
           <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>Production · Overview</div>
@@ -55,24 +72,32 @@ export default function ProductionDashboardPage() {
       </div>
 
       {/* Role view selector */}
-      <div className="flex gap-1 mb-5">
-        {ROLE_VIEWS.map(v => (
-          <button key={v.key} onClick={() => setRole(v.key)}
-            className={cn('text-xs px-3 py-1.5 rounded-lg', role === v.key ? 'bg-brand-50 text-brand-700 font-medium' : 'text-gray-500 hover:bg-gray-50')}>{v.label}</button>
-        ))}
+      <div className="flex flex-wrap gap-1 mb-5">
+        {ROLE_VIEWS.map(v => {
+          const on = role === v.key;
+          return (
+            <button key={v.key} onClick={() => setRole(v.key)}
+              className="text-xs px-3 py-1.5 rounded-lg font-medium transition-colors"
+              style={{ background: on ? 'var(--accent-soft)' : 'transparent', color: on ? 'var(--accent-soft-text)' : 'var(--text-3)' }}
+              onMouseEnter={(e) => { if (!on) e.currentTarget.style.background = 'var(--surface-2)'; }}
+              onMouseLeave={(e) => { if (!on) e.currentTarget.style.background = 'transparent'; }}>
+              {v.label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Role-specific operational widgets */}
       {role && roleData?.view === 'finance' && <FinanceOpsWidget finance={roleData.finance} />}
       {role && roleData?.view === 'coordination' && <CoordinationWidget coordination={roleData.coordination} />}
 
-      {/* Combined KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
-        <div className="card"><div className="flex items-center gap-2 mb-1"><Layers size={14} className="text-gray-400" /><p className="text-xs text-gray-400">Total Budget</p></div><p className="text-lg font-bold text-gray-900">{fmt(c.budget)}</p></div>
-        <div className="card"><div className="flex items-center gap-2 mb-1"><DollarSign size={14} className="text-green-500" /><p className="text-xs text-gray-400">Revenue</p></div><p className="text-lg font-bold text-green-600">{fmt(c.income)}</p></div>
-        <div className="card"><div className="flex items-center gap-2 mb-1"><TrendingDown size={14} className="text-amber-500" /><p className="text-xs text-gray-400">Costs</p></div><p className="text-lg font-bold text-amber-600">{fmt(c.cost)}</p></div>
-        <div className="card"><div className="flex items-center gap-2 mb-1">{c.net >= 0 ? <TrendingUp size={14} className="text-green-500" /> : <TrendingDown size={14} className="text-red-500" />}<p className="text-xs text-gray-400">Net P&amp;L</p></div><p className={cn('text-lg font-bold', c.net >= 0 ? 'text-green-600' : 'text-red-600')}>{fmt(Math.abs(c.net))}</p></div>
-        <div className="card"><div className="flex items-center gap-2 mb-1"><Wallet size={14} className="text-gray-400" /><p className="text-xs text-gray-400">Cash Position</p></div><p className={cn('text-lg font-bold', c.cash >= 0 ? 'text-gray-900' : 'text-red-600')}>{fmt(c.cash)}</p></div>
+      {/* Combined KPIs — 2-up phone, 3-up tablet, 5-up desktop */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
+        <Kpi icon={Layers} label="Total Budget" value={fmt(c.budget)} />
+        <Kpi icon={DollarSign} label="Revenue" value={fmt(c.income)} fg="var(--ok)" />
+        <Kpi icon={TrendingDown} label="Costs" value={fmt(c.cost)} fg="var(--warn)" />
+        <Kpi icon={c.net >= 0 ? TrendingUp : TrendingDown} label="Net P&L" value={fmt(Math.abs(c.net))} fg={c.net >= 0 ? 'var(--ok)' : 'var(--danger)'} />
+        <Kpi icon={Wallet} label="Cash Position" value={fmt(c.cash)} fg={c.cash >= 0 ? undefined : 'var(--danger)'} />
       </div>
 
       {/* Status chips */}
@@ -85,45 +110,51 @@ export default function ProductionDashboardPage() {
       )}
 
       {/* Per-project table */}
-      <div className="card overflow-hidden p-0">
-        <div className="px-5 py-3 border-b border-gray-100"><h3 className="text-sm font-semibold text-gray-700">Projects</h3></div>
-        {loading ? <div className="p-10 text-center text-gray-400 text-sm">Loading…</div> :
-          projects.length === 0 ? <div className="p-10 text-center text-gray-400 text-sm">No projects yet.</div> : (
-            <table className="w-full text-sm">
-              <thead><tr className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-100">
-                <th className="px-5 py-2.5 text-left">Project</th><th className="px-3 py-2.5 text-left">Status</th>
-                <th className="px-3 py-2.5 text-right">Budget</th><th className="px-3 py-2.5 text-right">Revenue</th>
-                <th className="px-3 py-2.5 text-right">Cost</th><th className="px-3 py-2.5 text-right">Net</th>
-                <th className="px-3 py-2.5 text-left w-28">Spent</th><th className="px-5 py-2.5"></th>
+      <div className="rounded-xl overflow-hidden" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-1)' }}>
+        <div className="px-5 py-3" style={{ borderBottom: '1px solid var(--border-1)' }}><h3 className="text-sm font-semibold" style={{ color: 'var(--text-2)' }}>Projects</h3></div>
+        {loading ? <div className="p-10 text-center text-sm" style={{ color: 'var(--text-3)' }}>Loading…</div> :
+          projects.length === 0 ? <div className="p-10 text-center text-sm" style={{ color: 'var(--text-3)' }}>No projects yet.</div> : (
+            <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[680px]">
+              <thead><tr className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-3)', borderBottom: '1px solid var(--border-1)' }}>
+                <th className="px-5 py-2.5 text-start">Project</th><th className={th + ' text-start'}>Status</th>
+                <th className={th + ' text-end'}>Budget</th><th className={th + ' text-end'}>Revenue</th>
+                <th className={th + ' text-end'}>Cost</th><th className={th + ' text-end'}>Net</th>
+                <th className={th + ' text-start w-28'}>Spent</th><th className="px-5 py-2.5"></th>
               </tr></thead>
               <tbody>
                 {projects.map((p: any) => (
-                  <tr key={p.id} className="border-b border-gray-50 hover:bg-gray-50/60">
+                  <tr key={p.id} style={{ borderBottom: '1px solid var(--border-1)' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
                     <td className="px-5 py-3">
-                      <Link href={`/production/projects/${p.id}`} className="font-medium text-gray-800 hover:text-brand-600">{p.title}</Link>
-                      <div className="text-[11px] text-gray-400">{p.projectNumber}{p.client ? ` · ${p.client}` : ''}</div>
+                      <Link href={`/production/projects/${p.id}`} className="font-medium" style={{ color: 'var(--text-1)' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--accent)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-1)'; }}>{p.title}</Link>
+                      <div className="text-[11px]" style={{ color: 'var(--text-3)' }}>{p.projectNumber}{p.client ? ` · ${p.client}` : ''}</div>
                     </td>
                     <td className="px-3 py-3"><span className={cn('badge text-[11px]', STATUS_CLS[p.status] || 'bg-gray-100 text-gray-600')}>{p.status.replace(/_/g, ' ')}</span></td>
-                    <td className="px-3 py-3 text-right text-gray-700">{fmt(p.budget, p.currency)}</td>
-                    <td className="px-3 py-3 text-right text-green-600">{fmt(p.income, p.currency)}</td>
-                    <td className="px-3 py-3 text-right text-amber-600">{fmt(p.cost, p.currency)}</td>
-                    <td className={cn('px-3 py-3 text-right font-medium', p.net >= 0 ? 'text-green-600' : 'text-red-600')}>{fmt(p.net, p.currency)}</td>
+                    <td className="px-3 py-3 text-end" style={{ color: 'var(--text-2)' }}>{fmt(p.budget, p.currency)}</td>
+                    <td className="px-3 py-3 text-end" style={{ color: 'var(--ok)' }}>{fmt(p.income, p.currency)}</td>
+                    <td className="px-3 py-3 text-end" style={{ color: 'var(--warn)' }}>{fmt(p.cost, p.currency)}</td>
+                    <td className="px-3 py-3 text-end font-medium" style={{ color: p.net >= 0 ? 'var(--ok)' : 'var(--danger)' }}>{fmt(p.net, p.currency)}</td>
                     <td className="px-3 py-3">
                       <div className="flex items-center gap-2">
-                        <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                          <div className={cn('h-full rounded-full', p.spentPct > 100 ? 'bg-red-500' : p.spentPct > 85 ? 'bg-amber-500' : 'bg-green-500')} style={{ width: `${Math.min(p.spentPct, 100)}%` }} />
+                        <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--surface-2)' }}>
+                          <div className="h-full rounded-full" style={{ width: `${Math.min(p.spentPct, 100)}%`, background: p.spentPct > 100 ? 'var(--danger)' : p.spentPct > 85 ? 'var(--warn)' : 'var(--ok)' }} />
                         </div>
-                        <span className="text-[10px] text-gray-400 tabular-nums">{p.spentPct}%</span>
+                        <span className="text-[10px] tabular-nums" style={{ color: 'var(--text-3)' }}>{p.spentPct}%</span>
                       </div>
                     </td>
-                    <td className="px-5 py-3 text-right"><Link href={`/production/projects/${p.id}`} className="text-brand-600 hover:text-brand-700 inline-flex items-center gap-1 text-xs">Open <ArrowRight size={12} /></Link></td>
+                    <td className="px-5 py-3 text-end"><Link href={`/production/projects/${p.id}`} className="inline-flex items-center gap-1 text-xs" style={{ color: 'var(--accent)' }}>Open <ArrowRight size={12} /></Link></td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            </div>
           )}
       </div>
-      <p className="text-[11px] text-gray-400 mt-2">Combined totals may span multiple currencies; per-project figures use each project's currency.</p>
+      <p className="text-[11px] mt-2" style={{ color: 'var(--text-3)' }}>Combined totals may span multiple currencies; per-project figures use each project's currency.</p>
     </div>
   );
 }

@@ -1,0 +1,82 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Unify Script View — alignment options (A4)</title>
+<style>
+  body{margin:0;background:#23252b;color:#e8e6e0;font-family:Inter,system-ui,sans-serif;padding:28px}
+  h1{font-size:18px;margin:0 0 4px}
+  .lead{color:#9aa1ab;font-size:13px;margin:0 0 22px;max-width:1100px;line-height:1.5}
+  .row{display:flex;gap:34px;flex-wrap:wrap;align-items:flex-start}
+  .col{flex:0 0 auto}
+  .cap{font-size:13px;font-weight:700;color:#E6D2A2;margin:0 0 4px}
+  .cap small{display:block;font-weight:400;color:#9aa1ab;font-size:11.5px;margin-top:2px;max-width:210mm}
+
+  /* ── shared "audio-studio" paper, sized to A4 ── */
+  .a4{width:210mm;min-height:297mm;background:#fdfdf9;color:#1f1f1f;
+      font-family:"Courier New",Courier,monospace;font-size:12pt;line-height:1.5;
+      border:1px solid rgba(0,0,0,.07);border-radius:2px;
+      box-shadow:0 2px 5px rgba(0,0,0,.16),0 14px 34px rgba(0,0,0,.18);
+      /* A4 screenplay margins: ~1in top/right/bottom, 1.5in left */
+      padding:25.4mm 25.4mm 25.4mm 38mm;box-sizing:border-box;position:relative}
+  .a4 .pf{position:absolute;top:12mm;right:14mm;font-size:11pt;color:#444}
+  .slug{display:flex;justify-content:space-between;font-weight:700;text-transform:uppercase;margin:0 0 1.5em}
+  .gap{height:1em}
+
+  /* the line elements — alignment differs per option, paper is identical */
+  .el{white-space:pre-wrap;word-wrap:break-word}
+
+  /* OPTION A — centered (the audio-studio layout) */
+  .A .slug span.mid{flex:1;text-align:center;padding:0 10px}
+  .A .action{margin:0 0 1em}
+  .A .cue{text-align:center;font-weight:700;letter-spacing:.04em;margin-top:1.1em}
+  .A .paren{text-align:center;font-style:italic;color:#666}
+  .A .dlg{text-align:center;max-width:64%;margin:0 auto}
+  .A .trans{text-align:right;margin-top:1em}
+
+  /* OPTION B — Final-Draft left-indented columns */
+  .B .slug span.mid{text-align:left;flex:1;padding:0 0 0 0}
+  .B .action{margin:0 0 1em;width:54ch}
+  .B .cue{margin-left:21ch;margin-top:1.1em}
+  .B .paren{margin-left:15ch;width:26ch}
+  .B .dlg{margin-left:10ch;width:35ch}
+  .B .trans{text-align:right;width:54ch;margin-top:1em}
+</style></head>
+<body>
+  <h1>“Unify script view” — pick the element alignment</h1>
+  <p class="lead">Both pages are A4 and use the <b>identical audio-studio paper</b> (warm #fdfdf9 stock, Courier New, soft drop-shadow, scene number on both margins, page-number footer, paper-stays-paper). The ONLY difference is how the lines are aligned. Same scene text in both.</p>
+  <div class="row">
+
+    <div class="col A">
+      <div class="cap">Option A — Centered <small>The audio studio’s actual layout: character cue centered, dialogue centered (≈64% width), parenthetical centered. Looks symmetrical, not industry-standard.</small></div>
+      <div class="a4">
+        <div class="pf">12.</div>
+        <div class="slug"><span>12</span><span class="mid">EXT. DESERT ENCAMPMENT - NIGHT</span><span>12</span></div>
+        <div class="el action">Antara crouches by the dying embers, listening to the wind carry voices from the far tents. Across the camp a horse shifts its weight.</div>
+        <div class="el cue">ANTARA</div>
+        <div class="el paren">(quietly, to himself)</div>
+        <div class="el dlg">Let them speak. The desert remembers every name — even mine.</div>
+        <div class="el cue">SHAYBOOB</div>
+        <div class="el paren">(wry)</div>
+        <div class="el dlg">It remembers the ones who paid their debts. You still owe the night a death.</div>
+        <div class="el action">Antara says nothing. The wind answers for him.</div>
+        <div class="el trans">CUT TO:</div>
+      </div>
+    </div>
+
+    <div class="col B">
+      <div class="cap">Option B — Final-Draft columns <small>Left-indented industry columns (my reading of your point 1): heading at the margin, cue ≈3.7″, parenthetical ≈3.0″, dialogue block ≈2.5″–6.0″. What pro scripts (Final Draft) look like.</small></div>
+      <div class="a4">
+        <div class="pf">12.</div>
+        <div class="slug"><span class="mid">12&nbsp;&nbsp;EXT. DESERT ENCAMPMENT - NIGHT</span><span>12</span></div>
+        <div class="el action">Antara crouches by the dying embers, listening to the wind carry voices from the far tents. Across the camp a horse shifts its weight.</div>
+        <div class="el cue">ANTARA</div>
+        <div class="el paren">(quietly, to himself)</div>
+        <div class="el dlg">Let them speak. The desert remembers every name — even mine.</div>
+        <div class="el cue">SHAYBOOB</div>
+        <div class="el paren">(wry)</div>
+        <div class="el dlg">It remembers the ones who paid their debts. You still owe the night a death.</div>
+        <div class="el action">Antara says nothing. The wind answers for him.</div>
+        <div class="el trans">CUT TO:</div>
+      </div>
+    </div>
+
+  </div>
+</body></html>

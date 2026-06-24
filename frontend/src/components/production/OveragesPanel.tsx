@@ -62,7 +62,7 @@ export default function OveragesPanel({ projectId, activeVersionId, currency = '
           <h3 className="text-sm font-semibold text-gray-700">Overages ({items.length})</h3>
           <p className="text-xs text-gray-400">Log cost overruns and route for approval. Approved overages lift that cost center's budget in the Cost Report.</p>
         </div>
-        <button onClick={() => setAdding(a => !a)} className="btn btn-primary text-xs py-1.5 px-3"><Plus size={13} className="mr-1" /> Log overage</button>
+        <button onClick={() => setAdding(a => !a)} className="btn btn-primary text-xs py-1.5 px-3"><Plus size={13} className="me-1" /> Log overage</button>
       </div>
 
       {/* Summary */}
@@ -114,23 +114,23 @@ export default function OveragesPanel({ projectId, activeVersionId, currency = '
           items.length === 0 ? <div className="p-10 text-center text-gray-400 text-sm"><AlertTriangle size={24} className="mx-auto mb-2 opacity-30" />No overages logged.</div> : (
             <table className="w-full text-sm">
               <thead><tr className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-100">
-                <th className="px-4 py-2.5 text-left">Account</th><th className="px-3 py-2.5 text-left">Description</th>
-                <th className="px-3 py-2.5 text-right">Amount</th><th className="px-3 py-2.5 text-left">Status</th>
-                <th className="px-3 py-2.5 text-left">Raised</th><th className="px-3 py-2.5 text-right">Actions</th>
+                <th className="px-4 py-2.5 text-start">Account</th><th className="px-3 py-2.5 text-start">Description</th>
+                <th className="px-3 py-2.5 text-end">Amount</th><th className="px-3 py-2.5 text-start">Status</th>
+                <th className="px-3 py-2.5 text-start">Raised</th><th className="px-3 py-2.5 text-end">Actions</th>
               </tr></thead>
               <tbody>
                 {items.map(o => (
                   <tr key={o.id} className="border-b border-gray-50 hover:bg-gray-50/60">
                     <td className="px-4 py-2.5 text-gray-600 text-xs">{o.accountCode ? `${o.accountCode}` : '—'}{o.accountTitle ? ` · ${o.accountTitle}` : ''}</td>
                     <td className="px-3 py-2.5"><div className="text-gray-800">{o.description}</div>{o.reason && <div className="text-[11px] text-gray-400">{o.reason}</div>}</td>
-                    <td className="px-3 py-2.5 text-right font-semibold text-gray-900">{money(Number(o.amount))}</td>
+                    <td className="px-3 py-2.5 text-end font-semibold text-gray-900">{money(Number(o.amount))}</td>
                     <td className="px-3 py-2.5"><span className={cn('badge text-[11px]', STATUS_META[o.status].cls)}>{STATUS_META[o.status].label}</span></td>
                     <td className="px-3 py-2.5 text-gray-400 text-xs">{formatDate(o.createdAt)}</td>
-                    <td className="px-3 py-2.5 text-right whitespace-nowrap">
+                    <td className="px-3 py-2.5 text-end whitespace-nowrap">
                       {o.status === 'PENDING' && (
                         <>
-                          <button onClick={() => setStatus(o.id, 'APPROVED')} title="Approve" className="text-green-500 hover:text-green-700 mr-2"><CheckCircle size={15} /></button>
-                          <button onClick={() => setStatus(o.id, 'REJECTED')} title="Reject" className="text-red-400 hover:text-red-600 mr-2"><XCircle size={15} /></button>
+                          <button onClick={() => setStatus(o.id, 'APPROVED')} title="Approve" className="text-green-500 hover:text-green-700 me-2"><CheckCircle size={15} /></button>
+                          <button onClick={() => setStatus(o.id, 'REJECTED')} title="Reject" className="text-red-400 hover:text-red-600 me-2"><XCircle size={15} /></button>
                         </>
                       )}
                       <button onClick={() => remove(o.id)} className="text-gray-300 hover:text-red-500"><Trash2 size={13} /></button>

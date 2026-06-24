@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Banknote, RefreshCw, Send, Settings, X, Mail, Play, FileText, AlertTriangle, Check } from 'lucide-react';
 import { collectionsApi } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
+import { useLocale } from '@/lib/i18n';
 
 const BUCKETS = [
   { k: 'current', label: 'Current' },
@@ -16,6 +17,7 @@ const BUCKETS = [
 const fmtD = (d: any) => d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
 export default function CollectionsPage() {
+  const { t } = useLocale();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
@@ -49,13 +51,13 @@ export default function CollectionsPage() {
     <div className="p-6 max-w-5xl mx-auto space-y-5">
       <div className="marquee-panel flex items-center justify-between flex-wrap gap-3">
         <div>
-          <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>Finance · Receivables</div>
-          <h1 className="text-[20px] font-extrabold leading-tight" style={{ color: 'var(--text-1)' }}>Collections</h1>
-          <p className="text-sm" style={{ color: 'var(--text-3)' }}>Receivables aging, payment reminders and statements of account.</p>
+          <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>{t('Finance · Receivables')}</div>
+          <h1 className="text-[20px] font-extrabold leading-tight" style={{ color: 'var(--text-1)' }}>{t('Collections')}</h1>
+          <p className="text-sm" style={{ color: 'var(--text-3)' }}>{t('Receivables aging, payment reminders and statements of account.')}</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={runScan} disabled={busy === 'scan'} className="btn-secondary"><Play size={14} /> Run reminders</button>
-          <button onClick={() => setShowSettings(true)} className="btn-secondary"><Settings size={14} /> Settings</button>
+          <button onClick={runScan} disabled={busy === 'scan'} className="btn-secondary"><Play size={14} /> {t('Run reminders')}</button>
+          <button onClick={() => setShowSettings(true)} className="btn-secondary"><Settings size={14} /> {t('Settings')}</button>
           <button onClick={load} className="btn-secondary"><RefreshCw size={14} className={loading ? 'animate-spin' : ''} /></button>
         </div>
       </div>
@@ -66,8 +68,8 @@ export default function CollectionsPage() {
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         {BUCKETS.map(b => (
           <button key={b.k} onClick={() => setFilter(filter === b.k ? 'all' : b.k)}
-            className={`card p-3 text-left ${filter === b.k ? 'ring-1 ring-brand-200 border-brand-300' : ''}`}>
-            <div className="text-xs text-gray-500">{b.label}</div>
+            className={`card p-3 text-start ${filter === b.k ? 'ring-1 ring-brand-200 border-brand-300' : ''}`}>
+            <div className="text-xs text-gray-500">{t(b.label)}</div>
             <div className={`text-lg font-bold ${b.k === 'd90plus' ? 'text-red-600' : 'text-gray-900'}`}>{formatCurrency(summary[b.k] || 0)}</div>
           </button>
         ))}
@@ -75,27 +77,27 @@ export default function CollectionsPage() {
 
       <div className="flex items-center gap-2">
         <select className="input w-44" value={filter} onChange={e => setFilter(e.target.value)}>
-          <option value="all">All open</option>
-          <option value="overdue">Overdue only</option>
-          {BUCKETS.map(b => <option key={b.k} value={b.k}>{b.label}</option>)}
+          <option value="all">{t('All open')}</option>
+          <option value="overdue">{t('Overdue only')}</option>
+          {BUCKETS.map(b => <option key={b.k} value={b.k}>{t(b.label)}</option>)}
         </select>
-        <span className="text-sm text-gray-500">{items.length} invoice(s) · {formatCurrency(summary.total || 0)} outstanding</span>
+        <span className="text-sm text-gray-500">{items.length} {t('invoice(s)')} · {formatCurrency(summary.total || 0)} {t('outstanding')}</span>
       </div>
 
       {/* List */}
       <div className="card overflow-hidden">
-        {loading ? <div className="p-10 text-center text-gray-400 text-sm">Loading…</div> : items.length === 0 ? (
-          <div className="p-10 text-center text-gray-400 text-sm">Nothing outstanding in this view.</div>
+        {loading ? <div className="p-10 text-center text-gray-400 text-sm">{t('Loading…')}</div> : items.length === 0 ? (
+          <div className="p-10 text-center text-gray-400 text-sm">{t('Nothing outstanding in this view.')}</div>
         ) : (
           <table className="w-full text-sm">
             <thead>
               <tr className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-100">
-                <th className="px-5 py-2.5 text-left">Invoice</th>
-                <th className="px-3 py-2.5 text-left">Client</th>
-                <th className="px-3 py-2.5 text-left">Due</th>
-                <th className="px-3 py-2.5 text-right">Amount due</th>
-                <th className="px-3 py-2.5 text-left">Last reminder</th>
-                <th className="px-5 py-2.5 text-right">Actions</th>
+                <th className="px-5 py-2.5 text-start">{t('Invoice')}</th>
+                <th className="px-3 py-2.5 text-start">{t('Client')}</th>
+                <th className="px-3 py-2.5 text-start">{t('Due')}</th>
+                <th className="px-3 py-2.5 text-end">{t('Amount due')}</th>
+                <th className="px-3 py-2.5 text-start">{t('Last reminder')}</th>
+                <th className="px-5 py-2.5 text-end">{t('Actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -103,22 +105,22 @@ export default function CollectionsPage() {
                 <tr key={it.id} className="border-b border-gray-50 hover:bg-gray-50/60">
                   <td className="px-5 py-3">
                     <Link href={`/finance/invoices/${it.id}`} className="font-mono text-xs font-semibold text-brand-600">{it.invoiceNumber}</Link>
-                    {it.daysOverdue > 0 && <div className="text-[11px] text-red-600">{it.daysOverdue}d overdue</div>}
+                    {it.daysOverdue > 0 && <div className="text-[11px] text-red-600">{it.daysOverdue}{t('d overdue')}</div>}
                   </td>
                   <td className="px-3 py-3">
                     <div className="text-gray-800">{it.client}</div>
-                    {it.clientBlocked && <span className="text-[10px] text-red-600">blocked</span>}
-                    {!it.clientEmail && <span className="text-[10px] text-amber-600">no email</span>}
+                    {it.clientBlocked && <span className="text-[10px] text-red-600">{t('blocked')}</span>}
+                    {!it.clientEmail && <span className="text-[10px] text-amber-600">{t('no email')}</span>}
                   </td>
                   <td className="px-3 py-3 text-gray-600">{fmtD(it.dueDate)}</td>
-                  <td className="px-3 py-3 text-right font-medium">{formatCurrency(it.amountDue)}</td>
+                  <td className="px-3 py-3 text-end font-medium">{formatCurrency(it.amountDue)}</td>
                   <td className="px-3 py-3 text-xs text-gray-500">
                     {it.lastReminder ? <span className={it.lastReminder.status === 'FAILED' ? 'text-red-600' : ''}>{it.lastReminder.level} · {fmtD(it.lastReminder.sentAt)}</span> : '—'}
                   </td>
                   <td className="px-5 py-3">
                     <div className="flex items-center justify-end gap-2">
-                      <button onClick={() => remind(it)} disabled={busy === it.id || !it.clientEmail || it.clientBlocked} title={!it.clientEmail ? 'No client email' : 'Send reminder'} className="text-brand-600 hover:text-brand-700 disabled:opacity-30 flex items-center gap-1 text-xs"><Send size={13} /> Remind</button>
-                      {it.clientId && <Link href={`/finance/collections/statement/${it.clientId}`} className="text-gray-500 hover:text-gray-700 flex items-center gap-1 text-xs"><FileText size={13} /> Statement</Link>}
+                      <button onClick={() => remind(it)} disabled={busy === it.id || !it.clientEmail || it.clientBlocked} title={!it.clientEmail ? 'No client email' : 'Send reminder'} className="text-brand-600 hover:text-brand-700 disabled:opacity-30 flex items-center gap-1 text-xs"><Send size={13} /> {t('Remind')}</button>
+                      {it.clientId && <Link href={`/finance/collections/statement/${it.clientId}`} className="text-gray-500 hover:text-gray-700 flex items-center gap-1 text-xs"><FileText size={13} /> {t('Statement')}</Link>}
                     </div>
                   </td>
                 </tr>
@@ -134,6 +136,7 @@ export default function CollectionsPage() {
 }
 
 function SettingsModal({ onClose, onSaved }: any) {
+  const { t } = useLocale();
   const [s, setS] = useState<any>(null);
   const [saving, setSaving] = useState(false);
   const [testTo, setTestTo] = useState('');
@@ -150,48 +153,48 @@ function SettingsModal({ onClose, onSaved }: any) {
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4 overflow-y-auto" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg my-8" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100"><h2 className="font-bold text-gray-900">Collections settings</h2><button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={16} /></button></div>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100"><h2 className="font-bold text-gray-900">{t('Collections settings')}</h2><button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={16} /></button></div>
         <div className="px-6 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
           <label className="flex items-center justify-between">
-            <span className="text-sm font-medium text-gray-800">Automatic reminders</span>
+            <span className="text-sm font-medium text-gray-800">{t('Automatic reminders')}</span>
             <input type="checkbox" checked={!!s.remindersEnabled} onChange={e => setS({ ...s, remindersEnabled: e.target.checked })} />
           </label>
-          <p className="text-xs text-gray-400 -mt-2">Scans every 6 hours and sends the appropriate reminder per the cadence below. Off until SMTP is set.</p>
+          <p className="text-xs text-gray-400 -mt-2">{t('Scans every 6 hours and sends the appropriate reminder per the cadence below. Off until SMTP is set.')}</p>
 
           <div>
-            <h3 className="text-sm font-semibold text-gray-700 mb-2">SMTP (outgoing email)</h3>
+            <h3 className="text-sm font-semibold text-gray-700 mb-2">{t('SMTP (outgoing email)')}</h3>
             <div className="grid grid-cols-2 gap-2">
-              <div className="col-span-2"><label className="label">Host</label><input className="input w-full" value={smtp.host || ''} onChange={e => setSmtp('host', e.target.value)} placeholder="smtp.gmail.com" /></div>
-              <div><label className="label">Port</label><input type="number" className="input w-full" value={smtp.port || 587} onChange={e => setSmtp('port', Number(e.target.value))} /></div>
+              <div className="col-span-2"><label className="label">{t('Host')}</label><input className="input w-full" value={smtp.host || ''} onChange={e => setSmtp('host', e.target.value)} placeholder="smtp.gmail.com" /></div>
+              <div><label className="label">{t('Port')}</label><input type="number" className="input w-full" value={smtp.port || 587} onChange={e => setSmtp('port', Number(e.target.value))} /></div>
               <div className="flex items-end"><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={!!smtp.secure} onChange={e => setSmtp('secure', e.target.checked)} /> SSL/TLS (465)</label></div>
-              <div><label className="label">Username</label><input className="input w-full" value={smtp.user || ''} onChange={e => setSmtp('user', e.target.value)} /></div>
-              <div><label className="label">Password</label><input type="password" className="input w-full" value={smtp.pass || ''} onChange={e => setSmtp('pass', e.target.value)} /></div>
-              <div className="col-span-2"><label className="label">From address</label><input className="input w-full" value={smtp.from || ''} onChange={e => setSmtp('from', e.target.value)} placeholder="accounts@thefilmmakers.ae" /></div>
+              <div><label className="label">{t('Username')}</label><input className="input w-full" value={smtp.user || ''} onChange={e => setSmtp('user', e.target.value)} /></div>
+              <div><label className="label">{t('Password')}</label><input type="password" className="input w-full" value={smtp.pass || ''} onChange={e => setSmtp('pass', e.target.value)} /></div>
+              <div className="col-span-2"><label className="label">{t('From address')}</label><input className="input w-full" value={smtp.from || ''} onChange={e => setSmtp('from', e.target.value)} placeholder="accounts@thefilmmakers.ae" /></div>
             </div>
             <div className="flex items-center gap-2 mt-2">
               <input className="input flex-1" placeholder="test@email.com" value={testTo} onChange={e => setTestTo(e.target.value)} />
-              <button onClick={test} className="btn-secondary text-xs"><Mail size={13} /> Send test</button>
+              <button onClick={test} className="btn-secondary text-xs"><Mail size={13} /> {t('Send test')}</button>
               {testMsg && <span className="text-xs text-gray-500">{testMsg}</span>}
             </div>
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold text-gray-700 mb-2">Reminder cadence</h3>
+            <h3 className="text-sm font-semibold text-gray-700 mb-2">{t('Reminder cadence')}</h3>
             <div className="space-y-1">
               {(s.rules || []).map((r: any, i: number) => (
                 <div key={r.key} className="flex items-center gap-2 text-sm">
                   <input className="input flex-1 py-1" value={r.label} onChange={e => { const rules = [...s.rules]; rules[i] = { ...r, label: e.target.value }; setS({ ...s, rules }); }} />
-                  <span className="text-xs text-gray-400">day</span>
+                  <span className="text-xs text-gray-400">{t('day')}</span>
                   <input type="number" className="input w-16 py-1" value={r.offsetDays} onChange={e => { const rules = [...s.rules]; rules[i] = { ...r, offsetDays: Number(e.target.value) }; setS({ ...s, rules }); }} />
                 </div>
               ))}
             </div>
-            <p className="text-[11px] text-gray-400 mt-1">Negative = days before due date; positive = days overdue.</p>
+            <p className="text-[11px] text-gray-400 mt-1">{t('Negative = days before due date; positive = days overdue.')}</p>
           </div>
 
-          <div><label className="label">Statement / email footer</label><textarea className="input w-full h-16 resize-none text-xs" value={s.statementFooter || ''} onChange={e => setS({ ...s, statementFooter: e.target.value })} /></div>
+          <div><label className="label">{t('Statement / email footer')}</label><textarea className="input w-full h-16 resize-none text-xs" value={s.statementFooter || ''} onChange={e => setS({ ...s, statementFooter: e.target.value })} /></div>
         </div>
-        <div className="px-6 py-4 border-t border-gray-100 flex gap-3"><button onClick={onClose} className="btn-secondary flex-1">Cancel</button><button onClick={save} disabled={saving} className="btn-primary flex-1"><Check size={14} /> {saving ? 'Saving…' : 'Save'}</button></div>
+        <div className="px-6 py-4 border-t border-gray-100 flex gap-3"><button onClick={onClose} className="btn-secondary flex-1">{t('Cancel')}</button><button onClick={save} disabled={saving} className="btn-primary flex-1"><Check size={14} /> {saving ? t('Saving…') : t('Save')}</button></div>
       </div>
     </div>
   );

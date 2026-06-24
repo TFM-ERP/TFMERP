@@ -108,10 +108,10 @@ export default function BudgetPrintPage() {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
               <thead>
                 <tr style={{ background: NAVY }}>
-                  <th style={{ textAlign: 'left', padding: '6px 8px', color: '#fff', fontSize: 9, textTransform: 'uppercase' }}>Acct</th>
-                  <th style={{ textAlign: 'left', padding: '6px 8px', color: '#fff', fontSize: 9, textTransform: 'uppercase' }}>Category</th>
-                  <th style={{ textAlign: 'right', padding: '6px 8px', color: '#fff', fontSize: 9, textTransform: 'uppercase' }}>Budget ({project?.currency || 'AED'})</th>
-                  <th style={{ textAlign: 'right', padding: '6px 8px', color: '#fff', fontSize: 9, textTransform: 'uppercase', width: 50 }}>%</th>
+                  <th style={{ textAlign: 'start', padding: '6px 8px', color: '#fff', fontSize: 9, textTransform: 'uppercase' }}>Acct</th>
+                  <th style={{ textAlign: 'start', padding: '6px 8px', color: '#fff', fontSize: 9, textTransform: 'uppercase' }}>Category</th>
+                  <th style={{ textAlign: 'end', padding: '6px 8px', color: '#fff', fontSize: 9, textTransform: 'uppercase' }}>Budget ({project?.currency || 'AED'})</th>
+                  <th style={{ textAlign: 'end', padding: '6px 8px', color: '#fff', fontSize: 9, textTransform: 'uppercase', width: 50 }}>%</th>
                 </tr>
               </thead>
               <tbody>
@@ -121,29 +121,29 @@ export default function BudgetPrintPage() {
                       <tr key={s.code}>
                         <td style={{ padding: '5px 8px', borderBottom: '1px solid #eee', fontFamily: 'monospace', color: '#555' }}>{s.code}</td>
                         <td style={{ padding: '5px 8px', borderBottom: '1px solid #eee', borderLeft: `3px solid ${s.color || '#6366f1'}` }}>{s.title}</td>
-                        <td style={{ padding: '5px 8px', borderBottom: '1px solid #eee', textAlign: 'right' }}>{fmtAmt(s.total)}</td>
-                        <td style={{ padding: '5px 8px', borderBottom: '1px solid #eee', textAlign: 'right', color: '#999' }}>{grandTotal > 0 ? ((s.total / grandTotal) * 100).toFixed(1) : 0}%</td>
+                        <td style={{ padding: '5px 8px', borderBottom: '1px solid #eee', textAlign: 'end' }}>{fmtAmt(s.total)}</td>
+                        <td style={{ padding: '5px 8px', borderBottom: '1px solid #eee', textAlign: 'end', color: '#999' }}>{grandTotal > 0 ? ((s.total / grandTotal) * 100).toFixed(1) : 0}%</td>
                       </tr>
                     ))}
                     <tr style={{ background: '#F2EAD3' }}>
                       <td />
                       <td style={{ padding: '5px 8px', fontWeight: 800, color: NAVY, fontSize: 9 }}>TOTAL {TIER_LABEL[tier]}</td>
-                      <td style={{ padding: '5px 8px', textAlign: 'right', fontWeight: 800, color: NAVY }}>{fmtAmt(tierTotals[tier])}</td>
-                      <td style={{ padding: '5px 8px', textAlign: 'right', color: '#999' }}>{grandTotal > 0 ? ((tierTotals[tier] / grandTotal) * 100).toFixed(1) : 0}%</td>
+                      <td style={{ padding: '5px 8px', textAlign: 'end', fontWeight: 800, color: NAVY }}>{fmtAmt(tierTotals[tier])}</td>
+                      <td style={{ padding: '5px 8px', textAlign: 'end', color: '#999' }}>{grandTotal > 0 ? ((tierTotals[tier] / grandTotal) * 100).toFixed(1) : 0}%</td>
                     </tr>
                   </Fragment>
                 ))}
                 <tr>
                   <td />
                   <td style={{ padding: '6px 8px', fontWeight: 800, color: NAVY, borderTop: `1px solid ${GOLD}` }}>TOTAL ABOVE AND BELOW-THE-LINE</td>
-                  <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 800, color: NAVY, borderTop: `1px solid ${GOLD}` }}>{fmtAmt(tierTotals.ATL + tierTotals.BTL)}</td>
+                  <td style={{ padding: '6px 8px', textAlign: 'end', fontWeight: 800, color: NAVY, borderTop: `1px solid ${GOLD}` }}>{fmtAmt(tierTotals.ATL + tierTotals.BTL)}</td>
                   <td style={{ borderTop: `1px solid ${GOLD}` }} />
                 </tr>
                 <tr style={{ background: '#FAF6EC' }}>
                   <td />
                   <td style={{ padding: '8px 8px', fontWeight: 800, color: NAVY, fontSize: 11, borderTop: `2px solid ${GOLD}` }}>GRAND TOTAL</td>
-                  <td style={{ padding: '8px 8px', textAlign: 'right', fontWeight: 800, color: NAVY, fontSize: 12, borderTop: `2px solid ${GOLD}` }}>{fmtAmt(grandTotal)}</td>
-                  <td style={{ padding: '8px 8px', textAlign: 'right', color: '#999', borderTop: `2px solid ${GOLD}` }}>100%</td>
+                  <td style={{ padding: '8px 8px', textAlign: 'end', fontWeight: 800, color: NAVY, fontSize: 12, borderTop: `2px solid ${GOLD}` }}>{fmtAmt(grandTotal)}</td>
+                  <td style={{ padding: '8px 8px', textAlign: 'end', color: '#999', borderTop: `2px solid ${GOLD}` }}>100%</td>
                 </tr>
               </tbody>
             </table>
@@ -169,18 +169,18 @@ export default function BudgetPrintPage() {
                 a.lineItems.length === 0 ? null : (
                   <div key={a.code}>
                     <div style={{ padding: '4px 8px', background: '#fbfbfb', display: 'flex', justifyContent: 'space-between', fontSize: 9, fontWeight: 700, color: '#666', textTransform: 'uppercase' }}>
-                      <span><span style={{ background: '#efe6d2', color: '#7a5c1e', padding: '0 3px', borderRadius: 3, fontSize: 7, marginRight: 4 }}>CC</span>{a.code} · {a.title}</span><span>{fmtAmt(a.total)}</span>
+                      <span><span style={{ background: '#efe6d2', color: '#7a5c1e', padding: '0 3px', borderRadius: 3, fontSize: 7, marginInlineEnd: 4 }}>CC</span>{a.code} · {a.title}</span><span>{fmtAmt(a.total)}</span>
                     </div>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 9 }}>
                       <thead>
                         <tr style={{ color: '#999' }}>
-                          <th style={{ textAlign: 'left', padding: '3px 8px', width: 42 }}>Code</th>
-                          <th style={{ textAlign: 'left', padding: '3px 8px' }}>Description</th>
-                          <th style={{ textAlign: 'right', padding: '3px 8px' }}>Qty</th>
-                          <th style={{ textAlign: 'left', padding: '3px 8px' }}>Units</th>
-                          <th style={{ textAlign: 'right', padding: '3px 8px' }}>Rate</th>
-                          <th style={{ textAlign: 'right', padding: '3px 8px' }}>Fringe</th>
-                          <th style={{ textAlign: 'right', padding: '3px 8px' }}>Total</th>
+                          <th style={{ textAlign: 'start', padding: '3px 8px', width: 42 }}>Code</th>
+                          <th style={{ textAlign: 'start', padding: '3px 8px' }}>Description</th>
+                          <th style={{ textAlign: 'end', padding: '3px 8px' }}>Qty</th>
+                          <th style={{ textAlign: 'start', padding: '3px 8px' }}>Units</th>
+                          <th style={{ textAlign: 'end', padding: '3px 8px' }}>Rate</th>
+                          <th style={{ textAlign: 'end', padding: '3px 8px' }}>Fringe</th>
+                          <th style={{ textAlign: 'end', padding: '3px 8px' }}>Total</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -189,28 +189,28 @@ export default function BudgetPrintPage() {
                           <tr>
                             <td style={{ padding: '3px 8px', borderBottom: '1px solid #f0f0f0', fontFamily: 'monospace', color: '#7a5c1e', fontWeight: 700 }} title={i.subTitle || ''}>{i.code || ''}</td>
                             <td style={{ padding: '3px 8px', borderBottom: '1px solid #f0f0f0' }}>{i.description}</td>
-                            <td style={{ padding: '3px 8px', borderBottom: '1px solid #f0f0f0', textAlign: 'right' }}>{Number(i.quantity).toFixed(2)}</td>
+                            <td style={{ padding: '3px 8px', borderBottom: '1px solid #f0f0f0', textAlign: 'end' }}>{Number(i.quantity).toFixed(2)}</td>
                             <td style={{ padding: '3px 8px', borderBottom: '1px solid #f0f0f0' }}>{i.units || ''}</td>
-                            <td style={{ padding: '3px 8px', borderBottom: '1px solid #f0f0f0', textAlign: 'right' }}>{fmtAmt(i.rate)}</td>
-                            <td style={{ padding: '3px 8px', borderBottom: '1px solid #f0f0f0', textAlign: 'right' }}>{Number(i.fringePct) > 0 ? `${i.fringePct}%` : '—'}</td>
-                            <td style={{ padding: '3px 8px', borderBottom: '1px solid #f0f0f0', textAlign: 'right', fontWeight: 700 }}>{fmtAmt(i.total)}</td>
+                            <td style={{ padding: '3px 8px', borderBottom: '1px solid #f0f0f0', textAlign: 'end' }}>{fmtAmt(i.rate)}</td>
+                            <td style={{ padding: '3px 8px', borderBottom: '1px solid #f0f0f0', textAlign: 'end' }}>{Number(i.fringePct) > 0 ? `${i.fringePct}%` : '—'}</td>
+                            <td style={{ padding: '3px 8px', borderBottom: '1px solid #f0f0f0', textAlign: 'end', fontWeight: 700 }}>{fmtAmt(i.total)}</td>
                           </tr>
                           {Array.isArray(i.stages) && i.stages.map((s: any, si: number) => (
                             <tr key={si}>
                               <td />
                               <td style={{ padding: '1px 8px 1px 20px', color: '#777', fontSize: 8 }}>{({ PREP: 'Prep', SHOOT: 'Shoot', WRAP: 'Wrap', POST: 'Post' } as any)[s.stage] || s.stage}</td>
-                              <td style={{ padding: '1px 8px', textAlign: 'right', color: '#777', fontSize: 8 }}>{Number(s.qty)}</td>
+                              <td style={{ padding: '1px 8px', textAlign: 'end', color: '#777', fontSize: 8 }}>{Number(s.qty)}</td>
                               <td style={{ padding: '1px 8px', color: '#777', fontSize: 8 }}>{s.unit}</td>
-                              <td style={{ padding: '1px 8px', textAlign: 'right', color: '#777', fontSize: 8 }}>{fmtAmt(s.rate)}</td>
+                              <td style={{ padding: '1px 8px', textAlign: 'end', color: '#777', fontSize: 8 }}>{fmtAmt(s.rate)}</td>
                               <td />
-                              <td style={{ padding: '1px 8px', textAlign: 'right', color: '#777', fontSize: 8 }}>{fmtAmt((Number(s.qty) || 0) * (Number(s.rate) || 0))}</td>
+                              <td style={{ padding: '1px 8px', textAlign: 'end', color: '#777', fontSize: 8 }}>{fmtAmt((Number(s.qty) || 0) * (Number(s.rate) || 0))}</td>
                             </tr>
                           ))}
                           </Fragment>
                         ))}
                         <tr style={{ background: '#FAF6EC' }}>
                           <td colSpan={6} style={{ padding: '4px 8px', fontWeight: 700, color: '#7a5c1e', fontSize: 8.5 }}>ACCOUNT TOTAL FOR {a.code}</td>
-                          <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 800, color: NAVY }}>{fmtAmt(a.total)}</td>
+                          <td style={{ padding: '4px 8px', textAlign: 'end', fontWeight: 800, color: NAVY }}>{fmtAmt(a.total)}</td>
                         </tr>
                       </tbody>
                     </table>
@@ -229,10 +229,10 @@ export default function BudgetPrintPage() {
             <div style={{ fontSize: 12, fontWeight: 700, color: NAVY, marginBottom: 6 }}>Budget Totals</div>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
               <tbody>
-                <tr><td style={{ padding: '5px 8px', borderBottom: '1px solid #eee' }}>Total Above-The-Line</td><td style={{ padding: '5px 8px', borderBottom: '1px solid #eee', textAlign: 'right' }}>{fmtAmt(tierTotals.ATL)}</td></tr>
-                <tr><td style={{ padding: '5px 8px', borderBottom: '1px solid #eee' }}>Total Below-The-Line</td><td style={{ padding: '5px 8px', borderBottom: '1px solid #eee', textAlign: 'right' }}>{fmtAmt(tierTotals.BTL)}</td></tr>
-                <tr><td style={{ padding: '5px 8px', borderBottom: '1px solid #eee', fontWeight: 700 }}>Total Above and Below-The-Line</td><td style={{ padding: '5px 8px', borderBottom: '1px solid #eee', textAlign: 'right', fontWeight: 700 }}>{fmtAmt(tierTotals.ATL + tierTotals.BTL)}</td></tr>
-                <tr style={{ background: '#FAF6EC' }}><td style={{ padding: '7px 8px', fontWeight: 800, color: NAVY, borderTop: `2px solid ${GOLD}` }}>GRAND TOTAL</td><td style={{ padding: '7px 8px', textAlign: 'right', fontWeight: 800, color: NAVY, fontSize: 11, borderTop: `2px solid ${GOLD}` }}>{fmtAmt(grandTotal)}</td></tr>
+                <tr><td style={{ padding: '5px 8px', borderBottom: '1px solid #eee' }}>Total Above-The-Line</td><td style={{ padding: '5px 8px', borderBottom: '1px solid #eee', textAlign: 'end' }}>{fmtAmt(tierTotals.ATL)}</td></tr>
+                <tr><td style={{ padding: '5px 8px', borderBottom: '1px solid #eee' }}>Total Below-The-Line</td><td style={{ padding: '5px 8px', borderBottom: '1px solid #eee', textAlign: 'end' }}>{fmtAmt(tierTotals.BTL)}</td></tr>
+                <tr><td style={{ padding: '5px 8px', borderBottom: '1px solid #eee', fontWeight: 700 }}>Total Above and Below-The-Line</td><td style={{ padding: '5px 8px', borderBottom: '1px solid #eee', textAlign: 'end', fontWeight: 700 }}>{fmtAmt(tierTotals.ATL + tierTotals.BTL)}</td></tr>
+                <tr style={{ background: '#FAF6EC' }}><td style={{ padding: '7px 8px', fontWeight: 800, color: NAVY, borderTop: `2px solid ${GOLD}` }}>GRAND TOTAL</td><td style={{ padding: '7px 8px', textAlign: 'end', fontWeight: 800, color: NAVY, fontSize: 11, borderTop: `2px solid ${GOLD}` }}>{fmtAmt(grandTotal)}</td></tr>
               </tbody>
             </table>
           </div>
@@ -240,7 +240,7 @@ export default function BudgetPrintPage() {
           {/* Footer */}
           <div style={{ borderTop: '1px solid #ddd', marginTop: 18, paddingTop: 8, display: 'flex', justifyContent: 'space-between', color: '#999', fontSize: 8 }}>
             <div>Generated {new Date().toLocaleString('en-GB')}</div>
-            <div style={{ textAlign: 'right' }}>{co?.website}{co?.website && billingEmail ? ' · ' : ''}{billingEmail}</div>
+            <div style={{ textAlign: 'end' }}>{co?.website}{co?.website && billingEmail ? ' · ' : ''}{billingEmail}</div>
           </div>
         </div>
       </div>

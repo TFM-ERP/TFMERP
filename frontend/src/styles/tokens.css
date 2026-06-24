@@ -1,0 +1,64 @@
+/* ============================================================================
+   TFM design tokens — SYS-UX Phase 0 (ADDITIVE, INERT until applied)
+   Contains ONLY CSS custom-property definitions scoped to data-* attributes.
+   No element/global rules → importing this file changes nothing on screen
+   until a root element gets data-theme set (by ThemeProvider, behind a flag).
+   Themes: graphite (night brand) · studio (day) · ink (reading) · slate · aurora · midnight
+   Modifiers: [data-contrast="aaa"] · [data-density="compact"]
+   ============================================================================ */
+
+[data-theme="graphite"]{
+  --surface-0:#0E1117;--surface-1:#161C28;--surface-2:#1E2632;--surface-3:#28313F;
+  --text-1:#F4F6FA;--text-2:#C2CAD6;--text-3:#8A94A6;
+  --border-1:#262E3B;--border-2:#333D4D;
+  --accent:#C9A24A;--accent-on:#161C28;--accent-soft:rgba(201,162,74,.14);--gold:#C9A24A;
+  --ok:#34D399;--ok-soft:rgba(52,211,153,.14);--warn:#E0A53F;--warn-soft:rgba(224,165,63,.16);--danger:#E2574C;--danger-soft:rgba(226,87,76,.16);--info:#6AA3FF;
+}
+[data-theme="studio"]{
+  --surface-0:#F7F8FA;--surface-1:#FFFFFF;--surface-2:#F1F3F7;--surface-3:#E8EBF0;
+  --text-1:#16202E;--text-2:#48536A;--text-3:#8A93A6;
+  --border-1:#E6E9EF;--border-2:#D3D9E3;
+  --accent:#5B5BD6;--accent-on:#FFFFFF;--accent-soft:#ECECFB;--gold:#C9A24A;
+  --ok:#1F9D63;--ok-soft:#E4F6EC;--warn:#B5791E;--warn-soft:#FBF0DA;--danger:#D14343;--danger-soft:#FBE7E7;--info:#2D74D6;
+}
+[data-theme="ink"]{
+  --surface-0:#E9E1D2;--surface-1:#FBF8F2;--surface-2:#EFE8DC;--surface-3:#E6DCCA;
+  --text-1:#1B1712;--text-2:#4A4338;--text-3:#867B6A;
+  --border-1:#E3D9C8;--border-2:#CDBFA8;
+  --accent:#B0532E;--accent-on:#FBF8F2;--accent-soft:#F0DFD2;--gold:#C9A24A;
+  --ok:#5E7A3A;--ok-soft:#E8EBD7;--warn:#B5791E;--warn-soft:#F3E6CC;--danger:#B23A2E;--danger-soft:#F2DBD5;--info:#3F6FB0;
+}
+[data-theme="slate"]{
+  --surface-0:#0B1220;--surface-1:#121A2A;--surface-2:#1A2436;--surface-3:#243149;
+  --text-1:#EAF0FA;--text-2:#A9B6CC;--text-3:#6E7C95;
+  --border-1:#1F2A3D;--border-2:#2C3A52;
+  --accent:#3BA6C9;--accent-on:#06131C;--accent-soft:rgba(59,166,201,.16);--gold:#C9A24A;
+  --ok:#37C2A0;--ok-soft:rgba(55,194,160,.15);--warn:#E0A53F;--warn-soft:rgba(224,165,63,.16);--danger:#E2574C;--danger-soft:rgba(226,87,76,.16);--info:#6AA3FF;
+}
+[data-theme="aurora"]{
+  --surface-0:#09080F;--surface-1:#171530;--surface-2:#221F40;--surface-3:#322C54;
+  --text-1:#F2EEFF;--text-2:#C6BFE2;--text-3:#928BB2;
+  --border-1:#2C2752;--border-2:#3D3768;
+  --accent:#8B7CF6;--accent-on:#0A0A14;--accent-soft:rgba(139,124,246,.20);--gold:#C9A24A;
+  --ok:#36D1A6;--ok-soft:rgba(54,209,166,.16);--warn:#E6B450;--warn-soft:rgba(230,180,80,.16);--danger:#F0606B;--danger-soft:rgba(240,96,107,.16);--info:#8B7CF6;
+}
+[data-theme="midnight"]{
+  --surface-0:#000000;--surface-1:#0C0F14;--surface-2:#151A22;--surface-3:#1F2630;
+  --text-1:#FFFFFF;--text-2:#D6DDE8;--text-3:#9AA6B6;
+  --border-1:#222A35;--border-2:#3A4654;
+  --accent:#F5A623;--accent-on:#000000;--accent-soft:rgba(245,166,35,.16);--gold:#F5A623;
+  --ok:#3DDC84;--ok-soft:rgba(61,220,132,.16);--warn:#F5A623;--warn-soft:rgba(245,166,35,.16);--danger:#FF5A52;--danger-soft:rgba(255,90,82,.16);--info:#6AA3FF;
+}
+
+/* shared scales (theme-independent) */
+[data-theme]{
+  --radius-sm:8px;--radius:12px;--radius-pill:999px;
+  --space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-5:24px;--space-6:32px;
+  --font-sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  --font-serif:'Fraunces',Georgia,serif;
+  --font-mono:'Courier Prime','Courier New',monospace;
+}
+
+/* modifiers */
+[data-contrast="aaa"]{ --text-2:var(--text-1); --text-3:var(--text-2); --border-1:var(--border-2); }
+[data-density="compact"]{ --space-3:8px;--space-4:12px;--space-5:16px;--space-6:22px; }

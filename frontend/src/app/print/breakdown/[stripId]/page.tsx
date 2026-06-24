@@ -50,7 +50,7 @@ export default function BreakdownSheetPrint() {
               <div style={{ fontWeight: 700, marginTop: 2 }}>{s.project?.title || ''} {s.project?.projectNumber ? `· ${s.project.projectNumber}` : ''}</div>
             </div>
             {logoSrc(co?.logoUrl) ? <img src={logoSrc(co.logoUrl)} alt="" style={{ height: 42, objectFit: 'contain' }} /> :
-              <div style={{ fontSize: 9, color: '#999', textAlign: 'right' }}>{co?.name || 'The Film Makers FZ LLC'}</div>}
+              <div style={{ fontSize: 9, color: '#999', textAlign: 'end' }}>{co?.name || 'The Film Makers FZ LLC'}</div>}
           </div>
           <div style={{ borderTop: `2px solid ${GOLD}`, margin: '10px 0 12px' }} />
 
@@ -78,7 +78,7 @@ export default function BreakdownSheetPrint() {
                     {byCat[c].map((e: any) => (
                       <tr key={e.id}>
                         <td style={{ padding: '2px 8px', fontSize: 9, borderBottom: '1px solid #f3f3f3' }}>{e.name}{e.quantity > 1 ? ` (×${e.quantity})` : ''}</td>
-                        <td style={{ padding: '2px 8px', fontSize: 8.5, color: '#888', borderBottom: '1px solid #f3f3f3', textAlign: 'right', width: 70 }}>{e.costCenterCode || ''}</td>
+                        <td style={{ padding: '2px 8px', fontSize: 8.5, color: '#888', borderBottom: '1px solid #f3f3f3', textAlign: 'end', width: 70 }}>{e.costCenterCode || ''}</td>
                       </tr>
                     ))}
                   </tbody>

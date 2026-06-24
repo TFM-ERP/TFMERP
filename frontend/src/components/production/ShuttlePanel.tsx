@@ -34,7 +34,7 @@ export default function ShuttlePanel({ projectId }: { projectId: string }) {
         {/* Route list */}
         <div className="grid gap-1.5 content-start">
           {routes.length === 0 ? <p className="text-xs text-slate-400 py-4">No routes yet.</p> : routes.map((r) => (
-            <button key={r.id} onClick={() => setSelId(r.id)} className={`text-left rounded-xl border px-3 py-2.5 ${selId === r.id ? 'border-slate-900 bg-slate-50' : 'border-slate-200 bg-white hover:bg-slate-50'}`}>
+            <button key={r.id} onClick={() => setSelId(r.id)} className={`text-start rounded-xl border px-3 py-2.5 ${selId === r.id ? 'border-slate-900 bg-slate-50' : 'border-slate-200 bg-white hover:bg-slate-50'}`}>
               <div className="flex items-center justify-between"><span className="text-sm font-medium text-slate-800 truncate">{r.name}</span><Chip tone={r.status === 'ACTIVE' ? 'money' : r.status === 'PAUSED' ? 'need' : 'slate'}>{r.status}</Chip></div>
               <div className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-2 flex-wrap">
                 {r.departureTime && <span className="inline-flex items-center gap-1"><Clock size={10} />{r.departureTime}</span>}

@@ -167,8 +167,8 @@ export default function AdRebateTracker({ projectId, onNavigate }: { projectId: 
           {(s.criteria || []).map((c: any, i: number) => (
             <label key={c.key} className={cn('flex items-center gap-2 px-2 py-1.5 rounded-lg border cursor-pointer', c.selected ? 'border-brand-300 bg-brand-50' : 'border-gray-200')}>
               <input type="checkbox" checked={!!c.selected} onChange={() => toggleCrit(i)} />
-              <span className="flex-1 text-sm text-gray-700">{c.label}{!c.confirmed && <span className="ml-1.5 text-[10px] bg-amber-100 text-amber-700 rounded px-1">indicative</span>}</span>
-              <input type="number" className="input text-xs w-16 h-7 text-right" value={c.points} onChange={(e) => setPoints(i, e.target.value)} />
+              <span className="flex-1 text-sm text-gray-700">{c.label}{!c.confirmed && <span className="ms-1.5 text-[10px] bg-amber-100 text-amber-700 rounded px-1">indicative</span>}</span>
+              <input type="number" className="input text-xs w-16 h-7 text-end" value={c.points} onChange={(e) => setPoints(i, e.target.value)} />
               <span className="text-[10px] text-gray-400">pts</span>
             </label>
           ))}
@@ -220,7 +220,7 @@ export default function AdRebateTracker({ projectId, onNavigate }: { projectId: 
       </div>
 
       <div className="flex items-center gap-2">
-        <button onClick={save} disabled={busy} className="btn btn-primary text-xs"><Save size={13} className="mr-1" /> {busy ? 'Saving…' : 'Save claim'}</button>
+        <button onClick={save} disabled={busy} className="btn btn-primary text-xs"><Save size={13} className="me-1" /> {busy ? 'Saving…' : 'Save claim'}</button>
         <span className="text-[11px] text-gray-400 flex items-center gap-1"><Info size={11} /> Estimate only — not tax advice. Confirm ADQPE, points & caps with ADFC (rebates@film.gov.ae).</span>
       </div>
     </div>

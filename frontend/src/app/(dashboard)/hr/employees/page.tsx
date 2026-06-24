@@ -39,15 +39,15 @@ export default function EmployeesPage() {
     <div className="p-6 max-w-6xl mx-auto">
       <CinematicHeader kicker="HR · People" title="Employees" count={`${rows.length} employees`}>
         <Link href="/hr/employees/new" className="btn btn-primary">
-          <Plus size={14} className="mr-1" /> New Employee
+          <Plus size={14} className="me-1" /> New Employee
         </Link>
       </CinematicHeader>
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-4">
         <div className="relative flex-1 min-w-48">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input className="input pl-9 w-full" placeholder="Search name, number, email…"
+          <Search size={14} className="absolute start-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input className="input ps-9 w-full" placeholder="Search name, number, email…"
             value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
         <select className="input w-44" value={status} onChange={(e) => setStatus(e.target.value)}>
@@ -77,7 +77,7 @@ export default function EmployeesPage() {
                   <Link href={`/hr/employees/${e.id}`} className="font-medium text-gray-900 hover:text-brand-600">
                     {empName(e)}
                   </Link>
-                  {e.isDriver && <span className="ml-2 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] text-blue-700">Driver</span>}
+                  {e.isDriver && <span className="ms-2 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] text-blue-700">Driver</span>}
                 </td>
                 <td className="table-td text-sm text-gray-500">{e.employeeNumber || '—'}</td>
                 <td className="table-td text-sm text-gray-500">{e.department || '—'}</td>

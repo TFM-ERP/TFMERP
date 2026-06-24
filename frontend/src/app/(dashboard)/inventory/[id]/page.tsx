@@ -88,7 +88,7 @@ export default function InventoryItemPage() {
           </div>
           <p className="text-sm text-gray-500">{item.category || 'Uncategorised'}</p>
         </div>
-        <div className="text-right">
+        <div className="text-end">
           <p className="text-xs text-gray-400">On hand</p>
           <p className="text-2xl font-bold text-gray-900">{Number(item.quantity)} <span className="text-sm font-normal text-gray-400">{item.unit}</span></p>
         </div>
@@ -113,7 +113,7 @@ export default function InventoryItemPage() {
             </div>
             <div className="flex items-center justify-between mt-4">
               <button onClick={async () => { if (confirm('Delete this item and its history?')) { await inventoryApi.remove(id); router.push('/inventory'); } }} className="text-xs text-red-500 hover:text-red-700 flex items-center gap-1"><Trash2 size={12} /> Delete item</button>
-              <button onClick={saveItem} disabled={saving} className="btn btn-primary text-sm"><Save size={13} className="mr-1" /> {saving ? 'Saving…' : 'Save changes'}</button>
+              <button onClick={saveItem} disabled={saving} className="btn btn-primary text-sm"><Save size={13} className="me-1" /> {saving ? 'Saving…' : 'Save changes'}</button>
             </div>
           </div>
 
@@ -125,9 +125,9 @@ export default function InventoryItemPage() {
             ) : (
               <table className="w-full text-sm">
                 <thead><tr className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-100">
-                  <th className="px-4 py-2 text-left">Date</th><th className="px-3 py-2 text-left">Type</th>
-                  <th className="px-3 py-2 text-right">Qty</th><th className="px-3 py-2 text-right">Balance</th>
-                  <th className="px-3 py-2 text-left">Reason / Ref</th>
+                  <th className="px-4 py-2 text-start">Date</th><th className="px-3 py-2 text-start">Type</th>
+                  <th className="px-3 py-2 text-end">Qty</th><th className="px-3 py-2 text-end">Balance</th>
+                  <th className="px-3 py-2 text-start">Reason / Ref</th>
                 </tr></thead>
                 <tbody>
                   {item.movements.map((m: any) => {
@@ -137,8 +137,8 @@ export default function InventoryItemPage() {
                       <tr key={m.id} className="border-b border-gray-50">
                         <td className="px-4 py-2 text-gray-500 text-xs">{formatDate(m.movementDate)}</td>
                         <td className="px-3 py-2"><span className={cn('inline-flex items-center gap-1 text-xs font-medium', meta.color)}><Icon size={13} /> {meta.label}</span></td>
-                        <td className={cn('px-3 py-2 text-right font-medium', meta.color)}>{m.type === 'OUT' ? '-' : m.type === 'IN' ? '+' : '±'}{Number(m.quantity)}</td>
-                        <td className="px-3 py-2 text-right text-gray-700">{Number(m.balanceAfter)}</td>
+                        <td className={cn('px-3 py-2 text-end font-medium', meta.color)}>{m.type === 'OUT' ? '-' : m.type === 'IN' ? '+' : '±'}{Number(m.quantity)}</td>
+                        <td className="px-3 py-2 text-end text-gray-700">{Number(m.balanceAfter)}</td>
                         <td className="px-3 py-2 text-gray-500 text-xs">{m.reason || '—'}{m.reference ? ` · ${m.reference}` : ''}</td>
                       </tr>
                     );

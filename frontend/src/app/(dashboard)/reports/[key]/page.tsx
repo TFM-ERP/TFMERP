@@ -8,7 +8,7 @@ import { reportsApi } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
-export const fmtCell = (v: any, fmt?: string) => {
+const fmtCell = (v: any, fmt?: string) => {
   if (v === null || v === undefined || v === '') return '';
   if (fmt === 'currency') return formatCurrency(Number(v));
   if (fmt === 'number') return Number(v).toLocaleString('en-AE');
@@ -64,20 +64,20 @@ export default function ReportViewerPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-100">
-                {cols.map((c: any) => <th key={c.key} className={`px-3 py-2.5 ${c.align === 'right' ? 'text-right' : 'text-left'}`}>{c.label}</th>)}
+                {cols.map((c: any) => <th key={c.key} className={`px-3 py-2.5 ${c.align === 'right' ? 'text-end' : 'text-start'}`}>{c.label}</th>)}
               </tr>
             </thead>
             <tbody>
               {data.rows.map((r: any, i: number) => (
                 <tr key={i} className="border-b border-gray-50 hover:bg-gray-50/60">
-                  {cols.map((c: any) => <td key={c.key} className={`px-3 py-2 ${c.align === 'right' ? 'text-right' : 'text-left'} ${c.key === cols[0].key ? 'font-medium text-gray-800' : 'text-gray-600'}`}>{fmtCell(r[c.key], c.format)}</td>)}
+                  {cols.map((c: any) => <td key={c.key} className={`px-3 py-2 ${c.align === 'right' ? 'text-end' : 'text-start'} ${c.key === cols[0].key ? 'font-medium text-gray-800' : 'text-gray-600'}`}>{fmtCell(r[c.key], c.format)}</td>)}
                 </tr>
               ))}
             </tbody>
             {data.totals && (
               <tfoot className="border-t-2 border-gray-200">
                 {Object.entries(data.totals).map(([k, v]: any) => (
-                  <tr key={k}><td className="px-3 py-2 text-right font-bold text-gray-700" colSpan={cols.length - 1}>{k}</td><td className="px-3 py-2 text-right font-bold text-brand-700">{typeof v === 'number' ? formatCurrency(v) : String(v)}</td></tr>
+                  <tr key={k}><td className="px-3 py-2 text-end font-bold text-gray-700" colSpan={cols.length - 1}>{k}</td><td className="px-3 py-2 text-end font-bold text-brand-700">{typeof v === 'number' ? formatCurrency(v) : String(v)}</td></tr>
                 ))}
               </tfoot>
             )}

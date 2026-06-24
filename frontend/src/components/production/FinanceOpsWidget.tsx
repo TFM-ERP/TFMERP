@@ -34,13 +34,13 @@ export default function FinanceOpsWidget({ finance }: { finance: any }) {
           <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-1.5"><TrendingDown size={13} className="text-gray-400" /><h3 className="text-sm font-semibold text-gray-700">EFC variance by project</h3></div>
           {rows.length === 0 ? <div className="p-8 text-center text-gray-400 text-sm">No active budgets.</div> : (
             <table className="w-full text-sm">
-              <thead><tr className="text-[10px] font-semibold text-gray-400 uppercase border-b border-gray-100"><th className="px-4 py-2 text-left">Project</th><th className="px-3 py-2 text-right">EFC</th><th className="px-3 py-2 text-right">Variance</th></tr></thead>
+              <thead><tr className="text-[10px] font-semibold text-gray-400 uppercase border-b border-gray-100"><th className="px-4 py-2 text-start">Project</th><th className="px-3 py-2 text-end">EFC</th><th className="px-3 py-2 text-end">Variance</th></tr></thead>
               <tbody>
                 {rows.map(p => (
                   <tr key={p.id} className={cn('border-b border-gray-50', p.overBudget && 'bg-red-50/40')}>
                     <td className="px-4 py-2"><Link href={`/production/projects/${p.id}`} className="text-gray-800 hover:text-brand-600 font-medium">{p.title}</Link><div className="text-[10px] text-gray-400">{p.projectNumber}</div></td>
-                    <td className="px-3 py-2 text-right text-gray-700">{money(p.efc, p.currency)}</td>
-                    <td className={cn('px-3 py-2 text-right font-medium whitespace-nowrap', p.variance < 0 ? 'text-red-600' : 'text-gray-500')}>{p.overBudget && <AlertTriangle size={10} className="inline mr-0.5" />}{p.variance < 0 ? '-' : ''}{money(Math.abs(p.variance), p.currency)}</td>
+                    <td className="px-3 py-2 text-end text-gray-700">{money(p.efc, p.currency)}</td>
+                    <td className={cn('px-3 py-2 text-end font-medium whitespace-nowrap', p.variance < 0 ? 'text-red-600' : 'text-gray-500')}>{p.overBudget && <AlertTriangle size={10} className="inline me-0.5" />}{p.variance < 0 ? '-' : ''}{money(Math.abs(p.variance), p.currency)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -59,7 +59,7 @@ export default function FinanceOpsWidget({ finance }: { finance: any }) {
                     <div className="text-gray-800 truncate">{tr.fromCode} → {tr.toCode} <span className="font-medium">{money(Number(tr.amount))}</span></div>
                     <div className="text-[11px] text-gray-400 truncate">{tr.project?.title || ''} · {tr.reason || 'no reason given'}</div>
                   </div>
-                  <Link href={`/production/projects/${tr.projectId}?tab=costreport`} className="text-brand-600 hover:text-brand-700 inline-flex items-center gap-1 text-xs shrink-0 ml-2">Review <ArrowRight size={12} /></Link>
+                  <Link href={`/production/projects/${tr.projectId}?tab=costreport`} className="text-brand-600 hover:text-brand-700 inline-flex items-center gap-1 text-xs shrink-0 ms-2">Review <ArrowRight size={12} /></Link>
                 </li>
               ))}
             </ul>

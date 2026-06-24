@@ -141,7 +141,7 @@ export default function ConditionReports({ bookingId, assets }: { bookingId: str
                     <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-gray-200">
                       <img src={fileSrc(p)} alt="" className="w-full h-full object-cover" />
                       <button onClick={() => setForm((s: any) => ({ ...s, photos: s.photos.filter((_: any, j: number) => j !== i) }))}
-                        className="absolute top-0 right-0 bg-black/50 text-white rounded-bl px-1"><X size={11} /></button>
+                        className="absolute top-0 end-0 bg-black/50 text-white rounded-bl px-1"><X size={11} /></button>
                     </div>
                   ))}
                   <label className="w-16 h-16 rounded-lg border border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer text-gray-400 hover:bg-gray-50">

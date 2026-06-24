@@ -255,9 +255,9 @@ function BreakdownToolbar({ search, onSearch, allOpen, onToggleAll, onPrint, onE
   return (
     <div className="flex items-center gap-2 mb-3 flex-wrap">
       <div className="relative">
-        <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+        <Search size={14} className="absolute start-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
         <input value={search} onChange={(e) => onSearch(e.target.value)} placeholder={placeholder}
-          className="rounded-xl border border-slate-200 pl-8 pr-3 py-1.5 text-sm w-60 focus:border-slate-900 outline-none" />
+          className="rounded-xl border border-slate-200 ps-8 pe-3 py-1.5 text-sm w-60 focus:border-slate-900 outline-none" />
       </div>
       <Btn variant="secondary" onClick={onToggleAll}>{allOpen ? 'Collapse all' : 'Expand all'}</Btn>
       <div className="flex-1" />
@@ -466,7 +466,7 @@ function SharedWithYou({ projectId }: { projectId: string }) {
       <div className="space-y-1">
         {rows.slice(0, 6).map((s) => (
           <div key={s.id} className={`flex items-center justify-between text-sm rounded-lg px-2 py-1 ${s.readAt ? 'text-slate-500' : 'text-slate-800 font-medium'}`}>
-            <span className="truncate"><Share2 size={12} className="inline text-slate-400 mr-1.5" />{s.title}<span className="text-[11px] text-slate-400 ml-1.5">from {s.sharedBy?.fullName || '—'}{s.message ? ` · ${s.message}` : ''}</span></span>
+            <span className="truncate"><Share2 size={12} className="inline text-slate-400 me-1.5" />{s.title}<span className="text-[11px] text-slate-400 ms-1.5">from {s.sharedBy?.fullName || '—'}{s.message ? ` · ${s.message}` : ''}</span></span>
             {!s.readAt && <button onClick={() => dismiss(s.id)} className="text-[11px] text-blue-700 hover:underline shrink-0">Mark read</button>}
           </div>
         ))}

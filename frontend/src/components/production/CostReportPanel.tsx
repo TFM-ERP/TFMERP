@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, Fragment } from 'react';
-import { RefreshCw, Camera, FileDown, ChevronDown, ChevronRight, AlertTriangle, Printer, Mail, ArrowLeftRight, Plus, Trash2, X, CheckCircle, XCircle } from 'lucide-react';
+import { RefreshCw, Camera, FileDown, ChevronDown, ChevronRight, AlertTriangle, Printer, Mail, ArrowLeftRight, Plus, Trash2, X, CheckCircle, XCircle, MapPin, Briefcase } from 'lucide-react';
 import { productionApi } from '@/lib/api';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 
@@ -77,6 +77,12 @@ export default function CostReportPanel({ projectId, currency = 'AED', onMutate 
     for (const s of data.sections) for (const a of s.accounts)
       rows.push([s.title, a.code, a.title, a.budget, a.transfer, a.approvedChange, a.revisedBudget, a.committed, a.actual, a.etc, a.efc, a.variance].map(String));
     rows.push(['', '', 'TOTAL', data.totals.budget, data.totals.transfer, data.totals.approvedChange, data.totals.revisedBudget, data.totals.committed, data.totals.actual, '', data.totals.efc, data.totals.variance].map(String));
+    if (data.locations && data.locations.count > 0) {
+      rows.push([]);
+      rows.push(['LOCATION SPEND (informational)', 'Fee paid', 'Fee pending', 'Permit fees', 'Security', 'Total'].map(String));
+      for (const l of data.locations.byLocation) rows.push([l.name, l.paid, l.pending, l.permitFees, l.security, l.total].map(String));
+      rows.push(['LOCATIONS TOTAL', data.locations.payments.paid, data.locations.payments.pending, data.locations.permitFees, data.locations.security.total, data.locations.total].map(String));
+    }
     const blob = new Blob([rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n')], { type: 'text/csv' });
     const u = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = u; a.download = 'cost-report.csv'; a.click(); URL.revokeObjectURL(u);
   };
@@ -92,11 +98,12 @@ export default function CostReportPanel({ projectId, currency = 'AED', onMutate 
           <p className="text-xs text-gray-400">Budget → Revised (transfers + approved overages) → Committed → Actual → EFC → Variance.</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => setMoveOpen(true)} className="btn btn-secondary text-xs py-1.5 px-2"><ArrowLeftRight size={12} className="mr-1" /> Move budget</button>
-          <button onClick={emailReport} className="btn btn-secondary text-xs py-1.5 px-2"><Mail size={12} className="mr-1" /> Email</button>
-          <button onClick={() => window.open(`/print/costreport/${projectId}`, '_blank')} className="btn btn-secondary text-xs py-1.5 px-2"><Printer size={12} className="mr-1" /> Print / PDF</button>
-          <button onClick={csv} className="btn btn-secondary text-xs py-1.5 px-2"><FileDown size={12} className="mr-1" /> CSV</button>
-          <button onClick={snapshot} className="btn btn-secondary text-xs py-1.5 px-2"><Camera size={12} className="mr-1" /> Save snapshot</button>
+          <button onClick={() => setMoveOpen(true)} className="btn btn-secondary text-xs py-1.5 px-2"><ArrowLeftRight size={12} className="me-1" /> Move budget</button>
+          <button onClick={emailReport} className="btn btn-secondary text-xs py-1.5 px-2"><Mail size={12} className="me-1" /> Email</button>
+          <button onClick={() => window.open(`/print/costreport/${projectId}`, '_blank')} className="btn btn-secondary text-xs py-1.5 px-2"><Printer size={12} className="me-1" /> Print / PDF</button>
+          <button onClick={() => window.open(`/print/reportpack/${projectId}`, '_blank')} className="btn btn-secondary text-xs py-1.5 px-2"><Briefcase size={12} className="me-1" /> Financier pack</button>
+          <button onClick={csv} className="btn btn-secondary text-xs py-1.5 px-2"><FileDown size={12} className="me-1" /> CSV</button>
+          <button onClick={snapshot} className="btn btn-secondary text-xs py-1.5 px-2"><Camera size={12} className="me-1" /> Save snapshot</button>
           <button onClick={load} className="btn btn-secondary p-1.5"><RefreshCw size={13} className={loading ? 'animate-spin' : ''} /></button>
         </div>
       </div>
@@ -119,15 +126,15 @@ export default function CostReportPanel({ projectId, currency = 'AED', onMutate 
           !data || data.sections.length === 0 ? <div className="p-10 text-center text-gray-400 text-sm">No active budget.</div> : (
             <table className="w-full text-sm min-w-[920px]">
               <thead><tr className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-100">
-                <th className="px-4 py-2.5 text-left">Cost Center</th>
-                <th className="px-3 py-2.5 text-right">Budget</th>
-                <th className="px-3 py-2.5 text-right">Δ Adj</th>
-                <th className="px-3 py-2.5 text-right">Revised</th>
-                <th className="px-3 py-2.5 text-right">Committed</th>
-                <th className="px-3 py-2.5 text-right">Actual</th>
-                <th className="px-3 py-2.5 text-right w-24">ETC</th>
-                <th className="px-3 py-2.5 text-right">EFC</th>
-                <th className="px-3 py-2.5 text-right">Variance</th>
+                <th className="px-4 py-2.5 text-start">Cost Center</th>
+                <th className="px-3 py-2.5 text-end">Budget</th>
+                <th className="px-3 py-2.5 text-end">Δ Adj</th>
+                <th className="px-3 py-2.5 text-end">Revised</th>
+                <th className="px-3 py-2.5 text-end">Committed</th>
+                <th className="px-3 py-2.5 text-end">Actual</th>
+                <th className="px-3 py-2.5 text-end w-24">ETC</th>
+                <th className="px-3 py-2.5 text-end">EFC</th>
+                <th className="px-3 py-2.5 text-end">Variance</th>
               </tr></thead>
               <tbody>
                 {data.sections.map((s: any) => {
@@ -139,36 +146,36 @@ export default function CostReportPanel({ projectId, currency = 'AED', onMutate 
                         <td className="px-4 py-2 font-semibold text-gray-800" style={{ borderLeft: `3px solid ${s.color || '#6366f1'}` }}>
                           <span className="inline-flex items-center gap-1">{open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}{s.code} — {s.title}</span>
                         </td>
-                        <td className="px-3 py-2 text-right font-semibold">{money(s.budget)}</td>
-                        <td className={cn('px-3 py-2 text-right', sDelta > 0 ? 'text-purple-600' : sDelta < 0 ? 'text-blue-600' : 'text-gray-300')}>{sDelta === 0 ? '—' : (sDelta > 0 ? '+' : '−') + money(Math.abs(sDelta))}</td>
-                        <td className="px-3 py-2 text-right font-semibold">{money(s.revisedBudget)}</td>
-                        <td className="px-3 py-2 text-right font-semibold text-blue-600">{money(s.committed)}</td>
-                        <td className="px-3 py-2 text-right font-semibold text-amber-600">{money(s.actual)}</td>
+                        <td className="px-3 py-2 text-end font-semibold">{money(s.budget)}</td>
+                        <td className={cn('px-3 py-2 text-end', sDelta > 0 ? 'text-purple-600' : sDelta < 0 ? 'text-blue-600' : 'text-gray-300')}>{sDelta === 0 ? '—' : (sDelta > 0 ? '+' : '−') + money(Math.abs(sDelta))}</td>
+                        <td className="px-3 py-2 text-end font-semibold">{money(s.revisedBudget)}</td>
+                        <td className="px-3 py-2 text-end font-semibold text-blue-600">{money(s.committed)}</td>
+                        <td className="px-3 py-2 text-end font-semibold text-amber-600">{money(s.actual)}</td>
                         <td className="px-3 py-2"></td>
-                        <td className="px-3 py-2 text-right font-semibold">{money(s.efc)}</td>
-                        <td className={cn('px-3 py-2 text-right font-semibold', s.variance < 0 ? 'text-red-600' : 'text-gray-600')}>{s.variance < 0 ? '-' : ''}{money(Math.abs(s.variance))}</td>
+                        <td className="px-3 py-2 text-end font-semibold">{money(s.efc)}</td>
+                        <td className={cn('px-3 py-2 text-end font-semibold', s.variance < 0 ? 'text-red-600' : 'text-gray-600')}>{s.variance < 0 ? '-' : ''}{money(Math.abs(s.variance))}</td>
                       </tr>
                       {open && s.accounts.map((a: any) => {
                         const d = delta(a);
                         return (
                           <tr key={a.code} className={cn('border-b border-gray-50', a.overspent && 'bg-red-50/40')}>
-                            <td className="px-4 py-1.5 pl-8 text-gray-600 text-xs">{a.code} · {a.title}</td>
-                            <td className="px-3 py-1.5 text-right text-gray-600">{money(a.budget)}</td>
-                            <td className={cn('px-3 py-1.5 text-right text-xs', d > 0 ? 'text-purple-600' : d < 0 ? 'text-blue-600' : 'text-gray-300')}
+                            <td className="px-4 py-1.5 ps-8 text-gray-600 text-xs">{a.code} · {a.title}</td>
+                            <td className="px-3 py-1.5 text-end text-gray-600">{money(a.budget)}</td>
+                            <td className={cn('px-3 py-1.5 text-end text-xs', d > 0 ? 'text-purple-600' : d < 0 ? 'text-blue-600' : 'text-gray-300')}
                               title={`Transfers ${money(a.transfer)} · Approved overages ${money(a.approvedChange)}`}>
                               {d === 0 ? '—' : (d > 0 ? '+' : '−') + money(Math.abs(d))}
                             </td>
-                            <td className="px-3 py-1.5 text-right text-gray-700">{money(a.revisedBudget)}</td>
-                            <td className="px-3 py-1.5 text-right text-blue-600">{a.committed ? money(a.committed) : '—'}</td>
-                            <td className="px-3 py-1.5 text-right text-amber-600">{a.actual ? money(a.actual) : '—'}</td>
-                            <td className="px-3 py-1.5 text-right">
+                            <td className="px-3 py-1.5 text-end text-gray-700">{money(a.revisedBudget)}</td>
+                            <td className="px-3 py-1.5 text-end text-blue-600">{a.committed ? money(a.committed) : '—'}</td>
+                            <td className="px-3 py-1.5 text-end text-amber-600">{a.actual ? money(a.actual) : '—'}</td>
+                            <td className="px-3 py-1.5 text-end">
                               <input type="number" defaultValue={a.etcManual ? a.etc : ''} placeholder={String(Math.round(a.committed))}
                                 onBlur={e => { if (e.target.value !== (a.etcManual ? String(a.etc) : '')) saveEtc(a.accountId, e.target.value); }}
-                                className={cn('input text-xs h-7 w-20 text-right', a.etcManual && 'border-brand-300')} title="Estimate to Complete (blank = remaining commitments)" />
+                                className={cn('input text-xs h-7 w-20 text-end', a.etcManual && 'border-brand-300')} title="Estimate to Complete (blank = remaining commitments)" />
                             </td>
-                            <td className="px-3 py-1.5 text-right font-medium text-gray-800">{money(a.efc)}</td>
-                            <td className={cn('px-3 py-1.5 text-right whitespace-nowrap', a.variance < 0 ? 'text-red-600' : 'text-gray-500')}>
-                              {a.overspent && <button onClick={() => raiseOverage(a)} title="Raise overage for the gap" className="text-red-500 hover:text-red-700 mr-1 align-middle"><AlertTriangle size={11} className="inline" /></button>}
+                            <td className="px-3 py-1.5 text-end font-medium text-gray-800">{money(a.efc)}</td>
+                            <td className={cn('px-3 py-1.5 text-end whitespace-nowrap', a.variance < 0 ? 'text-red-600' : 'text-gray-500')}>
+                              {a.overspent && <button onClick={() => raiseOverage(a)} title="Raise overage for the gap" className="text-red-500 hover:text-red-700 me-1 align-middle"><AlertTriangle size={11} className="inline" /></button>}
                               {a.variance < 0 ? '-' : ''}{money(Math.abs(a.variance))}
                             </td>
                           </tr>
@@ -180,14 +187,14 @@ export default function CostReportPanel({ projectId, currency = 'AED', onMutate 
                 {t && (
                   <tr className="bg-gray-100 font-bold text-gray-900 border-t-2 border-gray-200">
                     <td className="px-4 py-3">TOTAL</td>
-                    <td className="px-3 py-3 text-right">{money(t.budget)}</td>
-                    <td className={cn('px-3 py-3 text-right', t.approvedChange > 0 ? 'text-purple-700' : 'text-gray-400')}>{t.approvedChange > 0 ? '+' + money(t.approvedChange) : '—'}</td>
-                    <td className="px-3 py-3 text-right">{money(t.revisedBudget)}</td>
-                    <td className="px-3 py-3 text-right text-blue-700">{money(t.committed)}</td>
-                    <td className="px-3 py-3 text-right text-amber-700">{money(t.actual)}</td>
+                    <td className="px-3 py-3 text-end">{money(t.budget)}</td>
+                    <td className={cn('px-3 py-3 text-end', t.approvedChange > 0 ? 'text-purple-700' : 'text-gray-400')}>{t.approvedChange > 0 ? '+' + money(t.approvedChange) : '—'}</td>
+                    <td className="px-3 py-3 text-end">{money(t.revisedBudget)}</td>
+                    <td className="px-3 py-3 text-end text-blue-700">{money(t.committed)}</td>
+                    <td className="px-3 py-3 text-end text-amber-700">{money(t.actual)}</td>
                     <td></td>
-                    <td className="px-3 py-3 text-right">{money(t.efc)}</td>
-                    <td className={cn('px-3 py-3 text-right', t.variance < 0 ? 'text-red-600' : 'text-green-600')}>{t.variance < 0 ? '-' : ''}{money(Math.abs(t.variance))}</td>
+                    <td className="px-3 py-3 text-end">{money(t.efc)}</td>
+                    <td className={cn('px-3 py-3 text-end', t.variance < 0 ? 'text-red-600' : 'text-green-600')}>{t.variance < 0 ? '-' : ''}{money(Math.abs(t.variance))}</td>
                   </tr>
                 )}
               </tbody>
@@ -196,13 +203,57 @@ export default function CostReportPanel({ projectId, currency = 'AED', onMutate 
       </div>
       <p className="text-[11px] text-gray-400">Revised = Budget ± line-to-line transfers + approved overages. ETC = your Estimate to Complete (blank = remaining PO commitments). EFC = Actual + ETC. Variance = Revised − EFC. The red triangle raises an overage for an overspent line.</p>
 
+      {/* Location spend (ADDITIVE · informational — not part of the EFC reconciliation above) */}
+      {data?.locations && data.locations.count > 0 && (data.locations.total > 0 || data.locations.feePerDayTotal > 0) && (
+        <div className="card">
+          <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+            <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1.5"><MapPin size={12} /> Location spend</h4>
+            <span className="text-[11px] text-gray-400">{data.locations.count} location{data.locations.count === 1 ? '' : 's'} · fees, permits &amp; security — informational, not in the EFC above</span>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-3">
+            <div><p className="text-[10px] text-gray-400 uppercase">Committed</p><p className="text-base font-bold text-blue-600">{money(data.locations.committed)}</p></div>
+            <div><p className="text-[10px] text-gray-400 uppercase">Actual (paid)</p><p className="text-base font-bold text-amber-600">{money(data.locations.actual)}</p></div>
+            <div><p className="text-[10px] text-gray-400 uppercase">Total exposure</p><p className="text-base font-bold text-gray-900">{money(data.locations.total)}</p></div>
+            <div><p className="text-[10px] text-gray-400 uppercase">Permit fees</p><p className="text-base font-semibold text-gray-700">{money(data.locations.permitFees)}</p></div>
+            <div><p className="text-[10px] text-gray-400 uppercase">Security</p><p className="text-base font-semibold text-gray-700">{money(data.locations.security.total)}</p></div>
+          </div>
+          {data.locations.byLocation.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[560px]">
+                <thead><tr className="text-[10px] text-gray-400 uppercase border-b border-gray-100">
+                  <th className="text-start py-1.5">Location</th>
+                  <th className="text-end px-2">Fee paid</th>
+                  <th className="text-end px-2">Fee pending</th>
+                  <th className="text-end px-2">Permits</th>
+                  <th className="text-end px-2">Security</th>
+                  <th className="text-end px-2">Total</th>
+                </tr></thead>
+                <tbody>
+                  {data.locations.byLocation.map((l: any) => (
+                    <tr key={l.id} className="border-t border-gray-50">
+                      <td className="py-1.5 text-gray-700 text-xs">{l.name}</td>
+                      <td className="py-1.5 px-2 text-end text-amber-600">{l.paid ? money(l.paid) : '\u2014'}</td>
+                      <td className="py-1.5 px-2 text-end text-blue-600">{l.pending ? money(l.pending) : '\u2014'}</td>
+                      <td className="py-1.5 px-2 text-end text-gray-600">{l.permitFees ? money(l.permitFees) : '\u2014'}</td>
+                      <td className="py-1.5 px-2 text-end text-gray-600">{l.security ? money(l.security) : '\u2014'}</td>
+                      <td className="py-1.5 px-2 text-end font-medium text-gray-800">{money(l.total)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {data.locations.feePerDayTotal > 0 && <p className="text-[11px] text-gray-400 mt-2">Reference: combined location day-rate {money(data.locations.feePerDayTotal)}/day across locations. Actual fee spend is tracked via landlord payments (paid/pending) above.</p>}
+        </div>
+      )}
+
       {/* Budget transfers */}
       {transfers.length > 0 && (
         <div className="card">
           <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1.5"><ArrowLeftRight size={12} /> Budget moves</h4>
           <p className="text-[11px] text-gray-400 mb-2">Only approved moves reshape the budget above. Pending moves wait for sign-off.</p>
           <table className="w-full text-sm">
-            <thead><tr className="text-[10px] text-gray-400 uppercase"><th className="text-left py-1">When</th><th className="text-left">From</th><th className="text-left">To</th><th className="text-right">Amount</th><th className="text-left pl-3">Status</th><th className="text-left pl-3">Reason</th><th className="text-right">Actions</th></tr></thead>
+            <thead><tr className="text-[10px] text-gray-400 uppercase"><th className="text-start py-1">When</th><th className="text-start">From</th><th className="text-start">To</th><th className="text-end">Amount</th><th className="text-start ps-3">Status</th><th className="text-start ps-3">Reason</th><th className="text-end">Actions</th></tr></thead>
             <tbody>
               {transfers.map(tr => {
                 const st = tr.status || 'PENDING';
@@ -212,14 +263,14 @@ export default function CostReportPanel({ projectId, currency = 'AED', onMutate 
                     <td className="py-1.5 text-gray-500 text-xs">{formatDate(tr.date)}</td>
                     <td className="py-1.5 text-gray-700 text-xs">{tr.fromCode}{tr.fromTitle ? ` · ${tr.fromTitle}` : ''}</td>
                     <td className="py-1.5 text-gray-700 text-xs">{tr.toCode}{tr.toTitle ? ` · ${tr.toTitle}` : ''}</td>
-                    <td className="py-1.5 text-right font-medium text-gray-800">{money(Number(tr.amount))}</td>
-                    <td className="py-1.5 pl-3"><span className={cn('badge text-[11px]', cls)}>{st.charAt(0) + st.slice(1).toLowerCase()}</span></td>
-                    <td className="py-1.5 pl-3 text-gray-400 text-xs">{tr.reason || '—'}</td>
-                    <td className="py-1.5 text-right whitespace-nowrap">
+                    <td className="py-1.5 text-end font-medium text-gray-800">{money(Number(tr.amount))}</td>
+                    <td className="py-1.5 ps-3"><span className={cn('badge text-[11px]', cls)}>{st.charAt(0) + st.slice(1).toLowerCase()}</span></td>
+                    <td className="py-1.5 ps-3 text-gray-400 text-xs">{tr.reason || '—'}</td>
+                    <td className="py-1.5 text-end whitespace-nowrap">
                       {st === 'PENDING' && (
                         <>
-                          <button onClick={() => setTransferStatus(tr.id, 'APPROVED')} title="Approve move" className="text-green-500 hover:text-green-700 mr-2"><CheckCircle size={14} /></button>
-                          <button onClick={() => setTransferStatus(tr.id, 'REJECTED')} title="Reject move" className="text-red-400 hover:text-red-600 mr-2"><XCircle size={14} /></button>
+                          <button onClick={() => setTransferStatus(tr.id, 'APPROVED')} title="Approve move" className="text-green-500 hover:text-green-700 me-2"><CheckCircle size={14} /></button>
+                          <button onClick={() => setTransferStatus(tr.id, 'REJECTED')} title="Reject move" className="text-red-400 hover:text-red-600 me-2"><XCircle size={14} /></button>
                         </>
                       )}
                       <button onClick={() => removeTransfer(tr.id)} className="text-gray-300 hover:text-red-500"><Trash2 size={12} /></button>
@@ -237,14 +288,14 @@ export default function CostReportPanel({ projectId, currency = 'AED', onMutate 
         <div className="card">
           <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Saved snapshots</h4>
           <table className="w-full text-sm">
-            <thead><tr className="text-[10px] text-gray-400 uppercase"><th className="text-left py-1">When</th><th className="text-left">Label</th><th className="text-right">EFC</th><th className="text-right">Variance</th></tr></thead>
+            <thead><tr className="text-[10px] text-gray-400 uppercase"><th className="text-start py-1">When</th><th className="text-start">Label</th><th className="text-end">EFC</th><th className="text-end">Variance</th></tr></thead>
             <tbody>
               {snaps.map(s => (
                 <tr key={s.id} className="border-t border-gray-50">
                   <td className="py-1.5 text-gray-500 text-xs">{formatDate(s.asOf)}</td>
                   <td className="py-1.5 text-gray-700">{s.label || '—'}</td>
-                  <td className="py-1.5 text-right text-gray-700">{money(s.efc)}</td>
-                  <td className={cn('py-1.5 text-right', Number(s.variance) < 0 ? 'text-red-600' : 'text-green-600')}>{money(s.variance)}</td>
+                  <td className="py-1.5 text-end text-gray-700">{money(s.efc)}</td>
+                  <td className={cn('py-1.5 text-end', Number(s.variance) < 0 ? 'text-red-600' : 'text-green-600')}>{money(s.variance)}</td>
                 </tr>
               ))}
             </tbody>
@@ -285,7 +336,7 @@ export default function CostReportPanel({ projectId, currency = 'AED', onMutate 
             </div>
             <div className="flex justify-end gap-2 px-5 py-3 border-t border-gray-100">
               <button onClick={() => setMoveOpen(false)} className="btn btn-secondary text-xs py-1.5">Cancel</button>
-              <button onClick={saveMove} disabled={!move.fromCode || !move.toCode || !move.amount} className="btn btn-primary text-xs py-1.5 disabled:opacity-40"><Plus size={13} className="mr-1" /> Move budget</button>
+              <button onClick={saveMove} disabled={!move.fromCode || !move.toCode || !move.amount} className="btn btn-primary text-xs py-1.5 disabled:opacity-40"><Plus size={13} className="me-1" /> Move budget</button>
             </div>
           </div>
         </div>

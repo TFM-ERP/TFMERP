@@ -140,12 +140,12 @@ export default function DocumentsPanel({ projectId }: { projectId: string }) {
             {CATEGORIES.map(c => <option key={c}>{c}</option>)}
           </select>
           <input ref={fileRef} type="file" className="hidden" onChange={onFile} />
-          <button onClick={() => fileRef.current?.click()} disabled={uploading} className="btn btn-primary text-xs py-1.5 px-3"><Upload size={13} className="mr-1" /> {uploading ? 'Uploading…' : 'Upload file'}</button>
-          <button onClick={pickGoogle} className="btn btn-secondary text-xs py-1.5 px-3"><Cloud size={13} className="mr-1 text-green-600" /> Drive</button>
-          <button onClick={pickDropbox} className="btn btn-secondary text-xs py-1.5 px-3"><Cloud size={13} className="mr-1 text-blue-600" /> Dropbox</button>
-          {connected.includes('GDRIVE') && <button onClick={() => openCloud('GDRIVE')} className="btn btn-secondary text-xs py-1.5 px-3"><Cloud size={13} className="mr-1 text-green-600" /> Drive library</button>}
-          {connected.includes('DROPBOX') && <button onClick={() => openCloud('DROPBOX')} className="btn btn-secondary text-xs py-1.5 px-3"><Cloud size={13} className="mr-1 text-blue-600" /> Dropbox library</button>}
-          <button onClick={() => setShowLink(s => !s)} className="btn btn-secondary text-xs py-1.5 px-3"><Link2 size={13} className="mr-1" /> Add link</button>
+          <button onClick={() => fileRef.current?.click()} disabled={uploading} className="btn btn-primary text-xs py-1.5 px-3"><Upload size={13} className="me-1" /> {uploading ? 'Uploading…' : 'Upload file'}</button>
+          <button onClick={pickGoogle} className="btn btn-secondary text-xs py-1.5 px-3"><Cloud size={13} className="me-1 text-green-600" /> Drive</button>
+          <button onClick={pickDropbox} className="btn btn-secondary text-xs py-1.5 px-3"><Cloud size={13} className="me-1 text-blue-600" /> Dropbox</button>
+          {connected.includes('GDRIVE') && <button onClick={() => openCloud('GDRIVE')} className="btn btn-secondary text-xs py-1.5 px-3"><Cloud size={13} className="me-1 text-green-600" /> Drive library</button>}
+          {connected.includes('DROPBOX') && <button onClick={() => openCloud('DROPBOX')} className="btn btn-secondary text-xs py-1.5 px-3"><Cloud size={13} className="me-1 text-blue-600" /> Dropbox library</button>}
+          <button onClick={() => setShowLink(s => !s)} className="btn btn-secondary text-xs py-1.5 px-3"><Link2 size={13} className="me-1" /> Add link</button>
           <button onClick={load} className="btn btn-secondary p-1.5"><RefreshCw size={13} className={loading ? 'animate-spin' : ''} /></button>
         </div>
       </div>
@@ -167,8 +167,8 @@ export default function DocumentsPanel({ projectId }: { projectId: string }) {
           docs.length === 0 ? <div className="p-10 text-center text-gray-400 text-sm"><FileText size={24} className="mx-auto mb-2 opacity-30" />No documents yet. Upload a file or add a shared link.</div> : (
             <table className="w-full text-sm">
               <thead><tr className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-100">
-                <th className="px-4 py-2.5 text-left">Name</th><th className="px-3 py-2.5 text-left">Category</th>
-                <th className="px-3 py-2.5 text-left">Source</th><th className="px-3 py-2.5 text-left">Added</th><th className="px-3 py-2.5 text-right">Actions</th>
+                <th className="px-4 py-2.5 text-start">Name</th><th className="px-3 py-2.5 text-start">Category</th>
+                <th className="px-3 py-2.5 text-start">Source</th><th className="px-3 py-2.5 text-start">Added</th><th className="px-3 py-2.5 text-end">Actions</th>
               </tr></thead>
               <tbody>
                 {docs.map(d => (
@@ -177,7 +177,7 @@ export default function DocumentsPanel({ projectId }: { projectId: string }) {
                       <a href={fileSrc(d.url)} target="_blank" rel="noreferrer" className="font-medium text-gray-800 hover:text-brand-600 inline-flex items-center gap-1.5">
                         {d.kind === 'LINK' ? <ExternalLink size={13} className="text-gray-400" /> : <FileText size={13} className="text-gray-400" />}{d.name}
                       </a>
-                      {d.sizeBytes ? <span className="text-[11px] text-gray-400 ml-2">{fmtSize(d.sizeBytes)}</span> : null}
+                      {d.sizeBytes ? <span className="text-[11px] text-gray-400 ms-2">{fmtSize(d.sizeBytes)}</span> : null}
                     </td>
                     <td className="px-3 py-2.5"><span className="badge bg-gray-100 text-gray-600 text-xs">{d.category || '—'}</span></td>
                     <td className="px-3 py-2.5 text-xs text-gray-500">
@@ -186,8 +186,8 @@ export default function DocumentsPanel({ projectId }: { projectId: string }) {
                       </span>
                     </td>
                     <td className="px-3 py-2.5 text-xs text-gray-400">{formatDate(d.createdAt)}</td>
-                    <td className="px-3 py-2.5 text-right">
-                      <a href={fileSrc(d.url)} target="_blank" rel="noreferrer" className="text-brand-600 hover:text-brand-700 mr-3 text-xs">Open</a>
+                    <td className="px-3 py-2.5 text-end">
+                      <a href={fileSrc(d.url)} target="_blank" rel="noreferrer" className="text-brand-600 hover:text-brand-700 me-3 text-xs">Open</a>
                       <button onClick={() => remove(d.id)} className="text-gray-300 hover:text-red-500"><Trash2 size={13} /></button>
                     </td>
                   </tr>

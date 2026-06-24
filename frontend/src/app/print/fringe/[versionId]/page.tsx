@@ -37,7 +37,7 @@ export default function FringePrintPage() {
 
   const cur = data.project?.currency || 'USD';
   const th: any = { padding: '5px 8px', color: '#fff', fontSize: 8.5, textTransform: 'uppercase', fontWeight: 700 };
-  const num: any = (extra = {}) => ({ padding: '3px 8px', textAlign: 'right', fontSize: 9, borderBottom: '1px solid #f0f0f0', ...extra });
+  const num: any = (extra = {}) => ({ padding: '3px 8px', textAlign: 'end', fontSize: 9, borderBottom: '1px solid #f0f0f0', ...extra });
   const types = Object.keys(data.typeTotals || {});
 
   return (
@@ -57,7 +57,7 @@ export default function FringePrintPage() {
               <div style={{ color: '#777', marginTop: 1 }}>{data.versionName} · As of {new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })} · Currency: {cur}</div>
             </div>
             {logoSrc(co?.logoUrl) ? <img src={logoSrc(co.logoUrl)} alt="" style={{ height: 44, objectFit: 'contain' }} /> :
-              <div style={{ fontSize: 9, color: '#999', textAlign: 'right' }}>{co?.name || 'The Film Makers FZ LLC'}</div>}
+              <div style={{ fontSize: 9, color: '#999', textAlign: 'end' }}>{co?.name || 'The Film Makers FZ LLC'}</div>}
           </div>
           <div style={{ borderTop: `2px solid ${GOLD}`, margin: '10px 0 6px' }} />
 
@@ -89,10 +89,10 @@ export default function FringePrintPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: NAVY }}>
-                <th style={{ ...th, textAlign: 'left' }}>Cost Center</th>
-                <th style={{ ...th, textAlign: 'right' }}>Wages</th>
-                <th style={{ ...th, textAlign: 'right' }}>Burden</th>
-                <th style={{ ...th, textAlign: 'right' }}>Burden %</th>
+                <th style={{ ...th, textAlign: 'start' }}>Cost Center</th>
+                <th style={{ ...th, textAlign: 'end' }}>Wages</th>
+                <th style={{ ...th, textAlign: 'end' }}>Burden</th>
+                <th style={{ ...th, textAlign: 'end' }}>Burden %</th>
               </tr>
             </thead>
             <tbody>

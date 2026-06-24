@@ -50,9 +50,9 @@ export default function BookingsPage() {
       {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-4">
         <div className="relative flex-1 min-w-48">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search size={14} className="absolute start-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
-            className="input pl-9 w-full"
+            className="input ps-9 w-full"
             placeholder="Search by booking #, client, PO..."
             value={search}
             onChange={e => { setSearch(e.target.value); setPage(1); }}
@@ -77,8 +77,8 @@ export default function BookingsPage() {
               <th className="table-th">Start Date</th>
               <th className="table-th">End Date</th>
               <th className="table-th">Status</th>
-              <th className="table-th text-right">Items</th>
-              <th className="table-th text-right">Total (AED)</th>
+              <th className="table-th text-end">Items</th>
+              <th className="table-th text-end">Total (AED)</th>
             </tr>
           </thead>
           <tbody>
@@ -96,8 +96,8 @@ export default function BookingsPage() {
                 <td className="table-td">
                   <StatusBadge module="Booking" status={item.status} size="sm" showIcon={false} showDot />
                 </td>
-                <td className="table-td text-right text-sm text-gray-600">{item._count?.items ?? 0}</td>
-                <td className="table-td text-right text-sm font-medium text-gray-800">
+                <td className="table-td text-end text-sm text-gray-600">{item._count?.items ?? 0}</td>
+                <td className="table-td text-end text-sm font-medium text-gray-800">
                   {Number(item.total).toLocaleString('en-AE', { minimumFractionDigits: 2 })}
                 </td>
               </tr>

@@ -136,7 +136,7 @@ export default function ClearancePacksPanel({ projectId }: { projectId: string }
                     </select>
                     {p.status !== 'REVOKED' && <Btn variant="primary" onClick={() => share(p)} disabled={!p.recipientEmail || expired}><Send size={13} /> {p.status === 'SHARED' ? 'Re-send' : 'Share'}</Btn>}
                     {p.status !== 'REVOKED' && <button onClick={() => revoke(p.id)} className="inline-flex items-center gap-1 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 px-3 py-2 text-xs"><Ban size={13} /> Revoke</button>}
-                    <button onClick={() => remove(p.id)} className="text-slate-300 hover:text-rose-500 ml-auto"><Trash2 size={14} /></button>
+                    <button onClick={() => remove(p.id)} className="text-slate-300 hover:text-rose-500 ms-auto"><Trash2 size={14} /></button>
                   </div>
                   {!p.recipientEmail && <p className="text-[11px] text-amber-600">Add a recipient email to share by email — or copy the link and send it yourself.</p>}
 
@@ -147,7 +147,7 @@ export default function ClearancePacksPanel({ projectId }: { projectId: string }
                       {(p.members || []).map((m: any) => (
                         <div key={m.id} className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${m.consentGiven ? 'border-slate-200' : 'border-amber-200 bg-amber-50/40'}`}>
                           <span className="font-medium text-slate-800 text-sm flex-1 truncate">
-                            {m.name}<span className="text-[11px] text-slate-400 ml-1.5">{[m.roleTitle, m.department].filter(Boolean).join(' · ')}</span>
+                            {m.name}<span className="text-[11px] text-slate-400 ms-1.5">{[m.roleTitle, m.department].filter(Boolean).join(' · ')}</span>
                           </span>
                           <span className="flex items-center gap-1.5 text-[11px]">
                             {[['passportUrl', 'Passport'], ['emiratesIdUrl', 'Emirates ID'], ['photoUrl', 'Photo']].map(([k, label]) =>

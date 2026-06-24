@@ -29,7 +29,7 @@ export function CinematicHeader({
         )}
         <h1 className="text-[20px] font-extrabold leading-tight" style={{ color: 'var(--text-1)' }}>
           {title}
-          {count != null && <span className="text-[12px] font-normal ml-2" style={{ color: 'var(--text-3)' }}>{count}</span>}
+          {count != null && <span className="text-[12px] font-normal ms-2" style={{ color: 'var(--text-3)' }}>{count}</span>}
         </h1>
       </div>
       {children && <div className="flex items-center gap-2 flex-wrap">{children}</div>}

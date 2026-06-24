@@ -55,7 +55,7 @@ export default function StatementPage() {
               {data.client.trn && <p className="text-xs text-gray-500">TRN: {data.client.trn}</p>}
               {data.client.email && <p className="text-xs text-gray-500">{data.client.email}</p>}
             </div>
-            <div className="text-right text-sm">
+            <div className="text-end text-sm">
               <p className="text-gray-500">Period</p>
               <p className="font-medium">{fmtD(data.period.from)} – {fmtD(data.period.to)}</p>
             </div>
@@ -64,26 +64,26 @@ export default function StatementPage() {
           <table className="w-full text-sm mb-4">
             <thead>
               <tr className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-200">
-                <th className="py-2 text-left">Date</th><th className="py-2 text-left">Ref</th><th className="py-2 text-left">Type</th>
-                <th className="py-2 text-right">Debit</th><th className="py-2 text-right">Credit</th><th className="py-2 text-right">Balance</th>
+                <th className="py-2 text-start">Date</th><th className="py-2 text-start">Ref</th><th className="py-2 text-start">Type</th>
+                <th className="py-2 text-end">Debit</th><th className="py-2 text-end">Credit</th><th className="py-2 text-end">Balance</th>
               </tr>
             </thead>
             <tbody>
-              <tr className="border-b border-gray-50"><td className="py-2 text-gray-400" colSpan={5}>Opening balance</td><td className="py-2 text-right font-medium">{formatCurrency(data.openingBalance)}</td></tr>
+              <tr className="border-b border-gray-50"><td className="py-2 text-gray-400" colSpan={5}>Opening balance</td><td className="py-2 text-end font-medium">{formatCurrency(data.openingBalance)}</td></tr>
               {data.entries.map((e: any, i: number) => (
                 <tr key={i} className="border-b border-gray-50">
                   <td className="py-2 text-gray-600">{fmtD(e.date)}</td>
                   <td className="py-2 font-mono text-xs">{e.ref}</td>
                   <td className="py-2 text-gray-600">{e.type}</td>
-                  <td className="py-2 text-right">{e.debit ? formatCurrency(e.debit) : ''}</td>
-                  <td className="py-2 text-right text-green-700">{e.credit ? formatCurrency(e.credit) : ''}</td>
-                  <td className="py-2 text-right font-medium">{formatCurrency(e.balance)}</td>
+                  <td className="py-2 text-end">{e.debit ? formatCurrency(e.debit) : ''}</td>
+                  <td className="py-2 text-end text-green-700">{e.credit ? formatCurrency(e.credit) : ''}</td>
+                  <td className="py-2 text-end font-medium">{formatCurrency(e.balance)}</td>
                 </tr>
               ))}
               {data.entries.length === 0 && <tr><td colSpan={6} className="py-6 text-center text-gray-400">No transactions in this period.</td></tr>}
             </tbody>
             <tfoot>
-              <tr className="border-t-2 border-gray-200"><td colSpan={5} className="py-2 text-right font-bold">Closing balance</td><td className="py-2 text-right font-bold text-lg text-brand-700">{formatCurrency(data.closingBalance)}</td></tr>
+              <tr className="border-t-2 border-gray-200"><td colSpan={5} className="py-2 text-end font-bold">Closing balance</td><td className="py-2 text-end font-bold text-lg text-brand-700">{formatCurrency(data.closingBalance)}</td></tr>
             </tfoot>
           </table>
 

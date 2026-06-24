@@ -79,7 +79,7 @@ export default function RolesPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
-                <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wide sticky left-0 bg-gray-50">Role</th>
+                <th className="px-4 py-2.5 text-start text-[11px] font-semibold text-gray-500 uppercase tracking-wide sticky start-0 bg-gray-50">Role</th>
                 {modules.map(m => <th key={m} className="px-2 py-2.5 text-center text-[11px] font-semibold text-gray-500 uppercase tracking-wide" title={m === 'travel_pii' ? 'Travel passport/visa/ID visibility' : undefined}>{m === 'travel_pii' ? 'Travel PII' : m}</th>)}
               </tr>
             </thead>
@@ -88,7 +88,7 @@ export default function RolesPage() {
                 const admin = role === 'SYSTEM_ADMIN';
                 return (
                   <tr key={role} className="border-b border-gray-50 hover:bg-gray-50/40">
-                    <td className="px-4 py-2 font-medium text-gray-800 whitespace-nowrap sticky left-0 bg-white">{roleLabel(role)}{admin && <span className="ml-1 text-[10px] text-gray-400">(full)</span>}</td>
+                    <td className="px-4 py-2 font-medium text-gray-800 whitespace-nowrap sticky start-0 bg-white">{roleLabel(role)}{admin && <span className="ms-1 text-[10px] text-gray-400">(full)</span>}</td>
                     {modules.map(m => {
                       const val = admin ? 3 : (matrix[role]?.[m] ?? 0);
                       return (

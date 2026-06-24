@@ -61,7 +61,7 @@ export default function AttendancePage() {
             </div>
           </div>
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-left text-xs uppercase text-slate-400">
+            <thead className="bg-slate-50 text-start text-xs uppercase text-slate-400">
               <tr><th className="px-4 py-2">Employee</th><th className="px-4 py-2">Days</th><th className="px-4 py-2">Hours</th></tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -76,7 +76,7 @@ export default function AttendancePage() {
         <div className="rounded-xl border border-slate-200 bg-white">
           <div className="border-b border-slate-200 px-5 py-3"><h2 className="text-sm font-semibold text-slate-700">Recent Punches</h2></div>
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-left text-xs uppercase text-slate-400">
+            <thead className="bg-slate-50 text-start text-xs uppercase text-slate-400">
               <tr><th className="px-4 py-2">Employee</th><th className="px-4 py-2">In</th><th className="px-4 py-2">Out</th><th className="px-4 py-2"></th></tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -85,7 +85,7 @@ export default function AttendancePage() {
                   <td className="px-4 py-2 text-slate-700">{nameOf(r.employeeId)}</td>
                   <td className="px-4 py-2 text-slate-500">{r.clockIn ? new Date(r.clockIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}</td>
                   <td className="px-4 py-2 text-slate-500">{r.clockOut ? new Date(r.clockOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}</td>
-                  <td className="px-4 py-2 text-right">{!r.clockOut && <button onClick={() => clockOut(r.id)} className="text-xs text-amber-600 hover:underline">Clock Out</button>}</td>
+                  <td className="px-4 py-2 text-end">{!r.clockOut && <button onClick={() => clockOut(r.id)} className="text-xs text-amber-600 hover:underline">Clock Out</button>}</td>
                 </tr>
               ))}
               {recent.length === 0 && <tr><td colSpan={4} className="px-4 py-6 text-center text-slate-400">No punches yet.</td></tr>}

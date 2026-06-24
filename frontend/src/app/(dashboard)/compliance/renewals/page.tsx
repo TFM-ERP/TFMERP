@@ -75,7 +75,7 @@ export default function RenewalsPage() {
           const on = statusFilter === t.key;
           return (
             <button key={t.key} onClick={() => setStatusFilter(on ? 'attention' : t.key)}
-              className={`text-left rounded-xl p-4 border transition-all ${on ? 'border-brand-300 ring-1 ring-brand-200' : 'border-gray-200'} ${m.bg}`}>
+              className={`text-start rounded-xl p-4 border transition-all ${on ? 'border-brand-300 ring-1 ring-brand-200' : 'border-gray-200'} ${m.bg}`}>
               <div className={`text-2xl font-bold ${m.text}`}>{t.n}</div>
               <div className={`text-xs font-medium ${m.text}`}>{m.label}</div>
             </button>
@@ -86,8 +86,8 @@ export default function RenewalsPage() {
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-48">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input className="input pl-9 w-full" placeholder="Search by name, document, reference…" value={q} onChange={e => setQ(e.target.value)} />
+          <Search size={14} className="absolute start-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input className="input ps-9 w-full" placeholder="Search by name, document, reference…" value={q} onChange={e => setQ(e.target.value)} />
         </div>
         <select className="input w-44" value={cat} onChange={e => setCat(e.target.value)}>
           <option value="">All categories</option>
@@ -119,11 +119,11 @@ export default function RenewalsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-100">
-                <th className="px-5 py-2.5 text-left">Document</th>
-                <th className="px-3 py-2.5 text-left">Belongs to</th>
-                <th className="px-3 py-2.5 text-left">Expiry</th>
-                <th className="px-3 py-2.5 text-left">Status</th>
-                <th className="px-5 py-2.5 text-right"></th>
+                <th className="px-5 py-2.5 text-start">Document</th>
+                <th className="px-3 py-2.5 text-start">Belongs to</th>
+                <th className="px-3 py-2.5 text-start">Expiry</th>
+                <th className="px-3 py-2.5 text-start">Status</th>
+                <th className="px-5 py-2.5 text-end"></th>
               </tr>
             </thead>
             <tbody>
@@ -153,7 +153,7 @@ export default function RenewalsPage() {
                         <span className="w-1.5 h-1.5 rounded-full" style={{ background: m.dot }} /> {m.label}
                       </span>
                     </td>
-                    <td className="px-5 py-3 text-right">
+                    <td className="px-5 py-3 text-end">
                       {it.link && <Link href={it.link} className="text-brand-600 hover:text-brand-700 inline-flex items-center gap-1 text-xs">Open <ArrowRight size={12} /></Link>}
                     </td>
                   </tr>

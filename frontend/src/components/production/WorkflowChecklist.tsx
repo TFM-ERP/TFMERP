@@ -46,14 +46,14 @@ export default function WorkflowChecklist({ projectId, onNavigate }: { projectId
             <li key={s.key}>
               <button
                 onClick={() => onNavigate?.(s.tab)}
-                className={cn('w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-colors',
+                className={cn('w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-start transition-colors',
                   isNext ? 'bg-brand-50 ring-1 ring-brand-200' : 'hover:bg-gray-50')}>
                 <span className="text-[10px] font-mono text-gray-300 w-4 shrink-0">{i + 1}</span>
                 <Icon size={16} className={cn('shrink-0', s.done ? 'text-green-500' : !s.available ? 'text-gray-300' : isNext ? 'text-brand-600' : 'text-gray-300')} />
                 <span className={cn('flex-1 text-sm', s.done ? 'text-gray-500 line-through decoration-gray-300' : !s.available ? 'text-gray-400' : 'text-gray-800')}>
                   {s.label}
-                  {s.hint && <span className="ml-2 text-[10px] text-gray-400">{s.hint}</span>}
-                  {!s.available && s.blockedBy && <span className="ml-2 text-[10px] text-amber-600">needs: {s.blockedBy}</span>}
+                  {s.hint && <span className="ms-2 text-[10px] text-gray-400">{s.hint}</span>}
+                  {!s.available && s.blockedBy && <span className="ms-2 text-[10px] text-amber-600">needs: {s.blockedBy}</span>}
                 </span>
                 {isNext && <span className="text-[10px] font-semibold text-brand-600 inline-flex items-center gap-0.5 shrink-0">Next <ArrowRight size={11} /></span>}
               </button>

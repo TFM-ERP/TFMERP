@@ -83,7 +83,7 @@ export default function LocationPackPage() {
                         <td className="py-1 font-medium">{p.type}</td>
                         <td>{p.authority || '—'}</td>
                         <td>{p.status.replace('_', ' ')}</td>
-                        <td className="text-right">{p.expiryDate ? `exp ${fmtDate(p.expiryDate)}` : ''}</td>
+                        <td className="text-end">{p.expiryDate ? `exp ${fmtDate(p.expiryDate)}` : ''}</td>
                       </tr>
                     ))}
                   </tbody>

@@ -103,7 +103,7 @@ export default function OverviewPanel({ projectId, project, currency = 'AED', on
         <h3 className="text-sm font-semibold text-gray-700 mb-3">Jump to</h3>
         <div className="flex flex-wrap gap-2">
           {[['Budget', 'budget', DollarSign], ['Cost Report', 'costreport', TrendingUp], ['Purchasing', 'purchasing', ShoppingCart], ['Cash', 'cash', Wallet], ['Schedule', 'schedule', Calendar], ['Call Sheets', 'callsheets', ClipboardList], ['Crew', 'crew', Users]].map(([l, t, Ic]: any) => (
-            <button key={t} onClick={() => onNavigate(t)} className="btn btn-secondary text-xs py-1.5 px-3"><Ic size={13} className="mr-1" /> {l}</button>
+            <button key={t} onClick={() => onNavigate(t)} className="btn btn-secondary text-xs py-1.5 px-3"><Ic size={13} className="me-1" /> {l}</button>
           ))}
         </div>
       </div>

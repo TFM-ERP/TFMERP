@@ -1,0 +1,209 @@
+'use client';
+import { useEffect, useRef, useState } from 'react';
+import { productionApi } from '@/lib/api';
+import { useLocale } from '@/lib/i18n';
+
+/** Builds — name, save, switch and promote development builds. Folded into Studio as an overlay panel
+ *  (was the standalone /scripon/builds). Open loads that build into Studio; Promote snapshots into a project. */
+const CSS = `
+.bld{--bg:#0b0c0f;--panel:#14161c;--hair:rgba(255,255,255,.07);--hair2:rgba(255,255,255,.13);--gold:#C6A463;--gold2:#E6D2A2;--goldink:#1a1509;--cream:#F4EEE0;--text:#E8E6E0;--mute:#9aa1ab;--faint:#6b727d;--green:#57b368;--blue:#5b8def;background:radial-gradient(1200px 600px at 50% -8%,#15171d,#0b0c0f 60%);min-height:100vh;color:var(--text);font-family:var(--sx-body)}
+.bld *{box-sizing:border-box}
+.bld .scr{display:flex;flex-direction:column;height:100vh;position:relative}
+.bld .ico{width:18px;height:18px;stroke:currentColor;stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.bld .top{height:60px;flex:0 0 60px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;background:linear-gradient(180deg,#15181e,#121419);border-bottom:1px solid var(--hair)}
+.bld .tl{display:flex;align-items:center;gap:12px}.bld .logo{width:30px;height:30px;border-radius:9px;background:linear-gradient(160deg,var(--gold2),var(--gold));display:grid;place-items:center;color:var(--goldink);font-weight:800;font-size:12px;cursor:pointer}
+.bld .proj{font-weight:700;font-size:15.5px;color:var(--cream)}.bld .meta{color:var(--faint);font-size:12px}
+.bld .btn{display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 14px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid transparent;color:var(--text);background:none}.bld .btn .ico{width:15px;height:15px}
+.bld .btn.ghost{background:#1b1e25;border-color:var(--hair);color:var(--mute)}
+.bld .btn.gold{background:linear-gradient(180deg,var(--gold2),var(--gold));color:var(--goldink);font-weight:700}
+.bld .body{flex:1;display:flex;min-height:0}
+.bld .main{flex:1;min-width:0;display:flex;flex-direction:column;padding:24px 30px;gap:18px}
+.bld .phead h1{font-size:24px;font-weight:800;color:var(--cream)}.bld .phead .sub{font-size:13px;color:var(--mute);margin-top:4px}
+.bld .tbar{display:flex;align-items:center;gap:8px}
+.bld .chip{padding:7px 13px;border-radius:999px;font-size:12.5px;font-weight:600;color:var(--mute);background:#171a20;border:1px solid var(--hair);cursor:pointer}.bld .chip.on{background:rgba(198,164,99,.14);border-color:rgba(198,164,99,.45);color:var(--gold2)}
+.bld .grid{flex:1;display:grid;grid-template-columns:repeat(3,1fr);gap:16px;align-content:start;overflow:auto}
+.bld .bc{background:var(--panel);border:1px solid var(--hair);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px;min-height:180px}
+.bld .r1{display:flex;align-items:center;justify-content:space-between}
+.bld .spill{font-size:10px;font-weight:800;letter-spacing:.4px;padding:4px 9px;border-radius:999px}
+.bld .spill.draft{background:rgba(154,161,171,.16);color:var(--mute)}.bld .spill.review{background:rgba(91,141,239,.16);color:#a9c4f7}.bld .spill.greenlit{background:rgba(87,179,104,.16);color:var(--green)}.bld .spill.promoted{background:rgba(198,164,99,.18);color:var(--gold2)}
+.bld .when{font-size:11px;color:var(--faint)}
+.bld .nm{font-size:17px;font-weight:800;color:var(--cream)}
+.bld .ladder{display:flex;align-items:center;gap:4px}.bld .ladder .d{flex:1;height:5px;border-radius:3px;background:#23262e}.bld .ladder .d.on{background:var(--gold)}
+.bld .ft{display:flex;align-items:center;gap:8px;border-top:1px solid var(--hair);padding-top:11px;margin-top:auto}
+.bld .mini{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 11px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--hair);color:var(--mute);background:#171a20}.bld .mini .ico{width:13px;height:13px}.bld .mini.gold{background:rgba(198,164,99,.14);border-color:rgba(198,164,99,.4);color:var(--gold2)}
+.bld .linked{font-size:11px;color:var(--gold2)}
+.bld .add{border:1px dashed var(--hair);border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--faint);cursor:pointer;min-height:180px}.bld .add:hover{color:var(--gold2);border-color:rgba(198,164,99,.5)}
+.bld .scrim{position:fixed;inset:0;background:rgba(6,7,10,.66);display:flex;align-items:center;justify-content:center;z-index:85}
+.bld .modal{width:520px;background:#0e1014;border:1px solid rgba(198,164,99,.3);border-radius:16px;padding:22px;display:flex;flex-direction:column;gap:16px}
+.bld .mh{display:flex;align-items:center;justify-content:space-between}.bld .mt{font-size:17px;font-weight:800;color:var(--cream)}.bld .mx{color:var(--faint);cursor:pointer;font-size:18px}
+.bld .msub{font-size:12px;color:var(--mute);margin-top:-10px}
+.bld .opt{display:flex;gap:12px}
+.bld .ocard{flex:1;border:1px solid var(--hair);border-radius:12px;padding:13px;cursor:pointer;background:#15181e}.bld .ocard.on{border-color:rgba(198,164,99,.5);background:rgba(198,164,99,.08)}
+.bld .ocard .ot{font-size:13px;font-weight:700;color:var(--cream)}.bld .ocard .os{font-size:10.5px;color:var(--faint);margin-top:2px}
+.bld select,.bld input{height:38px;border-radius:9px;background:#171a20;border:1px solid var(--hair);color:var(--cream);font-size:12.5px;font-weight:600;padding:0 12px;width:100%;outline:none}
+.bld .xfer{background:#15181e;border:1px solid var(--hair);border-radius:11px;padding:12px 13px}.bld .xl{font-size:10px;font-weight:700;letter-spacing:.8px;color:var(--gold);margin-bottom:7px}.bld .xrow{display:flex;gap:8px;font-size:11.5px;color:var(--text);margin-bottom:5px}.bld .xrow .c{color:var(--green);flex:none}.bld .snap{font-size:10.5px;color:var(--faint);font-style:italic}
+.bld .mfoot{display:flex;gap:10px;justify-content:flex-end}
+.bld .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#0e1014;border:1px solid rgba(198,164,99,.4);color:var(--gold2);font-size:12.5px;padding:10px 16px;border-radius:10px;z-index:90}
+@media(max-width:1180px){.bld .grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:760px){.bld .grid{grid-template-columns:1fr}.bld .main{padding:16px}.bld .modal{width:92vw}}
+`;
+const SPILL: Record<string, string> = { DRAFT: 'draft', REVIEW: 'review', GREENLIT: 'greenlit', PROMOTED: 'promoted' };
+const DOTS: Record<string, number> = { DRAFT: 2, REVIEW: 4, GREENLIT: 6, PROMOTED: 8 };
+const ago = (d?: string) => { if (!d) return ''; const ms = Date.now() - new Date(d).getTime(); const h = Math.floor(ms / 3.6e6); return h < 1 ? 'just now' : h < 24 ? h + 'h ago' : Math.floor(h / 24) + 'd ago'; };
+const SAMPLE = [
+  { id: 'b1', name: 'Antara — mythic cut', status: 'GREENLIT', updatedAt: null, linkedProjectId: null },
+  { id: 'b2', name: 'The Pulpit', status: 'REVIEW', updatedAt: null, linkedProjectId: null },
+  { id: 'b3', name: 'Sand & Glass', status: 'PROMOTED', updatedAt: null, linkedProjectId: 'p1' },
+  { id: 'b4', name: 'Oryx — pilot', status: 'DRAFT', updatedAt: null, linkedProjectId: null },
+];
+
+export default function ScripOnBuildsPanel({ projectId, onClose, onNewBuild, railGap = 0 }: { projectId: string | null; onClose: () => void; onNewBuild?: () => void; railGap?: number }) {
+  const { dir, t } = useLocale();
+  const [builds, setBuilds] = useState<any[] | null>(null);
+  const [projects, setProjects] = useState<any[]>([]);
+  const [filter, setFilter] = useState('All');
+  const [modal, setModal] = useState<any | null>(null);
+  const [target, setTarget] = useState('existing');
+  const [destProj, setDestProj] = useState('');
+  const [newName, setNewName] = useState('');
+  const [toast, setToast] = useState<string | null>(null);
+  const [bin, setBin] = useState(false);
+  const [confirm, setConfirm] = useState<any | null>(null);
+  const [briefView, setBriefView] = useState<any | null>(null);
+  const tt = useRef<any>(null);
+  const flash = (m: string) => { setToast(m); clearTimeout(tt.current); tt.current = setTimeout(() => setToast(null), 3200); };
+
+  const load = async (pid: string, b = false) => { try { const r: any = await productionApi.scripton.development.listBuilds(pid, b); setBuilds(Array.isArray(r.data) ? r.data : []); } catch { setBuilds([]); } };
+  const daysLeft = (d?: string) => { if (!d) return 30; const ms = new Date(d).getTime() + 30 * 86400000 - Date.now(); return Math.max(0, Math.ceil(ms / 86400000)); };
+  const isDemo = (b: any) => /^b\d$/.test(String(b && b.id));
+  const switchBin = (v: boolean) => { setBin(v); setFilter('All'); if (projectId) load(projectId, v); };
+  const doRestore = async (b: any) => { if (isDemo(b)) { flash(t('Demo build.')); return; } try { await productionApi.scripton.development.restoreBuild(b.id); flash(t('Restored.')); if (projectId) await load(projectId, true); } catch { flash(t('Could not restore.')); } };
+  const doConfirm = async () => { const b = confirm.b; const kind = confirm.kind; setConfirm(null); if (isDemo(b)) { flash(t('Demo build - connect a project.')); return; } try { if (kind === 'purge') { await productionApi.scripton.development.purgeBuild(b.id); flash(t('Deleted forever.')); } else { await productionApi.scripton.development.deleteBuild(b.id); flash(t('Moved to bin.')); } if (projectId) await load(projectId, bin); } catch { flash(t('Action failed.')); } };
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try { const pr: any = await productionApi.projects.list(); const ps = pr.data?.items ?? (Array.isArray(pr.data) ? pr.data : []); if (alive) setProjects(ps); } catch { /* */ }
+      if (projectId) { setDestProj(projectId); await load(projectId, false); } else { setBuilds(null); }
+    })();
+    return () => { alive = false; };
+  }, [projectId]);
+
+  const list = bin ? (Array.isArray(builds) ? builds : []) : ((builds && builds.length) ? builds : (builds === null ? SAMPLE : []));
+  const shown = list.filter((b) => filter === 'All' || String(b.status || 'DRAFT').toUpperCase() === filter.toUpperCase());
+
+  const openBuild = (id: string) => { if (typeof window !== 'undefined') window.location.assign('/scripon/studio?build=' + id); };
+  const openScript = (docId: string) => { if (docId && typeof window !== 'undefined') window.location.assign('/scripon/script?doc=' + docId); };
+  const cycleStatus = async (b: any) => { if (isDemo(b)) { flash(t('Demo build - connect a project to manage status.')); return; } const order = ['DRAFT', 'REVIEW', 'GREENLIT']; const cur = String(b.status || 'DRAFT').toUpperCase(); const next = order[(order.indexOf(cur) + 1) % order.length]; try { await productionApi.scripton.development.setBuildStatus(b.id, next); flash(t('Status') + ' \u2192 ' + next.charAt(0) + next.slice(1).toLowerCase()); if (projectId) await load(projectId, bin); } catch { flash(t('Could not update status.')); } };
+  const openModal = (b: any) => { setModal(b); setTarget('existing'); setNewName(b.name + ' (project)'); };
+
+  const resolveVersion = async (): Promise<string | null> => {
+    if (!projectId) return null;
+    try { const p: any = await productionApi.scripton.development.pipeline(projectId, modal && modal.id); const stages = Array.isArray(p.data) ? p.data : [];
+      for (const kind of ['DRAFT', 'COVERAGE', 'SCENES', 'TREATMENT', 'SYNOPSIS', 'LOGLINE']) { const st = stages.find((s: any) => s.kind === kind && s.currentVersionId); if (st) return st.currentVersionId; }
+      const any = stages.find((s: any) => s.currentVersionId); return any ? any.currentVersionId : null;
+    } catch { return null; }
+  };
+  const doPromote = async () => {
+    if (String(modal.id).startsWith('b')) { flash(t('Demo build — connect a project to promote.')); setModal(null); return; }
+    const vid = await resolveVersion();
+    if (!vid) { flash(t('Develop a draft in this build first — no stage version to snapshot yet.')); return; }
+    flash(t('Promoting…'));
+    try { await productionApi.scripton.development.promoteBuild(vid, { target, projectId: target === 'existing' ? destProj : undefined, name: target === 'new' ? newName : undefined, buildId: modal.id }); flash(t('Promoted — snapshot landed in the project.')); setModal(null); if (projectId) await load(projectId); }
+    catch (e: any) { flash(e?.response?.data?.message || t('Promote failed.')); }
+  };
+
+  return (
+    <div className="bld" dir={dir} style={{ position: 'fixed', top: 0, right: 0, bottom: 0, left: railGap, zIndex: 80, overflow: 'auto' }}>
+      <style dangerouslySetInnerHTML={{ __html: CSS }} />
+      <div className="scr">
+        <div className="top"><div className="tl"><div className="logo" onClick={onClose} title={t('Close')}>TFM</div><div className="proj">{t('Development builds')}</div><span className="meta">{t('standalone · unlinked until you promote')}</span></div><div style={{ display: 'flex', gap: 8 }}><div className="btn gold" onClick={onNewBuild || onClose}><svg className="ico" viewBox="0 0 24 24" style={{ stroke: '#1a1509' }}><path d="M12 5v14M5 12h14" /></svg>{t('New build')}</div><div className="btn ghost" onClick={onClose}>{t('Close')}</div></div></div>
+        <div className="body">
+          <div className="main">
+            <div className="phead"><h1>{t('Builds')}</h1><div className="sub">{t('Name, save and switch development builds. Open loads a build into Studio; promote a finished build into a project.')}</div></div>
+            <div className="tbar">{(bin ? [] : ['All', 'Draft', 'Review', 'Greenlit', 'Promoted']).map((c) => (<span key={c} className={'chip' + (filter === c ? ' on' : '')} onClick={() => setFilter(c)}>{t(c)}</span>))}<span style={{ marginLeft: 'auto', display: 'inline-flex', background: '#15181e', border: '1px solid var(--hair)', borderRadius: 9, padding: 3, gap: 2 }}><span onClick={() => switchBin(false)} style={{ fontSize: 12, fontWeight: 600, padding: '5px 12px', borderRadius: 7, cursor: 'pointer', color: !bin ? 'var(--gold2)' : 'var(--mute)', background: !bin ? 'rgba(198,164,99,.16)' : 'transparent' }}>{t('Active')}</span><span onClick={() => switchBin(true)} style={{ fontSize: 12, fontWeight: 600, padding: '5px 12px', borderRadius: 7, cursor: 'pointer', color: bin ? 'var(--gold2)' : 'var(--mute)', background: bin ? 'rgba(198,164,99,.16)' : 'transparent' }}>✖ {t('Bin')}</span></span></div>
+            <div className="grid">
+              {shown.map((b) => { const st = String(b.status || 'DRAFT').toUpperCase(); const dots = DOTS[st] || 2; return (
+                <div key={b.id} className="bc">
+                  <div className="r1"><span className={'spill ' + (SPILL[st] || 'draft')} title={(st !== 'PROMOTED' && !bin && !isDemo(b)) ? t('Click to advance: Draft \u2192 Review \u2192 Greenlit') : (st === 'PROMOTED' ? t('Promoted to production') : '')} onClick={() => { if (st !== 'PROMOTED' && !bin && !isDemo(b)) cycleStatus(b); }} style={{ cursor: (st !== 'PROMOTED' && !bin && !isDemo(b)) ? 'pointer' : 'default' }}>{st}</span><span className="when">{ago(b.updatedAt) || t('saved')}</span></div>
+                  <div className="nm">{b.name}</div>
+                  <div className="ladder">{[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (<span key={i} className={'d' + (i < dots ? ' on' : '')} />))}</div>
+                  <div className="ft">
+                    {bin ? (<>
+                      <span className="when" style={{ marginRight: 'auto' }}>{daysLeft(b.deletedAt)}{t('d left in bin')}</span>
+                      <span className="mini gold" onClick={() => doRestore(b)}>↩ {t('Restore')}</span>
+                      <span className="mini" onClick={() => setConfirm({ kind: 'purge', b })} style={{ color: '#e5635f', borderColor: 'rgba(229,99,95,.4)' }}>{t('Delete forever')}</span>
+                    </>) : (<>
+                      {(st === 'PROMOTED' || b.linkedScriptId) ? (<>{b.linkedScriptId ? (<span className="mini gold" onClick={() => openScript(b.linkedScriptId)} title={t('Open the promoted script')}><svg className="ico" viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z" /></svg>{t('Open script')}</span>) : null}<span className="mini" onClick={() => openBuild(b.id)} title={t('Open Develop \u2014 refine or re-send to production')}><svg className="ico" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" /></svg>{t('Develop')}</span></>) : (<><span className="mini" onClick={() => openBuild(b.id)}><svg className="ico" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" /></svg>{t('Open')}</span>{(st === 'GREENLIT' || st === 'REVIEW') ? (<span className="mini gold" onClick={() => openModal(b)}><svg className="ico" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14" /></svg>{t('Promote to project')}</span>) : null}</>)}
+                      <span className="mini" onClick={() => setBriefView(b)} title={t('View saved settings (read-only)')}><svg className="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" /><path d="M19.4 13a7 7 0 000-2l2-1.5-2-3.4-2.3 1a7 7 0 00-1.7-1L15 3h-4l-.4 2.6a7 7 0 00-1.7 1l-2.3-1-2 3.4L6.6 11a7 7 0 000 2l-2 1.5 2 3.4 2.3-1a7 7 0 001.7 1L11 21h4l.4-2.6a7 7 0 001.7-1l2.3 1 2-3.4z" /></svg>{t('Settings')}</span>
+                      <span className="mini" title={t('Move to bin')} onClick={() => setConfirm({ kind: 'delete', b })} style={{ marginLeft: 'auto', color: '#e5635f', borderColor: 'rgba(229,99,95,.4)' }}>✖</span>
+                    </>)}
+                  </div>
+                </div>
+              ); })}
+              {!bin ? <div className="add" onClick={onNewBuild || onClose}><svg className="ico" viewBox="0 0 24 24" style={{ width: 22, height: 22 }}><path d="M12 5v14M5 12h14" /></svg><div style={{ fontWeight: 600 }}>{t('New build')}</div></div> : null}
+              {bin && !list.length ? <div style={{ gridColumn: '1 / -1', textAlign: 'center', color: 'var(--faint)', fontSize: 13, padding: '40px 0' }}>{t('The bin is empty.')}</div> : null}
+            </div>
+          </div>
+        </div>
+        {modal && (
+          <div className="scrim" onClick={() => setModal(null)}>
+            <div className="modal" onClick={(e) => e.stopPropagation()}>
+              <div className="mh"><span className="mt">{t('Promote')} “{modal.name}”</span><span className="mx" onClick={() => setModal(null)}>✕</span></div>
+              <div className="msub">{t('Snapshot the chosen draft into a project. The build keeps developing; this takes a frozen copy.')}</div>
+              <div className="opt">
+                <div className={'ocard' + (target === 'existing' ? ' on' : '')} onClick={() => setTarget('existing')}><div className="ot">{t('Add to existing')}</div><div className="os">{t("Land in a project's Script Library")}</div></div>
+                <div className={'ocard' + (target === 'new' ? ' on' : '')} onClick={() => setTarget('new')}><div className="ot">{t('Start new project')}</div><div className="os">{t('Spin a project, seed the script')}</div></div>
+              </div>
+              {target === 'existing' ? (<select value={destProj} onChange={(e) => setDestProj(e.target.value)}>{projects.map((p) => (<option key={p.id} value={p.id}>{p.name || p.title || p.projectNumber}</option>))}</select>) : (<input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder={t('New project title')} />)}
+              <div className="xfer"><div className="xl">{t('WHAT TRANSFERS')}</div><div className="xrow"><span className="c">✓</span>{t('Chosen version → first master revision (WHITE draft)')}</div><div className="xrow"><span className="c">✓</span>{t('Title · format · genre · logline · creative brief · coverage')}</div><div className="xrow"><span className="c">✓</span>{t('Provenance back-link to this build')}</div><div className="snap">{t('Snapshot, not live sync — push an updated draft later as an explicit action.')}</div></div>
+              <div className="mfoot"><span className="btn ghost" onClick={() => setModal(null)}>{t('Cancel')}</span><span className="btn gold" onClick={doPromote}><svg className="ico" viewBox="0 0 24 24" style={{ stroke: '#1a1509' }}><path d="M12 3v12M7 10l5 5 5-5M5 21h14" /></svg>{t('Promote & snapshot')}</span></div>
+            </div>
+          </div>
+        )}
+        {confirm && (
+          <div className="scrim" onClick={() => setConfirm(null)}>
+            <div className="modal" style={{ width: 440 }} onClick={(e) => e.stopPropagation()}>
+              <div className="mh"><span className="mt">{confirm.kind === 'purge' ? t('Delete forever?') : t('Move to bin?')}</span><span className="mx" onClick={() => setConfirm(null)}>✕</span></div>
+              <div className="msub" style={{ marginTop: 0 }}>{confirm.kind === 'purge' ? '“' + confirm.b.name + '”' + t(' will be permanently deleted. This cannot be undone.') : '“' + confirm.b.name + '”' + t(' moves to the bin and is permanently deleted after 30 days unless you restore it.')}</div>
+              <div className="mfoot"><span className="btn ghost" onClick={() => setConfirm(null)}>{t('Cancel')}</span><span className="btn gold" style={confirm.kind === 'purge' ? { background: 'linear-gradient(180deg,#f08a86,#e5635f)', color: '#2a0f0e' } : {}} onClick={doConfirm}>{confirm.kind === 'purge' ? t('Delete forever') : t('Move to bin')}</span></div>
+            </div>
+          </div>
+        )}
+        {briefView && (() => {
+          const br: any = (briefView && briefView.brief) || {};
+          const sp: any = (br && br.spine) || {};
+          const sources: any[] = Array.isArray(br.sources) ? br.sources : [];
+          const has = br && Object.keys(br).length > 0;
+          const row = (k: string, v: any) => { const empty = v == null || (typeof v === 'string' && !v.trim()) || (Array.isArray(v) && !v.length); return empty ? null : (<div style={{ display: 'flex', gap: 10, padding: '7px 0', borderTop: '1px solid var(--hair)', fontSize: 12.5 }}><span style={{ color: 'var(--faint)', width: 116, flex: 'none' }}>{k}</span><span style={{ color: 'var(--text)' }}>{Array.isArray(v) ? v.join(', ') : String(v)}</span></div>); };
+          return (
+          <div className="scrim" onClick={() => setBriefView(null)}>
+            <div className="modal" style={{ width: 640, maxHeight: '84vh', overflow: 'auto' }} onClick={(e) => e.stopPropagation()}>
+              <div className="mh"><span className="mt">{t('Settings')} — {briefView.name}</span><span className="mx" onClick={() => setBriefView(null)}>✕</span></div>
+              <div className="msub" style={{ marginTop: 0 }}>{t('Read-only snapshot of the brief you set when you started this build.')}</div>
+              {!has ? (<div style={{ color: 'var(--faint)', fontSize: 13, padding: '22px 2px' }}>{t('No saved settings on this build. Builds created before this update don’t carry the brief — start a New Build and it will.')}</div>) : (<div style={{ marginTop: 4 }}>
+                {row(t('Mode'), br.mode === 'ORIGINAL' ? t('From scratch') : t('Adapt material'))}
+                {row(t('Format'), br.projectType)}
+                {row(t('Episodes'), br.episodes)}
+                {row(t('Minutes / ep'), br.minutesPerEp)}
+                {row(t('Seasons'), br.seasons)}
+                {row(t('Genres'), br.genres)}
+                {row(t('Tone'), br.tone)}
+                {row(t('Framework'), sp.framework || br.framework)}
+                {row(t('Ending'), sp.ending)}
+                {row(t('Market'), br.country)}
+                {row(t('Setting'), Array.isArray(br.settingPlace) ? br.settingPlace.join(', ') : br.settingPlace)}
+                {row(t('Era'), br.settingEra || br.cultureEra)}
+                {row(t('Lore density'), br.loreDensity)}
+                {Array.isArray(br.loreSelections) && br.loreSelections.length ? (<div style={{ padding: '8px 0', borderTop: '1px solid var(--hair)' }}><div style={{ color: 'var(--faint)', fontSize: 12, marginBottom: 6 }}>{t('Lore Atlas')} · {br.loreSelections.length}</div><div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>{br.loreSelections.slice(0, 50).map((l: any, i: number) => (<span key={i} style={{ fontSize: 11, color: 'var(--gold2)', background: 'rgba(198,164,99,.1)', border: '1px solid rgba(198,164,99,.28)', borderRadius: 99, padding: '3px 9px' }}>{(l && (l.name || l.slug || l.id)) || (typeof l === 'string' ? l : 'element')}</span>))}</div></div>) : null}
+                {sources.length ? (<div style={{ padding: '8px 0', borderTop: '1px solid var(--hair)' }}><div style={{ color: 'var(--faint)', fontSize: 12, marginBottom: 6 }}>{t('Sources')} · {sources.length}</div><div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>{sources.map((s: any, i: number) => (<span key={i} title={String(s.value || s.name || '')} style={{ fontSize: 11, color: 'var(--mute)', background: '#171a20', border: '1px solid var(--hair)', borderRadius: 8, padding: '4px 9px', maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: 0.9 }}>{String(s.kind || 'src')}: {String(s.name || s.value || '')}</span>))}</div></div>) : null}
+                {br.sourceText ? (<div style={{ padding: '9px 0 2px', borderTop: '1px solid var(--hair)' }}><div style={{ color: 'var(--faint)', fontSize: 12, marginBottom: 6 }}>{t('Source / pasted text')}</div><textarea readOnly value={String(br.sourceText)} style={{ width: '100%', minHeight: 150, maxHeight: 300, background: '#0f1116', border: '1px solid var(--hair)', borderRadius: 10, color: 'var(--mute)', fontSize: 12, lineHeight: 1.5, padding: 10, resize: 'vertical' }} /></div>) : null}
+              </div>)}
+              <div className="mfoot"><span className="btn ghost" onClick={() => setBriefView(null)}>{t('Close')}</span>{(briefView.id && !isDemo(briefView)) ? (<span className="btn gold" onClick={() => openBuild(briefView.id)}><svg className="ico" viewBox="0 0 24 24" style={{ stroke: '#1a1509' }}><path d="M5 12h14M13 6l6 6-6 6" /></svg>{t('Open Develop')}</span>) : null}</div>
+            </div>
+          </div>
+          ); })()}
+        {toast && <div className="toast">{toast}</div>}
+      </div>
+    </div>
+  );
+}

@@ -76,10 +76,10 @@ export default function LaborMasterPage() {
         </div>
         <div className="flex gap-2">
           <button onClick={doAiUpdateAll} disabled={aiBusy} className="btn btn-primary text-xs">
-            <Sparkles size={13} className={cn('mr-1', aiBusy && 'animate-pulse')} /> {aiBusy ? 'AI updating…' : 'AI update all rates'}
+            <Sparkles size={13} className={cn('me-1', aiBusy && 'animate-pulse')} /> {aiBusy ? 'AI updating…' : 'AI update all rates'}
           </button>
           <button onClick={doRefresh} disabled={refreshing} className="btn btn-secondary text-xs">
-            <RefreshCw size={13} className={cn('mr-1', refreshing && 'animate-spin')} /> {refreshing ? 'Checking…' : selBody ? `Refresh ${selBody.shortName || 'body'}` : 'Refresh all sources'}
+            <RefreshCw size={13} className={cn('me-1', refreshing && 'animate-spin')} /> {refreshing ? 'Checking…' : selBody ? `Refresh ${selBody.shortName || 'body'}` : 'Refresh all sources'}
           </button>
           <Link href="/setup/rate-approvals" className="btn btn-secondary text-xs">Rate Approvals →</Link>
         </div>
@@ -156,7 +156,7 @@ function BodiesList({ bodies, countries, selId, onSelect, reload }: any) {
       )}
       <div className="space-y-1">
         {bodies.map((b: any) => (
-          <button key={b.id} onClick={() => onSelect(b)} className={cn('w-full text-left px-2 py-1.5 rounded-lg text-sm flex items-center justify-between', selId === b.id ? 'bg-brand-50 text-brand-700' : 'hover:bg-gray-50')}>
+          <button key={b.id} onClick={() => onSelect(b)} className={cn('w-full text-start px-2 py-1.5 rounded-lg text-sm flex items-center justify-between', selId === b.id ? 'bg-brand-50 text-brand-700' : 'hover:bg-gray-50')}>
             <span>{b.shortName || b.name}</span>
             <span className="text-[9px] uppercase text-gray-400">{b.kind}</span>
           </button>
@@ -203,7 +203,7 @@ function AgreementsList({ body, agreements, sources, selId, onSelect, reload }: 
       <div className="space-y-1">
         {agreements.map((a: any) => (
           <div key={a.id} className={cn('px-2 py-1.5 rounded-lg text-sm flex items-center justify-between', selId === a.id ? 'bg-brand-50' : 'hover:bg-gray-50')}>
-            <button onClick={() => onSelect(a)} className="text-left flex-1">
+            <button onClick={() => onSelect(a)} className="text-start flex-1">
               <span className="text-gray-800">{a.name}</span>
               <span className="block text-[10px] text-gray-400">{a._count?.rateRules || 0} rules · {new Date(a.effectiveDate).getFullYear()}{a.expirationDate ? `–${new Date(a.expirationDate).getFullYear()}` : ''}</span>
             </button>
@@ -388,7 +388,7 @@ function AgreementDetail({ agr, sources, reload }: any) {
               <tr key={r.id} className="border-b border-gray-50">
                 <td className="py-1.5">
                   <span className="text-gray-800">{r.label}</span>
-                  {r.isEstimate && <span className="ml-1 text-[9px] bg-amber-100 text-amber-700 rounded px-1">est</span>}
+                  {r.isEstimate && <span className="ms-1 text-[9px] bg-amber-100 text-amber-700 rounded px-1">est</span>}
                   <span className="block text-[10px] text-gray-400">{r.classification?.code || 'all'} · {r.rateType}</span>
                 </td>
                 <td className="py-1.5 text-gray-600">
@@ -396,8 +396,8 @@ function AgreementDetail({ agr, sources, reload }: any) {
                   {r.capAmount ? <span className="text-gray-400"> cap {Number(r.capAmount).toLocaleString()}</span> : ''}
                 </td>
                 <td className="py-1.5 text-gray-400">{new Date(r.effectiveDate).toLocaleDateString()}</td>
-                <td className="py-1.5 text-right whitespace-nowrap">
-                  <button onClick={() => { setProposing(r); setPf({ value: String(Number(r.value)), effectiveDate: new Date().toISOString().slice(0, 10), notes: '', sourceId: r.sourceId || '' }); }} title="Propose change (approval-gated)" className="text-gray-400 hover:text-brand-600 mr-2"><Edit2 size={12} /></button>
+                <td className="py-1.5 text-end whitespace-nowrap">
+                  <button onClick={() => { setProposing(r); setPf({ value: String(Number(r.value)), effectiveDate: new Date().toISOString().slice(0, 10), notes: '', sourceId: r.sourceId || '' }); }} title="Propose change (approval-gated)" className="text-gray-400 hover:text-brand-600 me-2"><Edit2 size={12} /></button>
                   <button onClick={async () => { if (confirm('Delete this rate rule? Prefer proposing a change to preserve history.')) { await laborApi.removeRule(r.id); reload(); } }} className="text-gray-300 hover:text-red-500"><Trash2 size={12} /></button>
                 </td>
               </tr>
@@ -438,7 +438,7 @@ function IncentivesManager({ geo }: any) {
     <div className="card">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold text-gray-700">Incentive Programs</h3>
-        <button onClick={() => setAdding(!adding)} className="btn btn-primary text-xs py-1"><Plus size={12} className="mr-1" /> Add program</button>
+        <button onClick={() => setAdding(!adding)} className="btn btn-primary text-xs py-1"><Plus size={12} className="me-1" /> Add program</button>
       </div>
       {adding && (
         <div className="mb-3 p-2 bg-gray-50 rounded-lg grid grid-cols-3 gap-1.5">
@@ -464,19 +464,19 @@ function IncentivesManager({ geo }: any) {
       <table className="w-full text-sm">
         <thead>
           <tr className="text-[10px] font-semibold text-gray-400 uppercase border-b border-gray-100">
-            <th className="py-2 text-left">Program</th><th className="py-2 text-left">Jurisdiction</th><th className="py-2 text-left">Type</th>
-            <th className="py-2 text-right">Rate</th><th className="py-2 text-left">Basis</th><th className="py-2"></th>
+            <th className="py-2 text-start">Program</th><th className="py-2 text-start">Jurisdiction</th><th className="py-2 text-start">Type</th>
+            <th className="py-2 text-end">Rate</th><th className="py-2 text-start">Basis</th><th className="py-2"></th>
           </tr>
         </thead>
         <tbody>
           {rows.map((r) => (
             <tr key={r.id} className="border-b border-gray-50">
-              <td className="py-1.5">{r.name}{r.sourceUrl && <a href={r.sourceUrl} target="_blank" rel="noreferrer" className="ml-1.5 text-brand-600 inline-flex"><ExternalLink size={10} /></a>}{r.isEstimate && <span className="ml-1 text-[10px] bg-amber-100 text-amber-700 rounded px-1">est</span>}</td>
+              <td className="py-1.5">{r.name}{r.sourceUrl && <a href={r.sourceUrl} target="_blank" rel="noreferrer" className="ms-1.5 text-brand-600 inline-flex"><ExternalLink size={10} /></a>}{r.isEstimate && <span className="ms-1 text-[10px] bg-amber-100 text-amber-700 rounded px-1">est</span>}</td>
               <td className="py-1.5 text-xs text-gray-500">{r.geoNode?.name || 'Any'}</td>
               <td className="py-1.5 text-xs text-gray-500">{r.incentiveType?.replace('_', ' ')}</td>
-              <td className="py-1.5 text-right">{pct(r.ratePct)}{r.upliftPct ? ` +${pct(r.upliftPct)}` : ''}</td>
+              <td className="py-1.5 text-end">{pct(r.ratePct)}{r.upliftPct ? ` +${pct(r.upliftPct)}` : ''}</td>
               <td className="py-1.5 text-xs text-gray-500">{r.basis}</td>
-              <td className="py-1.5 text-right"><button onClick={async () => { if (confirm('Delete program?')) { await laborApi.removeIncentive(r.id); load(); } }} className="text-gray-300 hover:text-red-500"><Trash2 size={12} /></button></td>
+              <td className="py-1.5 text-end"><button onClick={async () => { if (confirm('Delete program?')) { await laborApi.removeIncentive(r.id); load(); } }} className="text-gray-300 hover:text-red-500"><Trash2 size={12} /></button></td>
             </tr>
           ))}
           {!rows.length && <tr><td className="py-2 text-gray-400 text-xs">No programs yet.</td></tr>}
@@ -500,7 +500,7 @@ function GeoManager({ geo, reload }: any) {
     <div className="card">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1"><Globe size={15} /> Geography</h3>
-        <button onClick={() => setAdding(!adding)} className="btn btn-primary text-xs py-1"><Plus size={12} className="mr-1" /> Add</button>
+        <button onClick={() => setAdding(!adding)} className="btn btn-primary text-xs py-1"><Plus size={12} className="me-1" /> Add</button>
       </div>
       {adding && (
         <div className="mb-3 p-2 bg-gray-50 rounded-lg grid grid-cols-5 gap-1.5">

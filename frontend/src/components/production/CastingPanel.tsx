@@ -66,7 +66,7 @@ export default function CastingPanel({ projectId }: { projectId: string }) {
           {calls.map((c) => (
             <div key={c.id} className="rounded-2xl border border-slate-200 bg-white shadow-sm">
               <div className="w-full p-4 flex items-center justify-between gap-3">
-                <button onClick={() => setOpenId(openId === c.id ? null : c.id)} className="text-left min-w-0 flex-1">
+                <button onClick={() => setOpenId(openId === c.id ? null : c.id)} className="text-start min-w-0 flex-1">
                   <div className="flex items-center gap-2"><span className="font-medium text-slate-900">{c.roleName}</span><span className={`text-[11px] px-2 py-0.5 rounded-full ${CALL_STATUS[c.status] || 'bg-slate-100'}`}>{c.status.replace(/_/g, ' ')}</span></div>
                   <p className="text-xs text-slate-500 mt-0.5">{c.roleType?.replace(/_/g, ' ')} · {c._count?.submissions ?? 0} submissions{c.breakdownElement ? ` · from “${c.breakdownElement.name}”` : ''}</p>
                 </button>
@@ -83,7 +83,7 @@ export default function CastingPanel({ projectId }: { projectId: string }) {
         </div>
       )}
 
-      {toast && <div className="fixed bottom-5 right-5 z-50 rounded-xl bg-slate-900 text-white text-sm px-4 py-2.5 shadow-lg flex items-center gap-2"><CheckCircle2 size={15} className="text-emerald-400" /> {toast}</div>}
+      {toast && <div className="fixed bottom-5 end-5 z-50 rounded-xl bg-slate-900 text-white text-sm px-4 py-2.5 shadow-lg flex items-center gap-2"><CheckCircle2 size={15} className="text-emerald-400" /> {toast}</div>}
       {charCall && <CharacterEditor call={charCall} onClose={() => setCharCall(null)} onSaved={() => { setCharCall(null); load(); }} />}
       {boardCall && <ReviewBoard call={boardCall} onClose={() => setBoardCall(null)} onChange={load} />}
       {tapeCall && <SelfTapeDrawer call={tapeCall} onClose={() => setTapeCall(null)} />}
@@ -407,7 +407,7 @@ function CharacterHistory({ characterId }: { characterId: string }) {
               <div className="text-[11px] text-slate-500 mb-1">{label} ({arr.length})</div>
               <div className="flex flex-wrap gap-1.5">
                 {arr.map((t: any) => (
-                  <span key={t.talentId} className="inline-flex items-center gap-1 rounded-full bg-slate-100 pl-0.5 pr-2 py-0.5 text-[11px] text-slate-700">
+                  <span key={t.talentId} className="inline-flex items-center gap-1 rounded-full bg-slate-100 ps-0.5 pe-2 py-0.5 text-[11px] text-slate-700">
                     {t.headshot ? <img src={assetUrl(t.headshot)} alt="" className="w-4 h-4 rounded-full object-cover" /> : <Users size={11} className="text-slate-400" />}{t.name}
                   </span>
                 ))}
@@ -511,7 +511,7 @@ function NegotiationDrawer({ submission, onClose, onDone }: any) {
             {Array.isArray(n.rounds) && n.rounds.length > 0 && (
               <div><p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-1">History</p>
                 <div className="space-y-1">{n.rounds.map((r: any, i: number) => (
-                  <div key={i} className="text-[11px] text-slate-500 flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-[#0f172a]" /><b className="text-slate-700">{r.type}</b>{r.amount != null ? ` ${money(r.amount)}` : ''}{r.note ? ` · ${r.note}` : ''}<span className="text-slate-300 ml-auto">{r.at ? new Date(r.at).toLocaleDateString() : ''}</span></div>
+                  <div key={i} className="text-[11px] text-slate-500 flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-[#0f172a]" /><b className="text-slate-700">{r.type}</b>{r.amount != null ? ` ${money(r.amount)}` : ''}{r.note ? ` · ${r.note}` : ''}<span className="text-slate-300 ms-auto">{r.at ? new Date(r.at).toLocaleDateString() : ''}</span></div>
                 ))}</div>
               </div>
             )}
@@ -566,7 +566,7 @@ function OperationsHub({ projectId }: { projectId: string }) {
     <div className="grid gap-2.5">
       {rows.map((r) => (
         <div key={r.submissionId} className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <button onClick={() => setOpenId(openId === r.submissionId ? null : r.submissionId)} className="w-full text-left p-4 flex items-center justify-between gap-3">
+          <button onClick={() => setOpenId(openId === r.submissionId ? null : r.submissionId)} className="w-full text-start p-4 flex items-center justify-between gap-3">
             <div className="min-w-0">
               <div className="flex items-center gap-2"><span className="font-medium text-slate-900">{r.talent?.stageName || r.talent?.fullName}</span><span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">{r.role}</span><span className={`text-[10px] px-1.5 py-0.5 rounded-full ${SUB_STATUS[r.status] || 'bg-slate-100'}`}>{r.status}</span></div>
               <div className="text-[11px] text-slate-400 mt-0.5">Contract {groupStatus(r.readiness.groups.Contracts)} · Travel {groupStatus(r.readiness.groups.Travel)} · Production {groupStatus(r.readiness.groups.Production)} · Payroll {groupStatus(r.readiness.groups.Payroll)}</div>

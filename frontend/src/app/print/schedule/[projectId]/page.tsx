@@ -30,7 +30,7 @@ export default function SchedulePrintPage() {
   if (loading) return <div style={{ padding: 40, textAlign: 'center', color: '#999' }}>Preparing schedule…</div>;
   if (!board) return <div style={{ padding: 32, color: 'red' }}>Schedule not available.</div>;
 
-  const th: any = { padding: '4px 6px', color: '#fff', fontSize: 8, textTransform: 'uppercase', fontWeight: 700, textAlign: 'left' };
+  const th: any = { padding: '4px 6px', color: '#fff', fontSize: 8, textTransform: 'uppercase', fontWeight: 700, textAlign: 'start' };
   const td: any = { padding: '3px 6px', fontSize: 9, borderBottom: '1px solid #eee', verticalAlign: 'top' };
 
   return (
@@ -49,7 +49,7 @@ export default function SchedulePrintPage() {
               <div style={{ color: '#777' }}>{board.totalScenes} scenes · {pagesLabel(board.totalPages)} pages · {board.shootDays} shoot days</div>
             </div>
             {logoSrc(co?.logoUrl) ? <img src={logoSrc(co.logoUrl)} alt="" style={{ height: 42, objectFit: 'contain' }} /> :
-              <div style={{ fontSize: 9, color: '#999', textAlign: 'right' }}>{co?.name || 'The Film Makers FZ LLC'}</div>}
+              <div style={{ fontSize: 9, color: '#999', textAlign: 'end' }}>{co?.name || 'The Film Makers FZ LLC'}</div>}
           </div>
           <div style={{ borderTop: `2px solid ${GOLD}`, margin: '10px 0 12px' }} />
 
@@ -62,7 +62,7 @@ export default function SchedulePrintPage() {
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead><tr style={{ background: '#F2EAD3' }}>
                   <th style={{ ...th, width: 44 }}>Scene</th><th style={{ ...th, width: 30 }}>I/E</th><th style={{ ...th, width: 30 }}>D/N</th>
-                  <th style={th}>Set / Description</th><th style={{ ...th, width: 44, textAlign: 'right' }}>Pages</th><th style={{ ...th, width: 160 }}>Cast</th>
+                  <th style={th}>Set / Description</th><th style={{ ...th, width: 44, textAlign: 'end' }}>Pages</th><th style={{ ...th, width: 160 }}>Cast</th>
                 </tr></thead>
                 <tbody>
                   {d.strips.map((s: any) => (
@@ -71,7 +71,7 @@ export default function SchedulePrintPage() {
                       <td style={td}>{String(s.intExt).replace('_', '/')}</td>
                       <td style={td}>{String(s.dayNight)[0]}</td>
                       <td style={td}>{s.setName ? <b>{s.setName}</b> : ''}{s.setName && s.description ? ' — ' : ''}{s.description}</td>
-                      <td style={{ ...td, textAlign: 'right' }}>{pagesLabel(Number(s.pages))}</td>
+                      <td style={{ ...td, textAlign: 'end' }}>{pagesLabel(Number(s.pages))}</td>
                       <td style={{ ...td, color: '#555' }}>{(Array.isArray(s.cast) ? s.cast : []).join(', ')}</td>
                     </tr>
                   ))}
@@ -86,7 +86,7 @@ export default function SchedulePrintPage() {
               <div style={{ background: '#eee', padding: '4px 8px', fontWeight: 700, color: '#666' }}>UNSCHEDULED</div>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <tbody>{board.unscheduled.map((s: any) => (
-                  <tr key={s.id}><td style={{ ...td, width: 44, fontWeight: 700 }}>{s.sceneNumber || '—'}</td><td style={td}>{s.setName} {s.description}</td><td style={{ ...td, textAlign: 'right', width: 44 }}>{pagesLabel(Number(s.pages))}</td></tr>
+                  <tr key={s.id}><td style={{ ...td, width: 44, fontWeight: 700 }}>{s.sceneNumber || '—'}</td><td style={td}>{s.setName} {s.description}</td><td style={{ ...td, textAlign: 'end', width: 44 }}>{pagesLabel(Number(s.pages))}</td></tr>
                 ))}</tbody>
               </table>
             </div>

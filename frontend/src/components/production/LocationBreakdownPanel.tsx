@@ -57,8 +57,8 @@ export default function LocationBreakdownPanel({ projectId }: { projectId: strin
         </div>
         <div className="flex items-center gap-2">
           <div className="relative">
-            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search location, set, cast…" className="rounded-xl border border-slate-200 pl-8 pr-3 py-1.5 text-sm w-56 focus:border-[#0f172a] outline-none" />
+            <Search size={14} className="absolute start-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search location, set, cast…" className="rounded-xl border border-slate-200 ps-8 pe-3 py-1.5 text-sm w-56 focus:border-[#0f172a] outline-none" />
           </div>
           <button onClick={() => setExpanded(allExpanded ? new Set() : new Set(filtered.map((l: any) => l.location)))} className="text-xs rounded-lg border border-slate-200 px-3 py-1.5 text-slate-600 hover:border-[#0f172a]">{allExpanded ? 'Collapse all' : 'Expand all'}</button>
           <button onClick={() => setShare({ kind: 'REPORT', title: 'Location Breakdown' })} className="text-xs inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-slate-600 hover:border-[#0f172a]"><Share2 size={13} /> Share</button>
@@ -80,7 +80,7 @@ export default function LocationBreakdownPanel({ projectId }: { projectId: strin
           return (
             <div key={loc.location} className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
               <div className="flex items-center gap-2 px-3 py-2.5">
-                <button onClick={() => toggle(loc.location)} className="flex-1 flex items-center gap-2.5 text-left min-w-0">
+                <button onClick={() => toggle(loc.location)} className="flex-1 flex items-center gap-2.5 text-start min-w-0">
                   <ChevronRight size={15} className={`text-slate-300 transition shrink-0 ${isOpen ? 'rotate-90' : ''}`} />
                   <span className="font-semibold text-slate-900 text-[15px] truncate">{loc.location}</span>
                   <a href={mapsUrl(loc.location)} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} title="Open in Google Maps" className="text-rose-600 hover:text-rose-700 shrink-0"><MapPin size={15} /></a>
@@ -127,7 +127,7 @@ export default function LocationBreakdownPanel({ projectId }: { projectId: strin
                   <div className="overflow-x-auto">
                     <table className="w-full text-[13px] min-w-[760px]">
                       <thead><tr className="border-b border-slate-200 text-slate-400 text-[11px] uppercase tracking-wide">
-                        <th className="text-left py-1.5 px-2">SD</th><th className="text-left py-1.5 px-2">Scene</th><th className="text-left py-1.5 px-2">Set</th><th className="text-left py-1.5 px-2">D/N</th><th className="text-left py-1.5 px-2">I/E</th><th className="text-left py-1.5 px-2">Synopsis</th><th className="text-left py-1.5 px-2">Cast</th><th className="text-right py-1.5 px-2">Pages</th><th className="text-right py-1.5 px-2">Est.</th>
+                        <th className="text-start py-1.5 px-2">SD</th><th className="text-start py-1.5 px-2">Scene</th><th className="text-start py-1.5 px-2">Set</th><th className="text-start py-1.5 px-2">D/N</th><th className="text-start py-1.5 px-2">I/E</th><th className="text-start py-1.5 px-2">Synopsis</th><th className="text-start py-1.5 px-2">Cast</th><th className="text-end py-1.5 px-2">Pages</th><th className="text-end py-1.5 px-2">Est.</th>
                       </tr></thead>
                       <tbody>
                         {loc.scenes.map((s: any, i: number) => (
@@ -139,8 +139,8 @@ export default function LocationBreakdownPanel({ projectId }: { projectId: strin
                             <td className="py-1.5 px-2">{s.intExt}</td>
                             <td className="py-1.5 px-2 text-xs max-w-md">{s.synopsis || '—'}</td>
                             <td className="py-1.5 px-2 text-xs">{s.cast.join(', ') || '—'}</td>
-                            <td className="py-1.5 px-2 text-right text-xs text-slate-500">{s.pages ? s.pages.toFixed(2) : '—'}</td>
-                            <td className="py-1.5 px-2 text-right text-xs text-slate-500">{s.estMinutes ? `${s.estMinutes}m` : '—'}</td>
+                            <td className="py-1.5 px-2 text-end text-xs text-slate-500">{s.pages ? s.pages.toFixed(2) : '—'}</td>
+                            <td className="py-1.5 px-2 text-end text-xs text-slate-500">{s.estMinutes ? `${s.estMinutes}m` : '—'}</td>
                           </tr>
                         ))}
                       </tbody>

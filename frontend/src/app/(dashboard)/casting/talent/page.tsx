@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { castingApi, travelApi, usersApi, productionApi } from '@/lib/api';
-import { Users, Plus, X, Loader2, ShieldCheck, Search, Trash2, Plane, CheckCircle2, Clock, MinusCircle, Gauge, Award, Contact, SlidersHorizontal, ListPlus, Bookmark, FolderPlus } from 'lucide-react';
+import { Users, Plus, X, Loader2, ShieldCheck, Search, Trash2, Plane, CheckCircle2, Clock, MinusCircle, Gauge, Award, Contact, SlidersHorizontal, ListPlus, Bookmark, FolderPlus, QrCode } from 'lucide-react';
 import TravelIdentityPanel from '@/components/production/TravelIdentityPanel';
 import { RepresentationTab, CreditsTab, CrmTab } from '@/components/production/TalentV3Tabs';
 import EmailInput from '@/components/EmailInput';
 import PhoneInput from '@/components/PhoneInput';
+import ActorLinkModal from '@/components/production/ActorLinkModal';
 
 const CONSENT_CLS: Record<string, string> = { GRANTED: 'bg-emerald-100 text-emerald-700', PENDING: 'bg-amber-100 text-amber-700', WITHDRAWN: 'bg-rose-100 text-rose-700', EXPIRED: 'bg-slate-100 text-slate-500' };
 
@@ -23,6 +24,7 @@ export default function TalentDatabase() {
   const [adv, setAdv] = useState(false);
   const [listsOpen, setListsOpen] = useState(false);
   const [addTo, setAddTo] = useState<any | null>(null);
+  const [actorLink, setActorLink] = useState<any | null>(null);
   const load = useCallback(() => { castingApi.talent(q ? { search: q } : {}).then((r) => setRows(Array.isArray(r.data) ? r.data : [])).catch(() => {}); }, [q]);
   useEffect(() => { const t = setTimeout(load, 250); return () => clearTimeout(t); }, [load]);
 
@@ -36,7 +38,7 @@ export default function TalentDatabase() {
     <div className="font-sans p-6 max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900 flex items-center gap-2"><Users className="text-[#0f172a]" /> Talent Database</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900 flex items-center gap-2"><Users style={{ color: 'var(--accent)' }} /> Talent Database</h1>
           <p className="text-sm text-slate-500 mt-0.5">Master talent pool — GDPR-consented, reusable across all casting calls.</p>
         </div>
         <div className="flex items-center gap-2">
@@ -49,15 +51,15 @@ export default function TalentDatabase() {
       {adv && <AdvancedSearch onAddToList={(t: any) => setAddTo(t)} onProfile={(t: any) => setProfile(t)} onReady={(id: string) => setReadyId(id)} />}
 
       {!adv && <><div className="relative mb-4">
-        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, stage name, skill…" className="w-full rounded-xl border border-slate-200 pl-9 pr-3 py-2.5 text-sm outline-none focus:border-[#0f172a]" />
+        <Search size={15} className="absolute start-3 top-1/2 -translate-y-1/2 text-slate-400" />
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, stage name, skill…" className="w-full rounded-xl border border-slate-200 ps-9 pe-3 py-2.5 text-sm outline-none focus:border-[#0f172a]" />
       </div>
 
       <div className="grid gap-2">
         {rows.length === 0 ? <p className="text-sm text-slate-400 py-8 text-center">No talent profiles.</p> : rows.map((t) => (
           <div key={t.id} className="rounded-2xl border border-slate-200 bg-white p-4 flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <button onClick={() => setEditing(t)} className="font-medium text-slate-900 hover:text-[#0f172a] text-left">{t.stageName || t.fullName}{t.stageName && <span className="text-xs text-slate-400 ml-1">({t.fullName})</span>}</button>
+              <button onClick={() => setEditing(t)} className="font-medium text-slate-900 hover:text-[#0f172a] text-start">{t.stageName || t.fullName}{t.stageName && <span className="text-xs text-slate-400 ms-1">({t.fullName})</span>}</button>
               <div className="text-xs text-slate-500">{[t.unionStatus, t.nationality, t.baseCity, (t.skills || []).slice(0, 3).join(', ')].filter(Boolean).join(' · ') || '—'}</div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
@@ -67,6 +69,7 @@ export default function TalentDatabase() {
               <button onClick={() => setReadyId(t.id)} title="Talent readiness" className="text-xs inline-flex items-center gap-1 rounded-lg border border-slate-200 text-slate-600 px-2 py-1 hover:border-[#0f172a]"><Gauge size={13} /> Readiness</button>
               <button onClick={() => setReviewsId(t.id)} title="Performance history (internal)" className="text-xs inline-flex items-center gap-1 rounded-lg border border-slate-200 text-slate-600 px-2 py-1 hover:border-[#0f172a]"><Award size={13} /> Reviews</button>
               <button onClick={() => openTravel(t.id)} disabled={opening === t.id} title="Travel & immigration identity" className="text-xs inline-flex items-center gap-1 rounded-lg border border-slate-200 text-slate-600 px-2 py-1 hover:border-[#0f172a] disabled:opacity-40">{opening === t.id ? <Loader2 size={12} className="animate-spin" /> : <Plane size={13} />} Travel</button>
+              <button onClick={() => setActorLink(t)} title="Actor access link — their call time, no login" className="text-xs inline-flex items-center gap-1 rounded-lg border border-slate-200 text-slate-600 px-2 py-1 hover:border-[#0f172a]"><QrCode size={13} /> Link</button>
               {t.consentStatus !== 'WITHDRAWN' && <button onClick={() => forget(t.id)} title="Right to be forgotten" className="text-slate-300 hover:text-rose-600"><Trash2 size={15} /></button>}
             </div>
           </div>
@@ -86,6 +89,7 @@ export default function TalentDatabase() {
       {readyId && <ReadinessDrawer talentId={readyId} onClose={() => setReadyId(null)} />}
       {reviewsId && <ReviewsDrawer talentId={reviewsId} onClose={() => setReviewsId(null)} />}
       {profile && <ProfileDrawer talent={profile} onClose={() => setProfile(null)} />}
+      {actorLink && <ActorLinkModal talent={actorLink} onClose={() => setActorLink(null)} />}
     </div>
   );
 }
@@ -97,7 +101,7 @@ function ProfileDrawer({ talent, onClose }: { talent: any; onClose: () => void }
     <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/40 backdrop-blur-sm" onClick={onClose}>
       <div className="w-full max-w-lg h-full bg-white shadow-2xl overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 sticky top-0 glass-bar z-10">
-          <h2 className="font-semibold text-slate-900 flex items-center gap-2"><Contact size={16} className="text-[#0f172a]" /> {talent.stageName || talent.fullName}</h2>
+          <h2 className="font-semibold text-slate-900 flex items-center gap-2"><Contact size={16} style={{ color: 'var(--accent)' }} /> {talent.stageName || talent.fullName}</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-700"><X size={18} /></button>
         </div>
         <div className="flex gap-1 px-4 py-2 border-b border-slate-100 sticky top-[60px] bg-white z-10">
@@ -132,7 +136,7 @@ function ReviewsDrawer({ talentId, onClose }: { talentId: string; onClose: () =>
     <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/40 backdrop-blur-sm" onClick={onClose}>
       <div className="w-full max-w-md h-full bg-white shadow-2xl overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 sticky top-0 glass-bar">
-          <h2 className="font-semibold text-slate-900 flex items-center gap-2"><Award size={16} className="text-[#0f172a]" /> Performance History</h2>
+          <h2 className="font-semibold text-slate-900 flex items-center gap-2"><Award size={16} style={{ color: 'var(--accent)' }} /> Performance History</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-700"><X size={18} /></button>
         </div>
         <div className="px-5 py-2 bg-amber-50 border-b border-amber-100 text-[11px] text-amber-800">Internal only — never shown to talent or their representatives.</div>
@@ -201,7 +205,7 @@ function ReadinessDrawer({ talentId, onClose }: { talentId: string; onClose: () 
     <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/40 backdrop-blur-sm" onClick={onClose}>
       <div className="w-full max-w-md h-full bg-white shadow-2xl overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 sticky top-0 glass-bar">
-          <h2 className="font-semibold text-slate-900 flex items-center gap-2"><Gauge size={16} className="text-[#0f172a]" /> Talent Readiness</h2>
+          <h2 className="font-semibold text-slate-900 flex items-center gap-2"><Gauge size={16} style={{ color: 'var(--accent)' }} /> Talent Readiness</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-700"><X size={18} /></button>
         </div>
         {d === null ? <p className="p-10 text-center text-slate-400"><Loader2 className="animate-spin mx-auto" /></p>
@@ -272,7 +276,7 @@ function AddTalentModal({ existing, onClose, onDone }: any) {
       onDone();
     } finally { setBusy(false); }
   };
-  const inp = 'w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-[#0f172a] focus:ring-2 focus:ring-[#0f172a]/20 outline-none';
+  const inp = 'input w-full';
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4" onClick={onClose}>
       <div className="w-full max-w-2xl max-h-[88vh] rounded-2xl bg-white shadow-2xl flex flex-col" onClick={(e) => e.stopPropagation()}>
@@ -370,7 +374,7 @@ function AdvancedSearch({ onAddToList, onProfile, onReady }: any) {
           <label className="inline-flex items-center gap-1.5"><input type="checkbox" checked={f.hasAwards} onChange={(e) => set('hasAwards', e.target.checked)} /> Has awards</label>
           <label className="inline-flex items-center gap-1.5"><input type="checkbox" checked={f.passportValid} onChange={(e) => set('passportValid', e.target.checked)} /> Valid passport</label>
           <label className="inline-flex items-center gap-1.5"><input type="checkbox" checked={f.travelReady} onChange={(e) => set('travelReady', e.target.checked)} /> Travel-ready</label>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ms-auto flex items-center gap-2">
             <button onClick={() => { setF(blank); setRows(null); }} className="text-slate-500">Reset</button>
             <button onClick={saveCurrent} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-slate-600"><Bookmark size={12} /> Save</button>
             <button onClick={run} disabled={busy} className="inline-flex items-center gap-1 rounded-lg bg-slate-900 text-white px-3 py-1.5 disabled:opacity-40">{busy ? <Loader2 size={12} className="animate-spin" /> : <Search size={12} />} Search</button>
@@ -380,7 +384,7 @@ function AdvancedSearch({ onAddToList, onProfile, onReady }: any) {
           <div className="mt-3 flex items-center gap-1.5 flex-wrap">
             <span className="text-[11px] text-slate-400">Saved:</span>
             {saved.map((s) => (
-              <span key={s.id} className="inline-flex items-center gap-1 rounded-full bg-slate-100 pl-2 pr-1 py-0.5 text-[11px] text-slate-600">
+              <span key={s.id} className="inline-flex items-center gap-1 rounded-full bg-slate-100 ps-2 pe-1 py-0.5 text-[11px] text-slate-600">
                 <button onClick={() => applySaved(s)} className="hover:text-slate-900">{s.name}</button>
                 <button onClick={() => delSaved(s.id)} className="text-slate-300 hover:text-rose-600"><X size={11} /></button>
               </span>
@@ -456,12 +460,12 @@ function ListsDrawer({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/40 backdrop-blur-sm" onClick={onClose}>
       <div className="w-full max-w-md h-full bg-white shadow-2xl overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 sticky top-0 glass-bar"><h2 className="font-semibold text-slate-900 flex items-center gap-2"><FolderPlus size={16} className="text-[#0f172a]" /> Talent Lists & Shortlists</h2><button onClick={onClose} className="text-slate-400 hover:text-slate-700"><X size={18} /></button></div>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 sticky top-0 glass-bar"><h2 className="font-semibold text-slate-900 flex items-center gap-2"><FolderPlus size={16} style={{ color: 'var(--accent)' }} /> Talent Lists & Shortlists</h2><button onClick={onClose} className="text-slate-400 hover:text-slate-700"><X size={18} /></button></div>
         {!openId ? (
           <div className="p-5 space-y-2">
             {lists.length === 0 ? <p className="text-xs text-slate-400">No lists yet. Use the “Add to list” action on any talent.</p> : lists.map((l) => (
               <div key={l.id} className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2.5">
-                <button onClick={() => setOpenId(l.id)} className="text-left"><div className="text-sm font-medium text-slate-800">{l.name}</div><div className="text-[11px] text-slate-400">{l.kind} · {l._count?.members ?? 0} talent</div></button>
+                <button onClick={() => setOpenId(l.id)} className="text-start"><div className="text-sm font-medium text-slate-800">{l.name}</div><div className="text-[11px] text-slate-400">{l.kind} · {l._count?.members ?? 0} talent</div></button>
                 <button onClick={() => del(l.id)} className="text-slate-300 hover:text-rose-600"><Trash2 size={14} /></button>
               </div>
             ))}
@@ -475,7 +479,7 @@ function ListsDrawer({ onClose }: { onClose: () => void }) {
                 <div className="mt-3 space-y-1.5">
                   {(detail.members || []).length === 0 ? <p className="text-xs text-slate-400">Empty list.</p> : detail.members.map((m: any) => (
                     <div key={m.id} className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2">
-                      <span className="text-sm text-slate-700">{m.talent?.stageName || m.talent?.fullName}<span className="text-[11px] text-slate-400 ml-1">{[m.talent?.unionStatus, m.talent?.baseCity].filter(Boolean).join(' · ')}</span></span>
+                      <span className="text-sm text-slate-700">{m.talent?.stageName || m.talent?.fullName}<span className="text-[11px] text-slate-400 ms-1">{[m.talent?.unionStatus, m.talent?.baseCity].filter(Boolean).join(' · ')}</span></span>
                       <button onClick={() => removeMember(m.id)} className="text-slate-300 hover:text-rose-600"><X size={14} /></button>
                     </div>
                   ))}

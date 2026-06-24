@@ -51,8 +51,8 @@ export default function DriversPage() {
 
       <div className="flex gap-3 mb-4">
         <div className="relative flex-1">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input className="input pl-9 w-full" placeholder="Search drivers..." value={search}
+          <Search size={14} className="absolute start-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input className="input ps-9 w-full" placeholder="Search drivers..." value={search}
             onChange={e => { setSearch(e.target.value); setPage(1); }} />
         </div>
         <button onClick={load} className="btn btn-secondary p-2">
@@ -69,7 +69,7 @@ export default function DriversPage() {
               <th className="table-th">Mobile</th>
               <th className="table-th">License Expiry</th>
               <th className="table-th">Visa Expiry</th>
-              <th className="table-th text-right">Jobs</th>
+              <th className="table-th text-end">Jobs</th>
             </tr>
           </thead>
           <tbody>
@@ -82,7 +82,7 @@ export default function DriversPage() {
                     <Link href={`/rental/drivers/${d.id}`} className="font-medium text-gray-900 hover:text-brand-600">
                       {d.fullName}
                     </Link>
-                    {!d.isActive && <span className="ml-2 text-xs text-gray-400">(inactive)</span>}
+                    {!d.isActive && <span className="ms-2 text-xs text-gray-400">(inactive)</span>}
                   </td>
                   <td className="table-td text-sm text-gray-600">{d.driverType}</td>
                   <td className="table-td text-sm text-gray-600">{d.mobile}</td>
@@ -96,7 +96,7 @@ export default function DriversPage() {
                       {d.visaExpiry ? formatDate(d.visaExpiry) : '—'}
                     </span>
                   </td>
-                  <td className="table-td text-right text-sm text-gray-600">{d._count?.jobs ?? 0}</td>
+                  <td className="table-td text-end text-sm text-gray-600">{d._count?.jobs ?? 0}</td>
                 </tr>
               );
             })}

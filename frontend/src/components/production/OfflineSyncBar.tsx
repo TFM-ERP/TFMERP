@@ -23,7 +23,7 @@ export default function OfflineSyncBar({ sync }: { sync: any }) {
       {online && pending > 0 && (
         <div className="card bg-blue-50 border-blue-200 flex items-center justify-between py-2 text-xs text-blue-800">
           <span className="flex items-center gap-2"><CloudUpload size={14} /> {pending} entr{pending === 1 ? 'y' : 'ies'} waiting to sync.</span>
-          <button onClick={flush} className="btn btn-secondary text-xs py-1 px-2"><RefreshCw size={11} className={cn('mr-1', syncing && 'animate-spin')} /> Sync now</button>
+          <button onClick={flush} className="btn btn-secondary text-xs py-1 px-2"><RefreshCw size={11} className={cn('me-1', syncing && 'animate-spin')} /> Sync now</button>
         </div>
       )}
       {errors.length > 0 && (
@@ -33,7 +33,7 @@ export default function OfflineSyncBar({ sync }: { sync: any }) {
             {errors.map((e: any) => (
               <li key={e.id} className="flex items-center justify-between text-xs bg-white rounded px-2 py-1 border border-red-100">
                 <span className="text-gray-700 truncate">{e.label} — <span className="text-red-600">{e.error}</span></span>
-                <button onClick={() => dismissError(e.id)} title="Discard this queued entry" className="text-gray-300 hover:text-red-500 ml-2 shrink-0"><X size={13} /></button>
+                <button onClick={() => dismissError(e.id)} title="Discard this queued entry" className="text-gray-300 hover:text-red-500 ms-2 shrink-0"><X size={13} /></button>
               </li>
             ))}
           </ul>

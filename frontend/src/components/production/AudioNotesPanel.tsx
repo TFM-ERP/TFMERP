@@ -101,7 +101,7 @@ export default function AudioNotesPanel({ revision, onClose }: { revision: any; 
                 <span className="font-medium text-slate-700">{n.label || 'Voice memo'}</span>
                 {n.page != null && <span className="text-slate-400">p.{n.page}</span>}
                 {n.durationSec != null && <span className="text-slate-400">{mmss(n.durationSec)}</span>}
-                <span className="ml-auto text-slate-300">{new Date(n.createdAt).toLocaleDateString('en-GB')}</span>
+                <span className="ms-auto text-slate-300">{new Date(n.createdAt).toLocaleDateString('en-GB')}</span>
                 <button onClick={() => remove(n.id)} className="text-slate-300 hover:text-rose-500"><Trash2 size={13} /></button>
               </div>
               <audio controls src={assetUrl(n.audioUrl)} className="w-full h-8" />

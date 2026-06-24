@@ -1,9 +1,19 @@
+@import url('https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700&family=Tajawal:wght@300;400;500;700&family=Aref+Ruqaa:wght@400;700&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ── ScripON typography ─────────────────────────────────────────────────────
+   Body: Rubik (Latin) / Tajawal (Arabic) — switched by dir (Rubik also covers
+   Arabic, so a plain fallback stack won't pick Tajawal; the [dir=rtl] var does).
+   Titles: Fraunces (Latin) / Aref Ruqaa (Arabic) — auto: Fraunces has no Arabic
+   glyphs, so Arabic falls through to Aref Ruqaa. Components read var(--sx-body)
+   / var(--sx-title) on their roots + title elements. */
+:root{ --sx-body:'Rubik', system-ui, -apple-system, "Segoe UI", sans-serif; --sx-title:'Fraunces', 'Aref Ruqaa', Georgia, serif; }
+[dir="rtl"]{ --sx-body:'Tajawal', 'Rubik', system-ui, sans-serif; }
+
 /* ═══════════════════════════════════════════════════════════════════════════
-   TFM ERP — NetSuite-inspired design system
+   FilmOS — NetSuite-inspired design system
    Brand: TFM Gold #C3A56E  ·  Sidebar charcoal #2B2E31
    ═══════════════════════════════════════════════════════════════════════════ */
 
@@ -24,6 +34,7 @@
     --accent:         #1C2433;   /* brand action = charcoal (selection, primary buttons) */
     --accent-soft:    #ECEBE7;
     --accent-soft-text: #1C2433;
+    --accent-on:      #FFFFFF;
     --gold:           #b08d4f;   /* the single decorative accent: kickers, active underlines */
     --ok:             #15803D;  --ok-soft:     #E8F6EE;
     --warn:           #B45309;  --warn-soft:   #FDF3E3;
@@ -123,17 +134,19 @@
 
   .btn-primary {
     @apply btn font-semibold;
-    background-color: var(--brand);
-    border: 1px solid var(--brand-hover);
-    color: #fff;
+    background-color: var(--accent);
+    border: 1px solid var(--accent);
+    color: var(--accent-on);
   }
-  .btn-primary:hover:not(:disabled) { background-color: var(--brand-hover); color: #fff; }
+  .btn-primary:hover:not(:disabled) { opacity: .9; color: var(--accent-on); }
 
   .btn-secondary {
-    @apply btn bg-white text-gray-700;
+    @apply btn;
+    background: var(--surface-1);
+    color: var(--text-2);
     border: 1px solid var(--card-border);
   }
-  .btn-secondary:hover:not(:disabled) { @apply bg-gray-50; border-color: #b3b9c4; }
+  .btn-secondary:hover:not(:disabled) { background: var(--surface-2); border-color: var(--border-2); }
 
   .btn-ghost {
     @apply btn text-gray-600 bg-transparent border border-transparent;
@@ -150,7 +163,7 @@
   .card {
     background: var(--card-bg);
     border: 1px solid var(--card-border);
-    border-radius: 4px;
+    border-radius: 12px;
     box-shadow: 0 1px 2px rgba(0,0,0,.05);
     padding: 1rem;
   }
@@ -171,9 +184,9 @@
     padding: 0 10px;
     font-size: 13px;
     color: var(--text-primary);
-    background: white;
+    background: var(--surface-1);
     border: 1px solid var(--card-border);
-    border-radius: 3px;
+    border-radius: 8px;
     outline: none;
     transition: border-color .15s, box-shadow .15s;
   }
@@ -216,7 +229,7 @@
     text-transform: uppercase;
     letter-spacing: .04em;
     color: var(--text-secondary);
-    background: #F1F3F5;
+    background: var(--surface-2);
     border-bottom: 1px solid var(--card-border);
     white-space: nowrap;
     text-align: left;
@@ -233,8 +246,8 @@
   .table-row {
     transition: background .1s;
   }
-  .table-row:hover { background-color: #F8F9FB; }
-  .table-row:nth-child(even) { background-color: #FAFBFC; }
+  .table-row:hover { background-color: var(--surface-2); }
+  .table-row:nth-child(even) { background-color: transparent; }
 
   /* ── Page header ──────────────────────────────────────────────────────── */
   .page-header {
@@ -302,6 +315,7 @@ html.dark {
   --accent:         #C9A96A;   /* gold IS the accent in the dark theme */
   --accent-soft:    #2A2310;
   --accent-soft-text: #DFC18A;
+  --accent-on:      #15110A;
   --gold:           #C9A96A;
   --ok:             #4ADE80;  --ok-soft:     #122B1C;
   --warn:           #FBBF24;  --warn-soft:   #2E250D;
@@ -315,6 +329,28 @@ html.dark {
 }
 html.dark body { background-color: var(--page-bg); color: var(--text-primary); }
 html.dark ::-webkit-scrollbar-thumb { background: #303034; }
+
+/* DAYLIGHT = harsh-sun exterior mode: maximum contrast — pure white, near-black ink,
+   heavy borders so structure survives glare. Layered on the light base via html.daylight. */
+html.daylight {
+  --surface-0:        #FFFFFF;
+  --surface-1:        #FFFFFF;
+  --surface-2:        #E7EAEE;
+  --text-1:           #000000;
+  --text-2:           #14171C;
+  --text-3:           #2E3742;   /* lifted way up — metadata still readable in glare */
+  --border-1:         #8A93A0;   /* heavy structural borders */
+  --border-2:         #5C6470;
+  --accent:           #0A0E16;
+  --accent-soft:      #DCE0E6;
+  --accent-soft-text: #0A0E16;
+  --accent-on:        #FFFFFF;
+  --gold:             #7A5C20;   /* darkened gold keeps AA on pure white */
+  --ok:               #0A6B2E;  --ok-soft:     #D6F0DF;
+  --warn:             #8A3D00;  --warn-soft:   #FBE6CF;
+  --danger:           #A40C0C;  --danger-soft: #F8D7D7;
+}
+html.daylight body { background-color: var(--page-bg); color: var(--text-primary); }
 
 /* NATIVE form controls: color-scheme makes the browser render dropdown lists, date
    pickers, checkboxes and scrollbars dark — fixes white-on-white option lists. */
@@ -373,6 +409,25 @@ html.dark { color-scheme: dark; }
   html.dark .border-gray-100, html.dark .border-gray-200, html.dark .border-gray-50,
   html.dark .divide-gray-100 > *, html.dark .border-blue-100, html.dark .border-sky-100,
   html.dark .border-amber-100 { border-color: var(--divider) !important; }
+
+  /* slate siblings of the gray remap — many master pages (Casting/Accommodation/Locations/Transport/Partners) are slate-based */
+  html.dark .text-slate-900, html.dark .text-slate-800 { color: var(--text-primary) !important; }
+  html.dark .text-slate-700, html.dark .text-slate-600 { color: var(--text-secondary) !important; }
+  html.dark .text-slate-500, html.dark .text-slate-400 { color: var(--text-muted) !important; }
+  html.dark .text-slate-300 { color: #4F4F56 !important; }
+  html.dark .bg-slate-50, html.dark .bg-slate-100 { background-color: #1A1A1D !important; }
+  html.dark .hover\:bg-slate-50:hover, html.dark .hover\:bg-slate-100:hover, html.dark .hover\:bg-slate-200:hover { background-color: #242428 !important; }
+  html.dark .border-slate-100, html.dark .border-slate-200, html.dark .divide-slate-100 > * { border-color: var(--divider) !important; }
+  html.dark .ring-slate-200, html.dark .ring-slate-100 { --tw-ring-color: var(--divider) !important; }
+  /* colored status-pill lifts for dark (emerald/blue/violet/rose used as chips on master pages) */
+  html.dark .bg-emerald-100 { background-color: #173321 !important; }
+  html.dark .text-emerald-700, html.dark .text-emerald-600 { color: #5DCA85 !important; }
+  html.dark .bg-blue-100 { background-color: #1B2735 !important; }
+  html.dark .text-blue-700, html.dark .text-blue-600 { color: #6FA8E6 !important; }
+  html.dark .bg-violet-100, html.dark .bg-purple-100 { background-color: #241E3A !important; }
+  html.dark .text-violet-700, html.dark .text-violet-600, html.dark .text-purple-700, html.dark .text-purple-600 { color: #B79DF5 !important; }
+  html.dark .bg-rose-100 { background-color: #3A1A1A !important; }
+  html.dark .text-rose-700, html.dark .text-rose-600 { color: #F08585 !important; }
 
   /* badge/pill tints: keep their hue, lift the text for contrast */
   html.dark .bg-amber-100 { background-color: #3A2F14 !important; }
@@ -473,3 +528,11 @@ html.dark { color-scheme: dark; }
   html.dark .hover\:bg-brand-700:hover, html.dark .bg-brand-700 { background-color: #DFC18A !important; color: #1a1206 !important; }
   html.dark .hover\:bg-gray-100\/70:hover { background-color: var(--surface-2) !important; }
 }
+
+/* ═══ SYS-UX · extra themes (ADDITIVE; html[data-theme] overrides palette vars only) ═══
+   Appended last so equal-specificity data-theme wins over html.dark by source order.
+   studio = default :root (light) · graphite = html.dark (existing). These add the rest. */
+html[data-theme="ink"]{ --surface-0:#E9E1D2;--surface-1:#FBF8F2;--surface-2:#EFE8DC;--text-1:#1B1712;--text-2:#4A4338;--text-3:#867B6A;--border-1:#E3D9C8;--border-2:#CDBFA8;--accent:#B0532E;--accent-soft:#F0DFD2;--accent-soft-text:#7A3A20;--gold:#C9A24A;--ok:#5E7A3A;--ok-soft:#E8EBD7;--warn:#B5791E;--warn-soft:#F3E6CC;--danger:#B23A2E;--danger-soft:#F2DBD5;--sidebar-bg:#F3ECDF;--sidebar-hover:#EADFCE;--sidebar-active:#E3D6BE;--sidebar-border:#E3D9C8; }
+html[data-theme="slate"]{ --surface-0:#0B1220;--surface-1:#121A2A;--surface-2:#1A2436;--text-1:#EAF0FA;--text-2:#A9B6CC;--text-3:#6E7C95;--border-1:#1F2A3D;--border-2:#2C3A52;--accent:#3BA6C9;--accent-soft:#11303A;--accent-soft-text:#8FD2E6;--gold:#C9A96A;--ok:#37C2A0;--ok-soft:#0F2E26;--warn:#E0A53F;--warn-soft:#2E250D;--danger:#E2574C;--danger-soft:#361212;--sidebar-bg:#0A1018;--sidebar-hover:#17202F;--sidebar-active:#1E2A3D;--sidebar-border:#1F2A3D; }
+html[data-theme="aurora"]{ --surface-0:#09080F;--surface-1:#171530;--surface-2:#221F40;--text-1:#F2EEFF;--text-2:#C6BFE2;--text-3:#928BB2;--border-1:#2C2752;--border-2:#3D3768;--accent:#8B7CF6;--accent-soft:#241F45;--accent-soft-text:#C9BDFB;--gold:#C9A96A;--ok:#36D1A6;--ok-soft:#0F2E26;--warn:#E6B450;--warn-soft:#2E250D;--danger:#F0606B;--danger-soft:#361218;--sidebar-bg:#0D0B1A;--sidebar-hover:#1C1838;--sidebar-active:#251F48;--sidebar-border:#2C2752; }
+html[data-theme="midnight"]{ --surface-0:#000000;--surface-1:#0C0F14;--surface-2:#151A22;--text-1:#FFFFFF;--text-2:#D6DDE8;--text-3:#9AA6B6;--border-1:#222A35;--border-2:#3A4654;--accent:#F5A623;--accent-soft:#2A1D05;--accent-soft-text:#F7C069;--gold:#F5A623;--ok:#3DDC84;--ok-soft:#0F2E1A;--warn:#F5A623;--warn-soft:#2A1D05;--danger:#FF5A52;--danger-soft:#3A1210;--sidebar-bg:#000000;--sidebar-hover:#12161D;--sidebar-active:#1B2129;--sidebar-border:#222A35; }

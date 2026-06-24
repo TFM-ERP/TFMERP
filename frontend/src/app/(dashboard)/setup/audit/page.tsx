@@ -40,8 +40,8 @@ export default function AuditLogPage() {
 
       <div className="flex flex-wrap gap-2 mb-4">
         <div className="relative flex-1 min-w-48">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input className="input pl-9 w-full" placeholder="Filter by module (e.g. production/budget, finance/invoices)…" value={entity} onChange={e => setEntity(e.target.value)} />
+          <Search size={14} className="absolute start-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input className="input ps-9 w-full" placeholder="Filter by module (e.g. production/budget, finance/invoices)…" value={entity} onChange={e => setEntity(e.target.value)} />
         </div>
         <select className="input w-40" value={action} onChange={e => setAction(e.target.value)}>
           <option value="">All actions</option><option value="Created">Created</option><option value="Updated">Updated</option><option value="Deleted">Deleted</option>
@@ -53,8 +53,8 @@ export default function AuditLogPage() {
           items.length === 0 ? <div className="p-10 text-center text-gray-400 text-sm">No activity logged yet.</div> : (
             <table className="w-full text-sm">
               <thead><tr className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-100">
-                <th className="px-5 py-2.5 text-left">When</th><th className="px-3 py-2.5 text-left">User</th>
-                <th className="px-3 py-2.5 text-left">Action</th><th className="px-3 py-2.5 text-left">Module</th><th className="px-3 py-2.5 text-left">Record</th>
+                <th className="px-5 py-2.5 text-start">When</th><th className="px-3 py-2.5 text-start">User</th>
+                <th className="px-3 py-2.5 text-start">Action</th><th className="px-3 py-2.5 text-start">Module</th><th className="px-3 py-2.5 text-start">Record</th>
               </tr></thead>
               <tbody>
                 {items.map(a => (

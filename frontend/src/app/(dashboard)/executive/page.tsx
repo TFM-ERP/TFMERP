@@ -92,7 +92,7 @@ export default function ExecutivePage() {
                   {d.topDebtors.map((t: any, i: number) => (
                     <tr key={i} className="border-b border-gray-50">
                       <td className="py-2 text-gray-700">{t.client}</td>
-                      <td className="py-2 text-right font-medium text-gray-900">{m(t.due)}</td>
+                      <td className="py-2 text-end font-medium text-gray-900">{m(t.due)}</td>
                     </tr>
                   ))}
                 </tbody>

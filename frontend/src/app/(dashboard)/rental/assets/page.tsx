@@ -158,7 +158,7 @@ function AddAssetWizard({ onClose, onDone }: { onClose: () => void; onDone: () =
                 <div className="grid grid-cols-3 gap-2">
                   {CATEGORIES.map(c => (
                     <button key={c.value} onClick={() => changeCategory(c.value)}
-                      className={cn('px-3 py-2.5 rounded-lg border text-sm font-medium text-left transition-colors',
+                      className={cn('px-3 py-2.5 rounded-lg border text-sm font-medium text-start transition-colors',
                         form.category === c.value ? 'border-indigo-600 bg-indigo-50 text-indigo-700' : 'border-gray-200 text-gray-600 hover:border-gray-300')}>
                       {c.label}
                     </button>
@@ -426,7 +426,7 @@ export default function AssetsPage() {
           <div className="flex items-center gap-3.5">
             <div>
               <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.22em', color: MQ.kicker }}>The Film Makers · Fleet &amp; Equipment</div>
-              <div className="text-[20px] font-extrabold leading-tight" style={{ color: MQ.title }}>Assets <span className="text-[11.5px] font-normal ml-1" style={{ color: MQ.count }}>{total} total</span></div>
+              <div className="text-[20px] font-extrabold leading-tight" style={{ color: MQ.title }}>Assets <span className="text-[11.5px] font-normal ms-1" style={{ color: MQ.count }}>{total} total</span></div>
             </div>
             <span className="flex-1" />
             <button onClick={() => setShowWizard(true)} className="rounded-xl px-4 py-2 text-[12.5px] font-bold cursor-pointer"
@@ -536,13 +536,13 @@ export default function AssetsPage() {
                   backgroundSize: 'cover', backgroundPosition: 'center',
                 }} />
                 <div aria-hidden className="absolute inset-0" style={{ background: TL.scrim }} />
-                <div className="absolute top-3 left-3">
+                <div className="absolute top-3 start-3">
                   <span className="rounded-full px-2 py-0.5 text-[10.5px] font-semibold"
                     style={{ ...TL.glass, background: avail ? TL.availBg : item.status === 'ON_HIRE' ? TL.hireBg : TL.otherBg, color: TL.chipText }}>
                     {String(item.status).replace(/_/g, ' ')}
                   </span>
                 </div>
-                {anyExpired && <span className="absolute top-3 right-3 rounded-lg px-2 py-1 text-[10.5px] font-semibold" style={{ ...TL.glass, color: isDark ? '#FCD34D' : '#B45309' }}>⚠ compliance</span>}
+                {anyExpired && <span className="absolute top-3 end-3 rounded-lg px-2 py-1 text-[10.5px] font-semibold" style={{ ...TL.glass, color: isDark ? '#FCD34D' : '#B45309' }}>⚠ compliance</span>}
                 <div className="relative p-4">
                   <div className="text-[9.5px] tracking-[.08em] font-mono" style={{ color: TL.code }}>{item.plateNumber || item.serialNumber || item.vinNumber || ''}</div>
                   <div className="text-[13.5px] font-bold leading-tight" style={{ color: TL.ink, textShadow: isDark ? '0 1px 8px rgba(0,0,0,.4)' : 'none' }}>{item.name}</div>

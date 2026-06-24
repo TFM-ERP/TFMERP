@@ -254,7 +254,7 @@ export default function ProjectSettingsPanel({ projectId, project, activeVersion
         <nav className="md:w-52 w-full shrink-0 flex md:flex-col gap-1 overflow-x-auto pb-1" aria-label="Settings sections">
           {SECTIONS.map(([key, label, Icon]) => (
             <button key={key} onClick={() => setSection(key)}
-              className={cn('flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm whitespace-nowrap text-left transition-colors',
+              className={cn('flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm whitespace-nowrap text-start transition-colors',
                 section === key ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100')}>
               <Icon size={16} className="shrink-0" /> {label}
             </button>
@@ -271,8 +271,8 @@ export default function ProjectSettingsPanel({ projectId, project, activeVersion
               <div className="flex items-center gap-4">
                 {logoUrl ? <img src={assetUrl(logoUrl)} alt="" className="h-14 max-w-[180px] object-contain border border-gray-200 rounded-lg p-1 bg-white" /> : <div className="h-14 w-28 rounded-lg border border-dashed border-gray-200 flex items-center justify-center text-gray-300"><ImageIcon size={20} /></div>}
                 <div className="flex gap-2">
-                  <label className="btn btn-secondary text-xs cursor-pointer inline-flex"><Upload size={13} className="mr-1" /> {logoUrl ? 'Replace' : 'Upload logo'}<input type="file" accept="image/*" className="hidden" onChange={uploadLogo} /></label>
-                  {logoUrl && <button onClick={removeLogo} className="btn btn-secondary text-xs text-red-600"><X size={13} className="mr-1" /> Remove</button>}
+                  <label className="btn btn-secondary text-xs cursor-pointer inline-flex"><Upload size={13} className="me-1" /> {logoUrl ? 'Replace' : 'Upload logo'}<input type="file" accept="image/*" className="hidden" onChange={uploadLogo} /></label>
+                  {logoUrl && <button onClick={removeLogo} className="btn btn-secondary text-xs text-red-600"><X size={13} className="me-1" /> Remove</button>}
                 </div>
               </div>
             </div>
@@ -298,7 +298,7 @@ export default function ProjectSettingsPanel({ projectId, project, activeVersion
                       <div aria-hidden style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg,#1a2b4a,#0e1726 55%,#3d2c12)' }} />
                     )}
                     <div aria-hidden style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg,rgba(8,12,20,.05) 30%,rgba(8,12,20,.85))' }} />
-                    <div className="absolute left-4 bottom-3 text-white pointer-events-none">
+                    <div className="absolute start-4 bottom-3 text-white pointer-events-none">
                       <div style={{ fontSize: 10, letterSpacing: '.14em', color: '#c9a96a', fontWeight: 700, textTransform: 'uppercase' }}>{(project?.projectType || '').replace(/_/g, ' ')}</div>
                       <div className="font-bold" style={{ fontSize: 16, textShadow: '0 1px 8px rgba(0,0,0,.4)' }}>{project?.title}</div>
                     </div>
@@ -307,8 +307,8 @@ export default function ProjectSettingsPanel({ projectId, project, activeVersion
                 </div>
                 <div className="flex-1 min-w-[230px] space-y-4">
                   <div className="flex gap-2">
-                    <label className="btn btn-secondary text-xs cursor-pointer inline-flex"><Upload size={13} className="mr-1" /> {posterUrl ? 'Replace poster' : 'Upload poster…'}<input type="file" accept="image/*" className="hidden" onChange={uploadPoster} /></label>
-                    {posterUrl && <button onClick={removePoster} className="btn btn-secondary text-xs text-red-600"><X size={13} className="mr-1" /> Remove</button>}
+                    <label className="btn btn-secondary text-xs cursor-pointer inline-flex"><Upload size={13} className="me-1" /> {posterUrl ? 'Replace poster' : 'Upload poster…'}<input type="file" accept="image/*" className="hidden" onChange={uploadPoster} /></label>
+                    {posterUrl && <button onClick={removePoster} className="btn btn-secondary text-xs text-red-600"><X size={13} className="me-1" /> Remove</button>}
                   </div>
                   <div>
                     <label className="label text-xs">Zoom — {Math.round(pt.zoom * 100)}% (under 100% = see the whole image)</label>
@@ -346,7 +346,7 @@ export default function ProjectSettingsPanel({ projectId, project, activeVersion
                   <input type="number" step="0.0001" className="input text-sm w-full" value={rate} onChange={e => setRate(e.target.value)} placeholder={`? ${to}`} />
                   <p className="text-[10px] text-gray-400 mt-0.5">{Object.keys(fx).length ? 'Suggested from FX rates — edit if needed.' : 'Enter the rate manually.'}</p>
                 </div>
-                <div><button onClick={convert} disabled={busy} className="btn btn-primary text-sm w-full"><RefreshCw size={13} className={cn('mr-1', busy && 'animate-spin')} /> {busy ? 'Converting…' : `Convert to ${to}`}</button></div>
+                <div><button onClick={convert} disabled={busy} className="btn btn-primary text-sm w-full"><RefreshCw size={13} className={cn('me-1', busy && 'animate-spin')} /> {busy ? 'Converting…' : `Convert to ${to}`}</button></div>
               </div>
               <p className="text-[11px] text-amber-600 mt-2">⚠ This bulk-rewrites all stored amounts. There's no auto-undo — to reverse, convert back at the inverse rate.</p>
             </div>
@@ -432,7 +432,7 @@ export default function ProjectSettingsPanel({ projectId, project, activeVersion
                         <span><b>Project hire</b> — charge their cost to a budget line; payable as a crew hire on this project.</span>
                       </label>
                       {cost.treatment === 'PROJECT_HIRE' && (
-                        <div className="grid grid-cols-2 gap-2 pl-6">
+                        <div className="grid grid-cols-2 gap-2 ps-6">
                           <div>
                             <label className="label text-xs">Budget line (Master CoA)</label>
                             <select className="input text-sm w-full" value={cost.coaCode} onChange={e => setCost(v => ({ ...v, coaCode: e.target.value }))}>
@@ -506,11 +506,11 @@ export default function ProjectSettingsPanel({ projectId, project, activeVersion
               <div className="grid md:grid-cols-2 gap-3">
                 <div>
                   <label className="label text-xs">MMB budget export (.xml / .csv)</label>
-                  <label className="btn btn-secondary text-xs cursor-pointer w-full justify-center inline-flex"><Upload size={13} className="mr-1" /> <span className="truncate max-w-[160px]">{mmb ? mmb.name : 'Choose file'}</span><input type="file" accept=".xml,.csv" className="hidden" onChange={e => setMmb(e.target.files?.[0] || null)} /></label>
+                  <label className="btn btn-secondary text-xs cursor-pointer w-full justify-center inline-flex"><Upload size={13} className="me-1" /> <span className="truncate max-w-[160px]">{mmb ? mmb.name : 'Choose file'}</span><input type="file" accept=".xml,.csv" className="hidden" onChange={e => setMmb(e.target.files?.[0] || null)} /></label>
                 </div>
                 <div>
                   <label className="label text-xs">MMS schedule (.sex)</label>
-                  <label className="btn btn-secondary text-xs cursor-pointer w-full justify-center inline-flex"><Upload size={13} className="mr-1" /> <span className="truncate max-w-[160px]">{mms ? mms.name : 'Choose file'}</span><input type="file" accept=".sex,.xml" className="hidden" onChange={e => setMms(e.target.files?.[0] || null)} /></label>
+                  <label className="btn btn-secondary text-xs cursor-pointer w-full justify-center inline-flex"><Upload size={13} className="me-1" /> <span className="truncate max-w-[160px]">{mms ? mms.name : 'Choose file'}</span><input type="file" accept=".sex,.xml" className="hidden" onChange={e => setMms(e.target.files?.[0] || null)} /></label>
                 </div>
               </div>
               <div className="mt-3">
@@ -522,9 +522,9 @@ export default function ProjectSettingsPanel({ projectId, project, activeVersion
                 </select>
               </div>
               <div className="flex flex-wrap gap-2 mt-3">
-                <button onClick={importMM} disabled={mmBusy || (!mmb && !mms)} className="btn btn-primary text-xs disabled:opacity-50"><Upload size={13} className="mr-1" /> {mmBusy ? 'Importing…' : mmStrategy === 'AI_REVIEW' ? 'Analyze & review' : 'Import'}</button>
-                <button onClick={() => download('mmb')} className="btn btn-secondary text-xs"><Download size={13} className="mr-1" /> Export MMB (.xml)</button>
-                <button onClick={() => download('mms')} className="btn btn-secondary text-xs"><Download size={13} className="mr-1" /> Export schedule (.sex)</button>
+                <button onClick={importMM} disabled={mmBusy || (!mmb && !mms)} className="btn btn-primary text-xs disabled:opacity-50"><Upload size={13} className="me-1" /> {mmBusy ? 'Importing…' : mmStrategy === 'AI_REVIEW' ? 'Analyze & review' : 'Import'}</button>
+                <button onClick={() => download('mmb')} className="btn btn-secondary text-xs"><Download size={13} className="me-1" /> Export MMB (.xml)</button>
+                <button onClick={() => download('mms')} className="btn btn-secondary text-xs"><Download size={13} className="me-1" /> Export schedule (.sex)</button>
               </div>
               <p className="text-[11px] text-amber-600 mt-2">
                 {mmStrategy === 'AI_REVIEW'

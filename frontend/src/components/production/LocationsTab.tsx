@@ -1,29 +1,19 @@
 'use client';
 
-import { useState } from 'react';
-import { Tabs } from './ui';
-import LocationsPanel from './LocationsPanel';
-import LocationNeedsPanel from './LocationNeedsPanel';
-import ScoutVisitsPanel from './ScoutVisitsPanel';
-import ClearancePacksPanel from './ClearancePacksPanel';
-import LocationReportPanel from './LocationReportPanel';
-import ReadinessPanel from './ReadinessPanel';
+import LocationsWorkspace from './LocationsWorkspace';
 
 /**
- * Project Locations tab — inner tabs: the location library/list, and the
- * breakdown-driven Needs → Options → Lock board (SYS-07 V2 · Slice 1).
+ * Project Locations tab — now a single workspace with six lifecycle surfaces
+ * (Board · Map & Routes · Scouting · Clearance & Compliance · Logistics & Unit Moves · Reports).
+ * Every legacy panel (library, needs/options, scout visits, clearance packs, report & plates,
+ * readiness) is embedded INSIDE those surfaces via in-page sub-navs — the old top-level inner
+ * tabs are retired. Legacy panel components are retained as files and reused by the workspace
+ * (fully reversible — re-add the <Tabs> shell to restore the old layout).
  */
 export default function LocationsTab({ projectId, currency = 'AED' }: { projectId: string; currency?: string }) {
-  const [inner, setInner] = useState('library');
   return (
     <div className="font-sans">
-      <Tabs active={inner} onChange={setInner} tabs={[['library', 'Locations'], ['needs', 'Breakdown & options'], ['scouts', 'Scout visits'], ['clearance', 'Clearance packs'], ['report', 'Report & plates'], ['readiness', 'Readiness']]} />
-      {inner === 'library' && <LocationsPanel projectId={projectId} currency={currency} />}
-      {inner === 'needs' && <LocationNeedsPanel projectId={projectId} />}
-      {inner === 'scouts' && <ScoutVisitsPanel projectId={projectId} />}
-      {inner === 'clearance' && <ClearancePacksPanel projectId={projectId} />}
-      {inner === 'report' && <LocationReportPanel projectId={projectId} />}
-      {inner === 'readiness' && <ReadinessPanel projectId={projectId} />}
+      <LocationsWorkspace projectId={projectId} currency={currency} />
     </div>
   );
 }

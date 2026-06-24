@@ -76,7 +76,7 @@ export default function ReportPrintPage() {
             {data.totals && (
               <tfoot>
                 {Object.entries(data.totals).map(([k, v]: any) => (
-                  <tr key={k}><td colSpan={cols.length - 1} style={{ textAlign: 'right', padding: '6px 8px', fontWeight: 700, borderTop: '1px solid #ddd' }}>{k}</td><td style={{ textAlign: 'right', padding: '6px 8px', fontWeight: 700, borderTop: '1px solid #ddd', color: NAVY }}>{typeof v === 'number' ? fmtAmt(v) : String(v)}</td></tr>
+                  <tr key={k}><td colSpan={cols.length - 1} style={{ textAlign: 'end', padding: '6px 8px', fontWeight: 700, borderTop: '1px solid #ddd' }}>{k}</td><td style={{ textAlign: 'end', padding: '6px 8px', fontWeight: 700, borderTop: '1px solid #ddd', color: NAVY }}>{typeof v === 'number' ? fmtAmt(v) : String(v)}</td></tr>
                 ))}
               </tfoot>
             )}
@@ -85,7 +85,7 @@ export default function ReportPrintPage() {
           {/* Footer */}
           <div style={{ borderTop: '1px solid #ddd', marginTop: 18, paddingTop: 8, display: 'flex', justifyContent: 'space-between', color: '#999', fontSize: 8 }}>
             <div>Generated {new Date().toLocaleString('en-GB')}</div>
-            <div style={{ textAlign: 'right' }}>{co?.website}{co?.website && billingEmail ? ' · ' : ''}{billingEmail}</div>
+            <div style={{ textAlign: 'end' }}>{co?.website}{co?.website && billingEmail ? ' · ' : ''}{billingEmail}</div>
           </div>
         </div>
       </div>

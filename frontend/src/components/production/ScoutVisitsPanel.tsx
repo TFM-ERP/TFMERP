@@ -31,7 +31,7 @@ function VisitTransport({ visit }: { visit: any }) {
           <div className="flex items-center gap-2 flex-wrap">
             <Chip tone={TRANSPORT_TONE[st.status] || 'slate'}>{String(st.status).replace('_', ' ')}</Chip>
             <span className="text-xs text-slate-500">{st.passengerNote}</span>
-            <button onClick={cancel} disabled={busy} className="text-[11px] text-slate-400 hover:text-rose-500 ml-auto">Cancel request</button>
+            <button onClick={cancel} disabled={busy} className="text-[11px] text-slate-400 hover:text-rose-500 ms-auto">Cancel request</button>
           </div>
           {(st.vehicle || st.driver) && (
             <div className="text-[11px] text-slate-500">
@@ -236,7 +236,7 @@ export default function ScoutVisitsPanel({ projectId }: { projectId: string }) {
                     </select>
                     <input className={`${inp} flex-1 min-w-[160px]`} defaultValue={v.meetingPoint || ''} placeholder="Meeting point" onBlur={e => { if (e.target.value !== (v.meetingPoint || '')) setVisitField(v.id, { meetingPoint: e.target.value }); }} />
                     <input className={inp} defaultValue={v.callTime || ''} placeholder="Call time" onBlur={e => { if (e.target.value !== (v.callTime || '')) setVisitField(v.id, { callTime: e.target.value }); }} />
-                    <button onClick={() => removeVisit(v.id)} className="text-slate-300 hover:text-rose-500 ml-auto"><Trash2 size={14} /></button>
+                    <button onClick={() => removeVisit(v.id)} className="text-slate-300 hover:text-rose-500 ms-auto"><Trash2 size={14} /></button>
                   </div>
 
                   {/* Route / stops */}
@@ -249,8 +249,8 @@ export default function ScoutVisitsPanel({ projectId }: { projectId: string }) {
                             <span className="text-xs font-semibold text-slate-400 w-5 text-center">{i + 1}</span>
                             <div className="flex-1 min-w-0">
                               <span className="font-medium text-slate-800 text-sm">{s.need?.name || s.location?.name || s.label || '—'}</span>
-                              {s.need && s.location && <span className="text-[11px] text-slate-400 ml-1.5">at {s.location.name}</span>}
-                              {(s.location?.area || s.location?.emirate) && <span className="text-[11px] text-slate-400 ml-1.5">· {[s.location?.area, s.location?.emirate].filter(Boolean).join(', ')}</span>}
+                              {s.need && s.location && <span className="text-[11px] text-slate-400 ms-1.5">at {s.location.name}</span>}
+                              {(s.location?.area || s.location?.emirate) && <span className="text-[11px] text-slate-400 ms-1.5">· {[s.location?.area, s.location?.emirate].filter(Boolean).join(', ')}</span>}
                             </div>
                             <div className="flex flex-col">
                               <button onClick={() => moveStop(v, i, -1)} disabled={i === 0} className="text-slate-300 hover:text-slate-700 disabled:opacity-30"><ChevronUp size={13} /></button>
@@ -283,7 +283,7 @@ export default function ScoutVisitsPanel({ projectId }: { projectId: string }) {
                           <div key={m.id} className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2">
                             <span className="font-medium text-slate-800 text-sm flex-1 truncate">
                               {m.name}
-                              <span className="text-[11px] text-slate-400 ml-1.5">{[m.roleTitle, m.department].filter(Boolean).join(' · ')}</span>
+                              <span className="text-[11px] text-slate-400 ms-1.5">{[m.roleTitle, m.department].filter(Boolean).join(' · ')}</span>
                             </span>
                             <button onClick={() => toggleLead(m.id, m.isLead)} title={m.isLead ? 'Lead' : 'Mark as lead'} className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-xs ${m.isLead ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 text-slate-500 hover:border-slate-900'}`}><Crown size={12} /> Lead</button>
                             <button onClick={() => removeMember(m.id)} className="text-slate-300 hover:text-rose-500"><Trash2 size={13} /></button>

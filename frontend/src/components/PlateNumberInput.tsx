@@ -195,7 +195,7 @@ function PlatePreview({
       >
         {/* Top emirate strip */}
         <div
-          className="absolute top-0 left-0 right-0 flex items-center justify-between px-2"
+          className="absolute top-0 start-0 end-0 flex items-center justify-between px-2"
           style={{ height: 13, background: emirate.headerColor }}
         >
           <span style={{ color: emirate.headerText, fontSize: 7, fontWeight: 700, letterSpacing: '0.08em' }}>
@@ -212,7 +212,7 @@ function PlatePreview({
         {/* Abu Dhabi: code in red block on far left */}
         {emirate.code === 'AUH' && !trailer ? (
           <div
-            className="absolute left-0 bottom-0 flex items-end justify-center pb-1"
+            className="absolute start-0 bottom-0 flex items-end justify-center pb-1"
             style={{ width: 36, background: emirate.codeBlockColor, top: 13 }}
           >
             <span style={{ color: emirate.codeBlockText, fontSize: 20, fontWeight: 900, lineHeight: 1 }}>
@@ -413,7 +413,7 @@ export default function PlateNumberInput({
             type="button"
             onClick={() => handlePlateTypeChange('trailer')}
             className={cn(
-              'px-4 py-1.5 text-xs font-semibold transition-colors border-l border-gray-200',
+              'px-4 py-1.5 text-xs font-semibold transition-colors border-s border-gray-200',
               plateType === 'trailer'
                 ? 'bg-orange-500 text-white'
                 : 'bg-white text-gray-600 hover:bg-gray-50'
@@ -428,7 +428,7 @@ export default function PlateNumberInput({
       <div>
         <label className="label">
           Plate Number{' '}
-          <span className="text-gray-400 font-normal text-[10px] ml-1">
+          <span className="text-gray-400 font-normal text-[10px] ms-1">
             {plateType === 'trailer' ? 'City · TRAILER · 1–5 digits' : config.formatHint}
           </span>
         </label>

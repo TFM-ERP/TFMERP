@@ -53,7 +53,7 @@ export default function PayrollPage() {
 
       <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-left text-xs uppercase text-slate-400">
+          <thead className="bg-slate-50 text-start text-xs uppercase text-slate-400">
             <tr>
               <th className="px-4 py-3">Reference</th>
               <th className="px-4 py-3">Period</th>

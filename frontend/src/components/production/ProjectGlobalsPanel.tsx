@@ -44,7 +44,7 @@ export default function ProjectGlobalsPanel({ activeVersion, fringes = [], onCha
             <h3 className="text-sm font-semibold text-gray-700">Production Globals</h3>
             <p className="text-xs text-gray-400 mt-0.5">Variables referenced in budget formulas (e.g. shoot_days × daily_rate)</p>
           </div>
-          <button onClick={() => setAdding(true)} className="btn btn-primary text-xs py-1 px-3"><Plus size={12} className="mr-1" /> Add Global</button>
+          <button onClick={() => setAdding(true)} className="btn btn-primary text-xs py-1 px-3"><Plus size={12} className="me-1" /> Add Global</button>
         </div>
 
         {adding && (

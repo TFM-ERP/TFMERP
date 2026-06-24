@@ -206,8 +206,8 @@ export default function ClientDetailPage() {
               <tr key={i.id}>
                 <td className="py-2"><Link href={`/finance/invoices/${i.id}`} className="text-brand-600 hover:underline">{i.invoiceNumber}</Link></td>
                 <td><span className="badge bg-amber-100 text-amber-700 text-xs">{i.status}</span></td>
-                <td className="text-right">{aed(i.total)}</td>
-                <td className="text-right font-medium text-red-600">{aed(i.amountDue)}</td>
+                <td className="text-end">{aed(i.total)}</td>
+                <td className="text-end font-medium text-red-600">{aed(i.amountDue)}</td>
               </tr>
             )} />
           <FinTable title="Open Quotations" icon={<FileText size={15} />} empty="No open quotations."
@@ -216,7 +216,7 @@ export default function ClientDetailPage() {
               <tr key={q.id}>
                 <td className="py-2"><Link href={`/finance/quotations/${q.id}`} className="text-brand-600 hover:underline">{q.quotationNumber}</Link></td>
                 <td><span className="badge bg-blue-100 text-blue-700 text-xs">{q.status}</span></td>
-                <td className="text-right">{aed(q.total)}</td>
+                <td className="text-end">{aed(q.total)}</td>
               </tr>
             )} />
           <FinTable title="Recent Payments" icon={<CreditCard size={15} />} empty="No payments recorded."
@@ -227,7 +227,7 @@ export default function ClientDetailPage() {
                 <td className="text-gray-500">{formatDate(p.paymentDate)}</td>
                 <td className="text-gray-500">{p.method}</td>
                 <td><span className={cn('badge text-xs', p.status === 'CLEARED' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700')}>{p.status}</span></td>
-                <td className="text-right font-medium">{aed(p.amount)}</td>
+                <td className="text-end font-medium">{aed(p.amount)}</td>
               </tr>
             )} />
           <div className="flex gap-2">
@@ -276,7 +276,7 @@ function ContactsTab({ client, reload }: { client: any; reload: () => void }) {
     <div className="card">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-semibold text-gray-700">Contacts</h3>
-        <button onClick={() => setForm({ ...blank })} className="btn btn-primary text-xs"><Plus size={12} className="mr-1" /> Add Contact</button>
+        <button onClick={() => setForm({ ...blank })} className="btn btn-primary text-xs"><Plus size={12} className="me-1" /> Add Contact</button>
       </div>
       <div className="space-y-2">
         {(client.contacts || []).map((c: any) => (
@@ -346,7 +346,7 @@ function DocumentsTab({ client, reload }: { client: any; reload: () => void }) {
     <div className="card">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-semibold text-gray-700">Documents</h3>
-        <button onClick={() => setForm({ ...blank })} className="btn btn-primary text-xs"><Plus size={12} className="mr-1" /> Add Document</button>
+        <button onClick={() => setForm({ ...blank })} className="btn btn-primary text-xs"><Plus size={12} className="me-1" /> Add Document</button>
       </div>
       <div className="space-y-2">
         {(client.documents || []).map((d: any) => {
@@ -354,7 +354,7 @@ function DocumentsTab({ client, reload }: { client: any; reload: () => void }) {
           return (
             <div key={d.id} className="flex items-center justify-between rounded-lg border border-gray-200 p-3">
               <div>
-                <p className="text-sm font-medium text-gray-800">{d.name} <span className="ml-1 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-600">{DOC_LABELS[d.docType] || d.docType}</span></p>
+                <p className="text-sm font-medium text-gray-800">{d.name} <span className="ms-1 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-600">{DOC_LABELS[d.docType] || d.docType}</span></p>
                 {d.expiryDate && <p className={cn('text-xs', expired ? 'text-red-600' : 'text-gray-400')}>Expires {d.expiryDate.slice(0,10)}</p>}
               </div>
               <div className="flex gap-2">
@@ -408,8 +408,8 @@ function FinTable({ title, icon, rows, cols, render, empty }: any) {
       <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">{icon} {title}</h3>
       {rows?.length ? (
         <table className="w-full text-sm">
-          <thead><tr className="text-left text-xs text-gray-400 uppercase">
-            {cols.map((c: string, i: number) => <th key={c} className={cn('py-1.5', i >= 2 && 'text-right')}>{c}</th>)}
+          <thead><tr className="text-start text-xs text-gray-400 uppercase">
+            {cols.map((c: string, i: number) => <th key={c} className={cn('py-1.5', i >= 2 && 'text-end')}>{c}</th>)}
           </tr></thead>
           <tbody className="divide-y divide-gray-100">{rows.map(render)}</tbody>
         </table>

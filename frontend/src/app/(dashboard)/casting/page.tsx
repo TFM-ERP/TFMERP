@@ -33,10 +33,10 @@ export default function CastingMaster() {
     <div className="font-sans p-6 max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900 flex items-center gap-2"><Clapperboard className="text-[#0f172a]" /> Casting</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900 flex items-center gap-2"><Clapperboard style={{ color: 'var(--accent)' }} /> Casting</h1>
           <p className="text-sm text-slate-500 mt-0.5">Every casting call across projects, plus standalone talent-agency calls.</p>
         </div>
-        <button onClick={() => setOpen(true)} className="inline-flex items-center gap-2 rounded-xl bg-slate-900 text-white px-4 py-2.5 text-sm font-medium hover:bg-slate-800"><Plus size={16} /> New standalone call</button>
+        <button onClick={() => setOpen(true)} className="btn btn-primary"><Plus size={16} /> New standalone call</button>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
@@ -66,7 +66,7 @@ export default function CastingMaster() {
       <div className="grid gap-2.5">
         {calls.length === 0 ? <Empty>No casting calls.</Empty> : calls.map((c) => (
           <div key={c.id} className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <button onClick={() => setOpenId(openId === c.id ? null : c.id)} className="w-full text-left p-4 flex items-center justify-between gap-3">
+            <button onClick={() => setOpenId(openId === c.id ? null : c.id)} className="w-full text-start p-4 flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-medium text-slate-900">{c.roleName}</span>
@@ -83,7 +83,7 @@ export default function CastingMaster() {
       </div>
 
       {open && <StandaloneCallModal onClose={() => setOpen(false)} onDone={() => { setOpen(false); load(); }} />}
-      {toast && <div className="fixed bottom-5 right-5 z-50 rounded-xl bg-slate-900 text-white text-sm px-4 py-2.5 shadow-lg">{toast}</div>}
+      {toast && <div className="fixed bottom-5 end-5 z-50 rounded-xl bg-slate-900 text-white text-sm px-4 py-2.5 shadow-lg">{toast}</div>}
     </div>
   );
 }
@@ -98,7 +98,7 @@ function StandaloneCallModal({ onClose, onDone }: any) {
     try { await castingApi.createCall({ roleName: f.roleName, roleType: f.roleType, characterDescription: f.characterDescription || undefined, isPublic: f.isPublic, status: 'OPEN' }); onDone(); }
     finally { setBusy(false); }
   };
-  const inp = 'w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-[#0f172a] focus:ring-2 focus:ring-[#0f172a]/20 outline-none';
+  const inp = 'input w-full';
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4" onClick={onClose}>
       <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
@@ -112,8 +112,8 @@ function StandaloneCallModal({ onClose, onDone }: any) {
           <label className="flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" checked={f.isPublic} onChange={(e) => set('isPublic', e.target.checked)} className="rounded" /> Accept public submissions</label>
         </div>
         <div className="flex justify-end gap-2 px-5 py-4 border-t border-slate-100">
-          <button onClick={onClose} className="rounded-xl px-4 py-2 text-sm border border-slate-200 text-slate-600">Cancel</button>
-          <button onClick={submit} disabled={busy || !f.roleName} className="rounded-xl px-4 py-2 text-sm bg-slate-900 text-white disabled:opacity-40 inline-flex items-center gap-2">{busy && <Loader2 size={14} className="animate-spin" />} Create</button>
+          <button onClick={onClose} className="btn btn-secondary">Cancel</button>
+          <button onClick={submit} disabled={busy || !f.roleName} className="btn btn-primary disabled:opacity-40">{busy && <Loader2 size={14} className="animate-spin" />} Create</button>
         </div>
       </div>
     </div>
@@ -128,9 +128,9 @@ function Card({ title, icon, children }: any) {
   return <div className="rounded-2xl border border-slate-200 bg-white p-4"><p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-2 flex items-center gap-1">{icon}{title}</p><div className="space-y-1">{children}</div></div>;
 }
 function Row({ left, sub, right }: any) {
-  return <div className="flex items-center justify-between py-1.5 border-b border-slate-50 last:border-0"><div className="min-w-0"><div className="text-sm text-slate-800 truncate">{left}</div><div className="text-[11px] text-slate-400 truncate">{sub}</div></div><span className="text-xs text-slate-500 shrink-0 ml-2">{right}</span></div>;
+  return <div className="flex items-center justify-between py-1.5 border-b border-slate-50 last:border-0"><div className="min-w-0"><div className="text-sm text-slate-800 truncate">{left}</div><div className="text-[11px] text-slate-400 truncate">{sub}</div></div><span className="text-xs text-slate-500 shrink-0 ms-2">{right}</span></div>;
 }
 function Empty({ children }: any) { return <p className="text-xs text-slate-400 py-2">{children}</p>; }
 function Toggle({ active, onClick, children }: any) {
-  return <button onClick={onClick} className={`text-xs px-3 py-1.5 rounded-lg font-medium transition ${active ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>{children}</button>;
+  return <button onClick={onClick} className="text-xs px-3 py-1.5 rounded-lg font-medium transition-colors" style={active ? { background: 'var(--accent)', color: 'var(--accent-on)' } : { background: 'var(--surface-2)', color: 'var(--text-2)' }}>{children}</button>;
 }

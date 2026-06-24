@@ -83,7 +83,7 @@ export default function JournalEditor({ id }: { id?: string }) {
           <h1 className="text-xl font-bold text-gray-900">{id ? `Journal ${entryNumber}` : 'New Journal Entry'}</h1>
           {status !== 'DRAFT' && <span className={cn('badge text-xs', status === 'POSTED' ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500')}>{status}</span>}
         </div>
-        {status === 'POSTED' && <button onClick={voidEntry} className="btn btn-secondary text-sm text-red-600"><Ban size={13} className="mr-1" /> Void</button>}
+        {status === 'POSTED' && <button onClick={voidEntry} className="btn btn-secondary text-sm text-red-600"><Ban size={13} className="me-1" /> Void</button>}
       </div>
 
       <div className="card mb-4">
@@ -97,8 +97,8 @@ export default function JournalEditor({ id }: { id?: string }) {
       <div className="card overflow-hidden p-0 mb-4">
         <table className="w-full text-sm">
           <thead><tr className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-100">
-            <th className="px-3 py-2 text-left">Account</th><th className="px-3 py-2 text-left">Description</th>
-            <th className="px-3 py-2 text-right w-32">Debit</th><th className="px-3 py-2 text-right w-32">Credit</th><th className="w-8"></th>
+            <th className="px-3 py-2 text-start">Account</th><th className="px-3 py-2 text-start">Description</th>
+            <th className="px-3 py-2 text-end w-32">Debit</th><th className="px-3 py-2 text-end w-32">Credit</th><th className="w-8"></th>
           </tr></thead>
           <tbody>
             {lines.map((l, i) => (
@@ -110,8 +110,8 @@ export default function JournalEditor({ id }: { id?: string }) {
                   </select>
                 </td>
                 <td className="px-2 py-1.5"><input disabled={readOnly} className="input text-sm h-8 w-full" value={l.description} onChange={e => setLine(i, 'description', e.target.value)} /></td>
-                <td className="px-2 py-1.5"><input disabled={readOnly} type="number" className="input text-sm h-8 w-full text-right" value={l.debit} onChange={e => setLine(i, 'debit', e.target.value)} placeholder="0.00" /></td>
-                <td className="px-2 py-1.5"><input disabled={readOnly} type="number" className="input text-sm h-8 w-full text-right" value={l.credit} onChange={e => setLine(i, 'credit', e.target.value)} placeholder="0.00" /></td>
+                <td className="px-2 py-1.5"><input disabled={readOnly} type="number" className="input text-sm h-8 w-full text-end" value={l.debit} onChange={e => setLine(i, 'debit', e.target.value)} placeholder="0.00" /></td>
+                <td className="px-2 py-1.5"><input disabled={readOnly} type="number" className="input text-sm h-8 w-full text-end" value={l.credit} onChange={e => setLine(i, 'credit', e.target.value)} placeholder="0.00" /></td>
                 <td className="px-1">{!readOnly && lines.length > 2 && <button onClick={() => delLine(i)} className="text-gray-300 hover:text-red-500"><Trash2 size={12} /></button>}</td>
               </tr>
             ))}
@@ -121,8 +121,8 @@ export default function JournalEditor({ id }: { id?: string }) {
               <td className="px-3 py-2" colSpan={2}>
                 {!readOnly && <button onClick={addLine} className="text-xs text-brand-600 hover:text-brand-700 flex items-center gap-1"><Plus size={11} /> Add line</button>}
               </td>
-              <td className="px-3 py-2 text-right">{formatCurrency(totalD)}</td>
-              <td className="px-3 py-2 text-right">{formatCurrency(totalC)}</td>
+              <td className="px-3 py-2 text-end">{formatCurrency(totalD)}</td>
+              <td className="px-3 py-2 text-end">{formatCurrency(totalC)}</td>
               <td></td>
             </tr>
           </tfoot>
@@ -137,8 +137,8 @@ export default function JournalEditor({ id }: { id?: string }) {
         {!readOnly && (
           <div className="flex gap-2">
             {id && status === 'DRAFT' && <button onClick={del} className="btn btn-secondary text-sm text-red-600"><Trash2 size={13} /></button>}
-            <button onClick={() => save(false)} disabled={saving} className="btn btn-secondary text-sm"><Save size={13} className="mr-1" /> Save draft</button>
-            <button onClick={() => save(true)} disabled={saving || !balanced} className="btn btn-primary text-sm"><CheckCircle size={13} className="mr-1" /> {saving ? 'Saving…' : 'Save & post'}</button>
+            <button onClick={() => save(false)} disabled={saving} className="btn btn-secondary text-sm"><Save size={13} className="me-1" /> Save draft</button>
+            <button onClick={() => save(true)} disabled={saving || !balanced} className="btn btn-primary text-sm"><CheckCircle size={13} className="me-1" /> {saving ? 'Saving…' : 'Save & post'}</button>
           </div>
         )}
       </div>

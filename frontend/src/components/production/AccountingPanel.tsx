@@ -199,20 +199,20 @@ function LedgerView(p: any) {
           rows.length === 0 ? <div className="p-10 text-center text-gray-400 text-sm">No transactions yet.</div> : (
             <table className="w-full text-sm">
               <thead><tr className="text-[11px] text-slate-400 uppercase tracking-wide border-b border-slate-200">
-                <th className="px-4 py-2.5 text-left">Date</th><th className="px-3 py-2.5 text-left">Description</th>
-                <th className="px-3 py-2.5 text-left">Account / Party</th><th className="px-3 py-2.5 text-right">Amount</th>
-                <th className="px-3 py-2.5 text-left">Status</th><th className="px-3 py-2.5 text-center">Doc</th><th className="px-3 py-2.5"></th>
+                <th className="px-4 py-2.5 text-start">Date</th><th className="px-3 py-2.5 text-start">Description</th>
+                <th className="px-3 py-2.5 text-start">Account / Party</th><th className="px-3 py-2.5 text-end">Amount</th>
+                <th className="px-3 py-2.5 text-start">Status</th><th className="px-3 py-2.5 text-center">Doc</th><th className="px-3 py-2.5"></th>
               </tr></thead>
               <tbody>
                 {rows.map((t: any) => (
                   <tr key={t.id} className="border-b border-slate-100 hover:bg-gray-50/60">
                     <td className="px-4 py-2.5 text-gray-500 text-xs">{formatDate(t.date)}{t.dueDate && <span className="block text-[10px] text-gray-400">due {formatDate(t.dueDate)}</span>}</td>
                     <td className="px-3 py-2.5">
-                      <span className={cn('inline-block w-1.5 h-1.5 rounded-full mr-1.5', t.kind === 'INCOME' ? 'bg-green-500' : 'bg-amber-500')} />
-                      <span className="text-gray-800">{t.description}</span>{t.invoiceNumber && <span className="ml-1.5 text-[10px] text-gray-400">#{t.invoiceNumber}</span>}
+                      <span className={cn('inline-block w-1.5 h-1.5 rounded-full me-1.5', t.kind === 'INCOME' ? 'bg-green-500' : 'bg-amber-500')} />
+                      <span className="text-gray-800">{t.description}</span>{t.invoiceNumber && <span className="ms-1.5 text-[10px] text-gray-400">#{t.invoiceNumber}</span>}
                     </td>
                     <td className="px-3 py-2.5 text-gray-500 text-xs">{t.accountCode ? `${t.accountCode} · ${t.accountTitle || ''}` : (t.party || t.category || <span className="text-amber-500">uncoded</span>)}</td>
-                    <td className={cn('px-3 py-2.5 text-right font-medium', t.kind === 'INCOME' ? 'text-green-600' : 'text-gray-800')}>{t.kind === 'INCOME' ? '+' : '−'}{money(Number(t.total))}</td>
+                    <td className={cn('px-3 py-2.5 text-end font-medium', t.kind === 'INCOME' ? 'text-green-600' : 'text-gray-800')}>{t.kind === 'INCOME' ? '+' : '−'}{money(Number(t.total))}</td>
                     <td className="px-3 py-2.5">
                       <select value={t.status} onChange={e => setStatus(t.id, e.target.value)} className={cn('text-[11px] rounded-full px-2 py-0.5 border-0 cursor-pointer', STATUS_CLS[t.status])}>
                         {STATUS_BY_KIND[t.kind].map((s: string) => <option key={s} value={s}>{s}</option>)}
@@ -224,9 +224,9 @@ function LedgerView(p: any) {
                         <input type="file" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) attach(t.id, f); e.currentTarget.value = ''; }} />
                       </label>
                     </td>
-                    <td className="px-3 py-2.5 text-right whitespace-nowrap">
+                    <td className="px-3 py-2.5 text-end whitespace-nowrap">
                       {t.kind === 'COST' && t.status === 'DRAFT' && (
-                        <button onClick={() => submitApproval(t.id)} title="Submit for approval" className="text-brand-600 hover:text-brand-700 mr-2"><GitBranch size={13} /></button>
+                        <button onClick={() => submitApproval(t.id)} title="Submit for approval" className="text-brand-600 hover:text-brand-700 me-2"><GitBranch size={13} /></button>
                       )}
                       <button onClick={() => remove(t.id)} className="text-gray-300 hover:text-red-500"><Trash2 size={13} /></button>
                     </td>
@@ -286,8 +286,8 @@ function PaidInvoicesView({ projectId, currency }: { projectId: string; currency
       ) : (
         <table className="w-full text-sm">
           <thead><tr className="text-[11px] text-slate-400 uppercase tracking-wide border-b border-slate-200">
-            <th className="px-4 py-2 text-left">Paid</th><th className="px-3 py-2 text-left">Vendor / invoice</th><th className="px-3 py-2 text-left">Account</th>
-            <th className="px-3 py-2 text-right">Amount</th><th className="px-3 py-2 text-left">Approved / released by</th><th className="px-3 py-2 text-left">Invoice doc</th>
+            <th className="px-4 py-2 text-start">Paid</th><th className="px-3 py-2 text-start">Vendor / invoice</th><th className="px-3 py-2 text-start">Account</th>
+            <th className="px-3 py-2 text-end">Amount</th><th className="px-3 py-2 text-start">Approved / released by</th><th className="px-3 py-2 text-start">Invoice doc</th>
           </tr></thead>
           <tbody>
             {data.rows.map((r: any) => (
@@ -295,17 +295,17 @@ function PaidInvoicesView({ projectId, currency }: { projectId: string; currency
                 <td className="px-4 py-2.5 text-gray-500 text-xs">{r.paidDate ? formatDate(r.paidDate) : '—'}</td>
                 <td className="px-3 py-2.5"><span className="text-gray-800">{r.vendor || '—'}</span>{r.invoiceNumber && <span className="block text-[10px] text-gray-400">#{r.invoiceNumber}{r.reference ? ` · ${r.reference}` : ''}</span>}</td>
                 <td className="px-3 py-2.5 text-gray-500 text-xs">{r.accountCode ? `${r.accountCode} · ${r.accountTitle || ''}` : <span className="text-amber-500">uncoded</span>}</td>
-                <td className="px-3 py-2.5 text-right font-medium text-gray-800">{money(r.amount)}</td>
+                <td className="px-3 py-2.5 text-end font-medium text-gray-800">{money(r.amount)}</td>
                 <td className="px-3 py-2.5 text-[11px] text-gray-500">{r.approvedBy || '—'}<span className="block text-gray-400">↳ {r.releasedBy || '—'}</span></td>
                 <td className="px-3 py-2.5">
                   {r.documents?.length ? r.documents.map((d: any, i: number) => (
-                    <a key={i} href={assetUrl(d.url)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-brand-600 hover:text-brand-700 text-xs mr-2"><Paperclip size={11} /> {d.name?.slice(0, 18) || 'View'}</a>
+                    <a key={i} href={assetUrl(d.url)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-brand-600 hover:text-brand-700 text-xs me-2"><Paperclip size={11} /> {d.name?.slice(0, 18) || 'View'}</a>
                   )) : <span className="text-[10px] text-red-400">no doc</span>}
                 </td>
               </tr>
             ))}
           </tbody>
-          <tfoot><tr className="bg-gray-50/60"><td colSpan={3} className="px-4 py-2 text-right font-semibold text-gray-700">Total released</td><td className="px-3 py-2 text-right font-bold text-gray-900">{money(data.total)}</td><td colSpan={2} /></tr></tfoot>
+          <tfoot><tr className="bg-gray-50/60"><td colSpan={3} className="px-4 py-2 text-end font-semibold text-gray-700">Total released</td><td className="px-3 py-2 text-end font-bold text-gray-900">{money(data.total)}</td><td colSpan={2} /></tr></tfoot>
         </table>
       )}
     </div>
@@ -377,17 +377,17 @@ function PayablesView({ projectId, currency, reload }: { projectId: string; curr
         {!data.rows?.length ? <div className="p-10 text-center text-gray-400 text-sm">No open payables. Add costs with status APPROVED + a due date.</div> : (
           <table className="w-full text-sm">
             <thead><tr className="text-[11px] text-slate-400 uppercase tracking-wide border-b border-slate-200">
-              <th className="px-3 py-2.5 w-8"></th><th className="px-3 py-2.5 text-left">Due</th><th className="px-3 py-2.5 text-left">Vendor / Invoice</th>
-              <th className="px-3 py-2.5 text-left">Account</th><th className="px-3 py-2.5 text-right">Outstanding</th><th className="px-3 py-2.5 text-left">Age</th>
+              <th className="px-3 py-2.5 w-8"></th><th className="px-3 py-2.5 text-start">Due</th><th className="px-3 py-2.5 text-start">Vendor / Invoice</th>
+              <th className="px-3 py-2.5 text-start">Account</th><th className="px-3 py-2.5 text-end">Outstanding</th><th className="px-3 py-2.5 text-start">Age</th>
             </tr></thead>
             <tbody>
               {data.rows.map((r: any) => (
                 <tr key={r.id} className="border-b border-slate-100 hover:bg-gray-50/60">
                   <td className="px-3 py-2"><input type="checkbox" checked={sel.has(r.id)} onChange={() => toggle(r.id)} /></td>
                   <td className="px-3 py-2 text-xs text-gray-500">{r.dueDate ? formatDate(r.dueDate) : '—'}</td>
-                  <td className="px-3 py-2"><span className="text-gray-800">{r.vendor || '—'}</span>{r.invoiceNumber && <span className="ml-1.5 text-[10px] text-gray-400">#{r.invoiceNumber}</span>}<span className="block text-[10px] text-gray-400">{r.description}</span></td>
+                  <td className="px-3 py-2"><span className="text-gray-800">{r.vendor || '—'}</span>{r.invoiceNumber && <span className="ms-1.5 text-[10px] text-gray-400">#{r.invoiceNumber}</span>}<span className="block text-[10px] text-gray-400">{r.description}</span></td>
                   <td className="px-3 py-2 text-xs text-gray-500">{r.accountCode ? `${r.accountCode}` : '—'}</td>
-                  <td className="px-3 py-2 text-right font-medium text-gray-800">{money(r.outstanding)}</td>
+                  <td className="px-3 py-2 text-end font-medium text-gray-800">{money(r.outstanding)}</td>
                   <td className="px-3 py-2">{r.overdueDays > 0 ? <span className="text-[10px] bg-rose-100 text-rose-700 rounded-full px-2 py-0.5">{r.overdueDays}d overdue</span> : <span className="text-[10px] text-gray-400">current</span>}</td>
                 </tr>
               ))}
@@ -466,7 +466,7 @@ function PayrollView({ projectId, currency, accounts, reload }: { projectId: str
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             <div><label className="label text-xs">Name *</label><input className={inputCls} value={f.name} onChange={e => setF((x: any) => ({ ...x, name: e.target.value }))} /></div>
             <div><label className="label text-xs">Role</label><input className={inputCls} value={f.role} onChange={e => setF((x: any) => ({ ...x, role: e.target.value }))} /></div>
-            <div><label className="label text-xs">Classification</label><input list="pr-class" className={cn(inputCls, 'font-mono')} value={f.classificationCode} onChange={e => setF((x: any) => ({ ...x, classificationCode: e.target.value.toUpperCase() }))} placeholder="for fringes" /><datalist id="pr-class">{CLASS_CODES.map(c => <option key={c} value={c} />)}</datalist></div>
+            <div><label className="label text-xs">Classification</label><input list="pe-class" className={cn(inputCls, 'font-mono')} value={f.classificationCode} onChange={e => setF((x: any) => ({ ...x, classificationCode: e.target.value.toUpperCase() }))} placeholder="for fringes" /><datalist id="pe-class">{CLASS_CODES.map(c => <option key={c} value={c} />)}</datalist></div>
             <div><label className="label text-xs">Budget account *</label><select className={inputCls} value={f.accountCode} onChange={e => setF((x: any) => ({ ...x, accountCode: e.target.value }))}><option value="">—</option>{accounts.map((a: any) => <option key={a.code} value={a.code}>{a.code} · {a.title}</option>)}</select></div>
             <div><label className="label text-xs">Week ending</label><input type="date" className={inputCls} value={f.weekEnding} onChange={e => setF((x: any) => ({ ...x, weekEnding: e.target.value }))} /></div>
             <div><label className="label text-xs">Days</label><input type="number" className={inputCls} value={f.days} onChange={e => setF((x: any) => ({ ...x, days: e.target.value }))} /></div>
@@ -494,22 +494,22 @@ function PayrollView({ projectId, currency, accounts, reload }: { projectId: str
         {!rows.length ? <div className="p-10 text-center text-gray-400 text-sm">No timecards yet.</div> : (
           <table className="w-full text-sm">
             <thead><tr className="text-[11px] text-slate-400 uppercase tracking-wide border-b border-slate-200">
-              <th className="px-4 py-2.5 text-left">Name</th><th className="px-3 py-2.5 text-left">Account</th><th className="px-3 py-2.5 text-right">Gross</th>
-              <th className="px-3 py-2.5 text-right">Fringe</th><th className="px-3 py-2.5 text-right">Total</th><th className="px-3 py-2.5 text-left">Status</th><th className="px-3 py-2.5"></th>
+              <th className="px-4 py-2.5 text-start">Name</th><th className="px-3 py-2.5 text-start">Account</th><th className="px-3 py-2.5 text-end">Gross</th>
+              <th className="px-3 py-2.5 text-end">Fringe</th><th className="px-3 py-2.5 text-end">Total</th><th className="px-3 py-2.5 text-start">Status</th><th className="px-3 py-2.5"></th>
             </tr></thead>
             <tbody>
               {rows.map((t: any) => (
                 <tr key={t.id} className="border-b border-slate-100 hover:bg-gray-50/60">
-                  <td className="px-4 py-2.5"><span className="text-gray-800">{t.name}</span>{t.classificationCode && <span className="ml-1.5 text-[10px] bg-violet-100 text-violet-700 rounded-full px-2 py-0.5 font-mono">{t.classificationCode}</span>}<span className="block text-[10px] text-gray-400">{t.role || ''}{t.weekEnding ? ` · w/e ${formatDate(t.weekEnding)}` : ''}</span></td>
+                  <td className="px-4 py-2.5"><span className="text-gray-800">{t.name}</span>{t.classificationCode && <span className="ms-1.5 text-[10px] bg-violet-100 text-violet-700 rounded-full px-2 py-0.5 font-mono">{t.classificationCode}</span>}<span className="block text-[10px] text-gray-400">{t.role || ''}{t.weekEnding ? ` · w/e ${formatDate(t.weekEnding)}` : ''}</span></td>
                   <td className="px-3 py-2.5 text-xs text-gray-500">{t.accountCode || '—'}</td>
-                  <td className="px-3 py-2.5 text-right text-gray-700">{money(t.gross)}</td>
-                  <td className="px-3 py-2.5 text-right text-amber-700">{money(t.fringe)}</td>
-                  <td className="px-3 py-2.5 text-right font-semibold text-gray-900">{money(t.total)}</td>
+                  <td className="px-3 py-2.5 text-end text-gray-700">{money(t.gross)}</td>
+                  <td className="px-3 py-2.5 text-end text-amber-700">{money(t.fringe)}</td>
+                  <td className="px-3 py-2.5 text-end font-semibold text-gray-900">{money(t.total)}</td>
                   <td className="px-3 py-2.5"><Chip tone={t.status === 'POSTED' ? 'money' : t.status === 'APPROVED' ? 'need' : 'slate'}>{t.status}</Chip></td>
-                  <td className="px-3 py-2.5 text-right whitespace-nowrap">
+                  <td className="px-3 py-2.5 text-end whitespace-nowrap">
                     {t.status !== 'POSTED'
-                      ? <button onClick={() => act(productionApi.payroll.post(t.id))} className="text-[11px] text-brand-600 hover:text-brand-700 mr-2">Post</button>
-                      : <button onClick={() => { if (confirm('Reverse the posted cost?')) act(productionApi.payroll.reverse(t.id)); }} className="text-[11px] text-amber-600 hover:text-amber-700 mr-2">Reverse</button>}
+                      ? <button onClick={() => act(productionApi.payroll.post(t.id))} className="text-[11px] text-brand-600 hover:text-brand-700 me-2">Post</button>
+                      : <button onClick={() => { if (confirm('Reverse the posted cost?')) act(productionApi.payroll.reverse(t.id)); }} className="text-[11px] text-amber-600 hover:text-amber-700 me-2">Reverse</button>}
                     <button onClick={() => { if (confirm('Delete timecard?')) act(productionApi.payroll.remove(t.id)); }} className="text-gray-300 hover:text-red-500"><Trash2 size={13} /></button>
                   </td>
                 </tr>
@@ -544,10 +544,10 @@ function ReportsView({ projectId, currency, summary }: { projectId: string; curr
           <h4 className="text-sm font-semibold text-gray-700 mb-2">Profit &amp; Loss</h4>
           <table className="w-full text-sm">
             <tbody>
-              <tr><td className="py-1 text-gray-500">Revenue</td><td className="py-1 text-right font-medium text-green-600">{money(summary.income)}</td></tr>
-              <tr><td className="py-1 text-gray-500">Costs</td><td className="py-1 text-right font-medium text-amber-600">({money(summary.cost)})</td></tr>
-              <tr className="border-t border-gray-200"><td className="py-1.5 font-semibold text-gray-800">Net P&amp;L</td><td className={cn('py-1.5 text-right font-bold', summary.net >= 0 ? 'text-green-600' : 'text-red-600')}>{money(summary.net)}</td></tr>
-              <tr><td className="py-1 text-gray-400 text-xs">Margin</td><td className="py-1 text-right text-xs text-gray-400">{summary.marginPct}%</td></tr>
+              <tr><td className="py-1 text-gray-500">Revenue</td><td className="py-1 text-end font-medium text-green-600">{money(summary.income)}</td></tr>
+              <tr><td className="py-1 text-gray-500">Costs</td><td className="py-1 text-end font-medium text-amber-600">({money(summary.cost)})</td></tr>
+              <tr className="border-t border-gray-200"><td className="py-1.5 font-semibold text-gray-800">Net P&amp;L</td><td className={cn('py-1.5 text-end font-bold', summary.net >= 0 ? 'text-green-600' : 'text-red-600')}>{money(summary.net)}</td></tr>
+              <tr><td className="py-1 text-gray-400 text-xs">Margin</td><td className="py-1 text-end text-xs text-gray-400">{summary.marginPct}%</td></tr>
             </tbody>
           </table>
         </div>
@@ -562,7 +562,7 @@ function ReportsView({ projectId, currency, summary }: { projectId: string; curr
         {!gl ? <p className="text-xs text-gray-400">Loading…</p> : (
           <table className="w-full text-sm">
             <thead><tr className="text-[11px] text-slate-400 uppercase tracking-wide border-b border-slate-200">
-              <th className="py-2 text-left">Account</th><th className="py-2 text-right">Debit (cost)</th><th className="py-2 text-right">Credit (income)</th><th className="py-2"></th>
+              <th className="py-2 text-start">Account</th><th className="py-2 text-end">Debit (cost)</th><th className="py-2 text-end">Credit (income)</th><th className="py-2"></th>
             </tr></thead>
             <tbody>
               {(gl.accounts || []).map((a: any) => {
@@ -571,17 +571,17 @@ function ReportsView({ projectId, currency, summary }: { projectId: string; curr
                 return (
                   <Fragment key={k}>
                     <tr className="border-b border-slate-100 cursor-pointer hover:bg-gray-50" onClick={() => toggle(k)}>
-                      <td className="py-2 text-gray-800">{isOpen ? <ChevronDown size={12} className="inline mr-1 text-gray-400" /> : <ChevronRight size={12} className="inline mr-1 text-gray-400" />}{a.code ? `${a.code} · ` : ''}{a.title}</td>
-                      <td className="py-2 text-right text-gray-700">{a.debit ? money(a.debit) : '—'}</td>
-                      <td className="py-2 text-right text-gray-700">{a.credit ? money(a.credit) : '—'}</td>
-                      <td className="py-2 text-right text-[10px] text-gray-400">{a.lines.length} lines</td>
+                      <td className="py-2 text-gray-800">{isOpen ? <ChevronDown size={12} className="inline me-1 text-gray-400" /> : <ChevronRight size={12} className="inline me-1 text-gray-400" />}{a.code ? `${a.code} · ` : ''}{a.title}</td>
+                      <td className="py-2 text-end text-gray-700">{a.debit ? money(a.debit) : '—'}</td>
+                      <td className="py-2 text-end text-gray-700">{a.credit ? money(a.credit) : '—'}</td>
+                      <td className="py-2 text-end text-[10px] text-gray-400">{a.lines.length} lines</td>
                     </tr>
                     {isOpen && a.lines.map((l: any, i: number) => (
                       <tr key={i} className="text-xs text-gray-500 bg-gray-50/50">
-                        <td className="py-1 pl-6">{formatDate(l.date)} · {l.description}{l.party ? ` · ${l.party}` : ''}</td>
-                        <td className="py-1 text-right">{l.kind === 'COST' ? money(l.total) : ''}</td>
-                        <td className="py-1 text-right">{l.kind === 'INCOME' ? money(l.total) : ''}</td>
-                        <td className="py-1 text-right pr-2">{l.status}</td>
+                        <td className="py-1 ps-6">{formatDate(l.date)} · {l.description}{l.party ? ` · ${l.party}` : ''}</td>
+                        <td className="py-1 text-end">{l.kind === 'COST' ? money(l.total) : ''}</td>
+                        <td className="py-1 text-end">{l.kind === 'INCOME' ? money(l.total) : ''}</td>
+                        <td className="py-1 text-end pe-2">{l.status}</td>
                       </tr>
                     ))}
                   </Fragment>

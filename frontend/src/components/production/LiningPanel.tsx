@@ -104,7 +104,7 @@ export default function LiningPanel({ projectId, revision, onClose, inline }: { 
                 <option value="NUMERIC">Numeric (1, 2, 3…)</option>
                 <option value="DECIMAL">Decimal (1.1, 2.1…)</option>
               </select>
-              <Btn variant="secondary" onClick={autoCoverage} className="ml-auto" disabled={autoBusy}>
+              <Btn variant="secondary" onClick={autoCoverage} className="ms-auto" disabled={autoBusy}>
                 {autoBusy ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />} Auto-coverage
               </Btn>
             </div>
@@ -153,7 +153,7 @@ export default function LiningPanel({ projectId, revision, onClose, inline }: { 
                         </span>
                       ) : c.cameraSetup && <span className="text-[10px] text-slate-400">{c.cameraSetup}</span>}
                       {c.isOffScreen && <span className="text-[10px] text-slate-400">off-screen</span>}
-                      <div className="ml-auto flex items-center gap-1.5">
+                      <div className="ms-auto flex items-center gap-1.5">
                         <button onClick={() => addTake(c.id)} className="text-[11px] text-slate-500 hover:text-slate-900 inline-flex items-center gap-0.5"><Plus size={11} /> take</button>
                         <button onClick={() => removeCoverage(c.id)} className="text-slate-300 hover:text-rose-500"><Trash2 size={13} /></button>
                       </div>
@@ -215,7 +215,7 @@ export default function LiningPanel({ projectId, revision, onClose, inline }: { 
                       <Chip tone="money">{a.status}</Chip>
                       <span className="text-slate-500">{a.shootDate ? new Date(a.shootDate).toLocaleDateString('en-GB') : new Date(a.createdAt).toLocaleDateString('en-GB')}</span>
                       <span className="text-slate-400">+{a.otMinutes}m OT</span>
-                      <span className="ml-auto font-medium">{money(Number(a.baseAmount) + Number(a.otAmount) + Number(a.mealPenaltyAmount), a.currency)}</span>
+                      <span className="ms-auto font-medium">{money(Number(a.baseAmount) + Number(a.otAmount) + Number(a.mealPenaltyAmount), a.currency)}</span>
                       <button onClick={() => removeAccrual(a.id)} className="text-slate-300 hover:text-rose-500"><Trash2 size={12} /></button>
                     </div>
                   ))}

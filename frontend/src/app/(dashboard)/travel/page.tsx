@@ -76,7 +76,7 @@ export default function TravelMaster() {
               </div>
               <p className="text-xs text-slate-500 mt-1">{t.traveler?.fullName}{t.traveler?.nationality ? ` · ${t.traveler.nationality}` : ''}{t.departDate ? ` · ${new Date(t.departDate).toLocaleDateString()}` : ''}</p>
             </div>
-            <div className="text-right shrink-0">
+            <div className="text-end shrink-0">
               <div className="text-sm font-semibold text-slate-800">{money(t.estimatedCost, t.currency)}</div>
               {t.status === 'REQUESTED' && <button onClick={async () => { await travelApi.approve(t.id); load(); }} className="mt-1 text-xs text-emerald-700 hover:underline">Approve →</button>}
             </div>
@@ -97,7 +97,7 @@ function Card({ title, icon, children, className = '' }: any) {
   return <div className={`rounded-2xl border border-slate-200 bg-white p-4 ${className}`}><p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-2 flex items-center gap-1">{icon}{title}</p><div className="space-y-1">{children}</div></div>;
 }
 function Row({ left, sub, right }: any) {
-  return <div className="flex items-center justify-between py-1.5 border-b border-slate-50 last:border-0"><div className="min-w-0"><div className="text-sm text-slate-800 truncate">{left}</div><div className="text-[11px] text-slate-400 truncate">{sub}</div></div><span className="text-xs text-slate-500 shrink-0 ml-2">{right}</span></div>;
+  return <div className="flex items-center justify-between py-1.5 border-b border-slate-50 last:border-0"><div className="min-w-0"><div className="text-sm text-slate-800 truncate">{left}</div><div className="text-[11px] text-slate-400 truncate">{sub}</div></div><span className="text-xs text-slate-500 shrink-0 ms-2">{right}</span></div>;
 }
 function Empty({ children }: any) { return <p className="text-xs text-slate-400 py-2">{children}</p>; }
 function Toggle({ active, onClick, children }: any) {

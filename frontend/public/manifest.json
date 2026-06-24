@@ -1,7 +1,7 @@
 {
-  "name": "TFM Driver",
-  "short_name": "TFM Driver",
-  "description": "Jobs, navigation, inspections and fuel for TFM field staff",
+  "name": "FilmOS Driver",
+  "short_name": "FilmOS Driver",
+  "description": "Jobs, navigation, inspections and fuel for FilmOS field staff",
   "start_url": "/driver",
   "scope": "/driver",
   "display": "standalone",

@@ -81,7 +81,7 @@ export default function TiresPage() {
           <p className="text-sm mt-0.5" style={{ color: 'var(--text-3)' }}>{total} tire records tracked</p>
         </div>
         <button onClick={() => setShowForm(true)} className="btn btn-primary">
-          <Plus size={14} className="mr-1" /> Add Tire Record
+          <Plus size={14} className="me-1" /> Add Tire Record
         </button>
       </div>
 
@@ -184,7 +184,7 @@ export default function TiresPage() {
             <th className="table-th">Installed</th>
             <th className="table-th">Warranty Until</th>
             <th className="table-th">Expected Life</th>
-            <th className="table-th text-right">Price</th>
+            <th className="table-th text-end">Price</th>
           </tr></thead>
           <tbody>
             {items.map(tire => {
@@ -213,7 +213,7 @@ export default function TiresPage() {
                   <td className="table-td text-xs text-gray-500">
                     {tire.expectedLifespanKm ? `${tire.expectedLifespanKm.toLocaleString()} km` : tire.expectedLifespanYears ? `${tire.expectedLifespanYears} yr` : '—'}
                   </td>
-                  <td className="table-td text-right text-sm">{tire.purchasePrice ? formatCurrency(tire.purchasePrice) : '—'}</td>
+                  <td className="table-td text-end text-sm">{tire.purchasePrice ? formatCurrency(tire.purchasePrice) : '—'}</td>
                 </tr>
               );
             })}

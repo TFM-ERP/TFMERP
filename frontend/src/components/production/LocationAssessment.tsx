@@ -631,8 +631,8 @@ export function CompareModal({ projectId, onClose }: { projectId: string; onClos
             : data.rows.length === 0 ? <p className="text-sm text-gray-400">No locations in this project yet.</p>
             : (
               <table className="w-full text-sm">
-                <thead><tr className="text-left text-xs text-gray-400 border-b">
-                  <th className="py-2">#</th><th>Location</th><th>Recces</th><th>Recommendation</th><th className="text-right">Score</th>
+                <thead><tr className="text-start text-xs text-gray-400 border-b">
+                  <th className="py-2">#</th><th>Location</th><th>Recces</th><th>Recommendation</th><th className="text-end">Score</th>
                 </tr></thead>
                 <tbody>
                   {data.rows.map((r: any, i: number) => (
@@ -641,7 +641,7 @@ export function CompareModal({ projectId, onClose }: { projectId: string; onClos
                       <td className="font-medium">{r.name}<span className="block text-[11px] text-gray-400">{r.scenes ? `Sc. ${r.scenes}` : ''}{r.status ? ` · ${r.status}` : ''}</span></td>
                       <td>{r.recceCount}</td>
                       <td>{r.recommendation ? <span className={`text-[11px] px-2 py-0.5 rounded ${REC_CLS[r.recommendation]}`}>{r.recommendation.replace('_', ' ')}</span> : <span className="text-xs text-gray-300">not evaluated</span>}</td>
-                      <td className="text-right font-semibold">{r.weightedScore != null ? r.weightedScore.toFixed(2) : '—'}</td>
+                      <td className="text-end font-semibold">{r.weightedScore != null ? r.weightedScore.toFixed(2) : '—'}</td>
                     </tr>
                   ))}
                 </tbody>

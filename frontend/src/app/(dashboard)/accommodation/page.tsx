@@ -21,23 +21,23 @@ export default function AccommodationMaster() {
     <div className="font-sans p-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900 flex items-center gap-2"><BedDouble className="text-[#0f172a]" /> Accommodation</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900 flex items-center gap-2"><BedDouble style={{ color: 'var(--accent)' }} /> Accommodation</h1>
           <p className="text-sm text-slate-500 mt-0.5">Properties &amp; room inventory — hotels, apartments, villas, crew camps, dormitories.</p>
         </div>
         <div className="flex items-center gap-2">
-          <select value={type} onChange={(e) => setType(e.target.value)} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm"><option value="">All types</option>{TYPES.map((t) => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}</select>
-          <button onClick={() => setOpen(true)} className="inline-flex items-center gap-2 rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800"><Plus size={16} /> Add property</button>
+          <select value={type} onChange={(e) => setType(e.target.value)} className="input"><option value="">All types</option>{TYPES.map((t) => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}</select>
+          <button onClick={() => setOpen(true)} className="btn btn-primary"><Plus size={16} /> Add property</button>
         </div>
       </div>
 
       <div className="grid gap-2">
         {rows.length === 0 ? <p className="text-sm text-slate-400 py-8 text-center">No properties yet.</p> : rows.map((p) => (
-          <button key={p.id} onClick={() => setViewId(p.id)} className="text-left rounded-2xl border border-slate-200 bg-white p-4 flex items-center justify-between hover:shadow-md transition">
+          <button key={p.id} onClick={() => setViewId(p.id)} className="text-start rounded-2xl border border-slate-200 bg-white p-4 flex items-center justify-between hover:shadow-md transition">
             <div>
               <div className="font-medium text-slate-900 flex items-center gap-2"><Building2 size={15} className="text-slate-400" /> {p.name} <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600">{p.type?.replace(/_/g, ' ')}</span>{p.supplier?.ranking && <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${RANK[p.supplier.ranking]}`}>{p.supplier.ranking}</span>}</div>
               <div className="text-xs text-slate-500 mt-0.5">{[p.city, p.country, p.supplier?.name].filter(Boolean).join(' · ') || '—'}</div>
             </div>
-            <div className="text-right text-xs text-slate-500"><div>{p._count?.rooms ?? 0} rooms</div><div>{p._count?.assignments ?? 0} stays</div></div>
+            <div className="text-end text-xs text-slate-500"><div>{p._count?.rooms ?? 0} rooms</div><div>{p._count?.assignments ?? 0} stays</div></div>
           </button>
         ))}
       </div>
@@ -48,7 +48,7 @@ export default function AccommodationMaster() {
   );
 }
 
-const inp = 'w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-[#0f172a] focus:ring-2 focus:ring-[#0f172a]/20 outline-none';
+const inp = 'input w-full';
 function L({ label, full, children }: any) { return <label className={`text-sm ${full ? 'col-span-2' : ''}`}><span className="block text-xs font-medium text-slate-500 mb-1">{label}</span>{children}</label>; }
 
 function PropertyModal({ onClose, onDone }: any) {
@@ -70,8 +70,8 @@ function PropertyModal({ onClose, onDone }: any) {
           <L label="Address" full><input className={inp} value={f.address} onChange={(e) => set('address', e.target.value)} /></L>
         </div>
         <div className="flex justify-end gap-2 px-5 py-4 border-t border-slate-100">
-          <button onClick={onClose} className="rounded-xl px-4 py-2 text-sm border border-slate-200 text-slate-600">Cancel</button>
-          <button onClick={submit} disabled={busy || !f.name} className="rounded-xl px-4 py-2 text-sm bg-slate-900 text-white disabled:opacity-40 inline-flex items-center gap-2">{busy && <Loader2 size={14} className="animate-spin" />} Save</button>
+          <button onClick={onClose} className="btn btn-secondary">Cancel</button>
+          <button onClick={submit} disabled={busy || !f.name} className="btn btn-primary disabled:opacity-40">{busy && <Loader2 size={14} className="animate-spin" />} Save</button>
         </div>
       </div>
     </div>
@@ -92,7 +92,7 @@ function PropertyDrawer({ id, onClose }: { id: string; onClose: () => void }) {
     <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/40 backdrop-blur-sm" onClick={onClose}>
       <div className="w-full max-w-lg h-full bg-white shadow-2xl overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 sticky top-0 glass-bar">
-          <h2 className="font-semibold text-slate-900 flex items-center gap-2"><Building2 size={16} className="text-[#0f172a]" /> {p?.name || 'Property'}</h2>
+          <h2 className="font-semibold text-slate-900 flex items-center gap-2"><Building2 size={16} style={{ color: 'var(--accent)' }} /> {p?.name || 'Property'}</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-700"><X size={18} /></button>
         </div>
         {!p ? <p className="p-10 text-center text-slate-400"><Loader2 className="animate-spin mx-auto" /></p> : (
@@ -107,14 +107,14 @@ function PropertyDrawer({ id, onClose }: { id: string; onClose: () => void }) {
                 <input type="number" className={inp} placeholder="Cap" value={r.capacity} onChange={(e) => setR({ ...r, capacity: e.target.value })} />
                 <input type="number" className={inp} placeholder="Rate" value={r.nightlyRate} onChange={(e) => setR({ ...r, nightlyRate: e.target.value })} />
               </div>
-              <button onClick={addRoom} disabled={busy} className="mt-2 text-xs rounded-lg bg-slate-900 text-white px-3 py-1.5 disabled:opacity-40">Add room</button>
+              <button onClick={addRoom} disabled={busy} className="btn btn-primary text-xs mt-2 disabled:opacity-40">Add room</button>
             </div>
 
             <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-1.5">Rooms ({p.rooms?.length || 0})</p>
             <div className="space-y-1.5">
               {(p.rooms || []).length === 0 ? <p className="text-xs text-slate-400">No rooms.</p> : p.rooms.map((rm: any) => (
                 <div key={rm.id} className="flex items-center justify-between rounded-lg bg-white ring-1 ring-slate-200 px-3 py-2">
-                  <div><span className="text-sm font-medium text-slate-800">Room {rm.roomNumber}</span><span className="text-[11px] text-slate-400 ml-2">{rm.type?.replace(/_/g, ' ')} · cap {rm.capacity}{rm.nightlyRate ? ` · ${rm.currency} ${Number(rm.nightlyRate).toLocaleString()}/night` : ''}</span></div>
+                  <div><span className="text-sm font-medium text-slate-800">Room {rm.roomNumber}</span><span className="text-[11px] text-slate-400 ms-2">{rm.type?.replace(/_/g, ' ')} · cap {rm.capacity}{rm.nightlyRate ? ` · ${rm.currency} ${Number(rm.nightlyRate).toLocaleString()}/night` : ''}</span></div>
                   <div className="flex items-center gap-2">
                     <select value={rm.status} onChange={(e) => setRoomStatus(rm.id, e.target.value)} className={`text-[10px] rounded-full px-2 py-0.5 border-0 ${ROOM_STATUS[rm.status] || 'bg-slate-100'}`}>{Object.keys(ROOM_STATUS).map((s) => <option key={s} value={s}>{s}</option>)}</select>
                     <button onClick={() => delRoom(rm.id)} className="text-slate-300 hover:text-rose-600"><Trash2 size={14} /></button>

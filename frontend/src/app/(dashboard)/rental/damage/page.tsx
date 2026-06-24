@@ -73,7 +73,7 @@ export default function DamagePage() {
               <th className="table-th">Severity</th>
               <th className="table-th">Reported</th>
               <th className="table-th">Resolved</th>
-              <th className="table-th text-right">Repair Cost</th>
+              <th className="table-th text-end">Repair Cost</th>
               <th className="table-th">Bill Client?</th>
               <th className="table-th"></th>
             </tr>
@@ -111,7 +111,7 @@ export default function DamagePage() {
                     <span className="text-amber-500 text-xs">Pending</span>
                   )}
                 </td>
-                <td className="table-td text-right text-sm text-gray-600">
+                <td className="table-td text-end text-sm text-gray-600">
                   {item.repairCost ? `AED ${Number(item.repairCost).toLocaleString()}` : '—'}
                 </td>
                 <td className="table-td text-center">

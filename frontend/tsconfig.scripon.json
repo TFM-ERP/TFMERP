@@ -1,0 +1,1 @@
+{ "extends": "./tsconfig.json", "include": ["src/app/(dashboard)/scripon/**/*","src/components/scripon/**/*","src/lib/api.ts"] }

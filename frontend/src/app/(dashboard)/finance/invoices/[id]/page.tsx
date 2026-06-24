@@ -57,7 +57,7 @@ function PaymentModal({ invoice, bankAccounts, onClose, onDone }: any) {
             <p className="text-xs text-amber-600 font-medium">Amount Outstanding</p>
             <p className="text-lg font-bold text-amber-700">{formatCurrency(invoice.amountDue, invoice.currency)}</p>
           </div>
-          <div className="text-right text-xs text-amber-600">
+          <div className="text-end text-xs text-amber-600">
             <p>Invoice {invoice.invoiceNumber}</p>
             {invoice.dueDate && <p>Due {formatDate(invoice.dueDate)}</p>}
           </div>
@@ -270,7 +270,7 @@ export default function InvoiceDetailPage() {
                   <p className="text-xs text-gray-500 mb-0.5">Amount Due</p>
                   <p className="text-2xl font-bold text-gray-900">{formatCurrency(inv.amountDue, inv.currency)}</p>
                 </div>
-                <div className="text-right">
+                <div className="text-end">
                   <p className="text-xs text-gray-500 mb-0.5">Invoice Total</p>
                   <p className="text-lg font-semibold text-gray-600">{formatCurrency(inv.total, inv.currency)}</p>
                 </div>
@@ -296,11 +296,11 @@ export default function InvoiceDetailPage() {
               <table className="w-full">
                 <thead>
                   <tr className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-100">
-                    <th className="px-5 py-2.5 text-left">Description</th>
-                    <th className="px-3 py-2.5 text-right">Qty</th>
-                    <th className="px-3 py-2.5 text-right">Unit Price</th>
-                    <th className="px-3 py-2.5 text-right">VAT</th>
-                    <th className="px-5 py-2.5 text-right">Total</th>
+                    <th className="px-5 py-2.5 text-start">Description</th>
+                    <th className="px-3 py-2.5 text-end">Qty</th>
+                    <th className="px-3 py-2.5 text-end">Unit Price</th>
+                    <th className="px-3 py-2.5 text-end">VAT</th>
+                    <th className="px-5 py-2.5 text-end">Total</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -310,13 +310,13 @@ export default function InvoiceDetailPage() {
                         <p className="text-sm font-medium text-gray-800">{item.description}</p>
                         {item.details && <p className="text-xs text-gray-400 mt-0.5">{item.details}</p>}
                       </td>
-                      <td className="px-3 py-3 text-right text-sm text-gray-600">{Number(item.quantity)} {item.unit}</td>
-                      <td className="px-3 py-3 text-right text-sm">{formatCurrency(item.unitPrice, inv.currency)}</td>
-                      <td className="px-3 py-3 text-right text-xs text-gray-400">
+                      <td className="px-3 py-3 text-end text-sm text-gray-600">{Number(item.quantity)} {item.unit}</td>
+                      <td className="px-3 py-3 text-end text-sm">{formatCurrency(item.unitPrice, inv.currency)}</td>
+                      <td className="px-3 py-3 text-end text-xs text-gray-400">
                         {item.taxRate?.name || '—'}
                         {Number(item.taxAmount) > 0 && <span className="block">{formatCurrency(item.taxAmount, inv.currency)}</span>}
                       </td>
-                      <td className="px-5 py-3 text-right font-semibold">{formatCurrency(item.lineTotal, inv.currency)}</td>
+                      <td className="px-5 py-3 text-end font-semibold">{formatCurrency(item.lineTotal, inv.currency)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -329,10 +329,10 @@ export default function InvoiceDetailPage() {
                     ['Total', inv.total],
                   ].filter(Boolean).map(([label, val]: any, i, arr) => (
                     <tr key={label} className={i === arr.length - 1 ? 'border-t border-gray-200' : ''}>
-                      <td colSpan={4} className={cn('px-5 py-2 text-right text-sm', i === arr.length - 1 ? 'font-bold text-gray-900' : 'text-gray-500')}>
+                      <td colSpan={4} className={cn('px-5 py-2 text-end text-sm', i === arr.length - 1 ? 'font-bold text-gray-900' : 'text-gray-500')}>
                         {label}
                       </td>
-                      <td className={cn('px-5 py-2 text-right', i === arr.length - 1 ? 'font-bold text-xl text-brand-700' : 'font-semibold')}>
+                      <td className={cn('px-5 py-2 text-end', i === arr.length - 1 ? 'font-bold text-xl text-brand-700' : 'font-semibold')}>
                         {typeof val === 'string' ? val : formatCurrency(val, inv.currency)}
                       </td>
                     </tr>
@@ -362,12 +362,12 @@ export default function InvoiceDetailPage() {
                 <table className="w-full">
                   <thead>
                     <tr className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-100">
-                      <th className="px-5 py-2.5 text-left">Receipt #</th>
-                      <th className="px-3 py-2.5 text-left">Date</th>
-                      <th className="px-3 py-2.5 text-left">Method</th>
-                      <th className="px-3 py-2.5 text-left">Reference</th>
-                      <th className="px-3 py-2.5 text-left">Status</th>
-                      <th className="px-5 py-2.5 text-right">Amount</th>
+                      <th className="px-5 py-2.5 text-start">Receipt #</th>
+                      <th className="px-3 py-2.5 text-start">Date</th>
+                      <th className="px-3 py-2.5 text-start">Method</th>
+                      <th className="px-3 py-2.5 text-start">Reference</th>
+                      <th className="px-3 py-2.5 text-start">Status</th>
+                      <th className="px-5 py-2.5 text-end">Amount</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -383,7 +383,7 @@ export default function InvoiceDetailPage() {
                             p.status === 'BOUNCED' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'
                           )}>{p.status}</span>
                         </td>
-                        <td className="table-td text-right font-semibold text-green-700">
+                        <td className="table-td text-end font-semibold text-green-700">
                           {formatCurrency(p.amount, inv.currency)}
                         </td>
                       </tr>

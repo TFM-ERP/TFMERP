@@ -91,10 +91,10 @@ export default function PmSchedulePage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-100">
-                <th className="px-5 py-2.5 text-left">Asset / Task</th>
-                <th className="px-3 py-2.5 text-left">Interval</th>
-                <th className="px-3 py-2.5 text-left">Status</th>
-                <th className="px-5 py-2.5 text-right">Actions</th>
+                <th className="px-5 py-2.5 text-start">Asset / Task</th>
+                <th className="px-3 py-2.5 text-start">Interval</th>
+                <th className="px-3 py-2.5 text-start">Status</th>
+                <th className="px-5 py-2.5 text-end">Actions</th>
               </tr>
             </thead>
             <tbody>

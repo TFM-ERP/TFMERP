@@ -104,7 +104,7 @@ export default function TopsheetComparisonPanel({ projectId, currency = 'AED', o
               <button key={a.label} disabled={busy}
                 onClick={() => a.branch ? branchWorkingCopy(w.id) : transition(w.id, a.to!, a.prompt)}
                 className={cn('btn text-xs py-1.5 px-3 disabled:opacity-50', a.cls)}>
-                <a.icon size={13} className="mr-1" /> {a.label}
+                <a.icon size={13} className="me-1" /> {a.label}
               </button>
             ))}
             <Btn variant="secondary" onClick={() => w && window.open(`/print/topsheet/${w.id}`, '_blank')}><Printer size={12} /></Btn>
@@ -118,11 +118,11 @@ export default function TopsheetComparisonPanel({ projectId, currency = 'AED', o
       <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
         <table className="w-full text-sm">
           <thead><tr className="text-[11px] text-slate-400 uppercase tracking-wide border-b border-slate-200">
-            <th className="px-4 py-2.5 text-left w-16">Code</th>
-            <th className="px-3 py-2.5 text-left">Department / Section</th>
-            <th className="px-3 py-2.5 text-right">Locked Baseline{b ? '' : ' (none)'}</th>
-            <th className="px-3 py-2.5 text-right">Current Working</th>
-            <th className="px-3 py-2.5 text-right">Variance</th>
+            <th className="px-4 py-2.5 text-start w-16">Code</th>
+            <th className="px-3 py-2.5 text-start">Department / Section</th>
+            <th className="px-3 py-2.5 text-end">Locked Baseline{b ? '' : ' (none)'}</th>
+            <th className="px-3 py-2.5 text-end">Current Working</th>
+            <th className="px-3 py-2.5 text-end">Variance</th>
           </tr></thead>
           <tbody>
             {grid.length === 0 ? (
@@ -131,18 +131,18 @@ export default function TopsheetComparisonPanel({ projectId, currency = 'AED', o
               <tr key={r.sectionCode} className={cn('border-b border-slate-100', r.variance < -0.01 && 'bg-red-50/40')}>
                 <td className="px-4 py-2 font-mono text-xs text-gray-500">{r.sectionCode}</td>
                 <td className="px-3 py-2 text-gray-800">{r.sectionTitle}</td>
-                <td className="px-3 py-2 text-right text-gray-600">{r.lockedBaseline ? money(r.lockedBaseline.total) : '—'}</td>
-                <td className="px-3 py-2 text-right font-medium text-gray-900">{r.currentWorking ? money(r.currentWorking.total) : '—'}</td>
-                <td className={cn('px-3 py-2 text-right font-medium', r.variance < -0.01 ? 'text-red-600' : r.variance > 0.01 ? 'text-green-600' : 'text-gray-400')}>
+                <td className="px-3 py-2 text-end text-gray-600">{r.lockedBaseline ? money(r.lockedBaseline.total) : '—'}</td>
+                <td className="px-3 py-2 text-end font-medium text-gray-900">{r.currentWorking ? money(r.currentWorking.total) : '—'}</td>
+                <td className={cn('px-3 py-2 text-end font-medium', r.variance < -0.01 ? 'text-red-600' : r.variance > 0.01 ? 'text-green-600' : 'text-gray-400')}>
                   {r.variance < 0 ? '-' : r.variance > 0 ? '+' : ''}{money(Math.abs(r.variance))}
                 </td>
               </tr>
             ))}
             <tr className="bg-gray-100 font-bold text-gray-900 border-t-2 border-gray-200">
               <td className="px-4 py-3" colSpan={2}>GRAND TOTALS</td>
-              <td className="px-3 py-3 text-right">{money(gt.baseline)}</td>
-              <td className="px-3 py-3 text-right">{money(gt.working)}</td>
-              <td className={cn('px-3 py-3 text-right', gt.variance < -0.01 ? 'text-red-600' : gt.variance > 0.01 ? 'text-green-600' : 'text-gray-500')}>
+              <td className="px-3 py-3 text-end">{money(gt.baseline)}</td>
+              <td className="px-3 py-3 text-end">{money(gt.working)}</td>
+              <td className={cn('px-3 py-3 text-end', gt.variance < -0.01 ? 'text-red-600' : gt.variance > 0.01 ? 'text-green-600' : 'text-gray-500')}>
                 {gt.variance < 0 ? '-' : gt.variance > 0 ? '+' : ''}{money(Math.abs(gt.variance))}
               </td>
             </tr>

@@ -211,14 +211,14 @@ export default function ClientsPage() {
     <div className="p-6 max-w-6xl mx-auto">
       <CinematicHeader kicker="Partners · Clients" title="Clients" count={`${items.length} clients`}>
         <button onClick={() => setShowWizard(true)} className="btn btn-primary">
-          <Plus size={14} className="mr-1" /> Add Client
+          <Plus size={14} className="me-1" /> Add Client
         </button>
       </CinematicHeader>
 
       <div className="flex flex-wrap gap-3 mb-4">
         <div className="relative flex-1 min-w-48">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input className="input pl-9 w-full" placeholder="Search clients…" value={search} onChange={e => setSearch(e.target.value)} />
+          <Search size={14} className="absolute start-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input className="input ps-9 w-full" placeholder="Search clients…" value={search} onChange={e => setSearch(e.target.value)} />
         </div>
         <select className="input w-44" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
           <option value="">All Statuses</option>

@@ -151,9 +151,9 @@ export default function CoaMappingReviewTable({ projectId, initialFile, onClose,
             <table className="w-full text-xs">
               <thead className="sticky top-0">
                 <tr className="bg-gray-50 text-slate-400 text-[11px] uppercase tracking-wide border-b border-slate-200">
-                  <th className="text-left px-3 py-2">Movie Magic line</th>
-                  <th className="text-left px-3 py-2">Master account / VAT</th>
-                  <th className="text-left px-3 py-2 w-36">AI confidence</th>
+                  <th className="text-start px-3 py-2">Movie Magic line</th>
+                  <th className="text-start px-3 py-2">Master account / VAT</th>
+                  <th className="text-start px-3 py-2 w-36">AI confidence</th>
                 </tr>
               </thead>
               <tbody>

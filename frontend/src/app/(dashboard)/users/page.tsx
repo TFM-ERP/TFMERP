@@ -58,13 +58,13 @@ export default function UsersPage() {
           <p className="text-gray-500 text-sm mt-0.5">System access for employees — personnel data lives in HR</p>
         </div>
         <button onClick={() => setShowCreate(true)} className="btn btn-primary">
-          <Plus size={14} className="mr-1" /> New User Account
+          <Plus size={14} className="me-1" /> New User Account
         </button>
       </div>
 
       <div className="relative mb-4 max-w-sm">
-        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-        <input className="input pl-9 w-full" placeholder="Search by name or email…"
+        <Search size={14} className="absolute start-3 top-1/2 -translate-y-1/2 text-gray-400" />
+        <input className="input ps-9 w-full" placeholder="Search by name or email…"
           value={search} onChange={e => setSearch(e.target.value)} />
       </div>
 
@@ -107,7 +107,7 @@ export default function UsersPage() {
                     : <span className="inline-flex items-center gap-1 text-xs text-gray-400"><X size={12} /> Disabled</span>}
                 </td>
                 <td className="table-td text-xs text-gray-500">{u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString() : '—'}</td>
-                <td className="table-td text-right">
+                <td className="table-td text-end">
                   <button onClick={() => setEditing(u)} className="text-gray-400 hover:text-gray-700"><Edit2 size={14} /></button>
                 </td>
               </tr>
@@ -186,8 +186,8 @@ function CreateUserModal({ onClose, onDone }: { onClose: () => void; onDone: () 
           {step === 1 && (
             <div>
               <div className="relative mb-3">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input className="input pl-9 w-full" placeholder="Search employees by name, number, email…" autoFocus
+                <Search size={14} className="absolute start-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input className="input ps-9 w-full" placeholder="Search employees by name, number, email…" autoFocus
                   value={search} onChange={e => setSearch(e.target.value)} />
               </div>
               <p className="text-xs text-gray-400 mb-3">Only employees without an existing account are shown. Need someone new? Add them in HR → Employees first.</p>
@@ -198,7 +198,7 @@ function CreateUserModal({ onClose, onDone }: { onClose: () => void; onDone: () 
                   <div className="text-center py-8 text-gray-400 text-sm">No available employees found.</div>
                 ) : employees.map(emp => (
                   <button key={emp.id} onClick={() => pick(emp)}
-                    className="w-full flex items-center justify-between rounded-lg border border-gray-200 p-3 text-left hover:border-indigo-300 hover:bg-indigo-50/40 transition-colors">
+                    className="w-full flex items-center justify-between rounded-lg border border-gray-200 p-3 text-start hover:border-indigo-300 hover:bg-indigo-50/40 transition-colors">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 text-sm font-semibold">
                         {empName(emp).slice(0, 1).toUpperCase()}

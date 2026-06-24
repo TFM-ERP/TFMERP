@@ -52,7 +52,7 @@ export default function ContactPicker({
         <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
           Contacts <span className="text-xs text-gray-400">· from the Contacts directory</span>
         </h3>
-        <button onClick={() => setPicking(true)} className="btn btn-primary text-xs"><Plus size={12} className="mr-1" /> Add / Link Contact</button>
+        <button onClick={() => setPicking(true)} className="btn btn-primary text-xs"><Plus size={12} className="me-1" /> Add / Link Contact</button>
       </div>
 
       {loading ? (
@@ -141,8 +141,8 @@ function ContactPickerModal({ linkKey, linkId, contactType, onClose, onDone }: {
           {mode === 'link' ? (
             <>
               <div className="relative mb-3">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input className="input pl-9 w-full" placeholder="Search contacts directory…" autoFocus value={search} onChange={e => setSearch(e.target.value)} />
+                <Search size={14} className="absolute start-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input className="input ps-9 w-full" placeholder="Search contacts directory…" autoFocus value={search} onChange={e => setSearch(e.target.value)} />
               </div>
               <div className="space-y-1.5 max-h-[48vh] overflow-y-auto">
                 {searching ? (
@@ -151,7 +151,7 @@ function ContactPickerModal({ linkKey, linkId, contactType, onClose, onDone }: {
                   <div className="text-center py-6 text-gray-400 text-sm">No matching contacts. Switch to “Add new”.</div>
                 ) : results.map(c => (
                   <button key={c.id} onClick={() => linkExisting(c)}
-                    className="w-full flex items-center justify-between rounded-lg border border-gray-200 p-3 text-left hover:border-brand-300 hover:bg-brand-50/40">
+                    className="w-full flex items-center justify-between rounded-lg border border-gray-200 p-3 text-start hover:border-brand-300 hover:bg-brand-50/40">
                     <div>
                       <p className="text-sm font-medium text-gray-800">{c.name}</p>
                       <p className="text-xs text-gray-400">{[c.jobTitle, c.company, c.email].filter(Boolean).join(' · ') || '—'}</p>

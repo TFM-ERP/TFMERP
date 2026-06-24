@@ -104,7 +104,7 @@ export function ClusterCard({ title, meta, badges, right, defaultOpen = false, o
   return (
     <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden mb-2">
       <div className="flex items-center gap-2.5 px-3 py-2.5">
-        <button onClick={toggle} className="flex-1 flex items-center gap-2.5 text-left min-w-0">
+        <button onClick={toggle} className="flex-1 flex items-center gap-2.5 text-start min-w-0">
           <ChevronRight size={15} className={`text-slate-300 transition shrink-0 ${open ? 'rotate-90' : ''}`} />
           <span className="font-medium text-slate-900 text-[15px] truncate">{title}</span>
           {badges}
@@ -124,13 +124,13 @@ export function DataTable({ cols, rows, minWidth = 700, align = {} }:
       <table className="w-full text-[13px]" style={{ minWidth }}>
         <thead>
           <tr className="border-b border-slate-200 text-slate-400 text-[11px] uppercase tracking-wide">
-            {cols.map((c, i) => <th key={i} className={`py-1.5 px-2 ${align[i] === 'right' ? 'text-right' : align[i] === 'center' ? 'text-center' : 'text-left'}`}>{c}</th>)}
+            {cols.map((c, i) => <th key={i} className={`py-1.5 px-2 ${align[i] === 'right' ? 'text-end' : align[i] === 'center' ? 'text-center' : 'text-start'}`}>{c}</th>)}
           </tr>
         </thead>
         <tbody>
           {rows.map((r, i) => (
             <tr key={i} className={`border-b border-slate-100 ${i % 2 ? 'bg-slate-50/50' : ''}`}>
-              {r.map((c, j) => <td key={j} className={`py-1.5 px-2 ${align[j] === 'right' ? 'text-right' : align[j] === 'center' ? 'text-center' : ''}`}>{c}</td>)}
+              {r.map((c, j) => <td key={j} className={`py-1.5 px-2 ${align[j] === 'right' ? 'text-end' : align[j] === 'center' ? 'text-center' : ''}`}>{c}</td>)}
             </tr>
           ))}
         </tbody>

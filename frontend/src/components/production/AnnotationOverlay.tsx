@@ -84,11 +84,11 @@ function StickyNote({ a, pageW, pageH, readOnly, onUpdate, onDelete }: {
         ) : a.payload?.text}
       </div>
       {/* folded corner */}
-      <div className="absolute bottom-0 right-0" style={{ width: 0, height: 0, borderStyle: 'solid', borderWidth: '0 0 16px 16px', borderColor: `transparent transparent rgba(0,0,0,0.18) transparent` }} />
+      <div className="absolute bottom-0 end-0" style={{ width: 0, height: 0, borderStyle: 'solid', borderWidth: '0 0 16px 16px', borderColor: `transparent transparent rgba(0,0,0,0.18) transparent` }} />
       {/* handles (hover, author only) */}
       {!readOnly && <>
         <button title="Delete note" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onDelete(a.id); }}
-          className="absolute -top-2 -right-2 hidden group-hover:flex items-center justify-center w-5 h-5 rounded-full bg-slate-900 text-white text-[10px] shadow">✕</button>
+          className="absolute -top-2 -end-2 hidden group-hover:flex items-center justify-center w-5 h-5 rounded-full bg-slate-900 text-white text-[10px] shadow">✕</button>
         <div title="Rotate" onMouseDown={begin('rotate')}
           className="absolute left-1/2 -translate-x-1/2 hidden group-hover:block w-3.5 h-3.5 rounded-full bg-white border-2 border-slate-500 shadow" style={{ top: -18, cursor: 'grab' }} />
         <div title="Resize" onMouseDown={begin('resize')}

@@ -72,7 +72,7 @@ export function CreditsTab({ talentId }: { talentId: string }) {
           <div className="space-y-1">
             {rows.filter((r) => r.creditType === ct).map((r) => (
               <div key={r.id} className="flex items-center justify-between text-sm">
-                <span className="text-slate-700 truncate"><Film size={11} className="inline text-slate-400 mr-1" />{r.title}{r.role ? ` — ${r.role}` : ''}<span className="text-[11px] text-slate-400 ml-1">{[r.year, r.director, r.productionCompany].filter(Boolean).join(' · ')}</span></span>
+                <span className="text-slate-700 truncate"><Film size={11} className="inline text-slate-400 me-1" />{r.title}{r.role ? ` — ${r.role}` : ''}<span className="text-[11px] text-slate-400 ms-1">{[r.year, r.director, r.productionCompany].filter(Boolean).join(' · ')}</span></span>
                 <button onClick={() => del(r.id)} className="text-slate-300 hover:text-rose-600 shrink-0"><Trash2 size={12} /></button>
               </div>
             ))}
@@ -130,7 +130,7 @@ export function CrmTab({ talentId, projectId }: { talentId: string; projectId?: 
           <div className="space-y-1.5">{rows.map((r) => (
             <div key={r.id} className="flex items-start gap-2 text-sm">
               <span className="w-1.5 h-1.5 rounded-full bg-[#0f172a] mt-1.5 shrink-0" />
-              <div className="min-w-0 flex-1"><span className="text-slate-700 font-medium">{r.type.replace(/_/g, ' ')}</span> <span className="text-[10px] text-slate-400">{fmt(r.occurredAt)}</span>{r.followUpDate && <span className="text-[10px] text-amber-600 ml-1">· follow-up {fmt(r.followUpDate)}</span>}{r.notes && <div className="text-[11px] text-slate-500">{r.notes}</div>}</div>
+              <div className="min-w-0 flex-1"><span className="text-slate-700 font-medium">{r.type.replace(/_/g, ' ')}</span> <span className="text-[10px] text-slate-400">{fmt(r.occurredAt)}</span>{r.followUpDate && <span className="text-[10px] text-amber-600 ms-1">· follow-up {fmt(r.followUpDate)}</span>}{r.notes && <div className="text-[11px] text-slate-500">{r.notes}</div>}</div>
               <button onClick={() => del(r.id)} className="text-slate-300 hover:text-rose-600 shrink-0"><Trash2 size={12} /></button>
             </div>
           ))}</div>

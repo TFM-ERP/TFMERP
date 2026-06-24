@@ -205,9 +205,9 @@ export default function PurchasingPanel({ projectId, currency = 'AED', accounts 
               pos.length === 0 ? <div className="p-6"><EmptyState icon={FileText}>No purchase orders yet.</EmptyState></div> : (
                 <table className="w-full text-sm">
                   <thead><tr className="text-[11px] text-slate-400 uppercase tracking-wide border-b border-slate-200">
-                    <th className="px-4 py-2.5 text-left">PO</th><th className="px-3 py-2.5 text-left">Vendor</th>
-                    <th className="px-3 py-2.5 text-left">Cost Center</th><th className="px-3 py-2.5 text-right">Total</th>
-                    <th className="px-3 py-2.5 text-right">Invoiced</th><th className="px-3 py-2.5 text-left">Status</th><th className="px-3 py-2.5 text-right">Actions</th>
+                    <th className="px-4 py-2.5 text-start">PO</th><th className="px-3 py-2.5 text-start">Vendor</th>
+                    <th className="px-3 py-2.5 text-start">Cost Center</th><th className="px-3 py-2.5 text-end">Total</th>
+                    <th className="px-3 py-2.5 text-end">Invoiced</th><th className="px-3 py-2.5 text-start">Status</th><th className="px-3 py-2.5 text-end">Actions</th>
                   </tr></thead>
                   <tbody>
                     {pos.map(p => {
@@ -217,17 +217,17 @@ export default function PurchasingPanel({ projectId, currency = 'AED', accounts 
                           <td className="px-4 py-2.5"><div className="font-mono text-xs text-gray-700">{p.poNumber}</div><div className="text-[11px] text-gray-400">{p.description}</div></td>
                           <td className="px-3 py-2.5 text-gray-600 text-xs">{p.vendorName || '—'}</td>
                           <td className="px-3 py-2.5 text-gray-500 text-xs">{p.costCenterCode ? `${p.costCenterCode} · ${p.costCenterTitle || ''}` : '—'}</td>
-                          <td className="px-3 py-2.5 text-right font-medium text-gray-800">{money(p.total)}</td>
-                          <td className="px-3 py-2.5 text-right text-gray-500">{money(p.invoicedAmount)}</td>
+                          <td className="px-3 py-2.5 text-end font-medium text-gray-800">{money(p.total)}</td>
+                          <td className="px-3 py-2.5 text-end text-gray-500">{money(p.invoicedAmount)}</td>
                           <td className="px-3 py-2.5"><Chip tone={PO_TONE[p.status] || 'slate'}>{p.status.replace(/_/g, ' ')}</Chip></td>
-                          <td className="px-3 py-2.5 text-right whitespace-nowrap">
-                            {p.status === 'DRAFT' && <button onClick={() => routePo(p.id)} title="Route for approval" className="text-brand-600 hover:text-brand-700 mr-2"><GitBranch size={14} /></button>}
-                            {p.status === 'DRAFT' && <button onClick={() => setPoStatus(p.id, 'APPROVED')} title="Approve directly (skip workflow)" className="text-blue-500 hover:text-blue-700 mr-2"><CheckCircle size={14} /></button>}
-                            {p.status === 'SUBMITTED' && <span className="text-[10px] text-indigo-600 mr-2" title="Awaiting approvers in My Approvals">in approval…</span>}
-                            {p.status === 'REJECTED' && <button onClick={() => revisePo(p.id)} title="Rejected — revise & resubmit" className="text-amber-600 hover:text-amber-700 mr-2 text-[11px] font-semibold">Revise</button>}
-                            {['APPROVED', 'PARTIALLY_INVOICED'].includes(p.status) && <button onClick={() => scanInvoice(p)} title="Scan invoice (OCR → draft cost)" className="text-violet-500 hover:text-violet-700 mr-2"><ScanLine size={14} /></button>}
-                            {['APPROVED', 'PARTIALLY_INVOICED'].includes(p.status) && remaining > 0 && <button onClick={() => invoice(p)} title="Invoice" className="text-green-600 hover:text-green-700 mr-2"><Receipt size={14} /></button>}
-                            {!['CLOSED', 'CANCELLED'].includes(p.status) && <button onClick={() => setPoStatus(p.id, 'CANCELLED')} title="Cancel" className="text-gray-400 hover:text-red-600 mr-2"><Ban size={13} /></button>}
+                          <td className="px-3 py-2.5 text-end whitespace-nowrap">
+                            {p.status === 'DRAFT' && <button onClick={() => routePo(p.id)} title="Route for approval" className="text-brand-600 hover:text-brand-700 me-2"><GitBranch size={14} /></button>}
+                            {p.status === 'DRAFT' && <button onClick={() => setPoStatus(p.id, 'APPROVED')} title="Approve directly (skip workflow)" className="text-blue-500 hover:text-blue-700 me-2"><CheckCircle size={14} /></button>}
+                            {p.status === 'SUBMITTED' && <span className="text-[10px] text-indigo-600 me-2" title="Awaiting approvers in My Approvals">in approval…</span>}
+                            {p.status === 'REJECTED' && <button onClick={() => revisePo(p.id)} title="Rejected — revise & resubmit" className="text-amber-600 hover:text-amber-700 me-2 text-[11px] font-semibold">Revise</button>}
+                            {['APPROVED', 'PARTIALLY_INVOICED'].includes(p.status) && <button onClick={() => scanInvoice(p)} title="Scan invoice (OCR → draft cost)" className="text-violet-500 hover:text-violet-700 me-2"><ScanLine size={14} /></button>}
+                            {['APPROVED', 'PARTIALLY_INVOICED'].includes(p.status) && remaining > 0 && <button onClick={() => invoice(p)} title="Invoice" className="text-green-600 hover:text-green-700 me-2"><Receipt size={14} /></button>}
+                            {!['CLOSED', 'CANCELLED'].includes(p.status) && <button onClick={() => setPoStatus(p.id, 'CANCELLED')} title="Cancel" className="text-gray-400 hover:text-red-600 me-2"><Ban size={13} /></button>}
                             <button onClick={() => removePo(p.id)} className="text-gray-300 hover:text-red-500"><Trash2 size={13} /></button>
                           </td>
                         </tr>
@@ -260,9 +260,9 @@ export default function PurchasingPanel({ projectId, currency = 'AED', accounts 
               vendors.length === 0 ? <div className="p-6"><EmptyState icon={Building2}>No vendors yet.</EmptyState></div> : (
                 <table className="w-full text-sm">
                   <thead><tr className="text-[11px] text-slate-400 uppercase tracking-wide border-b border-slate-200">
-                    <th className="px-4 py-2.5 text-left">Vendor</th><th className="px-3 py-2.5 text-left">Category</th>
-                    <th className="px-3 py-2.5 text-left">Contact</th><th className="px-3 py-2.5 text-left">TRN</th>
-                    <th className="px-3 py-2.5 text-left">Source</th><th className="px-3 py-2.5"></th>
+                    <th className="px-4 py-2.5 text-start">Vendor</th><th className="px-3 py-2.5 text-start">Category</th>
+                    <th className="px-3 py-2.5 text-start">Contact</th><th className="px-3 py-2.5 text-start">TRN</th>
+                    <th className="px-3 py-2.5 text-start">Source</th><th className="px-3 py-2.5"></th>
                   </tr></thead>
                   <tbody>
                     {vendors.map(v => (
@@ -276,8 +276,8 @@ export default function PurchasingPanel({ projectId, currency = 'AED', accounts 
                             ? <Chip tone="money"><span className="inline-flex items-center gap-1"><Link2 size={11} /> Linked supplier</span></Chip>
                             : <Chip tone="slate">One-off</Chip>}
                         </td>
-                        <td className="px-3 py-2.5 text-right whitespace-nowrap">
-                          {v.supplierId && <button onClick={() => refreshVendor(v.id)} title="Refresh details from supplier master" className="text-gray-300 hover:text-brand-600 mr-2"><RefreshCw size={13} /></button>}
+                        <td className="px-3 py-2.5 text-end whitespace-nowrap">
+                          {v.supplierId && <button onClick={() => refreshVendor(v.id)} title="Refresh details from supplier master" className="text-gray-300 hover:text-brand-600 me-2"><RefreshCw size={13} /></button>}
                           <button onClick={() => removeVendor(v.id)} title="Remove from project" className="text-gray-300 hover:text-red-500"><Trash2 size={13} /></button>
                         </td>
                       </tr>
@@ -305,8 +305,8 @@ export default function PurchasingPanel({ projectId, currency = 'AED', accounts 
             {pending.length === 0 ? <div className="p-6"><EmptyState icon={Building2}>No vendor submissions waiting.</EmptyState></div> : (
               <table className="w-full text-sm">
                 <thead><tr className="text-[11px] text-slate-400 uppercase tracking-wide border-b border-slate-200">
-                  <th className="px-4 py-2.5 text-left">Company</th><th className="px-3 py-2.5 text-left">TRN</th>
-                  <th className="px-3 py-2.5 text-left">Banking</th><th className="px-3 py-2.5 text-left">Docs</th><th className="px-3 py-2.5 text-right">Actions</th>
+                  <th className="px-4 py-2.5 text-start">Company</th><th className="px-3 py-2.5 text-start">TRN</th>
+                  <th className="px-3 py-2.5 text-start">Banking</th><th className="px-3 py-2.5 text-start">Docs</th><th className="px-3 py-2.5 text-end">Actions</th>
                 </tr></thead>
                 <tbody>
                   {pending.map(v => (
@@ -315,12 +315,12 @@ export default function PurchasingPanel({ projectId, currency = 'AED', accounts 
                       <td className="px-3 py-2.5 text-gray-500 text-xs font-mono">{v.trn || '—'}</td>
                       <td className="px-3 py-2.5 text-gray-500 text-xs">{v.iban ? <span className="font-mono">{v.iban}</span> : '—'}{v.bankName ? <div className="text-[10px] text-gray-400">{v.bankName}</div> : null}</td>
                       <td className="px-3 py-2.5 text-xs">
-                        {v.trnCertUrl ? <a href={assetUrl(v.trnCertUrl)} target="_blank" rel="noreferrer" className="text-brand-600 hover:underline mr-2">TRN</a> : null}
+                        {v.trnCertUrl ? <a href={assetUrl(v.trnCertUrl)} target="_blank" rel="noreferrer" className="text-brand-600 hover:underline me-2">TRN</a> : null}
                         {v.tradeLicenseUrl ? <a href={assetUrl(v.tradeLicenseUrl)} target="_blank" rel="noreferrer" className="text-brand-600 hover:underline">Licence</a> : null}
                         {!v.trnCertUrl && !v.tradeLicenseUrl && <span className="text-gray-400">—</span>}
                       </td>
-                      <td className="px-3 py-2.5 text-right whitespace-nowrap">
-                        <button onClick={() => approvePending(v.id)} title="Approve → create vendor" className="text-green-600 hover:text-green-700 mr-2"><CheckCircle size={15} /></button>
+                      <td className="px-3 py-2.5 text-end whitespace-nowrap">
+                        <button onClick={() => approvePending(v.id)} title="Approve → create vendor" className="text-green-600 hover:text-green-700 me-2"><CheckCircle size={15} /></button>
                         <button onClick={() => rejectPending(v.id)} title="Reject" className="text-gray-300 hover:text-red-500"><Ban size={14} /></button>
                       </td>
                     </tr>
@@ -344,8 +344,8 @@ export default function PurchasingPanel({ projectId, currency = 'AED', accounts 
             </div>
             <div className="px-5 py-3 border-b border-gray-50">
               <div className="relative">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 z-10" />
-                <input autoFocus className={cn(inputCls, 'pl-8')} placeholder="Search suppliers by name, code, category…" value={search} onChange={e => setSearch(e.target.value)} />
+                <Search size={14} className="absolute start-3 top-1/2 -translate-y-1/2 text-gray-300 z-10" />
+                <input autoFocus className={cn(inputCls, 'ps-8')} placeholder="Search suppliers by name, code, category…" value={search} onChange={e => setSearch(e.target.value)} />
               </div>
             </div>
             <div className="flex-1 overflow-y-auto">
@@ -357,7 +357,7 @@ export default function PurchasingPanel({ projectId, currency = 'AED', accounts 
                         <label className={cn('flex items-center gap-3 px-5 py-2.5', s.linked ? 'opacity-60' : 'cursor-pointer hover:bg-gray-50/60')}>
                           <input type="checkbox" disabled={s.linked} checked={s.linked || selected.has(s.id)} onChange={() => toggle(s.id)} className="accent-brand-600" />
                           <div className="flex-1 min-w-0">
-                            <div className="text-sm text-gray-800 font-medium truncate">{s.tradeName || s.name}{s.supplierCode && <span className="text-[10px] text-gray-300 font-mono ml-2">{s.supplierCode}</span>}</div>
+                            <div className="text-sm text-gray-800 font-medium truncate">{s.tradeName || s.name}{s.supplierCode && <span className="text-[10px] text-gray-300 font-mono ms-2">{s.supplierCode}</span>}</div>
                             <div className="text-[11px] text-gray-400 truncate">{[(s.categories && s.categories[0]) || s.category, s.city, s.trn && `TRN ${s.trn}`].filter(Boolean).join(' · ') || '—'}</div>
                           </div>
                           {s.linked && <Chip tone="money"><span className="inline-flex items-center gap-1"><CheckCircle size={10} /> Added</span></Chip>}

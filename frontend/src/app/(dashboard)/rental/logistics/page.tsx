@@ -162,8 +162,8 @@ export default function LogisticsCommandPage() {
   const tabBtn = (k: typeof tab, label: string, n?: number) => (
     <button onClick={() => setTab(k)} className="px-3.5 py-2 text-[12.5px] relative"
       style={{ color: tab === k ? 'var(--text-1)' : 'var(--text-3)', fontWeight: tab === k ? 700 : 400 }}>
-      {label}{n != null && n > 0 ? <span className="ml-1.5 text-[10px] rounded-full px-1.5 font-medium text-white" style={{ background: '#e24b4a' }}>{n}</span> : null}
-      {tab === k && <span className="absolute left-2.5 right-2.5 bottom-0 h-[2px] rounded" style={{ background: 'var(--gold)' }} />}
+      {label}{n != null && n > 0 ? <span className="ms-1.5 text-[10px] rounded-full px-1.5 font-medium text-white" style={{ background: '#e24b4a' }}>{n}</span> : null}
+      {tab === k && <span className="absolute start-2.5 end-2.5 bottom-0 h-[2px] rounded" style={{ background: 'var(--gold)' }} />}
     </button>
   );
 
@@ -173,7 +173,7 @@ export default function LogisticsCommandPage() {
         <div>
           <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>Rentals · Live Operations</div>
           <h1 className="text-[20px] font-extrabold leading-tight" style={{ color: 'var(--text-1)' }}>Logistics Command</h1>
-          <p className="text-sm" style={{ color: 'var(--text-3)' }}>{summary.onHire ?? 0} on hire · {(data?.hires || []).reduce((a: number, h: any) => a + (h.locations?.length || 0), 0)} locations{summary.alerts ? <span className="ml-1 font-medium" style={{ color: 'var(--danger)' }}>· {summary.alerts} alert</span> : null}</p>
+          <p className="text-sm" style={{ color: 'var(--text-3)' }}>{summary.onHire ?? 0} on hire · {(data?.hires || []).reduce((a: number, h: any) => a + (h.locations?.length || 0), 0)} locations{summary.alerts ? <span className="ms-1 font-medium" style={{ color: 'var(--danger)' }}>· {summary.alerts} alert</span> : null}</p>
         </div>
         <button onClick={load} className="btn btn-secondary"><RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh</button>
       </div>
@@ -200,7 +200,7 @@ export default function LogisticsCommandPage() {
         <div className="grid grid-cols-1 lg:grid-cols-[1.7fr_1fr] gap-4">
           <div className="rounded-2xl border overflow-hidden relative" style={{ borderColor: 'var(--border-1)' }}>
             <div ref={mapEl} style={{ height: 460, width: '100%', background: '#e6eaef' }} />
-            <div className="absolute top-3 right-3 z-[500] flex rounded-lg overflow-hidden shadow" style={{ border: '1px solid var(--border-1)' }}>
+            <div className="absolute top-3 end-3 z-[500] flex rounded-lg overflow-hidden shadow" style={{ border: '1px solid var(--border-1)' }}>
               {(Object.keys(TILES) as (keyof typeof TILES)[]).map(k => (
                 <button key={k} onClick={() => setTile(k)} className="px-2.5 py-1.5 text-[11px] font-semibold" style={tile === k ? { background: '#1C2433', color: '#fff' } : { background: '#fff', color: '#44505F' }}>{TILES[k].label}</button>
               ))}
@@ -211,7 +211,7 @@ export default function LogisticsCommandPage() {
               </div>
             )}
           </div>
-          <div className="space-y-3 max-h-[460px] overflow-auto pr-1">
+          <div className="space-y-3 max-h-[460px] overflow-auto pe-1">
             {(data?.hires || []).flatMap((h: any) => (h.locations || []).map((loc: any) => (
               <div key={loc.id} className="rounded-2xl border p-3" style={{ borderColor: loc.status === 'IN_TRANSIT' ? '#F0D9B5' : 'var(--border-1)', background: 'var(--surface-1)' }}>
                 <div className="flex items-center justify-between gap-2">
@@ -223,8 +223,8 @@ export default function LogisticsCommandPage() {
                 </div>
                 <div className="text-[11px] mb-2" style={{ color: 'var(--text-3)' }}>
                   {h.bookingNumber} · {h.client?.companyName || '—'}{loc.crewCount ? ` · ${loc.crewCount} crew` : ''}
-                  <button onClick={() => setPin(loc)} className="ml-2 inline-flex items-center gap-0.5" style={{ color: 'var(--gold)' }}><MapPin size={10} /> {loc.lat != null ? 'edit pin' : 'set pin'}</button>
-                  {loc.lat != null && <button onClick={() => setFocus({ lat: loc.lat, lng: loc.lng })} className="ml-2 inline-flex items-center gap-0.5" style={{ color: 'var(--gold)' }}><Navigation size={10} /> locate</button>}
+                  <button onClick={() => setPin(loc)} className="ms-2 inline-flex items-center gap-0.5" style={{ color: 'var(--gold)' }}><MapPin size={10} /> {loc.lat != null ? 'edit pin' : 'set pin'}</button>
+                  {loc.lat != null && <button onClick={() => setFocus({ lat: loc.lat, lng: loc.lng })} className="ms-2 inline-flex items-center gap-0.5" style={{ color: 'var(--gold)' }}><Navigation size={10} /> locate</button>}
                 </div>
                 {(loc.units || []).map((u: any) => {
                   const Icon = unitIcon(u.asset?.assetType, u.asset?.category); const towed = !u.asset?.tracksMileage;
@@ -243,7 +243,7 @@ export default function LogisticsCommandPage() {
                       {u.kmPerL != null && <span className="text-[9.5px]" style={{ color: 'var(--text-3)' }}>{u.kmPerL} km/L</span>}
                       {u.excessKm > 0 && <span className="text-[9px] rounded-full px-1.5 font-semibold" style={{ background: '#FBE9E7', color: '#B91C1C' }}>+{u.excessKm.toLocaleString()} km excess</span>}
                       {/* inspection dots */}
-                      <button title="Check-out inspection" onClick={() => inspect(u, 'DELIVERY')} className="ml-auto text-[9px] rounded-full px-1.5 font-semibold" style={u.inspectedOut ? { background: '#E7F6EC', color: '#15803D' } : { background: 'var(--surface-2)', color: 'var(--text-3)' }}>{u.inspectedOut ? '✓ out' : '○ out'}</button>
+                      <button title="Check-out inspection" onClick={() => inspect(u, 'DELIVERY')} className="ms-auto text-[9px] rounded-full px-1.5 font-semibold" style={u.inspectedOut ? { background: '#E7F6EC', color: '#15803D' } : { background: 'var(--surface-2)', color: 'var(--text-3)' }}>{u.inspectedOut ? '✓ out' : '○ out'}</button>
                       <button title="Check-in inspection" onClick={() => inspect(u, 'RETURN')} className="text-[9px] rounded-full px-1.5 font-semibold" style={u.inspectedIn ? { background: '#E7F6EC', color: '#15803D' } : { background: 'var(--surface-2)', color: 'var(--text-3)' }}>{u.inspectedIn ? '✓ in' : '○ in'}</button>
                     </div>
                   );
@@ -286,11 +286,11 @@ export default function LogisticsCommandPage() {
                   {(loc.units || []).map((u: any) => {
                     const Icon = unitIcon(u.asset?.assetType, u.asset?.category);
                     return (
-                      <div key={u.itemId} className="flex items-center gap-2 text-[11.5px] pl-5 py-0.5" style={{ color: 'var(--text-2)' }}>
+                      <div key={u.itemId} className="flex items-center gap-2 text-[11.5px] ps-5 py-0.5" style={{ color: 'var(--text-2)' }}>
                         <Icon size={12} style={{ color: 'var(--text-3)' }} /><Link href={`/rental/assets/${u.asset?.id}`} className="hover:underline">{u.asset?.name}</Link>
                         <span className="text-[10px]" style={{ color: 'var(--text-3)' }}>{u.asset?.plateNumber || u.asset?.serialNumber || ''}</span>
                         {!u.asset?.tracksMileage ? <span className="text-[9px] rounded-full px-1.5" style={{ background: '#EDE9FE', color: '#6D28D9' }}>towed</span>
-                          : <span className="ml-auto text-[10.5px]" style={{ color: 'var(--text-3)' }}>{u.milesThisHire != null ? `${u.milesThisHire.toLocaleString()} km this hire` : 'no readings'}</span>}
+                          : <span className="ms-auto text-[10.5px]" style={{ color: 'var(--text-3)' }}>{u.milesThisHire != null ? `${u.milesThisHire.toLocaleString()} km this hire` : 'no readings'}</span>}
                       </div>
                     );
                   })}
@@ -306,7 +306,7 @@ export default function LogisticsCommandPage() {
         <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--border-1)' }}>
           {approvals.length === 0 ? <div className="p-8 text-center text-sm" style={{ color: 'var(--text-3)' }}>Nothing awaiting approval.</div> : (
             <table className="w-full text-sm"><thead><tr style={{ background: 'var(--surface-2)' }}>
-              {['Driver', 'Type', 'Amount', 'When', ''].map(h => <th key={h} className="text-left px-4 py-2.5 text-[10px] uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>{h}</th>)}
+              {['Driver', 'Type', 'Amount', 'When', ''].map(h => <th key={h} className="text-start px-4 py-2.5 text-[10px] uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>{h}</th>)}
             </tr></thead><tbody>
               {approvals.map((s: any) => (
                 <tr key={s.id} className="border-t" style={{ borderColor: 'var(--border-1)' }}>
@@ -314,8 +314,8 @@ export default function LogisticsCommandPage() {
                   <td className="px-4 py-2.5" style={{ color: 'var(--text-2)' }}>{s.type}</td>
                   <td className="px-4 py-2.5 font-semibold" style={{ color: 'var(--text-1)' }}>{s.amount != null ? `AED ${Number(s.amount).toLocaleString()}` : '—'}</td>
                   <td className="px-4 py-2.5" style={{ color: 'var(--text-3)' }}>{fmtDate(s.createdAt)}</td>
-                  <td className="px-4 py-2.5 text-right">
-                    <button disabled={busy === 'ap' + s.id} onClick={() => act(() => driverAppApi.review(s.id, 'APPROVED'), 'ap' + s.id)} className="text-[12px] text-green-600 hover:underline inline-flex items-center gap-0.5 mr-3"><Check size={13} /> Approve</button>
+                  <td className="px-4 py-2.5 text-end">
+                    <button disabled={busy === 'ap' + s.id} onClick={() => act(() => driverAppApi.review(s.id, 'APPROVED'), 'ap' + s.id)} className="text-[12px] text-green-600 hover:underline inline-flex items-center gap-0.5 me-3"><Check size={13} /> Approve</button>
                     <button disabled={busy === 'ap' + s.id} onClick={() => act(() => driverAppApi.review(s.id, 'REJECTED'), 'ap' + s.id)} className="text-[12px] text-red-500 hover:underline inline-flex items-center gap-0.5"><X size={13} /> Reject</button>
                   </td>
                 </tr>
@@ -330,7 +330,7 @@ export default function LogisticsCommandPage() {
         <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--border-1)' }}>
           {incidents.length === 0 ? <div className="p-8 text-center text-sm" style={{ color: 'var(--text-3)' }}>No incident reports.</div> : (
             <table className="w-full text-sm"><thead><tr style={{ background: 'var(--surface-2)' }}>
-              {['Asset', 'Type', 'Severity', 'Status', 'When'].map(h => <th key={h} className="text-left px-4 py-2.5 text-[10px] uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>{h}</th>)}
+              {['Asset', 'Type', 'Severity', 'Status', 'When'].map(h => <th key={h} className="text-start px-4 py-2.5 text-[10px] uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>{h}</th>)}
             </tr></thead><tbody>
               {incidents.map((it: any) => (
                 <tr key={it.id} className="border-t" style={{ borderColor: 'var(--border-1)' }}>
@@ -351,7 +351,7 @@ export default function LogisticsCommandPage() {
         <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--border-1)' }}>
           {fuel.length === 0 ? <div className="p-8 text-center text-sm" style={{ color: 'var(--text-3)' }}>No fuel logs.</div> : (
             <table className="w-full text-sm"><thead><tr style={{ background: 'var(--surface-2)' }}>
-              {['Asset', 'Litres', 'Cost', 'Odometer', 'When'].map(h => <th key={h} className="text-left px-4 py-2.5 text-[10px] uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>{h}</th>)}
+              {['Asset', 'Litres', 'Cost', 'Odometer', 'When'].map(h => <th key={h} className="text-start px-4 py-2.5 text-[10px] uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>{h}</th>)}
             </tr></thead><tbody>
               {fuel.map((f: any) => (
                 <tr key={f.id} className="border-t" style={{ borderColor: 'var(--border-1)' }}>

@@ -354,7 +354,7 @@ export default function PhoneInput({
           <button
             type="button"
             onClick={() => setOpen(o => !o)}
-            className="flex items-center gap-1.5 px-3 py-2 h-full bg-gray-50 border-r border-gray-300 hover:bg-gray-100 transition-colors text-sm font-medium text-gray-700 whitespace-nowrap"
+            className="flex items-center gap-1.5 px-3 py-2 h-full bg-gray-50 border-e border-gray-300 hover:bg-gray-100 transition-colors text-sm font-medium text-gray-700 whitespace-nowrap"
           >
             <span className="text-base leading-none">{flagEmoji(country.iso)}</span>
             <span className="text-gray-600 font-mono text-xs">{country.dial}</span>
@@ -363,14 +363,14 @@ export default function PhoneInput({
 
           {/* Dropdown */}
           {open && (
-            <div className="absolute top-full left-0 z-50 mt-1 w-72 bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden">
+            <div className="absolute top-full start-0 z-50 mt-1 w-72 bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden">
               {/* Search */}
               <div className="p-2 border-b border-gray-100">
                 <div className="relative">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                  <Search className="absolute start-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
                   <input
                     ref={searchRef}
-                    className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    className="w-full ps-8 pe-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400"
                     placeholder="Search country or code…"
                     value={search}
                     onChange={e => setSearch(e.target.value)}
@@ -461,7 +461,7 @@ function CountryRow({
       type="button"
       onClick={() => onSelect(country)}
       className={cn(
-        'w-full flex items-center gap-3 px-3 py-2 text-left text-sm hover:bg-indigo-50 transition-colors',
+        'w-full flex items-center gap-3 px-3 py-2 text-start text-sm hover:bg-indigo-50 transition-colors',
         selected && 'bg-indigo-50 text-indigo-700 font-medium'
       )}
     >

@@ -64,6 +64,13 @@ export default function CallSheetsPanel({ projectId }: { projectId: string }) {
       backgroundCalls: s.backgroundCalls || [],
       crewCalls: s.crewCalls || [],
       advanceSchedule: s.advanceSchedule || [],
+      hotelShuttles: s.hotelShuttles || [],
+      transportPickups: s.transportPickups || [],
+      transportFleet: s.transportFleet || [],
+      cateringTimes: s.cateringTimes || [],
+      walkieChannels: s.walkieChannels || [],
+      shootingElements: s.shootingElements || {},
+      hospitalAlt: s.hospitalAlt || {},
     };
   }
 
@@ -105,7 +112,7 @@ export default function CallSheetsPanel({ projectId }: { projectId: string }) {
 
   const pullSchedule = async () => {
     if (!sheet) return;
-    if (!confirm(`Pull scenes & cast from the stripboard for Day ${sheet.dayNumber}? This replaces the schedule rows and adds any missing cast.`)) return;
+    if (!confirm(`Get from schedule for Day ${sheet.dayNumber}? Pulls scenes, cast, crew, advance schedule, and fills the linked location + sun-path + weather + a suggested hospital (empty fields only).`)) return;
     await productionApi.callsheets.update(sheet.id, sheet); // keep current edits
     await productionApi.callsheets.pullSchedule(sheet.id);
     await openSheet(sheet.id);
@@ -131,6 +138,18 @@ export default function CallSheetsPanel({ projectId }: { projectId: string }) {
     setSheet((s: any) => ({ ...s, [key]: s[key].map((r: Row, i: number) => i === idx ? { ...r, [field]: v } : r) }));
   const addRow = (key: string, blank: Row) => setSheet((s: any) => ({ ...s, [key]: [...s[key], blank] }));
   const delRow = (key: string, idx: number) => setSheet((s: any) => ({ ...s, [key]: s[key].filter((_: Row, i: number) => i !== idx) }));
+  const setObj = (key: string, field: string, v: any) => setSheet((s: any) => ({ ...s, [key]: { ...(s[key] || {}), [field]: v } }));
+  const suggestHospital = async () => {
+    const l = locations.find((x: any) => x.id === sheet.locationId);
+    const lat = l?.lat, lng = l?.lng;
+    if (lat == null || lng == null) { alert('Pick a saved location with coordinates first (needs lat/lng on the location).'); return; }
+    try {
+      const r = await productionApi.sunPath.hospitalsNear(Number(lat), Number(lng));
+      const items = r.data?.items || [];
+      if (!items.length) { alert('No hospitals found near the pin.'); return; }
+      setSheet((s: any) => ({ ...s, hospitalName: items[0].name, hospitalAddress: items[0].address || '', hospitalPhone: items[0].phone || '', hospitalAlt: items[1] ? { name: items[1].name, address: items[1].address || '', phone: items[1].phone || '' } : (s.hospitalAlt || {}) }));
+    } catch { alert('Could not fetch hospital suggestions (backend offline?).'); }
+  };
 
   return (
     <div className="grid grid-cols-[230px_1fr] gap-5">
@@ -144,7 +163,7 @@ export default function CallSheetsPanel({ projectId }: { projectId: string }) {
             list.length === 0 ? <p className="text-xs text-gray-400 px-2">No call sheets yet.</p> :
               list.map(cs => (
                 <button key={cs.id} onClick={() => openSheet(cs.id)}
-                  className={cn('w-full text-left px-3 py-2 rounded-lg border text-sm flex items-center justify-between group',
+                  className={cn('w-full text-start px-3 py-2 rounded-lg border text-sm flex items-center justify-between group',
                     selectedId === cs.id ? 'border-brand-300 bg-brand-50' : 'border-gray-200 hover:bg-gray-50')}>
                   <div>
                     <div className="font-medium text-gray-800">Day {cs.dayNumber}{cs.totalDays ? ` / ${cs.totalDays}` : ''}</div>
@@ -180,7 +199,7 @@ export default function CallSheetsPanel({ projectId }: { projectId: string }) {
               actions={<>
                 <Chip tone={sheet.status === 'PUBLISHED' ? 'money' : 'slate'}>{sheet.status}</Chip>
                 <Btn variant="danger" onClick={() => remove(sheet.id)}><Trash2 size={12} /></Btn>
-                <Btn variant="secondary" onClick={pullSchedule} title="Auto-fill scenes & cast from the stripboard"><CalendarCheck size={12} /> Pull schedule</Btn>
+                <Btn variant="secondary" onClick={pullSchedule} title="Auto-fill scenes, cast, crew, advance, location, sun & weather from the schedule"><CalendarCheck size={12} /> Get from schedule</Btn>
                 <Btn variant="secondary" onClick={autofillDaylight} title="Compute sunrise/sunset/golden hour from the linked location"><CalendarCheck size={12} /> Autofill daylight</Btn>
                 <Btn variant="secondary" onClick={() => window.open(`/print/callsheet/${sheet.id}`, '_blank')}><Printer size={12} /> Print / PDF</Btn>
                 <Btn variant="secondary" onClick={emailCrew}><Mail size={12} /> Email crew</Btn>
@@ -206,6 +225,12 @@ export default function CallSheetsPanel({ projectId }: { projectId: string }) {
                 <Field label="Weather"><input className={inputCls} value={sheet.weather || ''} onChange={e => set('weather', e.target.value)} placeholder="Sunny, light wind" /></Field>
                 <Field label="Temp high"><input className={inputCls} value={sheet.tempHigh || ''} onChange={e => set('tempHigh', e.target.value)} placeholder="38°C" /></Field>
                 <Field label="Temp low"><input className={inputCls} value={sheet.tempLow || ''} onChange={e => set('tempLow', e.target.value)} placeholder="27°C" /></Field>
+                <Field label="Lunch"><input className={inputCls} value={sheet.lunch || ''} onChange={e => set('lunch', e.target.value)} placeholder="12:30" /></Field>
+                <Field label="Unit"><input className={inputCls} value={sheet.unitName || ''} onChange={e => set('unitName', e.target.value)} placeholder="Main Unit" /></Field>
+                <Field label="Script version"><input className={inputCls} value={sheet.scriptVersion || ''} onChange={e => set('scriptVersion', e.target.value)} placeholder="Blue a/o…" /></Field>
+                <Field label="Schedule version"><input className={inputCls} value={sheet.scheduleVersion || ''} onChange={e => set('scheduleVersion', e.target.value)} placeholder="White a/o…" /></Field>
+                <Field label="Director (header)"><input className={inputCls} value={sheet.directorName || ''} onChange={e => set('directorName', e.target.value)} placeholder="Dir. name" /></Field>
+                <Field label="Advance tent call"><input className={inputCls} value={sheet.advanceTentCall || ''} onChange={e => set('advanceTentCall', e.target.value)} placeholder="next-day call" /></Field>
               </div>
             </div>
 
@@ -233,6 +258,11 @@ export default function CallSheetsPanel({ projectId }: { projectId: string }) {
                   <input className={inputCls} value={sheet.hospitalName || ''} onChange={e => set('hospitalName', e.target.value)} placeholder="Hospital name" />
                   <input className={inputCls} value={sheet.hospitalAddress || ''} onChange={e => set('hospitalAddress', e.target.value)} placeholder="Hospital address" />
                   <input className={inputCls} value={sheet.hospitalPhone || ''} onChange={e => set('hospitalPhone', e.target.value)} placeholder="Hospital phone" />
+                  <button type="button" onClick={suggestHospital} className="text-xs text-brand-600 hover:text-brand-700 flex items-center gap-1 py-1"><MapPin size={11} /> Suggest nearest from pin</button>
+                  <label className="text-[10px] text-gray-500 uppercase font-semibold pt-1 block">Alternate hospital</label>
+                  <input className={inputCls} value={sheet.hospitalAlt?.name || ''} onChange={e => setObj('hospitalAlt', 'name', e.target.value)} placeholder="Alt hospital name" />
+                  <input className={inputCls} value={sheet.hospitalAlt?.address || ''} onChange={e => setObj('hospitalAlt', 'address', e.target.value)} placeholder="Alt hospital address" />
+                  <input className={inputCls} value={sheet.hospitalAlt?.phone || ''} onChange={e => setObj('hospitalAlt', 'phone', e.target.value)} placeholder="Alt hospital phone" />
                   <label className="text-[10px] text-gray-500 uppercase font-semibold pt-1 block">Safety notes</label>
                   <textarea className={inputCls} rows={2} value={sheet.safetyNotes || ''} onChange={e => set('safetyNotes', e.target.value)} placeholder="Safety briefing, hazards, COVID, etc." />
                 </div>
@@ -265,9 +295,9 @@ export default function CallSheetsPanel({ projectId }: { projectId: string }) {
 
             {/* Background / Extras */}
             <RowsCard title="Background / Extras" icon={<Users size={12} />}
-              cols={['Description', 'Count', 'Call', 'Location']}
-              rows={sheet.backgroundCalls} keys={['description', 'count', 'callTime', 'location']}
-              onAdd={() => addRow('backgroundCalls', { description: '', count: '', callTime: '', location: '' })}
+              cols={['Scene', 'Description', 'Count', 'RPT', 'Ready', 'Location']}
+              rows={sheet.backgroundCalls} keys={['scene', 'description', 'count', 'rpt', 'ready', 'location']}
+              onAdd={() => addRow('backgroundCalls', { scene: '', description: '', count: '', rpt: '', ready: '', location: '' })}
               onChange={(i, f, v) => setRow('backgroundCalls', i, f, v)}
               onDel={(i) => delRow('backgroundCalls', i)} />
 
@@ -286,6 +316,56 @@ export default function CallSheetsPanel({ projectId }: { projectId: string }) {
               onAdd={() => addRow('advanceSchedule', { time: '', scene: '', description: '', location: '' })}
               onChange={(i, f, v) => setRow('advanceSchedule', i, f, v)}
               onDel={(i) => delRow('advanceSchedule', i)} />
+
+            {/* Hotel shuttles (transport) */}
+            <RowsCard title="Hotel Shuttles" icon={<Clock size={12} />}
+              cols={['Hotel', 'Leave (lobby → set)']}
+              rows={sheet.hotelShuttles} keys={['hotel', 'leave']}
+              onAdd={() => addRow('hotelShuttles', { hotel: '', leave: '' })}
+              onChange={(i, f, v) => setRow('hotelShuttles', i, f, v)}
+              onDel={(i) => delRow('hotelShuttles', i)} />
+
+            {/* Transport pickups */}
+            <RowsCard title="Transport — Pick-ups / VIP" icon={<MapPin size={12} />}
+              cols={['Label', 'From', 'Leave']}
+              rows={sheet.transportPickups} keys={['label', 'from', 'leave']}
+              onAdd={() => addRow('transportPickups', { label: '', from: '', leave: '' })}
+              onChange={(i, f, v) => setRow('transportPickups', i, f, v)}
+              onDel={(i) => delRow('transportPickups', i)} />
+
+            {/* Transport fleet */}
+            <RowsCard title="Transport — Fleet on unit" icon={<MapPin size={12} />}
+              cols={['Vehicle / unit', 'Qty / note']}
+              rows={sheet.transportFleet} keys={['label', 'qty']}
+              onAdd={() => addRow('transportFleet', { label: '', qty: '' })}
+              onChange={(i, f, v) => setRow('transportFleet', i, f, v)}
+              onDel={(i) => delRow('transportFleet', i)} />
+
+            {/* Shooting elements */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+              <SectionLabel>Shooting Elements (per day)</SectionLabel>
+              <div className="grid md:grid-cols-2 gap-2">
+                {([['props', 'Props'], ['art', 'Art'], ['ge', 'G&E / Camera'], ['hmu', 'HMU / Costume / Stills'], ['sound', 'Sound / VFX / SFX'], ['animals', 'Animals'], ['vehicles', 'Vehicles (picture)']] as [string, string][]).map(([k, label]) => (
+                  <Field key={k} label={label}><input className={inputCls} value={sheet.shootingElements?.[k] || ''} onChange={e => setObj('shootingElements', k, e.target.value)} /></Field>
+                ))}
+              </div>
+            </div>
+
+            {/* Catering ready times */}
+            <RowsCard title="Catering — Ready Times & Counts" icon={<Users size={12} />}
+              cols={['Meal', 'Pax', 'Ready']}
+              rows={sheet.cateringTimes} keys={['meal', 'pax', 'ready']}
+              onAdd={() => addRow('cateringTimes', { meal: '', pax: '', ready: '' })}
+              onChange={(i, f, v) => setRow('cateringTimes', i, f, v)}
+              onDel={(i) => delRow('cateringTimes', i)} />
+
+            {/* Walkie channels */}
+            <RowsCard title="Walkie Channels (by department)" icon={<Phone size={12} />}
+              cols={['Department', 'Channel']}
+              rows={sheet.walkieChannels} keys={['department', 'channel']}
+              onAdd={() => addRow('walkieChannels', { department: '', channel: '' })}
+              onChange={(i, f, v) => setRow('walkieChannels', i, f, v)}
+              onDel={(i) => delRow('walkieChannels', i)} />
 
             {/* Notes */}
             <div className="rounded-2xl border border-slate-200 bg-white p-4">
@@ -325,7 +405,7 @@ function RowsCard({ title, icon, cols, rows, keys, onAdd, onChange, onDel }: {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-[11px] text-slate-400 uppercase tracking-wide">
-                {cols.map(c => <th key={c} className="text-left px-1.5 py-1">{c}</th>)}
+                {cols.map(c => <th key={c} className="text-start px-1.5 py-1">{c}</th>)}
                 <th className="w-7"></th>
               </tr>
             </thead>

@@ -61,8 +61,8 @@ export default function FxPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <button onClick={fetchOnline} disabled={fetching} className="btn btn-secondary"><CloudDownload size={14} className="mr-1" /> {fetching ? 'Fetching…' : 'Fetch online'}</button>
-          <button onClick={save} disabled={saving} className="btn btn-primary"><Save size={14} className="mr-1" /> {saving ? 'Saving…' : 'Save'}</button>
+          <button onClick={fetchOnline} disabled={fetching} className="btn btn-secondary"><CloudDownload size={14} className="me-1" /> {fetching ? 'Fetching…' : 'Fetch online'}</button>
+          <button onClick={save} disabled={saving} className="btn btn-primary"><Save size={14} className="me-1" /> {saving ? 'Saving…' : 'Save'}</button>
         </div>
       </div>
 
@@ -73,13 +73,13 @@ export default function FxPage() {
           <>
             <table className="w-full text-sm">
               <thead><tr className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-100">
-                <th className="py-2 text-left">Currency</th><th className="py-2 text-left">1 unit = ? {base}</th><th className="w-8"></th>
+                <th className="py-2 text-start">Currency</th><th className="py-2 text-start">1 unit = ? {base}</th><th className="w-8"></th>
               </tr></thead>
               <tbody>
                 {rows.map((r, i) => (
                   <tr key={i} className="border-b border-gray-50">
-                    <td className="py-1.5 pr-2"><input className="input text-sm h-8 w-28 uppercase" value={r.currency} onChange={e => setRow(i, 'currency', e.target.value)} placeholder="USD" /></td>
-                    <td className="py-1.5 pr-2"><input type="number" step="0.0001" className="input text-sm h-8 w-40" value={r.toBase} onChange={e => setRow(i, 'toBase', e.target.value)} placeholder="3.6725" /></td>
+                    <td className="py-1.5 pe-2"><input className="input text-sm h-8 w-28 uppercase" value={r.currency} onChange={e => setRow(i, 'currency', e.target.value)} placeholder="USD" /></td>
+                    <td className="py-1.5 pe-2"><input type="number" step="0.0001" className="input text-sm h-8 w-40" value={r.toBase} onChange={e => setRow(i, 'toBase', e.target.value)} placeholder="3.6725" /></td>
                     <td className="py-1.5"><button onClick={() => delRow(i)} className="text-gray-300 hover:text-red-500"><Trash2 size={13} /></button></td>
                   </tr>
                 ))}

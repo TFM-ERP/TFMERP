@@ -63,7 +63,7 @@ export default function AudioEnginesPage() {
             <SonCard className="overflow-hidden" style={{ padding: 0 }}>
               <table className="w-full text-sm">
                 <thead><tr className="son-faint" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.05em', borderBottom: '1px solid var(--son-border)' }}>
-                  <th className="text-left" style={{ padding: '10px 16px' }}>Capability</th><th className="text-left" style={{ padding: '10px 12px' }}>Default engine</th>
+                  <th className="text-start" style={{ padding: '10px 16px' }}>Capability</th><th className="text-start" style={{ padding: '10px 12px' }}>Default engine</th>
                   <th className="text-center" style={{ padding: '10px 12px' }}>Project override</th><th className="text-center" style={{ padding: '10px 16px' }}>Per-render override</th>
                 </tr></thead>
                 <tbody>

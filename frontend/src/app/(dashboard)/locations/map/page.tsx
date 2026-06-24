@@ -106,7 +106,7 @@ export default function LocationsMapPage() {
     <div className="p-6 max-w-[1400px] mx-auto">
       <div className="mb-4 flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-semibold flex items-center gap-2"><MapPin className="text-[#0f172a]" /> Location Map</h1>
+          <h1 className="text-2xl font-semibold flex items-center gap-2"><MapPin style={{ color: 'var(--accent)' }} /> Location Map</h1>
           <p className="text-sm text-gray-500 mt-1">Every mapped library location, clustered. Click a pin or list item to focus.</p>
         </div>
         {status === 'ready' && (
@@ -140,7 +140,7 @@ export default function LocationsMapPage() {
           <div className="px-4 py-2 border-b text-xs font-semibold uppercase text-gray-400">Mapped ({points.length})</div>
           <div className="max-h-[520px] overflow-y-auto divide-y">
             {points.map((p) => (
-              <button key={p.id} onClick={() => focus(p)} className={`w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-3 ${selected?.id === p.id ? 'bg-[#0f172a]/10' : ''}`}>
+              <button key={p.id} onClick={() => focus(p)} className={`w-full text-start px-4 py-2 hover:bg-gray-50 flex items-center gap-3 ${selected?.id === p.id ? 'bg-[#0f172a]/10' : ''}`}>
                 <div className="h-10 w-10 rounded bg-gray-100 overflow-hidden flex items-center justify-center shrink-0">
                   {p.thumb ? <img src={p.thumb} alt="" onError={(e) => { const t = e.currentTarget as any; if (!t.dataset.fb) { t.dataset.fb = '1'; t.src = `https://picsum.photos/seed/${encodeURIComponent(p.id)}/80/80`; } }} className="w-full h-full object-cover" /> : <MapPin size={14} className="text-gray-300" />}
                 </div>

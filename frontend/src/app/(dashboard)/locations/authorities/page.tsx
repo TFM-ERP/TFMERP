@@ -45,7 +45,7 @@ export default function AuthoritiesPage() {
     <div className="p-6 max-w-[1100px] mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-semibold flex items-center gap-2"><Landmark className="text-[#0f172a]" /> Permit Authorities</h1>
+          <h1 className="text-2xl font-semibold flex items-center gap-2"><Landmark style={{ color: 'var(--accent)' }} /> Permit Authorities</h1>
           <p className="text-sm text-gray-500 mt-1">The issuing bodies productions apply to — reused across every location permit.</p>
         </div>
         <button onClick={() => setForm({ ...blank })} className="inline-flex items-center gap-2 bg-[#0f172a] text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90"><Plus size={16} /> Add authority</button>

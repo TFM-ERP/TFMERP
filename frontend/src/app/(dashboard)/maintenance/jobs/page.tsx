@@ -83,7 +83,7 @@ export default function MaintenanceJobsPage() {
     <div className="p-6 max-w-7xl mx-auto">
       <CinematicHeader kicker="Maintenance · Workshop" title="Maintenance Jobs" count={`${total} total · ${activeJobs} active`}>
         <button onClick={() => setShowForm(true)} className="btn btn-primary">
-          <Plus size={14} className="mr-1" /> New Job
+          <Plus size={14} className="me-1" /> New Job
         </button>
       </CinematicHeader>
 
@@ -161,8 +161,8 @@ export default function MaintenanceJobsPage() {
       {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-4">
         <div className="relative flex-1 min-w-48">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input className="input pl-9 w-full" placeholder="Search jobs..." value={search}
+          <Search size={14} className="absolute start-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input className="input ps-9 w-full" placeholder="Search jobs..." value={search}
             onChange={e => { setSearch(e.target.value); setPage(1); }} />
         </div>
         <select className="input w-36" value={status} onChange={e => { setStatus(e.target.value); setPage(1); }}>
@@ -194,7 +194,7 @@ export default function MaintenanceJobsPage() {
             <th className="table-th">Opened</th>
             <th className="table-th">Est. Completion</th>
             <th className="table-th">Status</th>
-            <th className="table-th text-right">Cost</th>
+            <th className="table-th text-end">Cost</th>
           </tr></thead>
           <tbody>
             {items.map(job => (
@@ -213,7 +213,7 @@ export default function MaintenanceJobsPage() {
                   {job.estimatedCompletion ? formatDate(job.estimatedCompletion) : <span className="text-gray-300">—</span>}
                 </td>
                 <td className="table-td"><StatusBadge module="Maintenance" status={job.status} size="sm" showIcon={false} showDot /></td>
-                <td className="table-td text-right text-sm">{job.totalCost ? formatCurrency(job.totalCost) : <span className="text-gray-300">—</span>}</td>
+                <td className="table-td text-end text-sm">{job.totalCost ? formatCurrency(job.totalCost) : <span className="text-gray-300">—</span>}</td>
               </tr>
             ))}
             {items.length === 0 && !loading && (

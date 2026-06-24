@@ -60,15 +60,15 @@ export default function ServiceCatalogPage() {
           <p className="text-sm mt-0.5" style={{ color: 'var(--text-3)' }}>Billable services & consumables sold alongside rentals</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => setShowCC(true)} className="btn btn-secondary"><Settings2 size={14} className="mr-1" /> Cost Centers</button>
-          <button onClick={() => setForm({ ...EMPTY })} className="btn btn-primary"><Plus size={14} className="mr-1" /> Add Service</button>
+          <button onClick={() => setShowCC(true)} className="btn btn-secondary"><Settings2 size={14} className="me-1" /> Cost Centers</button>
+          <button onClick={() => setForm({ ...EMPTY })} className="btn btn-primary"><Plus size={14} className="me-1" /> Add Service</button>
         </div>
       </div>
 
       <div className="flex flex-wrap gap-3 mb-4">
         <div className="relative flex-1 min-w-48">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input className="input pl-9 w-full" placeholder="Search services…" value={search} onChange={e => setSearch(e.target.value)} />
+          <Search size={14} className="absolute start-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input className="input ps-9 w-full" placeholder="Search services…" value={search} onChange={e => setSearch(e.target.value)} />
         </div>
         <select className="input w-48" value={category} onChange={e => setCategory(e.target.value)}>
           <option value="">All Categories</option>
@@ -83,7 +83,7 @@ export default function ServiceCatalogPage() {
               <th className="table-th">Service</th>
               <th className="table-th">Category</th>
               <th className="table-th">Unit</th>
-              <th className="table-th text-right">Unit Price</th>
+              <th className="table-th text-end">Unit Price</th>
               <th className="table-th">Cost Center</th>
               <th className="table-th">Status</th>
               <th className="table-th"></th>
@@ -98,15 +98,15 @@ export default function ServiceCatalogPage() {
               <tr key={s.id} className="table-row">
                 <td className="table-td">
                   <button onClick={() => setForm({ ...s, taxRateId: s.taxRateId || '', costCenterId: s.costCenterId || '', unitPrice: s.unitPrice })}
-                    className="font-medium text-gray-900 hover:text-brand-600 text-left">{s.name}</button>
+                    className="font-medium text-gray-900 hover:text-brand-600 text-start">{s.name}</button>
                   {s.description && <div className="text-xs text-gray-400">{s.description}</div>}
                 </td>
                 <td className="table-td text-sm text-gray-600">{s.category || '—'}</td>
                 <td className="table-td text-sm text-gray-600">{s.unitOfMeasure}</td>
-                <td className="table-td text-right text-sm">{formatCurrency(Number(s.unitPrice || 0))}</td>
+                <td className="table-td text-end text-sm">{formatCurrency(Number(s.unitPrice || 0))}</td>
                 <td className="table-td text-sm text-gray-600">{s.costCenter?.name || '—'}</td>
                 <td className="table-td"><span className={cn('badge', s.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500')}>{s.isActive ? 'Active' : 'Inactive'}</span></td>
-                <td className="table-td text-right">
+                <td className="table-td text-end">
                   <button onClick={() => toggle(s.id)} className="text-xs text-gray-400 hover:text-gray-700">{s.isActive ? 'Deactivate' : 'Activate'}</button>
                 </td>
               </tr>

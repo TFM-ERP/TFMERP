@@ -5,6 +5,7 @@ import { financeApi } from '@/lib/api';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import { Search, RefreshCw, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { CinematicHeader } from '@/components/CinematicHeader';
+import { useLocale } from '@/lib/i18n';
 
 const STATUS_OPTIONS = ['', 'PENDING', 'CLEARED', 'BOUNCED', 'REFUNDED'];
 
@@ -24,6 +25,7 @@ const METHOD_LABEL: Record<string, string> = {
 };
 
 export default function PaymentsPage() {
+  const { t } = useLocale();
   const [items, setItems] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
   const [summary, setSummary] = useState<any>(null);
@@ -55,7 +57,7 @@ export default function PaymentsPage() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
-      <CinematicHeader kicker="Finance · Cash" title="Payments" count={`${total} payments`}>
+      <CinematicHeader kicker={t('Finance · Cash')} title={t('Payments')} count={`${total} ${t('payments')}`}>
         <button onClick={load} className="btn btn-secondary p-2">
           <RefreshCw size={14} className={cn(loading && 'animate-spin')} />
         </button>
@@ -69,7 +71,7 @@ export default function PaymentsPage() {
               <CheckCircle size={18} className="text-green-600" />
             </div>
             <div>
-              <p className="text-xs text-gray-400">Cleared</p>
+              <p className="text-xs text-gray-400">{t('Cleared')}</p>
               <p className="text-lg font-bold text-gray-900">{formatCurrency(summary.cleared)}</p>
             </div>
           </div>
@@ -78,7 +80,7 @@ export default function PaymentsPage() {
               <Clock size={18} className="text-yellow-600" />
             </div>
             <div>
-              <p className="text-xs text-gray-400">Pending</p>
+              <p className="text-xs text-gray-400">{t('Pending')}</p>
               <p className="text-lg font-bold text-gray-900">{formatCurrency(summary.pending)}</p>
             </div>
           </div>
@@ -87,7 +89,7 @@ export default function PaymentsPage() {
               <XCircle size={18} className="text-red-500" />
             </div>
             <div>
-              <p className="text-xs text-gray-400">Bounced</p>
+              <p className="text-xs text-gray-400">{t('Bounced')}</p>
               <p className="text-lg font-bold text-gray-900">{formatCurrency(summary.bounced)}</p>
             </div>
           </div>
@@ -97,7 +99,7 @@ export default function PaymentsPage() {
       {/* Filters */}
       <div className="flex gap-3 mb-4">
         <select className="input" value={status} onChange={e => { setStatus(e.target.value); setPage(1); }}>
-          {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s || 'All Statuses'}</option>)}
+          {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s || t('All Statuses')}</option>)}
         </select>
       </div>
 
@@ -106,14 +108,14 @@ export default function PaymentsPage() {
         <table className="w-full">
           <thead>
             <tr>
-              <th className="table-th">Reference</th>
-              <th className="table-th">Client</th>
-              <th className="table-th">Invoice</th>
-              <th className="table-th">Method</th>
-              <th className="table-th">Date</th>
-              <th className="table-th">Amount</th>
-              <th className="table-th">Status</th>
-              <th className="table-th">Actions</th>
+              <th className="table-th">{t('Reference')}</th>
+              <th className="table-th">{t('Client')}</th>
+              <th className="table-th">{t('Invoice')}</th>
+              <th className="table-th">{t('Method')}</th>
+              <th className="table-th">{t('Date')}</th>
+              <th className="table-th">{t('Amount')}</th>
+              <th className="table-th">{t('Status')}</th>
+              <th className="table-th">{t('Actions')}</th>
             </tr>
           </thead>
           <tbody>
@@ -122,7 +124,7 @@ export default function PaymentsPage() {
                 <td className="table-td font-mono text-xs text-gray-500">{p.paymentNumber}</td>
                 <td className="table-td text-sm font-medium text-gray-800">{p.client?.companyName}</td>
                 <td className="table-td text-xs text-gray-500">{p.invoice?.invoiceNumber}</td>
-                <td className="table-td text-sm text-gray-600">{METHOD_LABEL[p.method] || p.method}</td>
+                <td className="table-td text-sm text-gray-600">{t(METHOD_LABEL[p.method] || p.method)}</td>
                 <td className="table-td text-sm text-gray-500">{formatDate(p.paymentDate)}</td>
                 <td className="table-td text-sm font-semibold text-gray-900">{formatCurrency(p.amount)}</td>
                 <td className="table-td">
@@ -153,7 +155,7 @@ export default function PaymentsPage() {
               </tr>
             ))}
             {items.length === 0 && !loading && (
-              <tr><td colSpan={8} className="text-center py-12 text-gray-400">No payments found</td></tr>
+              <tr><td colSpan={8} className="text-center py-12 text-gray-400">{t('No payments found')}</td></tr>
             )}
           </tbody>
         </table>
@@ -161,12 +163,12 @@ export default function PaymentsPage() {
         {/* Pagination */}
         {total > 25 && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 text-sm text-gray-500">
-            <span>Showing {(page - 1) * 25 + 1}–{Math.min(page * 25, total)} of {total}</span>
+            <span>{t('Showing')} {(page - 1) * 25 + 1}–{Math.min(page * 25, total)} {t('of')} {total}</span>
             <div className="flex gap-2">
               <button disabled={page === 1} onClick={() => setPage(p => p - 1)}
-                className="btn btn-secondary py-1 disabled:opacity-40">Previous</button>
+                className="btn btn-secondary py-1 disabled:opacity-40">{t('Previous')}</button>
               <button disabled={page * 25 >= total} onClick={() => setPage(p => p + 1)}
-                className="btn btn-secondary py-1 disabled:opacity-40">Next</button>
+                className="btn btn-secondary py-1 disabled:opacity-40">{t('Next')}</button>
             </div>
           </div>
         )}

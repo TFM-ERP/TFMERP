@@ -105,7 +105,7 @@ export default function SidesGenerator({ projectId, revision, onClose, inline }:
                       <span className="text-sm font-medium text-slate-800">{(j.scenes || []).length} scenes · {j.pageCount} pages</span>
                       {j.shootDate && <span className="text-[11px] text-slate-400">{new Date(j.shootDate).toLocaleDateString('en-GB')}</span>}
                       <Chip tone={j.status === 'SHARED' ? 'money' : 'slate'}>{j.status}</Chip>
-                      <div className="ml-auto flex items-center gap-1.5">
+                      <div className="ms-auto flex items-center gap-1.5">
                         {j.baseUrl && <a href={assetUrl(j.baseUrl)} target="_blank" rel="noreferrer" className="text-slate-400 hover:text-slate-900" title="Base sides"><Download size={14} /></a>}
                         <button onClick={() => emailJob(j.id)} className="text-slate-400 hover:text-slate-900" title="Email recipients"><Mail size={14} /></button>
                         <button onClick={() => removeJob(j.id)} className="text-slate-300 hover:text-rose-500"><Trash2 size={14} /></button>

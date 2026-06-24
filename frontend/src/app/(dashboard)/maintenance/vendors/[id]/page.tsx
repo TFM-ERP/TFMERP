@@ -125,7 +125,7 @@ function ContactCard({ contact, onDelete, onEdit }: { contact: any; onDelete: ()
   return (
     <div className="border border-gray-200 rounded-xl p-4 relative">
       {contact.isPrimary && (
-        <span className="absolute top-3 right-3 text-[10px] bg-brand-100 text-brand-700 px-1.5 py-0.5 rounded font-medium">Primary</span>
+        <span className="absolute top-3 end-3 text-[10px] bg-brand-100 text-brand-700 px-1.5 py-0.5 rounded font-medium">Primary</span>
       )}
       <div className="flex items-start gap-3">
         <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
@@ -236,7 +236,7 @@ function DocumentRow({ doc, onDelete }: { doc: any; onDelete: () => void }) {
         <p className="text-xs text-gray-400">
           {DOC_TYPE_LABELS[doc.docType] ?? doc.docType}
           {doc.expiryDate && (
-            <span className={cn('ml-2', expired ? 'text-red-600 font-semibold' : warn ? 'text-amber-600' : '')}>
+            <span className={cn('ms-2', expired ? 'text-red-600 font-semibold' : warn ? 'text-amber-600' : '')}>
               · Expires: {formatDate(doc.expiryDate)}{expired ? ' ⚠ EXPIRED' : warn ? ' ⚠ Soon' : ''}
             </span>
           )}
@@ -956,7 +956,7 @@ export default function VendorDetailPage() {
                 <th className="table-th">Category</th>
                 <th className="table-th">Opened</th>
                 <th className="table-th">Status</th>
-                <th className="table-th text-right">Cost</th>
+                <th className="table-th text-end">Cost</th>
               </tr>
             </thead>
             <tbody>
@@ -974,7 +974,7 @@ export default function VendorDetailPage() {
                       {job.status?.replace(/_/g, ' ')}
                     </span>
                   </td>
-                  <td className="table-td text-right text-sm">
+                  <td className="table-td text-end text-sm">
                     {job.totalCost ? formatCurrency(job.totalCost) : '—'}
                   </td>
                 </tr>
@@ -1002,8 +1002,8 @@ export default function VendorDetailPage() {
                 <th className="table-th">Job</th>
                 <th className="table-th">Issued</th>
                 <th className="table-th">Status</th>
-                <th className="table-th text-right">Total</th>
-                <th className="table-th text-right">Due</th>
+                <th className="table-th text-end">Total</th>
+                <th className="table-th text-end">Due</th>
               </tr>
             </thead>
             <tbody>
@@ -1020,8 +1020,8 @@ export default function VendorDetailPage() {
                       {inv.status}
                     </span>
                   </td>
-                  <td className="table-td text-right">{formatCurrency(inv.total)}</td>
-                  <td className="table-td text-right font-semibold">
+                  <td className="table-td text-end">{formatCurrency(inv.total)}</td>
+                  <td className="table-td text-end font-semibold">
                     {Number(inv.amountDue) > 0
                       ? <span className="text-red-600">{formatCurrency(inv.amountDue)}</span>
                       : <span className="text-green-600">Paid</span>}

@@ -2,13 +2,16 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { AlertCircle, ArrowRight, Plus, FileText, Receipt, Truck, ShieldCheck, DollarSign } from 'lucide-react';
+import { AlertCircle, ArrowRight, FileText, Receipt, Truck } from 'lucide-react';
 import { statusApi, notificationsApi, complianceApi } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
+import { useLocale } from '@/lib/i18n';
+import '@/styles/tokens.css';
 
-const SEV: Record<string, string> = { high: '#dc2626', medium: '#d97706', low: '#6b7280' };
+const SEV: Record<string, string> = { high: 'var(--danger)', medium: 'var(--warn)', low: 'var(--text-3)' };
 
 export default function HomePage() {
+  const { t: tr } = useLocale();
   const [kpi, setKpi] = useState<any>(null);
   const [notifs, setNotifs] = useState<any[]>([]);
   const [renewals, setRenewals] = useState<any>(null);
@@ -24,8 +27,6 @@ export default function HomePage() {
   }, []);
 
   const can = (m: string, l = 1) => (perms[m] ?? 0) >= l;
-  // Time-based greeting must be client-only: computing it during render makes the
-  // server HTML disagree with the browser across hour boundaries → hydration error.
   const [greeting, setGreeting] = useState('Welcome');
   useEffect(() => {
     const hour = new Date().getHours();
@@ -49,55 +50,68 @@ export default function HomePage() {
     { show: can('rentals', 2), label: 'New booking', href: '/rental/bookings/new', icon: Truck },
   ].filter(a => a.show);
 
+  const liftIn = (e: React.MouseEvent) => { const el = e.currentTarget as HTMLElement; el.style.borderColor = 'var(--accent)'; el.style.background = 'var(--surface-2)'; };
+  const liftOut = (e: React.MouseEvent) => { const el = e.currentTarget as HTMLElement; el.style.borderColor = 'var(--border-1)'; el.style.background = 'var(--surface-1)'; };
+  const rowIn = (e: React.MouseEvent) => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; };
+  const rowOut = (e: React.MouseEvent) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; };
+
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
+    <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 py-6 space-y-6" style={{ fontFamily: 'var(--font-sans, Inter, system-ui, sans-serif)' }}>
+      {/* Hero */}
       <div>
-        <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>The Film Makers · Workspace</div>
-        <h1 className="text-[22px] font-extrabold leading-tight" style={{ color: 'var(--text-1)' }}>{greeting}{firstName ? `, ${firstName}` : ''}</h1>
-        <p className="text-sm" style={{ color: 'var(--text-3)' }}>Here's what needs your attention today.</p>
+        <div className="text-[10px] font-bold uppercase" style={{ letterSpacing: '.18em', color: 'var(--gold)' }}>The Film Makers · Workspace</div>
+        <h1 className="text-2xl sm:text-[26px] font-extrabold leading-tight mt-1" style={{ color: 'var(--text-1)', letterSpacing: '-.02em' }}>{tr(greeting)}{firstName ? `, ${firstName}` : ''}</h1>
+        <p className="text-sm mt-1" style={{ color: 'var(--text-3)' }}>{tr("Here's what needs your attention today.")}</p>
       </div>
 
       {/* Quick actions */}
       {actions.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {actions.map(a => (
-            <Link key={a.href} href={a.href} className="btn-secondary text-sm"><a.icon size={14} /> {a.label}</Link>
+            <Link key={a.href} href={a.href} className="inline-flex items-center gap-1.5 rounded-lg px-3.5 h-9 text-[13px] font-semibold transition-opacity hover:opacity-90"
+              style={{ background: 'var(--accent)', color: 'var(--accent-on)' }}>
+              <a.icon size={15} /> {tr(a.label)}
+            </Link>
           ))}
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* KPI tiles */}
-        <div className="lg:col-span-2 space-y-6">
+      {/* KPIs + attention */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <div className="lg:col-span-2">
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             {tiles.map(t => (
-              <Link key={t.label} href={t.href} className="card p-4 hover:border-brand-200 transition-colors">
-                <div className="text-xs text-gray-500">{t.label}</div>
-                <div className={`text-2xl font-bold ${t.danger ? 'text-red-600' : 'text-gray-900'}`}>{t.value}</div>
+              <Link key={t.label} href={t.href} className="rounded-xl p-4 block transition-colors"
+                style={{ background: 'var(--surface-1)', border: '1px solid var(--border-1)' }}
+                onMouseEnter={liftIn} onMouseLeave={liftOut}>
+                <div className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>{tr(t.label)}</div>
+                <div className="text-2xl font-extrabold mt-1" style={{ color: t.danger ? 'var(--danger)' : 'var(--text-1)' }}>{t.value}</div>
               </Link>
             ))}
-            {tiles.length === 0 && <div className="col-span-3 card p-8 text-center text-gray-400 text-sm">No dashboards available for your role.</div>}
+            {tiles.length === 0 && (
+              <div className="col-span-2 md:col-span-3 rounded-xl p-8 text-center text-sm" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-1)', color: 'var(--text-3)' }}>{tr('No dashboards available for your role.')}</div>
+            )}
           </div>
         </div>
 
-        {/* Action items / notifications */}
-        <div className="card overflow-hidden self-start">
-          <div className="px-5 py-3 border-b border-gray-100 bg-gray-50 flex items-center gap-2">
-            <AlertCircle size={15} className="text-amber-500" />
-            <h2 className="font-semibold text-gray-800 text-sm">Needs attention</h2>
+        <div className="rounded-xl overflow-hidden self-start" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-1)' }}>
+          <div className="flex items-center gap-2 px-4 py-3" style={{ borderBottom: '1px solid var(--border-1)', background: 'var(--surface-2)' }}>
+            <AlertCircle size={15} style={{ color: 'var(--warn)' }} />
+            <h2 className="font-semibold text-sm" style={{ color: 'var(--text-1)' }}>{tr('Needs attention')}</h2>
           </div>
           {notifs.length === 0 ? (
-            <div className="px-5 py-8 text-center text-gray-400 text-sm">You're all caught up.</div>
+            <div className="px-5 py-8 text-center text-sm" style={{ color: 'var(--text-3)' }}>{tr("You're all caught up.")}</div>
           ) : (
-            <div className="divide-y divide-gray-50">
+            <div>
               {notifs.slice(0, 8).map(n => (
-                <Link key={n.key} href={n.link} className="flex items-start gap-2.5 px-5 py-3 hover:bg-gray-50/60">
+                <Link key={n.key} href={n.link} className="flex items-start gap-2.5 px-4 py-3 transition-colors"
+                  style={{ borderTop: '1px solid var(--border-1)' }} onMouseEnter={rowIn} onMouseLeave={rowOut}>
                   <span className="w-2 h-2 rounded-full mt-1.5 shrink-0" style={{ background: SEV[n.severity] || SEV.low }} />
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-gray-800">{n.title}</div>
-                    <div className="text-xs text-gray-500">{n.message}</div>
+                    <div className="text-sm font-medium" style={{ color: 'var(--text-1)' }}>{n.title}</div>
+                    <div className="text-xs" style={{ color: 'var(--text-3)' }}>{n.message}</div>
                   </div>
-                  <ArrowRight size={13} className="text-gray-300 mt-1" />
+                  <ArrowRight size={13} className="mt-1 shrink-0" style={{ color: 'var(--text-3)' }} />
                 </Link>
               ))}
             </div>

@@ -133,8 +133,8 @@ export default function BusinessPartnersPage() {
       {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-4">
         <div className="relative flex-1 min-w-48">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input className="input pl-9 w-full" placeholder="Search name, code, TRN…"
+          <Search size={14} className="absolute start-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input className="input ps-9 w-full" placeholder="Search name, code, TRN…"
             value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
         </div>
         <select className="input w-52" value={catFilter}

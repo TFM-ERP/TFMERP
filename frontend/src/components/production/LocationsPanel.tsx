@@ -39,10 +39,10 @@ export default function LocationsPanel({ projectId, currency = 'AED' }: { projec
           <div><h3 className="text-sm font-semibold text-gray-700">Locations</h3><p className="text-xs text-gray-400">Per-project location binder — address, map pin, contacts, permits, safety & fees.</p></div>
         </div>
         <div className="flex items-center gap-2">
-          <a href={`/locations/pack/${projectId}`} target="_blank" rel="noreferrer" className="btn btn-secondary text-xs"><FileText size={13} className="mr-1" /> Location pack</a>
-          <button onClick={() => setCompare(true)} className="btn btn-secondary text-xs"><BarChart3 size={13} className="mr-1" /> Compare</button>
-          <button onClick={() => setPicker(true)} className="btn btn-secondary text-xs"><Library size={13} className="mr-1" /> Link from Library</button>
-          <button onClick={() => setEdit({ type: 'EXT', status: 'SCOUTING', country: 'United Arab Emirates', currency })} className="btn btn-primary text-xs"><Plus size={13} className="mr-1" /> New location</button>
+          <a href={`/locations/pack/${projectId}`} target="_blank" rel="noreferrer" className="btn btn-secondary text-xs"><FileText size={13} className="me-1" /> Location pack</a>
+          <button onClick={() => setCompare(true)} className="btn btn-secondary text-xs"><BarChart3 size={13} className="me-1" /> Compare</button>
+          <button onClick={() => setPicker(true)} className="btn btn-secondary text-xs"><Library size={13} className="me-1" /> Link from Library</button>
+          <button onClick={() => setEdit({ type: 'EXT', status: 'SCOUTING', country: 'United Arab Emirates', currency })} className="btn btn-primary text-xs"><Plus size={13} className="me-1" /> New location</button>
         </div>
       </div>
 
@@ -119,7 +119,7 @@ function LocationForm({ projectId, currency, crew, initial, onClose, onSaved }: 
       <div className="flex items-center justify-between">
         <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5"><MapPin size={14} className="text-brand-600" /> {f.id ? 'Edit location' : 'New location'}</h4>
         <div className="flex gap-2">
-          <button onClick={save} disabled={busy} className="btn btn-primary text-xs"><Save size={13} className="mr-1" /> {busy ? 'Saving…' : 'Save'}</button>
+          <button onClick={save} disabled={busy} className="btn btn-primary text-xs"><Save size={13} className="me-1" /> {busy ? 'Saving…' : 'Save'}</button>
           {f.id && <button onClick={del} className="btn btn-secondary text-xs text-red-600"><Trash2 size={13} /></button>}
           <button onClick={onClose} className="btn btn-secondary text-xs"><X size={13} /></button>
         </div>
@@ -138,7 +138,7 @@ function LocationForm({ projectId, currency, crew, initial, onClose, onSaved }: 
         {L('Longitude', 'lng')}
         {L('Google Maps URL', 'googleMapsUrl', 'text', true)}
         {L('what3words', 'what3words')}
-        {mapUrl(f) && <div className="flex items-end"><a href={mapUrl(f)} target="_blank" rel="noreferrer" className="btn btn-secondary text-xs"><MapPin size={12} className="mr-1" /> Open map</a></div>}
+        {mapUrl(f) && <div className="flex items-end"><a href={mapUrl(f)} target="_blank" rel="noreferrer" className="btn btn-secondary text-xs"><MapPin size={12} className="me-1" /> Open map</a></div>}
       </div>
 
       {/* People */}
@@ -189,7 +189,7 @@ function LocationForm({ projectId, currency, crew, initial, onClose, onSaved }: 
           {L('Permit expiry', 'permitExpiry', 'date')}
           <div><label className="label text-xs">Permit doc</label>
             {f.permitDocUrl ? <div className="flex items-center gap-1 text-sm h-8"><a href={assetUrl(f.permitDocUrl)} target="_blank" rel="noreferrer" className="text-brand-600 inline-flex items-center gap-1"><FileText size={13} /> View</a><button onClick={() => set('permitDocUrl', '')} className="text-gray-300 hover:text-red-500"><X size={12} /></button></div>
-              : <label className="btn btn-secondary text-xs cursor-pointer inline-flex h-8 items-center"><Upload size={12} className="mr-1" /> Attach<input type="file" className="hidden" onChange={uploadPermit} /></label>}
+              : <label className="btn btn-secondary text-xs cursor-pointer inline-flex h-8 items-center"><Upload size={12} className="me-1" /> Attach<input type="file" className="hidden" onChange={uploadPermit} /></label>}
           </div>
           {L(`Fee / day (${f.currency || currency})`, 'locationFeePerDay', 'number')}
           {L('Currency', 'currency')}
@@ -197,7 +197,7 @@ function LocationForm({ projectId, currency, crew, initial, onClose, onSaved }: 
         {f.id && Number(f.locationFeePerDay) > 0 && (
           <div className="flex items-center gap-2 mt-2">
             <input type="number" className="input text-sm h-8 w-24" placeholder="days" value={days} onChange={e => setDays(e.target.value)} />
-            <button onClick={postFee} className="btn btn-secondary text-xs"><Coins size={12} className="mr-1" /> Post fee to budget</button>
+            <button onClick={postFee} className="btn btn-secondary text-xs"><Coins size={12} className="me-1" /> Post fee to budget</button>
             <span className="text-[11px] text-gray-400">Posts fee/day × days as a coded location cost.</span>
           </div>
         )}
@@ -239,8 +239,8 @@ function LibraryPicker({ projectId, onClose, onLinked }: { projectId: string; on
         </div>
         <div className="p-4 border-b">
           <div className="relative">
-            <Search size={15} className="absolute left-3 top-2.5 text-gray-400" />
-            <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="Search the library…" className="w-full pl-9 pr-3 py-2 border rounded-lg text-sm" />
+            <Search size={15} className="absolute start-3 top-2.5 text-gray-400" />
+            <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="Search the library…" className="w-full ps-9 pe-3 py-2 border rounded-lg text-sm" />
           </div>
         </div>
         <div className="overflow-y-auto p-2">

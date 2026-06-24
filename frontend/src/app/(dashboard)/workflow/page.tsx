@@ -110,7 +110,7 @@ function KanbanCard({ module, record, onDragStart }: {
       {sub && <p className="text-[10px] text-gray-500 mt-0.5 truncate">{sub}</p>}
       <div className="flex items-center justify-between mt-2 gap-2">
         {amt && <span className="text-[10px] font-semibold text-gray-700">{amt}</span>}
-        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ml-auto ${isStuck ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-500'}`}>
+        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ms-auto ${isStuck ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-500'}`}>
           {daysAgo(days)}
         </span>
       </div>

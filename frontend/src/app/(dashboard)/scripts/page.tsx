@@ -57,7 +57,7 @@ export default function ScriptLibraryPage() {
     <div className="p-6 max-w-[1400px] mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-semibold flex items-center gap-2"><ScrollText className="text-[#0f172a]" /> Script Library</h1>
+          <h1 className="text-2xl font-semibold flex items-center gap-2"><ScrollText style={{ color: 'var(--accent)' }} /> Script Library</h1>
           <p className="text-sm text-gray-500 mt-1">The company&apos;s master scripts — develop once, link into any project. Palettes &amp; saved voices carry across.</p>
         </div>
         <button onClick={() => setEditing({ ...EMPTY })} className="inline-flex items-center gap-2 bg-[#0f172a] text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90">
@@ -76,8 +76,8 @@ export default function ScriptLibraryPage() {
 
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <div className="relative flex-1 min-w-[240px]">
-          <Search size={16} className="absolute left-3 top-2.5 text-gray-400" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search title, writer, logline…" className="w-full pl-9 pr-3 py-2 border rounded-lg text-sm" />
+          <Search size={16} className="absolute start-3 top-2.5 text-gray-400" />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search title, writer, logline…" className="w-full ps-9 pe-3 py-2 border rounded-lg text-sm" />
         </div>
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="border rounded-lg px-3 py-2 text-sm">
           <option value="">All statuses</option>
@@ -94,9 +94,9 @@ export default function ScriptLibraryPage() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {items.map((m) => (
-              <button key={m.id} onClick={() => openDetail(m.id)} className="text-left bg-white border rounded-xl p-4 hover:shadow-md transition group">
+              <button key={m.id} onClick={() => openDetail(m.id)} className="text-start bg-white border rounded-xl p-4 hover:shadow-md transition group">
                 <div className="flex items-start justify-between gap-2">
-                  <h3 className="font-medium text-sm group-hover:text-[#0f172a] flex items-center gap-1.5"><FileText size={15} className="text-gray-400" /> {m.title}</h3>
+                  <h3 className="font-medium text-sm  flex items-center gap-1.5"><FileText size={15} className="text-gray-400" /> {m.title}</h3>
                   <StatusBadge status={m.status} />
                 </div>
                 {m.logline && <p className="text-xs text-gray-500 mt-1.5 line-clamp-2">{m.logline}</p>}
@@ -179,7 +179,7 @@ function DetailDrawer({ m, onClose, onEdit, onChanged, reloadList }: any) {
                     <span className="inline-block w-3 h-3 rounded-full border" style={{ background: r.colorCode || '#e2e8f0' }} />
                     <span className="font-medium">{r.revisionLabel}</span>
                     <span className="text-xs text-gray-400">{r.pageCount} pages · {new Date(r.createdAt).toLocaleDateString()}</span>
-                    <div className="ml-auto flex items-center gap-3">
+                    <div className="ms-auto flex items-center gap-3">
                       {r.pdfUrl && <a href={assetUrl(r.pdfUrl)} target="_blank" rel="noreferrer" className="text-blue-600 inline-flex items-center gap-1 text-xs">Open <ExternalLink size={11} /></a>}
                       <button onClick={() => delRev(r.id)} className="text-gray-300 hover:text-red-500"><Trash2 size={13} /></button>
                     </div>

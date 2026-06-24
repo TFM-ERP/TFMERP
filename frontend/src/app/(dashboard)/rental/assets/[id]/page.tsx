@@ -66,7 +66,7 @@ function DocUploadCard({
       {fullUrl && isPdf && (
         <a href={fullUrl} target="_blank" rel="noopener noreferrer"
           className="flex items-center gap-2 p-2 bg-white border border-gray-200 rounded-lg mb-2 text-xs text-brand-700 hover:bg-brand-50">
-          <FileText size={14} /> View PDF <Eye size={12} className="ml-auto opacity-60" />
+          <FileText size={14} /> View PDF <Eye size={12} className="ms-auto opacity-60" />
         </a>
       )}
       <label className={cn(
@@ -125,15 +125,15 @@ function PhotoGallery({
                 <img src={full} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" />
               </a>
               <button onClick={() => onRemovePhoto(url)}
-                className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                className="absolute top-1 end-1 bg-black/60 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                 <X size={11} />
               </button>
               {onSetTilePhoto && (
                 tilePhoto === url
                   ? <button onClick={() => onSetTilePhoto(null)} title="Remove tile-background tag"
-                      className="absolute bottom-1 left-1 text-[9.5px] font-semibold rounded-md px-1.5 py-0.5 bg-amber-400 text-amber-950">★ Tile background</button>
+                      className="absolute bottom-1 start-1 text-[9.5px] font-semibold rounded-md px-1.5 py-0.5 bg-amber-400 text-amber-950">★ Tile background</button>
                   : <button onClick={() => onSetTilePhoto(url)} title="Use this photo behind the asset's tile in the grid view"
-                      className="absolute bottom-1 left-1 text-[9.5px] font-semibold rounded-md px-1.5 py-0.5 bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity">☆ Use as tile</button>
+                      className="absolute bottom-1 start-1 text-[9.5px] font-semibold rounded-md px-1.5 py-0.5 bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity">☆ Use as tile</button>
               )}
             </div>
           );
@@ -556,12 +556,12 @@ export default function AssetDetailPage() {
         <div className="flex gap-2">
           {!editing ? (
             <button onClick={() => setEditing(true)} className="btn btn-secondary text-sm">
-              <Edit2 size={13} className="mr-1" /> Edit
+              <Edit2 size={13} className="me-1" /> Edit
             </button>
           ) : (
             <>
               <button onClick={handleSave} disabled={saving} className="btn btn-primary text-sm disabled:opacity-50">
-                <Save size={13} className="mr-1" /> {saving ? 'Saving...' : 'Save'}
+                <Save size={13} className="me-1" /> {saving ? 'Saving...' : 'Save'}
               </button>
               <button onClick={() => { setEditing(false); setEditForm(asset); }} className="btn btn-secondary text-sm">
                 <X size={13} />
@@ -838,7 +838,7 @@ export default function AssetDetailPage() {
                   <th className="table-th">Type</th>
                   <th className="table-th">Scheduled</th>
                   <th className="table-th">Status</th>
-                  <th className="table-th text-right">Cost</th>
+                  <th className="table-th text-end">Cost</th>
                 </tr></thead>
                 <tbody>
                   {asset.maintenanceLogs.slice(0, 5).map((log: any) => (
@@ -846,7 +846,7 @@ export default function AssetDetailPage() {
                       <td className="table-td text-sm">{log.maintenanceType.replace(/_/g, ' ')}</td>
                       <td className="table-td text-sm text-gray-600">{formatDate(log.scheduledDate)}</td>
                       <td className="table-td"><span className="badge bg-gray-100 text-gray-600">{log.status}</span></td>
-                      <td className="table-td text-right text-sm">{log.cost ? formatCurrency(log.cost) : '—'}</td>
+                      <td className="table-td text-end text-sm">{log.cost ? formatCurrency(log.cost) : '—'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -866,16 +866,16 @@ export default function AssetDetailPage() {
               <table className="w-full">
                 <thead><tr>
                   <th className="table-th">Date</th>
-                  <th className="table-th text-right">Litres</th>
-                  <th className="table-th text-right">Cost</th>
+                  <th className="table-th text-end">Litres</th>
+                  <th className="table-th text-end">Cost</th>
                   <th className="table-th">Odometer</th>
                 </tr></thead>
                 <tbody>
                   {asset.fuelLogs.slice(0, 5).map((log: any) => (
                     <tr key={log.id} className="table-row">
                       <td className="table-td text-sm">{formatDate(log.logDate)}</td>
-                      <td className="table-td text-right text-sm">{Number(log.litres).toFixed(1)}</td>
-                      <td className="table-td text-right text-sm">{formatCurrency(log.totalCost)}</td>
+                      <td className="table-td text-end text-sm">{Number(log.litres).toFixed(1)}</td>
+                      <td className="table-td text-end text-sm">{formatCurrency(log.totalCost)}</td>
                       <td className="table-td text-sm text-gray-600">{log.odometer ? `${log.odometer.toLocaleString()} km` : '—'}</td>
                     </tr>
                   ))}
@@ -927,13 +927,13 @@ export default function AssetDetailPage() {
             <h3 className="text-sm font-semibold text-gray-700 mb-3">Quick Actions</h3>
             <div className="space-y-2">
               <Link href={`/rental/maintenance?assetId=${id}`} className="btn btn-secondary w-full text-sm justify-center">
-                <Wrench size={13} className="mr-1" /> Schedule Maintenance
+                <Wrench size={13} className="me-1" /> Schedule Maintenance
               </Link>
               <Link href={`/rental/fuel?assetId=${id}`} className="btn btn-secondary w-full text-sm justify-center">
-                <Fuel size={13} className="mr-1" /> Log Fuel
+                <Fuel size={13} className="me-1" /> Log Fuel
               </Link>
               <Link href={`/rental/damage?assetId=${id}`} className="btn btn-secondary w-full text-sm justify-center">
-                <AlertTriangle size={13} className="mr-1" /> Report Damage
+                <AlertTriangle size={13} className="me-1" /> Report Damage
               </Link>
             </div>
           </div>

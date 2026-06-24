@@ -208,7 +208,7 @@ export default function DocumentLayout({ type, doc, company, bank, settings, log
     ),
     parties: (
       <div key="parties" style={{ display: 'flex', alignItems: 'stretch', marginBottom: 20 }}>
-        <div style={{ flex: '0 0 220px', paddingRight: 4 }}>
+        <div style={{ flex: '0 0 220px', paddingInlineEnd: 4 }}>
           {[
             { k: 'Name', v: co?.name ?? 'The Film Makers FZ LLC', bold: true },
             { k: 'Address', v: co?.address },
@@ -263,41 +263,41 @@ export default function DocumentLayout({ type, doc, company, bank, settings, log
         <table style={{ borderCollapse: 'collapse', border: '1px solid #ddd', fontSize: BASE }}>
           <tbody>
             <tr>
-              <td style={{ padding: '5px 10px', fontWeight: 700, textAlign: 'right', borderBottom: '1px solid #eee', borderRight: '1px solid #eee', background: '#fafafa', color: NAVY, minWidth: 200 }}>Total Amount</td>
-              <td style={{ padding: '5px 10px', textAlign: 'right', borderBottom: '1px solid #eee', borderRight: '1px solid #eee', minWidth: 100 }}>{fmtAmt(subtotal)}</td>
-              <td style={{ padding: '5px 10px', textAlign: 'right', borderBottom: '1px solid #eee', minWidth: 90 }}>{fmtAmt(vatAmount)}</td>
+              <td style={{ padding: '5px 10px', fontWeight: 700, textAlign: 'end', borderBottom: '1px solid #eee', borderRight: '1px solid #eee', background: '#fafafa', color: NAVY, minWidth: 200 }}>Total Amount</td>
+              <td style={{ padding: '5px 10px', textAlign: 'end', borderBottom: '1px solid #eee', borderRight: '1px solid #eee', minWidth: 100 }}>{fmtAmt(subtotal)}</td>
+              <td style={{ padding: '5px 10px', textAlign: 'end', borderBottom: '1px solid #eee', minWidth: 90 }}>{fmtAmt(vatAmount)}</td>
             </tr>
             {discountAmt > 0 && (
               <tr>
-                <td style={{ padding: '5px 10px', fontWeight: 700, textAlign: 'right', borderBottom: '1px solid #eee', borderRight: '1px solid #eee', background: '#fafafa', color: NAVY }}>Discount</td>
-                <td colSpan={2} style={{ padding: '5px 10px', textAlign: 'right', borderBottom: '1px solid #eee', color: '#c0392b' }}>− {fmtAmt(discountAmt)}</td>
+                <td style={{ padding: '5px 10px', fontWeight: 700, textAlign: 'end', borderBottom: '1px solid #eee', borderRight: '1px solid #eee', background: '#fafafa', color: NAVY }}>Discount</td>
+                <td colSpan={2} style={{ padding: '5px 10px', textAlign: 'end', borderBottom: '1px solid #eee', color: '#c0392b' }}>− {fmtAmt(discountAmt)}</td>
               </tr>
             )}
             {deductionAmt > 0 && (
               <tr>
-                <td style={{ padding: '5px 10px', fontWeight: 700, textAlign: 'right', borderBottom: '1px solid #eee', borderRight: '1px solid #eee', background: '#fafafa', color: NAVY }}>Deduction{doc.deductionReason ? ` (${doc.deductionReason})` : ''}</td>
-                <td colSpan={2} style={{ padding: '5px 10px', textAlign: 'right', borderBottom: '1px solid #eee', color: '#c0392b' }}>− {fmtAmt(deductionAmt)}</td>
+                <td style={{ padding: '5px 10px', fontWeight: 700, textAlign: 'end', borderBottom: '1px solid #eee', borderRight: '1px solid #eee', background: '#fafafa', color: NAVY }}>Deduction{doc.deductionReason ? ` (${doc.deductionReason})` : ''}</td>
+                <td colSpan={2} style={{ padding: '5px 10px', textAlign: 'end', borderBottom: '1px solid #eee', color: '#c0392b' }}>− {fmtAmt(deductionAmt)}</td>
               </tr>
             )}
             <tr>
-              <td style={{ padding: '6px 10px', fontWeight: 700, textAlign: 'right', borderBottom: '1px solid #eee', borderRight: '1px solid #eee', background: '#F2EAD3', color: NAVY }}>Total Amount Inclusive of VAT</td>
-              <td colSpan={2} style={{ padding: '6px 10px', textAlign: 'right', fontWeight: 700, borderBottom: '1px solid #eee', background: '#F2EAD3' }}>{cur} {fmtAmt(total)}</td>
+              <td style={{ padding: '6px 10px', fontWeight: 700, textAlign: 'end', borderBottom: '1px solid #eee', borderRight: '1px solid #eee', background: '#F2EAD3', color: NAVY }}>Total Amount Inclusive of VAT</td>
+              <td colSpan={2} style={{ padding: '6px 10px', textAlign: 'end', fontWeight: 700, borderBottom: '1px solid #eee', background: '#F2EAD3' }}>{cur} {fmtAmt(total)}</td>
             </tr>
             {!isQuote && (
               <>
                 <tr>
-                  <td style={{ padding: '5px 10px', fontWeight: 700, textAlign: 'right', borderBottom: '1px solid #eee', borderRight: '1px solid #eee', background: '#fafafa', color: NAVY }}>Amount Settled / Adjusted</td>
-                  <td colSpan={2} style={{ padding: '5px 10px', textAlign: 'right', borderBottom: '1px solid #eee' }}>{fmtAmt(amountPaid)}</td>
+                  <td style={{ padding: '5px 10px', fontWeight: 700, textAlign: 'end', borderBottom: '1px solid #eee', borderRight: '1px solid #eee', background: '#fafafa', color: NAVY }}>Amount Settled / Adjusted</td>
+                  <td colSpan={2} style={{ padding: '5px 10px', textAlign: 'end', borderBottom: '1px solid #eee' }}>{fmtAmt(amountPaid)}</td>
                 </tr>
                 <tr>
-                  <td style={{ padding: '7px 10px', fontWeight: 700, textAlign: 'right', borderRight: '1px solid #555', background: NAVY, color: 'white' }}>Balance Due Amount</td>
-                  <td colSpan={2} style={{ padding: '7px 10px', textAlign: 'right', fontWeight: 700, fontSize: BASE + 1, background: GOLD, color: 'white' }}>{cur} {fmtAmt(amountDue)}</td>
+                  <td style={{ padding: '7px 10px', fontWeight: 700, textAlign: 'end', borderRight: '1px solid #555', background: NAVY, color: 'white' }}>Balance Due Amount</td>
+                  <td colSpan={2} style={{ padding: '7px 10px', textAlign: 'end', fontWeight: 700, fontSize: BASE + 1, background: GOLD, color: 'white' }}>{cur} {fmtAmt(amountDue)}</td>
                 </tr>
               </>
             )}
             {isQuote && (
               <tr>
-                <td colSpan={3} style={{ padding: '5px 10px', textAlign: 'right', fontStyle: 'italic', color: '#999', fontSize: BASE - 0.5, background: '#FDFAF4', borderTop: '1px solid #eee' }}>Valid until {fmtDate(doc.validUntil)}. Prices subject to change after this date.</td>
+                <td colSpan={3} style={{ padding: '5px 10px', textAlign: 'end', fontStyle: 'italic', color: '#999', fontSize: BASE - 0.5, background: '#FDFAF4', borderTop: '1px solid #eee' }}>Valid until {fmtDate(doc.validUntil)}. Prices subject to change after this date.</td>
               </tr>
             )}
           </tbody>
@@ -308,7 +308,7 @@ export default function DocumentLayout({ type, doc, company, bank, settings, log
       <div key="bank" style={{ marginBottom: 24 }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: NAVY, marginBottom: 12 }}>{isQuote ? 'Bank Details (for reference)' : 'Payment Method'}</div>
         <div style={{ display: 'flex', alignItems: 'stretch', fontSize: BASE }}>
-          <div style={{ flex: '0 0 200px', paddingRight: 4 }}>
+          <div style={{ flex: '0 0 200px', paddingInlineEnd: 4 }}>
             <div style={{ fontWeight: 700, color: NAVY, marginBottom: 3 }}>Cheques Payable to</div>
             <div style={{ marginBottom: 14, color: '#333', fontWeight: 700 }}>{co?.name ?? 'The Film Makers FZ LLC'}</div>
             {!isQuote && (
@@ -333,7 +333,7 @@ export default function DocumentLayout({ type, doc, company, bank, settings, log
                   { label: 'Currency', value: bank.currency },
                 ].filter(r => r.value).map((r, i) => (
                   <tr key={i}>
-                    <td style={{ fontWeight: 700, color: NAVY, paddingRight: 10, paddingBottom: 3, whiteSpace: 'nowrap', verticalAlign: 'top' }}>{r.label}:</td>
+                    <td style={{ fontWeight: 700, color: NAVY, paddingInlineEnd: 10, paddingBottom: 3, whiteSpace: 'nowrap', verticalAlign: 'top' }}>{r.label}:</td>
                     <td style={{ paddingBottom: 3, color: '#444' }}>{r.value}</td>
                   </tr>
                 ))}
@@ -364,7 +364,7 @@ export default function DocumentLayout({ type, doc, company, bank, settings, log
     footer: (
       <div key="footer" style={{ borderTop: '1px solid #ddd', marginTop: 20, paddingTop: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div style={{ color: '#999', fontSize: 8, maxWidth: '65%', lineHeight: 1.5 }}>{isQuote ? S.quotationFooter : S.invoiceFooter}</div>
-        <div style={{ textAlign: 'right', color: '#999', fontSize: 8, lineHeight: 1.6 }}>
+        <div style={{ textAlign: 'end', color: '#999', fontSize: 8, lineHeight: 1.6 }}>
           {co?.website && <div>{co.website}</div>}
           {billingEmail && <div>{billingEmail}</div>}
           {co?.phone && <div>{co.phone}</div>}

@@ -5,13 +5,14 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   Home, DollarSign, Truck, Building2, Film, Users, BarChart2, Settings, ShieldCheck, Target, Wrench,
   Search, Plus, Star, ChevronLeft, ChevronRight, ChevronDown, ChevronUp,
-  LogOut, X, ArrowRight, Sun, Moon, MapPin, Plane, FileSignature, Clapperboard, BedDouble, Car, ScrollText,
+  LogOut, X, ArrowRight, Sun, Moon, SunMedium, MapPin, Plane, FileSignature, Clapperboard, BedDouble, Car, ScrollText, MessageSquare, Menu, Languages,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import SetupGate from '@/components/SetupGate';
 import NotificationBell from '@/components/NotificationBell';
 import PwaRegister from '@/components/PwaRegister';
 import { settingsApi, statusApi, permissionsApi, accountApi, assetUrl } from '@/lib/api';
+import { useLocale, applyLocale } from '@/lib/i18n';
 
 type Page = { label: string; href: string; divider?: boolean };
 type Module = { key: string; label: string; icon: any; pages: Page[] };
@@ -21,9 +22,11 @@ const MODULES: Module[] = [
     { label: 'Dashboard', href: '/home' },
     { label: 'Executive', href: '/executive' },
     { label: 'Workflow & KPIs', href: '/workflow' },
+    { label: '✦ New UI (preview)', href: '/ux' },
   ]},
   { key: 'finance', label: 'Finance', icon: DollarSign, pages: [
     { label: 'Dashboard', href: '/finance' },
+    { label: '✦ Workspace', href: '/finance-workspace' },
     { label: 'Quotations', href: '/finance/quotations' },
     { label: 'Invoices', href: '/finance/invoices' },
     { label: 'Payments', href: '/finance/payments' },
@@ -34,6 +37,7 @@ const MODULES: Module[] = [
     { label: 'Journal Entries', href: '/accounting/journals' },
     { label: 'Trial Balance', href: '/accounting/trial-balance' },
     { label: 'Bank Reconciliation', href: '/accounting/bank-rec' },
+    { label: 'Tax Rates', href: '/finance/vat' },
   ]},
   { key: 'rentals', label: 'Rentals', icon: Truck, pages: [
     { label: 'Dashboard', href: '/rental' },
@@ -71,6 +75,7 @@ const MODULES: Module[] = [
   { key: 'production', label: 'Production', icon: Film, pages: [
     // Daily-work domain entry points
     { label: 'Dashboard', href: '/production/dashboard' },
+    { label: '✦ Scheduling', href: '/scheduling-workspace' },
     { label: 'Projects', href: '/production/projects' },
     { label: 'Crew Directory', href: '/production/crew' },
     { label: 'My Approvals', href: '/production/approvals' },
@@ -81,10 +86,19 @@ const MODULES: Module[] = [
     { label: 'Rate Approvals', href: '/setup/rate-approvals' },
   ]},
   { key: 'scripts', label: 'ScriptON', icon: ScrollText, pages: [
-    { label: 'Script Library', href: '/scripts' },
+    { label: '✦ Script Hub', href: '/scripon' },
+    { label: '✦ Reader', href: '/script-workspace' },
+    { label: 'Script Library (classic)', href: '/scripts' },
     { label: 'Audio Engines', href: '/setup/audio-engines' },
+    { label: 'AI Engines & Routing', href: '/setup/llm-engines' },
+  ]},
+  { key: 'comms', label: 'Comms', icon: MessageSquare, pages: [
+    { label: 'Channels', href: '/comms' },
+    { label: 'Meetings', href: '/meetings' },
+    { label: 'Audit vault', href: '/comms/audit' },
   ]},
   { key: 'locations', label: 'Locations', icon: MapPin, pages: [
+    { label: '✦ Workspace', href: '/locations-workspace' },
     { label: 'Library', href: '/locations' },
     { label: 'Map', href: '/locations/map' },
     { label: 'Scouting', href: '/locations/scouting' },
@@ -96,10 +110,12 @@ const MODULES: Module[] = [
     { label: 'Travelers', href: '/travel/travelers' },
   ]},
   { key: 'contracts', label: 'Contracts', icon: FileSignature, pages: [
+    { label: '✦ Workspace', href: '/contracts-workspace' },
     { label: 'Dashboard', href: '/contracts' },
     { label: 'Templates', href: '/contracts/templates' },
   ]},
   { key: 'casting', label: 'Casting', icon: Clapperboard, pages: [
+    { label: '✦ Workspace', href: '/casting-workspace' },
     { label: 'Dashboard', href: '/casting' },
     { label: 'Talent Database', href: '/casting/talent' },
   ]},
@@ -108,6 +124,7 @@ const MODULES: Module[] = [
   ]},
   { key: 'transport', label: 'Transport', icon: Car, pages: [
     { label: 'Vehicles & Drivers', href: '/transport' },
+    { label: 'Dispatch (live map)', href: '/dispatch' },
     { label: 'Logistics dashboard', href: '/logistics' },
   ]},
   { key: 'hr', label: 'HR', icon: Users, pages: [
@@ -143,7 +160,7 @@ const MODULES: Module[] = [
 
 // Option A — grouped sections (the master sidebar). Ordered; empty groups (by permission) hide.
 const GROUPS: { caption: string; keys: string[] }[] = [
-  { caption: 'Workspace', keys: ['home', 'production', 'scripts'] },
+  { caption: 'Workspace', keys: ['home', 'production', 'scripts', 'comms'] },
   { caption: 'Creative & planning', keys: ['casting', 'locations', 'contracts'] },
   { caption: 'People', keys: ['hr', 'travel', 'partners'] },
   { caption: 'Logistics & assets', keys: ['accommodation', 'transport', 'rentals', 'maintenance'] },
@@ -152,7 +169,7 @@ const GROUPS: { caption: string; keys: string[] }[] = [
   { caption: 'Admin', keys: ['setup'] },
 ];
 // Sections that don't have their own permission key piggyback on another module's access.
-const PERM_ALIAS: Record<string, string> = { maintenance: 'rentals', locations: 'production', travel: 'production', contracts: 'production', casting: 'production', accommodation: 'production', transport: 'production', scripts: 'production' };
+const PERM_ALIAS: Record<string, string> = { maintenance: 'rentals', locations: 'production', travel: 'production', contracts: 'production', casting: 'production', accommodation: 'production', transport: 'production', scripts: 'production', comms: 'home' };
 
 // Pages that have a "+ New" route (only verified routes — avoids 404s)
 const NEW_ROUTES: Record<string, { label: string; href: string }> = {
@@ -162,6 +179,17 @@ const NEW_ROUTES: Record<string, { label: string; href: string }> = {
 };
 
 const GOLD = '#b08d4f'; // TFM gold — the single brand accent in both themes
+
+// All themes selectable from the top bar (maps to the live tfm_theme strings the engine applies)
+const THEME_MENU: { id: string; name: string; hint: string }[] = [
+  { id: 'light', name: 'Studio Light', hint: 'Day' },
+  { id: 'graphite', name: 'Graphite & Gold', hint: 'Dark' },
+  { id: 'ink', name: 'Ink & Paper', hint: 'Reading' },
+  { id: 'slate', name: 'Slate Pro', hint: 'Cool dark' },
+  { id: 'aurora', name: 'Aurora Glass', hint: 'Violet' },
+  { id: 'midnight', name: 'Midnight AAA', hint: 'True black' },
+  { id: 'daylight', name: 'Daylight', hint: 'High-contrast' },
+];
 
 const API_ROOT = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1').replace('/api/v1', '');
 const fileSrc = (v?: string) => (!v ? '' : (v.startsWith('http') || v.startsWith('data:')) ? v : `${API_ROOT}${v}`);
@@ -190,6 +218,8 @@ const lsSet = (k: string, v: any) => { try { localStorage.setItem(k, JSON.string
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const { locale, t, isRTL, setLocale } = useLocale();
+  useEffect(() => { applyLocale(locale); }, [locale]);
 
   const [user, setUser] = useState<{ fullName: string; role: string; avatarUrl?: string | null; preferredName?: string | null } | null>(null);
   const [company, setCompany] = useState<{ name?: string; logoUrl?: string; darkLogoUrl?: string } | null>(null);
@@ -204,18 +234,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [query, setQuery] = useState('');
   const [acctOpen, setAcctOpen] = useState(false);
   // Dark mode — class on <html>, persisted; applied in an effect so SSR markup never differs
-  const [darkMode, setDarkMode] = useState(false);
+  const [theme, setTheme] = useState<string>('light');
+  const [themeMenuOpen, setThemeMenuOpen] = useState(false);
+  const DARK_FAM = ['dark', 'graphite', 'slate', 'aurora', 'midnight'];
+  const PALETTE = ['ink', 'slate', 'aurora', 'midnight']; // need a data-theme override
+  const darkMode = DARK_FAM.includes(theme);
+  const applyTheme = (t: string) => {
+    const el = document.documentElement;
+    el.classList.toggle('dark', DARK_FAM.includes(t));
+    el.classList.toggle('daylight', t === 'daylight');
+    if (PALETTE.includes(t)) el.setAttribute('data-theme', t); else el.removeAttribute('data-theme');
+  };
   useEffect(() => {
-    const on = lsGet('tfm_dark', false);
-    setDarkMode(on);
-    document.documentElement.classList.toggle('dark', on);
+    let t = lsGet('tfm_theme', null) as string | null;
+    if (!t) t = lsGet('tfm_dark', false) ? 'dark' : 'light'; // migrate legacy flag
+    setTheme(t); applyTheme(t);
+    const onStorage = (e: StorageEvent) => { if (e.key === 'tfm_theme' && e.newValue) { setTheme(e.newValue); applyTheme(e.newValue); } };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
   }, []);
-  const toggleTheme = () => setDarkMode(v => {
-    const n = !v;
-    lsSet('tfm_dark', n);
-    document.documentElement.classList.toggle('dark', n);
-    return n;
-  });
+  const setThemeTo = (t: string) => { setTheme(t); applyTheme(t); lsSet('tfm_theme', t); setThemeMenuOpen(false); };
   const [perms, setPerms] = useState<Record<string, number> | null>(null);
 
   const active = matchActive(pathname);
@@ -288,12 +326,35 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
+  // Mobile drawer: below 768px the rail becomes an off-canvas drawer (forced expanded).
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [bp, setBp] = useState<'phone' | 'tablet' | 'desktop'>('desktop');
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const phoneMq = window.matchMedia('(max-width: 767px)');
+    const tabletMq = window.matchMedia('(min-width: 768px) and (max-width: 1023px)');
+    const apply = () => {
+      const b = phoneMq.matches ? 'phone' : tabletMq.matches ? 'tablet' : 'desktop';
+      setBp(b);
+      if (b === 'phone') setExpanded(true);            // drawer shows labels
+      else if (b === 'tablet') setExpanded(false);     // icons-only rail
+      else setExpanded(lsGet('tfm_nav_expanded', true)); // desktop: user preference
+    };
+    apply();
+    phoneMq.addEventListener('change', apply); tabletMq.addEventListener('change', apply);
+    return () => { phoneMq.removeEventListener('change', apply); tabletMq.removeEventListener('change', apply); };
+  }, []);
+  const isMobile = bp === 'phone';
+  const isPhone = bp === 'phone';
+  useEffect(() => { setMobileOpen(false); }, [pathname]);
+
   const toggleExpanded = () => setExpanded(v => { lsSet('tfm_nav_expanded', !v); return !v; });
 
   const goModule = (m: Module) => {
     const firstPage = m.pages.find(p => !p.divider)!;
     const target = lastTab[m.key] && m.pages.some(p => !p.divider && p.href === lastTab[m.key]) ? lastTab[m.key] : firstPage.href;
     router.push(target);
+    setMobileOpen(false);
   };
 
   const isPinned = activePage ? pins.some(p => p.href === activePage.href) : false;
@@ -354,7 +415,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const on = m.key === activeMkey;
     const badge = badges[m.key];
     return (
-      <button key={m.key} onClick={() => goModule(m)} title={m.label} aria-label={m.label}
+      <button key={m.key} onClick={() => goModule(m)} title={t(m.label)} aria-label={t(m.label)}
         className="relative flex items-center rounded-md mx-1.5 my-0.5 transition-colors"
         style={{
           padding: expanded ? '7px 10px' : '10px 0',
@@ -368,10 +429,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         onMouseLeave={e => { if (!on) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = pal.item; } }}
       >
         <m.icon size={18} style={{ flexShrink: 0 }} />
-        {expanded && <span className="text-[13px] truncate">{m.label}</span>}
+        {expanded && <span className="text-[13px] truncate">{t(m.label)}</span>}
         {badge > 0 && (
           <span className="absolute flex items-center justify-center text-[9px] font-bold text-white rounded-full"
-            style={{ top: 4, right: expanded ? 8 : 6, minWidth: 15, height: 15, padding: '0 3px', background: '#e24b4a' }}>
+            style={{ top: 4, insetInlineEnd: expanded ? 8 : 6, minWidth: 15, height: 15, padding: '0 3px', background: '#e24b4a' }}>
             {badge}
           </span>
         )}
@@ -387,20 +448,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const k = PERM_ALIAS[key] || key;
     return k === 'home' || !perms || (perms[k] ?? 0) >= 1;
   };
+  const bottomNav = GROUPS.flatMap(g => g.keys).filter(canSee).slice(0, 4).map(k => MODULES.find(m => m.key === k)!);
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ background: darkMode ? '#0B0B0D' : '#F5F5F4' }}>
+    <div className="flex h-screen overflow-hidden" style={{ background: 'var(--page-bg)' }}>
+
+      {/* Mobile drawer scrim */}
+      {isMobile && mobileOpen && <div onClick={() => setMobileOpen(false)} className="fixed inset-0 z-[55]" style={{ background: 'rgba(0,0,0,0.5)' }} aria-hidden />}
 
       {/* ── Rail (Option A — grouped, theme-following) ── */}
-      <aside className="flex flex-col shrink-0 transition-all" style={{ width: RAIL_W, background: pal.bg, borderRight: `1px solid ${pal.border}` }}>
+      <aside className="flex flex-col shrink-0 transition-all" style={{ width: RAIL_W, background: pal.bg, borderInlineEnd: `1px solid ${pal.border}`, ...(isMobile ? { position: 'fixed', top: 0, bottom: 0, insetInlineStart: 0, zIndex: 60, transform: mobileOpen ? 'translateX(0)' : (isRTL ? 'translateX(100%)' : 'translateX(-100%)'), transition: 'transform .25s ease', boxShadow: mobileOpen ? '0 10px 40px rgba(0,0,0,0.45)' : 'none' } : {}) }}>
         {/* Brand header */}
         <div className="flex items-center gap-2 px-2.5 py-3" style={{ borderBottom: `1px solid ${pal.border}`, justifyContent: expanded ? 'space-between' : 'center' }}>
           {expanded ? (
             logoSrc
               ? (usingDarkLogo
-                ? <img src={logoSrc} alt={company?.name || 'Company'} className="h-9 w-auto max-w-[150px] object-contain ml-1" />
-                : <div className="bg-white rounded-md px-2 py-1.5 flex items-center justify-center flex-1 mr-1"><img src={logoSrc} alt={company?.name || 'Company'} className="h-8 w-auto max-w-[140px] object-contain" /></div>)
-              : <img src={fallbackLogo} alt="Company" className="h-8 w-auto ml-1" style={{ opacity: 0.95 }} />
+                ? <img src={logoSrc} alt={company?.name || 'Company'} className="h-9 w-auto max-w-[150px] object-contain ms-1" />
+                : <div className="bg-white rounded-md px-2 py-1.5 flex items-center justify-center flex-1 me-1"><img src={logoSrc} alt={company?.name || 'Company'} className="h-8 w-auto max-w-[140px] object-contain" /></div>)
+              : <img src={fallbackLogo} alt="Company" className="h-8 w-auto ms-1" style={{ opacity: 0.95 }} />
           ) : (
             logoSrc
               ? (usingDarkLogo
@@ -408,8 +473,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 : <div className="bg-white rounded-md p-1 flex items-center justify-center"><img src={logoSrc} alt="" className="h-6 w-6 object-contain" /></div>)
               : <img src={fallbackLogo} alt="" className="h-6 w-auto" style={{ opacity: 0.95 }} />
           )}
-          <button onClick={toggleExpanded} aria-label="Toggle navigation" className="shrink-0" style={{ color: pal.searchText }}>
-            {expanded ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}
+          <button onClick={isMobile ? () => setMobileOpen(false) : toggleExpanded} aria-label={isMobile ? 'Close menu' : 'Toggle navigation'} className="shrink-0" style={{ color: pal.searchText }}>
+            {isMobile ? <X size={18} /> : (expanded ? (isRTL ? <ChevronRight size={18} /> : <ChevronLeft size={18} />) : (isRTL ? <ChevronLeft size={18} /> : <ChevronRight size={18} />))}
           </button>
         </div>
 
@@ -420,7 +485,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             if (!keys.length) return null;
             return (
               <div key={g.caption}>
-                {expanded && <div className="px-3.5 pt-3 pb-1 text-[10.5px]" style={{ color: pal.cap, letterSpacing: '.04em' }}>{g.caption}</div>}
+                {expanded && <div className="px-3.5 pt-3 pb-1 text-[10.5px]" style={{ color: pal.cap, letterSpacing: '.04em' }}>{t(g.caption)}</div>}
                 {keys.map(k => railBtn(MODULES.find(m => m.key === k)!))}
               </div>
             );
@@ -432,15 +497,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {acctOpen && expanded && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setAcctOpen(false)} />
-              <div className="absolute z-50 left-1.5 right-1.5 rounded-md overflow-hidden" style={{ bottom: 'calc(100% - 2px)', background: pal.menuBg, border: `1px solid ${pal.border}` }}>
+              <div className="absolute z-50 start-1.5 end-1.5 rounded-md overflow-hidden" style={{ bottom: 'calc(100% - 2px)', background: pal.menuBg, border: `1px solid ${pal.border}` }}>
                 <Link href="/account/security" onClick={() => setAcctOpen(false)} className="flex items-center gap-2.5 px-3 py-2 text-[12.5px]" style={{ color: pal.footerText }}
                   onMouseEnter={e => (e.currentTarget.style.background = pal.itemHover)} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                  <ShieldCheck size={15} /> Personal identity &amp; security
+                  <ShieldCheck size={15} /> {t('Personal identity & security')}
                 </Link>
                 <div style={{ height: 1, background: pal.border }} />
-                <button onClick={handleLogout} className="flex items-center gap-2.5 w-full text-left px-3 py-2 text-[12.5px]" style={{ color: '#e24b4a' }}
+                <button onClick={handleLogout} className="flex items-center gap-2.5 w-full text-start px-3 py-2 text-[12.5px]" style={{ color: '#e24b4a' }}
                   onMouseEnter={e => (e.currentTarget.style.background = pal.itemHover)} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                  <LogOut size={15} /> Sign out
+                  <LogOut size={15} /> {t('Sign out')}
                 </button>
               </div>
             </>
@@ -456,8 +521,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
             {expanded && (
               <>
-                <div className="text-left flex-1 min-w-0">
-                  <p className="text-[12px] font-medium truncate" style={{ color: pal.footerText }}>{user?.preferredName || user?.fullName || 'Administrator'}</p>
+                <div className="text-start flex-1 min-w-0">
+                  <p className="text-[12px] font-medium truncate" style={{ color: pal.footerText }}>{user?.preferredName || user?.fullName || t('Administrator')}</p>
                   <p className="text-[10px] truncate" style={{ color: pal.footerSub }}>{(user?.role || 'SYSTEM_ADMIN').replace(/_/g, ' ')}</p>
                 </div>
                 <ChevronUp size={14} className="shrink-0" style={{ color: pal.footerSub, transform: acctOpen ? 'rotate(180deg)' : 'none' }} />
@@ -474,40 +539,68 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
              The old big-title block + pinned/recents rows are gone; pins and
              recents live in the ⌘K palette. ─────────────────────────────────── */}
         <header className="flex items-center gap-2 px-4 h-12 shrink-0" style={{ background: 'var(--surface-1)', borderBottom: '1px solid var(--border-1)' }}>
+          {isMobile && <button onClick={() => setMobileOpen(true)} aria-label="Open menu" className="p-1 -ms-1 shrink-0" style={{ color: 'var(--text-2)' }}><Menu size={20} /></button>}
           <nav className="flex items-center gap-0.5 min-w-0" aria-label="Breadcrumb">
             <Link href={activeModule.pages.find(p => !p.divider)?.href || '/'}
               className="text-[13px] rounded-md px-2 py-1 whitespace-nowrap transition-colors" style={{ color: 'var(--text-2)' }}>
-              {activeModule.label}
+              {t(activeModule.label)}
             </Link>
             {activePage && (
               <>
-                <ChevronRight size={13} className="shrink-0" style={{ color: 'var(--border-2)' }} />
-                <span className="text-[13px] font-semibold px-1.5 py-1 truncate" style={{ color: 'var(--text-1)' }}>{activePage.label}</span>
+                {isRTL ? <ChevronLeft size={13} className="shrink-0" style={{ color: 'var(--border-2)' }} /> : <ChevronRight size={13} className="shrink-0" style={{ color: 'var(--border-2)' }} />}
+                <span className="text-[13px] font-semibold px-1.5 py-1 truncate" style={{ color: 'var(--text-1)' }}>{t(activePage.label)}</span>
                 <button onClick={togglePin} title={isPinned ? 'Unpin' : 'Pin'} aria-label="Pin page"
                   className="p-1 shrink-0" style={{ color: isPinned ? GOLD : 'var(--text-3)' }}>
                   <Star size={13} fill={isPinned ? GOLD : 'none'} />
                 </button>
               </>
             )}
-            {isDetail && <><ChevronRight size={13} className="shrink-0" style={{ color: 'var(--border-2)' }} /><span className="text-[12px] px-1 whitespace-nowrap" style={{ color: 'var(--text-3)' }}>record</span></>}
+            {isDetail && <>{isRTL ? <ChevronLeft size={13} className="shrink-0" style={{ color: 'var(--border-2)' }} /> : <ChevronRight size={13} className="shrink-0" style={{ color: 'var(--border-2)' }} />}<span className="text-[12px] px-1 whitespace-nowrap" style={{ color: 'var(--text-3)' }}>{t('record')}</span></>}
           </nav>
           <div className="flex-1" />
           <button onClick={() => { setPaletteOpen(true); setQuery(''); }}
             className="flex items-center gap-2 text-sm rounded-lg px-3 h-8 transition-colors w-[230px] shrink-0"
             style={{ color: 'var(--text-3)', background: 'var(--surface-2)', border: '1px solid var(--border-1)' }}>
             <Search size={14} />
-            <span className="text-[12.5px] truncate">Search or jump…</span>
-            <span className="ml-auto text-[11px] rounded px-1.5 py-0.5" style={{ color: 'var(--text-3)', border: '1px solid var(--border-1)' }}>⌘K</span>
+            <span className="text-[12.5px] truncate">{t('Search or jump…')}</span>
+            <span className="ms-auto text-[11px] rounded px-1.5 py-0.5" style={{ color: 'var(--text-3)', border: '1px solid var(--border-1)' }}>⌘K</span>
           </button>
           {newAction && (
             <Link href={newAction.href} className="hidden sm:flex items-center gap-1.5 text-[12.5px] font-bold rounded-lg px-3 h-8" style={{ background: GOLD, color: darkMode ? '#1a1206' : '#1a1206' }}>
               <Plus size={14} /> {newAction.label}
             </Link>
           )}
-          <button onClick={toggleTheme} title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'} aria-label="Toggle dark mode"
-            className="p-1.5 rounded-lg" style={{ color: 'var(--text-3)' }}>
-            {darkMode ? <Sun size={16} /> : <Moon size={16} />}
+          <button onClick={() => setLocale(isRTL ? 'en' : 'ar')} title={isRTL ? 'التبديل إلى الإنجليزية' : 'Switch to Arabic (RTL)'} aria-label="Language"
+            className="p-1.5 rounded-lg flex items-center gap-1" style={{ color: 'var(--text-3)' }}>
+            <Languages size={16} />
+            <span className="text-[11px] font-bold">{isRTL ? 'ع' : 'EN'}</span>
           </button>
+          <div style={{ position: 'relative' }}>
+            <button onClick={() => setThemeMenuOpen((o) => !o)} title="Theme" aria-label="Switch theme"
+              className="p-1.5 rounded-lg" style={{ color: 'var(--text-3)' }}>
+              {darkMode ? <Moon size={16} /> : theme === 'daylight' ? <SunMedium size={16} /> : <Sun size={16} />}
+            </button>
+            {themeMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setThemeMenuOpen(false)} />
+                <div className="absolute z-50 rounded-lg overflow-hidden" style={{ insetInlineEnd: 0, top: '110%', minWidth: 188, background: 'var(--surface-1)', border: '1px solid var(--border-2)', boxShadow: '0 12px 32px rgba(0,0,0,.28)' }}>
+                  {THEME_MENU.map((o) => {
+                    const on = theme === o.id || (o.id === 'graphite' && theme === 'dark');
+                    return (
+                      <button key={o.id} onClick={() => setThemeTo(o.id)}
+                        className="flex items-center gap-2 w-full text-start px-3 py-2 text-[12.5px]"
+                        style={{ background: on ? 'var(--accent-soft)' : 'transparent', color: on ? 'var(--accent)' : 'var(--text-1)' }}
+                        onMouseEnter={(e) => { if (!on) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
+                        onMouseLeave={(e) => { if (!on) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+                        <span style={{ flex: 1 }}>{o.name}</span>
+                        <span style={{ fontSize: 10, color: on ? 'var(--accent)' : 'var(--text-3)' }}>{o.hint}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
           <NotificationBell />
         </header>
 
@@ -516,7 +609,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="flex items-stretch flex-wrap gap-0.5 px-4" style={{ background: 'var(--surface-1)', borderBottom: '1px solid var(--border-1)' }}>
           {visibleTabs.map(p => {
             if (p.divider) return (
-              <span key={p.href} className="flex items-center gap-1.5 pl-3 pr-1 text-[10px] uppercase tracking-wide select-none" style={{ color: 'var(--text-3)', borderLeft: '1px solid var(--border-1)', marginLeft: 6 }}>
+              <span key={p.href} className="flex items-center gap-1.5 ps-3 pe-1 text-[10px] uppercase tracking-wide select-none" style={{ color: 'var(--text-3)', borderInlineStart: '1px solid var(--border-1)', marginInlineStart: 6 }}>
                 {p.label}
               </span>
             );
@@ -540,32 +633,53 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         )}
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto" style={{ paddingBottom: isPhone ? 60 : undefined }}>
           <SetupGate>{children}</SetupGate>
         </main>
       </div>
+
+      {/* Phone bottom navigation — adaptive shell: rail → tablet icons → phone bottom-nav */}
+      {isPhone && (
+        <nav className="fixed bottom-0 inset-x-0 z-40 flex" style={{ background: pal.bg, borderTop: `1px solid ${pal.border}`, paddingBottom: 'env(safe-area-inset-bottom)' }}>
+          {bottomNav.map(m => {
+            const on = m.key === activeMkey;
+            return (
+              <button key={m.key} onClick={() => goModule(m)} className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2" style={{ color: on ? GOLD : pal.item }}>
+                <m.icon size={19} />
+                <span className="text-[9px] truncate max-w-[64px]">{t(m.label)}</span>
+              </button>
+            );
+          })}
+          <button onClick={() => setMobileOpen(true)} className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2" style={{ color: pal.item }}>
+            <Menu size={19} />
+            <span className="text-[9px]">{t('More')}</span>
+          </button>
+        </nav>
+      )}
 
       {/* PWA: production manifest + service worker (offline petty cash & locations) */}
       <PwaRegister />
 
       {/* ── Command palette ── */}
       {paletteOpen && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center" style={{ background: 'rgba(0,0,0,0.4)', paddingTop: '12vh' }}
+        <div className="fixed inset-0 z-50 flex items-start justify-center" style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(2px)', paddingTop: '12vh' }}
           onClick={() => setPaletteOpen(false)}>
-          <div className="bg-white rounded-xl shadow-2xl w-[460px] max-w-[92%] overflow-hidden" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100">
-              <Search size={16} className="text-gray-400" />
+          <div className="rounded-xl shadow-2xl w-[460px] max-w-[92%] overflow-hidden" style={{ background: 'var(--surface-1)', color: 'var(--text-1)', border: '1px solid var(--border-2)' }} onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-2 px-4 py-3" style={{ borderBottom: '1px solid var(--border-1)' }}>
+              <Search size={16} style={{ color: 'var(--text-3)' }} />
               <input autoFocus value={query} onChange={e => setQuery(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' && paletteResults[0]) { router.push(paletteResults[0].href); setPaletteOpen(false); } }}
-                placeholder="Jump to page or action…" className="flex-1 outline-none text-sm bg-transparent" />
-              <button onClick={() => setPaletteOpen(false)} className="text-gray-400 hover:text-gray-600" aria-label="Close"><X size={16} /></button>
+                placeholder={t('Jump to page or action…')} className="flex-1 outline-none text-sm bg-transparent" style={{ color: 'var(--text-1)' }} />
+              <button onClick={() => setPaletteOpen(false)} aria-label="Close" style={{ color: 'var(--text-3)' }}><X size={16} /></button>
             </div>
             <div className="max-h-80 overflow-y-auto py-1.5">
-              {paletteResults.length === 0 && <div className="px-4 py-6 text-center text-sm text-gray-400">No matches</div>}
+              {paletteResults.length === 0 && <div className="px-4 py-6 text-center text-sm" style={{ color: 'var(--text-3)' }}>{t('No matches')}</div>}
               {paletteResults.map((r, i) => (
                 <button key={r.href + i} onClick={() => { router.push(r.href); setPaletteOpen(false); }}
-                  className="flex items-center gap-2.5 w-full text-left px-4 py-2 text-[13px] text-gray-700 hover:bg-gray-50">
-                  {r.kind === 'action' ? <Plus size={15} className="text-gray-400" /> : <ArrowRight size={15} className="text-gray-400" />}
+                  className="flex items-center gap-2.5 w-full text-start px-4 py-2 text-[13px]" style={{ color: 'var(--text-1)' }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+                  {r.kind === 'action' ? <Plus size={15} style={{ color: 'var(--text-3)' }} /> : <ArrowRight size={15} style={{ color: 'var(--text-3)' }} />}
                   {r.label}
                 </button>
               ))}

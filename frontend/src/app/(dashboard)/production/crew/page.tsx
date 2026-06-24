@@ -70,8 +70,8 @@ export default function CrewDirectoryPage() {
 
       <div className="flex flex-wrap gap-2 mb-4">
         <div className="relative flex-1 min-w-48">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input className="input pl-9 w-full" placeholder="Search name, role, department…" value={q} onChange={e => setQ(e.target.value)} />
+          <Search size={14} className="absolute start-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input className="input ps-9 w-full" placeholder="Search name, role, department…" value={q} onChange={e => setQ(e.target.value)} />
         </div>
         <select className="input w-48" value={dept} onChange={e => setDept(e.target.value)}><option value="">All departments</option>{depts.map(d => <option key={d}>{d}</option>)}</select>
         <select className="input w-40" value={scope} onChange={e => setScope(e.target.value)}><option value="">Local & abroad</option><option value="local">Local hire</option><option value="abroad">Flown in</option></select>
@@ -90,7 +90,7 @@ export default function CrewDirectoryPage() {
         ) : (
           <table className="w-full text-sm">
             <thead><tr className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-100">
-              <th className="px-5 py-2.5 text-left">Name</th><th className="px-3 py-2.5 text-left">Department / Role</th><th className="px-3 py-2.5 text-left">Nationality</th><th className="px-3 py-2.5 text-left">Hire</th><th className="px-3 py-2.5 text-left">Access</th><th className="px-3 py-2.5 text-right">Rate</th><th className="px-3 py-2.5 text-left">Contact</th><th className="px-3 py-2.5 text-right">Travel</th>
+              <th className="px-5 py-2.5 text-start">Name</th><th className="px-3 py-2.5 text-start">Department / Role</th><th className="px-3 py-2.5 text-start">Nationality</th><th className="px-3 py-2.5 text-start">Hire</th><th className="px-3 py-2.5 text-start">Access</th><th className="px-3 py-2.5 text-end">Rate</th><th className="px-3 py-2.5 text-start">Contact</th><th className="px-3 py-2.5 text-end">Travel</th>
             </tr></thead>
             <tbody>
               {sorted.map(c => (
@@ -100,9 +100,9 @@ export default function CrewDirectoryPage() {
                   <td className="px-3 py-3 text-gray-600">{c.baseCountry || c.nationality || '—'}</td>
                   <td className="px-3 py-3"><span className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full ${c.isLocal ? 'bg-teal-50 text-teal-700' : 'bg-blue-50 text-blue-700'}`}>{c.isLocal ? <MapPin size={11} /> : <Plane size={11} />} {c.isLocal ? 'Local' : 'Abroad'}</span></td>
                   <td className="px-3 py-3"><span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${c.parentSystemUserId ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}`}>{c.parentSystemUserId ? 'ERP user' : 'Portal'}</span></td>
-                  <td className="px-3 py-3 text-right text-gray-600">{fmtRate(c)}</td>
+                  <td className="px-3 py-3 text-end text-gray-600">{fmtRate(c)}</td>
                   <td className="px-3 py-3 text-xs text-gray-500">{c.phone || c.email || '—'}</td>
-                  <td className="px-3 py-3 text-right">
+                  <td className="px-3 py-3 text-end">
                     <button onClick={() => openTravel(c.id)} disabled={opening === c.id} title="Travel & immigration identity" className="text-[11px] inline-flex items-center gap-1 rounded-lg border border-gray-200 text-gray-600 px-2 py-1 hover:border-[#0f172a] disabled:opacity-40">{opening === c.id ? <Loader2 size={12} className="animate-spin" /> : <Plane size={12} />} Travel</button>
                   </td>
                 </tr>
@@ -162,7 +162,7 @@ function DeptView({ items }: { items: any[] }) {
                       </div>
                     )}
                   </div>
-                  <div className="text-right text-xs text-gray-500 shrink-0">{fmtRate(c)}</div>
+                  <div className="text-end text-xs text-gray-500 shrink-0">{fmtRate(c)}</div>
                 </div>
               );
             })}

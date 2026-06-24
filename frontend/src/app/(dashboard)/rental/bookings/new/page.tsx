@@ -123,7 +123,7 @@ export default function NewBookingPage() {
           <div className="flex items-center gap-2 font-medium text-amber-800 mb-1.5">
             <AlertTriangle size={15} /> Scheduling conflict — {conflicts.length} asset{conflicts.length > 1 ? 's are' : ' is'} already booked in these dates
           </div>
-          <ul className="text-amber-700 text-xs space-y-0.5 ml-6 list-disc">
+          <ul className="text-amber-700 text-xs space-y-0.5 ms-6 list-disc">
             {conflicts.map((c, i) => (
               <li key={i}><b>{c.assetName}</b> is on {c.bookingNumber} ({c.client}) — {new Date(c.startDate).toLocaleDateString('en-GB')} → {new Date(c.endDate).toLocaleDateString('en-GB')} [{String(c.status).replace(/_/g, ' ')}]</li>
             ))}
@@ -247,7 +247,7 @@ export default function NewBookingPage() {
                       value={item.description}
                       onChange={e => setItemField(idx, 'description', e.target.value)}
                     />
-                    <span className="text-xs font-semibold text-gray-700 w-28 text-right">
+                    <span className="text-xs font-semibold text-gray-700 w-28 text-end">
                       AED {calcLine(item).toLocaleString('en-AE', { minimumFractionDigits: 2 })}
                     </span>
                     <button onClick={() => setItems(prev => prev.filter((_, i) => i !== idx))} className="text-red-400 hover:text-red-600 p-1">
@@ -293,7 +293,7 @@ export default function NewBookingPage() {
                   <span className="text-xs text-gray-400">AED</span>
                   <input
                     type="number" min="0" step="0.01"
-                    className="input w-24 text-right text-xs py-0.5"
+                    className="input w-24 text-end text-xs py-0.5"
                     value={form.discountAmount}
                     onChange={e => setField('discountAmount', e.target.value)}
                     placeholder="0.00"

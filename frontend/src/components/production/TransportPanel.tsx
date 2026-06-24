@@ -41,7 +41,7 @@ export default function TransportPanel({ projectId }: { projectId: string }) {
         <button onClick={() => shiftDay(-1)} className="rounded-lg border border-slate-200 p-1.5 text-slate-500 hover:bg-slate-50"><ChevronLeft size={16} /></button>
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="rounded-xl border border-slate-200 px-3 py-1.5 text-sm" />
         <button onClick={() => shiftDay(1)} className="rounded-lg border border-slate-200 p-1.5 text-slate-500 hover:bg-slate-50"><ChevronRight size={16} /></button>
-        <button onClick={() => setDate(today())} className="text-xs text-slate-500 underline ml-1">Today</button>
+        <button onClick={() => setDate(today())} className="text-xs text-slate-500 underline ms-1">Today</button>
       </div>
 
       {/* Status board */}

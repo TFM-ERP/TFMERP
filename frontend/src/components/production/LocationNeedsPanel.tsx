@@ -32,7 +32,7 @@ function NeedCompare({ needId, onSignedOff }: { needId: string; onSignedOff: () 
               {data.options.map((o: any) => (
                 <div key={o.optionId} className={`rounded-xl border p-2 ${o.isSelected ? 'border-emerald-300 bg-emerald-50/40' : 'border-slate-200'}`}>
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="font-medium text-slate-800 text-sm truncate flex-1">{o.name}<span className="text-[11px] text-slate-400 ml-1">{[o.area, o.emirate].filter(Boolean).join(', ')}</span></span>
+                    <span className="font-medium text-slate-800 text-sm truncate flex-1">{o.name}<span className="text-[11px] text-slate-400 ms-1">{[o.area, o.emirate].filter(Boolean).join(', ')}</span></span>
                     {o.weightedScore != null && <Chip tone="link">{o.weightedScore.toFixed(1)}</Chip>}
                     {o.blockers > 0 && <Chip tone="risk">{o.blockers} blk</Chip>}
                   </div>
@@ -123,9 +123,9 @@ export default function LocationNeedsPanel({ projectId }: { projectId: string })
                         {n.options.map((o: any) => (
                           <div key={o.id} className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${o.isSelected ? 'border-emerald-300 bg-emerald-50/50' : 'border-slate-200'}`}>
                             <span className="font-medium text-slate-800 text-sm truncate flex-1">
-                              {o.isSelected && <Check size={13} className="inline text-emerald-600 mr-1" />}
+                              {o.isSelected && <Check size={13} className="inline text-emerald-600 me-1" />}
                               {o.location?.name || '—'}
-                              <span className="text-[11px] text-slate-400 ml-1.5">{[o.location?.emirate, o.location?.area].filter(Boolean).join(' · ')}</span>
+                              <span className="text-[11px] text-slate-400 ms-1.5">{[o.location?.emirate, o.location?.area].filter(Boolean).join(' · ')}</span>
                             </span>
                             <select className={inp} value={o.optionStatus} onChange={(e) => setOptStatus(o.id, e.target.value)}>
                               {OPT_STATUSES.map(s => <option key={s} value={s}>{s.charAt(0) + s.slice(1).toLowerCase()}</option>)}
