@@ -12,10 +12,13 @@ import {
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { AttendanceService } from './attendance.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../permissions/permissions.guard';
+import { RequirePermission } from '../permissions/require-permission.decorator';
 
 @ApiTags('HR — Attendance')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@RequirePermission('hr', 1)
 @Controller('hr/attendance')
 export class AttendanceController {
   constructor(private service: AttendanceService) {}

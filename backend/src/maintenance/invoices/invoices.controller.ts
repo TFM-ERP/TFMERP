@@ -1,9 +1,14 @@
 import { Controller, Get, Post, Put, Patch, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { InvoicesService } from './invoices.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../../permissions/permissions.guard';
+import { RequirePermission } from '../../permissions/require-permission.decorator';
 
+// Third-party maintenance billing (vendor quotations/invoices/payments) — rental
+// back-office, gated to rentals 'edit' (was reachable by any authenticated user).
 @Controller('maintenance')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@RequirePermission('rentals', 2)
 export class InvoicesController {
   constructor(private readonly svc: InvoicesService) {}
 

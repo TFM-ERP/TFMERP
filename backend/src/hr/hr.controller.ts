@@ -13,10 +13,14 @@ import {
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { HrService } from './hr.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../permissions/permissions.guard';
+import { RequirePermission } from '../permissions/require-permission.decorator';
 
+// Employee PII (documents, visas, certs, leave) — require the HR module, not just login.
 @ApiTags('HR & Workforce')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@RequirePermission('hr', 1)
 @Controller('hr')
 export class HrController {
   constructor(private service: HrService) {}

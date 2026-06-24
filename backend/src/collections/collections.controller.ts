@@ -2,10 +2,13 @@ import { Controller, Get, Post, Put, Body, Param, Query, UseGuards, Request } fr
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CollectionsService } from './collections.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../permissions/permissions.guard';
+import { RequirePermission } from '../permissions/require-permission.decorator';
 
 @ApiTags('Collections')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@RequirePermission('finance', 1)
 @Controller('finance/collections')
 export class CollectionsController {
   constructor(private service: CollectionsService) {}
@@ -17,18 +20,21 @@ export class CollectionsController {
   getSettings() { return this.service.getSettings(); }
 
   @Put('settings')
+  @RequirePermission('finance', 2)
   updateSettings(@Body() body: any) { return this.service.updateSettings(body); }
 
   @Get('reminder-logs/:invoiceId')
   logs(@Param('invoiceId') invoiceId: string) { return this.service.reminderLogs(invoiceId); }
 
   @Post('reminders/:invoiceId')
+  @RequirePermission('finance', 2)
   @ApiOperation({ summary: 'Send a payment reminder for an invoice' })
   remind(@Param('invoiceId') invoiceId: string, @Body('level') level: string, @Request() req) {
     return this.service.sendReminder(invoiceId, level, req.user?.id);
   }
 
   @Post('scan')
+  @RequirePermission('finance', 2)
   @ApiOperation({ summary: 'Run the automatic reminder scan now' })
   scan() { return this.service.scan(); }
 
@@ -38,10 +44,12 @@ export class CollectionsController {
   }
 
   @Post('statement/:clientId/email')
+  @RequirePermission('finance', 2)
   emailStatement(@Param('clientId') clientId: string, @Body() body: { from?: string; to?: string }) {
     return this.service.emailStatement(clientId, body?.from, body?.to);
   }
 
   @Post('test-email')
+  @RequirePermission('finance', 2)
   test(@Body('to') to: string) { return this.service.testEmail(to); }
 }
