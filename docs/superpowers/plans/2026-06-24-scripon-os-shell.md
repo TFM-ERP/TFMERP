@@ -4,7 +4,7 @@
 
 **Goal:** Inside `/scripon/*`, the dashboard presents a nested OS shell — the left rail shows the 9 ScripON workspaces (RBAC-filtered) and the top-left brand becomes a TFM-logo "home" affordance back to FilmOS — by conditionally swapping the rail's data and brand inside the existing `(dashboard)/layout.tsx`, reusing all its responsive/perms/theme scaffolding.
 
-**Architecture:** One conditional (`isScripon = pathname.startsWith('/scripon')`) in `frontend/src/app/(dashboard)/layout.tsx` swaps two things: the rail's data source (FilmOS `MODULES`/`GROUPS` → the 9 OS workspaces) and the rail-header brand (company logo → TFM brand-home button). Everything else — the `<aside>`, mobile drawer, tablet icon-strip, phone bottom-nav, theme palette `pal`, and the `perms` filter — is reused unchanged. The FilmOS branch is the untouched default.
+**Architecture:** One conditional (`isScripon = pathname.startsWith('/scripon')`) in `frontend/src/app/(dashboard)/layout.tsx` drives the ScripON shell. The rail's data source swaps (FilmOS `MODULES`/`GROUPS` → the 9 OS workspaces) inside the same `<aside>` scaffolding (Task 3). For the brand placement, the ScripON branch renders a **full-width OS top bar** (TFM brand-home at the left, spanning above the rail+content) and a restructured return — `[full-width top bar] / [rail | content]` — to match the Figma + spec (Task 4); the rail's own brand header is omitted for ScripON (the brand lives in the top bar). The shared rail `<aside>`, `<main>` content, and phone bottom-nav are extracted to reusable render expressions so **the FilmOS return path stays byte-for-byte identical**. The mobile drawer, tablet icon-strip, theme palette `pal`, and the `perms` filter are reused unchanged.
 
 **Tech Stack:** Next.js (App Router) + React client component, `lucide-react` icons, `usePathname`/`useRouter`/`useSearchParams` from `next/navigation`, Tailwind + inline styles matching the existing layout. **No frontend test runner exists** — verification is `npx tsc --noEmit` + required browser checks.
 
@@ -13,7 +13,8 @@
 - **Gate everything behind `isScripon`.** The FilmOS (non-`/scripon`) branch must be byte-for-byte behaviorally unchanged; the conditional is purely additive and reversible. _(spec §2, §10)_
 - **Reuse scaffolding, don't rebuild.** Use the existing `<aside>`, mobile drawer, tablet icon-strip, phone bottom-nav, `pal` palette, and `canSee`/`perms` filter. No new responsive variants. _(spec §2, §7; user decision)_
 - **The four baked-in refinements:** (#1) Develop routes to the **real** Builder surface `/scripon/studio?tab=builds` (builds/intake are retired); (#2) on phones the 9 workspaces live in the **drawer**, the bottom-nav shows **≤4** + a "More" drawer button — never 9 tabs; (#3) RBAC reuses the existing `perms` object — Studio gated on the `setup` key, others fail-open while perms load; (#4) last-FilmOS-route tracking via `sessionStorage` (key `tfm_last_filmos_route`), fallback `/`, **never stores a `/scripon/*` path**. _(user, 2026-06-24)_
-- **Brand-home a11y (verbatim from the visual spec):** `<button aria-label="Back to FilmOS">`, visible focus ring, hover/focus shows a "Back to FilmOS ↩" tooltip, gold-wash on hover/focus, wordmark→gold; no arrow, no rail exit item. _(spec §5; `design-tmp/scripon-tfm-brand-home.html`)_
+- **Brand-home a11y (verbatim from the visual spec):** `<button aria-label="Back to FilmOS">`, visible focus ring, hover/focus shows a "Back to FilmOS ↩" tooltip, gold-wash on hover/focus, wordmark→gold; no arrow, no rail exit item. It lives at the **left of the full-width OS top bar**. _(spec §5; `design-tmp/scripon-tfm-brand-home.html`)_
+- **Full-width OS top bar (Figma authority).** On `/scripon`, the top bar spans the full width above the rail+content (not the FilmOS two-column `[rail | (header+content)]`). The ScripON return path is restructured; the FilmOS return path must remain byte-for-byte identical (extract shared rail/content/bottom-nav, don't duplicate-and-diverge). No FilmOS sub-tabs row on `/scripon`. _(spec §5; user, 2026-06-24)_
 - **Workspace order (Figma authority):** `Home · Write · Develop · Canon · Doctor · Versions · Room · Slate · Studio`. _(spec §4)_
 - **Resolved route map:** Home `/scripon` · Write `/scripon/reader` · Develop `/scripon/studio?tab=builds` · Canon `/scripon/canon` · Doctor `/scripon/doctor` · Versions `/scripon/revisions` · Room `/scripon/notes` · Slate `/scripon/library` · Studio `/scripon/studio`. _(user-confirmed)_
 - **Deferred (out of scope this pass):** the ScripON top-bar right side — continuity ring, version picker, collaborator avatars — AND the project name in the brand cluster (all need current-script context). This pass keeps the existing top-bar right side and uses the static "ScripON" app label. _(spec §8; user-confirmed)_
@@ -242,55 +243,75 @@ git commit -m "feat(scripon): conditional OS workspace rail on /scripon (RBAC-fi
 
 ---
 
-### Task 4: TFM brand-home affordance + last-route tracking
+### Task 4: Full-width OS top bar + brand-home + layout restructure
 
-Replace the rail-header company logo with the TFM brand-home button on `/scripon`, and track the last FilmOS route so the button returns there.
+On `/scripon`, render a **full-width OS top bar** (TFM brand-home at the left, spanning above the rail+content) by restructuring the component's return into shared pieces + two wrappers. The FilmOS return must stay behaviorally identical. The rail's own brand header is reduced to just the collapse toggle on ScripON (the brand now lives in the top bar). Also track the last FilmOS route.
 
 **Files:**
-- Modify: `frontend/src/app/(dashboard)/layout.tsx` (rail brand header ~462–475; add a `useEffect` near the other effects)
+- Modify: `frontend/src/app/(dashboard)/layout.tsx` (the return JSX ~453–690; the rail brand header ~462–479; add one `useEffect` + the shared consts just above the `return`)
 
 **Interfaces:**
-- Consumes: `rememberFilmosRoute`, `lastFilmosRoute` (Task 1); `isScripon`, `expanded`, `router`, `pal`.
+- Consumes: `rememberFilmosRoute`, `lastFilmosRoute` (Task 1); `isScripon`, `expanded`, `router`, `pal`, `isPhone`, `isMobile`, `mobileOpen`, `setPaletteOpen`, `setQuery`, `setLocale`, `isRTL`, `themeMenuOpen`/`setThemeMenuOpen`, `setThemeTo`, `theme`, `darkMode`, `THEME_MENU`, `NotificationBell`, `GOLD`, `t`, `SetupGate`, `PwaRegister`.
 
-- [ ] **Step 1: Track the last FilmOS route** — add an effect alongside the existing `pathname` effects:
+- [ ] **Step 1: Track the last FilmOS route** — add alongside the other `pathname` effects:
 
 ```tsx
 useEffect(() => { rememberFilmosRoute(pathname); }, [pathname]);
 ```
 
-- [ ] **Step 2: Add brand-home state + render** — branch the brand-header logo block (~463–475) on `isScripon`. When ScripON, render the TFM cluster button; else the existing logo. Add a hover/focus state for the tooltip:
+- [ ] **Step 2: Reduce the rail brand header to toggle-only on ScripON.** In the rail brand header (~462–479), wrap the logo block (`logoSrc`/`fallbackLogo`, ~463–475) so it renders **only when `!isScripon`**; on ScripON the header shows just the existing collapse-toggle button (~476, unchanged). (The brand moves to the OS top bar in Step 4.) Example:
 
 ```tsx
-// near other useState:
-const [brandHover, setBrandHover] = useState(false);
-// ...replace the inner content of the brand header's first child (the logo block, ~463-475) with:
-{isScripon ? (
+{!isScripon && (expanded ? ( /* existing expanded logo block, unchanged */ ) : ( /* existing collapsed logo block, unchanged */ ))}
+{/* the existing collapse-toggle <button> stays here, for both branches */}
+```
+
+- [ ] **Step 3: Extract the shared shell pieces into consts** just above the `return` — move the EXISTING JSX verbatim (no behavior change), so both wrappers reuse them:
+
+```tsx
+// Move the existing JSX blocks into these consts (cut from the current return, paste verbatim):
+const scrimEl = isMobile && mobileOpen ? ( /* existing mobile-drawer scrim div (~457) */ ) : null;
+const railAside = ( /* the existing <aside>…</aside> block (~460–533), unchanged */ );
+const mainEl = (
+  <main className="flex-1 overflow-y-auto" style={{ paddingBottom: isPhone ? 60 : undefined }}>
+    <SetupGate>{children}</SetupGate>
+  </main>
+);
+const bottomNavEl = isPhone ? ( /* the existing phone bottom-nav <nav>…</nav> (~642–658) */ ) : null;
+const paletteEl = paletteOpen ? ( /* the existing ⌘K palette overlay (~664–689) */ ) : null;
+
+// The right-side controls cluster — extract from the FilmOS header (~561–604) verbatim, reused by both bars:
+const searchButton = (
+  <button onClick={() => { setPaletteOpen(true); setQuery(''); }}
+    className="flex items-center gap-2 text-sm rounded-lg px-3 h-8 transition-colors w-[230px] shrink-0"
+    style={{ color: 'var(--text-3)', background: 'var(--surface-2)', border: '1px solid var(--border-1)' }}>
+    <Search size={14} />
+    <span className="text-[12.5px] truncate">{t('Search or jump…')}</span>
+    <span className="ms-auto text-[11px] rounded px-1.5 py-0.5" style={{ color: 'var(--text-3)', border: '1px solid var(--border-1)' }}>⌘K</span>
+  </button>
+);
+const topbarRightControls = ( /* the language button + theme menu + <NotificationBell/> from ~573–604, unchanged */ );
+```
+
+> The FilmOS `<header>` (~541–605) is then rewritten to use `{searchButton}` and `{topbarRightControls}` in place of its inline copies — same elements, same order, no visual change. Keep the FilmOS breadcrumb and sub-tabs exactly as they are.
+
+- [ ] **Step 4: Build the full-width OS top bar** (`osTopBar`) — brand-home at the left, ⌘K centered, controls at the right. Add `const [brandHover, setBrandHover] = useState(false)` near the other `useState`s:
+
+```tsx
+const brandHome = (
   <div style={{ position: 'relative' }}>
     <button
       onClick={() => router.push(lastFilmosRoute())}
-      aria-label="Back to FilmOS"
-      title="Back to FilmOS"
-      onMouseEnter={() => setBrandHover(true)}
-      onMouseLeave={() => setBrandHover(false)}
-      onFocus={() => setBrandHover(true)}
-      onBlur={() => setBrandHover(false)}
+      aria-label="Back to FilmOS" title="Back to FilmOS"
+      onMouseEnter={() => setBrandHover(true)} onMouseLeave={() => setBrandHover(false)}
+      onFocus={() => setBrandHover(true)} onBlur={() => setBrandHover(false)}
       className="flex items-center gap-2.5 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2"
-      style={{
-        padding: expanded ? '6px 8px' : '4px',
+      style={{ padding: '6px 8px',
         background: brandHover ? 'rgba(198,164,99,0.10)' : 'transparent',
-        border: `1px solid ${brandHover ? 'rgba(198,164,99,0.30)' : 'transparent'}`,
-      }}
-    >
+        border: `1px solid ${brandHover ? 'rgba(198,164,99,0.30)' : 'transparent'}` }}>
       <span style={{ width: 30, height: 30, borderRadius: 8, flex: 'none', display: 'grid', placeItems: 'center',
-        background: 'linear-gradient(155deg,#E6D2A2,#C6A463)', color: '#15120B', fontWeight: 800, fontSize: 11, letterSpacing: '.3px' }}>
-        TFM
-      </span>
-      {expanded && (
-        <span style={{ fontFamily: 'Fraunces, serif', fontSize: 16, fontWeight: 600,
-          color: brandHover ? '#E6D2A2' : 'var(--text-1)' }}>
-          ScripON
-        </span>
-      )}
+        background: 'linear-gradient(155deg,#E6D2A2,#C6A463)', color: '#15120B', fontWeight: 800, fontSize: 11, letterSpacing: '.3px' }}>TFM</span>
+      <span style={{ fontFamily: 'Fraunces, serif', fontSize: 16, fontWeight: 600, color: brandHover ? '#E6D2A2' : 'var(--text-1)' }}>ScripON</span>
     </button>
     {brandHover && (
       <div role="tooltip" style={{ position: 'absolute', top: 'calc(100% + 6px)', insetInlineStart: 6, zIndex: 70,
@@ -300,21 +321,64 @@ const [brandHover, setBrandHover] = useState(false);
       </div>
     )}
   </div>
-) : (
-  /* existing FilmOS logo block (logoSrc / fallbackLogo) unchanged */
-)}
+);
+const osTopBar = (
+  <header className="flex items-center gap-2 px-4 h-12 shrink-0" style={{ background: 'var(--surface-1)', borderBottom: '1px solid var(--border-1)' }}>
+    {isMobile && <button onClick={() => setMobileOpen(true)} aria-label="Open menu" className="p-1 -ms-1 shrink-0" style={{ color: 'var(--text-2)' }}><Menu size={20} /></button>}
+    {brandHome}
+    <div className="flex-1" />
+    {searchButton}
+    <div className="flex-1" />
+    {topbarRightControls}
+  </header>
+);
 ```
 
-> At execution: keep the existing collapse-toggle button (~476) in the header for both branches. Wrap only the logo block in the `isScripon` conditional; do not move the toggle.
+- [ ] **Step 5: Add the ScripON return path** (early return ABOVE the existing FilmOS `return`); the FilmOS `return` below reuses the same consts:
 
-- [ ] **Step 3: Typecheck** — `cd frontend && npx tsc --noEmit`. Expected: exit 0.
+```tsx
+if (isScripon) {
+  return (
+    <div className="flex flex-col h-screen overflow-hidden" style={{ background: 'var(--page-bg)' }}>
+      {osTopBar}
+      <div className="flex flex-1 min-h-0">
+        {scrimEl}
+        {railAside}
+        <div className="flex-1 flex flex-col min-w-0">{mainEl}</div>
+      </div>
+      {bottomNavEl}
+      <PwaRegister />
+      {paletteEl}
+    </div>
+  );
+}
 
-- [ ] **Step 4: Commit**
+return (
+  <div className="flex h-screen overflow-hidden" style={{ background: 'var(--page-bg)' }}>
+    {scrimEl}
+    {railAside}
+    <div className="flex-1 flex flex-col min-w-0">
+      { /* existing FilmOS <header> (now using {searchButton}/{topbarRightControls}) */ }
+      { /* existing sub-tabs row */ }
+      {mainEl}
+    </div>
+    {bottomNavEl}
+    <PwaRegister />
+    {paletteEl}
+  </div>
+);
+```
+
+- [ ] **Step 6: Typecheck** — `cd frontend && npx tsc --noEmit`. Expected: exit 0, no new errors in `layout.tsx`.
+
+- [ ] **Step 7: Commit**
 
 ```bash
 git add "frontend/src/app/(dashboard)/layout.tsx"
-git commit -m "feat(scripon): TFM brand-home affordance (→ last FilmOS route) + last-route tracking"
+git commit -m "feat(scripon): full-width OS top bar + TFM brand-home (→ last FilmOS route), FilmOS path unchanged"
 ```
+
+> **Reviewer focus:** confirm the FilmOS return path renders the same elements in the same order as before the extraction (no visual/behavioral change off `/scripon`), and that `railAside` is the single shared `<aside>` (its nav already branches on `isScripon` from Task 3, its brand header is toggle-only on ScripON from Step 2).
 
 ---
 
@@ -400,18 +464,20 @@ git commit --allow-empty -m "test(scripon): OS shell browser-verified at desktop
 ## Self-Review
 
 **Spec coverage:**
-- §2 conditional shell in existing layout → Tasks 3, 4, 5 (all gated on `isScripon`).
-- §3 files: `os-workspaces.ts` → Task 1; layout edits → Tasks 3–5; `scripon/layout.tsx`/`MODULES` untouched ✓; (added a Canon stub, Task 2, to avoid a 404 — a small addition beyond §3, justified).
+- §2 nested shell in existing layout → Tasks 3 (rail), 4 (full-width top bar + restructure), 5 (mobile) — all gated on `isScripon`; FilmOS return path byte-identical via extracted shared consts.
+- §3 files: `os-workspaces.ts` → Task 1; layout edits → Tasks 3–5; `scripon/layout.tsx`/`MODULES` untouched ✓; Canon stub (Task 2) added to avoid a 404 — justified.
 - §4 the 9 workspaces + order → Task 1 `OS_WORKSPACES`.
-- §5 TFM brand-home (markup, states, a11y, last-route, fallback, never-store-/scripon) → Tasks 1 (helpers) + 4 (render/effect).
+- §5 TFM brand-home in the **full-width OS top bar** (markup, states, a11y, last-route, fallback, never-store-/scripon) → Tasks 1 (helpers) + 4 (top bar + brand-home + effect). Rail brand header is toggle-only on ScripON.
 - §6 RBAC (reuse perms; Studio on `setup`; fail-open) → Tasks 1 (`perm` field) + 3 (`canSeeOs`).
-- §7 responsive reuse → Tasks 3 (drawer/icon-strip via `<aside>`) + 5 (bottom-nav ≤4).
-- §8 scope: continuity/version/collaborators + project name deferred → noted in Global Constraints; not built.
-- §9 browser verification → Task 6.
+- §7 responsive reuse → Tasks 3 (drawer/icon-strip via shared `railAside`) + 5 (bottom-nav ≤4).
+- §8 scope: continuity/version/collaborators + project name deferred → noted in Global Constraints; not built (the OS top bar centers ⌘K + reuses the existing right controls only).
+- §9 browser verification → Task 6 (now also: confirm FilmOS path unchanged after the restructure).
 - The four refinements: #1 Develop→`/scripon/studio?tab=builds` (Task 1); #2 mobile drawer not 9 tabs (Task 5); #3 RBAC (Tasks 1/3); #4 last-route (Tasks 1/4). All first-class.
 
-**Placeholder scan:** No TBD/TODO. No test-runner is fabricated — verification is `tsc` + browser (honest given no frontend test infra). Each code step carries complete code. The one "keep the existing logo block unchanged" reference points at a concrete, named block (layout.tsx ~463–475).
+**Placeholder scan:** No TBD/TODO. No test-runner is fabricated — verification is `tsc` + browser (honest given no frontend test infra). New code (osTopBar, brandHome, searchButton, the return wrappers) is shown in full; "move the existing `<aside>`/bottom-nav/palette block verbatim into a const" references concrete existing code (a DRY extraction, not a placeholder) rather than re-pasting ~200 lines of unchanged JSX.
 
-**Type consistency:** `OsWorkspace` (key/label/href/icon/perm?) is used identically in Tasks 1, 3, 5. `activeWorkspaceKey`/`rememberFilmosRoute`/`lastFilmosRoute` signatures match between Task 1 and their call sites (Tasks 3/4). `osRailBtn`/`canSeeOs`/`osVisible`/`osActiveKey`/`osBottomNav` are defined in Task 3 and consumed in Tasks 3/5 consistently.
+**Type consistency:** `OsWorkspace` (key/label/href/icon/perm?) is used identically in Tasks 1, 3, 5. `activeWorkspaceKey`/`rememberFilmosRoute`/`lastFilmosRoute` signatures match between Task 1 and their call sites (Tasks 3/4). `osRailBtn`/`canSeeOs`/`osVisible`/`osActiveKey`/`osBottomNav` (Task 3) and `scrimEl`/`railAside`/`mainEl`/`bottomNavEl`/`paletteEl`/`searchButton`/`topbarRightControls`/`osTopBar`/`brandHome`/`brandHover` (Task 4) are each defined once and consumed consistently.
+
+**Risk note (restructure):** Task 4 restructures the component's return (extract shared pieces + two wrappers). This is the highest-risk task. Mitigation: the extraction moves existing JSX verbatim, the FilmOS wrapper renders identical children in identical order, and the reviewer + browser check explicitly verify no FilmOS regression.
 
 **Known follow-ons (not silent cuts):** real Canon workspace screen (Task 2 is a stub); the deferred top-bar right side + project name; if you later want the exact Figma full-width top bar (brand spanning above rail+content) rather than the brand in the rail header, that's a structural follow-on.
