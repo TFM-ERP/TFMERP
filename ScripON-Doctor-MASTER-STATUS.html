@@ -1,0 +1,116 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ScripON Doctor — Master Status & Roadmap</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b0c0f;--panel:#14161c;--panel2:#171a20;--hair:rgba(255,255,255,.08);--hair2:rgba(255,255,255,.14);--gold:#C6A463;--gold2:#E6D2A2;--cream:#F4EEE0;--text:#E8E6E0;--mute:#9aa1ab;--faint:#6b727d;--blue:#5b8def;--green:#57b368;--amber:#e0a23b;--red:#e5635f;--violet:#8b7cf0}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:radial-gradient(1200px 700px at 50% -10%,#15171d,#0b0c0f 60%);font-family:Inter,sans-serif;color:var(--text);-webkit-font-smoothing:antialiased;padding:48px 32px 90px;line-height:1.5}
+.wrap{max-width:1100px;margin:0 auto}
+.logo{width:42px;height:42px;border-radius:12px;background:linear-gradient(160deg,var(--gold2),var(--gold));display:grid;place-items:center;color:#1a1509;font-weight:800;font-size:14px;box-shadow:0 8px 24px -6px rgba(198,164,99,.5);margin-bottom:18px}
+h1{font-size:30px;font-weight:800;letter-spacing:-.6px;color:var(--cream)}
+.lede{font-size:14.5px;color:var(--mute);margin-top:10px;max-width:760px}
+.asof{font-size:12px;color:var(--faint);margin-top:8px}
+.glance{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:26px 0 8px}
+.g{background:linear-gradient(180deg,#16191f,#131519);border:1px solid var(--hair);border-radius:13px;padding:15px}
+.g .v{font-size:24px;font-weight:800;color:var(--cream);letter-spacing:-.5px}
+.g .l{font-size:11px;color:var(--faint);font-weight:600;margin-top:4px;letter-spacing:.3px}
+.eyebrow{font-size:11px;font-weight:800;letter-spacing:1.6px;color:var(--gold);margin:40px 0 14px;display:block}
+.eyebrow .sub{display:block;color:var(--faint);font-weight:600;letter-spacing:.2px;font-size:11.5px;margin-top:5px;text-transform:none}
+table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--hair);border-radius:14px;overflow:hidden}
+th{text-align:left;font-size:10.5px;font-weight:700;letter-spacing:.5px;color:var(--faint);padding:11px 14px;border-bottom:1px solid var(--hair);background:#101319}
+td{padding:12px 14px;border-bottom:1px solid var(--hair);font-size:13px;vertical-align:top}
+tr:last-child td{border-bottom:none}
+td .t{font-weight:700;color:var(--cream)}
+td .d{color:var(--mute);font-size:12px;margin-top:3px}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:10.5px;font-weight:800;letter-spacing:.3px;white-space:nowrap}
+.built{background:rgba(87,179,104,.16);color:var(--green)} .inapp{background:linear-gradient(180deg,var(--gold2),var(--gold));color:#1a1509} .designed{background:rgba(91,141,239,.16);color:#a9c4f7} .partial{background:rgba(224,162,59,.16);color:var(--amber)} .todo{background:rgba(255,255,255,.06);color:var(--faint)}
+.note{background:linear-gradient(180deg,#1b1e25,#16181d);border:1px solid var(--hair);border-left:3px solid var(--gold);border-radius:10px;padding:13px 15px;margin:10px 0;font-size:13px}
+.note b{color:var(--gold2)}
+.note.ok{border-left-color:var(--green)} .note.ok b{color:var(--green)}
+.seq{counter-reset:s;list-style:none;padding:0}
+.seq li{counter-increment:s;position:relative;padding:11px 0 11px 40px;border-top:1px solid var(--hair);font-size:13.5px}
+.seq li:first-child{border-top:none}
+.seq li:before{content:counter(s);position:absolute;left:0;top:9px;width:26px;height:26px;border-radius:8px;background:rgba(198,164,99,.14);color:var(--gold2);font-weight:800;font-size:12px;display:grid;place-items:center}
+.seq li b{color:var(--cream)}
+.legend{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;font-size:11px;color:var(--faint)}
+</style></head>
+<body><div class="wrap">
+<div class="logo">TFM</div>
+<h1>ScripON Doctor — Master Status &amp; Roadmap</h1>
+<p class="lede">One source of truth for where the ScripON Doctor initiative stands: the AI engine (P0–P7), the locked redesign and its implementation into the live app, and the platform foundations. Built straight from the code, schema and brief — so nothing is left behind.</p>
+<p class="asof">As of 19 Jun 2026 — after the full P0–P7 engine build, all 14 screens live (desktop · tablet · mobile), the zero-install test harness (41 passing), and the Prisma migration reconcile. Grounded in backend/src/production/scripton, prisma/schema.prisma, and the approved spec + brief.</p>
+
+<div class="glance">
+  <div class="g"><div class="v">P0–P7</div><div class="l">ENGINE PHASES BUILT (all 8)</div></div>
+  <div class="g"><div class="v">14 / 14</div><div class="l">SCREENS LIVE — desktop · tablet · mobile</div></div>
+  <div class="g"><div class="v">41</div><div class="l">AUTOMATED TESTS PASSING</div></div>
+  <div class="g"><div class="v">3 / 4</div><div class="l">RELEASE BLOCKERS CLEARED</div></div>
+</div>
+<div class="legend"><span class="pill built">BUILT</span> in code &amp; working &nbsp; <span class="pill inapp">LIVE</span> implemented in /scripon &nbsp; <span class="pill designed">DESIGNED</span> frame approved &nbsp; <span class="pill partial">PARTIAL</span> &nbsp; <span class="pill todo">NOT STARTED</span> spec only</div>
+
+<span class="eyebrow">TRACK A · THE DOCTOR ENGINE (P0–P7)<span class="sub">All eight phases are built on the unified AiService — grounded in the real scenes, and non-destructive (variants → Apply → GREEN branch) wherever they write.</span></span>
+<table><thead><tr><th style="width:130px">Phase</th><th>Capability</th><th style="width:130px">Status</th><th style="width:250px">Where it lives</th></tr></thead><tbody>
+<tr><td class="t">P0</td><td><div class="t">Coverage (house format)</div><div class="d">Data-grounded logline/synopsis/grades/comps/character %</div></td><td><span class="pill built">BUILT</span></td><td class="d">coverage() · Doctor screen</td></tr>
+<tr><td class="t">P0</td><td><div class="t">Scene diagnostics</div><div class="d">Wants / obstacle / subtext / power-shift / verdict</div></td><td><span class="pill built">BUILT</span></td><td class="d">diagnostics() · Doctor · Reader Scene Read</td></tr>
+<tr><td class="t">P0</td><td><div class="t">Version compare</div><div class="d">Scene diff + facts delta + AI summary</div></td><td><span class="pill built">BUILT</span></td><td class="d">compare() · Revisions screen</td></tr>
+<tr><td class="t">P0</td><td><div class="t">Import + OCR</div><div class="d">FDX/Fountain/Celtx/Word/PDF + scanned-image OCR</div></td><td><span class="pill built">BUILT</span></td><td class="d">ScriptImportService (tesseract.js)</td></tr>
+<tr><td class="t">P1</td><td><div class="t">Budget/location-fit rewrite</div><div class="d">Constraint intake → multi-strategy variants</div></td><td><span class="pill built">BUILT</span></td><td class="d">budgetFit() · dark Budget-fit overlay</td></tr>
+<tr><td class="t">P1</td><td><div class="t">Apply → branch revision</div><div class="d">Non-destructive GREEN branch + re-cost delta</div></td><td><span class="pill built">BUILT</span></td><td class="d">applyBudgetFit()</td></tr>
+<tr><td class="t">P2</td><td><div class="t">Creative transforms</div><div class="d">Tighten · punch-up · genre transpose · ending re-engineer · humour · scene-intensity</div></td><td><span class="pill built">BUILT</span></td><td class="d">transform() · applyTransform() · Rewrite-Slate (Doctor/Reader)</td></tr>
+<tr><td class="t">P3</td><td><div class="t">Culture · compliance · rating</div><div class="d">Global rating boards (MPA/BBFC/GCAM/UAE) + MENA culture screen</div></td><td><span class="pill built">BUILT</span></td><td class="d">rating() · cultureScreen() · Compliance panel (Approvals gate)</td></tr>
+<tr><td class="t">P4</td><td><div class="t">Format conversion &amp; micro-drama</div><div class="d">film ↔ series ↔ vertical (hook→escalation→sting→cliffhanger), shorts</div></td><td><span class="pill built">BUILT</span></td><td class="d">formatConvert() · Studio ▸ Format</td></tr>
+<tr><td class="t">P5</td><td><div class="t">Market &amp; Greenlight intelligence</div><div class="d">Comps, windowed forecast (P50 + band), predict→prescribe→re-cost</div></td><td><span class="pill built">BUILT</span></td><td class="d">marketForecast() · Greenlight ▸ Market</td></tr>
+<tr><td class="t">P6</td><td><div class="t">Adaptation &amp; Development studios</div><div class="d">book/source → directions · seed → script ladder</div></td><td><span class="pill built">BUILT</span></td><td class="d">develop() · adapt() · Studio ▸ Develop / Adapt</td></tr>
+<tr><td class="t">P7</td><td><div class="t">Green-light decision layer</div><div class="d">GLP scorecard · audience quadrants · cost opportunities · ROI cases · memo</div></td><td><span class="pill built">BUILT</span></td><td class="d">greenlightDecision() · Greenlight ▸ Decision / Audience / Cost</td></tr>
+</tbody></table>
+
+<span class="eyebrow">TRACK B · THE REDESIGN → LIVE IMPLEMENTATION<span class="sub">All 14 screens are implemented in the flagged /scripon workspace — desktop, tablet and mobile — on the 10-item rail. Classic /scripts + /script-workspace remain untouched.</span></span>
+<table><thead><tr><th>Screen</th><th style="width:120px">Design</th><th style="width:140px">In the app</th><th style="width:230px">Notes</th></tr></thead><tbody>
+<tr><td class="t">Dashboard (command centre)</td><td><span class="pill designed">DESIGNED</span></td><td><span class="pill inapp">LIVE</span></td><td class="d">/scripon · live data + sample fallback</td></tr>
+<tr><td class="t">Script Reader ★</td><td><span class="pill designed">DESIGNED</span></td><td><span class="pill inapp">LIVE</span></td><td class="d">/scripon/reader · Doctor actions wired</td></tr>
+<tr><td class="t">Breakdown (6 lenses)</td><td><span class="pill designed">DESIGNED</span></td><td><span class="pill inapp">LIVE</span></td><td class="d">/scripon/breakdown · categoryBreakdown</td></tr>
+<tr><td class="t">Doctor (AI workspace)</td><td><span class="pill designed">DESIGNED</span></td><td><span class="pill inapp">LIVE</span></td><td class="d">gauges + coverage + diagnostics + rewrite</td></tr>
+<tr><td class="t">Schedule &amp; Budget</td><td><span class="pill designed">DESIGNED</span></td><td><span class="pill inapp">LIVE</span></td><td class="d">stripboard ⇄ budget · optimise · budget-fit</td></tr>
+<tr><td class="t">Reports &amp; Exports</td><td><span class="pill designed">DESIGNED</span></td><td><span class="pill inapp">LIVE</span></td><td class="d">catalog + live coverage; JSON export</td></tr>
+<tr><td class="t">Revisions &amp; Compare</td><td><span class="pill designed">DESIGNED</span></td><td><span class="pill inapp">LIVE</span></td><td class="d">colour ladder + live two-revision diff</td></tr>
+<tr><td class="t">Script Library</td><td><span class="pill designed">DESIGNED</span></td><td><span class="pill inapp">LIVE</span></td><td class="d">slate ⇄ masterScriptApi</td></tr>
+<tr><td class="t">Notes &amp; Collaboration</td><td><span class="pill designed">DESIGNED</span></td><td><span class="pill inapp">LIVE</span></td><td class="d">scene-anchored threads</td></tr>
+<tr><td class="t">Approval Workflow</td><td><span class="pill designed">DESIGNED</span></td><td><span class="pill inapp">LIVE</span></td><td class="d">routing kanban + compliance (rating/culture) gate</td></tr>
+<tr><td class="t">Settings &amp; Governance</td><td><span class="pill designed">DESIGNED</span></td><td><span class="pill inapp">LIVE</span></td><td class="d">model + confidence gate + human-approval + AiRun audit</td></tr>
+<tr><td class="t">Command palette (⌘K)</td><td><span class="pill designed">DESIGNED</span></td><td><span class="pill inapp">LIVE</span></td><td class="d">workspace-wide overlay (⌘K / Ctrl-K)</td></tr>
+<tr><td class="t">Studio (Develop · Adapt · Format) ✦</td><td><span class="pill designed">DESIGNED</span></td><td><span class="pill inapp">LIVE</span></td><td class="d">NEW · P4 + P6 home · the ladder + spine + comps</td></tr>
+<tr><td class="t">Greenlight (Market · Audience · Cost · Decision) ✦</td><td><span class="pill designed">DESIGNED</span></td><td><span class="pill inapp">LIVE</span></td><td class="d">NEW · P5 + P7 home · forecast + GLP scorecard</td></tr>
+<tr><td class="t">Tablet variants</td><td><span class="pill designed">14 / 14</span></td><td><span class="pill inapp">LIVE</span></td><td class="d">viewport-switched via useViewport (≤1112)</td></tr>
+<tr><td class="t">Mobile variants</td><td><span class="pill designed">14 / 14</span></td><td><span class="pill inapp">LIVE</span></td><td class="d">viewport-switched via useViewport (≤640)</td></tr>
+</tbody></table>
+
+<span class="eyebrow">TRACK C · PLATFORM FOUNDATIONS (release-readiness blockers)<span class="sub">From the June-2026 audit (53/100). Three of the four blockers are now cleared; multi-tenancy is the one that remains.</span></span>
+<table><thead><tr><th>Item</th><th style="width:150px">Status</th><th>Notes</th></tr></thead><tbody>
+<tr><td class="t">Unified AiService + AiRun governance</td><td><span class="pill built">CLEARED</span></td><td class="d">Blocker #3 — all AI call sites on one governed gateway + audit log</td></tr>
+<tr><td class="t">Prisma migrations / schema drift</td><td><span class="pill built">CLEARED</span></td><td class="d">Blocker #1 — clean 0_init baseline reconciled 19 Jun · migrate dev healthy · use migrate dev going forward</td></tr>
+<tr><td class="t">Automated test suite</td><td><span class="pill built">CLEARED</span></td><td class="d">Blocker #4 — 41 tests / 9 suites (node:test + ts-node) · npm run test:unit · pure cores + 2 integration-style</td></tr>
+<tr><td class="t">Governance UX (confidence / PENDING→APPROVED)</td><td><span class="pill built">BUILT</span></td><td class="d">Settings &amp; Governance screen live: model + confidence gate + human-approval + AiRun audit</td></tr>
+<tr><td class="t">Multi-tenancy (tenant FK + query scoping)</td><td><span class="pill todo">NOT STARTED</span></td><td class="d">Blocker #2 — the ONLY blocker left · single-studio today · needs a design decision before code</td></tr>
+</tbody></table>
+
+<span class="eyebrow">✅ CLEARED THIS BUILD (was on the gap list)</span>
+<div class="note ok"><b>P3–P7 design frames + engines.</b> The advanced engines now have both backend (on AiService) and screens: Compliance panel (P3), and the new <b>Studio</b> (P4 + P6) and <b>Greenlight</b> (P5 + P7) homes — designed and built in desktop, tablet and mobile.</div>
+<div class="note ok"><b>Fidelity debt cleared.</b> The light-theme Coverage / Compare / Budget-fit overlays were removed; the workspace is dark-native end-to-end (Budget-fit overlay, Coverage→Doctor, Compare→Revisions).</div>
+<div class="note ok"><b>Device coverage complete.</b> All 14 screens render tablet + mobile via useViewport — not 3 of 12 any more.</div>
+<div class="note ok"><b>Rail unified.</b> A single 10-item rail (with Home) across every screen, plus Studio + Greenlight as new top-level destinations.</div>
+
+<span class="eyebrow">⚠ WHAT GENUINELY REMAINS</span>
+<div class="note"><b>Multi-tenancy (the last release blocker).</b> Single-studio today. Needs a design decision — shared-DB row-level <b>tenantId</b> on the data roots + a Prisma middleware to auto-scope every query + a backfill migration, vs schema-per-tenant. Highest blast radius; do it behind the test net + clean migration baseline now in place.</div>
+<div class="note"><b>Consolidation decision (not a screen).</b> Three script entry points coexist: classic <b>/scripts</b>, <b>/script-workspace</b> (✦ Reader), and the finished <b>/scripon</b>. Decide whether to retire or redirect the older two.</div>
+<div class="note"><b>Live pixel pass.</b> Now that the app runs, click each /scripon screen against its design/ frame and fix any deviation — the design-lock's final screen-by-screen check.</div>
+<div class="note"><b>Deeper validation.</b> A full <b>npm run build</b> on a dev machine for true backend validation, and growing integration-test coverage over time (the pure-logic seam is well covered).</div>
+
+<span class="eyebrow">RECOMMENDED SEQUENCE (proposal — nothing changes without your go)</span>
+<ol class="seq">
+<li><b>Live pixel pass</b> — run frontend + backend, walk Studio + Greenlight and all 12 screens against their frames; fix any visual deviations.</li>
+<li><b>Multi-tenancy</b> — I write the design proposal for your review, then build behind the tests: Tenant model + tenantId on roots + auto-scoping middleware + backfill. The last blocker for multi-studio / government release.</li>
+<li><b>Consolidation</b> — once /scripon is signed off, retire or redirect /scripts + /script-workspace.</li>
+<li><b>Deepen tests + full build</b> — grow integration coverage and run the full NestJS build on a dev machine.</li>
+</ol>
+<p class="asof" style="margin-top:26px">Legend recap — BUILT/CLEARED = in code &amp; done · LIVE = running in /scripon · DESIGNED = frame approved · NOT STARTED = spec only. This document is a status map; it changes nothing in the system.</p>
+</div></body></html>

@@ -1,0 +1,150 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ScripON — TFM build + Develop reader (concept)</title><style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Courier+Prime&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#07080a;font-family:Inter,sans-serif;color:#E8E6E0;-webkit-font-smoothing:antialiased;padding:30px;display:flex;flex-direction:column;align-items:center;gap:14px}
+.cap{color:#6b727d;font-size:12px;max-width:1100px;line-height:1.55}.cap b{color:#C6A463;font-weight:600}
+.ft{align-self:center;width:1100px;font-size:12px;font-weight:700;letter-spacing:.4px;color:#E6D2A2;margin-top:8px}
+.scr{width:1100px;height:600px;border-radius:16px;overflow:hidden;position:relative;border:1px solid rgba(255,255,255,.07)}
+/* ---------- FRAME 1 — TFM cinematic build ---------- */
+.bld{background:#0C0D10;width:100%;height:100%;position:relative;display:flex;align-items:center;justify-content:center}
+.glowA{position:absolute;top:-320px;left:50%;transform:translateX(-50%);width:1300px;height:900px;pointer-events:none;background:radial-gradient(circle at center,rgba(198,164,99,.20),rgba(198,164,99,.05) 45%,transparent 70%)}
+.glowB{position:absolute;bottom:-240px;right:-120px;width:900px;height:700px;pointer-events:none;background:radial-gradient(circle at center,rgba(94,131,168,.12),transparent 70%)}
+.hair{position:absolute;left:0;right:0;height:1px;background:rgba(198,164,99,.18)}
+.corner{position:absolute;color:#6f654f;font-weight:700;font-size:11px;letter-spacing:4px}
+.card{position:relative;z-index:2;width:520px;padding:34px 38px 30px;border-radius:22px;background:rgba(21,24,29,.62);border:1px solid rgba(255,255,255,.08);backdrop-filter:blur(30px);box-shadow:0 30px 60px -10px rgba(0,0,0,.55);text-align:center}
+.logo{width:56px;height:56px;border-radius:15px;background:linear-gradient(180deg,#E6D2A2,#C6A463);display:grid;place-items:center;margin:0 auto 14px;box-shadow:0 0 0 0 rgba(198,164,99,.5);animation:halo 2.2s ease-in-out infinite}
+.logo span{color:#15120B;font-weight:900;font-size:18px;letter-spacing:-1.5px}
+.eyebrow{color:#9A7F52;font-weight:700;font-size:11px;letter-spacing:4px;margin-bottom:8px}
+.ptitle{font-family:Fraunces,serif;font-size:24px;font-weight:600;color:#F3ECDD;margin-bottom:4px}
+.psub{color:#7c818a;font-size:12.5px;margin-bottom:18px}
+.bar{height:6px;border-radius:6px;background:#23262e;overflow:hidden;position:relative}
+.fill{height:100%;border-radius:6px;background:linear-gradient(90deg,#C6A463,#E6D2A2);width:12%;transition:width .5s cubic-bezier(.4,0,.2,1);position:relative;overflow:hidden}
+.fill:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.4),transparent);transform:translateX(-100%);animation:sh 1.5s linear infinite}
+.prow{display:flex;justify-content:space-between;align-items:baseline;margin:9px 0 14px}
+.stat{font-size:13px;color:#F3ECDD;font-weight:500}.pct{font-family:"Courier Prime",monospace;font-size:12.5px;color:#E6D2A2;font-weight:700}
+.steps{display:grid;grid-template-columns:1fr 1fr;gap:6px 18px;text-align:left}
+.step{display:flex;align-items:center;gap:9px;padding:6px 4px;font-size:12.5px}
+.step .ic{width:20px;height:20px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:11px;font-weight:800}
+.step.done .ic{background:rgba(87,179,104,.18);color:#57b368}.step.done .lbl{color:#E8E6E0}
+.step.act .ic{background:linear-gradient(160deg,#E6D2A2,#C6A463);color:#15120B}.step.act .lbl{color:#E6D2A2;font-weight:700}
+.step.wt .ic{background:#1b1e25;color:#6b727d;border:1px solid rgba(255,255,255,.08)}.step.wt .lbl{color:#7c818a}
+.spin{display:inline-block;width:11px;height:11px;border:2px solid rgba(21,18,11,.3);border-top-color:#15120B;border-radius:50%;animation:spin .7s linear infinite}
+.pre{font-size:10.5px;color:#6b727d;margin-top:14px;line-height:1.5}
+/* ---------- FRAME 2 — Develop reader ---------- */
+.dev{background:radial-gradient(1100px 600px at 50% -8%,#15171d,#0b0c0f 62%);width:100%;height:100%;display:flex;flex-direction:column}
+.dtop{height:54px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 20px;border-bottom:1px solid rgba(255,255,255,.07);background:linear-gradient(180deg,#15181e,#121419)}
+.dtl{display:flex;align-items:center;gap:11px}.dlogo{width:28px;height:28px;border-radius:8px;background:linear-gradient(160deg,#E6D2A2,#C6A463);display:grid;place-items:center;color:#15120B;font-weight:900;font-size:11px;letter-spacing:-1px}
+.dproj{font-weight:700;font-size:15px;color:#F4EEE0}.dmeta{font-size:11.5px;color:#6b727d}
+.seg{display:inline-flex;background:#15181e;border:1px solid rgba(255,255,255,.07);border-radius:9px;padding:3px;gap:2px}.seg span{padding:6px 13px;border-radius:7px;font-size:12px;font-weight:600;color:#9aa1ab}.seg span.on{background:rgba(198,164,99,.16);color:#E6D2A2}
+.dbody{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px 28px;gap:16px;min-height:0}
+.dots{display:flex;align-items:center;gap:7px}
+.dot{display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer}
+.dot .c{width:10px;height:10px;border-radius:50%;background:#2a2d36}.dot.done .c{background:#57b368}.dot.cur .c{background:linear-gradient(160deg,#E6D2A2,#C6A463);box-shadow:0 0 0 4px rgba(198,164,99,.18)}
+.dot .t{font-size:9px;color:#6b727d;font-weight:600}.dot.cur .t{color:#E6D2A2}
+.dline{width:18px;height:1px;background:rgba(255,255,255,.12)}
+.reader{display:flex;align-items:center;gap:18px;width:100%;max-width:860px}
+.arrow{width:52px;height:52px;flex:none;border-radius:50%;border:1px solid rgba(198,164,99,.4);background:rgba(198,164,99,.08);color:#E6D2A2;display:grid;place-items:center;cursor:pointer}
+.arrow.dim{opacity:.3;border-color:rgba(255,255,255,.1);color:#6b727d}
+.arrow svg{width:22px;height:22px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.paper{flex:1;background:#F7F4EC;color:#23231f;border-radius:14px;padding:26px 30px;min-height:300px;box-shadow:0 24px 60px -18px rgba(0,0,0,.7);display:flex;flex-direction:column}
+.peyebrow{font-size:10px;font-weight:800;letter-spacing:2px;color:#a07f37;text-transform:uppercase}
+.ph1{font-family:Fraunces,serif;font-size:25px;font-weight:600;margin:5px 0 14px;color:#1a1509}
+.ptext{font-size:14.5px;line-height:1.7;color:#2c2a22}
+.pfoot{margin-top:auto;padding-top:16px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid rgba(0,0,0,.08)}
+.stagen{font-size:11.5px;color:#7c6f50;font-weight:600}
+.alt{font-size:11.5px;color:#a07f37;font-weight:600;border:1px solid rgba(160,127,55,.4);border-radius:8px;padding:5px 11px;cursor:pointer;background:rgba(198,164,99,.08)}
+.advance{display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 20px;border-radius:12px;background:linear-gradient(180deg,#E6D2A2,#C6A463);color:#15120B;font-weight:800;font-size:14px;cursor:pointer;border:none}
+.advance svg{width:17px;height:17px;stroke:#15120B;stroke-width:2.2;fill:none}
+.devnote{font-size:11px;color:#6b727d}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes sh{to{transform:translateX(100%)}}
+@keyframes halo{0%,100%{box-shadow:0 0 0 0 rgba(198,164,99,.0)}50%{box-shadow:0 0 26px 4px rgba(198,164,99,.35)}}
+.notes{width:1100px;display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.nc{background:#0e1015;border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:13px 15px}
+.nc h4{font-size:12.5px;font-weight:800;color:#E6D2A2;margin-bottom:6px}.nc p{font-size:11.5px;color:#9aa1ab;line-height:1.55}.nc p b{color:#E8E6E0}
+</style></head><body>
+<div class="cap">ScripON · <b>Build phase + Develop reader — redesign concept (animated)</b><br>Begin now does <b>all the heavy lifting up front</b> (source · brief · Lore Atlas → writes all 8 stages) behind a <b>TFM-branded</b> cinematic screen. Then Develop is a calm <b>step-by-step reader</b>: forward/back arrows, no Regenerate/Gate-check/Branch. <b>Note:</b> it does not live-search the web — it composes from the model's knowledge + your material (real web search is a separate add-on).</div>
+
+<div class="ft">FRAME 1 — TFM build screen (writes the whole ladder before Develop)</div>
+<div class="scr"><div class="bld">
+  <div class="glowA"></div><div class="glowB"></div>
+  <div class="hair" style="top:34px"></div><div class="hair" style="bottom:34px"></div>
+  <span class="corner" style="top:16px;left:30px">THE FILM MAKERS · DEVELOPMENT</span>
+  <span class="corner" style="top:16px;right:30px">BUILDING</span>
+  <div class="card">
+    <div class="logo"><span>TFM</span></div>
+    <div class="eyebrow">BUILDING YOUR DEVELOPMENT</div>
+    <div class="ptitle">Antara — mythic cut</div>
+    <div class="psub">Applying your source, brief &amp; the Lore Atlas</div>
+    <div class="bar"><div class="fill" id="fill"></div></div>
+    <div class="prow"><div class="stat" id="stat">Writing the Treatment…</div><div class="pct" id="pct">3 / 8</div></div>
+    <div class="steps" id="steps">
+      <div class="step done"><span class="ic">✓</span><span class="lbl">Logline</span></div>
+      <div class="step done"><span class="ic">✓</span><span class="lbl">Synopsis</span></div>
+      <div class="step act"><span class="ic"><span class="spin"></span></span><span class="lbl">Treatment</span></div>
+      <div class="step wt"><span class="ic">4</span><span class="lbl">Beats</span></div>
+      <div class="step wt"><span class="ic">5</span><span class="lbl">Scenes</span></div>
+      <div class="step wt"><span class="ic">6</span><span class="lbl">Step outline</span></div>
+      <div class="step wt"><span class="ic">7</span><span class="lbl">Draft</span></div>
+      <div class="step wt"><span class="ic">8</span><span class="lbl">Coverage</span></div>
+    </div>
+    <div class="pre">Grounded in the material you provided · sacred &amp; represent-with-care guardrails active</div>
+  </div>
+</div></div>
+
+<div class="ft">FRAME 2 — Develop reader (after the build · step through with arrows, nothing else)</div>
+<div class="scr"><div class="dev">
+  <div class="dtop"><div class="dtl"><div class="dlogo">TFM</div><div class="dproj">Antara — mythic cut</div><span class="dmeta">Development · all 8 stages ready</span></div>
+    <div class="seg"><span>Builds</span><span class="on">Develop</span></div></div>
+  <div class="dbody">
+    <div class="dots" id="dots"></div>
+    <div class="reader">
+      <div class="arrow dim" id="back" title="Previous stage"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></div>
+      <div class="paper">
+        <div class="peyebrow" id="pe">Stage 1 of 8 · Logline</div>
+        <div class="ph1" id="ph">Logline</div>
+        <div class="ptext" id="pt">A freed slave-warrior-poet in pre-Islamic Arabia must win the right to his own name — and the woman he loves — but the legend he forges to do it ignites the very war that could erase his people.</div>
+        <div class="pfoot"><span class="stagen">Generated · part of this build</span><span class="alt">+ Try an alternate</span></div>
+      </div>
+      <div class="advance" id="fwd"><span>Advance</span><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+    </div>
+    <div class="devnote">Back ← steps to any earlier stage · Advance → moves forward · &ldquo;Try an alternate&rdquo; writes one extra version only when you ask</div>
+  </div>
+</div></div>
+
+<div class="ft">WHAT CHANGES</div>
+<div class="notes">
+  <div class="nc"><h4>Heavy lifting moves to Build</h4><p>One run after Begin writes <b>all 8 stages</b> (Logline→Coverage) in order, each chained off the last. You land in Develop with a finished ladder, not a blank one.</p></div>
+  <div class="nc"><h4>Develop becomes a reader</h4><p>No Regenerate / Gate-check / Branch. Just <b>Advance →</b> and <b>← Back</b> through the generated stages, plus an optional <b>&ldquo;Try an alternate&rdquo;</b> when you actually want a second take.</p></div>
+  <div class="nc"><h4>TFM-branded, honest</h4><p>The build screen uses the <b>login's TFM identity</b> (no star). Status is truthful — source, brief, Lore Atlas, composing — never a fake &ldquo;searching the web.&rdquo;</p></div>
+</div>
+<script>
+(function(){
+  // Frame 1 build stepper
+  var order=['Logline','Synopsis','Treatment','Beats','Scenes','Step outline','Draft','Coverage'];
+  var msg=['Reading your work source','Writing the Synopsis','Writing the Treatment','Mapping the Beats','Breaking into Scenes','Drafting the Step outline','Writing the opening Draft','Assembling Coverage'];
+  var done=3, steps=document.getElementById('steps'), fill=document.getElementById('fill'), stat=document.getElementById('stat'), pct=document.getElementById('pct');
+  function render(){ var n=steps.children; for(var k=0;k<8;k++){ if(k<done){n[k].className='step done';n[k].children[0].innerHTML='✓';} else if(k===done){n[k].className='step act';n[k].children[0].innerHTML='<span class="spin"></span>';} else {n[k].className='step wt';n[k].children[0].innerHTML=String(k+1);} } fill.style.width=Math.round(done/8*100)+'%'; pct.textContent=done+' / 8'; stat.textContent=(msg[done]||'Done')+'…'; }
+  render();
+  var t=setInterval(function(){ done++; if(done>=8){done=8;render();clearInterval(t);stat.textContent='Done — opening Develop';return;} render(); }, 1500);
+  // Frame 2 reader nav
+  var content=[
+   ['Logline','A freed slave-warrior-poet in pre-Islamic Arabia must win the right to his own name — and the woman he loves — but the legend he forges to do it ignites the very war that could erase his people.'],
+   ['Synopsis','Antara, born to a noble father and an enslaved mother, is denied his name and his birthright. When raiders threaten the tribe, he is freed to fight — and his valour and verse make him a legend. But the same legend that wins him Abla draws a coalition of rival tribes, and the war he sparked becomes the crucible of his identity.'],
+   ['Treatment','ACT ONE — the camp, the slight, the longing. ACT TWO — the raid, the freedom won in blood, the rise of the poet-warrior. ACT THREE — the coalition gathers; triumph turns to reckoning; he must choose the name he was denied or the people who denied it.'],
+   ['Beats','Opening image · the brand of servitude. Catalyst · the raid. Break into two · freedom for valour. Midpoint · the legend spreads, Abla within reach. All is lost · the war he caused. Finale · the chosen name.'],
+   ['Scenes','01 INT. TENT — the genealogy he cannot claim (+ → −). 02 EXT. DUNES — raiders on the ridge (− → +). 03 EXT. BATTLE — the freedom bargain… (40 scene cards, each turning a value).'],
+   ['Step outline','1. Antara waters the herd as the free-born ride past. 2. His father lists the lineage — and omits him. 3. The watch-fire signals raiders… (numbered, draft-ready).'],
+   ['Draft','FADE IN: EXT. DESERT CAMP — DAWN. Heat shimmers off the black tents. ANTARA (30s, scarred, watchful) hauls water while free-born youths thunder past on horseback…'],
+   ['Coverage','LOGLINE … SYNOPSIS … COMMENTS: Plot (strong external clock) · Characters (sharp arc) · Marketability (epic, regional) … VERDICT: CONSIDER.']
+  ];
+  var cur=0, dots=document.getElementById('dots');
+  for(var k=0;k<8;k++){ (function(k){ var d=document.createElement('div'); d.className='dot'; d.innerHTML='<span class="c"></span><span class="t">'+order[k][0]+'</span>'; d.onclick=function(){cur=k;paint();}; dots.appendChild(d); })(k); }
+  var pe=document.getElementById('pe'),ph=document.getElementById('ph'),pt=document.getElementById('pt'),back=document.getElementById('back'),fwd=document.getElementById('fwd');
+  function paint(){ var n=dots.children; for(var k=0;k<8;k++){ n[k].className='dot'+(k<cur?' done':k===cur?' cur':''); } pe.textContent='Stage '+(cur+1)+' of 8 · '+content[cur][0]; ph.textContent=content[cur][0]; pt.textContent=content[cur][1]; back.className='arrow'+(cur===0?' dim':''); }
+  back.onclick=function(){ if(cur>0){cur--;paint();} };
+  fwd.onclick=function(){ if(cur<7){cur++;paint();} };
+  paint();
+})();
+</script>
+</body></html>

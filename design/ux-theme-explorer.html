@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="en" data-theme="graphite">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>TFM — Theme & Look/Feel Explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   TFM Theme Explorer — token-driven look/feel directions
+   Same markup, 6 semantic-token sets. Switch with the pills.
+   ============================================================ */
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --font-sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  --font-display:'Inter',sans-serif;
+  --font-mono:'Courier Prime','Courier New',monospace;
+  --radius:12px; --radius-sm:8px;
+  --shadow:0 8px 24px rgba(0,0,0,.40);
+  --bg-image:none;
+}
+
+/* ---------- 1 · GRAPHITE & GOLD (cinematic dark, current brand) ---------- */
+[data-theme="graphite"]{
+  --bg:#0E1117; --surface-1:#161C28; --surface-2:#1E2632; --surface-3:#28313F;
+  --text-1:#F4F6FA; --text-2:#C2CAD6; --text-3:#8A94A6;
+  --border-1:#262E3B; --border-2:#333D4D;
+  --accent:#C9A24A; --accent-2:#C9A24A; --accent-on:#161C28; --accent-soft:rgba(201,162,74,.14);
+  --ok:#34D399; --ok-soft:rgba(52,211,153,.14); --warn:#E0A53F; --warn-soft:rgba(224,165,63,.16);
+  --danger:#E2574C; --danger-soft:rgba(226,87,76,.16);
+  --radius:13px; --shadow:0 10px 30px rgba(0,0,0,.45);
+  --font-display:'Inter',sans-serif;
+}
+/* ---------- 2 · STUDIO LIGHT (enterprise clean — Linear/Vercel) ---------- */
+[data-theme="studio"]{
+  --bg:#F7F8FA; --surface-1:#FFFFFF; --surface-2:#F1F3F7; --surface-3:#E8EBF0;
+  --text-1:#16202E; --text-2:#48536A; --text-3:#8A93A6;
+  --border-1:#E6E9EF; --border-2:#D3D9E3;
+  --accent:#5B5BD6; --accent-2:#5B5BD6; --accent-on:#FFFFFF; --accent-soft:#ECECFB;
+  --ok:#1F9D63; --ok-soft:#E4F6EC; --warn:#B5791E; --warn-soft:#FBF0DA; --danger:#D14343; --danger-soft:#FBE7E7;
+  --radius:10px; --shadow:0 1px 2px rgba(16,24,40,.06),0 6px 18px rgba(16,24,40,.07);
+  --font-display:'Inter',sans-serif;
+}
+/* ---------- 3 · INK & PAPER (editorial, script-first, warm light) ---------- */
+[data-theme="ink"]{
+  --bg:#F2ECE1; --surface-1:#FBF8F2; --surface-2:#EFE8DC; --surface-3:#E6DCCA;
+  --text-1:#1B1712; --text-2:#4A4338; --text-3:#867B6A;
+  --border-1:#E3D9C8; --border-2:#CDBFA8;
+  --accent:#B0532E; --accent-2:#B0532E; --accent-on:#FBF8F2; --accent-soft:#F0DFD2;
+  --ok:#5E7A3A; --ok-soft:#E8EBD7; --warn:#B5791E; --warn-soft:#F3E6CC; --danger:#B23A2E; --danger-soft:#F2DBD5;
+  --radius:6px; --shadow:0 1px 2px rgba(60,40,20,.10),0 8px 20px rgba(60,40,20,.06);
+  --font-display:'Fraunces',Georgia,serif;
+}
+/* ---------- 4 · SLATE PRO (cool dark SaaS — Datadog/Mercury) ---------- */
+[data-theme="slate"]{
+  --bg:#0B1220; --surface-1:#121A2A; --surface-2:#1A2436; --surface-3:#243149;
+  --text-1:#EAF0FA; --text-2:#A9B6CC; --text-3:#6E7C95;
+  --border-1:#1F2A3D; --border-2:#2C3A52;
+  --accent:#3BA6C9; --accent-2:#3BA6C9; --accent-on:#06131C; --accent-soft:rgba(59,166,201,.16);
+  --ok:#37C2A0; --ok-soft:rgba(55,194,160,.15); --warn:#E0A53F; --warn-soft:rgba(224,165,63,.16);
+  --danger:#E2574C; --danger-soft:rgba(226,87,76,.16);
+  --radius:12px; --shadow:0 10px 30px rgba(0,0,0,.5);
+  --font-display:'Inter',sans-serif;
+}
+/* ---------- 5 · AURORA GLASS (premium, glow, demo wow) ---------- */
+[data-theme="aurora"]{
+  --bg:#09080F; --surface-1:rgba(28,25,48,.72); --surface-2:rgba(40,35,68,.62); --surface-3:rgba(56,49,92,.6);
+  --text-1:#F2EEFF; --text-2:#C6BFE2; --text-3:#928BB2;
+  --border-1:rgba(150,130,255,.18); --border-2:rgba(150,130,255,.3);
+  --accent:#8B7CF6; --accent-2:#34D7C8; --accent-on:#0A0A14; --accent-soft:rgba(139,124,246,.2);
+  --ok:#36D1A6; --ok-soft:rgba(54,209,166,.16); --warn:#E6B450; --warn-soft:rgba(230,180,80,.16);
+  --danger:#F0606B; --danger-soft:rgba(240,96,107,.16);
+  --radius:16px; --shadow:0 18px 50px rgba(80,40,160,.30);
+  --font-display:'Inter',sans-serif;
+  --bg-image:radial-gradient(900px 500px at 12% -8%,rgba(139,124,246,.22),transparent 60%),radial-gradient(800px 500px at 100% 0%,rgba(52,215,200,.16),transparent 55%);
+}
+/* ---------- 6 · MIDNIGHT CONTRAST (AAA / night on-set) ---------- */
+[data-theme="midnight"]{
+  --bg:#000000; --surface-1:#0C0F14; --surface-2:#151A22; --surface-3:#1F2630;
+  --text-1:#FFFFFF; --text-2:#D6DDE8; --text-3:#9AA6B6;
+  --border-1:#222A35; --border-2:#3A4654;
+  --accent:#F5A623; --accent-2:#F5A623; --accent-on:#000000; --accent-soft:rgba(245,166,35,.16);
+  --ok:#3DDC84; --ok-soft:rgba(61,220,132,.16); --warn:#F5A623; --warn-soft:rgba(245,166,35,.16);
+  --danger:#FF5A52; --danger-soft:rgba(255,90,82,.16);
+  --radius:8px; --shadow:0 10px 30px rgba(0,0,0,.7);
+  --font-display:'Inter',sans-serif;
+}
+
+body{font-family:var(--font-sans);background:var(--bg);color:var(--text-1);
+  background-image:var(--bg-image);background-attachment:fixed;
+  -webkit-font-smoothing:antialiased;line-height:1.45;transition:background .35s ease,color .35s ease}
+
+/* ---------- explorer chrome ---------- */
+.explorer-bar{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  padding:14px 22px;background:color-mix(in srgb,var(--bg) 86%,transparent);
+  backdrop-filter:blur(12px);border-bottom:1px solid var(--border-1)}
+.explorer-title{font-weight:800;letter-spacing:-.02em;font-size:15px;margin-right:6px}
+.explorer-title small{display:block;font-weight:500;font-size:11px;color:var(--text-3);letter-spacing:0}
+.pills{display:flex;gap:8px;flex-wrap:wrap}
+.pill{cursor:pointer;border:1px solid var(--border-2);background:var(--surface-1);color:var(--text-2);
+  padding:7px 13px;border-radius:999px;font-size:12.5px;font-weight:600;display:flex;align-items:center;gap:7px;
+  transition:all .18s ease}
+.pill:hover{color:var(--text-1);border-color:var(--accent)}
+.pill[aria-selected="true"]{background:var(--accent);color:var(--accent-on);border-color:var(--accent)}
+.pill .dot{width:10px;height:10px;border-radius:50%;border:1px solid rgba(255,255,255,.25)}
+.theme-note{font-size:12.5px;color:var(--text-3);margin-left:auto;max-width:380px;text-align:right}
+.theme-note b{color:var(--text-2);font-weight:600}
+
+.stage{padding:26px 22px 60px;display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap;justify-content:center}
+
+/* ---------- app frame (desktop) ---------- */
+.app{width:min(980px,100%);border:1px solid var(--border-1);border-radius:calc(var(--radius) + 4px);
+  overflow:hidden;background:var(--surface-1);box-shadow:var(--shadow)}
+.topbar{display:flex;align-items:center;gap:14px;padding:12px 16px;border-bottom:1px solid var(--border-1);
+  background:var(--surface-1)}
+.brand{display:flex;align-items:center;gap:9px;font-weight:800;letter-spacing:-.02em}
+.brand .logo{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;font-size:14px;font-weight:800;
+  background:var(--accent);color:var(--accent-on)}
+.search{flex:1;max-width:340px;display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;
+  background:var(--surface-2);border:1px solid var(--border-1);color:var(--text-3);font-size:13px}
+.topbar .spacer{flex:1}
+.icon-btn{width:34px;height:34px;border-radius:9px;border:1px solid var(--border-1);background:var(--surface-2);
+  display:grid;place-items:center;color:var(--text-2);cursor:pointer}
+.avatar{width:34px;height:34px;border-radius:50%;background:var(--accent-soft);color:var(--accent);
+  display:grid;place-items:center;font-weight:700;font-size:13px;border:1px solid var(--border-2)}
+.proj-chip{display:flex;align-items:center;gap:8px;padding:6px 11px;border-radius:999px;background:var(--surface-2);
+  border:1px solid var(--border-1);font-size:12.5px;color:var(--text-2);font-weight:600;cursor:pointer}
+
+.body{display:flex;min-height:560px}
+.side{width:210px;flex-shrink:0;border-right:1px solid var(--border-1);padding:14px 12px;background:var(--surface-1)}
+.side .grp{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-3);margin:14px 8px 6px;font-weight:700}
+.nav{display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:var(--radius-sm);color:var(--text-2);
+  font-size:13.5px;font-weight:500;cursor:pointer;margin-bottom:2px}
+.nav .ic{width:17px;height:17px;opacity:.85}
+.nav:hover{background:var(--surface-2);color:var(--text-1)}
+.nav.active{background:var(--accent-soft);color:var(--accent);font-weight:700}
+.nav.active .ic{opacity:1}
+
+.main{flex:1;padding:22px;overflow:hidden}
+.crumb{font-size:12px;color:var(--text-3);margin-bottom:6px}
+.h-row{display:flex;align-items:flex-end;gap:14px;margin-bottom:18px}
+.h-row h1{font-family:var(--font-display);font-size:25px;font-weight:700;letter-spacing:-.02em;line-height:1.1}
+.h-row .sub{font-size:13px;color:var(--text-3);margin-top:3px}
+.btn{border:none;cursor:pointer;font-family:inherit;font-weight:700;font-size:13px;padding:10px 16px;
+  border-radius:var(--radius-sm);background:var(--accent);color:var(--accent-on);display:inline-flex;align-items:center;gap:7px}
+.btn.ghost{background:var(--surface-2);color:var(--text-2);border:1px solid var(--border-1)}
+
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:22px}
+.stat{background:var(--surface-2);border:1px solid var(--border-1);border-radius:var(--radius);padding:13px 14px}
+.stat .k{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);font-weight:600}
+.stat .v{font-size:23px;font-weight:800;margin-top:5px;letter-spacing:-.02em}
+.stat .d{font-size:11px;margin-top:3px;color:var(--text-3)}
+.stat .d.up{color:var(--ok)} .stat .d.dn{color:var(--danger)}
+
+.cols{display:grid;grid-template-columns:1.15fr .85fr;gap:18px}
+.card{background:var(--surface-1);border:1px solid var(--border-1);border-radius:var(--radius);overflow:hidden}
+.card .hd{display:flex;align-items:center;gap:10px;padding:13px 15px;border-bottom:1px solid var(--border-1)}
+.card .hd h3{font-size:13.5px;font-weight:700}
+.card .hd .more{margin-left:auto;color:var(--text-3);font-size:12px;cursor:pointer}
+
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{text-align:left;padding:9px 14px;color:var(--text-3);font-weight:600;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;
+  border-bottom:1px solid var(--border-1)}
+td{padding:10px 14px;border-bottom:1px solid var(--border-1);color:var(--text-2)}
+tr:last-child td{border-bottom:none}
+.scene-no{font-weight:800;color:var(--accent)}
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px}
+.b-int{background:var(--accent-soft);color:var(--accent)}
+.b-ok{background:var(--ok-soft);color:var(--ok)} .b-warn{background:var(--warn-soft);color:var(--warn)} .b-dn{background:var(--danger-soft);color:var(--danger)}
+
+/* ---------- script reader (screenplay typography) ---------- */
+.script{font-family:var(--font-mono);background:var(--surface-1);padding:18px 20px;font-size:12.5px;line-height:1.5;color:var(--text-1)}
+.script .sh{font-weight:700;text-transform:uppercase;letter-spacing:.02em;margin:0 0 10px}
+.script .ac{margin:0 0 12px;color:var(--text-2)}
+.script .ch{text-align:center;font-weight:700;margin:0 0 1px;padding-left:8%}
+.script .pa{text-align:center;color:var(--text-3);margin:0 0 1px}
+.script .di{margin:0 auto 12px;width:64%;}
+.script .pg{display:flex;justify-content:space-between;font-size:10px;color:var(--text-3);border-top:1px dashed var(--border-2);padding-top:8px;margin-top:6px}
+
+/* ---------- component swatches ---------- */
+.swatches{width:min(980px,100%);border:1px solid var(--border-1);border-radius:calc(var(--radius) + 4px);
+  background:var(--surface-1);box-shadow:var(--shadow);padding:18px 20px}
+.swatches h4{font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-3);margin-bottom:14px;font-weight:700}
+.sw-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.chip{padding:6px 12px;border-radius:999px;font-size:12px;font-weight:600;background:var(--surface-2);color:var(--text-2);border:1px solid var(--border-1)}
+.input{padding:9px 13px;border-radius:var(--radius-sm);background:var(--surface-2);border:1px solid var(--border-2);color:var(--text-2);font-size:13px;min-width:220px}
+.toggle{width:42px;height:24px;border-radius:999px;background:var(--accent);position:relative}
+.toggle::after{content:"";position:absolute;top:3px;right:3px;width:18px;height:18px;border-radius:50%;background:#fff}
+.swatch-dots{display:flex;gap:8px}
+.swatch-dots span{width:30px;height:30px;border-radius:8px;border:1px solid var(--border-2)}
+
+/* ---------- phone frame (mobile feel) ---------- */
+.phone{width:300px;flex-shrink:0;border:1px solid var(--border-2);border-radius:34px;padding:12px;background:var(--surface-1);box-shadow:var(--shadow)}
+.phone .screen{border-radius:24px;overflow:hidden;border:1px solid var(--border-1);background:var(--bg);background-image:var(--bg-image)}
+.phone .pbar{display:flex;align-items:center;gap:8px;padding:14px 14px 8px}
+.phone .pbar .logo{width:24px;height:24px;border-radius:7px;background:var(--accent);color:var(--accent-on);display:grid;place-items:center;font-weight:800;font-size:12px}
+.phone .ptitle{font-size:11px;color:var(--accent);font-weight:700;padding:0 14px;margin-top:4px}
+.phone h2{font-size:19px;font-weight:800;padding:2px 14px 0;letter-spacing:-.02em}
+.phone .psub{font-size:11px;color:var(--text-3);padding:0 14px 10px}
+.phone .pstats{display:flex;gap:7px;padding:0 14px 12px}
+.phone .pstat{flex:1;background:var(--surface-2);border:1px solid var(--border-1);border-radius:11px;padding:8px}
+.phone .pstat .k{font-size:8px;text-transform:uppercase;color:var(--text-3);font-weight:700;letter-spacing:.04em}
+.phone .pstat .v{font-size:15px;font-weight:800;margin-top:2px}
+.phone .prow{display:flex;align-items:center;gap:9px;margin:0 14px 8px;padding:10px;border-radius:11px;background:var(--surface-1);border:1px solid var(--border-1)}
+.phone .prow .n{font-weight:800;color:var(--accent);font-size:13px;width:26px}
+.phone .prow .t{font-size:12px;color:var(--text-2);flex:1}
+.phone .tabbar{display:flex;justify-content:space-around;padding:10px 6px 12px;border-top:1px solid var(--border-1);margin-top:6px}
+.phone .tab{font-size:9px;color:var(--text-3);display:flex;flex-direction:column;align-items:center;gap:4px;font-weight:600}
+.phone .tab.on{color:var(--accent)}
+.phone .tab .ti{width:18px;height:18px;border-radius:6px;background:var(--surface-3)}
+.phone .tab.on .ti{background:var(--accent)}
+
+.frame-label{width:100%;text-align:center;font-size:12px;color:var(--text-3);margin:0 0 -8px;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+.ic{display:inline-block;vertical-align:middle}
+@media(max-width:560px){.stats{grid-template-columns:repeat(2,1fr)}.cols{grid-template-columns:1fr}.side{display:none}}
+</style>
+</head>
+<body>
+
+<div class="explorer-bar">
+  <div class="explorer-title">TFM · Look &amp; Feel Explorer<small>Same screen, 6 token-driven directions — click to compare</small></div>
+  <div class="pills" id="pills"></div>
+  <div class="theme-note" id="note"></div>
+</div>
+
+<div class="stage">
+  <div class="frame-label">Desktop workspace</div>
+
+  <!-- ============ DESKTOP APP ============ -->
+  <div class="app">
+    <div class="topbar">
+      <div class="brand"><span class="logo">T</span> TFM</div>
+      <div class="proj-chip">🎬 Desert Crossing ▾</div>
+      <div class="search">🔎 Search scenes, cast, locations…</div>
+      <div class="spacer"></div>
+      <div class="icon-btn">🔔</div>
+      <div class="icon-btn">⚙️</div>
+      <div class="avatar">QQ</div>
+    </div>
+    <div class="body">
+      <aside class="side">
+        <div class="grp">Production</div>
+        <div class="nav active"><span class="ic">▦</span> Dashboard</div>
+        <div class="nav"><span class="ic">🗓</span> Scheduling</div>
+        <div class="nav"><span class="ic">📄</span> Script</div>
+        <div class="nav"><span class="ic">🎭</span> Casting</div>
+        <div class="nav"><span class="ic">📍</span> Locations</div>
+        <div class="nav"><span class="ic">🚐</span> Transport</div>
+        <div class="grp">Business</div>
+        <div class="nav"><span class="ic">📝</span> Contracts</div>
+        <div class="nav"><span class="ic">👥</span> Talent</div>
+        <div class="nav"><span class="ic">💷</span> Finance</div>
+      </aside>
+      <main class="main">
+        <div class="crumb">Productions / Desert Crossing / Dashboard</div>
+        <div class="h-row">
+          <div>
+            <h1>Production Dashboard</h1>
+            <div class="sub">Day 14 of 32 · Mon, 15 Jun · Wadi Rim Basecamp</div>
+          </div>
+          <div class="spacer" style="flex:1"></div>
+          <button class="btn ghost">Export</button>
+          <button class="btn">＋ New call sheet</button>
+        </div>
+
+        <div class="stats">
+          <div class="stat"><div class="k">Crew call</div><div class="v">06:30</div><div class="d">Basecamp</div></div>
+          <div class="stat"><div class="k">Shoot call</div><div class="v">08:00</div><div class="d">Unit 1</div></div>
+          <div class="stat"><div class="k">Scenes today</div><div class="v">7</div><div class="d up">▲ on schedule</div></div>
+          <div class="stat"><div class="k">Cast on set</div><div class="v">12</div><div class="d">+ 38 crew</div></div>
+          <div class="stat"><div class="k">Budget used</div><div class="v">61%</div><div class="d dn">▲ 4% vs plan</div></div>
+        </div>
+
+        <div class="cols">
+          <div class="card">
+            <div class="hd"><h3>Today’s scenes</h3><span class="more">View call sheet →</span></div>
+            <table>
+              <thead><tr><th>Sc.</th><th>I/E</th><th>Set</th><th>D/N</th><th>Pages</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr><td class="scene-no">24</td><td><span class="badge b-int">INT</span></td><td>Field Hospital</td><td>N</td><td>2 4/8</td><td><span class="badge b-ok">Ready</span></td></tr>
+                <tr><td class="scene-no">25</td><td><span class="badge b-int">EXT</span></td><td>Dune Ridge</td><td>D</td><td>1 2/8</td><td><span class="badge b-warn">Blocking</span></td></tr>
+                <tr><td class="scene-no">26</td><td><span class="badge b-int">INT</span></td><td>Command Tent</td><td>N</td><td>3 1/8</td><td><span class="badge b-ok">Ready</span></td></tr>
+                <tr><td class="scene-no">27</td><td><span class="badge b-int">EXT</span></td><td>Checkpoint</td><td>D</td><td>0 6/8</td><td><span class="badge b-dn">Weather hold</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="card">
+            <div class="hd"><h3>Script · Sc. 24</h3><span class="more">Open reader →</span></div>
+            <div class="script">
+              <p class="sh">INT. FIELD HOSPITAL TENT — NIGHT</p>
+              <p class="ac">Rain hammers the canvas. NADIA (30s), a field medic with steady hands, presses a blood-soaked cloth to a young soldier’s shoulder.</p>
+              <p class="ch">NADIA</p>
+              <p class="di">Stay with me. Look at my eyes — not the wound. The eyes.</p>
+              <p class="ch">SOLDIER</p>
+              <p class="pa">(weakly)</p>
+              <p class="di">…it’s so cold in here.</p>
+              <div class="pg"><span>DESERT CROSSING — Rev. Blue</span><span>24.</span></div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- ============ PHONE ============ -->
+  <div class="phone">
+    <div class="frame-label" style="margin-bottom:8px">Mobile</div>
+    <div class="screen">
+      <div class="pbar"><span class="logo">T</span><span style="font-weight:800">TFM</span><span style="margin-left:auto;font-size:11px;color:var(--text-3)">QQ</span></div>
+      <div class="ptitle">TODAY · DAY 14 OF 32</div>
+      <h2>Desert Crossing</h2>
+      <div class="psub">Mon, 15 Jun · Wadi Rim Basecamp</div>
+      <div class="pstats">
+        <div class="pstat"><div class="k">Crew</div><div class="v">06:30</div></div>
+        <div class="pstat"><div class="k">Shoot</div><div class="v">08:00</div></div>
+        <div class="pstat"><div class="k">Wrap</div><div class="v">19:00</div></div>
+      </div>
+      <div class="prow"><span class="n">24</span><span class="t">INT · Field Hospital — Night</span><span class="badge b-ok">Ready</span></div>
+      <div class="prow"><span class="n">25</span><span class="t">EXT · Dune Ridge — Day</span><span class="badge b-warn">Block</span></div>
+      <div class="prow"><span class="n">27</span><span class="t">EXT · Checkpoint — Day</span><span class="badge b-dn">Hold</span></div>
+      <div class="tabbar">
+        <div class="tab on"><span class="ti"></span>Today</div>
+        <div class="tab"><span class="ti"></span>Schedule</div>
+        <div class="tab"><span class="ti"></span>Chat</div>
+        <div class="tab"><span class="ti"></span>Capture</div>
+        <div class="tab"><span class="ti"></span>Me</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ COMPONENT SWATCHES ============ -->
+  <div class="swatches">
+    <h4>Components in this theme</h4>
+    <div class="sw-row">
+      <button class="btn">Primary action</button>
+      <button class="btn ghost">Secondary</button>
+      <span class="chip">Neutral chip</span>
+      <span class="badge b-ok">Approved</span>
+      <span class="badge b-warn">Pending</span>
+      <span class="badge b-dn">Blocked</span>
+      <span class="badge b-int">INT</span>
+    </div>
+    <div class="sw-row">
+      <input class="input" placeholder="Text input…" />
+      <div class="toggle"></div>
+      <span style="font-size:12.5px;color:var(--text-3)">Surfaces &amp; accent</span>
+      <div class="swatch-dots">
+        <span style="background:var(--surface-1)"></span>
+        <span style="background:var(--surface-2)"></span>
+        <span style="background:var(--surface-3)"></span>
+        <span style="background:var(--accent)"></span>
+        <span style="background:var(--ok)"></span>
+        <span style="background:var(--warn)"></span>
+        <span style="background:var(--danger)"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const THEMES = [
+  { id:'graphite', name:'Graphite & Gold', dot:'#C9A24A', note:'<b>Cinematic dark, your current brand.</b> Charcoal surfaces, warm gold accent. Premium, calm, great on-set in low light.' },
+  { id:'studio',   name:'Studio Light',    dot:'#5B5BD6', note:'<b>Enterprise clean (Linear / Vercel).</b> Neutral grays, confident indigo, high legibility and density. The “office default”.' },
+  { id:'ink',      name:'Ink & Paper',     dot:'#B0532E', note:'<b>Editorial, script-first.</b> Warm paper, ink text, serif headings — the reader feels like a real printed screenplay.' },
+  { id:'slate',    name:'Slate Pro',       dot:'#3BA6C9', note:'<b>Cool dark SaaS (Datadog / Mercury).</b> Slate blues, crisp cyan accent. Data-dense and modern without the warmth of gold.' },
+  { id:'aurora',   name:'Aurora Glass',    dot:'#8B7CF6', note:'<b>Premium, glass + glow.</b> Translucent panels, violet→teal accent. High “wow” for demos and marketing; bold for daily ops.' },
+  { id:'midnight', name:'Midnight Contrast',dot:'#F5A623',note:'<b>High-contrast, accessible (AAA).</b> True-black, vivid amber. Built for night shoots and low-vision readability.' },
+];
+const pills = document.getElementById('pills');
+const note = document.getElementById('note');
+const root = document.documentElement;
+function select(id){
+  root.setAttribute('data-theme', id);
+  [...pills.children].forEach(p=>p.setAttribute('aria-selected', p.dataset.id===id));
+  note.innerHTML = THEMES.find(t=>t.id===id).note;
+}
+THEMES.forEach(t=>{
+  const b=document.createElement('button');
+  b.className='pill'; b.dataset.id=t.id;
+  b.innerHTML='<span class="dot" style="background:'+t.dot+'"></span>'+t.name;
+  b.onclick=()=>select(t.id);
+  pills.appendChild(b);
+});
+select('graphite');
+</script>
+</body>
+</html>

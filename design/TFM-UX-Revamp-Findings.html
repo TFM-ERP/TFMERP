@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>TFM — UX/UI Revamp: Findings & Change Plan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#E9E1D2;--sheet:#FCFAF4;--sheet2:#F2ECDF;--ink:#1B1712;--ink2:#4A4338;--ink3:#867B6A;
+  --line:#E0D5C2;--line2:#CDBFA8;--accent:#B0532E;--gold:#C9A24A;--ok:#5E7A3A;--warn:#B5791E;--danger:#B23A2E;
+  --mono:'Courier Prime','Courier New',monospace;--serif:'Fraunces',Georgia,serif;--sans:'Inter',-apple-system,'Segoe UI',sans-serif;
+}
+body{font-family:var(--sans);background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;line-height:1.6}
+.wrap{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:228px 1fr;gap:34px;padding:30px 26px 80px}
+/* TOC */
+.toc{position:sticky;top:24px;align-self:start;font-size:12.5px}
+.toc .mast{font-family:var(--serif);font-weight:700;font-size:17px;line-height:1.15;margin-bottom:4px}
+.toc .ed{color:var(--ink3);font-size:11px;margin-bottom:16px}
+.toc a{display:block;color:var(--ink2);text-decoration:none;padding:5px 9px;border-radius:6px;border-left:2px solid transparent}
+.toc a:hover{background:var(--sheet);border-left-color:var(--accent);color:var(--ink)}
+.toc a .n{color:var(--accent);font-weight:700;margin-right:7px}
+/* content */
+.doc{background:var(--sheet);border:1px solid var(--line);border-radius:10px;padding:46px 54px;box-shadow:0 1px 2px rgba(60,40,20,.08),0 14px 40px rgba(60,40,20,.07)}
+.kicker{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:700}
+h1{font-family:var(--serif);font-size:38px;font-weight:700;letter-spacing:-.02em;line-height:1.05;margin:8px 0 10px}
+.lede{font-size:16px;color:var(--ink2);max-width:60ch}
+.meta{font-size:12px;color:var(--ink3);margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+h2{font-family:var(--serif);font-size:25px;font-weight:600;letter-spacing:-.01em;margin:46px 0 6px;padding-top:22px;border-top:2px solid var(--line2)}
+h2 .n{color:var(--accent);font-size:16px;font-weight:700;vertical-align:middle;margin-right:10px;font-family:var(--sans)}
+h3{font-size:16px;font-weight:700;margin:24px 0 7px;color:var(--ink)}
+p{margin:9px 0;color:var(--ink2)}
+.doc strong{color:var(--ink);font-weight:700}
+ul,ol{margin:10px 0 10px 4px;padding-left:20px}li{margin:5px 0;color:var(--ink2)}
+em{color:var(--accent);font-style:normal;font-weight:600}
+code{font-family:var(--mono);font-size:12.5px;background:var(--sheet2);border:1px solid var(--line);border-radius:4px;padding:1px 6px;color:var(--ink)}
+/* callouts */
+.box{border-radius:9px;padding:14px 16px;margin:14px 0;font-size:13.5px;border:1px solid var(--line2)}
+.box .h{font-weight:800;font-size:11px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:5px;display:flex;align-items:center;gap:7px}
+.find{background:#F6ECE6;border-color:#E3C5b6;border-color:#E3C5B6}.find .h{color:var(--danger)}
+.change{background:#EEF0E2;border-color:#D2D8B6}.change .h{color:var(--ok)}
+.keep{background:#F5EAD6;border-color:#E6D2A6}.keep .h{color:var(--warn)}
+.code-c{background:#1B1712;border-color:#1B1712;color:#E9E1D2;font-family:var(--mono);font-size:12px}.code-c .h{color:var(--gold)}
+.code-c b{color:#fff}
+/* shell diagram */
+.diagram{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:16px 0}
+.dv{border:1px solid var(--line2);border-radius:8px;background:var(--sheet2);padding:10px;font-size:10px}
+.dv .lab{font-weight:700;font-size:10.5px;color:var(--ink);margin-bottom:8px;text-align:center}
+.dvbody{display:flex;gap:5px;height:120px}
+.rail{background:var(--accent);border-radius:4px;opacity:.85}
+.rail.full{width:40px}.rail.icon{width:14px}
+.canvas{flex:1;background:#fff;border:1px solid var(--line);border-radius:4px;display:flex;flex-direction:column;gap:3px;padding:5px}
+.canvas .tbar{height:9px;background:var(--sheet2);border-radius:2px}
+.canvas .cont{flex:1;background:var(--sheet2);border-radius:2px;opacity:.7}
+.panel{width:26px;background:var(--gold);border-radius:4px;opacity:.55}
+.dvbody.mob{flex-direction:column}.dvbody.mob .bn{height:16px;background:var(--accent);border-radius:4px;opacity:.85;margin-top:auto}
+/* table */
+table{width:100%;border-collapse:collapse;font-size:13px;margin:14px 0}
+th{text-align:left;padding:9px 11px;background:var(--sheet2);color:var(--ink3);font-weight:700;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--line2)}
+td{padding:9px 11px;border-bottom:1px solid var(--line);color:var(--ink2);vertical-align:top}
+td b{color:var(--ink)}
+.tag{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;background:var(--sheet2);border:1px solid var(--line2);color:var(--ink2)}
+.ia{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:14px 0}
+.iacol{border:1px solid var(--line2);border-radius:9px;overflow:hidden}
+.iacol .ih{padding:9px 13px;font-weight:700;font-size:12px}.iacol.old .ih{background:#F6ECE6;color:var(--danger)}.iacol.new .ih{background:#EEF0E2;color:var(--ok)}
+.iacol ul{margin:0;padding:11px 13px 13px 28px;font-size:12.5px}
+.foot{margin-top:30px;padding-top:16px;border-top:1px solid var(--line);font-size:12px;color:var(--ink3)}
+@media(max-width:880px){.wrap{grid-template-columns:1fr}.toc{position:static}.doc{padding:30px 22px}.ia,.diagram{grid-template-columns:1fr}}
+</style></head>
+<body>
+<div class="wrap">
+<nav class="toc">
+  <div class="mast">TFM · UX/UI Revamp</div>
+  <div class="ed">Findings &amp; Change Plan · Pre-release · Jun 2026</div>
+  <a href="#verdict"><span class="n">0</span>The verdict</a>
+  <a href="#research"><span class="n">1</span>What the research says</a>
+  <a href="#audit"><span class="n">2</span>Audit findings</a>
+  <a href="#shell"><span class="n">3</span>The Workspace shell</a>
+  <a href="#ia"><span class="n">4</span>Information architecture</a>
+  <a href="#ds"><span class="n">5</span>Design system</a>
+  <a href="#script"><span class="n">6</span>The Script north-star</a>
+  <a href="#responsive"><span class="n">7</span>Responsive &amp; adaptive</a>
+  <a href="#screens"><span class="n">8</span>Screen-by-screen</a>
+  <a href="#code"><span class="n">9</span>What changes in code</a>
+  <a href="#release"><span class="n">10</span>Release readiness</a>
+  <a href="#roadmap"><span class="n">11</span>Roadmap</a>
+</nav>
+
+<main class="doc">
+  <div class="kicker">Final research result · senior UX / IA / design-system review</div>
+  <h1>From a pile of modules to one adaptive workspace.</h1>
+  <p class="lede">You don’t need 200 prettier screens. You need <strong>one operating model</strong> applied everywhere: content first, chrome that collapses to icons and expands on demand, related parts brought together, and a single token system that flips between night (Graphite &amp; Gold) and day (Studio Light) — with the Script Reader as the proven template.</p>
+  <div class="meta">Scope: full platform (desktop + tablet + mobile). Inputs: the six-direction explorer, the Script Reader study, your stated preferences (clustering / relocation / Ink &amp; Paper / full-screen reader), 2026 SaaS &amp; production-tooling research, and your existing NestJS + Next.js + Figma (Graphite &amp; Gold) system.</p>
+
+  <h2 id="verdict"><span class="n">0</span>The verdict</h2>
+  <p>The platform’s problem isn’t visual taste — your Graphite &amp; Gold direction is strong. The problem is <strong>structural inconsistency</strong>: ~20 modules that each grew their own header, toolbar, table and spacing; a long flat sidebar that hides depth; and content-heavy screens (Script, Scheduling, Casting) where persistent chrome eats the canvas. The fix is to stop designing pages and start designing <em>one shell</em> that every module plugs into.</p>
+  <p>This is exactly what you reacted to in the explorer: a single screen where parts are <strong>clustered, relocated and brought together</strong>, and what you love in the reader — <strong>full-screen focus</strong> with a toolbar that collapses to icons (<code>☰ 🔎 A− A+ ⤢</code>) and the <code>Reader / Pages / Audio</code> segmented control. We make that the law of the system, not a one-off.</p>
+
+  <h2 id="research"><span class="n">1</span>What the research says</h2>
+  <p>The 2026 consensus across enterprise SaaS and production tooling points in one direction, and it backs your instinct:</p>
+  <ul>
+    <li><strong>Density is out; intelligent density is in.</strong> The era of cramming every chart above the fold is over — surface “is everything OK?” first, then let people drill in. <em>Progressive disclosure</em> is the strongest pattern of the year.</li>
+    <li><strong>Content-first, context-aware layouts.</strong> Leading tools adapt the workspace to the user’s role and task instead of showing every control at once. The primary artifact (a script, a board, a sheet) should own the canvas.</li>
+    <li><strong>Semantic design tokens, swapped by mode.</strong> Light↔dark is a <em>token-set swap</em>, not a redesign — <code>color.surface.1</code>, not a hex. This is how Linear, Stripe, Mercury, Vercel and Notion stay consistent at scale.</li>
+    <li><strong>Production tools win on flow, not features.</strong> StudioBinder’s edge is auto-populated call sheets and in-context actions — fewer hops between modules. Screenplay tools (Final Draft, Arc Studio, WriterDuet) converge on one thing: a <em>distraction-free, industry-standard</em> script surface in Courier Prime.</li>
+  </ul>
+  <div class="box keep"><div class="h">✓ What you already got right — keep it</div>Graphite &amp; Gold as the brand identity; the Ink &amp; Paper reading mode; the component seeds in Figma (Button/Chip/Badge/Card/List Row/Tab Bar); the project-scoped Transport Captain console; the mobile <code>/m</code> app. These become the foundation, not throwaways.</div>
+
+  <h2 id="audit"><span class="n">2</span>Audit findings — what’s actually wrong now</h2>
+  <p>Honest, specific, and fixable. Eight findings, ranked by impact:</p>
+  <div class="box find"><div class="h">⚠ F1 · Navigation sprawl</div>~20 modules sit in one flat sidebar with no grouping by workflow. New users can’t find features; power users scroll. No sense of “where am I in the production lifecycle.”</div>
+  <div class="box find"><div class="h">⚠ F2 · No shared shell</div>Each module page invented its own header, toolbar and table over time. Spacing, type sizes, radii and button styles drift page-to-page — the system reads as several apps stitched together.</div>
+  <div class="box find"><div class="h">⚠ F3 · Chrome competes with content</div>On Script, Stripboard, Casting and Locations the persistent sidebar + page header consume 25–35% of the canvas. There’s no focus / full-screen mode for the work that needs it most.</div>
+  <div class="box find"><div class="h">⚠ F4 · Density without hierarchy</div>Dashboards and tables show everything at once instead of leading with the one answer that matters, then drilling in. High cognitive load, slow scanning.</div>
+  <div class="box find"><div class="h">⚠ F5 · Component drift vs. the design system</div>Buttons, badges and cards are styled ad-hoc per page rather than from the Graphite &amp; Gold library; tokens exist in <code>globals.css</code> but usage is inconsistent, so a restyle means editing dozens of files.</div>
+  <div class="box find"><div class="h">⚠ F6 · Responsive = shrink, not adapt</div>Desktop tables and panels merely shrink on tablet/phone; the new <code>/m</code> app is a <em>separate</em> build rather than the same shell adapting. Two code paths, two maintenance costs.</div>
+  <div class="box find"><div class="h">⚠ F7 · Script surfaces are fragmented</div>Reader, Pages and Audio Studio look and behave differently. The “real script” experience you keep asking for isn’t unified — the thing users touch most is the least consistent.</div>
+  <div class="box find"><div class="h">⚠ F8 · Mode &amp; access aren’t systematic</div>No clean light/dark token swap; night-mode/AAA readability isn’t first-class for on-set use; and (MENA deployment) there’s no RTL/Arabic story yet — a hard release blocker for your market.</div>
+
+  <h2 id="shell"><span class="n">3</span>The core move — one “Workspace” shell</h2>
+  <p>Every heavy module stops being a bespoke page and becomes content inside one shell with four parts. This is the single highest-leverage change in the whole plan.</p>
+  <ul>
+    <li><strong>Rail</strong> — global navigation. Full labels on desktop; <em>collapses to icons</em> on smaller viewports or on demand; click an icon to expand contextual actions + labels.</li>
+    <li><strong>Toolbar</strong> — <em>contextual per module</em>. For the Script that’s <code>Reader / Pages / Audio</code> + <code>☰ 🔎 A− A+ ⤢</code>; for Scheduling it’s view-switch + auto-balance; for Finance it’s period + export. Same anatomy, different verbs.</li>
+    <li><strong>Canvas</strong> — the primary artifact (script, stripboard, board, sheet) owns the space. Always the largest region.</li>
+    <li><strong>Panel</strong> — a progressive-disclosure side drawer (breakdown, notes, details, comments) that opens when needed and gets out of the way otherwise.</li>
+  </ul>
+  <div class="diagram">
+    <div class="dv"><div class="lab">Desktop · expanded</div><div class="dvbody"><div class="rail full"></div><div class="canvas"><div class="tbar"></div><div class="cont"></div></div><div class="panel"></div></div></div>
+    <div class="dv"><div class="lab">Tablet · rail → icons</div><div class="dvbody"><div class="rail icon"></div><div class="canvas"><div class="tbar"></div><div class="cont"></div></div></div></div>
+    <div class="dv"><div class="lab">Mobile · content + bottom nav</div><div class="dvbody mob"><div class="canvas"><div class="tbar"></div><div class="cont"></div></div><div class="bn"></div></div></div>
+  </div>
+  <p>The same shell <em>adapts</em> across breakpoints instead of being rebuilt — the desktop rail becomes an icon strip on tablet and the bottom tab-bar on phone (reusing your <code>/m</code> patterns). One code path, three experiences.</p>
+  <div class="box keep"><div class="h">✓ Your reader is the template</div>The Script Reader already proves this model: artifact-first canvas, segmented control, scene navigator (Panel), full-screen, A−/A+. We’re generalising what you already built and loved into the shell every module inherits.</div>
+
+  <h2 id="ia"><span class="n">4</span>Information architecture — regroup &amp; bring parts together</h2>
+  <p>Replace the flat ~20-item sidebar with <strong>workflow-phase clusters</strong> plus a persistent People / Money / Admin set. Navigation now mirrors how a production actually moves.</p>
+  <div class="ia">
+    <div class="iacol old"><div class="ih">Now — flat &amp; sprawling</div><ul><li>Dashboard, Scheduling, Script, Breakdown, Sides, Casting, Locations, Recce, Transport, Dispatch, Contracts, Talent, Crew, Vendors, Travel, Accommodation, Meetings, Comms, Finance, Reports, Settings… (one long list)</li></ul></div>
+    <div class="iacol new"><div class="ih">Proposed — clustered by lifecycle</div><ul>
+      <li><strong>Develop</strong> — Script (Reader/Pages/Audio), Breakdown, Sides</li>
+      <li><strong>Prep</strong> — Scheduling (Stripboard/Calendar/DOOD), Casting, Locations, Travel, Accommodation</li>
+      <li><strong>Shoot</strong> — Call Sheets, Transport &amp; Dispatch, Comms, Continuity</li>
+      <li><strong>People</strong> — Talent, Crew, Vendors/Contacts</li>
+      <li><strong>Money</strong> — Budget &amp; Cost report, POs, Petty cash, Contracts</li>
+      <li><strong>Admin</strong> — Settings, Permissions, Audit</li>
+    </ul></div>
+  </div>
+  <h3>“Bringing parts together” — concrete consolidations</h3>
+  <p>These are the relocations you liked, made real (each reflects in code, not just design):</p>
+  <ul>
+    <li><strong>Script workspace</strong> = Reader + Pages + Audio Studio + Breakdown + Sides under one shell with the segmented toolbar — instead of four separate destinations.</li>
+    <li><strong>Scheduling workspace</strong> = Stripboard + Calendar + DOOD as views of one board, not three pages.</li>
+    <li><strong>Transport (Captain)</strong> = Dispatch + Map + Garage + Crew (already consolidated — use it as the proof pattern), embedded per-project.</li>
+    <li><strong>Money workspace</strong> = Cost report + POs + Petty cash + Contract values share one ledger surface.</li>
+    <li><strong>Casting → Comms hand-off</strong> kept and surfaced: confirming a role spins up the cast channel in-context (fewer hops, the StudioBinder lesson).</li>
+  </ul>
+
+  <div class="box keep"><div class="h">&#10003; locked — transport dispatch (loved)</div>The Captain dispatch board is the reference for a <b>live-operations workspace</b>: a left-to-right <b>FSM kanban</b> (Unassigned &rarr; Dispatched &rarr; En route &rarr; On board) with run cards carrying <b>ETA / VIP / TRUCK</b> chips, a <b>live map</b> with colour-coded vehicle pins and a <b>&ldquo;9 cars live&rdquo;</b> status, tabbed <b>Dispatch / Map / Garage / Crew</b>. This pattern (kanban + live map + status chips) is reused anywhere the system tracks moving things in real time.</div>
+
+  <h2 id="ds"><span class="n">5</span>Design system &amp; standardization</h2>
+  <p>One token system, two modes, one reading mode. Everything visual references a <em>semantic</em> token so a restyle is a token edit, never a find-and-replace.</p>
+  <div class="box code-c"><div class="h">› token model (globals.css)</div>:root maps raw palette → semantic tokens. <b>[data-mode="dark"]</b> = Graphite &amp; Gold, <b>[data-mode="light"]</b> = Studio Light. Reading surfaces add <b>[data-read="ink"]</b>.<br><br>--surface-0/1/2/3 · --text-1/2/3 · --border-1/2 · --accent · --accent-on · --gold · --ok/warn/danger (+ soft) · --radius · --space-1..6 · --font-sans/serif/mono</div>
+  <h3>Standardized scales</h3>
+  <ul>
+    <li><strong>Spacing</strong> — 4px base (4/8/12/16/24/32). No more arbitrary 7px/13px paddings.</li>
+    <li><strong>Type</strong> — one ramp: 11 / 12.5 / 14 / 16 / 18 / 23 / 32. Inter for UI, Fraunces for display, <em>Courier Prime for script</em>.</li>
+    <li><strong>Radius</strong> — 8 (controls) / 12 (cards) / 999 (pills). One value per role.</li>
+    <li><strong>Elevation</strong> — borders in dark, soft shadows in light; never both.</li>
+  </ul>
+  <h3>Component library (the canonical set)</h3>
+  <p>Promote the Figma seeds into a complete, code-backed kit; retire ad-hoc variants:</p>
+  <ul><li>Button (primary/secondary/ghost/danger), Chip, Badge/Status, Input/Select/Textarea, Toggle/Checkbox/Radio, Card, Metric/stat, <strong>Table</strong> (sortable, sticky, virtualized), <strong>Toolbar</strong>, <strong>Segmented control</strong> (the Reader/Pages/Audio pattern), <strong>Side Panel/Drawer</strong>, Modal, Toast/notification, Empty / Loading / Error states, Tab Bar (mobile).</li></ul>
+  <div class="box change"><div class="h">→ change</div>Build these once in <code>components/ui/*</code>, bind to tokens, mirror 1:1 in the Figma Graphite &amp; Gold library, and connect with Code Connect so design ↔ code stays honest.</div>
+
+  <h2 id="script"><span class="n">6</span>The Script north-star — “a real script,” everywhere it appears</h2>
+  <p>This is the surface you care about most, so it sets the bar. The Script becomes one workspace with three views behind a single segmented control:</p>
+  <ul>
+    <li><strong>Reader</strong> — Ink &amp; Paper by default: warm sheet, Courier Prime, industry-standard formatting (sluglines, action, character, dialogue, dual-dialogue, transitions, scene numbers, revision asterisks + colored revision pages). Full-screen / focus mode. <code>A− / A+</code> sizing. Scene navigator and Breakdown ride in the Panel.</li>
+    <li><strong>Pages</strong> — the same script as paginated, printable sides with revision marks and watermark-on-share.</li>
+    <li><strong>Audio Studio</strong> — the same script, now a table-read / ScriptON surface: per-character audio, line-synced playback — but visually unmistakably <em>the same script</em>.</li>
+  </ul>
+  <div class="box keep"><div class="h">✓ exactly what you flagged</div>The <code>Reader / Pages / Audio</code> segmented control and the <code>☰ 🔎 A− A+ ⤢</code> toolbar you sent become the canonical “document workspace” chrome — reused by Contracts, Call Sheet preview, and any document surface. Reader Portal (talent-facing) inherits the same reading mode so what an actor sees matches what the AD sees.</div>
+
+  <h2 id="responsive"><span class="n">7</span>Responsive &amp; adaptive — adapt, don’t shrink</h2>
+  <p>The shell changes <em>behaviour</em> by device, not just scale:</p>
+  <ul>
+    <li><strong>Desktop (≥1200px)</strong> — full rail, multi-panel (Canvas + Panel side-by-side), dense tables, keyboard shortcuts, multi-monitor friendly (detachable reader/full-screen).</li>
+    <li><strong>Tablet (768–1199)</strong> — rail collapses to <em>icons</em>; Panel becomes an overlay drawer; larger touch targets (44px); same productivity.</li>
+    <li><strong>Phone (&lt;768)</strong> — content-first single column; rail becomes the <code>/m</code> bottom tab-bar; Panel becomes a bottom sheet; primary action as a thumb-reachable button. Reuse the live <code>/m</code> app rather than a second design.</li>
+  </ul>
+  <h3>Browser- &amp; context-aware</h3>
+  <ul>
+    <li>Respond to <strong>viewport</strong> (not device guesses), <strong>touch vs mouse</strong> (hover affordances vs tap), <strong>orientation</strong> (landscape reader), and offer a <strong>PWA / installable</strong> experience (already in place for <code>/driver</code> and <code>/m</code> — extend to the main app).</li>
+    <li><strong>RTL / Arabic</strong> — first-class mirroring for your MENA market (logical CSS properties, mirrored rail/toolbar, Arabic UI font). Treat as a release gate, not a nice-to-have.</li>
+  </ul>
+
+  <h2 id="screens"><span class="n">8</span>Screen-by-screen change list</h2>
+  <table>
+    <thead><tr><th style="width:18%">Module</th><th style="width:41%">What’s wrong now</th><th>The change</th></tr></thead>
+    <tbody>
+      <tr><td><b>Dashboard</b></td><td>Flat grid of equal-weight widgets; no “is everything OK?” answer.</td><td>Lead with a status hero (today’s call, blockers, budget health), then progressive drill-in.</td></tr>
+      <tr><td><b>Script (Reader/Pages/Audio)</b></td><td>Three different-looking destinations; chrome eats the page.</td><td>One workspace, segmented control, Ink &amp; Paper reading mode, full-screen, Breakdown in Panel.</td></tr>
+      <tr><td><b>Scheduling</b></td><td>Stripboard / Calendar / DOOD are separate pages.</td><td>One board, view-switch in toolbar; drag strips; day banners; DOOD as a view.</td></tr>
+      <tr><td><b>Casting</b></td><td>Dense list; profile opens a full page (loses context).</td><td>Grid + side-panel profile; shortlist inline; confirm → Comms hand-off.</td></tr>
+      <tr><td><b>Locations</b></td><td>Photos, map, logistics scattered.</td><td>Gallery + map + permit/logistics in one recce workspace; shareable recce.</td></tr>
+      <tr><td><b>Transport</b></td><td>Already consolidated (Captain) — but styled apart from the rest.</td><td>Keep the model; re-skin to tokens; use it as the reference workspace.</td></tr>
+      <tr><td><b>Contracts</b></td><td>Table + document feel like different apps.</td><td>List + document workspace reusing the reader chrome; clear sign status.</td></tr>
+      <tr><td><b>Finance</b></td><td>Cost report, POs, petty cash fragmented; numbers without hierarchy.</td><td>One money workspace; budget-vs-actual bars first; variance flagged.</td></tr>
+      <tr><td><b>Comms</b></td><td>OK, but disconnected from the modules it serves.</td><td>Keep; surface contextually (cast channel from Casting, unit channel from Call Sheet).</td></tr>
+      <tr><td><b>Mobile /m</b></td><td>Separate build; risks drifting from desktop.</td><td>Make it the phone breakpoint of the same shell + tokens, not a fork.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="box keep"><div class="h">✓ locked — daily call sheet (loved)</div>The call-sheet board is canonical, exactly as shown: <b>TFM</b> header + <b>Day X of Y</b>, the four call-time boxes (<b>Crew 06:30 · Shoot 08:00 · Lunch 13:00 · Est. wrap 19:00</b>), auto-populated <b>Scenes</b> (Sc / Set / I-E / Pages) and <b>Cast call</b> (# / Artist / Role / Call) tables, and the <b>Notes &amp; Weather</b> strip — &#9925; temp + wind, &#127749; sunrise, &#127751; sunset, and gold-flagged hazards (e.g. &ldquo;Rain rig on standby &mdash; Sc.24&rdquo;) — with <b>Preview PDF</b> and <b>Publish &amp; notify</b>. Auto-populated from schedule + cast + locations. This board, and its Notes &amp; Weather strip, is the reference for the &ldquo;document workspace&rdquo; pattern across the system.</div>
+
+  <h2 id="code"><span class="n">9</span>What changes in code</h2>
+  <p>The revamp is mostly <em>consolidation</em>, not rewrite. Six concrete moves:</p>
+  <ol>
+    <li><strong>Tokenize</strong> <code>frontend/src/app/globals.css</code> — semantic tokens + <code>[data-mode]</code> / <code>[data-read]</code> swap. One source of truth for both themes.</li>
+    <li><strong>Build the shell</strong> — <code>components/workspace/Workspace.tsx</code> exposing <code>Rail / Toolbar / Canvas / Panel</code> slots + focus/full-screen + breakpoint behaviour.</li>
+    <li><strong>Regroup nav</strong> — refactor <code>(dashboard)/layout.tsx</code> from a flat list to lifecycle clusters with a collapsible icon rail (no route changes required day one — just grouping + the rail).</li>
+    <li><strong>Extract UI kit</strong> — <code>components/ui/*</code> (Button, Table, Toolbar, SegmentedControl, SidePanel, Empty/Loading/Error). Replace per-page styles module by module.</li>
+    <li><strong>Reading mode</strong> — a <code>ScriptSurface</code> component shared by Reader / Pages / Audio / Reader Portal so the script always reads identically.</li>
+    <li><strong>Adaptive + RTL</strong> — drive layout off viewport + input type; add <code>dir="rtl"</code> support via logical CSS properties; fold <code>/m</code> in as the phone breakpoint.</li>
+  </ol>
+  <div class="box change"><div class="h">→ sequencing that protects you</div>Ship the shell + tokens behind the existing routes first (invisible to users), migrate one module (Script) as the proof, then roll the rest module-by-module. No big-bang rewrite, no frozen release.</div>
+
+  <h3>New features this unlocks — not graphic-only</h3>
+  <p>The revamp surfaces real, reasoned capabilities that <em>talk to the system</em> and cut work — each tied to a finding, not decoration:</p>
+  <ul>
+    <li><strong>Appearance &amp; theme governance</strong> (F8) — users set their own look; admins set policy: <em>open</em>, <em>restricted</em> to a curated set, or <em>forced</em> org-wide, plus a default for new users. <em>Why:</em> brand control for client/investor-facing studios without killing personalisation.</li>
+    <li><strong>Command palette (Ctrl/&#8984;K)</strong> (F1) — jump to any module, project or record in two keystrokes. <em>Why:</em> kills the flat-sidebar hunt.</li>
+    <li><strong>Saved views &amp; filters</strong> (F4) — per-user saved table sorts/filters, shareable with the unit. <em>Why:</em> people re-run the same queries every day.</li>
+    <li><strong>Cross-module deep-links</strong> (F1/F7) — a scene links to its call sheet &rarr; dispatch run &rarr; cast channel. <em>Why:</em> the StudioBinder lesson — fewer hops, data in context.</li>
+    <li><strong>Contextual notifications / activity feed</strong> — call sheet published, contract signed, run wrapped, weather hold. <em>Why:</em> the system tells you instead of you checking.</li>
+    <li><strong>PWA for the whole app + RTL / Arabic</strong> (F6/F8) — installable, offline-tolerant, mirrored for MENA. <em>Why:</em> hard release-gates for your market.</li>
+  </ul>
+  <div class="box code-c"><div class="h">&#8250; data model — theme governance (new)</div><b>UserPreference</b> &#123; themeId, density, readingMode, highContrast &#125;<br><b>OrgThemePolicy</b> &#123; mode: open|restricted|forced, allowedThemeIds[], forcedThemeId, defaultThemeId &#125;<br>Resolve on load: <b>forced</b> &rarr; org theme; <b>restricted</b> &rarr; user pick &cap; allowed; <b>open</b> &rarr; user pick. Apply via <b>data-theme</b> / <b>data-contrast</b> on the shell. (Live demo: ux-theme-governance.html.)</div>
+
+  <h2 id="release"><span class="n">10</span>Release-readiness assessment</h2>
+  <table>
+    <thead><tr><th style="width:30%">Dimension</th><th style="width:18%">Status</th><th>Note</th></tr></thead>
+    <tbody>
+      <tr><td>Visual identity</td><td><span class="tag" style="color:var(--ok)">Ready</span></td><td>Graphite &amp; Gold + Studio Light direction is strong.</td></tr>
+      <tr><td>Consistency / shell</td><td><span class="tag" style="color:var(--danger)">Blocker</span></td><td>No shared shell yet — top priority.</td></tr>
+      <tr><td>Design tokens in code</td><td><span class="tag" style="color:var(--warn)">Partial</span></td><td>Vars exist; usage inconsistent. Formalize + mode swap.</td></tr>
+      <tr><td>Information architecture</td><td><span class="tag" style="color:var(--warn)">Needs work</span></td><td>Regroup into clusters.</td></tr>
+      <tr><td>Responsive / adaptive</td><td><span class="tag" style="color:var(--warn)">Needs work</span></td><td>Adapt vs shrink; unify <code>/m</code>.</td></tr>
+      <tr><td>Accessibility (contrast, focus, keyboard)</td><td><span class="tag" style="color:var(--warn)">Needs work</span></td><td>Add AAA night mode; audit focus/contrast.</td></tr>
+      <tr><td>RTL / Arabic</td><td><span class="tag" style="color:var(--danger)">Blocker</span></td><td>Required for MENA launch.</td></tr>
+      <tr><td>Empty / loading / error states</td><td><span class="tag" style="color:var(--warn)">Needs work</span></td><td>Standardize via the kit.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="roadmap"><span class="n">11</span>Roadmap</h2>
+  <ul>
+    <li><strong>Phase 0 — Foundation.</strong> Tokens + mode swap, the Workspace shell, the UI kit (code + Figma, Code-Connected). <em>Invisible to users.</em></li>
+    <li><strong>Phase 1 — Navigation &amp; IA.</strong> Lifecycle clusters + collapsible icon rail. Immediate perceived-quality jump.</li>
+    <li><strong>Phase 2 — Module migration.</strong> Script first (the north-star), then Scheduling, Casting, Locations, Finance, Contracts — each onto the shell, content-first.</li>
+    <li><strong>Phase 3 — Adaptive, a11y, RTL, polish.</strong> Breakpoints, <code>/m</code> unification, AAA night mode, Arabic/RTL, empty/loading/error, QA &amp; perf (virtualized tables).</li>
+  </ul>
+  <p>Each phase ships independently — you’re always releasable, and the system gets visibly better at every step.</p>
+
+  <div class="foot">TFM · UX/UI Revamp — Findings &amp; Change Plan · prepared as the pre-release design north-star. Sources: 2026 dashboard &amp; design-system research (LogRocket, Muzli, UXPin, 925studios), StudioBinder, screenplay-tool conventions (Courier Prime). Pairs with the six-direction explorer, the Script Reader study, and the 10 hi-fi screen boards.</div>
+</main>
+</div>
+</body></html>

@@ -1,0 +1,189 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ScripON Studio — Development Pipeline Enhancement Spec</title>
+<style>
+:root{--bg:#0b0c0f;--chrome:#121419;--panel:#14161c;--panel2:#191c23;--hair:rgba(255,255,255,.08);--hair2:rgba(255,255,255,.14);--gold:#C6A463;--gold2:#E6D2A2;--ink:#1a1509;--cream:#F4EEE0;--text:#E7E3D8;--mut:#9aa1ab;--faint:#6b727d;--blue:#5b8def;--green:#57b368;--amber:#e0a23b;--violet:#8b7cf0;--red:#e5635f}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:radial-gradient(1200px 700px at 50% -10%,#15171d,#0b0c0f 60%);color:var(--text);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased;padding:0 0 80px}
+.wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+header{padding:54px 0 30px;border-bottom:1px solid var(--hair);margin-bottom:34px}
+.eyebrow{font-size:12px;font-weight:700;letter-spacing:2px;color:var(--gold);text-transform:uppercase}
+h1{font-size:34px;font-weight:800;color:var(--cream);letter-spacing:-.5px;margin:10px 0 6px}
+.sub{font-size:16px;color:var(--mut);max-width:760px}
+h2{font-size:22px;font-weight:800;color:var(--cream);letter-spacing:-.3px;margin:40px 0 14px;padding-top:14px;border-top:1px solid var(--hair)}
+h3{font-size:16px;font-weight:700;color:var(--gold2);margin:22px 0 8px}
+p{margin:10px 0;color:var(--text)}
+.lead{font-size:16px;color:var(--cream)}
+small,.cite{color:var(--faint);font-size:12px}
+a{color:var(--gold2);text-decoration:none;border-bottom:1px solid rgba(198,164,99,.3)}
+.card{background:linear-gradient(180deg,var(--panel),#121419);border:1px solid var(--hair);border-radius:14px;padding:18px 20px;margin:14px 0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+@media(max-width:860px){.grid2,.grid3{grid-template-columns:1fr}}
+.pill{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.4px;padding:3px 9px;border-radius:999px;background:rgba(198,164,99,.14);color:var(--gold2);border:1px solid rgba(198,164,99,.3)}
+.tag{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;margin-right:5px}
+.t-new{background:rgba(87,179,104,.16);color:var(--green)} .t-keep{background:rgba(91,141,239,.16);color:var(--blue)} .t-reuse{background:rgba(198,164,99,.16);color:var(--gold2)} .t-flag{background:rgba(229,99,95,.16);color:var(--red)}
+.flow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:14px 0}
+.step{background:#171a20;border:1px solid var(--hair);border-radius:10px;padding:8px 12px;font-size:13px;font-weight:600;color:var(--cream)}
+.step.add{border-color:rgba(87,179,104,.5);color:var(--green)}
+.arr{color:var(--faint);font-size:14px}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--hair);vertical-align:top}
+th{color:var(--gold);font-size:11px;letter-spacing:.5px;text-transform:uppercase;font-weight:700}
+td.c{color:var(--mut)}
+.yes{color:var(--green);font-weight:700}.no{color:var(--faint)}.part{color:var(--amber)}
+ul{margin:8px 0 8px 20px}li{margin:4px 0}
+.beat{font-size:12.5px;color:var(--text)}
+.kbd{font-family:"Courier Prime",ui-monospace,monospace;font-size:12px;background:#0e1014;border:1px solid var(--hair);border-radius:6px;padding:1px 6px;color:var(--gold2)}
+.note{background:rgba(224,162,59,.08);border:1px solid rgba(224,162,59,.3);border-radius:10px;padding:12px 14px;font-size:13px;color:var(--text);margin:12px 0}
+.win{background:rgba(87,179,104,.07);border:1px solid rgba(87,179,104,.3);border-radius:10px;padding:12px 14px;font-size:13px;margin:12px 0}
+.num{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:8px;background:linear-gradient(160deg,var(--gold2),var(--gold));color:var(--ink);font-weight:800;font-size:13px;margin-right:8px}
+.src{font-size:12px;color:var(--faint);margin-top:6px}
+.foot{margin-top:50px;padding-top:18px;border-top:1px solid var(--hair);color:var(--faint);font-size:12px}
+</style></head><body><div class="wrap">
+
+<header>
+<div class="eyebrow">ScripON · Studio · Development pipeline</div>
+<h1>Make the Develop ladder actually work</h1>
+<p class="sub">A research-backed enhancement spec — keep the professional ladder, fix what happens <em>inside</em> each stage: forward-only progression, per-stage versions, approval gates, real story frameworks, deeper scene cards, a Step Outline stage, and Adapt as a mode. Mapped to what TFM already has.</p>
+<p style="margin-top:14px"><span class="pill">Verified against authoritative craft sources + current tool docs</span> &nbsp; <span class="pill">19 Jun 2026</span></p>
+</header>
+
+<p class="lead">The ladder in the screenshot — <b>Logline → Synopsis → Treatment → Beats → Scenes → Draft → Coverage</b> — is already a professional studio development path. The problem is never the workflow; it is that each stage today is a one-shot generation with no memory, no forward logic, no versions, and no gate. This spec keeps the structure and upgrades the mechanics. Crucially, <b>TFM already owns the spine</b> needed: the WGA colour-revision wheel, the <span class="kbd">ApprovalRequest</span> engine, the unified <span class="kbd">AiService</span>, and the <span class="kbd">ScriptScene</span> model. This is reuse and wiring — not new infrastructure.</p>
+
+<div class="win"><b>The white space (validated).</b> Across Sudowrite, Final Draft 13, WriterDuet, Arc Studio Pro, Plottr, NolanAI/FinalBit, Squibler, Saga and the AI-coverage tools, <b>no product fuses all six</b> of: staged development ladder · version management · approval gates · professional frameworks · grounded scene diagnostics · coverage. Each owns two or three. A tool that threads frameworks → scene diagnostics → coverage through one version-controlled, approval-gated, <em>data-grounded</em> pipeline is category-creating. <span class="cite">(Variety/Motion Picture Editors Guild test, Oct 2025: AI loglines matched humans but analytical notes were "an almost total fail" — so the edge is diagnostics computed against your own structured beats/scenes, not re-derived from a PDF.)</span></div>
+
+<h2>The corrected pipeline</h2>
+<p>The professional order is confirmed across MasterClass, StudioBinder, Final Draft and Wikipedia. One real change: a <b>Step Outline belongs between the scene work and the draft</b> — it is the scene-by-scene roadmap that removes the cliff-jump from outline to pages.</p>
+<div class="flow">
+<span class="step">Logline</span><span class="arr">→</span>
+<span class="step">Synopsis</span><span class="arr">→</span>
+<span class="step">Treatment</span><span class="arr">→</span>
+<span class="step">Beats</span><span class="arr">→</span>
+<span class="step">Scenes</span><span class="arr">→</span>
+<span class="step add">Step Outline ✦</span><span class="arr">→</span>
+<span class="step">Draft</span><span class="arr">→</span>
+<span class="step">Coverage</span>
+</div>
+<p class="cite">Nested like Russian nesting dolls, each fits inside the next (Final Draft). Treatment = present-tense prose, ~7–12 pp selling version or 30–80 pp working version. Beats = structural skeleton. Scenes = scene cards (fields below). Step Outline = one paragraph per numbered scene — the draft-ready map. Sources: studiobinder.com/blog/script-outline-template-example, en.wikipedia.org/wiki/Step_outline, masterclass.com/articles/how-to-outline-a-screenplay, finaldraft.com/learn/going-from-outline-to-script.</p>
+<div class="note"><b>Distinction to encode:</b> Logline / Synopsis / Treatment are <em>selling</em> documents others read; Beats / Scenes / Step Outline are the writer's <em>internal</em> tools. The UI should label them so the ladder reads as two bands (Pitch · Build), not one flat assembly line.</div>
+
+<h2>The eight enhancements</h2>
+
+<div class="card"><h3><span class="num">1</span>Advance always moves forward</h3>
+<p><span class="tag t-keep">behaviour fix</span> Today <span class="kbd">advance()</span> finds the first <span class="kbd">state==='wait'</span> stage, so once Beats exist it can re-fire Treatment. The button must mean one thing: <b>"take the current approved stage and generate the next layer."</b> Never backward unless explicitly asked.</p>
+<p><b>Build:</b> track a <span class="kbd">currentStage</span> index; Advance generates <span class="kbd">stages[current+1]</span> from the approved output of <span class="kbd">stages[current]</span>; disable Advance until the current stage is Approved (see #3). Backward = an explicit "Revisit" action that forks a version, never an overwrite.</p>
+<p class="src">Validates user point #1. Industry analogue: the step-deal — each layer is contractually gated behind sign-off on the prior one (WGA Screen Compensation Guide; gideonsway step-deal).</p></div>
+
+<div class="card"><h3><span class="num">2</span>Versions per stage, not regenerate-overwrite</h3>
+<p><span class="tag t-new">new model</span><span class="tag t-reuse">reuse colour wheel</span> Regenerate must <b>create a new version</b>, not replace. Each stage keeps <span class="kbd">V1 · V2 · V3</span> with ◀ ▶ switching; actions per version: Regenerate · Duplicate · Compare · Promote to Approved.</p>
+<p><b>Build:</b> new <span class="kbd">DevelopmentStage</span> + <span class="kbd">StageVersion</span> rows (schema below). Reuse TFM's existing colour-revision wheel (<span class="kbd">revision-wheel.util.ts</span>, the WGA order White→Blue→Pink→Yellow→Green→Goldenrod…) to colour-tag versions — the same convention Arc Studio Pro auto-applies. Compare reuses the diff already built for Revisions.</p>
+<p class="src">Validates point #2. WriterDuet keeps "infinite history" + snapshots; Arc Studio auto-snapshots + named snapshots + green/red compare + branch/merge (writerduet.com/article/256-timeline, help.arcstudiopro.com/guides/draft-revision-management). TFM already has the colour wheel + revision diff.</p></div>
+
+<div class="card"><h3><span class="num">3</span>Approval gates: Draft → Review → Approved → Locked</h3>
+<p><span class="tag t-reuse">reuse ApprovalRequest</span> Formalise the states the screenshot already hints at. Only an <b>Approved</b> stage unlocks the next. This prevents generating scenes from unfinished beats, or a draft from bad scene work.</p>
+<p><b>Build:</b> a <span class="kbd">status</span> on each StageVersion (DRAFT · REVIEW · APPROVED · LOCKED). "Promote to Approved" inside a project routes through the <span class="kbd">ApprovalRequest</span> engine we just wired (single Producer step, configurable later) — so stage sign-off uses the same inbox as Distribute/Breakdown. Standalone (no project bound) promotes directly. Advance (#1) checks the current stage is Approved/Locked.</p>
+<p class="src">Validates points #1 + #3. Studio practice: producers won't authorise the script until the treatment/outline is approved (screencraft.org/blog/to-outline-or-not). Final Draft "locked pages" = the production freeze analogue (kb.finaldraft.com). TFM's ApprovalRequest + the colour wheel's <span class="kbd">isLocked</span> already model this.</p></div>
+
+<div class="card"><h3><span class="num">4</span>Beats get a framework picker</h3>
+<p><span class="tag t-new">new</span> When generating Beats, choose the structure. The engine then generates against that framework's real beats and labels each beat by name.</p>
+<div class="grid2">
+<div><b>Feature frameworks</b><ul class="beat">
+<li><b>Save the Cat</b> (Snyder) — 15 beats</li>
+<li><b>The Paradigm</b> (Field) — 3 acts + plot points</li>
+<li><b>Hero's Journey</b> (Vogler) — 12 stages</li>
+<li><b>Monomyth</b> (Campbell) — 17 stages</li>
+<li><b>Story Circle</b> (Harmon) — 8 steps</li>
+<li><b>8-Sequence Method</b> (Daniel/Gulino) — 8 sequences</li>
+</ul></div>
+<div><b>TV / series</b><ul class="beat">
+<li><b>Network hour</b> — Teaser + 5 acts (+Tag), A/B/C strands</li>
+<li><b>Sitcom half-hour</b> — Cold open + 2–3 acts + Tag</li>
+<li><b>Cable / streaming</b> — 5-act shape, breaks stripped</li>
+<li><b>Limited series</b> — nested season arc ⊃ episode arcs</li>
+</ul></div></div>
+<p class="src">Validates point #4. Full verified beat lists are in the appendix so the picker ships with real data. Flag: the 8-Sequence labels are functional, not canonical proper nouns (treat as descriptors). Sources: savethecat.com, sydfield.com, channel101 wiki (Harmon, verbatim), en.wikipedia.org/wiki/Hero%27s_journey, screencraft.org TV act structure.</p></div>
+
+<div class="card"><h3><span class="num">5</span>Scenes become real scene cards (the differentiator)</h3>
+<p><span class="tag t-new">new fields</span> Not a bare scene list. Each scene card carries the fields professionals actually use — and the one almost no tool exposes: <b>the value/charge turn</b>.</p>
+<table>
+<tr><th>Field</th><th>Source of truth</th></tr>
+<tr><td>Scene # · INT/EXT · Location · Day/Night · one-line synopsis</td><td class="c">Standard heading (already on <span class="kbd">ScriptScene</span>)</td></tr>
+<tr><td>Purpose / goal · Conflict (obstacle) · Stakes</td><td class="c">StudioBinder G.O.D.D.; Save the Cat hero/goal/obstacle</td></tr>
+<tr><td>Characters present · Story thread (A/B/C)</td><td class="c">Arc Studio storyline + character tags</td></tr>
+<tr><td><b>Charge at open → charge at close · Turn type (action | revelation)</b></td><td class="c"><b>McKee value-charge</b> — every scene must turn; only Save the Cat (+/-) and Arc Studio (value curve) touch this</td></tr>
+<tr><td>Emotional shift · page/duration goal · notes</td><td class="c">Save the Cat emotional start/end</td></tr>
+</table>
+<p><b>Build:</b> extend <span class="kbd">ScriptScene</span> (additive columns) or a <span class="kbd">SceneCard</span> child; the Doctor's existing scene diagnostics (objective/obstacle/subtext/power-shift) already compute most of this — wire them to populate the card. Surface a McKee "flat-scene" warning when open-charge == close-charge.</p>
+<p class="src">Validates + deepens point #5. McKee: "no scene that doesn't turn… on action or on revelation" (mckeestory.com/do-your-scenes-turn). Tool field models: savethecat.com scene cards, help.arcstudiopro.com/guides/the-plot-board, docs.plottr.com, finaldraft.com Beat Board.</p></div>
+
+<div class="card"><h3><span class="num">6</span>Adapt is a mode <em>before</em> the ladder, not a rung</h3>
+<p><span class="tag t-keep">restructure</span> New project asks: <b>Original Story</b> or <b>Adapt Existing Material</b>. Adapt collects source (PDF/FDX/Word/Fountain/paste/online research) → produces <b>Source Analysis → Adaptation Strategy</b>, then feeds the <em>same</em> clean ladder (Logline → … → Draft). This is what we prototyped when "pick a direction" drops into Develop — formalise it as the entry mode.</p>
+<p class="src">Validates point #6. Keeps the ladder clean; the adapt directions become the agreed spine that seeds Logline/Synopsis.</p></div>
+
+<div class="card"><h3><span class="num">7</span>Add the Step Outline stage (Scenes → Step Outline → Draft)</h3>
+<p><span class="tag t-new">new stage</span> The biggest missing piece. After Scenes (cards), generate a <b>Step Outline</b>: one numbered paragraph per scene — the detailed roadmap that makes Draft generation a translation, not a leap.</p>
+<p class="src">Validates point #7. "The step between scene cards and the first draft… briefly details every scene, numbered in order" (en.wikipedia.org/wiki/Step_outline; en.wikipedia.org/wiki/Film_treatment). Final Draft: outlining first means drafting spends brain on craft, not "what happens next."</p></div>
+
+<div class="card"><h3><span class="num">8</span>Position: a studio development department, not an AI generator</h3>
+<p><span class="tag t-reuse">positioning</span> The combination below is the moat. Make <b>coverage a gate between rungs</b> ("here's the read on your treatment before you commit to beats") and compute all diagnostics against TFM's own structured beats/scenes — the exact place every competitor breaks.</p>
+<p class="lead" style="margin-top:6px">"Final Draft + WriterDuet + a studio development department + AI" — version management · approval workflow · professional frameworks · scene diagnostics · coverage · rewrite tracking, threaded into one accountable pipeline.</p></div>
+
+<h2>Competitive landscape — the six-column gap</h2>
+<table>
+<tr><th>Tool</th><th>Staged ladder</th><th>Versions</th><th>Approval gates</th><th>Frameworks</th><th>Coverage</th><th>Grounded data</th></tr>
+<tr><td>Sudowrite (Story Bible)</td><td class="yes">yes</td><td class="part">linear</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="yes">yes</td></tr>
+<tr><td>Final Draft 13</td><td class="no">—</td><td class="yes">strong</td><td class="part">notes</td><td class="part">board</td><td class="no">no AI</td><td class="yes">yes</td></tr>
+<tr><td>WriterDuet</td><td class="no">—</td><td class="yes">strongest</td><td class="part">notes</td><td class="no">—</td><td class="part">via add-on</td><td class="part">—</td></tr>
+<tr><td>Arc Studio Pro</td><td class="no">—</td><td class="yes">branch/merge</td><td class="part">comments</td><td class="yes">yes</td><td class="no">—</td><td class="yes">yes</td></tr>
+<tr><td>Plottr</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="yes">40+</td><td class="no">—</td><td class="yes">strongest</td></tr>
+<tr><td>NolanAI / FinalBit</td><td class="part">partial</td><td class="part">line history</td><td class="no">—</td><td class="part">beats</td><td class="yes">yes</td><td class="yes">yes</td></tr>
+<tr><td>AI coverage tools</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="yes">yes</td><td class="part">shallow</td></tr>
+<tr style="background:rgba(198,164,99,.08)"><td><b>ScripON (target)</b></td><td class="yes">▲ lead</td><td class="part">parity</td><td class="yes"><b>▲ only</b></td><td class="yes">yes</td><td class="yes"><b>▲ grounded</b></td><td class="yes"><b>▲ only</b></td></tr>
+</table>
+<div class="win"><b>Honest reading of "strongest."</b> Per single column a specialist still leads — WriterDuet/Arc Studio on raw-text version control, Plottr on framework count, the coverage tools on verdict polish. ScripON's defensible claim is the <b>integrated thread</b> (the only one joining all six through one approval-gated, data-grounded flow) plus the one advantage none can copy: it lives <b>inside production</b>, so a developed draft flows into breakdown → schedule → budget. Budget- and schedule-aware development is impossible for any standalone writing tool.</div><p class="cite">Arc Studio's real branch/merge refuted our initial "no tool branches" assumption; Final Draft confirmed it ships <em>no</em> generative AI. Only DeepMind's Dramatron research prototype enforces true per-stage accept/edit/reject gates — nothing commercial does. Sources: vendor docs + Variety (Oct 2025) + arXiv:2209.14958.</p>
+
+<h2>Data model &amp; architecture (mostly reuse)</h2>
+<div class="grid2">
+<div class="card"><h3>Add</h3><ul>
+<li><span class="kbd">DevelopmentStage</span> — projectId, documentId?, kind (LOGLINE…COVERAGE), order, currentVersionId, status.</li>
+<li><span class="kbd">StageVersion</span> — stageId, n (V1/V2…), body (Json/text), framework?, colorCode (from the wheel), status (DRAFT|REVIEW|APPROVED|LOCKED), aiRunId, createdAt.</li>
+<li><span class="kbd">ScriptScene</span> additive cols (or <span class="kbd">SceneCard</span>): purpose, conflict, stakes, chargeOpen, chargeClose, turnType, thread.</li>
+</ul></div>
+<div class="card"><h3>Reuse (already in TFM)</h3><ul>
+<li><span class="kbd">AiService</span> — every generation logged to <span class="kbd">AiRun</span> (governance, retries, JSON).</li>
+<li>Colour-revision wheel — version colour tags + lock.</li>
+<li><span class="kbd">ApprovalRequest</span> engine — stage sign-off via the inbox just built.</li>
+<li>Revision diff — powers Compare between versions.</li>
+<li>Doctor scene diagnostics — populate scene-card fields.</li>
+<li>On promote-to-final → branch a real <span class="kbd">ScriptRevision</span> (the "save as draft" step) so it lands in Library/Reader.</li>
+</ul></div></div>
+
+<h2>Phased build plan</h2>
+<table>
+<tr><th>Phase</th><th>Scope</th><th>Effort · risk</th></tr>
+<tr><td><b>D1 — Persist + forward-only</b></td><td>DevelopmentStage/StageVersion models; Advance generates next-from-approved; develop output saved (survives reload).</td><td class="c">M · low (additive schema + AiService)</td></tr>
+<tr><td><b>D2 — Versions</b></td><td>V1/V2/V3 per stage, ◀▶ switch, Regenerate=new version, Duplicate, Compare (reuse diff), colour tags.</td><td class="c">M · low</td></tr>
+<tr><td><b>D3 — Approval gates</b></td><td>DRAFT/REVIEW/APPROVED/LOCKED; Promote→ApprovalRequest (in-project) gates Advance.</td><td class="c">S · low (reuses engine)</td></tr>
+<tr><td><b>D4 — Framework picker</b></td><td>Beats stage picks a framework; engine generates named beats from the appendix lists.</td><td class="c">M · low</td></tr>
+<tr><td><b>D5 — Scene cards</b></td><td>ScriptScene fields + card UI + McKee charge/turn + flat-scene warning; Doctor populates.</td><td class="c">L · med</td></tr>
+<tr><td><b>D6 — Step Outline + Adapt mode + coverage-gate</b></td><td>New stage between Scenes/Draft; Adapt as entry mode; coverage runs at each gate.</td><td class="c">M · med</td></tr>
+</table>
+<div class="note"><b>Scope discipline (your call):</b> this is an <em>enhancement</em>, not a rebuild — every phase is additive and reuses the AI/approval/colour spine. D1–D3 alone (persist · versions · gates) fix the bugs you hit and make the ladder trustworthy; frameworks/scene-cards/step-outline are the depth that beats the competition.</div>
+
+<h2>Verified appendix — framework beat lists</h2>
+<div class="grid2">
+<div class="card"><h3>Save the Cat — 15 beats</h3><ol class="beat"><li>Opening Image (1)</li><li>Theme Stated (5)</li><li>Set-Up (1–10)</li><li>Catalyst (12)</li><li>Debate (12–25)</li><li>Break into Two (25)</li><li>B Story (30)</li><li>Fun and Games (30–55)</li><li>Midpoint (55)</li><li>Bad Guys Close In (55–75)</li><li>All Is Lost (75)</li><li>Dark Night of the Soul (75–85)</li><li>Break into Three (85)</li><li>Finale (85–110)</li><li>Final Image (110)</li></ol></div>
+<div class="card"><h3>Hero's Journey — Vogler 12</h3><ol class="beat"><li>Ordinary World</li><li>Call to Adventure</li><li>Refusal of the Call</li><li>Meeting the Mentor</li><li>Crossing the First Threshold</li><li>Tests, Allies, Enemies</li><li>Approach to the Inmost Cave</li><li>The Ordeal</li><li>Reward (Seizing the Sword)</li><li>The Road Back</li><li>The Resurrection</li><li>Return with the Elixir</li></ol></div>
+<div class="card"><h3>Story Circle — Harmon 8</h3><ol class="beat"><li>You (zone of comfort)</li><li>Need (want something)</li><li>Go (unfamiliar situation)</li><li>Search (adapt)</li><li>Find (get what they wanted)</li><li>Take (pay the price)</li><li>Return (back to start)</li><li>Change (now capable)</li></ol></div>
+<div class="card"><h3>Field Paradigm</h3><ol class="beat"><li>Setup (Act I, pp 1–10)</li><li>Inciting Incident</li><li>Plot Point I (≈ pp 25–30)</li><li>Pinch / confrontation (Act II)</li><li>Midpoint (centre)</li><li>Plot Point II (≈ pp 85–90)</li><li>Climax / Showdown (Act III)</li><li>Resolution + Tag</li></ol></div>
+<div class="card"><h3>8-Sequence Method <span class="tag t-flag">labels functional</span></h3><ol class="beat"><li>Status quo &amp; point of attack</li><li>Predicament / lock-in (ends Act I)</li><li>First obstacle / raise stakes</li><li>First culmination / midpoint</li><li>Aftermath / subplot rising</li><li>Second culmination / highest stakes (ends Act II)</li><li>New tension / resolution setup</li><li>Resolution / climax</li></ol></div>
+<div class="card"><h3>TV &amp; limited series</h3><p class="beat"><b>Network hour:</b> Teaser → Act 1 → 2 → 3 → 4 → (5/Tag); each act-out a turn. <b>Sitcom:</b> Cold open → Act 1 → 2 (+Tag). <b>Cable/streaming:</b> same 5-act shape, breaks stripped. <b>Strands:</b> A (lead plot) · B (character/emotional) · C (runner). <b>Limited series:</b> one season arc (≈ stretched 3-act) ⊃ per-episode arcs that each close a chapter.</p></div>
+</div>
+<p class="cite">Campbell's 17-stage monomyth also verified (Departure 1–5 / Initiation 6–11 / Return 12–17) — available as an advanced option. Vogler: "12 is not sacred" (scales 10–32).</p>
+
+<div class="foot">
+<b>Sources (selected, verified):</b> savethecat.com/tools/the-blake-snyder-beat-sheet · sydfield.com · channel101.fandom.com (Harmon, verbatim) · en.wikipedia.org/wiki/Hero%27s_journey · en.wikipedia.org/wiki/Step_outline · en.wikipedia.org/wiki/Film_treatment · studiobinder.com (script outline, save the cat, G.O.D.D., TV act structure) · masterclass.com/articles/how-to-outline-a-screenplay · finaldraft.com (toolbox, going from outline to script, Beat Board, Revision Mode, locked pages KB) · mckeestory.com/do-your-scenes-turn · help.arcstudiopro.com (plot board, draft-revision, branch-merge) · writerduet.com (FAQ, Timeline) · docs.plottr.com · johnwellsproductions.com/the-development-process · scriptmag.com (writer's vs production draft) · screencraft.org · gideonsway (step deals) · Variety (Oct 2025 Editors-Guild AI test) · arXiv:2209.14958 (Dramatron). Findings fact-checked via parallel multi-source verification; items flagged where sources disagree (8-sequence names; revision-colour tail beyond Goldenrod).
+<br><br>ScripON Studio · development-pipeline enhancement spec · for review before build.
+</div>
+
+</div></body></html>

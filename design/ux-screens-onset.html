@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en" data-theme="graphite">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>TFM — On-set & Production screens (Graphite & Gold)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--font-mono:'Courier Prime','Courier New',monospace}
+[data-theme="graphite"]{--bg:#0E1117;--surface-1:#161C28;--surface-2:#1E2632;--surface-3:#28313F;--text-1:#F4F6FA;--text-2:#C2CAD6;--text-3:#8A94A6;--border-1:#262E3B;--border-2:#333D4D;--accent:#C9A24A;--accent-on:#161C28;--accent-soft:rgba(201,162,74,.14);--ok:#34D399;--ok-soft:rgba(52,211,153,.14);--warn:#E0A53F;--warn-soft:rgba(224,165,63,.16);--danger:#E2574C;--danger-soft:rgba(226,87,76,.16);--info:#6aa3ff;--info-soft:rgba(106,163,255,.16)}
+body{font-family:'Inter',-apple-system,'Segoe UI',Roboto,sans-serif;background:#0a0c10;color:var(--text-1);-webkit-font-smoothing:antialiased;padding:32px 22px 70px}
+.ph{max-width:1280px;margin:0 auto 24px}.ph h1{font-size:23px;font-weight:800;letter-spacing:-.02em}.ph p{font-size:13px;color:#8A94A6;margin-top:5px}
+.board{max-width:1280px;margin:0 auto 30px}
+.cap{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.cap .b{font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;background:#1b212c;color:#C9A24A;border:1px solid #3a3322}
+.cap h2{font-size:15px;font-weight:700}.cap small{color:#7f8696;font-size:12px}
+.frame{border:1px solid var(--border-1);border-radius:15px;overflow:hidden;background:var(--surface-1);box-shadow:0 18px 44px rgba(0,0,0,.5)}
+.tb{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border-1)}
+.brand{display:flex;align-items:center;gap:7px;font-weight:800;font-size:13px}.brand .lg{width:23px;height:23px;border-radius:7px;display:grid;place-items:center;font-size:12px;font-weight:800;background:var(--accent);color:var(--accent-on)}
+.chip{display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:var(--surface-2);border:1px solid var(--border-1);font-size:11px;color:var(--text-2);font-weight:600}
+.tb .sp{flex:1}.dot{width:28px;height:28px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-size:11px;font-weight:700;border:1px solid var(--border-2)}
+.tabs{display:flex;gap:3px;background:var(--surface-2);padding:3px;border-radius:999px}.tab{font-size:11px;font-weight:600;color:var(--text-3);padding:5px 12px;border-radius:999px}.tab.on{background:var(--accent);color:var(--accent-on)}
+.mn{padding:16px 18px}
+.hdr{display:flex;align-items:flex-end;margin-bottom:14px}.hdr h3{font-size:18px;font-weight:700;letter-spacing:-.01em}.hdr .s{font-size:11.5px;color:var(--text-3);margin-top:2px}.hdr .sp{flex:1}
+.btn{border:none;cursor:pointer;font-weight:700;font-size:11.5px;padding:8px 13px;border-radius:8px;background:var(--accent);color:var(--accent-on)}.btn.gh{background:var(--surface-2);color:var(--text-2);border:1px solid var(--border-1)}
+.bd{display:inline-block;font-size:9px;font-weight:700;padding:2px 7px;border-radius:999px}
+.b-int{background:var(--accent-soft);color:var(--accent)}.b-ok{background:var(--ok-soft);color:var(--ok)}.b-warn{background:var(--warn-soft);color:var(--warn)}.b-dn{background:var(--danger-soft);color:var(--danger)}.b-info{background:var(--info-soft);color:var(--info)}
+
+/* stripboard */
+.day{display:flex;align-items:center;gap:8px;margin:14px 0 7px;font-size:11px;font-weight:700;color:var(--text-2)}
+.day .ln{flex:1;height:1px;background:var(--border-2)}
+.strip{display:flex;align-items:center;gap:0;border:1px solid var(--border-1);border-radius:8px;overflow:hidden;margin-bottom:5px;background:var(--surface-2)}
+.strip .clr{width:6px;align-self:stretch}.strip .c{padding:9px 11px;font-size:11.5px;color:var(--text-2)}
+.strip .sc{font-weight:800;color:var(--accent);width:34px}.strip .ie{width:46px}.strip .set{flex:1;color:var(--text-1);font-weight:600}.strip .dn{width:34px;text-align:center}.strip .pg{width:54px;color:var(--text-3)}.strip .ct{width:120px;color:var(--text-3);font-size:10.5px}
+
+/* kanban dispatch + map */
+.disp{display:grid;grid-template-columns:1.6fr 1fr;gap:14px}
+.kan{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
+.kcol{background:var(--surface-2);border:1px solid var(--border-1);border-radius:10px;padding:8px}
+.kcol .kh{font-size:9.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--text-3);font-weight:700;margin-bottom:8px;display:flex;justify-content:space-between}
+.kcard{background:var(--surface-1);border:1px solid var(--border-1);border-radius:8px;padding:8px;margin-bottom:6px}
+.kcard .t{font-size:11px;font-weight:700;color:var(--text-1)}.kcard .m{font-size:9.5px;color:var(--text-3);margin-top:3px;display:flex;align-items:center;gap:5px}
+.map{border:1px solid var(--border-1);border-radius:10px;overflow:hidden;position:relative;min-height:230px;background:
+  radial-gradient(circle at 30% 40%,rgba(106,163,255,.18),transparent 40%),
+  radial-gradient(circle at 70% 65%,rgba(201,162,74,.16),transparent 42%),
+  repeating-linear-gradient(0deg,#10151f 0 24px,#121826 24px 25px),
+  repeating-linear-gradient(90deg,#10151f 0 24px,#121826 24px 25px),#0d121b}
+.pin{position:absolute;width:14px;height:14px;border-radius:50%;border:2px solid #0d121b}
+.maplabel{position:absolute;left:10px;top:10px;font-size:10px;font-weight:700;color:var(--text-2);background:rgba(0,0,0,.4);padding:4px 8px;border-radius:6px}
+
+/* call sheet doc */
+.cs{background:#11161f;border:1px solid var(--border-1);border-radius:10px;padding:18px 20px}
+.cs .top{display:flex;justify-content:space-between;border-bottom:1px solid var(--border-2);padding-bottom:12px;margin-bottom:12px}
+.cs .top .ttl{font-size:17px;font-weight:800}.cs .top .ttl small{display:block;color:var(--text-3);font-size:11px;font-weight:500;margin-top:2px}
+.cs .calls{display:flex;gap:8px}.cs .cbox{background:var(--surface-2);border:1px solid var(--border-1);border-radius:8px;padding:7px 12px;text-align:center}.cs .cbox .k{font-size:8px;text-transform:uppercase;color:var(--text-3);font-weight:700}.cs .cbox .v{font-size:16px;font-weight:800;color:var(--accent)}
+.cs h4{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-3);margin:13px 0 6px;font-weight:700}
+table{width:100%;border-collapse:collapse;font-size:11px}th{text-align:left;padding:6px 10px;color:var(--text-3);font-weight:600;font-size:8.5px;text-transform:uppercase;border-bottom:1px solid var(--border-1)}td{padding:6px 10px;border-bottom:1px solid var(--border-1);color:var(--text-2)}tr:last-child td{border-bottom:none}
+
+/* comms */
+.cm{display:grid;grid-template-columns:170px 1fr;height:330px}
+.cmL{border-right:1px solid var(--border-1);padding:10px 8px;overflow:auto}
+.cmL .g{font-size:9px;text-transform:uppercase;color:var(--text-3);font-weight:700;margin:8px 6px 5px}
+.ch{display:flex;align-items:center;gap:7px;padding:7px 8px;border-radius:7px;font-size:11.5px;color:var(--text-2);margin-bottom:1px}.ch.on{background:var(--accent-soft);color:var(--accent);font-weight:700}.ch .h{color:var(--text-3)}
+.cmR{display:flex;flex-direction:column}
+.cmR .feed{flex:1;padding:14px;overflow:auto;display:flex;flex-direction:column;gap:10px}
+.msg{display:flex;gap:8px}.msg .av{width:26px;height:26px;border-radius:50%;background:var(--surface-3);flex-shrink:0;display:grid;place-items:center;font-size:10px;font-weight:700;color:var(--text-2)}
+.msg .bub .nm{font-size:10px;color:var(--text-3);margin-bottom:2px}.msg .bub .tx{background:var(--surface-2);border:1px solid var(--border-1);border-radius:10px;padding:8px 11px;font-size:11.5px;color:var(--text-1);max-width:360px}
+.msg.me .bub .tx{background:var(--accent-soft);border-color:transparent}
+.composer{border-top:1px solid var(--border-1);padding:9px 12px;display:flex;gap:8px;align-items:center}.composer .in{flex:1;background:var(--surface-2);border:1px solid var(--border-2);border-radius:999px;padding:8px 13px;font-size:11.5px;color:var(--text-3)}
+.foot{max-width:1280px;margin:26px auto 0;font-size:12.5px;color:#7f8696;text-align:center;line-height:1.6}
+</style></head>
+<body>
+<div class="ph"><h1>TFM · On-set &amp; production screens</h1><p>Graphite &amp; Gold (night / on-set mode). Each of these themes to Studio Light for day/office use — same layout, swapped tokens.</p></div>
+
+<!-- 1 · STRIPBOARD -->
+<div class="board">
+  <div class="cap"><span class="b">Scheduling</span><h2>Stripboard — shooting schedule</h2><small>drag-to-reorder strips, banners between days</small></div>
+  <div class="frame">
+    <div class="tb"><div class="brand"><span class="lg">T</span>TFM</div><span class="chip">🎬 Desert Crossing</span><div class="tabs"><div class="tab on">Stripboard</div><div class="tab">Calendar</div><div class="tab">DOOD</div></div><div class="sp"></div><span class="chip">32 shoot days</span><div class="dot">QQ</div></div>
+    <div class="mn">
+      <div class="hdr"><div><h3>Shooting Schedule</h3><div class="s">Board · 214 scenes · 96 1/8 pages</div></div><div class="sp"></div><button class="btn gh">Auto-balance</button><button class="btn">＋ Strip</button></div>
+      <div class="day">DAY 14 — MON 15 JUN · Wadi Rim Basecamp · sunrise 05:42<span class="ln"></span><span style="color:var(--text-3);font-weight:500">6 4/8 pp</span></div>
+      <div class="strip"><span class="clr" style="background:var(--accent)"></span><span class="c sc">24</span><span class="c ie"><span class="bd b-int">INT</span></span><span class="c set">Field Hospital Tent</span><span class="c dn">N</span><span class="c pg">2 4/8</span><span class="c ct">Nadia, Soldier, Recruit</span></div>
+      <div class="strip"><span class="clr" style="background:var(--ok)"></span><span class="c sc">25</span><span class="c ie"><span class="bd b-ok">EXT</span></span><span class="c set">Dune Ridge — convoy</span><span class="c dn">D</span><span class="c pg">1 2/8</span><span class="c ct">Nadia, Driver, 12 BG</span></div>
+      <div class="strip"><span class="clr" style="background:var(--accent)"></span><span class="c sc">26</span><span class="c ie"><span class="bd b-int">INT</span></span><span class="c set">Command Tent</span><span class="c dn">N</span><span class="c pg">3 1/8</span><span class="c ct">Colonel, Nadia, Aide</span></div>
+      <div class="day">DAY 15 — TUE 16 JUN · Checkpoint Alpha<span class="ln"></span><span style="color:var(--text-3);font-weight:500">5 2/8 pp</span></div>
+      <div class="strip"><span class="clr" style="background:var(--ok)"></span><span class="c sc">27</span><span class="c ie"><span class="bd b-ok">EXT</span></span><span class="c set">Checkpoint — standoff</span><span class="c dn">D</span><span class="c pg">4 0/8</span><span class="c ct">Full unit · 40 BG</span></div>
+      <div class="strip" style="opacity:.6"><span class="clr" style="background:var(--danger)"></span><span class="c sc">28</span><span class="c ie"><span class="bd b-dn">EXT</span></span><span class="c set">Checkpoint — aftermath</span><span class="c dn">D</span><span class="c pg">1 2/8</span><span class="c ct">weather cover ⛅</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- 2 · TRANSPORT DISPATCH -->
+<div class="board">
+  <div class="cap"><span class="b">Transport · Captain</span><h2>Dispatch board + live map</h2><small>one-tap FSM mirrors the driver app</small></div>
+  <div class="frame">
+    <div class="tb"><div class="brand"><span class="lg">T</span>TFM</div><span class="chip">🎬 Desert Crossing</span><div class="tabs"><div class="tab on">Dispatch</div><div class="tab">Map</div><div class="tab">Garage</div><div class="tab">Crew</div></div><div class="sp"></div><span class="chip">🟢 9 cars live</span><div class="dot">QQ</div></div>
+    <div class="mn">
+      <div class="disp">
+        <div class="kan">
+          <div class="kcol"><div class="kh">Unassigned <span>2</span></div>
+            <div class="kcard"><div class="t">Airport → Basecamp</div><div class="m">06:00 · 2 pax · ✈ DXB</div></div>
+            <div class="kcard"><div class="t">Hotel → Set</div><div class="m">06:30 · Nadia (cast)</div></div></div>
+          <div class="kcol"><div class="kh">Dispatched <span>1</span></div>
+            <div class="kcard"><div class="t">Camera truck</div><div class="m"><span class="bd b-info">TRUCK</span> Karim · 80km/h</div></div></div>
+          <div class="kcol"><div class="kh">En route <span>1</span></div>
+            <div class="kcard"><div class="t">Set → Wrap hotel</div><div class="m"><span class="bd b-warn">ETA 12m</span> Yusuf</div></div></div>
+          <div class="kcol"><div class="kh">On board <span>1</span></div>
+            <div class="kcard"><div class="t">Director pickup</div><div class="m"><span class="bd b-ok">VIP</span> Sara</div></div></div>
+        </div>
+        <div class="map"><span class="maplabel">📍 Wadi Rim · 9 vehicles</span>
+          <span class="pin" style="background:var(--accent);left:34%;top:42%"></span>
+          <span class="pin" style="background:var(--info);left:62%;top:58%"></span>
+          <span class="pin" style="background:var(--ok);left:48%;top:30%"></span>
+          <span class="pin" style="background:var(--warn);left:70%;top:38%"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 3 · CALL SHEET -->
+<div class="board">
+  <div class="cap"><span class="b">Call Sheet</span><h2>Daily call sheet</h2><small>auto-populated from schedule + cast + locations</small></div>
+  <div class="frame"><div class="tb"><div class="brand"><span class="lg">T</span>TFM</div><span class="chip">Day 14 of 32</span><div class="sp"></div><button class="btn gh" style="margin-right:8px">Preview PDF</button><button class="btn">Publish &amp; notify</button></div>
+    <div class="mn"><div class="cs">
+      <div class="top"><div class="ttl">DESERT CROSSING<small>Call Sheet · Mon 15 Jun · Day 14/32</small></div>
+        <div class="calls"><div class="cbox"><div class="k">Crew</div><div class="v">06:30</div></div><div class="cbox"><div class="k">Shoot</div><div class="v">08:00</div></div><div class="cbox"><div class="k">Lunch</div><div class="v">13:00</div></div><div class="cbox"><div class="k">Est. wrap</div><div class="v">19:00</div></div></div></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+        <div><h4>Scenes</h4><table><thead><tr><th>Sc</th><th>Set</th><th>I/E</th><th>Pages</th></tr></thead><tbody><tr><td style="color:var(--accent);font-weight:800">24</td><td>Field Hospital</td><td>INT/N</td><td>2 4/8</td></tr><tr><td style="color:var(--accent);font-weight:800">26</td><td>Command Tent</td><td>INT/N</td><td>3 1/8</td></tr></tbody></table></div>
+        <div><h4>Cast call</h4><table><thead><tr><th>#</th><th>Artist</th><th>Role</th><th>Call</th></tr></thead><tbody><tr><td>1</td><td>L. Haddad</td><td>Nadia</td><td>07:00</td></tr><tr><td>4</td><td>O. Mansour</td><td>Soldier</td><td>07:30</td></tr><tr><td>7</td><td>R. Aziz</td><td>Recruit</td><td>08:15</td></tr></tbody></table></div>
+      </div>
+      <h4>Notes &amp; weather</h4><div style="font-size:11px;color:var(--text-2);display:flex;gap:14px"><span>⛅ 31°C, wind 18km/h</span><span>🌅 05:42</span><span>🌇 19:11</span><span style="color:var(--warn)">Rain rig on standby — Sc.24</span></div>
+    </div></div></div>
+  </div>
+</div>
+
+<!-- 4 · COMMS -->
+<div class="board">
+  <div class="cap"><span class="b">Comms</span><h2>Channels &amp; chat</h2><small>project-scoped, audited, PTT-ready</small></div>
+  <div class="frame"><div class="tb"><div class="brand"><span class="lg">T</span>TFM</div><span class="chip">🎬 Desert Crossing</span><div class="sp"></div><span class="chip">🔴 Broadcast</span><div class="dot">QQ</div></div>
+    <div class="cm">
+      <div class="cmL"><div class="g">Production</div>
+        <div class="ch on"><span class="h">#</span> general</div><div class="ch"><span class="h">#</span> camera-dept</div><div class="ch"><span class="h">#</span> transport</div><div class="ch"><span class="h">#</span> art-dept</div>
+        <div class="g">Direct</div><div class="ch">● 1st AD — Priya</div><div class="ch">● Gaffer — Sam</div></div>
+      <div class="cmR"><div class="feed">
+        <div class="msg"><div class="av">PA</div><div class="bub"><div class="nm">Priya · 1st AD · 07:42</div><div class="tx">Sc.24 moved up — cameras to Field Hospital by 08:30. Rain rig is hot, mind the cables.</div></div></div>
+        <div class="msg"><div class="av">SM</div><div class="bub"><div class="nm">Sam · Gaffer · 07:44</div><div class="tx">Copy. Genny repositioned, we’re lit by 08:15.</div></div></div>
+        <div class="msg me"><div class="av">QQ</div><div class="bub"><div class="nm">You · 07:45</div><div class="tx">👍 Transport, hold the cast van at base until 08:00.</div></div></div>
+      </div><div class="composer"><span class="in">Message #general…</span><button class="btn">Send</button></div></div>
+    </div>
+  </div>
+</div>
+
+<div class="foot">Scheduling · Transport · Call Sheet · Comms — all in Graphite &amp; Gold. Office &amp; business modules follow in the Studio Light gallery.</div>
+</body></html>

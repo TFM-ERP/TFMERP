@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>TFM · Studio Master Call Sheet v2</title>
+<style>
+  :root{--navy:#141d33;--navy2:#1d2947;--ink:#15171c;--gold:#c2922f;--gold-soft:#f7efda;--line:#cfd3da;--line2:#e7e9ee;--muted:#6c7480;--red:#b3261e;--red-soft:#fbeeed;--ok:#1c7a4a;--ok-soft:#e6f3ec;--blue:#2f4fb0;--blue-soft:#eef1fb;--bg:#e9ebef}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);font-family:"Helvetica Neue",Arial,sans-serif;color:var(--ink)}
+  .bar{position:sticky;top:0;z-index:50;background:var(--navy);color:#fff;display:flex;align-items:center;gap:14px;padding:10px 18px;flex-wrap:wrap}
+  .bar h1{font-size:14px;margin:0;font-weight:800}.bar .sp{flex:1}
+  .pr{background:var(--gold);color:#211807;border:none;border-radius:8px;padding:8px 14px;font:inherit;font-size:12px;font-weight:800;cursor:pointer}
+  .hint{font-size:11px;color:#aab2c4;width:100%}
+  .stage{display:flex;flex-direction:column;align-items:center;gap:16px;padding:18px 12px 60px}
+  .page{background:#fff;width:880px;max-width:100%;padding:0 0 14px;box-shadow:0 6px 30px rgba(0,0,0,.16);font-size:9px;line-height:1.28}
+  table{border-collapse:collapse;width:100%}
+  .tag{display:inline-block;font-size:7.2px;font-weight:800;padding:1px 5px;border-radius:999px}
+  .t-sw{background:var(--ok-soft);color:var(--ok)}.t-w{background:var(--blue-soft);color:var(--blue)}.t-h{background:#f0f0f0;color:#777}.t-f{background:var(--gold-soft);color:#8a6512}
+  .hl{background:#fff7d6}
+
+  /* header */
+  .hdr{display:grid;grid-template-columns:1.55fr 1.05fr 1.15fr;background:var(--navy);color:#fff;padding:11px 15px;gap:11px;align-items:stretch}
+  .hdr .logo{width:28px;height:28px;border-radius:7px;background:linear-gradient(135deg,var(--gold),#e9c873);color:#23190a;display:inline-flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;margin-right:7px;vertical-align:middle}
+  .hdr .co{font-size:8px;color:#aeb7cc;letter-spacing:.07em;text-transform:uppercase}
+  .hdr .ttl{font-size:19px;font-weight:900;line-height:1.05;margin-top:1px}
+  .hdr .meta{font-size:8px;color:#b9c1d4;margin-top:2px}
+  .hdr .ep{font-size:7.8px;color:#cdd4e3;margin-top:5px;line-height:1.45}
+  .hdr .mid{text-align:center}
+  .hdr .day{display:inline-block;background:var(--gold);color:#211807;border-radius:8px;padding:5px 14px;font-weight:900;font-size:14px}
+  .hdr .dt{font-size:9px;color:#cdd4e3;margin-top:2px}
+  .hdr .unit{font-size:7.4px;font-weight:800;letter-spacing:.08em;color:var(--gold);text-transform:uppercase;margin-top:2px}
+  .hdr .ver{font-size:7px;color:#9aa6c2;margin-top:5px;line-height:1.5}
+  .hdr .calls{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .cbox{background:var(--navy2);border:1px solid #2c3a5e;border-radius:6px;padding:4px 6px;text-align:center}
+  .cbox .k{font-size:6.6px;text-transform:uppercase;color:#9aa6c2;font-weight:700}
+  .cbox .v{font-size:12px;font-weight:900}.cbox.big .v{color:var(--gold)}
+
+  .body{padding:10px 15px 0}
+  .banner{background:#fff7d6;border:1px solid #ecd98a;color:#6e5510;font-weight:700;font-size:8px;text-align:center;padding:3px 6px;border-radius:5px;margin-bottom:9px}
+  .row{display:grid;gap:8px;margin-bottom:9px}.r-3{grid-template-columns:1fr 1fr 1fr}.r-21{grid-template-columns:1.4fr 1fr}.r-12{grid-template-columns:1fr 1.5fr}
+  .cell{border:1px solid var(--line);border-radius:7px;padding:6px 8px}
+  .cell .lbl{font-size:7px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--navy);margin-bottom:2px}
+  .cell.red{border-color:#eccac8;background:var(--red-soft)}.cell.red .lbl{color:var(--red)}
+  .cell.gold{border-color:#e6d09a;background:var(--gold-soft)}
+  .kv{font-size:8.2px;display:flex;justify-content:space-between;gap:8px;padding:1px 0}.kv .ph{color:var(--muted)}
+
+  /* graphics */
+  .gfx{display:grid;grid-template-columns:1.3fr .95fr 1fr;gap:8px;margin-bottom:9px}
+  .panel{border:1px solid var(--line);border-radius:7px;overflow:hidden}
+  .panel .ph{background:var(--navy);color:#fff;font-size:7.4px;font-weight:800;text-transform:uppercase;padding:3px 8px;display:flex;justify-content:space-between}
+  .panel .pb{padding:6px 8px}
+  .wx{display:flex;text-align:center}.wx .h{flex:1;border-right:1px solid var(--line2);padding:1px 0}.wx .h:last-child{border:none}
+  .wx .t{font-size:7px;color:var(--muted)}.wx .ic{font-size:12px}.wx .deg{font-size:8.4px;font-weight:800;color:var(--navy)}
+  .wxnote{font-size:7.2px;color:var(--muted);margin-top:4px;display:flex;justify-content:space-between}
+  .dl{height:14px;border-radius:4px;overflow:hidden;display:flex;margin-top:2px;border:1px solid var(--line2)}.dl span{display:block;height:100%}
+  .dlax{position:relative;height:20px;font-size:6.6px;color:var(--muted);margin-top:1px}
+  .dlax i{position:absolute;transform:translateX(-50%);text-align:center;line-height:1.1}.dlax i::before{content:"";display:block;width:1px;height:4px;background:var(--navy);margin:0 auto 1px}
+  .dlleg{font-size:7px;color:var(--muted);margin-top:3px;display:flex;gap:7px;flex-wrap:wrap}.sw{display:inline-block;width:7px;height:7px;border-radius:2px;vertical-align:middle;margin-right:2px}
+
+  h3{font-size:8px;text-transform:uppercase;letter-spacing:.06em;margin:0 0 4px;background:var(--navy);color:#fff;padding:3px 8px;border-radius:4px;display:flex;justify-content:space-between}
+  h3 .sub{color:var(--gold);font-weight:700}
+  h3.gold{background:var(--gold);color:#241a06}h3.gold .sub{color:#5d4607}
+  h3.red{background:var(--red)}
+  .mb{margin-bottom:9px}
+  table.grid th{background:#eceef2;border:1px solid var(--line);padding:2px 5px;font-size:7px;text-transform:uppercase;text-align:left;color:var(--navy)}
+  table.grid td{border:1px solid var(--line2);padding:2px 5px;font-size:8.4px;vertical-align:top}
+  .move{background:var(--gold-soft)!important;color:#7a5a10;font-weight:800;text-align:center;letter-spacing:.03em}
+  .subhead td{background:#f3f0e6;font-weight:800;color:#6e5510;font-size:7.4px;text-transform:uppercase}
+  .pill{display:inline-block;width:12px;height:12px;border-radius:50%;background:var(--navy);color:#fff;font-size:7px;font-weight:800;text-align:center;line-height:12px}
+  .legend{font-size:7.2px;color:var(--muted);margin-top:2px}
+  .two{display:grid;grid-template-columns:1.5fr 1fr;gap:9px}
+  .elem .e{font-size:8px;padding:2px 0;border-bottom:1px solid var(--line2)}.elem .e b{color:var(--navy)}
+  .elem .e:last-child{border:none}
+
+  /* transportation */
+  .trband{border:2px solid var(--gold);border-radius:8px;overflow:hidden;margin-bottom:9px}
+  .trband .th{background:var(--gold);color:#241a06;font-weight:900;font-size:9px;text-transform:uppercase;letter-spacing:.06em;padding:4px 9px;display:flex;justify-content:space-between}
+  .trband .tb{padding:8px 9px;display:grid;grid-template-columns:1.1fr 1fr 1fr;gap:9px}
+  .shut .s{display:flex;justify-content:space-between;font-size:8.2px;padding:1.5px 0;border-bottom:1px dashed var(--line2)}
+  .shut .s b{font-weight:700}.shut .s .lv{font-weight:800;color:var(--navy)}
+
+  .crewpg{columns:3;column-gap:9px}
+  .dept{break-inside:avoid;border:1px solid var(--line);border-radius:6px;margin-bottom:6px;overflow:hidden}
+  .dept .dh{background:var(--navy);color:#fff;font-size:7.2px;font-weight:800;text-transform:uppercase;padding:2px 6px;display:flex;justify-content:space-between}
+  .dept .dh .ch{color:var(--gold)}
+  .dept table{width:100%}
+  .dept td{font-size:7.8px;padding:1.5px 6px;border-top:1px solid #eef0f3}
+  .dept td.h{color:var(--muted);width:34px}.dept td.r{font-weight:800;color:var(--navy);width:42px;text-align:right}
+  .footer{border-top:1px solid var(--line);margin:10px 15px 0;padding-top:6px;display:flex;justify-content:space-between;color:#9aa1ad;font-size:7.2px}
+  .pgtag{font-size:7px;color:var(--muted);text-align:center;padding:3px}
+
+  @media print{@page{size:A4 portrait;margin:6mm}.bar{display:none}.stage{padding:0;gap:0}body{background:#fff}.page{box-shadow:none;width:auto;page-break-after:always}}
+</style>
+</head>
+<body>
+  <div class="bar">
+    <h1>📋 Studio Master Call Sheet — v2 (transportation + full studio fields)</h1>
+    <span class="sp"></span>
+    <button class="pr" onclick="window.print()">🖨 Print / Save PDF</button>
+    <div class="hint">Modeled on the working MISFITS sheet: production block top-left · script/schedule versions · hotel shuttles + per-cast TRANSPO/Hotel · Shooting Elements · background breakdown · holding/greenroom/catering · catering ready-times w/ head counts · primary+alt hospital (EN/AR) · a full Transportation band + back-page crew roster with Hotel/RPT/walkie channel. Graphics (weather/sun/daylight) retained.</div>
+  </div>
+  <div class="stage">
+
+  <!-- ===================== PAGE 1 ===================== -->
+  <section class="page">
+    <div class="hdr">
+      <div>
+        <div><span class="logo">TFM</span><span class="co">The Film Makers FZ LLC</span></div>
+        <div class="ttl">DESERT CROSSING</div>
+        <div class="meta">PRD-2026-0016 · Feature (Drama) · Dir. Khalid Al Hashimi</div>
+        <div class="ep">Exec Prod: R. Jaber · Q. Qandil · J. Abu Sameer<br/>Producers: D. Altit · K. Jam · Line Prod: D. Haddad<br/>UPM: S. Cardoso · 1st AD: M. Ferreira</div>
+      </div>
+      <div class="mid">
+        <div class="day">DAY 12 / 28</div>
+        <div class="dt">Tuesday · 16 June 2026</div>
+        <div class="unit">Main Unit · 2nd Unit: aerial (Liwa)</div>
+        <div class="ver">Script: Official Blue a/o 14 Jun<br/>Schedule: Official White a/o 15 Jun</div>
+      </div>
+      <div>
+        <div class="calls">
+          <div class="cbox big"><div class="k">Crew Call</div><div class="v">05:30</div></div>
+          <div class="cbox big"><div class="k">Shooting</div><div class="v">07:00</div></div>
+          <div class="cbox"><div class="k">Lunch</div><div class="v">12:30</div></div>
+          <div class="cbox"><div class="k">Est Wrap</div><div class="v">19:30</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="body">
+      <div class="banner">⚠ SAFETY MEETING HELD AT ALL NEW LOCATIONS · NO VISITORS ON SET WITHOUT PRIOR PRODUCER APPROVAL · ALL CALLS WEATHER PERMITTING</div>
+
+      <!-- contacts + hotel shuttles + hospital -->
+      <div class="row r-3">
+        <div class="cell"><div class="lbl">Key Contacts</div>
+          <div class="kv"><b>Dir · K. Al Hashimi</b><span class="ph">+971 50 110 0011</span></div>
+          <div class="kv"><b>1st AD · M. Ferreira</b><span class="ph">+971 50 110 0033</span></div>
+          <div class="kv"><b>UPM · S. Cardoso</b><span class="ph">+971 50 110 0044</span></div>
+          <div class="kv"><b>Transport · R. Al Mansoori</b><span class="ph">+971 50 123 4567</span></div></div>
+        <div class="cell gold"><div class="lbl">🚐 Hotel Shuttles — Leave Lobby → Set</div>
+          <div class="kv"><b>Saadiyat Rotana (SR)</b><span class="lv" style="font-weight:800">LV 04:45</span></div>
+          <div class="kv"><b>Yas Hotel (YAS)</b><span class="lv" style="font-weight:800">LV 05:00</span></div>
+          <div class="kv"><b>Ramada (RMDA)</b><span class="lv" style="font-weight:800">LV 05:00</span></div>
+          <div class="kv"><b>Corniche (CORN)</b><span class="lv" style="font-weight:800">LV 05:15</span></div>
+          <div class="kv" style="color:var(--muted)">Hawthorn guests → self-report via taxi</div></div>
+        <div class="cell red"><div class="lbl">🚑 Hospital (primary)</div>
+          <div style="font-weight:800">Sheikh Khalifa Medical City · مدينة الشيخ خليفة الطبية</div>
+          <div style="color:#555">Al Karamah St · ~12 min · <b style="color:var(--red)">+971 2 381 9000</b></div>
+          <div style="margin-top:3px;font-size:7.6px"><b>ALT:</b> Cleveland Clinic Abu Dhabi · Al Maryah Is. · +971 2 659 0200</div>
+          <div style="color:var(--muted);font-size:7.6px">Set medic: Dr R. Al Najjar · Ch 4</div></div>
+      </div>
+
+      <!-- graphics -->
+      <div class="gfx">
+        <div class="panel"><div class="ph"><span>Weather — Abu Dhabi</span><span>Sunny · hazy AM</span></div>
+          <div class="pb"><div class="wx">
+            <div class="h"><div class="t">06h</div><div class="ic">🌤️</div><div class="deg">33°</div></div>
+            <div class="h"><div class="t">09h</div><div class="ic">☀️</div><div class="deg">38°</div></div>
+            <div class="h"><div class="t">12h</div><div class="ic">☀️</div><div class="deg">42°</div></div>
+            <div class="h"><div class="t">15h</div><div class="ic">☀️</div><div class="deg">43°</div></div>
+            <div class="h"><div class="t">18h</div><div class="ic">🌤️</div><div class="deg">39°</div></div>
+            <div class="h"><div class="t">20h</div><div class="ic">🌙</div><div class="deg">34°</div></div>
+          </div><div class="wxnote"><span>Hi 43°/Lo 32°</span><span>💨 NW 18km/h</span><span>💧12%</span><span>UV 11⚠</span></div></div></div>
+        <div class="panel"><div class="ph"><span>Sun Position</span><span>solstice</span></div>
+          <div class="pb" style="display:flex;gap:5px;align-items:center">
+            <svg viewBox="0 0 150 150" width="86" height="86" style="flex:none">
+              <rect x="8" y="78" width="134" height="64" fill="#f3f4f7"/>
+              <circle cx="75" cy="78" r="62" fill="#fff" stroke="#cfd3da"/>
+              <line x1="13" y1="78" x2="137" y2="78" stroke="#cfd3da"/>
+              <text x="75" y="13" text-anchor="middle" font-size="8" font-weight="800" fill="#141d33">N</text>
+              <text x="143" y="81" text-anchor="middle" font-size="8" font-weight="800" fill="#8a93a5">E</text>
+              <text x="75" y="149" text-anchor="middle" font-size="8" font-weight="800" fill="#8a93a5">S</text>
+              <text x="6" y="81" text-anchor="middle" font-size="8" font-weight="800" fill="#8a93a5">W</text>
+              <path d="M 130 49 C 112 2, 38 2, 20 49" fill="none" stroke="#c2922f" stroke-width="2" stroke-dasharray="3 2"/>
+              <circle cx="130" cy="49" r="4" fill="#c2922f"/><circle cx="20" cy="49" r="4" fill="#c2922f"/>
+              <line x1="75" y1="78" x2="130" y2="49" stroke="#c2922f"/><line x1="75" y1="78" x2="20" y2="49" stroke="#c2922f"/>
+              <circle cx="75" cy="14" r="5" fill="#f0a500" stroke="#fff"/>
+              <text x="75" y="32" text-anchor="middle" font-size="6" fill="#7a5a10">noon alt 89°</text>
+            </svg>
+            <div style="font-size:7.4px;line-height:1.5">
+              <div>🌅 Rise 05:35 · ENE 62°</div><div>🌇 Set 19:09 · WNW 298°</div>
+              <div>✨ Golden 05:35–06:10</div><div>✨ Golden 18:34–19:09</div>
+              <div style="color:var(--muted)">Backlight East Court→09:00</div></div></div></div>
+        <div class="panel"><div class="ph"><span>Daylight window</span><span>13h 34m</span></div>
+          <div class="pb"><div class="dl"><span style="width:8%;background:#33406b"></span><span style="width:6%;background:#c2922f"></span><span style="width:62%;background:#ffd66b"></span><span style="width:7%;background:#c2922f"></span><span style="width:9%;background:#33406b"></span><span style="width:8%;background:#1b2236"></span></div>
+            <div class="dlax"><i style="left:8%">05:35<br>rise</i><i style="left:18%;color:var(--ok)">07:00<br>shoot</i><i style="left:52%">12:22<br>noon</i><i style="left:84%;color:var(--red)">19:30<br>wrap</i></div>
+            <div class="dlleg"><span><i class="sw" style="background:#33406b"></i>blue</span><span><i class="sw" style="background:#c2922f"></i>golden</span><span><i class="sw" style="background:#ffd66b"></i>day</span><span><i class="sw" style="background:#1b2236"></i>night</span></div></div></div>
+      </div>
+
+      <!-- locations -->
+      <h3>Locations <span class="sub">2 sets of place · 1 company move</span></h3>
+      <div class="row r-3 mb">
+        <div class="cell"><div class="lbl"><span class="pill">1</span> Qasr Al Hosn — East Court &amp; Watchtower</div><div style="color:#444">Al Hosn, Abu Dhabi · <a href="#" style="color:var(--blue)">📍map</a></div><div style="color:var(--muted)">Park: north service rd · Sc 24A/24B/31</div></div>
+        <div class="cell"><div class="lbl"><span class="pill">2</span> Corniche Breakwater &amp; Marina</div><div style="color:#444">Corniche, Abu Dhabi · <a href="#" style="color:var(--blue)">📍map</a></div><div style="color:var(--muted)">Unit park: Marina deck · Sc 55/56</div></div>
+        <div class="cell"><div class="lbl">Holding / Greenroom / Base</div><div>Basecamp: Al Hosn car park (400m)</div><div>HMU/Ward/BG holding: Marquee A</div><div style="color:var(--muted)">Cast greenroom: Trailer row · catering: Base</div></div>
+      </div>
+
+      <!-- schedule -->
+      <h3>Shooting Schedule <span class="sub">6 scenes · 10²⁄₈ pages</span></h3>
+      <table class="grid mb">
+        <thead><tr><th style="width:36px">Time</th><th style="width:34px">Scene</th><th>Set / Description</th><th style="width:24px">I/E</th><th style="width:34px">D/N</th><th style="width:34px">Pgs</th><th style="width:42px">Cast</th><th style="width:26px">Loc</th></tr></thead>
+        <tbody>
+          <tr><td><b>07:00</b></td><td>24A</td><td>Fort gates — Nabil arrives at dawn</td><td>EXT</td><td>D1</td><td>1²⁄₈</td><td>1</td><td><span class="pill">1</span></td></tr>
+          <tr><td><b>09:30</b></td><td>24B</td><td>Confrontation with the guards</td><td>EXT</td><td>D1</td><td>2⁴⁄₈</td><td>1, 3</td><td><span class="pill">1</span></td></tr>
+          <tr><td><b>11:15</b></td><td>31</td><td>Layla waits in the watchtower</td><td>INT</td><td>D1</td><td>1⁶⁄₈</td><td>2</td><td><span class="pill">1</span></td></tr>
+          <tr><td colspan="8" class="move">🚚 COMPANY MOVE 12:30 — Qasr Al Hosn ▶ Corniche · lunch en route · resume 14:00</td></tr>
+          <tr><td><b>14:00</b></td><td>55</td><td>Reunion on the breakwater</td><td>EXT</td><td>D2</td><td>2</td><td>1, 2</td><td><span class="pill">2</span></td></tr>
+          <tr><td><b>16:30</b></td><td>56</td><td>Chase along the marina (steadicam)</td><td>EXT</td><td>N2</td><td>2⁵⁄₈</td><td>1, 3</td><td><span class="pill">2</span></td></tr>
+        </tbody>
+      </table>
+
+      <!-- CAST (rich: status, transpo, RPT, HMU/W, ready, hotel) -->
+      <h3>Cast <span class="sub">SW Start-Work · W Work · H Hold · SWF Start-Work-Finish · TRANSPO: PU pick-up / SH shuttle / SR self-report</span></h3>
+      <table class="grid mb">
+        <thead><tr><th style="width:16px">#</th><th>Artist / Character</th><th style="width:28px">Status</th><th style="width:34px">Hotel</th><th style="width:34px">Transpo</th><th style="width:34px">P/U</th><th style="width:32px">HMU/W</th><th style="width:34px">On Set</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td><b>Yousef Daher</b> · NABIL</td><td><span class="tag t-sw">SW</span></td><td>SR</td><td><b>PU</b></td><td>05:00</td><td>06:00</td><td><b>07:00</b></td><td>VIP pickup — Saadiyat · stunt dbl Sc56</td></tr>
+          <tr><td>2</td><td><b>Mariam Saleh</b> · LAYLA</td><td><span class="tag t-w">W</span></td><td>YAS</td><td>PU</td><td>09:45</td><td>10:15</td><td><b>11:15</b></td><td>Watchtower → Loc 2</td></tr>
+          <tr><td>3</td><td><b>Tariq Hassan</b> · SAMI</td><td><span class="tag t-f">SWF</span></td><td>RMDA</td><td>SH</td><td>07:30</td><td>08:00</td><td><b>09:30</b></td><td>Released after Sc56</td></tr>
+          <tr class="subhead"><td colspan="9">Local UAE Talent</td></tr>
+          <tr><td>14</td><td>Fatima N. · MARKET TRADER</td><td><span class="tag t-h">H</span></td><td>—</td><td>SR</td><td>—</td><td>06:30</td><td>—</td><td>Self-report to base</td></tr>
+          <tr><td>X1</td><td>V. Reyes · STUNT COORD.</td><td><span class="tag t-h">H</span></td><td>RMDA</td><td>SH</td><td>06:00</td><td>—</td><td>06:30</td><td>Rigging Sc56</td></tr>
+        </tbody>
+      </table>
+
+      <!-- BG breakdown + Shooting elements -->
+      <div class="two mb">
+        <div>
+          <h3>Atmosphere / Background &amp; Stand-ins <span class="sub">SI 2 · Extras 38 · Total 40</span></h3>
+          <table class="grid">
+            <thead><tr><th style="width:26px">Sc</th><th>Description</th><th style="width:34px"># Of</th><th style="width:40px">RPT</th><th style="width:42px">Ready</th></tr></thead>
+            <tbody>
+              <tr><td>24B</td><td>Fort guards</td><td>8</td><td>06:30</td><td>07:30</td></tr>
+              <tr><td>24B</td><td>Market crowd</td><td>20</td><td>06:30</td><td>08:00</td></tr>
+              <tr><td>56</td><td>Joggers / public (dusk)</td><td>10</td><td>15:00</td><td>16:00</td></tr>
+              <tr><td>—</td><td>Stand-ins (#1,#2)</td><td>2</td><td>06:30</td><td>—</td></tr>
+            </tbody>
+          </table>
+          <div class="legend">*ALL BG COME HAIR/MU READY · parking &amp; wardrobe per booking email.</div>
+        </div>
+        <div>
+          <h3>Shooting Elements</h3>
+          <div class="cell elem" style="border-radius:7px">
+            <div class="e"><b>Props:</b> Sc24 sword &amp; scroll · Sc31 lantern, maps · Sc55 letter</div>
+            <div class="e"><b>Art:</b> dressed market stalls (24B) · breakwater rigging</div>
+            <div class="e"><b>G&amp;E / Camera:</b> techno-dolly + track (ridge) · Steadicam (56) · 12K HMI</div>
+            <div class="e"><b>HMU / Costume / Stills:</b> period guard armour ×8 · unit stills 10:00</div>
+            <div class="e"><b>Sound / VFX / SFX:</b> wind FX standby (56) · clean plates Sc55</div>
+            <div class="e"><b>Animals:</b> 2 horses (24A) · wrangler on set 06:00</div>
+            <div class="e"><b>Vehicles (picture):</b> 1× period cart (24B)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TRANSPORTATION band -->
+      <div class="trband">
+        <div class="th"><span>🚐 Transportation</span><span>Captain: Nabeel N. · Dispatcher Ch 15 · Maps in app</span></div>
+        <div class="tb">
+          <div class="shut"><div style="font-weight:800;font-size:7.6px;color:var(--navy);margin-bottom:2px">SHUTTLES — LEAVE LOBBY → SET</div>
+            <div class="s"><b>Saadiyat Rotana #1</b><span class="lv">04:45</span></div>
+            <div class="s"><b>Yas Hotel #1</b><span class="lv">05:00</span></div>
+            <div class="s"><b>Ramada #1</b><span class="lv">05:00</span></div>
+            <div class="s"><b>Corniche #1</b><span class="lv">05:15</span></div>
+            <div class="s" style="color:var(--muted);border:none">Hawthorn guests → self-report via taxi</div></div>
+          <div class="shut"><div style="font-weight:800;font-size:7.6px;color:var(--navy);margin-bottom:2px">PICK-UPS / VIP</div>
+            <div class="s"><b>Director K. Al Hashimi</b><span class="lv">05:45 → set</span></div>
+            <div class="s"><b>Cast #1 Nabil (S-Class)</b><span class="lv">05:00 Saadiyat</span></div>
+            <div class="s"><b>DoP / Camera (SUV)</b><span class="lv">05:30 Yas</span></div>
+            <div class="s"><b>Actor shuttle (base→Loc2)</b><span class="lv">13:30</span></div>
+            <div class="s" style="border:none">Co. move convoy escort · Ch 3</div></div>
+          <div class="shut"><div style="font-weight:800;font-size:7.6px;color:var(--navy);margin-bottom:2px">FLEET ON UNIT</div>
+            <div class="s"><b>15-pax crew vans</b><span class="lv">×5</span></div>
+            <div class="s"><b>Camera / G&amp;E trucks</b><span class="lv">×3</span></div>
+            <div class="s"><b>Wardrobe + Art trucks</b><span class="lv">×2</span></div>
+            <div class="s"><b>Picture cars / trailers</b><span class="lv">2 / 3</span></div>
+            <div class="s" style="border:none;color:var(--muted)">Live status → Transport Captain board</div></div>
+        </div>
+      </div>
+
+      <!-- advance + catering -->
+      <div class="two">
+        <div>
+          <h3 class="gold">Advance — Day 13 · Al Wathba Dunes <span class="sub">Tent call 05:00</span></h3>
+          <table class="grid"><tbody>
+            <tr><td style="width:36px"><b>06:30</b></td><td>Sc40</td><td>EXT/D — Caravan crosses dunes (golden hr)</td></tr>
+            <tr><td><b>10:00</b></td><td>Sc41</td><td>EXT/D — Sandstorm, map is lost (SFX wind)</td></tr>
+            <tr><td><b>16:30</b></td><td>Sc42</td><td>EXT/Dusk — Camp at dusk</td></tr>
+          </tbody></table>
+        </div>
+        <div>
+          <h3>Catering — Ready Times &amp; Counts</h3>
+          <table class="grid"><thead><tr><th>Meal</th><th style="width:36px">Pax</th><th style="width:46px">Ready</th></tr></thead><tbody>
+            <tr><td>Early crew breakfast</td><td>12</td><td>05:00</td></tr>
+            <tr><td>Crew breakfast</td><td>95</td><td>06:00</td></tr>
+            <tr><td>Background breakfast</td><td>38</td><td>06:00</td></tr>
+            <tr><td>Crew lunch</td><td>130</td><td>12:30</td></tr>
+            <tr><td>VIP / BG lunch</td><td>20 / 38</td><td>12:30</td></tr>
+          </tbody></table>
+        </div>
+      </div>
+    </div>
+    <div class="footer"><div>The Film Makers FZ LLC · issued by Production · v1 · 15 Jun 2026 21:40 · Page 1/2</div><div>2nd AD L. Park +971 50 110 0077 · 3rd AD A. Riza +971 50 110 0088</div></div>
+  </section>
+
+  <!-- ===================== PAGE 2 — CREW ROSTER (DOOD) ===================== -->
+  <section class="page">
+    <div class="hdr">
+      <div><div><span class="logo">TFM</span><span class="co">The Film Makers FZ LLC</span></div><div class="ttl" style="font-size:15px">DESERT CROSSING — Crew List</div><div class="meta">PRD-2026-0016 · Day 12/28 · Tue 16 Jun 2026</div></div>
+      <div class="mid"><div class="day" style="font-size:12px">GEN. CREW CALL 05:30</div><div class="dt">Shooting 07:00 · Wrap 19:30</div></div>
+      <div><div class="calls"><div class="cbox"><div class="k">On unit</div><div class="v">95</div></div><div class="cbox"><div class="k">Hotels</div><div class="v">4</div></div><div class="cbox"><div class="k">Vans</div><div class="v">5</div></div><div class="cbox"><div class="k">BG</div><div class="v">38</div></div></div></div>
+    </div>
+    <div class="body">
+      <div class="legend" style="margin-bottom:6px">Hotels — <b>SR</b> Saadiyat Rotana · <b>YAS</b> Yas Hotel · <b>RMDA</b> Ramada · <b>CORN</b> Corniche · O/C on-call. RPT = report-to-van time.</div>
+      <div class="crewpg">
+        <div class="dept"><div class="dh"><span>Production / AD</span><span class="ch">Ch 1</span></div><table><tbody>
+          <tr><td>1st AD · M. Ferreira</td><td class="h">SR</td><td class="r">05:30</td></tr>
+          <tr><td>2nd AD · L. Park</td><td class="h">RMDA</td><td class="r">05:00</td></tr>
+          <tr><td>3rd AD · A. Riza</td><td class="h">CORN</td><td class="r">05:15</td></tr>
+          <tr><td>UPM · S. Cardoso</td><td class="h">SR</td><td class="r">O/C</td></tr>
+          <tr><td>Script · J. Eze</td><td class="h">YAS</td><td class="r">06:00</td></tr></tbody></table></div>
+        <div class="dept"><div class="dh"><span>Camera</span><span class="ch">Ch 2</span></div><table><tbody>
+          <tr><td>DoP · H. Larsson</td><td class="h">SR</td><td class="r">06:15</td></tr>
+          <tr><td>1st AC · A. Noor</td><td class="h">YAS</td><td class="r">06:15</td></tr>
+          <tr><td>2nd AC · B. Cole</td><td class="h">YAS</td><td class="r">06:15</td></tr>
+          <tr><td>DIT · R. Patel</td><td class="h">RMDA</td><td class="r">06:30</td></tr>
+          <tr><td>Steadicam · M. Vidal</td><td class="h">CORN</td><td class="r">06:15</td></tr></tbody></table></div>
+        <div class="dept"><div class="dh"><span>Grip / Electric</span><span class="ch">Ch 2</span></div><table><tbody>
+          <tr><td>Key Grip · P. Novak</td><td class="h">RMDA</td><td class="r">06:00</td></tr>
+          <tr><td>Best Boy Grip · T. Reed</td><td class="h">CORN</td><td class="r">06:00</td></tr>
+          <tr><td>Gaffer · S. Rahman</td><td class="h">RMDA</td><td class="r">06:00</td></tr>
+          <tr><td>Best Boy · Y. Fadel</td><td class="h">CORN</td><td class="r">06:00</td></tr>
+          <tr><td>Genny op · K. Darwish</td><td class="h">CORN</td><td class="r">05:45</td></tr></tbody></table></div>
+        <div class="dept"><div class="dh"><span>Sound</span><span class="ch">Ch 2</span></div><table><tbody>
+          <tr><td>Mixer · L. Wei</td><td class="h">YAS</td><td class="r">06:45</td></tr>
+          <tr><td>Boom · M. Sand</td><td class="h">CORN</td><td class="r">06:45</td></tr></tbody></table></div>
+        <div class="dept"><div class="dh"><span>Art / Set Dec</span><span class="ch">Ch 6</span></div><table><tbody>
+          <tr><td>PD · N. Costa</td><td class="h">RMDA</td><td class="r">05:30</td></tr>
+          <tr><td>Art Dir · O. Zayed</td><td class="h">RMDA</td><td class="r">05:30</td></tr>
+          <tr><td>Props · H. Nasser</td><td class="h">CORN</td><td class="r">06:00</td></tr>
+          <tr><td>Set Dresser · A. Lim</td><td class="h">CORN</td><td class="r">05:30</td></tr></tbody></table></div>
+        <div class="dept"><div class="dh"><span>Costume / HMU</span><span class="ch">Ch 4</span></div><table><tbody>
+          <tr><td>Costume Sup · F. Yusuf</td><td class="h">RMDA</td><td class="r">05:30</td></tr>
+          <tr><td>Key HMU · R. Saeed</td><td class="h">RMDA</td><td class="r">05:30</td></tr>
+          <tr><td>HMU · D. Khan</td><td class="h">RMDA</td><td class="r">05:45</td></tr></tbody></table></div>
+        <div class="dept"><div class="dh"><span>SFX / Stunts</span><span class="ch">Ch 8</span></div><table><tbody>
+          <tr><td>SFX Sup · G. Marsh</td><td class="h">HOJO</td><td class="r">06:00</td></tr>
+          <tr><td>Stunt Coord · V. Reyes</td><td class="h">RMDA</td><td class="r">06:30</td></tr></tbody></table></div>
+        <div class="dept"><div class="dh"><span>Locations</span><span class="ch">Ch 1</span></div><table><tbody>
+          <tr><td>LM · H. Ali</td><td class="h">SR</td><td class="r">05:00</td></tr>
+          <tr><td>Unit · F. Omar</td><td class="h">SR</td><td class="r">05:00</td></tr></tbody></table></div>
+        <div class="dept"><div class="dh"><span>Transportation</span><span class="ch">Ch 15</span></div><table><tbody>
+          <tr><td>Captain · N. Nahas</td><td class="h">O/C</td><td class="r">O/C</td></tr>
+          <tr><td>Dispatcher · M. Iqbal</td><td class="h">O/C</td><td class="r">per NN</td></tr>
+          <tr><td>15-pax van #1–#5</td><td class="h">—</td><td class="r">per NN</td></tr>
+          <tr><td>Camera / G&amp;E truck</td><td class="h">—</td><td class="r">per NN</td></tr>
+          <tr><td>Wardrobe / Art truck</td><td class="h">—</td><td class="r">per NN</td></tr>
+          <tr><td>Picture cars · trailers</td><td class="h">—</td><td class="r">per NN</td></tr></tbody></table></div>
+        <div class="dept"><div class="dh"><span>2nd Unit (Liwa)</span><span class="ch">Ch 7</span></div><table><tbody>
+          <tr><td>2U Dir · C. Vance</td><td class="h">SR</td><td class="r">04:30</td></tr>
+          <tr><td>Drone op (GCAA)</td><td class="h">SR</td><td class="r">04:30</td></tr></tbody></table></div>
+        <div class="dept"><div class="dh"><span>Accounts / Post / Office</span><span class="ch">O/C</span></div><table><tbody>
+          <tr><td>Prod Accountant · K. Awad</td><td class="h">O/C</td><td class="r">O/C</td></tr>
+          <tr><td>Prod Coord · T. Z.</td><td class="h">SR</td><td class="r">O/C</td></tr>
+          <tr><td>Editor · C. Rafferty</td><td class="h">O/C</td><td class="r">O/C</td></tr></tbody></table></div>
+        <div class="dept"><div class="dh"><span>Catering / Medic</span><span class="ch">Ch 4</span></div><table><tbody>
+          <tr><td>Catering · Crafty</td><td class="h">—</td><td class="r">04:30</td></tr>
+          <tr><td>Set Medic · Dr R. Al Najjar</td><td class="h">SR</td><td class="r">05:30</td></tr></tbody></table></div>
+      </div>
+
+      <div class="two">
+        <div><h3>Transportation — Pickups &amp; Shuttle Departures</h3>
+          <table class="grid"><thead><tr><th>Run</th><th style="width:60px">From</th><th style="width:44px">Leave</th></tr></thead><tbody>
+            <tr><td>Director (S-Class)</td><td>Saadiyat</td><td>05:45</td></tr>
+            <tr><td>Cast #1 Nabil (S-Class)</td><td>Saadiyat</td><td>05:00</td></tr>
+            <tr><td>Saadiyat Rotana van #1</td><td>Lobby</td><td>04:45</td></tr>
+            <tr><td>Yas / Ramada vans</td><td>Lobby</td><td>05:00</td></tr>
+            <tr><td>Corniche van #1</td><td>Lobby</td><td>05:15</td></tr>
+            <tr><td>Actor shuttle base→Loc 2</td><td>Base</td><td>13:30</td></tr>
+          </tbody></table>
+          <div class="legend">Arrive promptly to vans — sharp departure. Hawthorn guests self-report via taxi (reimbursed).</div>
+        </div>
+        <div><h3 class="red">Hospitals &amp; Emergency</h3>
+          <div class="cell red"><div style="font-weight:800">Primary — Sheikh Khalifa Medical City</div><div>مدينة الشيخ خليفة الطبية · Al Karamah St</div><div style="color:var(--red);font-weight:800">+971 2 381 9000 · ~12 min</div>
+          <div style="margin-top:4px;font-weight:800">Alternate — Cleveland Clinic Abu Dhabi</div><div>Al Maryah Island · +971 2 659 0200 · ~20 min</div>
+          <div style="margin-top:4px;color:var(--muted)">Set medic Dr R. Al Najjar · Ch 4 · AED first-aid at base + Loc 2</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="footer"><div>The Film Makers FZ LLC · Crew list (DOOD) · Page 2/2</div><div>Distribution: cast &amp; crew · confidential</div></div>
+  </section>
+  </div>
+</body>
+</html>

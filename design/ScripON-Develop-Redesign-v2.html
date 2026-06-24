@@ -1,0 +1,262 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ScripON · Develop — Option A + Hybrid</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b0c0f;--panel:#14161c;--hair:rgba(255,255,255,.07);--hair2:rgba(255,255,255,.13);--gold:#C6A463;--gold2:#E6D2A2;--goldink:#15120B;--cream:#F3ECDD;--text:#E8E6E0;--mute:#9aa1ab;--faint:#6b727d;--green:#57b368;--paper:#F7F4EC;--ink:#23231f;--goldmute:#9a8456}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(1100px 560px at 50% -10%,#15171d,#0b0c0f 60%);color:var(--text);font-family:Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;padding:0 0 90px}
+.wrap{max-width:1240px;margin:0 auto;padding:0 22px}
+.bar{position:sticky;top:0;z-index:20;background:rgba(11,12,15,.86);backdrop-filter:blur(10px);border-bottom:1px solid var(--hair);padding:14px 0;margin-bottom:22px}
+.bar .wrap{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.brand{font-size:12px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--gold)}
+.brand small{display:block;font-weight:600;letter-spacing:.3px;text-transform:none;color:var(--mute);font-size:11px;margin-top:2px}
+.seg{display:inline-flex;background:#171a20;border:1px solid var(--hair);border-radius:11px;padding:3px;gap:2px;margin-left:auto}
+.seg button{border:none;background:transparent;color:var(--mute);font:inherit;font-size:12.5px;font-weight:600;padding:7px 15px;border-radius:8px;cursor:pointer}
+.seg button.on{background:linear-gradient(180deg,var(--gold2),var(--gold));color:var(--goldink)}
+.toggle{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:var(--mute);cursor:pointer;user-select:none;border:1px solid var(--hair);border-radius:10px;padding:7px 12px;background:#13151b}
+.toggle .sw{width:34px;height:19px;border-radius:99px;background:#2a2e37;position:relative;transition:.2s}
+.toggle .sw:after{content:"";position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:50%;background:#9aa1ab;transition:.2s}
+.toggle.on .sw{background:rgba(198,164,99,.55)}.toggle.on .sw:after{left:17px;background:var(--gold2)}
+.toggle.on{color:var(--gold2);border-color:rgba(198,164,99,.4)}
+.frame{background:#0c0d10;border:1px solid var(--hair2);border-radius:18px;overflow:hidden;box-shadow:0 40px 90px -30px rgba(0,0,0,.8)}
+.opt{display:none}.opt.on{display:block}
+.cap{margin:0 0 12px;font-size:13px;color:var(--mute)}.cap b{color:var(--cream)}
+/* tabs — NO underline */
+.tabs{display:flex;align-items:center;gap:8px;padding:12px 16px;background:linear-gradient(180deg,#101218,#0c0d10)}
+.tab{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--mute);padding:8px 14px;border-radius:10px;cursor:pointer;border:1px solid transparent}
+.tab.on{color:var(--gold2);background:rgba(198,164,99,.12);border-color:rgba(198,164,99,.32)}
+.tab .i{width:15px;height:15px}
+.spacer{flex:1}.ghosttop{font-size:11.5px;color:var(--faint)}
+
+/* ===== DIRECTIONAL-SCREEN BUTTON KIT (ported verbatim) ===== */
+.glogo{width:36px;height:36px;border-radius:10px;background:linear-gradient(180deg,#E6D2A2,#C6A463);display:grid;place-items:center;flex:none}
+.glogo span{color:#15120B;font-weight:900;font-size:16px;line-height:1}
+.gbtn{height:44px;padding:0 18px;border:1px solid rgba(198,164,99,.5);border-radius:11px;background:transparent;color:#E6D2A2;font:inherit;font-weight:700;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:.18s}
+.gbtn:hover{background:rgba(198,164,99,.12);border-color:rgba(198,164,99,.85)}
+.gbtn .ar{transition:transform .18s}.gbtn:hover .ar{transform:translateX(3px)}
+.gbtn.sm{height:34px;padding:0 13px;font-size:12px;border-radius:9px}
+.gbtn.ghost{border-color:var(--hair);color:var(--mute)}.gbtn.ghost:hover{border-color:var(--hair2);color:var(--cream);background:transparent}
+.dver{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--mute);font-weight:600}
+.vnav{background:none;border:none;color:#C6A463;font-size:15px;cursor:pointer;padding:0 2px;line-height:1}
+.vnav:disabled{opacity:.3;cursor:default}
+.dicon{font-size:17px;line-height:1;color:var(--goldmute);cursor:pointer;transition:.15s;user-select:none;background:none;border:none;padding:0}
+.dicon:hover{color:#E6D2A2;transform:scale(1.12)}
+.dicon.spin{display:inline-block;animation:spin .7s linear infinite;color:#E6D2A2}
+.appr{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;color:var(--green);cursor:pointer;border:none;background:none}
+.appr svg{width:13px;height:13px}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* version cluster used in stage headers */
+.vcluster{display:inline-flex;align-items:center;gap:13px}
+
+/* manuscript */
+.paper{background:var(--paper);color:var(--ink);border-radius:10px;box-shadow:0 18px 44px -18px rgba(0,0,0,.6),inset 5px 0 0 -3px rgba(0,0,0,.06);overflow:hidden}
+.paper .pin{padding:30px 40px;font-family:Fraunces,Georgia,serif;font-size:15px;line-height:1.85;letter-spacing:.1px;max-width:70ch;margin:0 auto}
+.paper .pin p{margin:0 0 16px}
+.paper .pfoot{text-align:right;color:#9a958a;font-size:10.5px;padding:0 18px 10px;font-family:Fraunces,serif}
+.dot{width:11px;height:11px;border-radius:50%;flex:none;display:inline-grid;place-items:center;font-size:8px}
+.dot.done{background:rgba(87,179,104,.2);color:var(--green)}
+.dot.on{background:linear-gradient(160deg,var(--gold2),var(--gold));color:var(--goldink)}
+.dot.wait{background:#1b1e25;border:1px solid var(--hair)}
+.prog{height:5px;border-radius:99px;background:#1b1e25;overflow:hidden;position:relative}
+.prog i{position:absolute;inset:0 60% 0 0;background:linear-gradient(90deg,var(--gold),var(--gold2));border-radius:99px;animation:fill 2.4s ease-in-out infinite}
+@keyframes fill{0%{right:80%}50%{right:22%}100%{right:80%}}
+.skel{height:13px;border-radius:6px;background:linear-gradient(90deg,#ece7da 25%,#f7f3ea 37%,#ece7da 63%);background-size:400% 100%;animation:sh 1.4s linear infinite;margin:0 0 12px}
+@keyframes sh{0%{background-position:100% 0}100%{background-position:0 0}}
+.genline{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--gold2);font-weight:600}
+.spinr{display:inline-block;width:14px;height:14px;border:2px solid rgba(198,164,99,.3);border-top-color:var(--gold2);border-radius:50%;animation:spin .7s linear infinite}
+.pulse{animation:pl 1.3s ease-in-out infinite}@keyframes pl{0%,100%{box-shadow:0 0 0 0 rgba(198,164,99,0)}50%{box-shadow:0 0 0 6px rgba(198,164,99,.18)}}
+.hidegen{display:block}.showgen{display:none}
+.demo.gen .hidegen{display:none}.demo.gen .showgen{display:block}
+
+/* ===== layout A (rail + canvas) ===== */
+.A .body,.M .body{display:grid;grid-template-columns:272px 1fr;min-height:580px}
+.rail{background:#0e1015;border-right:1px solid var(--hair);padding:16px 14px;display:flex;flex-direction:column;gap:3px}
+.railhead{display:flex;align-items:center;gap:10px;padding:2px 6px 14px}
+.railhead .t{font-size:13px;font-weight:800;color:var(--cream)}.railhead .s{font-size:10.5px;color:var(--faint)}
+.rstep{display:flex;align-items:center;gap:11px;padding:10px;border-radius:11px;cursor:pointer;position:relative}
+.rstep .nm{font-size:13.5px;font-weight:600;color:var(--mute)}
+.rstep .sub{font-size:10.5px;color:var(--faint);margin-top:1px}
+.rstep.cur{background:rgba(198,164,99,.1)}.rstep.cur .nm{color:var(--gold2)}
+.rstep.cur:before{content:"";position:absolute;left:0;top:9px;bottom:9px;width:3px;border-radius:3px;background:var(--gold)}
+.rstep.dones .nm{color:#b9c0b3}
+.rfoot{margin-top:auto;padding:12px 6px 2px;border-top:1px solid var(--hair)}
+.rfoot .lbl{font-size:11px;color:var(--faint);display:flex;justify-content:space-between;margin-bottom:7px}
+.rbar{height:6px;border-radius:99px;background:#1b1e25;overflow:hidden}.rbar i{display:block;height:100%;width:50%;background:linear-gradient(90deg,var(--gold),var(--gold2));border-radius:99px}
+.canvas{display:flex;flex-direction:column;min-height:0}
+.chead{display:flex;align-items:center;gap:14px;padding:20px 24px 14px}
+.chead h2{margin:0;font-size:21px;font-weight:800;color:var(--cream);font-family:Fraunces,Georgia,serif}
+.chead .stg{font-size:11px;color:var(--faint);margin-top:3px}
+.cscroll{padding:0 24px;flex:1;overflow:auto}
+.cfoot{display:flex;align-items:center;gap:12px;padding:16px 24px;border-top:1px solid var(--hair);background:#0e1015}
+.cfoot .hint{font-size:12px;color:var(--faint);margin-left:auto}
+
+/* ===== Hybrid extras: top progress + docked footer (C) ===== */
+.M .topbar{height:4px;background:#1b1e25;position:relative}.M .topbar i{position:absolute;left:0;top:0;bottom:0;width:50%;background:linear-gradient(90deg,var(--gold),var(--gold2))}
+.M .topbar.showgen i{animation:fill 2.4s ease-in-out infinite;right:50%;width:auto}
+.notes{margin-top:26px;display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.note{background:var(--panel);border:1px solid var(--hair);border-radius:14px;padding:16px}
+.note h4{margin:0 0 10px;font-size:13px;color:var(--gold2);font-weight:800}
+.note ul{margin:0;padding-left:17px;color:var(--mute);font-size:12.5px;line-height:1.65}.note li{margin-bottom:6px}
+.kit{display:flex;align-items:center;gap:18px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--hair);border-radius:14px;padding:16px 18px;margin-top:14px}
+.kit .k{display:flex;flex-direction:column;gap:7px;align-items:center}.kit .kl{font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.5px}
+@media(max-width:880px){.A .body,.M .body{grid-template-columns:1fr}.notes{grid-template-columns:1fr}}
+</style></head>
+<body>
+<div class="bar"><div class="wrap">
+  <div class="brand">ScripON · Develop<small>Option A (directional buttons) + Hybrid mix</small></div>
+  <div class="seg" id="seg"><button class="on" data-o="A">Option A · refined</button><button data-o="M">Hybrid · A + B + C</button></div>
+  <div class="toggle" id="gentog"><span class="sw"></span><span>Preview "generating"</span></div>
+</div></div>
+
+<div class="wrap">
+
+<!-- the borrowed button kit, shown once -->
+<div class="kit">
+  <span style="font-size:12px;color:var(--mute);font-weight:600">Borrowed from the directions screen →</span>
+  <div class="k"><div class="glogo"><span>&#10022;</span></div><div class="kl">mark</div></div>
+  <div class="k"><button class="gbtn">Generate Scenes <span class="ar">&#8594;</span></button><div class="kl">primary (outline)</div></div>
+  <div class="k"><span class="vcluster"><span class="dver"><button class="vnav">&#8249;</button>v2/2<button class="vnav" disabled>&#8250;</button></span><button class="dicon" title="Regenerate">&#10227;</button></span><div class="kl">version + regen</div></div>
+  <div class="k"><button class="appr"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6L9 17l-5-5"/></svg>Approve</button><div class="kl">approve</div></div>
+</div>
+
+<!-- ============ OPTION A (refined, directional buttons) ============ -->
+<section class="opt on A" id="optA" style="margin-top:18px">
+  <p class="cap"><b>Option A — Rail + Canvas, with the directions-screen buttons.</b> Pipeline on the left, writing on the right. Primary action is the gold <i>outline</i> button with the sliding arrow; version + regenerate are the bare gold icons.</p>
+  <div class="frame demo">
+    <div class="tabs">
+      <div class="tab"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg>Builds</div>
+      <div class="tab on"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v6m0 8v6M2 12h6m8 0h6"/></svg>Develop</div>
+      <div class="spacer"></div><div class="ghosttop">Antara — mythic cut · Feature · 3-act</div>
+    </div>
+    <div class="body">
+      <div class="rail">
+        <div class="railhead"><div class="glogo"><span>&#10022;</span></div><div><div class="t">The ladder</div><div class="s">seed → script</div></div></div>
+        <div class="rstep dones"><span class="dot done">&#10003;</span><div><div class="nm">Logline</div><div class="sub">V1 · approved</div></div></div>
+        <div class="rstep dones"><span class="dot done">&#10003;</span><div><div class="nm">Synopsis</div><div class="sub">V1 · approved</div></div></div>
+        <div class="rstep dones"><span class="dot done">&#10003;</span><div><div class="nm">Treatment</div><div class="sub">V1 · approved</div></div></div>
+        <div class="rstep cur"><span class="dot on">&#9679;</span><div><div class="nm">Beats</div><div class="sub">V2 of 2 · Save the Cat</div></div></div>
+        <div class="rstep"><span class="dot wait"></span><div><div class="nm">Scenes</div><div class="sub hidegen">ready to generate</div><div class="sub showgen" style="color:var(--gold2)">writing… 12 / 30</div></div></div>
+        <div class="rstep"><span class="dot wait"></span><div><div class="nm">Step Outline</div><div class="sub">pending</div></div></div>
+        <div class="rstep"><span class="dot wait"></span><div><div class="nm">Draft</div><div class="sub">pending</div></div></div>
+        <div class="rstep"><span class="dot wait"></span><div><div class="nm">Coverage</div><div class="sub">pending</div></div></div>
+        <div class="rfoot"><div class="lbl"><span>Pipeline</span><span>4 / 8 stages</span></div><div class="rbar"><i></i></div></div>
+      </div>
+      <div class="canvas">
+        <div class="chead">
+          <div style="flex:1"><h2>Beats</h2><div class="stg">Stage 4 of 8 · structured on Save the Cat</div></div>
+          <div class="vcluster">
+            <span class="dver"><button class="vnav">&#8249;</button>v2/2<button class="vnav" disabled>&#8250;</button></span>
+            <button class="dicon" title="Generate another take">&#10227;</button>
+            <button class="appr"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6L9 17l-5-5"/></svg>Approve</button>
+          </div>
+        </div>
+        <div class="cscroll">
+          <div class="hidegen"><div class="paper"><div class="pin">
+            <p>Antara and Shayboob — Shayboob still carrying his wound — locate the Asafir herd in the fortified valley compound of a Persian-allied tribal king, a man who has heard of Antara's approach and prepared accordingly. The compound can be entered only through a single visible corridor that is also a killing ground.</p>
+            <p>Rather than storm it, Antara spends a full day in concealment, mapping it, composing, remembering. A fragment surfaces: Shaddad calling him by name for the first time — not slave, not boy, but <i>Antara</i>. The memory of that single word is what he carries into the compound. He sends Shayboob to the eastern wall and enters alone.</p>
+          </div><div class="pfoot">7 / 10</div></div></div>
+          <div class="showgen"><div class="paper"><div class="pin">
+            <div class="genline" style="margin-bottom:16px"><span class="spinr"></span> Breaking the story into scene cards…</div>
+            <div class="skel" style="width:96%"></div><div class="skel" style="width:88%"></div><div class="skel" style="width:92%"></div><div class="skel" style="width:70%"></div>
+            <div class="skel" style="width:90%;margin-top:22px"></div><div class="skel" style="width:84%"></div><div class="skel" style="width:60%"></div>
+          </div></div></div>
+        </div>
+        <div class="cfoot hidegen">
+          <button class="gbtn">Generate Scenes <span class="ar">&#8594;</span></button>
+          <button class="gbtn ghost sm">&#10227; Regenerate Beats</button>
+          <button class="gbtn ghost sm">Compare v1 &#8646; v2</button>
+          <span class="hint">Builds on the approved Beats</span>
+        </div>
+        <div class="cfoot showgen">
+          <div style="flex:1"><div class="genline" style="margin-bottom:8px"><span class="spinr"></span> Generating Scenes — this can take a minute or two</div><div class="prog"><i></i></div></div>
+          <button class="gbtn ghost sm">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ HYBRID (A rail + B focus + C top-progress & docked Advance) ============ -->
+<section class="opt M" id="optM" style="margin-top:18px">
+  <p class="cap"><b>Hybrid — A's rail + B's focus + C's progress & docked button.</b> Left rail tells you where you are (A). The centre shows only the active stage, calm and large (B). A thin progress line sits up top and the Advance stays docked at the bottom so it never moves (C). Same directional buttons throughout.</p>
+  <div class="frame demo">
+    <div class="tabs">
+      <div class="tab"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg>Builds</div>
+      <div class="tab on"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v6m0 8v6M2 12h6m8 0h6"/></svg>Develop</div>
+      <div class="spacer"></div><div class="ghosttop">Antara — mythic cut · Feature · 3-act</div>
+    </div>
+    <div class="topbar"><i></i></div>
+    <div class="body">
+      <div class="rail">
+        <div class="railhead"><div class="glogo"><span>&#10022;</span></div><div><div class="t">Ladder</div><div class="s">4 / 8 stages</div></div></div>
+        <div class="rstep dones"><span class="dot done">&#10003;</span><div><div class="nm">Logline</div></div></div>
+        <div class="rstep dones"><span class="dot done">&#10003;</span><div><div class="nm">Synopsis</div></div></div>
+        <div class="rstep dones"><span class="dot done">&#10003;</span><div><div class="nm">Treatment</div></div></div>
+        <div class="rstep cur"><span class="dot on">&#9679;</span><div><div class="nm">Beats</div><div class="sub">v2/2 · active</div></div></div>
+        <div class="rstep"><span class="dot wait showgen pulse"></span><span class="dot wait hidegen"></span><div><div class="nm">Scenes</div><div class="sub hidegen">next</div><div class="sub showgen" style="color:var(--gold2)">writing… 12/30</div></div></div>
+        <div class="rstep"><span class="dot wait"></span><div><div class="nm">Step Outline</div></div></div>
+        <div class="rstep"><span class="dot wait"></span><div><div class="nm">Draft</div></div></div>
+        <div class="rstep"><span class="dot wait"></span><div><div class="nm">Coverage</div></div></div>
+      </div>
+      <div class="canvas">
+        <div class="chead">
+          <div style="flex:1"><h2>Beats</h2><div class="stg">the only stage in focus · finished stages live in the rail</div></div>
+          <div class="vcluster">
+            <span class="dver"><button class="vnav">&#8249;</button>v2/2<button class="vnav" disabled>&#8250;</button></span>
+            <button class="dicon" title="Generate another take">&#10227;</button>
+            <button class="appr"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6L9 17l-5-5"/></svg>Approve</button>
+          </div>
+        </div>
+        <div class="cscroll">
+          <div class="hidegen"><div class="paper"><div class="pin">
+            <p>Antara spends a full day in concealment with Shayboob, mapping the killing-ground corridor, composing, remembering. A fragment surfaces: Shaddad calling him by name for the first time — not slave, not boy, but <i>Antara</i> — the name he now carries into the compound. He sends Shayboob to the eastern wall and enters alone.</p>
+            <p style="color:#7a756a;font-size:13px">&#9632;&nbsp; The Ordeal — the quiet before the climax; the weight of the name makes the coming test land with full force.</p>
+          </div><div class="pfoot">7 / 10</div></div></div>
+          <div class="showgen"><div class="paper"><div class="pin">
+            <div class="genline" style="margin-bottom:16px"><span class="spinr"></span> Breaking the story into scenes… 12 / 30</div>
+            <div class="skel" style="width:95%"></div><div class="skel" style="width:82%"></div><div class="skel" style="width:90%"></div><div class="skel" style="width:58%"></div>
+          </div></div></div>
+        </div>
+        <div class="cfoot">
+          <div class="hidegen" style="display:flex;gap:12px;align-items:center;width:100%">
+            <button class="gbtn">Generate Scenes <span class="ar">&#8594;</span></button>
+            <button class="gbtn ghost sm">Compare v1 &#8646; v2</button>
+            <span class="hint">Advance stays docked here — always one place</span>
+          </div>
+          <div class="showgen" style="display:flex;gap:12px;align-items:center;width:100%">
+            <div style="flex:1"><div class="genline" style="margin-bottom:8px"><span class="spinr"></span> Generating Scenes — reading live progress from the model</div><div class="prog"><i></i></div></div>
+            <button class="gbtn ghost sm">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="notes">
+  <div class="note"><h4>Both use the directions-screen buttons</h4><ul>
+    <li><b>Primary</b> = the gold <i>outline</i> button with the sliding <span style="color:var(--gold2)">&#8594;</span> ("Generate Scenes") — exactly the "Develop this →" button.</li>
+    <li><b>Version + regenerate</b> = bare gold <span style="color:#C6A463">&#8249; v2/2 &#8250;</span> and <span style="color:var(--gold2)">&#10227;</span> (spins while working) — no boxed buttons.</li>
+    <li><b>Mark</b> = the gold gradient square (&#10022;) from the directions header.</li>
+    <li>Tab underline gone; Advance is contextual, not top-right; live progress everywhere (toggle it).</li>
+  </ul></div>
+  <div class="note"><h4>A vs Hybrid</h4><ul>
+    <li><b>Option A</b> — rail + canvas, the Advance under the active stage. Simple and direct.</li>
+    <li><b>Hybrid</b> — adds C's <b>thin top progress line</b> + a <b>docked Advance</b> that never moves, and B's <b>focus</b> (only the active stage in the centre; finished ones stay in the rail). Best of all three.</li>
+    <li>Tell me which (or tweak: e.g. "Hybrid but lose the top line") and I'll build it to the live system with the real version-switch / regenerate / approve and live scene progress.</li>
+  </ul></div>
+</div>
+</div>
+
+<script>
+var seg=document.getElementById('seg');
+seg.addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;
+  [].forEach.call(seg.children,function(x){x.classList.remove('on')});b.classList.add('on');
+  ['A','M'].forEach(function(o){document.getElementById('opt'+o).classList.toggle('on',o===b.dataset.o)});});
+var gt=document.getElementById('gentog');
+gt.addEventListener('click',function(){gt.classList.toggle('on');var on=gt.classList.contains('on');
+  [].forEach.call(document.querySelectorAll('.demo'),function(d){d.classList.toggle('gen',on)});
+  [].forEach.call(document.querySelectorAll('.topbar'),function(t){t.classList.toggle('showgen',on)});});
+</script>
+</body></html>

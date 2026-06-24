@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>TFM · Call Sheet — Layout Options</title>
+<style>
+  :root{--navy:#16203a;--ink:#1a1a1a;--gold:#b78a2e;--gold-soft:#f6efdd;--line:#d9d9de;--muted:#6b7280;--red:#b91c1c;--red-soft:#fdf3f3;--ok:#157a4a;--ok-soft:#e7f4ec;--warn:#9a6a00;--warn-soft:#fbf2dc;--bg:#eceef2}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);font-family:"Helvetica Neue",Arial,sans-serif;color:var(--ink)}
+  .bar{position:sticky;top:0;z-index:50;background:var(--navy);color:#fff;display:flex;align-items:center;gap:14px;padding:10px 18px;flex-wrap:wrap}
+  .bar h1{font-size:14px;margin:0;font-weight:800;letter-spacing:.02em}
+  .bar .sp{flex:1}
+  .seg{display:flex;gap:4px;background:rgba(255,255,255,.08);padding:4px;border-radius:10px}
+  .seg button{background:transparent;border:none;color:#cfd4df;font:inherit;font-size:12px;font-weight:700;padding:7px 13px;border-radius:7px;cursor:pointer}
+  .seg button.on{background:var(--gold);color:#1a1407}
+  .pr{background:#fff;color:var(--navy);border:none;border-radius:8px;padding:8px 14px;font:inherit;font-size:12px;font-weight:800;cursor:pointer}
+  .hint{font-size:11px;color:#aab2c4;width:100%}
+  .stage{display:flex;justify-content:center;padding:22px 14px 60px}
+  .sheet{display:none;background:#fff;width:820px;max-width:100%;padding:30px 32px;box-shadow:0 6px 30px rgba(0,0,0,.14);font-size:9.6px;line-height:1.32}
+  .sheet.active{display:block}
+  table{border-collapse:collapse;width:100%}
+  .tag{display:inline-block;font-size:8px;font-weight:800;padding:1px 6px;border-radius:999px;letter-spacing:.03em}
+  .t-sw{background:var(--ok-soft);color:var(--ok)}.t-w{background:#eef;color:#3340a0}.t-h{background:#f1f1f1;color:#777}.t-f{background:var(--warn-soft);color:var(--warn)}
+
+  /* ============ OPTION A — CLASSIC HOLLYWOOD ONE-SHEET ============ */
+  #A{font-size:9.4px;color:#111}
+  #A .hd{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;border-bottom:2.5px solid #111;padding-bottom:8px}
+  #A .hd .ttl{font-size:18px;font-weight:800;letter-spacing:.02em}
+  #A .hd .meta{font-size:9px;color:#444}
+  #A .daybox{border:2px solid #111;text-align:center;padding:5px 14px}
+  #A .daybox b{font-size:15px;display:block}
+  #A .co{ text-align:right;font-size:9px;color:#333}
+  #A .crow{display:grid;grid-template-columns:repeat(6,1fr);border:1px solid #111;border-top:none}
+  #A .crow div{padding:5px 6px;border-right:1px solid #111;text-align:center}
+  #A .crow div:last-child{border-right:none}
+  #A .crow .k{font-size:7.5px;text-transform:uppercase;color:#555;letter-spacing:.04em}
+  #A .crow .v{font-size:12px;font-weight:800}
+  #A .trio{display:grid;grid-template-columns:1.2fr 1fr .9fr;gap:0;margin-top:10px;border:1px solid #111}
+  #A .trio>div{padding:6px 8px;border-right:1px solid #111}
+  #A .trio>div:last-child{border-right:none}
+  #A .lbl{font-size:7.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#111;margin-bottom:2px}
+  #A .lbl.red{color:var(--red)}
+  #A h3{font-size:9px;text-transform:uppercase;letter-spacing:.06em;margin:12px 0 0;background:#111;color:#fff;padding:3px 7px}
+  #A table.grid{border:1px solid #111}
+  #A table.grid th{background:#ececec;border:1px solid #111;padding:3px 5px;font-size:7.6px;text-transform:uppercase;text-align:left}
+  #A table.grid td{border:1px solid #ccc;padding:3px 5px;font-size:9px;vertical-align:top}
+  #A .cast td{border:1px solid #bbb}
+  #A .crewgrid{columns:3;column-gap:10px;margin-top:4px}
+  #A .deptblk{break-inside:avoid;margin-bottom:7px;border:1px solid #ccc}
+  #A .deptblk .dh{background:#111;color:#fff;font-size:8px;font-weight:800;text-transform:uppercase;padding:2px 6px}
+  #A .deptblk .r{display:flex;justify-content:space-between;gap:6px;padding:2px 6px;border-top:1px solid #eee;font-size:8.6px}
+  #A .deptblk .r b{font-weight:700}
+  #A .deptblk .r .cl{font-weight:800}
+  #A .foot2{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid #111;margin-top:10px}
+  #A .foot2>div{padding:6px 8px;border-right:1px solid #111}
+  #A .foot2>div:last-child{border-right:none}
+  #A .legend{font-size:8px;color:#555;margin-top:3px}
+
+  /* ============ OPTION B — MODERN CLUSTERED (BRANDED) ============ */
+  #B{color:#1d2433}
+  #B .hd{background:var(--navy);color:#fff;border-radius:12px;padding:14px 18px;display:flex;align-items:center;gap:14px}
+  #B .hd .ttl{font-size:19px;font-weight:800}
+  #B .hd .sub{font-size:10px;color:#b9c2d6;margin-top:2px}
+  #B .hd .day{margin-left:auto;background:var(--gold);color:#231a06;border-radius:10px;padding:7px 14px;text-align:center;font-weight:800}
+  #B .hd .day small{display:block;font-size:8px;font-weight:700;color:#3f3208}
+  #B .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-top:12px}
+  #B .kpi{background:var(--gold-soft);border-radius:9px;padding:7px 8px;text-align:center}
+  #B .kpi .k{font-size:7.6px;text-transform:uppercase;font-weight:800;color:#8a6a1f}
+  #B .kpi .v{font-size:13px;font-weight:800;color:var(--navy)}
+  #B .two{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+  #B .card{border:1px solid var(--line);border-radius:11px;overflow:hidden}
+  #B .card .ch{padding:8px 12px;font-size:10px;font-weight:800;color:var(--navy);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:6px}
+  #B .card.red .ch{color:var(--red);background:var(--red-soft)}
+  #B .card .cb{padding:10px 12px}
+  #B .card .cb b{font-size:11px}
+  #B .sec{font-size:11px;font-weight:800;color:var(--navy);margin:14px 0 6px;display:flex;align-items:center;gap:7px}
+  #B .sec::after{content:"";flex:1;height:2px;background:var(--gold-soft)}
+  #B table.z th{text-align:left;font-size:8px;text-transform:uppercase;color:#7a8499;padding:6px 8px;border-bottom:2px solid var(--gold-soft)}
+  #B table.z td{padding:6px 8px;border-bottom:1px solid #eef0f4;font-size:9.4px}
+  #B table.z tr:nth-child(even) td{background:#fafbfd}
+  #B .crewmason{columns:3;column-gap:10px}
+  #B .dept{break-inside:avoid;border:1px solid var(--line);border-radius:9px;margin-bottom:8px;overflow:hidden}
+  #B .dept .dh{background:var(--navy);color:#fff;font-size:8.4px;font-weight:800;text-transform:uppercase;padding:4px 9px}
+  #B .dept .r{display:flex;justify-content:space-between;gap:6px;padding:3px 9px;font-size:8.8px;border-top:1px solid #f0f1f5}
+  #B .dept .r .nm b{display:block}
+  #B .dept .r .nm small{color:var(--muted)}
+  #B .dept .r .cl{font-weight:800;color:var(--navy)}
+  #B .callout{border-left:3px solid var(--gold);background:var(--gold-soft);border-radius:8px;padding:9px 12px;margin-top:10px;font-size:9px}
+  #B .callout.red{border-color:var(--red);background:var(--red-soft)}
+
+  /* ============ OPTION C — TWO-COLUMN BROADSHEET ============ */
+  #C{color:#16181d}
+  #C .hd{display:flex;align-items:flex-end;gap:10px;border-bottom:3px double #16203a;padding-bottom:6px}
+  #C .hd .ttl{font-size:17px;font-weight:800;letter-spacing:.01em;color:var(--navy)}
+  #C .hd .sub{font-size:9px;color:#555}
+  #C .hd .day{margin-left:auto;text-align:right;font-size:9px}
+  #C .hd .day b{font-size:13px;display:block;color:var(--navy)}
+  #C .cols{display:grid;grid-template-columns:1.55fr 1fr;gap:14px;margin-top:10px}
+  #C .sec{font-size:8.6px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#fff;background:var(--navy);padding:3px 7px;margin:10px 0 4px}
+  #C .sec.gold{background:var(--gold);color:#211807}
+  #C .sec:first-child{margin-top:0}
+  #C table.g th{background:#f0f1f4;border-bottom:1.5px solid var(--navy);text-align:left;font-size:7.6px;text-transform:uppercase;padding:3px 5px}
+  #C table.g td{border-bottom:1px solid #e7e8ec;padding:3px 5px;font-size:9px;vertical-align:top}
+  #C table.g tr:nth-child(even) td{background:#fafafb}
+  #C .mini{border:1px solid var(--line);border-radius:7px;padding:7px 9px;margin-bottom:8px}
+  #C .mini .k{font-size:7.6px;font-weight:800;text-transform:uppercase;color:var(--muted)}
+  #C .mini b{color:var(--navy)}
+  #C .mini.red{border-color:#f0cccc;background:var(--red-soft)}
+  #C .mini.red .k{color:var(--red)}
+  #C .dept{margin-bottom:6px}
+  #C .dept .dh{font-size:8px;font-weight:800;text-transform:uppercase;color:var(--navy);border-bottom:1px solid var(--gold);padding-bottom:1px;margin-bottom:2px}
+  #C .dept .r{display:flex;justify-content:space-between;gap:6px;font-size:8.6px;padding:1px 0}
+  #C .dept .r .cl{font-weight:800}
+  #C .fullrow{margin-top:12px}
+  #C .legend{font-size:8px;color:#666;margin-top:2px}
+
+  @media print{
+    @page{size:A4 portrait;margin:8mm}
+    .bar{display:none}.stage{padding:0}
+    body{background:#fff}
+    .sheet{box-shadow:none;width:auto;padding:0}
+    .sheet:not(.active){display:none}
+  }
+</style>
+</head>
+<body>
+  <div class="bar">
+    <h1>📋 Call Sheet — Layout Options</h1>
+    <div class="seg" id="seg">
+      <button data-opt="A" class="on">A · Classic one-sheet</button>
+      <button data-opt="B">B · Modern clustered</button>
+      <button data-opt="C">C · Broadsheet (2-col)</button>
+    </div>
+    <span class="sp"></span>
+    <button class="pr" onclick="window.print()">🖨 Print active</button>
+    <div class="hint">Same data, three clusterings — note how each makes the <b>cast</b> a dense full-width grid and breaks <b>crew</b> into a multi-column department grid (the current report's main fixes). Pick one and I'll wire it into the live print page.</div>
+  </div>
+  <div class="stage">
+
+  <!-- =================== OPTION A =================== -->
+  <section class="sheet active" id="A">
+    <div class="hd">
+      <div><div class="ttl">DESERT CROSSING</div><div class="meta">PRD-2026-0016 · Feature · The Film Makers FZ LLC</div></div>
+      <div class="daybox"><b>DAY 12 / 28</b><span>Tue 16 Jun 2026</span></div>
+      <div class="co"><b>The Film Makers FZ LLC</b><br/>Unit Production Office<br/>+971 2 555 0100</div>
+    </div>
+    <div class="crow">
+      <div><div class="k">Crew Call</div><div class="v">05:30</div></div>
+      <div><div class="k">Shooting Call</div><div class="v">07:00</div></div>
+      <div><div class="k">Est. Wrap</div><div class="v">19:30</div></div>
+      <div><div class="k">Sunrise</div><div class="v">05:35</div></div>
+      <div><div class="k">Sunset</div><div class="v">19:09</div></div>
+      <div><div class="k">Weather</div><div class="v">43°/32°</div></div>
+    </div>
+    <div class="trio">
+      <div><div class="lbl">📍 Location</div><b>Qasr Al Hosn — East Court</b><br/>Al Hosn, Abu Dhabi<br/><span style="color:#555">Parking: north service road · Basecamp 400m</span></div>
+      <div><div class="lbl red">🚑 Nearest Hospital</div><b>Sheikh Khalifa Medical City</b><br/>Al Karamah St · ~12 min<br/><span style="color:var(--red);font-weight:700">+971 2 381 9000</span></div>
+      <div><div class="lbl">Key Contacts</div>Dir · K. Al Hashimi<br/>1st AD · M. Ferreira<br/>LP · D. Haddad · Transport · R. Al Mansoori</div>
+    </div>
+
+    <h3>Shooting Schedule</h3>
+    <table class="grid">
+      <thead><tr><th style="width:42px">Time</th><th style="width:44px">Scene</th><th style="width:26px">I/E</th><th style="width:26px">D/N</th><th>Set / Description</th><th style="width:40px">Pages</th><th style="width:46px">Cast</th><th style="width:96px">Location</th></tr></thead>
+      <tbody>
+        <tr><td><b>07:00</b></td><td>24A</td><td>EXT</td><td>D</td><td>Nabil arrives at the fort gates at dawn</td><td>1 2/8</td><td>1</td><td>East Court</td></tr>
+        <tr><td><b>09:30</b></td><td>24B</td><td>EXT</td><td>D</td><td>Confrontation with the guards</td><td>2 4/8</td><td>1, 3</td><td>East Court</td></tr>
+        <tr><td><b>14:00</b></td><td>31</td><td>INT</td><td>D</td><td>Layla waits in the watchtower</td><td>1 6/8</td><td>2</td><td>Watchtower set</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Cast</h3>
+    <table class="grid cast">
+      <thead><tr><th style="width:20px">#</th><th>Artist / Character</th><th style="width:34px">Status</th><th style="width:38px">P/U</th><th style="width:38px">M/U</th><th style="width:42px">Wardr.</th><th style="width:40px">On Set</th><th>Remarks</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td><b>Yousef Daher</b> · NABIL</td><td>SW</td><td>05:00</td><td>06:00</td><td>06:30</td><td><b>07:00</b></td><td>VIP pickup — Saadiyat</td></tr>
+        <tr><td>2</td><td><b>Mariam Saleh</b> · LAYLA</td><td>W</td><td>11:30</td><td>12:00</td><td>12:30</td><td><b>14:00</b></td><td>—</td></tr>
+        <tr><td>3</td><td><b>Tariq Hassan</b> · SAMI</td><td>SWF</td><td>07:30</td><td>08:00</td><td>08:20</td><td><b>09:30</b></td><td>Released by 18:00</td></tr>
+      </tbody>
+    </table>
+    <div class="legend">Status: SW Start-Work · W Work · H Hold · F Finish · SWF Start-Work-Finish</div>
+
+    <h3>Atmosphere / Background &amp; Stand-ins</h3>
+    <table class="grid"><tbody>
+      <tr><td>Fort guards <b>×8</b></td><td style="width:60px">Call 06:30</td><td>Basecamp</td><td>Costume from Wardrobe truck</td></tr>
+      <tr><td>Market crowd <b>×20</b></td><td>Call 08:00</td><td>Holding tent</td><td>Period dressing</td></tr>
+    </tbody></table>
+
+    <h3>Crew Call — by Department</h3>
+    <div class="crewgrid">
+      <div class="deptblk"><div class="dh">Production</div>
+        <div class="r"><b>1st AD · M. Ferreira</b><span class="cl">05:30</span></div>
+        <div class="r"><b>2nd AD · L. Park</b><span class="cl">05:30</span></div>
+        <div class="r"><b>UPM · S. Cardoso</b><span class="cl">06:00</span></div>
+        <div class="r"><b>Script · J. Eze</b><span class="cl">06:30</span></div></div>
+      <div class="deptblk"><div class="dh">Camera</div>
+        <div class="r"><b>DoP · H. Larsson</b><span class="cl">06:15</span></div>
+        <div class="r"><b>1st AC · A. Noor</b><span class="cl">06:15</span></div>
+        <div class="r"><b>2nd AC · B. Cole</b><span class="cl">06:15</span></div>
+        <div class="r"><b>DIT · R. Patel</b><span class="cl">06:30</span></div></div>
+      <div class="deptblk"><div class="dh">Grip</div>
+        <div class="r"><b>Key Grip · P. Novak</b><span class="cl">06:00</span></div>
+        <div class="r"><b>Dolly · T. Reed</b><span class="cl">06:00</span></div></div>
+      <div class="deptblk"><div class="dh">Electric</div>
+        <div class="r"><b>Gaffer · S. Rahman</b><span class="cl">06:00</span></div>
+        <div class="r"><b>Best Boy · Y. Fadel</b><span class="cl">06:00</span></div>
+        <div class="r"><b>Genny · K. Darwish</b><span class="cl">05:45</span></div></div>
+      <div class="deptblk"><div class="dh">Sound</div>
+        <div class="r"><b>Mixer · L. Wei</b><span class="cl">06:45</span></div>
+        <div class="r"><b>Boom · M. Sand</b><span class="cl">06:45</span></div></div>
+      <div class="deptblk"><div class="dh">Art</div>
+        <div class="r"><b>PD · N. Costa</b><span class="cl">05:30</span></div>
+        <div class="r"><b>Art Dir · O. Zayed</b><span class="cl">05:30</span></div>
+        <div class="r"><b>Props · H. Nasser</b><span class="cl">06:00</span></div></div>
+      <div class="deptblk"><div class="dh">Costume / HMU</div>
+        <div class="r"><b>Cost. Sup · F. Yusuf</b><span class="cl">05:30</span></div>
+        <div class="r"><b>Key HMU · R. Saeed</b><span class="cl">05:30</span></div></div>
+      <div class="deptblk"><div class="dh">Locations</div>
+        <div class="r"><b>LM · H. Ali</b><span class="cl">05:00</span></div>
+        <div class="r"><b>Unit · F. Omar</b><span class="cl">05:00</span></div></div>
+      <div class="deptblk"><div class="dh">Transport</div>
+        <div class="r"><b>Captain · R. Al Mansoori</b><span class="cl">04:45</span></div>
+        <div class="r"><b>Driver · I. Khan</b><span class="cl">05:00</span></div></div>
+    </div>
+
+    <div class="foot2">
+      <div><div class="lbl">Advance — Day 13 · Al Wathba Dunes</div>06:30 Sc40 EXT Caravan crosses dunes (golden hr) · 10:00 Sc41 EXT Sandstorm (SFX wind) · 16:30 Sc42 EXT Camp at dusk</div>
+      <div><div class="lbl red">⚠ Safety &amp; Walkie</div>Heat protocol — shade + electrolytes/90 min, medic on set. Dust at fort: eye protection. Walkies — Ch1 Prod · Ch2 Cam/Grip/Elec · Ch3 Transport · Ch4 AD/BG.</div>
+    </div>
+  </section>
+
+  <!-- =================== OPTION B =================== -->
+  <section class="sheet" id="B">
+    <div class="hd">
+      <div><div class="ttl">DESERT CROSSING</div><div class="sub">PRD-2026-0016 · Feature · The Film Makers FZ LLC</div></div>
+      <div class="day">DAY 12<small>of 28 · Tue 16 Jun</small></div>
+    </div>
+    <div class="kpis">
+      <div class="kpi"><div class="k">Crew Call</div><div class="v">05:30</div></div>
+      <div class="kpi"><div class="k">Shoot</div><div class="v">07:00</div></div>
+      <div class="kpi"><div class="k">Wrap</div><div class="v">19:30</div></div>
+      <div class="kpi"><div class="k">Sunrise</div><div class="v">05:35</div></div>
+      <div class="kpi"><div class="k">Sunset</div><div class="v">19:09</div></div>
+      <div class="kpi"><div class="k">Hi / Lo</div><div class="v">43°/32°</div></div>
+    </div>
+    <div class="two">
+      <div class="card"><div class="ch">📍 Location</div><div class="cb"><b>Qasr Al Hosn — East Court</b><br/>Al Hosn, Abu Dhabi<br/><span style="color:var(--muted)">Parking: north service road · Basecamp 400m from set</span></div></div>
+      <div class="card red"><div class="ch">🚑 Nearest Hospital</div><div class="cb"><b>Sheikh Khalifa Medical City</b><br/>Al Karamah St · ~12 min drive<br/><b style="color:var(--red)">+971 2 381 9000</b></div></div>
+    </div>
+
+    <div class="sec">🎬 Shooting Schedule</div>
+    <div class="card"><table class="z">
+      <thead><tr><th>Time</th><th>Sc</th><th>I/E·D/N</th><th>Description</th><th>Pgs</th><th>Cast</th><th>Location</th></tr></thead>
+      <tbody>
+        <tr><td><b>07:00</b></td><td>24A</td><td>EXT·D</td><td>Nabil arrives at the fort gates at dawn</td><td>1²⁄₈</td><td>1</td><td>East Court</td></tr>
+        <tr><td><b>09:30</b></td><td>24B</td><td>EXT·D</td><td>Confrontation with the guards</td><td>2⁴⁄₈</td><td>1,3</td><td>East Court</td></tr>
+        <tr><td><b>14:00</b></td><td>31</td><td>INT·D</td><td>Layla waits in the watchtower</td><td>1⁶⁄₈</td><td>2</td><td>Watchtower</td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="sec">🎭 Cast</div>
+    <div class="card"><table class="z">
+      <thead><tr><th>#</th><th>Artist / Character</th><th>Status</th><th>Pickup</th><th>HMU</th><th>Wardrobe</th><th>On Set</th><th>Remarks</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td><b>Yousef Daher</b><br/><span style="color:var(--muted)">NABIL</span></td><td><span class="tag t-sw">SW</span></td><td>05:00</td><td>06:00</td><td>06:30</td><td><b>07:00</b></td><td>VIP pickup — Saadiyat</td></tr>
+        <tr><td>2</td><td><b>Mariam Saleh</b><br/><span style="color:var(--muted)">LAYLA</span></td><td><span class="tag t-w">W</span></td><td>11:30</td><td>12:00</td><td>12:30</td><td><b>14:00</b></td><td>—</td></tr>
+        <tr><td>3</td><td><b>Tariq Hassan</b><br/><span style="color:var(--muted)">SAMI</span></td><td><span class="tag t-f">SWF</span></td><td>07:30</td><td>08:00</td><td>08:20</td><td><b>09:30</b></td><td>Released 18:00</td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="sec">👷 Crew — by Department</div>
+    <div class="crewmason">
+      <div class="dept"><div class="dh">Production</div>
+        <div class="r"><div class="nm"><b>M. Ferreira</b><small>1st AD</small></div><div class="cl">05:30</div></div>
+        <div class="r"><div class="nm"><b>L. Park</b><small>2nd AD</small></div><div class="cl">05:30</div></div>
+        <div class="r"><div class="nm"><b>S. Cardoso</b><small>UPM</small></div><div class="cl">06:00</div></div></div>
+      <div class="dept"><div class="dh">Camera</div>
+        <div class="r"><div class="nm"><b>H. Larsson</b><small>DoP</small></div><div class="cl">06:15</div></div>
+        <div class="r"><div class="nm"><b>A. Noor</b><small>1st AC</small></div><div class="cl">06:15</div></div>
+        <div class="r"><div class="nm"><b>R. Patel</b><small>DIT</small></div><div class="cl">06:30</div></div></div>
+      <div class="dept"><div class="dh">Grip</div>
+        <div class="r"><div class="nm"><b>P. Novak</b><small>Key Grip</small></div><div class="cl">06:00</div></div>
+        <div class="r"><div class="nm"><b>T. Reed</b><small>Dolly</small></div><div class="cl">06:00</div></div></div>
+      <div class="dept"><div class="dh">Electric</div>
+        <div class="r"><div class="nm"><b>S. Rahman</b><small>Gaffer</small></div><div class="cl">06:00</div></div>
+        <div class="r"><div class="nm"><b>Y. Fadel</b><small>Best Boy</small></div><div class="cl">06:00</div></div></div>
+      <div class="dept"><div class="dh">Sound</div>
+        <div class="r"><div class="nm"><b>L. Wei</b><small>Mixer</small></div><div class="cl">06:45</div></div>
+        <div class="r"><div class="nm"><b>M. Sand</b><small>Boom</small></div><div class="cl">06:45</div></div></div>
+      <div class="dept"><div class="dh">Art</div>
+        <div class="r"><div class="nm"><b>N. Costa</b><small>PD</small></div><div class="cl">05:30</div></div>
+        <div class="r"><div class="nm"><b>H. Nasser</b><small>Props</small></div><div class="cl">06:00</div></div></div>
+      <div class="dept"><div class="dh">Costume / HMU</div>
+        <div class="r"><div class="nm"><b>F. Yusuf</b><small>Costume Sup</small></div><div class="cl">05:30</div></div>
+        <div class="r"><div class="nm"><b>R. Saeed</b><small>Key HMU</small></div><div class="cl">05:30</div></div></div>
+      <div class="dept"><div class="dh">Locations</div>
+        <div class="r"><div class="nm"><b>H. Ali</b><small>LM</small></div><div class="cl">05:00</div></div></div>
+      <div class="dept"><div class="dh">Transport</div>
+        <div class="r"><div class="nm"><b>R. Al Mansoori</b><small>Captain</small></div><div class="cl">04:45</div></div>
+        <div class="r"><div class="nm"><b>I. Khan</b><small>Driver</small></div><div class="cl">05:00</div></div></div>
+    </div>
+
+    <div class="callout">📅 <b>Advance — Day 13 · Al Wathba Dunes:</b> 06:30 Sc40 Caravan crosses dunes (golden hour) · 10:00 Sc41 Sandstorm — SFX wind · 16:30 Sc42 Camp at dusk. Company move after wrap.</div>
+    <div class="callout red">⚠ <b>Safety &amp; Comms:</b> Heat protocol — shade + electrolytes every 90 min, medic on set, hydration marshals. Dust at fort: eye protection. Walkies — Ch1 Prod · Ch2 Cam/Grip/Elec · Ch3 Transport · Ch4 AD/BG.</div>
+  </section>
+
+  <!-- =================== OPTION C =================== -->
+  <section class="sheet" id="C">
+    <div class="hd">
+      <div><div class="ttl">DESERT CROSSING</div><div class="sub">PRD-2026-0016 · Feature · The Film Makers FZ LLC</div></div>
+      <div class="day"><b>DAY 12 / 28</b>Tuesday 16 June 2026</div>
+    </div>
+    <div class="cols">
+      <!-- LEFT: schedule + cast -->
+      <div>
+        <div class="sec">Shooting Schedule</div>
+        <table class="g">
+          <thead><tr><th style="width:38px">Time</th><th style="width:34px">Sc</th><th style="width:40px">I/E·D/N</th><th>Set / Description</th><th style="width:32px">Pgs</th><th style="width:34px">Cast</th></tr></thead>
+          <tbody>
+            <tr><td><b>07:00</b></td><td>24A</td><td>EXT·D</td><td>Nabil arrives at the fort gates (dawn) — East Court</td><td>1 2/8</td><td>1</td></tr>
+            <tr><td><b>09:30</b></td><td>24B</td><td>EXT·D</td><td>Confrontation with the guards — East Court</td><td>2 4/8</td><td>1,3</td></tr>
+            <tr><td><b>14:00</b></td><td>31</td><td>INT·D</td><td>Layla waits in the watchtower — Watchtower set</td><td>1 6/8</td><td>2</td></tr>
+          </tbody>
+        </table>
+
+        <div class="sec gold">Cast</div>
+        <table class="g">
+          <thead><tr><th style="width:16px">#</th><th>Artist / Character</th><th style="width:30px">St.</th><th style="width:34px">P/U</th><th style="width:34px">M/U</th><th style="width:38px">Set</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td><b>Yousef Daher</b> · NABIL</td><td>SW</td><td>05:00</td><td>06:00</td><td><b>07:00</b></td></tr>
+            <tr><td>2</td><td><b>Mariam Saleh</b> · LAYLA</td><td>W</td><td>11:30</td><td>12:00</td><td><b>14:00</b></td></tr>
+            <tr><td>3</td><td><b>Tariq Hassan</b> · SAMI</td><td>SWF</td><td>07:30</td><td>08:00</td><td><b>09:30</b></td></tr>
+          </tbody>
+        </table>
+        <div class="legend">SW Start-Work · W Work · H Hold · SWF Start-Work-Finish. P/U pickup · M/U makeup.</div>
+
+        <div class="sec">Atmosphere / Background</div>
+        <table class="g"><tbody>
+          <tr><td>Fort guards <b>×8</b></td><td style="width:54px">06:30</td><td>Basecamp</td></tr>
+          <tr><td>Market crowd <b>×20</b></td><td>08:00</td><td>Holding</td></tr>
+        </tbody></table>
+
+        <div class="sec gold">Advance — Day 13 · Al Wathba Dunes</div>
+        <table class="g"><tbody>
+          <tr><td style="width:38px"><b>06:30</b></td><td>Sc40 EXT — Caravan crosses dunes (golden hr)</td></tr>
+          <tr><td><b>10:00</b></td><td>Sc41 EXT — Sandstorm, the map is lost (SFX wind)</td></tr>
+          <tr><td><b>16:30</b></td><td>Sc42 EXT — Camp at dusk</td></tr>
+        </tbody></table>
+      </div>
+
+      <!-- RIGHT: logistics + crew -->
+      <div>
+        <div class="mini"><div class="k">Call Times</div><b>Crew 05:30</b> · Shoot 07:00 · Wrap 19:30<br/>Sunrise 05:35 · Sunset 19:09 · 43°/32° hazy</div>
+        <div class="mini"><div class="k">📍 Location</div><b>Qasr Al Hosn — East Court</b><br/>Al Hosn, Abu Dhabi<br/>Parking: north service road · Basecamp 400m</div>
+        <div class="mini red"><div class="k">🚑 Nearest Hospital</div><b>Sheikh Khalifa Medical City</b><br/>~12 min · <b style="color:var(--red)">+971 2 381 9000</b></div>
+        <div class="mini"><div class="k">Key Contacts</div>Dir K. Al Hashimi · 1st AD M. Ferreira<br/>LP D. Haddad · Transport R. Al Mansoori</div>
+
+        <div class="sec">Crew Call — by Dept</div>
+        <div class="dept"><div class="dh">Production</div>
+          <div class="r"><span>1st AD · M. Ferreira</span><span class="cl">05:30</span></div>
+          <div class="r"><span>2nd AD · L. Park</span><span class="cl">05:30</span></div>
+          <div class="r"><span>UPM · S. Cardoso</span><span class="cl">06:00</span></div></div>
+        <div class="dept"><div class="dh">Camera</div>
+          <div class="r"><span>DoP · H. Larsson</span><span class="cl">06:15</span></div>
+          <div class="r"><span>1st AC · A. Noor</span><span class="cl">06:15</span></div>
+          <div class="r"><span>DIT · R. Patel</span><span class="cl">06:30</span></div></div>
+        <div class="dept"><div class="dh">Grip / Electric</div>
+          <div class="r"><span>Key Grip · P. Novak</span><span class="cl">06:00</span></div>
+          <div class="r"><span>Gaffer · S. Rahman</span><span class="cl">06:00</span></div>
+          <div class="r"><span>Genny · K. Darwish</span><span class="cl">05:45</span></div></div>
+        <div class="dept"><div class="dh">Sound</div>
+          <div class="r"><span>Mixer · L. Wei</span><span class="cl">06:45</span></div>
+          <div class="r"><span>Boom · M. Sand</span><span class="cl">06:45</span></div></div>
+        <div class="dept"><div class="dh">Art / Costume / HMU</div>
+          <div class="r"><span>PD · N. Costa</span><span class="cl">05:30</span></div>
+          <div class="r"><span>Costume · F. Yusuf</span><span class="cl">05:30</span></div>
+          <div class="r"><span>Key HMU · R. Saeed</span><span class="cl">05:30</span></div></div>
+        <div class="dept"><div class="dh">Locations / Transport</div>
+          <div class="r"><span>LM · H. Ali</span><span class="cl">05:00</span></div>
+          <div class="r"><span>Captain · R. Al Mansoori</span><span class="cl">04:45</span></div></div>
+      </div>
+    </div>
+
+    <div class="fullrow">
+      <div class="sec gold">⚠ Safety &amp; Communications</div>
+      <div style="font-size:9px">Heat protocol — shade tents + electrolytes every 90 min, medic on set, hydration marshals. Dust at the fort: eye protection on the gate scenes. Walkie channels — <b>Ch1</b> Production · <b>Ch2</b> Camera/Grip/Electric · <b>Ch3</b> Transport · <b>Ch4</b> AD/Background. Company move to Al Wathba after wrap.</div>
+    </div>
+  </section>
+
+  </div>
+<script>
+  document.getElementById('seg').addEventListener('click',function(e){
+    var b=e.target.closest('button'); if(!b) return;
+    var opt=b.dataset.opt;
+    this.querySelectorAll('button').forEach(function(x){x.classList.toggle('on',x===b)});
+    document.querySelectorAll('.sheet').forEach(function(s){s.classList.toggle('active',s.id===opt)});
+    window.scrollTo(0,0);
+  });
+</script>
+</body>
+</html>

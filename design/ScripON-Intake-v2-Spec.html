@@ -1,0 +1,179 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ScripON — Adapt/Develop Intake v2 (research-backed spec)</title>
+<style>
+:root{--bg:#0b0c0f;--panel:#14161c;--panel2:#191c23;--hair:rgba(255,255,255,.08);--gold:#C6A463;--gold2:#E6D2A2;--ink:#1a1509;--cream:#F4EEE0;--text:#E7E3D8;--mut:#9aa1ab;--faint:#6b727d;--blue:#5b8def;--green:#57b368;--amber:#e0a23b;--red:#e5635f;--violet:#8b7cf0}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:radial-gradient(1200px 700px at 50% -10%,#15171d,#0b0c0f 60%);color:var(--text);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.55;-webkit-font-smoothing:antialiased;padding:0 0 70px}
+.wrap{max-width:1060px;margin:0 auto;padding:0 22px}
+header{padding:44px 0 18px;border-bottom:1px solid var(--hair);margin-bottom:26px}
+.eyebrow{font-size:11px;font-weight:700;letter-spacing:2px;color:var(--gold);text-transform:uppercase}
+h1{font-size:30px;font-weight:800;color:var(--cream);letter-spacing:-.4px;margin:8px 0 4px}
+.sub{font-size:15px;color:var(--mut);max-width:780px}
+h2{font-size:20px;font-weight:800;color:var(--cream);margin:34px 0 12px;padding-top:14px;border-top:1px solid var(--hair)}
+h3{font-size:15px;font-weight:700;color:var(--gold2);margin:18px 0 7px}
+p{margin:8px 0}
+.mut{color:var(--mut)} .cite{color:var(--faint);font-size:12px}
+.card{background:linear-gradient(180deg,var(--panel),#121419);border:1px solid var(--hair);border-radius:14px;padding:16px 18px;margin:12px 0}
+.lit{border-color:rgba(198,164,99,.4)}
+.warn{border-color:rgba(229,99,95,.45);background:rgba(229,99,95,.05)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
+.chip{font-size:12px;font-weight:600;color:var(--gold2);background:rgba(198,164,99,.13);border:1px solid rgba(198,164,99,.3);border-radius:999px;padding:5px 11px}
+.chip.b{color:#a9c4f7;background:rgba(91,141,239,.12);border-color:rgba(91,141,239,.35)}
+.chip.v{color:#c3b6f5;background:rgba(139,124,240,.12);border-color:rgba(139,124,240,.35)}
+.chip.g{color:#9fe3c0;background:rgba(87,179,104,.12);border-color:rgba(87,179,104,.35)}
+.pill{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.4px;padding:2px 8px;border-radius:999px;margin-right:5px}
+.t-new{background:rgba(87,179,104,.16);color:var(--green)} .t-keep{background:rgba(91,141,239,.16);color:var(--blue)} .t-guard{background:rgba(229,99,95,.16);color:var(--red)}
+table{width:100%;border-collapse:collapse;margin:10px 0;font-size:12.5px}
+th,td{text-align:left;padding:7px 9px;border-bottom:1px solid var(--hair);vertical-align:top}
+th{color:var(--gold);font-size:10.5px;letter-spacing:.5px;text-transform:uppercase}
+td.c{color:var(--mut)}
+ul{margin:6px 0 6px 18px}li{margin:3px 0}
+.kbd{font-family:"Courier Prime",ui-monospace,monospace;font-size:12px;background:#0e1014;border:1px solid var(--hair);border-radius:6px;padding:1px 6px;color:var(--gold2)}
+.flow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:10px 0}
+.step{background:#171a20;border:1px solid var(--hair);border-radius:9px;padding:7px 11px;font-size:12.5px;font-weight:600;color:var(--cream)}
+.arr{color:var(--faint)}
+.foot{margin-top:40px;padding-top:16px;border-top:1px solid var(--hair);color:var(--faint);font-size:11.5px;line-height:1.7}
+</style></head><body><div class="wrap">
+
+<header>
+<div class="eyebrow">ScripON · Studio · intake v2 — research-backed</div>
+<h1>The Adapt/Develop intake, made deep and safe</h1>
+<p class="sub">Synthesis of 5 research passes (genre/tone/blend · settings/worlds · culture/era + sacred guardrails · web ingestion · targets/intent) into a concrete build spec for the new intake — including your asks: more genres, blend layers beyond fantasy, culture/era, target dropdowns, budget scope, settings, project intent, a website source, named/savable/resettable builds, and promoting a finished build into a new or existing project. Next step after sign-off: Figma → code.</p>
+</header>
+
+<h2>1 · Creative blend — expanded, and the "layer" generalised</h2>
+<p class="mut">Research model (StudioBinder/MasterClass/Wikipedia): a story has a <b>base genre</b> (the noun) and you can stack <b>overlay layers</b> (the spice) on top — "in <i>romantic suspense</i>, suspense is the base, romantic is the overlay." So the screen's "fantasy layer" becomes a general <b>blend layer</b>, with fantasy as one option.</p>
+<div class="card lit">
+<h3>Base genre <span class="pill t-keep">single-select</span></h3>
+<div class="chips"><span class="chip">Action</span><span class="chip">Adventure</span><span class="chip">Animation</span><span class="chip">Comedy</span><span class="chip">Crime</span><span class="chip">Documentary</span><span class="chip">Drama</span><span class="chip">Family</span><span class="chip">Fantasy</span><span class="chip">Historical</span><span class="chip">Horror</span><span class="chip">Musical</span><span class="chip">Mystery</span><span class="chip">Romance</span><span class="chip">Sci-Fi</span><span class="chip">Thriller</span><span class="chip">War</span><span class="chip">Western</span><span class="chip">Experimental</span></div>
+<p class="cite">+ dependent Subgenre dropdown (e.g. Crime→ heist/gangster/courtroom/detective; Horror→ slasher/supernatural/found-footage; Sci-Fi→ space-opera/cyberpunk/dystopian; Fantasy→ high/urban/dark/myth). StudioBinder 90+ tree; Plottr loads a structure per subgenre.</p>
+<h3>Blend / overlay layers <span class="pill t-new">multi-select — this is the generalised "add a layer"</span></h3>
+<div class="chips"><span class="chip b">+ Horror</span><span class="chip b">+ Thriller</span><span class="chip b">+ Comedy</span><span class="chip b">+ Romance</span><span class="chip b">+ Mystery</span><span class="chip b">+ Noir</span><span class="chip b">+ War</span><span class="chip b">+ Satire</span><span class="chip b">+ Musical</span><span class="chip b">+ Sci-Fi</span><span class="chip b">+ Fantasy</span><span class="chip b">+ Western</span></div>
+<p class="cite">Picking <b>+ Fantasy</b> (or a Mythological base) reveals the fantasy sub-controls (type · mythical elements · mythology/culture · realistic↔mythic dial) from the hero mock. Any layer can spice any base (Get Out = thriller+horror+satire; Pan's Labyrinth = fantasy+war).</p>
+<h3>Tone &amp; Mood <span class="pill t-keep">two separate multi-selects</span></h3>
+<p class="cite">Tone = the filmmaker's attitude; Mood = what the audience feels — keep them distinct (No Film School).</p>
+<div class="chips"><span class="chip">Dark</span><span class="chip">Gritty</span><span class="chip">Comedic</span><span class="chip">Satirical</span><span class="chip">Ironic</span><span class="chip">Romantic</span><span class="chip">Whimsical</span><span class="chip">Melancholic</span><span class="chip">Nostalgic</span><span class="chip">Suspenseful</span><span class="chip">Foreboding</span><span class="chip">Hopeful</span><span class="chip">Bittersweet</span><span class="chip">Epic</span><span class="chip">Intimate</span><span class="chip">Surreal</span><span class="chip">Absurd</span><span class="chip">Tragic</span><span class="chip">Deadpan</span><span class="chip">Campy</span></div>
+<h3>Treatment / style <span class="pill t-new">how it's told — own dropdown</span></h3>
+<div class="chips"><span class="chip">Linear</span><span class="chip">Nonlinear</span><span class="chip">Real-time</span><span class="chip">Anthology</span><span class="chip">Mockumentary</span><span class="chip">Found-footage</span><span class="chip">Epistolary</span></div>
+</div>
+
+<h2>2 · Setting &amp; world — with per-chip "research online"</h2>
+<p class="mut">Research model: setting = <b>place × era × (real | speculative)</b>. Research-online defaults ON for real places/eras (accuracy matters), OFF for invented worlds (author-defined).</p>
+<div class="card">
+<h3>Real geography / natural <span class="cite">(research ON by default)</span></h3>
+<div class="chips"><span class="chip g">Urban / city</span><span class="chip g">Town / suburb</span><span class="chip g">Rural / village</span><span class="chip">Forest / jungle</span><span class="chip">Desert</span><span class="chip">Sea / coast / underwater</span><span class="chip">Mountain / alpine</span><span class="chip">Arctic / tundra</span><span class="chip g">Island</span><span class="chip">River / wetland</span><span class="chip">Grassland / savanna</span><span class="chip">Cave / underground</span><span class="chip g">Farmland</span></div>
+<h3>Era <span class="cite">(pair with place; research ON for historical)</span></h3>
+<div class="chips"><span class="chip">Ancient</span><span class="chip">Medieval</span><span class="chip">Early-modern</span><span class="chip">Industrial / Victorian</span><span class="chip">Modern / present</span><span class="chip">Near-future</span><span class="chip">Far-future</span></div>
+<h3>Speculative / other worlds <span class="cite">(research OFF by default)</span></h3>
+<div class="chips"><span class="chip v">Secondary / fantasy world</span><span class="chip v">Parallel / alternate world</span><span class="chip v">Space — planet</span><span class="chip v">Space — moon / colony</span><span class="chip v">Space — station / ship</span><span class="chip v">Interstellar / galactic</span><span class="chip v">Post-apocalyptic</span><span class="chip v">Dystopia</span><span class="chip v">Underwater civilisation</span><span class="chip v">Virtual / cyberspace</span><span class="chip v">Dream / mind</span></div>
+<h3>Mixed</h3>
+<div class="chips"><span class="chip">Real + fantasy (portal/urban)</span><span class="chip">Earth + space</span><span class="chip">Multi-era / time-travel</span><span class="chip">Multiverse</span></div>
+<p class="cite">Per-location field set (World Anvil / Campfire / Plottr converge): name · type · era · short description · climate · landmarks · parent-region (nesting) · research-flag · notes.</p>
+</div>
+
+<h2>3 · Culture &amp; era + the SACRED guardrail <span class="pill t-guard">content safety</span></h2>
+<div class="card">
+<h3>Culture / era picker — Arab &amp; Islamic spine</h3>
+<div class="chips"><span class="chip">Arabian pre-Islam (Jahiliyya)</span><span class="chip">Prophetic era (Sira)</span><span class="chip">Rashidun</span><span class="chip">Umayyad</span><span class="chip">Abbasid / Golden Age</span><span class="chip">Al-Andalus</span><span class="chip">Ottoman</span><span class="chip">Nahda (modern awakening)</span><span class="chip">Colonial / independence</span><span class="chip">Contemporary Arab/Islamic</span></div>
+<h3>World civilisations</h3>
+<div class="chips"><span class="chip">Mesopotamian</span><span class="chip">Ancient Egyptian</span><span class="chip">Ancient Persian</span><span class="chip">Ancient Greek</span><span class="chip">Roman</span><span class="chip">Norse / Viking</span><span class="chip">Celtic</span><span class="chip">Medieval Europe</span><span class="chip">Byzantine</span><span class="chip">Chinese dynastic</span><span class="chip">Indian classical</span><span class="chip">Japanese feudal</span><span class="chip">Maya / Aztec</span><span class="chip">Inca / Andean</span><span class="chip">African kingdoms</span><span class="chip">Wholly fictional</span></div>
+</div>
+<div class="card warn">
+<h3>Sacred-content guardrails — remove gods/prophets, keep folklore <span class="pill t-guard">enforced</span></h3>
+<p class="mut">Grounded in the established film convention (Islamic aniconism; <i>The Message</i> 1976, <i>Muhammad: The Last Prophet</i> 2002, <i>Bilal</i> 2015 never depict the Prophet; <i>Ben-Hur</i>/<i>Prince of Egypt</i> never show Jesus' face / blend God's voice). The mythical-elements list <b>drops "Gods"</b>; folklore stays.</p>
+<p><b>Tier 1 — hard (always on; the AI refuses + offers the compliant alternative):</b></p>
+<ul>
+<li>Never <b>depict, name, voice, or write dialogue</b> for God / any deity, or for prophets (Muhammad, Jesus, Moses, Abraham…). Convey via narration, POV, off-screen, light/veil — the standard conventions.</li>
+<li>No <b>scripture verbatim</b> passed off as character speech; reference/paraphrase with attribution, never alter sacred text.</li>
+<li>No mockery, desecration, or sexualisation of the sacred (figures, scripture, rituals, sacred places).</li>
+</ul>
+<p><b>Tier 2 — reverence (default, adjustable):</b> revered family/companions handled with dignity (often off-screen or via a representative character); sacred places/objects depicted accurately. A "depiction-convention helper" appears when a sacred era is chosen.</p>
+<p><b>Tier 3 — explicitly allowed (don't over-block):</b> <span class="chip v">Djinn</span><span class="chip v">Ghoul</span><span class="chip v">Ifrit</span><span class="chip v">Marid</span> and mythical beasts (Qur'anically/folklore-affirmed, not objects of worship); all human/historical characters (caliphs, poets, soldiers); religion as theme/setting.</p>
+<p class="cite">Enforcement: each era carries a <span class="kbd">sensitivityTier</span>; Prophetic/early-Islamic auto-enable Tier-1. A prophet/deity name-list triggers redirect-not-refusal. Baked into the intake steer that runs on every stage; a human-review flag on borderline scenes before export.</p>
+</div>
+
+<h2>4 · Targets — real dropdowns, territory-aware <span class="pill t-new">research-backed</span></h2>
+<div class="card">
+<table>
+<tr><th>Field</th><th>Dropdown values</th></tr>
+<tr><td>Format</td><td class="c">Feature · Limited series · TV series · Short · Vertical micro-drama · TVC/commercial · Documentary · Web series · Anthology · Pilot · Stage adaptation</td></tr>
+<tr><td>Language</td><td class="c">English · Arabic · Mandarin · Hindi · Spanish · French · Japanese · Korean · Turkish · Persian · … (top ~25)</td></tr>
+<tr><td>Market</td><td class="c">US · UK · GCC · MENA · India · China · Europe · LATAM · SE Asia · … </td></tr>
+<tr><td>Rating <span class="pill t-new">switches by market+format</span></td><td class="c">Theatrical board by market — US MPA (G/PG/PG-13/R/NC-17) · UK BBFC (U/PG/12A/15/18) · KSA GCAM (G/PG/PG12/PG15/R15/R18) · UAE (G/PG/PG13/PG15/15+/18+/21+) … <b>or</b> TV/streaming tiers (TV-Y…TV-MA / 7+…18+) when format is series/streaming.</td></tr>
+</table>
+<h3>Project intent <span class="pill t-new">drives a clearance flag</span></h3>
+<div class="chips"><span class="chip">Biopic</span><span class="chip">Docudrama</span><span class="chip">Historical drama</span><span class="chip">Tribute</span><span class="chip">True-crime</span><span class="chip">Faith-based</span><span class="chip">Satire</span><span class="chip">Parody</span><span class="chip">Apolitical</span><span class="chip">Political</span></div>
+<p class="cite">Biopic/Docudrama/True-crime → auto-surface a "real-person clearance · life-rights · script-clearance" checklist (defamation is strict-liability; subject sign-off largely removes the claim). Political vs Apolitical → bias/disclosure flag.</p>
+</div>
+
+<h2>5 · Budget scope <span class="pill t-new">the moat — budget-aware development</span></h2>
+<div class="card"><p>A budget tier the AI keeps in mind while writing (consolidate locations, cap night shoots/VFX/cast). Chips: <span class="chip">Micro &lt;$1M</span><span class="chip">Low $1–5M</span><span class="chip">Mid $5–20M</span><span class="chip">Studio $20M+</span><span class="chip">Set a number…</span> + max locations / cast size. Already wired into the steer (<span class="kbd">constraints</span>); this surfaces it as first-class. No standalone tool can do budget-aware development — only TFM has the production data.</p></div>
+
+<h2>6 · Source v2 — website + HTML files <span class="pill t-new">deep-think</span></h2>
+<div class="card">
+<p>Adapt gains two real source types beyond paste/upload: <b>a website URL</b> (e.g. "everything about this character is on this site") and <b>HTML file</b> upload. The backend fetches → extracts clean readable text → feeds the AI; optionally light-crawls a few internal pages.</p>
+<p><b>Recommended stack (verified June 2026):</b> <span class="kbd">@mozilla/readability</span>+<span class="kbd">jsdom</span> (or <span class="kbd">@extractus/article-extractor</span> — takes a URL <i>or</i> HTML string, lighter) for extraction; <span class="kbd">Crawlee</span> CheerioCrawler for the optional light crawl (<span class="kbd">maxRequestsPerCrawl</span>, <span class="kbd">maxCrawlDepth</span>, same-hostname, robots opt-in). <span class="pill t-guard">avoid</span> @postlight/parser &amp; unfluff (abandoned, cheerio 0.22).</p>
+<p><b>Security (must-do, per OWASP):</b> SSRF guard — resolve all A/AAAA records, block private/reserved/metadata <span class="kbd">169.254.169.254</span>; <span class="kbd">maxRedirects:0</span> (redirects bypass the check); size + timeout caps on the decompressed stream; robots.txt is advisory (RFC 9309) so respect it + rate-limit; ToS/copyright are separate from access — only fetch what the user pasted, store source+timestamp for provenance. HTML upload runs the same extractor with zero network egress.</p>
+</div>
+
+<h2>7 · Named, savable, navigable builds + stage reset <span class="pill t-new">deep-think</span></h2>
+<div class="card">
+<p>Today there's one implicit pipeline per project. Your ask: name a build, save it, switch between several Adapt/Develop builds, and reset a stage. New structure:</p>
+<div class="flow"><span class="step">DevelopmentBuild (named)</span><span class="arr">⊃</span><span class="step">IntakeProfile (the brief)</span><span class="arr">+</span><span class="step">DevelopmentStages → versions</span></div>
+<ul>
+<li><b>New build</b> → asks for a <b>name</b> (e.g. "Antara — mythic cut") + opens the intake.</li>
+<li><b>Build switcher</b> (like the project pill): list + switch between builds on the same project; each remembers its intake + ladder.</li>
+<li><b>Reset a stage</b> → clears that stage's versions (and optionally everything downstream) so you can regenerate from a clean rung; the build + earlier stages stay.</li>
+<li><b>Save</b> is automatic (persisted) — builds survive reload and are listable.</li>
+</ul>
+<p class="cite">Data model: new standalone <span class="kbd">DevelopmentBuild { id, name, status, createdAt }</span> (no project at birth — see §8); add <span class="kbd">buildId</span> to <span class="kbd">IntakeProfile</span> + <span class="kbd">DevelopmentStage</span> (so multiple builds can run unattached). Reset = delete a stage's StageVersions (+ optional cascade downstream). One db:push.</p>
+</div>
+
+<h2>8 · Promotion — link a finished build into a project <span class="pill t-new">lifecycle</span></h2>
+<p class="mut">Builds are born <b>unlinked</b>. Development/adaptation is optionality — many cheap, disposable, resettable builds in flight; a <i>project</i> is a commitment that drags heavy machinery (budget · schedule · breakdown · crew · GL · call sheets). Attaching a project at logline/treatment stage spawns junk projects and pollutes financials, so a build carries no project until <b>you</b> decide it is ready — which is also what keeps the governance split clean (standalone develop = no approval workflow; project-level changes = approval).</p>
+<div class="card lit">
+<h3>The promote action <span class="pill t-keep">deliberate, not automatic</span></h3>
+<div class="flow"><span class="step">Standalone build</span><span class="arr">→</span><span class="step">Draft / Greenlit</span><span class="arr">→</span><span class="step">Promote</span><span class="arr">→</span><span class="step">Add to existing project</span><span class="arr">or</span><span class="step">Start new project</span><span class="arr">→</span><span class="step">Script Library · master rev</span></div>
+<p>Available at any rung but <b>nudged at Draft+</b> (you usually promote a draft or a greenlit treatment, but the system will not hard-block an early greenlight). Two destinations:</p>
+<ul>
+<li><b>Add to an existing project</b> → the script lands in that project's <span class="kbd">Script Library</span> as a master script; breakdown / schedule / budget then run off it.</li>
+<li><b>Start a new project from it</b> → spins up the project shell and seeds it with the script + metadata in one step.</li>
+</ul>
+</div>
+<div class="card">
+<h3>What transfers at promotion</h3>
+<table>
+<tr><th>Carried into the project</th><th>Stays on the build</th></tr>
+<tr><td class="c">The chosen <b>locked StageVersion</b> → the project's first master revision (e.g. WHITE draft); title · format/genre · logline; the intake <b>creative brief</b> (tone · setting · culture · comps · budget tier · intent); coverage if generated; a provenance back-link to the originating build.</td><td class="c">The full stage/version <b>scratch history</b> (loglines, alternate treatments, rejected drafts) — linked for lineage, not dumped into the clean project.</td></tr>
+</table>
+</div>
+<div class="card">
+<h3>Snapshot, not live sync <span class="pill t-new">the one real decision — recommended</span></h3>
+<p>Promotion takes a <b>frozen copy</b>. After linking, further work happens as <b>project revisions</b>; if you keep developing the build, you can <b>"push an updated draft"</b> as an explicit action that re-promotes into the same project. Two-way live sync is deliberately rejected — it creates reconciliation conflicts (which side wins when both edit?). One-way snapshot keeps lineage clean and still lets you re-push.</p>
+<p class="cite">Build status lifecycle: <span class="chip">Draft</span><span class="chip b">Review / Coverage</span><span class="chip g">Greenlit / Ready</span><span class="chip v">Promoted (Linked to project)</span>. A build links to <b>at most one</b> project (1:1); re-promoting updates that project rather than creating a second link.</p>
+</div>
+<div class="card">
+<h3>Data model</h3>
+<p><span class="kbd">DevelopmentBuild</span> becomes truly standalone (no required <span class="kbd">projectId</span> at birth) and gains <span class="kbd">status</span> plus the link fields <span class="kbd">linkedProjectId?</span> · <span class="kbd">linkedScriptId?</span> · <span class="kbd">promotedVersionId?</span> · <span class="kbd">promotedAt?</span>. The existing <span class="kbd">promoteToScript</span> service extends to (a) run from a standalone build, (b) optionally create the destination project, and (c) write the snapshot + provenance. No live binding back to the build after promotion.</p>
+</div>
+
+<h2>9 · Data model &amp; phased plan</h2>
+<div class="card">
+<p><b>Schema (one db:push):</b> standalone <span class="kbd">DevelopmentBuild</span> (nullable project link · <span class="kbd">status</span> · <span class="kbd">linkedProjectId/linkedScriptId/promotedVersionId/promotedAt</span>); <span class="kbd">buildId</span> on IntakeProfile + DevelopmentStage; IntakeProfile += <span class="kbd">blendLayers</span> Json, <span class="kbd">treatment</span>, <span class="kbd">settingPlace/era/world</span> Json, <span class="kbd">cultureEra</span>, <span class="kbd">sensitivityTier</span>, <span class="kbd">guardrails</span> Json, <span class="kbd">projectIntent</span>, <span class="kbd">budgetTier</span>, <span class="kbd">sourceKind</span> (paste|file|url|html). Backend: web-ingestion service (extract+crawl+SSRF), guardrail injected into the steer (Tier-1 hard rules + era tier), build CRUD + stage-reset + promote(existing|new project) with snapshot + provenance.</p>
+<table>
+<tr><th>Phase</th><th>Scope</th></tr>
+<tr><td>V1 — intake v2 fields</td><td class="c">Expanded genre/tone/blend-layers/treatment, setting/world, culture/era + budget + intent dropdowns, into IntakeProfile + steer.</td></tr>
+<tr><td>V2 — guardrails</td><td class="c">Sacred ruleset (Tier 1–3) bound to era tier; remove "Gods"; redirect-not-refuse; review flag.</td></tr>
+<tr><td>V3 — web source</td><td class="c">URL ingestion (readability + SSRF guard + caps) + HTML upload + optional light crawl.</td></tr>
+<tr><td>V4 — named builds</td><td class="c">DevelopmentBuild + buildId + switcher + new-build naming + stage reset.</td></tr>
+<tr><td>V5 — promotion</td><td class="c">Standalone build → promote into an existing or new project; snapshot the chosen version as the first master revision + provenance back-link; build status lifecycle; "push updated draft" re-promote.</td></tr>
+<tr><td>V6 — Figma → code</td><td class="c">Design the full intake + build-switcher + promote screens (desktop/tablet/mobile) in Figma to the theme, approve, then code to it.</td></tr>
+</table>
+</div>
+
+<div class="foot">
+<b>Sources (selected, verified):</b> studiobinder.com (movie genres / subgenre / setting / world-building / film-noir) · masterclass.com (subgenres / film tone) · nofilmschool.com (mood vs tone) · en.wikipedia.org (hybrid genre / nonlinear / found-footage / aniconism in Islam / The Message / Muhammad The Last Prophet / Jinn / docudrama / limited series) · metmuseum.org (figural representation) · npr.org (The Message) · commonsensemedia.org (Bilal) · britannica.com (Jahiliyya / Pan-Arabism) · chabad.org, 1517.org, learnreligions.com (Jewish/Christian aniconism) · World Anvil / Campfire / Plottr docs (world fields) · National Geographic biomes · Wattpad / SciFi Ideas / Dabble (speculative settings) · @mozilla/readability, @extractus/article-extractor, Crawlee, OWASP SSRF Cheat Sheet, RFC 9309, request-filtering-agent (web ingestion) · MPA/BBFC/FSK/CNC/CBFC/GCAM/UAE rating boards · Stewarts/Screen Daily (biopic defamation) · Freedom Forum / MTSU (satire/parody) · Final Draft / Vitrina (micro-drama). Multi-source adversarial verification; the prophets/deities guardrail is grounded in documented film practice and handled respectfully.
+<br><br>ScripON intake v2 · research synthesis · for sign-off before Figma → code.
+</div>
+
+</div></body></html>

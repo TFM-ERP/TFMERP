@@ -1,0 +1,317 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ScripON · Develop — Redesign Options</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b0c0f;--chrome:#121419;--panel:#14161c;--panel2:#1a1d24;--hair:rgba(255,255,255,.07);--hair2:rgba(255,255,255,.13);--gold:#C6A463;--gold2:#E6D2A2;--goldink:#1a1509;--cream:#F4EEE0;--text:#E8E6E0;--mute:#9aa1ab;--faint:#6b727d;--blue:#5b8def;--green:#57b368;--amber:#e0a23b;--red:#e5635f;--paper:#F7F4EC;--ink:#23231f}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(1100px 560px at 50% -10%,#15171d,#0b0c0f 60%);color:var(--text);font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;padding:0 0 80px}
+.wrap{max-width:1240px;margin:0 auto;padding:0 22px}
+/* top control bar */
+.bar{position:sticky;top:0;z-index:20;background:rgba(11,12,15,.86);backdrop-filter:blur(10px);border-bottom:1px solid var(--hair);padding:14px 0;margin-bottom:22px}
+.bar .wrap{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.brand{font-size:12px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--gold)}
+.brand small{display:block;font-weight:600;letter-spacing:.3px;text-transform:none;color:var(--mute);font-size:11px;margin-top:2px}
+.seg{display:inline-flex;background:#171a20;border:1px solid var(--hair);border-radius:11px;padding:3px;gap:2px;margin-left:auto}
+.seg button{border:none;background:transparent;color:var(--mute);font:inherit;font-size:12.5px;font-weight:600;padding:7px 14px;border-radius:8px;cursor:pointer}
+.seg button.on{background:linear-gradient(180deg,var(--gold2),var(--gold));color:var(--goldink)}
+.toggle{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:var(--mute);cursor:pointer;user-select:none;border:1px solid var(--hair);border-radius:10px;padding:7px 12px;background:#13151b}
+.toggle .sw{width:34px;height:19px;border-radius:99px;background:#2a2e37;position:relative;transition:.2s}
+.toggle .sw:after{content:"";position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:50%;background:#9aa1ab;transition:.2s}
+.toggle.on .sw{background:rgba(198,164,99,.55)}.toggle.on .sw:after{left:17px;background:var(--gold2)}
+.toggle.on{color:var(--gold2);border-color:rgba(198,164,99,.4)}
+/* app frame */
+.frame{background:#0c0d10;border:1px solid var(--hair2);border-radius:18px;overflow:hidden;box-shadow:0 40px 90px -30px rgba(0,0,0,.8)}
+.opt{display:none}.opt.on{display:block}
+.cap{margin:0 0 12px;font-size:13px;color:var(--mute)}.cap b{color:var(--cream)}
+/* TAB STRIP — clean, NO underline rule */
+.tabs{display:flex;align-items:center;gap:8px;padding:12px 16px;background:linear-gradient(180deg,#101218,#0c0d10)}
+.tab{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--mute);padding:8px 14px;border-radius:10px;cursor:pointer;border:1px solid transparent}
+.tab.on{color:var(--gold2);background:rgba(198,164,99,.12);border-color:rgba(198,164,99,.32)}
+.tab .i{width:15px;height:15px;display:inline-block}
+.spacer{flex:1}
+.ghosttop{font-size:11.5px;color:var(--faint)}
+/* clean GOLD version control (replaces ugly  <- V1 -> +) */
+.vctl{display:inline-flex;align-items:center;gap:9px}
+.vctl .chev{color:#9a8456;cursor:pointer;font-size:15px;line-height:1;transition:.15s;background:none;border:none;padding:0}
+.vctl .chev:hover{color:var(--gold2);transform:scale(1.15)}
+.vctl .chev[disabled]{opacity:.25;cursor:default;transform:none}
+.vctl .vnum{font-size:11.5px;font-weight:700;color:var(--gold2);letter-spacing:.3px}
+.vctl .ico{color:#9a8456;cursor:pointer;font-size:14px;line-height:1;transition:.15s;background:none;border:none;padding:0}
+.vctl .ico:hover{color:var(--gold2);transform:scale(1.15) rotate(-8deg)}
+.vctl .appr{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;color:var(--green);cursor:pointer;border:none;background:none}
+.vctl .appr svg{width:13px;height:13px}
+/* manuscript paper */
+.paper{background:var(--paper);color:var(--ink);border-radius:10px;box-shadow:0 18px 44px -18px rgba(0,0,0,.6),inset 5px 0 0 -3px rgba(0,0,0,.06);overflow:hidden}
+.paper .pin{padding:30px 40px;font-family:Fraunces,Georgia,serif;font-size:15px;line-height:1.85;letter-spacing:.1px;max-width:70ch;margin:0 auto}
+.paper .pin p{margin:0 0 16px}
+.paper .pfoot{text-align:right;color:#9a958a;font-size:10.5px;padding:0 18px 10px;font-family:Fraunces,serif}
+/* primary CTA — the Advance, now contextual */
+.cta{display:inline-flex;align-items:center;gap:9px;background:linear-gradient(180deg,var(--gold2),var(--gold));color:var(--goldink);border:none;border-radius:12px;padding:13px 20px;font:inherit;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 12px 26px -10px rgba(198,164,99,.6)}
+.cta.block{width:100%;justify-content:center}
+.cta .sp{font-size:15px}
+.btn2{display:inline-flex;align-items:center;gap:7px;background:#171a20;border:1px solid var(--hair);color:var(--mute);border-radius:11px;padding:11px 15px;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+.btn2:hover{border-color:var(--hair2);color:var(--cream)}
+/* status dots */
+.dot{width:11px;height:11px;border-radius:50%;flex:none;display:inline-grid;place-items:center;font-size:8px}
+.dot.done{background:rgba(87,179,104,.2);color:var(--green)}
+.dot.on{background:linear-gradient(160deg,var(--gold2),var(--gold));color:var(--goldink)}
+.dot.wait{background:#1b1e25;border:1px solid var(--hair)}
+/* generating bits */
+.prog{height:5px;border-radius:99px;background:#1b1e25;overflow:hidden;position:relative}
+.prog i{position:absolute;inset:0 60% 0 0;background:linear-gradient(90deg,var(--gold),var(--gold2));border-radius:99px;animation:fill 2.4s ease-in-out infinite}
+@keyframes fill{0%{right:80%}50%{right:22%}100%{right:80%}}
+.skel{height:13px;border-radius:6px;background:linear-gradient(90deg,#ece7da 25%,#f7f3ea 37%,#ece7da 63%);background-size:400% 100%;animation:sh 1.4s linear infinite;margin:0 0 12px}
+@keyframes sh{0%{background-position:100% 0}100%{background-position:0 0}}
+.genline{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--gold2);font-weight:600}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(198,164,99,.3);border-top-color:var(--gold2);border-radius:50%;animation:rot .7s linear infinite}
+@keyframes rot{to{transform:rotate(360deg)}}
+.pulse{animation:pl 1.3s ease-in-out infinite}@keyframes pl{0%,100%{box-shadow:0 0 0 0 rgba(198,164,99,.0)}50%{box-shadow:0 0 0 6px rgba(198,164,99,.18)}}
+.hidegen{display:block}.showgen{display:none}
+.demo.gen .hidegen{display:none}.demo.gen .showgen{display:block}
+/* ============ OPTION A : pipeline rail + reading canvas ============ */
+.A .body{display:grid;grid-template-columns:268px 1fr;min-height:560px}
+.A .rail{background:#0e1015;border-right:1px solid var(--hair);padding:18px 14px;display:flex;flex-direction:column;gap:3px}
+.A .rtitle{font-size:10.5px;font-weight:800;letter-spacing:1.5px;color:var(--faint);text-transform:uppercase;padding:0 8px 10px}
+.A .rstep{display:flex;align-items:center;gap:11px;padding:10px 10px;border-radius:11px;cursor:pointer;position:relative}
+.A .rstep .nm{font-size:13.5px;font-weight:600;color:var(--mute)}
+.A .rstep .sub{font-size:10.5px;color:var(--faint);margin-top:1px}
+.A .rstep.cur{background:rgba(198,164,99,.1)}
+.A .rstep.cur .nm{color:var(--gold2)}
+.A .rstep.cur:before{content:"";position:absolute;left:0;top:9px;bottom:9px;width:3px;border-radius:3px;background:var(--gold)}
+.A .rstep.dones .nm{color:#b9c0b3}
+.A .rline{flex:1}
+.A .rfoot{margin-top:auto;padding:12px 8px 2px;border-top:1px solid var(--hair)}
+.A .rfoot .lbl{font-size:11px;color:var(--faint);display:flex;justify-content:space-between;margin-bottom:7px}
+.A .rbar{height:6px;border-radius:99px;background:#1b1e25;overflow:hidden}.A .rbar i{display:block;height:100%;width:50%;background:linear-gradient(90deg,var(--gold),var(--gold2));border-radius:99px}
+.A .canvas{display:flex;flex-direction:column;min-height:0}
+.A .chead{display:flex;align-items:center;gap:14px;padding:18px 22px 14px}
+.A .chead h2{margin:0;font-size:20px;font-weight:800;color:var(--cream)}
+.A .chead .stg{font-size:11px;color:var(--faint);margin-top:2px}
+.A .cscroll{padding:0 22px;flex:1;overflow:auto}
+.A .cfoot{display:flex;align-items:center;gap:12px;padding:16px 22px;border-top:1px solid var(--hair);background:#0e1015}
+.A .cfoot .hint{font-size:12px;color:var(--faint);margin-left:auto}
+/* ============ OPTION B : focused accordion column ============ */
+.B .body{padding:24px;max-width:900px;margin:0 auto;display:flex;flex-direction:column;gap:10px;min-height:560px}
+.B .cdone{display:flex;align-items:center;gap:12px;padding:13px 16px;border-radius:13px;background:#101218;border:1px solid var(--hair);cursor:pointer}
+.B .cdone .nm{font-size:13.5px;font-weight:700;color:#c8cdc4}
+.B .cdone .ex{font-size:11.5px;color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.B .cdone .v{font-size:11px;color:var(--gold);font-weight:700}
+.B .active{border:1px solid rgba(198,164,99,.34);border-radius:16px;background:linear-gradient(180deg,rgba(198,164,99,.06),transparent 40%),#13151b;overflow:hidden}
+.B .ahead{display:flex;align-items:center;gap:13px;padding:16px 18px}
+.B .ahead .nm{font-size:16px;font-weight:800;color:var(--cream)}
+.B .abody{padding:0 18px 18px}
+.B .acta{padding:14px 18px;border-top:1px solid var(--hair);display:flex;align-items:center;gap:12px}
+.B .cwait{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:13px;border:1px dashed var(--hair2);opacity:.6}
+.B .cwait .nm{font-size:13px;font-weight:600;color:var(--faint)}
+/* ============ OPTION C : horizontal stepper + manuscript ============ */
+.C .body{padding:0;min-height:560px}
+.C .pipe{display:flex;align-items:center;gap:0;padding:20px 24px 8px;overflow:auto}
+.C .pchip{display:flex;flex-direction:column;align-items:center;gap:7px;min-width:96px;position:relative;cursor:pointer}
+.C .pchip .ring{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:800;background:#1b1e25;border:1px solid var(--hair);color:var(--faint);z-index:2}
+.C .pchip.done .ring{background:rgba(87,179,104,.18);color:var(--green);border-color:transparent}
+.C .pchip.cur .ring{background:linear-gradient(160deg,var(--gold2),var(--gold));color:var(--goldink);border-color:transparent}
+.C .pchip .pl{font-size:11px;font-weight:600;color:var(--faint)}
+.C .pchip.cur .pl{color:var(--gold2)}.C .pchip.done .pl{color:#aab0a4}
+.C .pchip:not(:last-child):after{content:"";position:absolute;top:15px;left:62%;width:76%;height:2px;background:var(--hair)}
+.C .pchip.done:after{background:rgba(87,179,104,.4)}
+.C .stage{padding:16px 24px 0;display:flex;align-items:center;gap:14px}
+.C .stage h2{margin:0;font-size:19px;font-weight:800;color:var(--cream)}
+.C .cwrap{padding:14px 24px 22px;position:relative}
+.C .dock{position:sticky;bottom:14px;display:flex;justify-content:flex-end;gap:10px;margin-top:14px;pointer-events:none}
+.C .dock>*{pointer-events:auto}
+/* notes */
+.notes{margin-top:26px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.note{background:var(--panel);border:1px solid var(--hair);border-radius:14px;padding:16px}
+.note h4{margin:0 0 10px;font-size:13px;color:var(--gold2);font-weight:800;letter-spacing:.3px}
+.note ul{margin:0;padding-left:17px;color:var(--mute);font-size:12.5px;line-height:1.65}
+.note li{margin-bottom:6px}
+.fixrow{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 0}
+.chip{font-size:11.5px;color:var(--gold2);background:rgba(198,164,99,.1);border:1px solid rgba(198,164,99,.28);border-radius:99px;padding:5px 11px}
+@media(max-width:860px){.A .body{grid-template-columns:1fr}.notes{grid-template-columns:1fr}}
+</style></head>
+<body>
+<div class="bar"><div class="wrap">
+  <div class="brand">ScripON · Develop<small>Redesign options — pick a direction</small></div>
+  <div class="seg" id="seg">
+    <button class="on" data-o="A">A · Rail + Canvas</button>
+    <button data-o="B">B · Focus Column</button>
+    <button data-o="C">C · Pipeline + Page</button>
+  </div>
+  <div class="toggle" id="gentog"><span class="sw"></span><span>Preview "generating"</span></div>
+</div></div>
+
+<div class="wrap">
+
+<!-- ================= OPTION A ================= -->
+<section class="opt on A" id="optA">
+  <p class="cap"><b>Option A — Pipeline rail + reading canvas.</b> Left tells you <b>where you are</b> in the ladder; right is just the writing. The "Advance" lives where it belongs — a clear button under the current stage.</p>
+  <div class="frame demo">
+    <div class="tabs">
+      <div class="tab"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg>Builds</div>
+      <div class="tab on"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v6m0 8v6M2 12h6m8 0h6"/></svg>Develop</div>
+      <div class="spacer"></div><div class="ghosttop">Antara — mythic cut · Feature · 3-act</div>
+    </div>
+    <div class="body">
+      <div class="rail">
+        <div class="rtitle">The ladder</div>
+        <div class="rstep dones"><span class="dot done">✓</span><div class="rline"><div class="nm">Logline</div><div class="sub">V1 · approved</div></div></div>
+        <div class="rstep dones"><span class="dot done">✓</span><div class="rline"><div class="nm">Synopsis</div><div class="sub">V1 · approved</div></div></div>
+        <div class="rstep dones"><span class="dot done">✓</span><div class="rline"><div class="nm">Treatment</div><div class="sub">V1 · approved</div></div></div>
+        <div class="rstep cur"><span class="dot on">●</span><div class="rline"><div class="nm">Beats</div><div class="sub">V2 of 2 · Save the Cat</div></div></div>
+        <div class="rstep" id="aScenes"><span class="dot wait"></span><div class="rline"><div class="nm">Scenes</div><div class="sub hidegen">ready to generate</div><div class="sub showgen" style="color:var(--gold2)">writing… scene 12 / 30</div></div></div>
+        <div class="rstep"><span class="dot wait"></span><div class="rline"><div class="nm">Step Outline</div><div class="sub">pending</div></div></div>
+        <div class="rstep"><span class="dot wait"></span><div class="rline"><div class="nm">Draft</div><div class="sub">pending</div></div></div>
+        <div class="rstep"><span class="dot wait"></span><div class="rline"><div class="nm">Coverage</div><div class="sub">pending</div></div></div>
+        <div class="rfoot"><div class="lbl"><span>Pipeline</span><span>4 / 8 stages</span></div><div class="rbar"><i></i></div></div>
+      </div>
+      <div class="canvas">
+        <div class="chead">
+          <div style="flex:1"><h2>Beats</h2><div class="stg">Stage 4 of 8 · structured on Save the Cat</div></div>
+          <div class="vctl">
+            <button class="chev">‹</button><span class="vnum">V2 / 2</span><button class="chev" disabled>›</button>
+            <button class="ico" title="Generate another take">&#10227;</button>
+            <button class="appr"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6L9 17l-5-5"/></svg>Approve</button>
+          </div>
+        </div>
+        <div class="cscroll">
+          <div class="hidegen">
+            <div class="paper"><div class="pin">
+              <p>Antara and Shayboob — Shayboob still carrying his wound — locate the Asafir herd in the fortified valley compound of a Persian-allied tribal king, a man who has heard of Antara's approach and prepared accordingly. The compound is designed to be entered only through a single visible corridor that is also a killing ground.</p>
+              <p>Rather than storm it, Antara spends a full day in concealment, mapping it, composing, remembering. A fragment surfaces: Shaddad calling him by name for the first time — not slave, not boy, but Antara — in the heat of the battle when Banu Abs stood alone. He sends Shayboob to create a diversion at the eastern wall. He enters alone.</p>
+            </div><div class="pfoot">7 / 10</div></div>
+          </div>
+          <div class="showgen">
+            <div class="paper"><div class="pin">
+              <div class="genline" style="margin-bottom:16px"><span class="spin"></span> Breaking the story into scene cards…</div>
+              <div class="skel" style="width:96%"></div><div class="skel" style="width:88%"></div><div class="skel" style="width:92%"></div><div class="skel" style="width:70%"></div>
+              <div class="skel" style="width:90%;margin-top:22px"></div><div class="skel" style="width:84%"></div><div class="skel" style="width:60%"></div>
+            </div></div>
+          </div>
+        </div>
+        <div class="cfoot hidegen">
+          <button class="cta"><span class="sp">&#10022;</span> Generate Scenes <span style="opacity:.7">→</span></button>
+          <button class="btn2">&#10227; Regenerate Beats</button>
+          <button class="btn2">Compare V1 ⇄ V2</button>
+          <span class="hint">Next stage builds on the approved Beats</span>
+        </div>
+        <div class="cfoot showgen">
+          <div style="flex:1"><div class="genline" style="margin-bottom:8px"><span class="spin"></span> Generating Scenes — this can take a minute or two</div><div class="prog"><i></i></div></div>
+          <button class="btn2">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= OPTION B ================= -->
+<section class="opt B" id="optB">
+  <p class="cap"><b>Option B — Focus column.</b> One calm column. Finished stages collapse to a single line; only the stage you're working on is open. The next stage is a clear call-to-action, not a button hiding in the corner.</p>
+  <div class="frame demo">
+    <div class="tabs">
+      <div class="tab"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg>Builds</div>
+      <div class="tab on"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v6m0 8v6M2 12h6m8 0h6"/></svg>Develop</div>
+      <div class="spacer"></div><div class="ghosttop">Antara — mythic cut · Feature · 3-act</div>
+    </div>
+    <div class="body">
+      <div class="cdone"><span class="dot done">✓</span><span class="nm">Synopsis</span><span class="ex">A warrior-poet enslaved by blood must cross enemy kingdoms…</span><span class="v">V1</span><span style="color:var(--faint)">▾</span></div>
+      <div class="cdone"><span class="dot done">✓</span><span class="nm">Treatment</span><span class="ex">Ten beats across three acts — the Najd at first light…</span><span class="v">V1</span><span style="color:var(--faint)">▾</span></div>
+      <div class="active">
+        <div class="ahead"><span class="dot on">●</span><span class="nm">Beats</span><span style="font-size:11px;color:var(--faint)">Save the Cat · stage 4 of 8</span><div style="flex:1"></div>
+          <div class="vctl"><button class="chev">‹</button><span class="vnum">V2 / 2</span><button class="chev" disabled>›</button><button class="ico" title="Generate another take">&#10227;</button><button class="appr"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6L9 17l-5-5"/></svg>Approve</button></div>
+        </div>
+        <div class="abody">
+          <div class="paper"><div class="pin">
+            <p>Antara spends a full day in concealment with Shayboob, mapping the killing-ground corridor, composing, remembering. A fragment surfaces: Shaddad calling him by name for the first time — not slave, not boy, but <i>Antara</i> — the name he now carries into the compound. He sends Shayboob to the eastern wall and enters alone.</p>
+            <p style="color:#7a756a;font-size:13px">■ The Ordeal — the quiet before the climax; the weight of the name makes the coming test land with full force.</p>
+          </div><div class="pfoot">7 / 10</div></div>
+        </div>
+        <div class="acta hidegen">
+          <button class="cta block"><span class="sp">&#10022;</span> Generate the next stage — Scenes</button>
+        </div>
+        <div class="acta showgen">
+          <div style="flex:1"><div class="genline" style="margin-bottom:8px"><span class="spin"></span> Writing scene cards… 12 / 30</div><div class="prog"><i></i></div></div><button class="btn2">Cancel</button>
+        </div>
+      </div>
+      <div class="cwait hidegen"><span class="dot wait"></span><span class="nm">Scenes</span><span style="font-size:11px;color:var(--faint)">ready · generated from approved Beats</span></div>
+      <div class="active showgen" style="border-style:dashed;border-color:rgba(198,164,99,.4)">
+        <div class="ahead"><span class="dot on pulse">●</span><span class="nm">Scenes</span><span style="font-size:11px;color:var(--gold2)">generating…</span></div>
+        <div class="abody"><div class="paper"><div class="pin"><div class="skel" style="width:94%"></div><div class="skel" style="width:80%"></div><div class="skel" style="width:90%"></div><div class="skel" style="width:64%"></div></div></div></div>
+      </div>
+      <div class="cwait"><span class="dot wait"></span><span class="nm">Step Outline</span><span style="font-size:11px;color:var(--faint)">pending</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= OPTION C ================= -->
+<section class="opt C" id="optC">
+  <p class="cap"><b>Option C — Pipeline bar + manuscript.</b> A horizontal progress bar across the top (tap any stage), the page front-and-centre below, and the "Advance" docked as a floating gold button so it's always obvious — and always in the same place.</p>
+  <div class="frame demo">
+    <div class="tabs">
+      <div class="tab"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg>Builds</div>
+      <div class="tab on"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v6m0 8v6M2 12h6m8 0h6"/></svg>Develop</div>
+      <div class="spacer"></div><div class="ghosttop">Antara — mythic cut · Feature · 3-act</div>
+    </div>
+    <div class="showgen" style="padding:0 24px"><div class="prog" style="margin:12px 0 0"><i></i></div></div>
+    <div class="body">
+      <div class="pipe">
+        <div class="pchip done"><div class="ring">✓</div><div class="pl">Logline</div></div>
+        <div class="pchip done"><div class="ring">✓</div><div class="pl">Synopsis</div></div>
+        <div class="pchip done"><div class="ring">✓</div><div class="pl">Treatment</div></div>
+        <div class="pchip cur"><div class="ring">4</div><div class="pl">Beats</div></div>
+        <div class="pchip" id="cScenes"><div class="ring">5</div><div class="pl">Scenes</div></div>
+        <div class="pchip"><div class="ring">6</div><div class="pl">Step</div></div>
+        <div class="pchip"><div class="ring">7</div><div class="pl">Draft</div></div>
+        <div class="pchip"><div class="ring">8</div><div class="pl">Coverage</div></div>
+      </div>
+      <div class="stage"><h2>Beats</h2><span style="font-size:11px;color:var(--faint)">Save the Cat</span><div style="flex:1"></div>
+        <div class="vctl"><button class="chev">‹</button><span class="vnum">V2 / 2</span><button class="chev" disabled>›</button><button class="ico" title="Generate another take">&#10227;</button><button class="appr"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6L9 17l-5-5"/></svg>Approve</button></div>
+      </div>
+      <div class="cwrap">
+        <div class="hidegen"><div class="paper"><div class="pin">
+          <p>Antara and Shayboob locate the Asafir herd in the fortified valley compound of a Persian-allied king. Rather than storm the single killing-ground corridor, Antara spends a day in concealment — mapping, composing, remembering the one time his father spoke his name. He sends Shayboob to the eastern wall and walks in alone.</p>
+        </div><div class="pfoot">7 / 10</div></div></div>
+        <div class="showgen"><div class="paper"><div class="pin"><div class="genline" style="margin-bottom:14px"><span class="spin"></span> Breaking the story into scenes… 12 / 30</div><div class="skel" style="width:95%"></div><div class="skel" style="width:82%"></div><div class="skel" style="width:90%"></div><div class="skel" style="width:58%"></div></div></div></div>
+        <div class="dock">
+          <button class="btn2 hidegen">Compare V1 ⇄ V2</button>
+          <button class="cta hidegen"><span class="sp">&#10022;</span> Generate Scenes →</button>
+          <button class="btn2 showgen">Cancel generation</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- NOTES -->
+<div class="notes">
+  <div class="note"><h4>What changed (all options)</h4><ul>
+    <li><b>No white underline</b> under Builds / Develop — active tab is a soft gold pill instead of a rule.</li>
+    <li><b>Version control</b> is now the clean gold set from the directions screen: <span style="color:var(--gold2)">‹ V2/2 ›</span> &nbsp;<span style="color:var(--gold2)">&#10227;</span> regenerate &nbsp;<span style="color:var(--green)">✓</span> approve — no boxed buttons.</li>
+    <li><b>Advance</b> is no longer a stray top-right button — it's a clear primary CTA at the current stage ("Generate Scenes").</li>
+    <li><b>Progress is visible</b> — toggle "Preview generating": pulsing node, shimmering page, a real progress bar and a live "scene 12 / 30" status.</li>
+  </ul></div>
+  <div class="note"><h4>Pick by feel</h4><ul>
+    <li><b>A · Rail + Canvas</b> — best for "where am I?" at a glance; pipeline always visible beside the writing. Most practical for long features.</li>
+    <li><b>B · Focus Column</b> — calmest; one thing at a time, finished stages tuck away. Great for reading.</li>
+    <li><b>C · Pipeline + Page</b> — most cinematic; horizontal progress + a docked Advance that never moves.</li>
+  </ul>
+  <div class="fixrow"><span class="chip">tab underline removed</span><span class="chip">gold version icons</span><span class="chip">contextual Advance</span><span class="chip">live progress</span></div>
+  </div>
+  <div class="note"><h4>Next</h4><ul>
+    <li>Tell me <b>A, B, or C</b> (or mix — e.g. "A's rail + C's docked button").</li>
+    <li>I'll build it to the locked ScripON design system and wire the real version switch, regenerate, approve and the live generation progress.</li>
+    <li>The progress bar will read the backend's real scene-by-scene status so "Advance" never looks frozen again.</li>
+  </ul></div>
+</div>
+</div>
+
+<script>
+var seg=document.getElementById('seg');
+seg.addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;
+  [].forEach.call(seg.children,function(x){x.classList.remove('on')});b.classList.add('on');
+  ['A','B','C'].forEach(function(o){document.getElementById('opt'+o).classList.toggle('on',o===b.dataset.o)});});
+var gt=document.getElementById('gentog');
+gt.addEventListener('click',function(){gt.classList.toggle('on');
+  [].forEach.call(document.querySelectorAll('.demo'),function(d){d.classList.toggle('gen',gt.classList.contains('on'))});});
+</script>
+</body></html>

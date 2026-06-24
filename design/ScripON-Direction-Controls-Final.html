@@ -1,0 +1,94 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ScripON — Directions (final)</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0C0D10;font-family:Inter,system-ui,sans-serif;color:#E8E6E0;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:30px 18px 70px}
+.glowA{position:fixed;top:-320px;left:50%;transform:translateX(-50%);width:1300px;height:900px;pointer-events:none;background:radial-gradient(circle at center,rgba(198,164,99,.16),transparent 70%)}
+.cap{position:relative;z-index:2;color:#6f654f;font-size:11px;letter-spacing:3px;font-weight:700;margin-bottom:12px}
+.dlogo{position:relative;z-index:2;width:44px;height:44px;border-radius:12px;background:linear-gradient(180deg,#E6D2A2,#C6A463);display:grid;place-items:center;margin:0 auto 12px}.dlogo span{color:#15120B;font-weight:900;font-size:14px}
+.dttl{position:relative;z-index:2;font-family:Fraunces,Georgia,serif;font-size:26px;color:#F3ECDD;margin-bottom:5px;text-align:center}
+.dsub{position:relative;z-index:2;color:#9aa1ab;font-size:13px;margin-bottom:24px;text-align:center;max-width:660px}
+.dgrid{position:relative;z-index:2;width:1430px;max-width:calc(100vw - 36px);display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.dcard{background:rgba(21,24,29,.72);border:1px solid rgba(255,255,255,.09);border-radius:16px;padding:15px 18px 16px;display:flex;flex-direction:column;gap:10px;backdrop-filter:blur(20px)}
+.dhead{display:flex;align-items:flex-start;gap:10px}
+.htext{min-width:0}
+.dlabel{font-size:11.5px;font-weight:800;letter-spacing:.6px;color:#C6A463}
+.dtitle{font-family:Fraunces,Georgia,serif;font-size:16.5px;font-weight:600;color:#F3ECDD;line-height:1.25;margin-top:2px}
+.ver{font-size:10px;color:#7c818a;font-weight:600;margin-top:3px;visibility:hidden}
+.ver.show{visibility:visible}
+/* bare character icons — no box, no border, no background, no caption */
+.tools{margin-left:auto;display:flex;gap:12px;flex:none;padding-top:1px}
+.icon{font-size:19px;line-height:1;color:#9a8456;background:none;border:none;padding:0;cursor:pointer;transition:.15s;user-select:none}
+.icon:hover{color:#E6D2A2;transform:scale(1.12)}
+.icon.on{color:#E6D2A2}
+.icon.spin{display:inline-block;animation:spin .7s linear infinite;color:#E6D2A2}
+.dlog{font-size:13.5px;line-height:1.5;color:#E8E6E0;font-weight:500;min-height:66px;transition:opacity .25s}
+.dlog.fade{opacity:.2}
+.notebox{display:none;flex-direction:column;gap:5px}
+.notebox.open{display:flex;animation:drop .2s ease}
+.notebox textarea{width:100%;min-height:50px;resize:vertical;background:#0b0c0f;border:1px solid rgba(198,164,99,.3);border-radius:9px;color:#E8E6E0;font:inherit;font-size:12px;line-height:1.5;padding:8px 9px;outline:none}
+.notebox textarea:focus{border-color:rgba(198,164,99,.6)}
+.notebox .nhint{font-size:10px;color:#7c818a}.notebox .nhint b{color:#C6A463}
+.notepill{display:none;align-items:flex-start;gap:6px;font-size:10.5px;color:#cdb98a;line-height:1.45}
+.notepill.show{display:flex}.notepill b{color:#C6A463;flex:none}
+.drow{font-size:11.5px;line-height:1.5;color:#9aa1ab}.drow b{color:#C6A463;font-weight:700;margin-right:4px}
+.dpick{margin-top:auto;height:42px;border-radius:11px;border:1px solid rgba(198,164,99,.5);background:transparent;color:#E6D2A2;font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:.18s}
+.dpick:hover{background:rgba(198,164,99,.12);border-color:rgba(198,164,99,.85)}
+.dpick .ar{transition:transform .18s}.dpick:hover .ar{transform:translateX(3px)}
+.toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%);background:#15181e;border:1px solid rgba(198,164,99,.4);color:#E6D2A2;font-size:12.5px;padding:9px 16px;border-radius:10px;opacity:0;transition:.25s;z-index:5}
+.toast.show{opacity:1}
+.legend{position:relative;z-index:2;margin-top:22px;max-width:720px;font-size:12px;color:#7c818a;line-height:1.7;text-align:center}.legend b{color:#C6A463}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes drop{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+</style></head>
+<body>
+<div class="glowA"></div>
+<div class="cap">THE FILM MAKERS · DEVELOPMENT</div>
+<div class="dlogo"><span>TFM</span></div>
+<div class="dttl">The Slave Who Earned the Sky</div>
+<div class="dsub">Research is done. Three ways to build this — pick one. ⟳ regenerates a direction; + adds a note that steers the next ⟳.</div>
+<div class="dgrid" id="grid"></div>
+<div class="legend">⟳ regenerates <b>that same direction</b> into a close new take (no note needed). + adds a note (“make the brother colder”) that the next ⟳ <b>considers</b>. <b>Develop this</b> keeps its normal action and carries the <b>version on screen</b>. The other two cards never move.</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const DIRS=[
+ {label:'FAITHFUL',title:'The Forge of the Legend',logs:[
+   'A half-Abyssinian slave is forged into a legend in a single night of violence — earning the sword, the name, and a freedom that arrives already mortgaged to his mother’s hidden kingdom.',
+   'One unarmed night against a raid remakes a slave into a legend; the sword he is finally handed is both elevation and the price of staying owned.',
+   'The chronicle, told straight: the bondsman who shames a tribe into naming him, and the blood-debt that turns his freedom into a summons south.'],
+  keep:'The historical Antara, the raid, the poet-warrior.',change:'Tightens the Aksum reveal to Act Three.',tone:'Epic, grounded, mythic-real.',risk:'Familiar beats unless freshly staged.'},
+ {label:'RECONCEIVED',title:'What the Free Man Owes',logs:[
+   'Freedom won, Antara learns the world will not stop spending him — a study of the debts a free man inherits the moment he is finally named.',
+   'The legend is the easy part; being owed by a father, a kingdom and a love at once is the war — recognition as a new kind of chain.',
+   'Named at last, Antara discovers every claimant wants their share of the free man — and freedom becomes a question of which debt he refuses.'],
+  keep:'Antara, Abla, the desert world.',change:'Re-centres the spine on obligation, not rise.',tone:'Political, layered, slow-burn.',risk:'Quieter; needs sharp scene tension.'},
+ {label:'REINVENTION',title:'The Myth-Making Machine',logs:[
+   'Told as living myth — the desert, the djinn and the tribe conspire to manufacture a legend, and the man inside it must choose to feed the machine or break it.',
+   'Folklore-forward: Antara’s impossible skill is whispered to be a gift of sand-spirits, and the story itself becomes a character building him.',
+   'A legend retold as oral myth — fire-lit, djinn at the edges, the line between the man and the story he is forced to become deliberately blurred.'],
+  keep:'The core relationships and the raid.',change:'Lifts lore to a woven, world-rule level.',tone:'Lyrical, folkloric, heightened.',risk:'Less grounded; tonal control is key.'},
+];
+const grid=document.getElementById('grid'),toast=document.getElementById('toast');
+let tt;function flash(m){toast.textContent=m;toast.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>toast.classList.remove('show'),1800);}
+DIRS.forEach((d,i)=>{
+ const c=document.createElement('div');c.className='dcard';
+ c.innerHTML=`<div class="dhead">
+   <div class="htext"><div class="dlabel">${d.label}</div><div class="dtitle">${d.title}</div><div class="ver" id="v${i}">v1</div></div>
+   <div class="tools"><span class="icon" id="note${i}" title="Add a note to steer this direction">+</span><span class="icon" id="regen${i}" title="Regenerate this direction (close take)">⟳</span></div>
+   </div>
+   <div class="dlog" id="log${i}">${d.logs[0]}</div>
+   <div class="notepill" id="pill${i}"><b>Note ▸</b>&nbsp;<span id="pt${i}"></span></div>
+   <div class="notebox" id="box${i}"><textarea id="ta${i}" placeholder="e.g. make the brother colder · more political intrigue · lean into the poetry"></textarea><div class="nhint">Type a note, then press <b>⟳</b> to regenerate with it.</div></div>
+   <div class="drow"><b>Keep</b>${d.keep}</div><div class="drow"><b>Change</b>${d.change}</div><div class="drow"><b>Tone</b>${d.tone}</div><div class="drow"><b>Risk</b>${d.risk}</div>
+   <button class="dpick" id="pick${i}">Develop this <span class="ar">→</span></button>`;
+ grid.appendChild(c);
+ let v=1;const log=c.querySelector('#log'+i),ver=c.querySelector('#v'+i),box=c.querySelector('#box'+i),nb=c.querySelector('#note'+i),rb=c.querySelector('#regen'+i),ta=c.querySelector('#ta'+i),pill=c.querySelector('#pill'+i),pt=c.querySelector('#pt'+i);
+ nb.onclick=()=>{box.classList.toggle('open');nb.classList.toggle('on');if(box.classList.contains('open'))ta.focus();};
+ rb.onclick=()=>{const note=ta.value.trim();rb.classList.add('spin');log.classList.add('fade');
+   setTimeout(()=>{v++;let n=d.logs[(v-1)%d.logs.length];if(note)n=n.replace(/\.$/,'')+' — now leaning into: '+note+'.';log.textContent=n;ver.textContent='v'+v;ver.classList.add('show');if(note){pt.textContent=note;pill.classList.add('show');}rb.classList.remove('spin');log.classList.remove('fade');},950);};
+ c.querySelector('#pick'+i).onclick=()=>flash('Develop this → '+d.label+' · '+(v>1?('v'+v):'v1')+' (your existing action, carrying this version)');
+});
+</script>
+</body></html>

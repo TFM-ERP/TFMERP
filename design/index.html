@@ -1,0 +1,93 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ScripON Doctor — Script Hub Redesign · Prototype</title><style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+:root{--bg:#0b0c0f;--panel:#14161c;--hair:rgba(255,255,255,.08);--hair2:rgba(255,255,255,.14);--gold:#C6A463;--gold2:#E6D2A2;--goldink:#1a1509;--cream:#F4EEE0;--text:#E8E6E0;--mute:#9aa1ab;--faint:#6b727d;--blue:#5b8def;--green:#57b368}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:radial-gradient(1200px 600px at 50% -8%,#15171d,#0b0c0f 60%);font-family:Inter,sans-serif;color:var(--text);-webkit-font-smoothing:antialiased;padding:56px 40px 80px;min-height:100vh}
+.head{max-width:1180px;margin:0 auto 40px}
+.logo{width:44px;height:44px;border-radius:13px;background:linear-gradient(160deg,var(--gold2),var(--gold));display:grid;place-items:center;color:var(--goldink);font-weight:800;font-size:15px;box-shadow:0 8px 24px -6px rgba(198,164,99,.5);margin-bottom:20px}
+h1{font-size:34px;font-weight:800;letter-spacing:-.8px;color:var(--cream)}
+.lede{font-size:15px;color:var(--mute);margin-top:10px;max-width:680px;line-height:1.6}
+.eyebrow{font-size:12px;font-weight:700;letter-spacing:1.6px;color:var(--gold);margin:42px 0 16px;max-width:1180px;margin-left:auto;margin-right:auto;display:block}
+.grid{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.grid.three{grid-template-columns:repeat(3,1fr);max-width:900px}
+.gc{text-decoration:none;border-radius:15px;overflow:hidden;border:1px solid var(--hair);background:var(--panel);transition:transform .15s,border-color .15s;display:block}
+.gc:hover{transform:translateY(-3px);border-color:var(--gold)}
+.gt{height:150px;padding:16px;display:flex;flex-direction:column;justify-content:flex-end;position:relative}
+.gt:before{content:"";position:absolute;inset:0;background:radial-gradient(180px 90px at 80% 12%,rgba(198,164,99,.16),transparent)}
+.gdev{font-size:10.5px;font-weight:700;letter-spacing:1px;color:var(--gold2);position:relative}
+.gnm{font-size:17px;font-weight:700;color:var(--cream);margin-top:4px;position:relative}
+.foot{max-width:1180px;margin:48px auto 0;color:var(--faint);font-size:12.5px;line-height:1.7;border-top:1px solid var(--hair);padding-top:22px}
+.star{color:var(--gold)}
+</style></head><body>
+<div class="head">
+  <div class="logo">TFM</div>
+  <h1>ScripON Doctor — Script Hub Redesign</h1>
+  <p class="lede">A from-scratch redesign of the Script Hub as a cinematic production workspace — not an admin panel. One information architecture, designed independently for desktop, tablet and mobile. Every action is surfaced as a labelled tile; nothing important is buried in three-dot menus. Click any frame to open the full hi-fi mockup.</p>
+</div>
+<span class="eyebrow">DESKTOP · FULL PLANNING (1440 × 900)</span>
+<div class="grid">
+  <a class="gc" href="dashboard.html"><div class="gt" style="background:linear-gradient(150deg,#1e2230,#12141a)"><span class="gdev">DESKTOP · COMMAND CENTRE</span><span class="gnm">Dashboard</span></div></a>
+  <a class="gc" href="library.html"><div class="gt" style="background:linear-gradient(150deg,#231d2e,#131017)"><span class="gdev">DESKTOP</span><span class="gnm">Script Library</span></div></a>
+  <a class="gc" href="ScriptHub-Reader-Desktop-HiFi.html"><div class="gt" style="background:linear-gradient(150deg,#2a2416,#14110a)"><span class="gdev">DESKTOP · CENTERPIECE</span><span class="gnm">Script Reader ★</span></div></a>
+  <a class="gc" href="breakdown.html"><div class="gt" style="background:linear-gradient(150deg,#1a2a22,#101713)"><span class="gdev">DESKTOP</span><span class="gnm">Breakdown · 6 lenses</span></div></a>
+  <a class="gc" href="doctor.html"><div class="gt" style="background:linear-gradient(150deg,#2a2416,#14110a)"><span class="gdev">DESKTOP</span><span class="gnm">Doctor · AI workspace</span></div></a>
+  <a class="gc" href="schedule.html"><div class="gt" style="background:linear-gradient(150deg,#22283a,#121419)"><span class="gdev">DESKTOP · THE LOOP</span><span class="gnm">Schedule & Budget</span></div></a>
+  <a class="gc" href="reports.html"><div class="gt" style="background:linear-gradient(150deg,#262032,#131017)"><span class="gdev">DESKTOP</span><span class="gnm">Reports & Exports</span></div></a>
+  <a class="gc" href="revisions.html"><div class="gt" style="background:linear-gradient(150deg,#2e2030,#16101a)"><span class="gdev">DESKTOP</span><span class="gnm">Revisions & Compare</span></div></a>
+</div>
+<span class="eyebrow">TABLET · REVIEW-FIRST (1112 × 834)</span>
+<div class="grid three">
+  <a class="gc" href="tablet-reader.html"><div class="gt" style="background:linear-gradient(150deg,#2a2416,#14110a)"><span class="gdev">TABLET</span><span class="gnm">Reader · Approve / Flag</span></div></a>
+  <a class="gc" href="tablet-breakdown.html"><div class="gt" style="background:linear-gradient(150deg,#1a2a22,#101713)"><span class="gdev">TABLET</span><span class="gnm">Breakdown</span></div></a>
+  <a class="gc" href="tablet-dashboard.html"><div class="gt" style="background:linear-gradient(150deg,#1e2230,#12141a)"><span class="gdev">TABLET</span><span class="gnm">Dashboard</span></div></a>
+</div>
+<span class="eyebrow">MOBILE · ON-SET (390 × 844)</span>
+<div class="grid three">
+  <a class="gc" href="mobile-reader.html"><div class="gt" style="background:linear-gradient(150deg,#2a2416,#14110a)"><span class="gdev">MOBILE</span><span class="gnm">Reader + Doctor sheet</span></div></a>
+  <a class="gc" href="mobile-breakdown.html"><div class="gt" style="background:linear-gradient(150deg,#1a2a22,#101713)"><span class="gdev">MOBILE</span><span class="gnm">Breakdown</span></div></a>
+  <a class="gc" href="mobile-dashboard.html"><div class="gt" style="background:linear-gradient(150deg,#1e2230,#12141a)"><span class="gdev">MOBILE</span><span class="gnm">Dashboard</span></div></a>
+</div>
+<span class="eyebrow">WORKFLOW &amp; GOVERNANCE · DESKTOP</span>
+<div class="grid">
+  <a class="gc" href="notes.html"><div class="gt" style="background:linear-gradient(150deg,#22283a,#121419)"><span class="gdev">DESKTOP · COLLABORATION</span><span class="gnm">Notes &amp; Collaboration</span></div></a>
+  <a class="gc" href="approvals.html"><div class="gt" style="background:linear-gradient(150deg,#1a2a22,#101713)"><span class="gdev">DESKTOP · SIGN-OFF</span><span class="gnm">Approval Workflow</span></div></a>
+  <a class="gc" href="settings.html"><div class="gt" style="background:linear-gradient(150deg,#2a2416,#14110a)"><span class="gdev">DESKTOP · GOVERNANCE</span><span class="gnm">Settings &amp; Governance</span></div></a>
+  <a class="gc" href="command-palette.html"><div class="gt" style="background:linear-gradient(150deg,#262032,#131017)"><span class="gdev">DESKTOP · OVERLAY</span><span class="gnm">Command Palette ⌘K</span></div></a>
+</div>
+<span class="eyebrow">DEVICE FRAMES · TABLET — REVIEW-FIRST (1112 × 834)</span>
+<div class="grid">
+  <a class="gc" href="tablet-library.html"><div class="gt" style="background:linear-gradient(150deg,#231d2e,#131017)"><span class="gdev">TABLET</span><span class="gnm">Library</span></div></a>
+  <a class="gc" href="tablet-doctor.html"><div class="gt" style="background:linear-gradient(150deg,#2a2416,#14110a)"><span class="gdev">TABLET</span><span class="gnm">Doctor</span></div></a>
+  <a class="gc" href="tablet-schedule.html"><div class="gt" style="background:linear-gradient(150deg,#22283a,#121419)"><span class="gdev">TABLET</span><span class="gnm">Schedule & Budget</span></div></a>
+  <a class="gc" href="tablet-reports.html"><div class="gt" style="background:linear-gradient(150deg,#262032,#131017)"><span class="gdev">TABLET</span><span class="gnm">Reports</span></div></a>
+  <a class="gc" href="tablet-revisions.html"><div class="gt" style="background:linear-gradient(150deg,#2e2030,#16101a)"><span class="gdev">TABLET</span><span class="gnm">Revisions & Compare</span></div></a>
+  <a class="gc" href="tablet-notes.html"><div class="gt" style="background:linear-gradient(150deg,#22283a,#121419)"><span class="gdev">TABLET</span><span class="gnm">Notes & Collaboration</span></div></a>
+  <a class="gc" href="tablet-approvals.html"><div class="gt" style="background:linear-gradient(150deg,#1a2a22,#101713)"><span class="gdev">TABLET</span><span class="gnm">Approval Workflow</span></div></a>
+  <a class="gc" href="tablet-settings.html"><div class="gt" style="background:linear-gradient(150deg,#2a2416,#14110a)"><span class="gdev">TABLET</span><span class="gnm">Settings & Governance</span></div></a>
+</div>
+<span class="eyebrow">DEVICE FRAMES · MOBILE — ON-SET (390 × 844)</span>
+<div class="grid">
+  <a class="gc" href="mobile-library.html"><div class="gt" style="background:linear-gradient(150deg,#231d2e,#131017)"><span class="gdev">MOBILE</span><span class="gnm">Library</span></div></a>
+  <a class="gc" href="mobile-doctor.html"><div class="gt" style="background:linear-gradient(150deg,#2a2416,#14110a)"><span class="gdev">MOBILE</span><span class="gnm">Doctor</span></div></a>
+  <a class="gc" href="mobile-schedule.html"><div class="gt" style="background:linear-gradient(150deg,#22283a,#121419)"><span class="gdev">MOBILE</span><span class="gnm">Schedule & Budget</span></div></a>
+  <a class="gc" href="mobile-reports.html"><div class="gt" style="background:linear-gradient(150deg,#262032,#131017)"><span class="gdev">MOBILE</span><span class="gnm">Reports</span></div></a>
+  <a class="gc" href="mobile-revisions.html"><div class="gt" style="background:linear-gradient(150deg,#2e2030,#16101a)"><span class="gdev">MOBILE</span><span class="gnm">Revisions & Compare</span></div></a>
+  <a class="gc" href="mobile-notes.html"><div class="gt" style="background:linear-gradient(150deg,#22283a,#121419)"><span class="gdev">MOBILE</span><span class="gnm">Notes & Collaboration</span></div></a>
+  <a class="gc" href="mobile-approvals.html"><div class="gt" style="background:linear-gradient(150deg,#1a2a22,#101713)"><span class="gdev">MOBILE</span><span class="gnm">Approval Workflow</span></div></a>
+  <a class="gc" href="mobile-settings.html"><div class="gt" style="background:linear-gradient(150deg,#2a2416,#14110a)"><span class="gdev">MOBILE</span><span class="gnm">Settings & Governance</span></div></a>
+  <a class="gc" href="mobile-cmdk.html"><div class="gt" style="background:linear-gradient(150deg,#262032,#131017)"><span class="gdev">MOBILE</span><span class="gnm">Command Palette ⌘K</span></div></a>
+</div>
+<span class="eyebrow">ENGINE P4–P7 · PROPOSED HOMES (DESKTOP)</span>
+<div class="grid">
+  <a class="gc" href="studio.html"><div class="gt" style="background:linear-gradient(150deg,#2a2416,#14110a)"><span class="gdev">P4 + P6 · STUDIO</span><span class="gnm">Develop · Adapt · Format</span></div></a>
+  <a class="gc" href="greenlight.html"><div class="gt" style="background:linear-gradient(150deg,#1a2a22,#101713)"><span class="gdev">P5 + P7 · GREENLIGHT</span><span class="gnm">Market · Audience · Cost · Decision</span></div></a>
+</div>
+<span class="eyebrow">ENGINE P4–P7 · DEVICE FRAMES</span>
+<div class="grid">
+  <a class="gc" href="tablet-studio.html"><div class="gt" style="background:linear-gradient(150deg,#20232b,#111318)"><span class="gdev">TABLET</span><span class="gnm">Studio</span></div></a>
+  <a class="gc" href="mobile-studio.html"><div class="gt" style="background:linear-gradient(150deg,#20232b,#111318)"><span class="gdev">MOBILE</span><span class="gnm">Studio</span></div></a>
+  <a class="gc" href="tablet-greenlight.html"><div class="gt" style="background:linear-gradient(150deg,#20232b,#111318)"><span class="gdev">TABLET</span><span class="gnm">Greenlight</span></div></a>
+  <a class="gc" href="mobile-greenlight.html"><div class="gt" style="background:linear-gradient(150deg,#20232b,#111318)"><span class="gdev">MOBILE</span><span class="gnm">Greenlight</span></div></a>
+</div>
+<div class="foot">ScripON Doctor design system · Inter + Courier Prime · 18 hi-fi frames · static HTML/CSS prototype. Adds Notes, Approvals, Governance & the ⌘K palette. Navigation rail: Home · Library · Reader ★ · Breakdown · Schedule · Doctor · Reports · Settings. Benchmarked against StudioBinder, Yamdu, Celtx, Notion, Linear, Arc &amp; Apple HIG.</div>
+</body></html>

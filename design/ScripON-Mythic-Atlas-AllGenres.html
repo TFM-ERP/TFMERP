@@ -1,0 +1,124 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ScripON — Atlas extended to cultural palettes (all genres)</title><style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Courier+Prime:wght@400;700&display=swap');
+:root{--bg:#0b0c0f;--panel:#14161c;--hair:rgba(255,255,255,.07);--gold:#C6A463;--gold2:#E6D2A2;--goldink:#1a1509;--cream:#F4EEE0;--text:#E8E6E0;--mute:#9aa1ab;--faint:#6b727d;--blue:#5b8def;--green:#57b368;--violet:#8b7cf0;--red:#e5635f;--teal:#46b9a8}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:radial-gradient(1200px 700px at 50% -8%,#15171d,#0b0c0f 60%);font-family:Inter,sans-serif;color:var(--text);-webkit-font-smoothing:antialiased;padding:34px;display:flex;flex-direction:column;align-items:center;gap:14px}
+.cap{color:var(--faint);font-size:12px;max-width:1180px;line-height:1.5}.cap b{color:var(--gold);font-weight:600}
+.ft{align-self:center;width:1180px;font-size:12px;font-weight:700;letter-spacing:.4px;color:var(--gold2);margin-top:10px}
+.scr{width:1180px;background:var(--bg);border:1px solid var(--hair);border-radius:16px;overflow:hidden;box-shadow:0 40px 90px -30px rgba(0,0,0,.7)}
+.ico{width:18px;height:18px;stroke:currentColor;stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.pad{padding:18px 20px;display:flex;flex-direction:column;gap:14px}
+.card{background:var(--panel);border:1px solid var(--hair);border-radius:13px;padding:15px 16px;display:flex;flex-direction:column;gap:13px}
+.bt{font-size:14px;font-weight:800;color:var(--cream);display:flex;align-items:center;gap:9px}
+.lens{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.lens .grp{font-size:9.5px;font-weight:700;letter-spacing:.5px;color:var(--faint);margin-right:2px}
+.ltab{padding:7px 13px;border-radius:8px;font-size:12px;font-weight:600;color:var(--mute);background:#15181e;border:1px solid var(--hair);cursor:pointer;display:flex;align-items:center;gap:6px}
+.ltab.seen{opacity:.5}
+.ltab.on{background:rgba(198,164,99,.16);border-color:rgba(198,164,99,.4);color:var(--gold2)}
+.ltab.ont{background:rgba(70,185,168,.14);border-color:rgba(70,185,168,.42);color:#8fe0d3}
+.div{height:1px;background:var(--hair);margin:1px 0}
+.sec{display:flex;flex-direction:column;gap:10px}
+.sech{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.sect{font-size:13px;font-weight:800;color:var(--gold2);display:flex;align-items:center;gap:8px}
+.sect .num{font-size:9.5px;font-weight:700;color:var(--faint);background:#15181e;border:1px solid var(--hair);border-radius:5px;padding:2px 7px}
+.pills{display:flex;gap:6px;flex-wrap:wrap}
+.cpill{display:inline-flex;align-items:center;gap:5px;padding:6px 11px;border-radius:999px;font-size:11px;font-weight:600;color:var(--mute);background:#171a20;border:1px solid var(--hair);cursor:pointer}
+.cpill.on{background:rgba(91,141,239,.14);border-color:rgba(91,141,239,.45);color:#a9c4f7}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
+.el{border:1px solid var(--hair);border-radius:11px;padding:11px 12px;background:#171a20;display:flex;flex-direction:column;gap:5px;min-height:108px}
+.eln{font-size:12.5px;font-weight:700;color:var(--cream)}
+.elo{font-size:9px;font-weight:700;letter-spacing:.4px;color:var(--gold);text-transform:uppercase}
+.eld{font-size:10.5px;color:var(--mute);line-height:1.42}
+.eltags{display:flex;gap:5px;flex-wrap:wrap;margin-top:auto;padding-top:3px}
+.tg{font-size:8.5px;font-weight:700;letter-spacing:.3px;border-radius:4px;padding:2px 5px}
+.tg.c{color:#e9a8a6;background:rgba(229,99,95,.12);border:1px solid rgba(229,99,95,.3)}
+.tg.s{color:#f0c38f;background:rgba(229,160,95,.14);border:1px solid rgba(229,160,95,.3)}
+.tg.n{color:#9fe3c0;background:rgba(87,179,104,.12);border:1px solid rgba(87,179,104,.3)}
+.care{display:flex;gap:9px;align-items:flex-start;background:rgba(229,99,95,.08);border:1px solid rgba(229,99,95,.3);border-radius:10px;padding:10px 12px}
+.care .ci{color:var(--red);flex:none;margin-top:1px}.care .ct{font-size:10.5px;line-height:1.5;color:var(--text)}.care .ct b{color:#f0a3a0}
+.engine{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;width:1180px}
+.eg{background:#0e1015;border:1px solid var(--hair);border-radius:12px;padding:14px 15px}
+.eg h4{font-size:12.5px;font-weight:800;color:var(--gold2);margin-bottom:6px;display:flex;align-items:center;gap:7px}
+.eg p{font-size:11.5px;color:var(--mute);line-height:1.55}.eg p b{color:var(--text)}
+</style></head><body>
+<div class="cap">ScripON · <b>Atlas extended to cultural palettes — the “all genres” scope you picked</b><br>Same one-library engine. The lens switcher now carries <b>creature genres</b> (seen) <i>and</i> <b>non-creature cultural palettes</b>: Crime &amp; underworld · Romance &amp; customs · Naming &amp; dress. These are authentic, research-grounded texture references — never caricature — and carry a <b>represent-with-care</b> tag that rides into the brief.</div>
+
+<div class="ft">ONE SCREEN — the lens switcher now spans creatures + cultural palettes</div>
+<div class="scr"><div class="pad">
+  <div class="card">
+    <div class="bt"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></svg>Mythic Atlas — pick a lens</div>
+    <div class="lens">
+      <span class="grp">CREATURES</span>
+      <span class="ltab seen">Fantasy</span><span class="ltab seen">Horror</span><span class="ltab seen">Folklore</span><span class="ltab seen">Myth &amp; legend</span>
+      <span style="width:1px;height:22px;background:var(--hair);margin:0 4px"></span>
+      <span class="grp">CULTURAL PALETTES</span>
+      <span class="ltab on"><svg class="ico" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/></svg>Crime</span>
+      <span class="ltab ont">Romance &amp; customs</span>
+      <span class="ltab ont">Naming &amp; dress</span>
+    </div>
+
+    <div class="div"></div>
+
+    <div class="sec">
+      <div class="sech"><div class="sect"><svg class="ico" style="width:15px;height:15px" viewBox="0 0 24 24"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/></svg>Crime &amp; underworld <span class="num">authentic structure, not caricature</span></div>
+        <div class="pills"><span class="cpill on">🇮🇹 Sicilian</span><span class="cpill">🇷🇺 Russian</span><span class="cpill">🇯🇵 Yakuza</span><span class="cpill">🇨🇳 Triad</span><span class="cpill">🇲🇽 Cartel</span></div>
+      </div>
+      <div class="grid">
+        <div class="el"><div class="eln">Cosca &amp; family</div><div class="elo">Sicilian</div><div class="eld">The clan unit; fictive kinship binds members for life.</div><div class="eltags"><span class="tg c">care</span></div></div>
+        <div class="el"><div class="eln">Capo-decina</div><div class="elo">Sicilian</div><div class="eld">“Head of ten” — a captain over a crew of soldiers.</div><div class="eltags"><span class="tg c">care</span></div></div>
+        <div class="el"><div class="eln">Soldato</div><div class="elo">Sicilian</div><div class="eld">The made foot-soldier who carries out orders.</div><div class="eltags"><span class="tg c">care</span></div></div>
+        <div class="el"><div class="eln">Omertà</div><div class="elo">Sicilian</div><div class="eld">The code of silence; never cooperate with the state.</div><div class="eltags"><span class="tg c">care</span></div></div>
+        <div class="el"><div class="eln">Vor v zakone</div><div class="elo">Russian</div><div class="eld">“Thief-in-law” — crime-lord bound by the thieves’ code.</div><div class="eltags"><span class="tg c">care</span></div></div>
+        <div class="el"><div class="eln">Coded tattoos</div><div class="elo">Russian</div><div class="eld">Inked rank and record — a readable criminal résumé.</div><div class="eltags"><span class="tg c">care</span></div></div>
+        <div class="el"><div class="eln">Oyabun–kobun</div><div class="elo">Yakuza</div><div class="eld">“Parent–child” bond of absolute loyalty up the chain.</div><div class="eltags"><span class="tg c">care</span></div></div>
+        <div class="el"><div class="eln">Plaza system</div><div class="elo">Cartel</div><div class="eld">Territory tolls; control of a smuggling corridor.</div><div class="eltags"><span class="tg c">care</span></div></div>
+      </div>
+    </div>
+
+    <div class="div"></div>
+
+    <div class="sec">
+      <div class="sech"><div class="sect"><svg class="ico" style="width:15px;height:15px" viewBox="0 0 24 24"><path d="M12 21s-7-4.5-9.5-9A5 5 0 0112 5a5 5 0 019.5 7c-2.5 4.5-9.5 9-9.5 9z"/></svg>Romance &amp; customs <span class="num">courtship · marriage · ritual</span></div>
+        <div class="pills"><span class="cpill on">🕌 Arabian</span><span class="cpill">🕉️ Indian</span><span class="cpill">🇯🇵 Japanese</span><span class="cpill">✡️ Jewish</span><span class="cpill">🇨🇳 Chinese</span></div>
+      </div>
+      <div class="grid">
+        <div class="el"><div class="eln">Mahr</div><div class="elo">Arabian</div><div class="eld">Dowry paid to the bride herself in the nikah contract.</div><div class="eltags"><span class="tg s">sacred-aware</span></div></div>
+        <div class="el"><div class="eln">Henna night</div><div class="elo">Arabian</div><div class="eld">Pre-wedding gathering; hands adorned in henna patterns.</div><div class="eltags"></div></div>
+        <div class="el"><div class="eln">Rishta &amp; matchmaker</div><div class="elo">Indian</div><div class="eld">Family-brokered proposal through a trusted go-between.</div><div class="eltags"><span class="tg c">care</span></div></div>
+        <div class="el"><div class="eln">Mehndi &amp; Sangeet</div><div class="elo">Indian</div><div class="eld">Henna ceremony and a musical night before the wedding.</div><div class="eltags"></div></div>
+        <div class="el"><div class="eln">Dowry vs bride-price</div><div class="elo">Cross-culture</div><div class="eld">Wealth flows to groom’s — or bride’s — family; a story engine.</div><div class="eltags"><span class="tg c">care</span></div></div>
+        <div class="el"><div class="eln">Miai</div><div class="elo">Japanese</div><div class="eld">Formal arranged-introduction meeting between families.</div><div class="eltags"></div></div>
+        <div class="el"><div class="eln">Shadchan</div><div class="elo">Jewish</div><div class="eld">The matchmaker who brokers a suitable shidduch.</div><div class="eltags"></div></div>
+        <div class="el"><div class="eln">Chaperonage</div><div class="elo">Cross-culture</div><div class="eld">Courtship watched by family — tension between desire &amp; duty.</div><div class="eltags"></div></div>
+      </div>
+    </div>
+
+    <div class="div"></div>
+
+    <div class="sec">
+      <div class="sech"><div class="sect"><svg class="ico" style="width:15px;height:15px" viewBox="0 0 24 24"><path d="M6 3h12l-1 6-5 3-5-3z"/><path d="M7 21h10l-1-6H8z"/></svg>Naming &amp; dress <span class="num">authentic texture for any setting</span></div>
+        <div class="pills"><span class="cpill on">🕌 Arabian</span><span class="cpill">🇯🇵 Japanese</span><span class="cpill">🕉️ Indian</span><span class="cpill">🇰🇷 Korean</span><span class="cpill">⚔️ Norse</span></div>
+      </div>
+      <div class="grid">
+        <div class="el"><div class="eln">Thobe &amp; abaya</div><div class="elo">Arabian</div><div class="eld">Robe &amp; cloak; collar and embroidery mark a wearer’s origin.</div><div class="eltags"><span class="tg n">wardrobe</span></div></div>
+        <div class="el"><div class="eln">ibn / bint</div><div class="elo">Arabian</div><div class="eld">“Son/daughter of” patronymics chain a lineage in a name.</div><div class="eltags"><span class="tg n">naming</span></div></div>
+        <div class="el"><div class="eln">Kimono &amp; obi</div><div class="elo">Japanese</div><div class="eld">Wrapped robe secured by a sash; pattern signals season &amp; rank.</div><div class="eltags"><span class="tg n">wardrobe</span></div></div>
+        <div class="el"><div class="eln">-san / -sama</div><div class="elo">Japanese</div><div class="eld">Honorifics that encode exact social distance and respect.</div><div class="eltags"><span class="tg n">naming</span></div></div>
+        <div class="el"><div class="eln">Sari</div><div class="elo">Indian</div><div class="eld">Draped cloth; region, weave and colour carry meaning.</div><div class="eltags"><span class="tg n">wardrobe</span></div></div>
+        <div class="el"><div class="eln">Hanbok</div><div class="elo">Korean</div><div class="eld">Jeogori top &amp; skirt/trousers; colour marks age &amp; status.</div><div class="eltags"><span class="tg n">wardrobe</span></div></div>
+        <div class="el"><div class="eln">-son / -dóttir</div><div class="elo">Norse</div><div class="eld">Patronymic surnames built from the father’s given name.</div><div class="eltags"><span class="tg n">naming</span></div></div>
+        <div class="el"><div class="eln">Clan &amp; honorific</div><div class="elo">Cross-culture</div><div class="eld">Family name, title and address shift with rank and setting.</div><div class="eltags"><span class="tg n">naming</span></div></div>
+      </div>
+    </div>
+
+    <div class="care"><svg class="ico ci" viewBox="0 0 24 24"><path d="M12 2L2 21h20zM12 9v5M12 18h.01"/></svg><div class="ct"><b>Represent-with-care.</b> Crime and custom palettes are <b>authentic structural references for grounded drama, not ethnic caricature.</b> Each carries a care tag and a short do/don’t note; the guardrail rides into the AI brief so the system writes texture, not stereotype. Sacred-rooted customs (Mahr, nikah) keep the sacred-aware lock.</div></div>
+  </div>
+</div></div>
+
+<div class="ft">WHY THIS STAYS ONE ENGINE</div>
+<div class="engine">
+  <div class="eg"><h4><svg class="ico" style="width:15px;height:15px" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg>Same rows, new tags</h4><p>Creatures and cultural palettes are <b>the same library</b> with different tags. A “Crime” row is just an element tagged <b>crime + culture + care</b> instead of <b>fantasy + culture + sacred</b>. Nothing new to maintain.</p></div>
+  <div class="eg"><h4><svg class="ico" style="width:15px;height:15px" viewBox="0 0 24 24"><path d="M12 21s-7-5.2-7-11a7 7 0 0114 0c0 5.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Anchored to setting</h4><p>Pick an Arabian setting and the first crime, custom, dress and naming options are Arabian — borrow another culture from the Atlas only when you mean to.</p></div>
+  <div class="eg"><h4><svg class="ico" style="width:15px;height:15px" viewBox="0 0 24 24"><path d="M12 2L2 21h20zM12 9v5M12 18h.01"/></svg>Two-tier guardrail</h4><p><b>Sacred-aware</b> for living-religion roots, <b>represent-with-care</b> for crime &amp; cultural custom. Both ride every pick into the brief, so authenticity never tips into caricature.</p></div>
+</div>
+</body></html>

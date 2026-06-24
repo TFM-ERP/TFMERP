@@ -1,0 +1,193 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ScripON — Lore Atlas + Intake Build Spec</title><style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Courier+Prime:wght@400;700&family=Fraunces:opsz,wght@9..144,600&display=swap');
+:root{--bg:#0b0c0f;--panel:#14161c;--panel2:#0e1014;--hair:rgba(255,255,255,.08);--gold:#C6A463;--gold2:#E6D2A2;--goldink:#1a1509;--cream:#F4EEE0;--text:#E8E6E0;--mute:#9aa1ab;--faint:#6b727d;--blue:#5b8def;--green:#57b368;--violet:#8b7cf0;--red:#e5635f;--amber:#e0a458}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);font-family:Inter,sans-serif;color:var(--text);-webkit-font-smoothing:antialiased;line-height:1.5}
+.wrap{max-width:1000px;margin:0 auto;padding:40px 32px 80px}
+.kick{font-size:11px;font-weight:800;letter-spacing:2px;color:var(--gold);text-transform:uppercase}
+h1{font-family:Fraunces,serif;font-size:34px;font-weight:600;color:var(--cream);margin:6px 0 8px;letter-spacing:-.5px}
+.sub{font-size:14px;color:var(--mute);max-width:760px;line-height:1.6}
+.meta{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;padding-top:14px;border-top:1px solid var(--hair)}
+.meta div{font-size:11.5px;color:var(--faint)}.meta b{color:var(--gold2);font-weight:600}
+h2{font-family:Fraunces,serif;font-size:21px;font-weight:600;color:var(--gold2);margin:34px 0 12px;padding-top:20px;border-top:1px solid var(--hair);display:flex;align-items:center;gap:10px}
+h2 .n{width:26px;height:26px;border-radius:7px;background:linear-gradient(160deg,var(--gold2),var(--gold));color:var(--goldink);display:grid;place-items:center;font-family:Inter;font-size:13px;font-weight:800}
+h3{font-size:14px;font-weight:800;color:var(--cream);margin:18px 0 8px}
+p{font-size:13px;color:var(--mute);margin-bottom:10px}p b{color:var(--text)}
+.lead{font-size:13.5px;color:var(--text)}
+ul{margin:0 0 12px 2px;padding:0;list-style:none}
+li{font-size:13px;color:var(--mute);line-height:1.55;padding-left:18px;position:relative;margin-bottom:6px}
+li:before{content:'';position:absolute;left:2px;top:8px;width:5px;height:5px;border-radius:50%;background:var(--gold)}
+li b{color:var(--text)}
+.card{background:var(--panel);border:1px solid var(--hair);border-radius:12px;padding:18px 20px;margin:12px 0}
+.card.blue{border-color:rgba(91,141,239,.3);background:linear-gradient(180deg,rgba(91,141,239,.05),var(--panel))}
+.card.red{border-color:rgba(229,99,95,.32);background:linear-gradient(180deg,rgba(229,99,95,.05),var(--panel))}
+pre{background:#08090c;border:1px solid var(--hair);border-radius:10px;padding:14px 16px;overflow-x:auto;font-family:"Courier Prime",monospace;font-size:11.5px;line-height:1.6;color:#d7d2c4;margin:10px 0}
+pre .c{color:var(--faint)}pre .k{color:#c3b6f5}pre .g{color:var(--gold2)}pre .s{color:#9fe3c0}pre .b{color:#a9c4f7}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:12px}
+th{text-align:left;padding:8px 10px;background:#15181e;color:var(--gold2);font-weight:700;font-size:10.5px;letter-spacing:.4px;text-transform:uppercase;border-bottom:1px solid var(--hair)}
+td{padding:8px 10px;border-bottom:1px solid var(--hair);color:var(--mute);vertical-align:top}td b{color:var(--text)}
+.tag{display:inline-block;font-size:9px;font-weight:800;letter-spacing:.3px;border-radius:4px;padding:2px 6px}
+.tag.add{color:#9fe3c0;background:rgba(87,179,104,.14)}.tag.ext{color:#f0c896;background:rgba(224,164,88,.14)}.tag.new{color:#a9c4f7;background:rgba(91,141,239,.14)}.tag.del{color:#e9a8a6;background:rgba(229,99,95,.14)}
+.flow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0}
+.fstep{background:#15181e;border:1px solid var(--hair);border-radius:9px;padding:8px 12px;font-size:11.5px;font-weight:600;color:var(--text)}
+.fstep .s{font-size:9px;color:var(--gold);font-weight:800;display:block}
+.arr{color:var(--faint)}
+.wave{display:flex;gap:13px;margin:11px 0;align-items:flex-start}
+.wave .wn{width:30px;height:30px;border-radius:8px;background:#15181e;border:1px solid rgba(198,164,99,.3);color:var(--gold2);display:grid;place-items:center;font-weight:800;font-size:13px;flex:none}
+.wave .wt{flex:1}.wave .wt b{color:var(--cream);font-size:13.5px}.wave .wt p{margin:3px 0 0;font-size:12px}
+.verify{background:#0e1014;border:1px dashed rgba(87,179,104,.35);border-radius:8px;padding:6px 10px;font-family:"Courier Prime",monospace;font-size:10.5px;color:#9fe3c0;margin-top:6px}
+.callout{display:flex;gap:10px;align-items:flex-start;font-size:12px;color:var(--text);background:rgba(198,164,99,.07);border:1px solid rgba(198,164,99,.25);border-radius:10px;padding:11px 13px;margin:12px 0}
+.callout b{color:var(--gold2)}
+.note{font-size:11px;color:var(--faint);font-style:italic}
+</style></head><body><div class="wrap">
+
+<div class="kick">ScripON · Development · Build Spec</div>
+<h1>Lore Atlas + consolidated intake</h1>
+<div class="sub">One spec to merge the redesigned 2-step intake, the 12-culture Lore Atlas (archetype lens · element roles &amp; weight · deep cards · sacred-policy), and the lore-density bar into the <b>existing Studio intake</b> — plus the data model and AI wiring that make it real. No new parallel screens.</div>
+<div class="meta"><div>Target · <b>ScripOnIntake.tsx</b> (Studio overlay)</div><div>Schema · <b>additive, one db:push</b></div><div>Approach · <b>spec → approve → build in waves</b></div><div>Guardrail · <b>mount-safe writes only</b></div></div>
+
+<h2><span class="n">1</span>Goal &amp; non-goals</h2>
+<p class="lead">Fold every approved piece of our recent work into the one intake the system already uses, so a build's creative brief is richer and the Lore Atlas actually steers the AI ladder.</p>
+<h3>In scope</h3>
+<ul>
+<li><b>2-step intake flow</b> — Step 1 sources → <b>Next</b> → Step 2 brief; modes (Original / Adapt / Seed) genuinely differ.</li>
+<li><b>Work source</b> rename + <b>(+) multi-add</b> — many paste boxes, many files (PDF·FDX·Fountain·Word·EPUB·HTML), many URLs.</li>
+<li><b>Project type</b> on Step 2 with conditional <b>episodes / minutes-per-ep / seasons</b> (TV·Vertical) and industry-standard hints.</li>
+<li><b>Lore Atlas</b> — replaces the flat fantasy chip list: by-culture &amp; by-archetype browse + search, element <b>roles + weight</b>, deep element card, two-tier sacred policy, the <b>steering-not-generating</b> note.</li>
+<li><b>Lore-density bar</b> — 6 named stops; the live note is the literal AI instruction.</li>
+<li><b>Data + AI wiring</b> — a seeded element library, the brief-builder extension, and removal of the duplicate standalone route.</li>
+</ul>
+<h3>Non-goals</h3>
+<ul>
+<li>No new top-level screen or rail item — this lives inside the Studio "Start a build" intake.</li>
+<li>The Atlas does not write stories; it steers genre/texture on top of the Work source.</li>
+<li>Performer names/photos remain out (unchanged rule).</li>
+</ul>
+
+<h2><span class="n">2</span>Data model — additive</h2>
+<p>One new reference model and a handful of additive columns on the existing <b>IntakeProfile</b> (already a JSON-heavy, per-project record with a <code>buildId</code>). Everything below is one <code>db:push</code>.</p>
+
+<h3>New model · <span class="tag new">NEW</span> the seeded element library</h3>
+<pre><span class="k">model</span> <span class="g">LoreElement</span> {              <span class="c">// the one researched library; ~90 rows seeded</span>
+  id           String  @id @default(cuid())
+  slug         String  @unique          <span class="c">// "djinn", "ghoul", "cosca-family"</span>
+  name         String
+  culture      String                   <span class="c">// Arabian | Japanese | Norse | … (12)</span>
+  region       String?
+  genres       Json                     <span class="c">// ["fantasy","horror"] | ["crime"] | ["romance"] …</span>
+  archetypes   Json                     <span class="c">// ["shapeshifter"],["death-omen"],["world-system"] …</span>
+  tier         String                   <span class="c">// FOLKLORE | SACRED_AWARE | HISTORICAL_PANTHEON | CARE</span>
+  blurb        String  @db.Text         <span class="c">// the one-line lore note</span>
+  origin       String? @db.Text
+  variants     Json?                    <span class="c">// regional variants</span>
+  hooks        Json?                    <span class="c">// 2–3 story hooks (deep card)</span>
+  aliases      Json?                    <span class="c">// search synonyms ("fox spirit" → kitsune)</span>
+  sources      Json?                    <span class="c">// citations (deep card)</span>
+  active       Boolean @default(true)
+  @@index([culture])
+  @@map("lore_elements")
+}</pre>
+<p class="note">Living-religion deities/prophets are simply never seeded → they can never surface (hard lock by absence, belt-and-braces with the policy check in §4).</p>
+
+<h3>Extend · <span class="tag ext">ADD COLUMNS</span> IntakeProfile (per build's brief)</h3>
+<pre><span class="c">// --- work source (multi) ---</span>
+sources         Json?    <span class="c">// [{kind:'paste'|'file'|'url', value, name}]  (keeps legacy sourceText/Url/FileUrl)</span>
+<span class="c">// --- project type ---</span>
+projectType     String?  <span class="c">// MOVIE | TV_SERIES | LIMITED | VERTICAL | SHORT | DOC</span>
+episodes        Int?
+minutesPerEp    Int?
+seasons         Int?
+<span class="c">// --- lore atlas ---</span>
+loreSelections  Json?    <span class="c">// [{slug, culture, role, weight}]  role=ANTAGONIST|ALLY|WORLD_SYSTEM|OBSTACLE|OMEN, weight=1..4</span>
+loreDensity     String?  <span class="c">// OFF | ACCENT | SUBPLOT | WOVEN | DRIVER | SATURATED</span>
+lorePolicy      Json?    <span class="c">// { allowHistoricalPantheon:false }</span></pre>
+<div class="callout"><span>✓</span><div><b>Why JSON on IntakeProfile:</b> the model already stores genres/spine/constraints/researchScope as JSON and <code>saveIntake</code> upserts arbitrary fields — so these persist with zero service changes. The element <i>library</i> is relational (queryable/seedable); the per-build <i>selection</i> is light JSON.</div></div>
+
+<h2><span class="n">3</span>Seed — the 12-culture library</h2>
+<p>An idempotent seed (<code>upsert</code> by <code>slug</code>) populates <b>LoreElement</b> from the research already gathered. Re-runnable; safe to extend.</p>
+<table>
+<tr><th>Bucket</th><th>Cultures</th><th>~count</th><th>Tier mix</th></tr>
+<tr><td><b>Creatures</b> (fantasy/horror/folklore/myth)</td><td>Arabian · Japanese · Norse · Slavic · Chinese · S.Asian · Persian · Celtic · W.African · Latin-Am · Filipino · Greek</td><td>~70</td><td>mostly FOLKLORE; a few SACRED_AWARE (djinn, naga, rakshasa); Greek/Norse gods = HISTORICAL_PANTHEON</td></tr>
+<tr><td><b>Crime &amp; underworld</b></td><td>Sicilian · Russian · Yakuza · Triad · Cartel</td><td>~10</td><td>CARE</td></tr>
+<tr><td><b>Romance &amp; customs</b></td><td>Arabian · Indian · Japanese · Jewish · Chinese</td><td>~8</td><td>CARE / SACRED_AWARE (nikah/mahr)</td></tr>
+<tr><td><b>Naming &amp; dress</b></td><td>Arabian · Japanese · Indian · Korean · Norse</td><td>~8</td><td>FOLKLORE (neutral)</td></tr>
+</table>
+<p class="note">Each row carries blurb + origin + variants + hooks + aliases + sources from the research pass — the deep card reads straight from these.</p>
+
+<h2><span class="n">4</span>Backend — library API + the brief-builder</h2>
+<h3>New endpoint · <span class="tag new">NEW</span> the Atlas reads from here</h3>
+<pre><span class="g">GET</span> /production/scripton/lore?culture=&amp;genre=&amp;archetype=&amp;q=
+  <span class="c">// service.loreLibrary(filter) → LoreElement[] (by-culture, by-archetype, or search across name+aliases)</span>
+  <span class="c">// honours lorePolicy: HISTORICAL_PANTHEON hidden unless allowHistoricalPantheon=true; LIVING never exists</span></pre>
+
+<h3>Extend · <span class="tag ext">EXTEND</span> intakeSteer() — turn selections into the brief the AI obeys</h3>
+<p>This is the load-bearing change. Today <code>intakeSteer</code> emits a flat <i>"Add a high fantasy layer with Djinn, drawing mythology from Arabian; balance = MYTHIC."</i> We replace that block with role-aware, density-anchored, guardrailed text — <b>the same words the user saw</b>.</p>
+<pre><span class="c">// replaces the current i.fantasyOn block</span>
+<span class="k">if</span> (sel = i.loreSelections?.length) {
+  parts.push(<span class="s">'LORE LAYER (steers genre/texture only — the Work source drives the story):'</span>);
+  <span class="k">for</span> (s <span class="k">of</span> i.loreSelections)
+    parts.push(`· ${name} (${s.culture}) — role ${s.role}, ${weightWord(s.weight)}.`);
+  parts.push(DENSITY[i.loreDensity]);   <span class="c">// ← the rubric text below, verbatim</span>
+  parts.push(guardrailLines(selectedTiers, i.lorePolicy)); <span class="c">// sacred-aware / care / hard-lock</span>
+}</pre>
+
+<h3>The density rubric — what each stop tells the model</h3>
+<table>
+<tr><th>Stop</th><th>One-line definition injected into the brief</th><th>Scene share</th></tr>
+<tr><td><b>OFF</b></td><td>No lore layer.</td><td>—</td></tr>
+<tr><td><b>ACCENT</b></td><td>Lore is decorative only; premise/midpoint/climax stay grounded; never resolve a plot turn with lore.</td><td>~10–20%</td></tr>
+<tr><td><b>SUBPLOT</b></td><td>Lore powers a B-story or recurring motif; the A-plot stays grounded.</td><td>~25–35%</td></tr>
+<tr><td><b>WOVEN</b></td><td>Lore is a world-rule; the midpoint is lore-driven; premise &amp; climax stay grounded.</td><td>~40–50%</td></tr>
+<tr><td><b>DRIVER</b></td><td>Lore is the central engine; inciting + midpoint + climax are lore-driven; the protagonist's goal is defined by it.</td><td>~60–80%</td></tr>
+<tr><td><b>SATURATED</b></td><td>Full mythic mode; the world runs on the lore end-to-end; realism is the contrast.</td><td>~80–100%</td></tr>
+</table>
+
+<div class="card blue"><h3 style="margin-top:0">Sample generated brief (Antara · Adapt · Driver)</h3>
+<pre>CREATIVE BRIEF (honour throughout):
+- Adapting from the Work source; reality level INSPIRED.
+- TV series · 10 ep × 50 min · 1 season.
+- Genres: Epic, Historical | tone: epic, romantic.
+<span class="g">- LORE LAYER (steers genre/texture only — the Work source drives the story):</span>
+<span class="g">  · Djinn (Arabian) — role ANTAGONIST, spine.</span>
+<span class="g">  · Ghoul (Arabian) — role OBSTACLE, accent.</span>
+<span class="g">  · Qarin (Arabian) — role OMEN, accent.</span>
+<span class="g">- Density DRIVER: lore is the central engine; inciting + midpoint + climax are</span>
+<span class="g">  lore-driven; ~70% of scenes carry it; the protagonist's goal is defined by it.</span>
+<span class="b">- Guardrail · sacred-aware: jinn-kin as folklore; no deities, prophets, or scripture.</span>
+- Setting/world: ancient desert | Arabian pre-Islam. Target: Arabic | GCC | PG-15.</pre></div>
+
+<h2><span class="n">5</span>Frontend — merge map into ScripOnIntake.tsx</h2>
+<p>The Studio overlay grows from a single-column form into a 2-step flow with a slim live rail. Studio's <code>onBegin → saveIntake</code> contract is unchanged; new fields ride along.</p>
+<div class="flow"><span class="fstep"><span class="s">STEP 1</span>Work source (mode-aware)</span><span class="arr">→ Next →</span><span class="fstep"><span class="s">STEP 2</span>Project type + brief + Lore Atlas</span><span class="arr">+</span><span class="fstep"><span class="s">RAIL</span>live brief (slim)</span></div>
+<table>
+<tr><th>Piece</th><th>Change</th><th>Detail</th></tr>
+<tr><td>Mode tabs</td><td><span class="tag ext">EXT</span></td><td>Original → skip Step 1; Adapt → Work source; Seed → seed/idea box. Real conditional content, not just a flag.</td></tr>
+<tr><td>Source band</td><td><span class="tag ext">EXT</span></td><td>Rename <b>Work source</b>; (+) adds paste boxes / files / URLs into one list. Accept <code>.epub,.html</code> added to upload. Persist to <code>sources[]</code>.</td></tr>
+<tr><td>Project type</td><td><span class="tag new">NEW</span></td><td>Tile row on Step 2 top; TV/Vertical reveal episodes/min/seasons + standard hints.</td></tr>
+<tr><td>Fantasy block</td><td><span class="tag del">REPLACE</span></td><td>The flat ELEMENTS/CULTURES chips become the <b>Lore Atlas</b> (reads <code>GET /lore</code>): by-culture/by-archetype + search, select → role+weight, deep card, sacred policy, density bar, steering note.</td></tr>
+<tr><td>Right rail</td><td><span class="tag new">NEW</span></td><td>Slim (~296px) live brief preview; widen overlay to two columns.</td></tr>
+<tr><td>Target band</td><td><span class="tag ext">EXT</span></td><td>Keep; project-type now feeds format/length.</td></tr>
+</table>
+<p class="note">Sacred-aware &amp; care tags and the density note are pure display of what §4 will send — no divergent logic on the client.</p>
+
+<h2><span class="n">6</span>Remove the duplicate</h2>
+<p><span class="tag del">DELETE</span> the standalone <code>/scripon/intake/page.tsx</code> (the parallel "Intake v2" route) once the Studio intake carries everything; repoint any links to the Studio "Start a build". This closes the merge that began with coverage→Doctor.</p>
+<p class="note">The broader parallel-route cleanup (/coverage, /builds, /package + floating launcher) stays as its own follow-up step so this spec stays focused.</p>
+
+<h2><span class="n">7</span>Build waves &amp; verification</h2>
+<div class="wave"><span class="wn">1</span><div class="wt"><b>Schema</b><p>Add LoreElement + the IntakeProfile columns. One <code>db:push</code>.</p><div class="verify">verify: brace balance · `npx prisma validate` · you run npm run db:push</div></div></div>
+<div class="wave"><span class="wn">2</span><div class="wt"><b>Seed + backend</b><p>Seed script (idempotent), <code>loreLibrary()</code> + controller route, <code>intakeSteer</code> extension with the density rubric + guardrail lines.</p><div class="verify">verify: NUL-free · paren/brace balance · seed upserts by slug</div></div></div>
+<div class="wave"><span class="wn">3</span><div class="wt"><b>API</b><p><code>scripton.lore(params)</code> in api.ts.</p><div class="verify">verify: type-light accessor matches route</div></div></div>
+<div class="wave"><span class="wn">4</span><div class="wt"><b>Frontend merge</b><p>Rebuild ScripOnIntake.tsx: 2-step, work-source multi-add, project-type, Lore Atlas, slim rail. Mount-safe (assemble in /tmp → cp).</p><div class="verify">verify: NUL=0 · braces/parens · className-only · default export · backticks even</div></div></div>
+<div class="wave"><span class="wn">5</span><div class="wt"><b>Retire duplicate</b><p>Delete standalone /scripon/intake; repoint links.</p><div class="verify">verify: no dangling imports · grep clean</div></div></div>
+<div class="callout"><span>⚙</span><div><b>Your two commands</b> after waves 1–2 land: <code>npm run db:push</code> (backend) then restart <code>dev</code>. I'll hand them to you explicitly; I can't run the cold-start tsc in the sandbox, so you confirm the build on <code>npm run dev</code>.</div></div>
+
+<h2><span class="n">8</span>Open decisions before I build</h2>
+<ul>
+<li><b>Density default</b> — propose <b>ACCENT</b> (safe; lore stays flavour unless the user pushes it). OK?</li>
+<li><b>Historical pantheons</b> — ship default <b>off</b> (Greek/Norse gods hidden until a project toggles them on)?</li>
+<li><b>Seed now or framework-first</b> — you chose all 12 cultures; I'll seed the full set in wave 2 unless you'd rather stage it.</li>
+</ul>
+<p class="note">Answer these (or just say "your call") and I start at Wave 1.</p>
+
+</div></body></html>

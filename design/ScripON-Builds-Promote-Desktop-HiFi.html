@@ -1,0 +1,121 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ScripON — Builds + Promote (Desktop)</title><style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Courier+Prime:wght@400;700&display=swap');
+:root{--bg:#0b0c0f;--panel:#14161c;--panel2:#1a1d24;--hair:rgba(255,255,255,.07);--hair2:rgba(255,255,255,.13);--gold:#C6A463;--gold2:#E6D2A2;--goldink:#1a1509;--cream:#F4EEE0;--text:#E8E6E0;--mute:#9aa1ab;--faint:#6b727d;--blue:#5b8def;--green:#57b368;--amber:#e0a23b;--red:#e5635f;--violet:#8b7cf0}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:radial-gradient(1200px 600px at 50% -8%,#15171d,#0b0c0f 60%);font-family:Inter,sans-serif;color:var(--text);-webkit-font-smoothing:antialiased;padding:40px;display:flex;flex-direction:column;align-items:center;gap:16px;min-height:100vh}
+.cap{color:var(--faint);font-size:12px}.cap b{color:var(--gold);font-weight:600}
+.screen{width:1440px;height:900px;background:var(--bg);border:1px solid var(--hair);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 50px 120px -30px rgba(0,0,0,.8);position:relative}
+svg{display:block}.ico{width:18px;height:18px;stroke:currentColor;stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.top{height:60px;flex:0 0 60px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;background:linear-gradient(180deg,#15181e,#121419);border-bottom:1px solid var(--hair)}
+.tl{display:flex;align-items:center;gap:12px}.logo{width:30px;height:30px;border-radius:9px;background:linear-gradient(160deg,var(--gold2),var(--gold));display:grid;place-items:center;color:var(--goldink);font-weight:800;font-size:12px}
+.proj{font-weight:700;font-size:15.5px;color:var(--cream)}.meta{color:var(--faint);font-size:12px}
+.btn{display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 14px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid transparent;color:var(--text)}.btn .ico{width:15px;height:15px}
+.btn.ghost{background:#1b1e25;border-color:var(--hair);color:var(--mute)}
+.btn.gold{background:linear-gradient(180deg,var(--gold2),var(--gold));color:var(--goldink);font-weight:700;box-shadow:0 6px 18px -4px rgba(198,164,99,.45)}
+.body{flex:1;display:flex;min-height:0}
+.rail{width:74px;flex:0 0 74px;background:#0e1015;border-right:1px solid var(--hair);display:flex;flex-direction:column;align-items:center;padding:14px 0;gap:6px}
+.ritem{width:58px;display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 0;border-radius:12px;color:var(--faint);position:relative}
+.ritem .box{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:#171a21;border:1px solid var(--hair);color:var(--mute)}.ritem .lbl{font-size:9px;font-weight:600}
+.ritem.on .box{background:linear-gradient(160deg,var(--gold2),var(--gold));border-color:transparent;color:var(--goldink)}.ritem.on .lbl{color:var(--gold2)}.ritem.on:before{content:"";position:absolute;left:-1px;top:14px;bottom:14px;width:3px;border-radius:3px;background:var(--gold)}
+.main{flex:1;min-width:0;display:flex;flex-direction:column;padding:24px 30px;gap:18px}
+.phead{display:flex;align-items:flex-end;justify-content:space-between}
+.phead h1{font-size:24px;font-weight:800;color:var(--cream);letter-spacing:-.5px}.phead .sub{font-size:13px;color:var(--mute);margin-top:4px}
+.tbar{display:flex;align-items:center;gap:8px}
+.chip{padding:7px 13px;border-radius:999px;font-size:12.5px;font-weight:600;color:var(--mute);background:#171a20;border:1px solid var(--hair);cursor:pointer}.chip.on{background:rgba(198,164,99,.14);border-color:rgba(198,164,99,.45);color:var(--gold2)}
+.search{margin-left:auto;display:flex;align-items:center;gap:8px;height:36px;padding:0 12px;background:#1a1d24;border:1px solid var(--hair);border-radius:10px;color:var(--faint);font-size:12.5px}.search .ico{width:15px;height:15px}
+.grid{flex:1;display:grid;grid-template-columns:repeat(3,1fr);gap:16px;align-content:start;overflow:hidden}
+.bc{background:var(--panel);border:1px solid var(--hair);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px;cursor:pointer;transition:.15s}
+.bc:hover{border-color:var(--hair2);transform:translateY(-2px)}
+.bc .r1{display:flex;align-items:center;justify-content:space-between}
+.spill{font-size:10px;font-weight:800;letter-spacing:.4px;padding:4px 9px;border-radius:999px}
+.spill.draft{background:rgba(154,161,171,.16);color:var(--mute)}.spill.review{background:rgba(91,141,239,.16);color:#a9c4f7}.spill.green{background:rgba(87,179,104,.16);color:var(--green)}.spill.prom{background:rgba(198,164,99,.18);color:var(--gold2)}
+.bc .when{font-size:11px;color:var(--faint)}
+.bc .nm{font-size:17px;font-weight:800;color:var(--cream);letter-spacing:-.3px}
+.bc .ty{font-size:11px;color:var(--faint);margin-top:-6px}
+.ladder{display:flex;align-items:center;gap:4px}
+.ladder .d{flex:1;height:5px;border-radius:3px;background:#23262e}.ladder .d.on{background:var(--gold)}.ladder .d.cur{background:var(--gold2);box-shadow:0 0 0 2px rgba(198,164,99,.25)}
+.bc .stg{font-size:10.5px;color:var(--faint);font-weight:600}
+.bc .ft{display:flex;align-items:center;gap:8px;border-top:1px solid var(--hair);padding-top:11px}
+.mini{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 11px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--hair);color:var(--mute);background:#171a20}.mini .ico{width:13px;height:13px}
+.mini.gold{background:rgba(198,164,99,.14);border-color:rgba(198,164,99,.4);color:var(--gold2)}
+.linked{font-size:11px;color:var(--gold2);display:flex;align-items:center;gap:6px}
+.bc.add{border-style:dashed;align-items:center;justify-content:center;color:var(--faint);gap:10px;min-height:210px}.bc.add:hover{color:var(--gold2);border-color:rgba(198,164,99,.5)}
+.bc.add .plus{width:46px;height:46px;border-radius:50%;border:1.5px dashed currentColor;display:grid;place-items:center}
+/* modal */
+.scrim{position:absolute;inset:0;background:rgba(6,7,10,.66);display:flex;align-items:center;justify-content:center;z-index:20}
+.modal{width:520px;background:#0e1014;border:1px solid rgba(198,164,99,.3);border-radius:16px;padding:22px;box-shadow:0 30px 80px rgba(0,0,0,.7);display:flex;flex-direction:column;gap:16px}
+.modal .mh{display:flex;align-items:center;justify-content:space-between}.modal .mt{font-size:17px;font-weight:800;color:var(--cream)}.modal .mx{color:var(--faint);cursor:pointer;font-size:18px}
+.modal .msub{font-size:12px;color:var(--mute);margin-top:-10px}
+.opt{display:flex;gap:12px}
+.ocard{flex:1;border:1px solid var(--hair);border-radius:12px;padding:13px;cursor:pointer;background:#15181e}
+.ocard.on{border-color:rgba(198,164,99,.5);background:rgba(198,164,99,.08)}
+.ocard .oi{width:30px;height:30px;border-radius:9px;background:rgba(198,164,99,.14);color:var(--gold2);display:grid;place-items:center;margin-bottom:8px}.ocard .oi .ico{width:16px;height:16px}
+.ocard .ot{font-size:13px;font-weight:700;color:var(--cream)}.ocard .os{font-size:10.5px;color:var(--faint);margin-top:2px}
+.sel{height:38px;border-radius:9px;background:#171a20;border:1px solid var(--hair);color:var(--cream);font-size:12.5px;font-weight:600;display:flex;align-items:center;justify-content:space-between;padding:0 12px}
+.xfer{background:#15181e;border:1px solid var(--hair);border-radius:11px;padding:12px 13px}
+.xfer .xl{font-size:10px;font-weight:700;letter-spacing:.8px;color:var(--gold);margin-bottom:7px}
+.xrow{display:flex;gap:8px;font-size:11.5px;color:var(--text);margin-bottom:5px}.xrow .c{color:var(--green);flex:none}
+.snap{font-size:10.5px;color:var(--faint);font-style:italic}
+.mfoot{display:flex;gap:10px;justify-content:flex-end}
+</style></head><body>
+<div class="cap">ScripON · <b>Builds + Promote — Desktop</b> · named, savable builds · stage progress · snapshot promotion</div>
+<div class="screen">
+<div class="top"><div class="tl"><div class="logo">TFM</div><div class="proj">Development builds</div><span class="meta">standalone · unlinked until you promote</span></div><div class="btn gold"><svg class="ico" viewBox="0 0 24 24" style="stroke:#1a1509"><path d="M12 5v14M5 12h14"/></svg>New build</div></div>
+<div class="body">
+<div class="rail"><div class="ritem"><div class="box"><svg class="ico" viewBox="0 0 24 24"><path d="M3 11l9-8 9 8M5 10v10h14V10"/></svg></div><div class="lbl">Home</div></div><div class="ritem"><div class="box"><svg class="ico" viewBox="0 0 24 24"><path d="M4 4h6v16H4zM14 4h6v16h-6z"/></svg></div><div class="lbl">Library</div></div><div class="ritem on"><div class="box"><svg class="ico" viewBox="0 0 24 24"><path d="M12 2v6m0 8v6M2 12h6m8 0h6"/></svg></div><div class="lbl">Develop</div></div><div class="ritem"><div class="box"><svg class="ico" viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/></svg></div><div class="lbl">Doctor</div></div><div class="ritem"><div class="box"><svg class="ico" viewBox="0 0 24 24"><path d="M12 2l9 5-9 5-9-5z"/></svg></div><div class="lbl">Breakdown</div></div><div class="ritem"><div class="box"><svg class="ico" viewBox="0 0 24 24"><path d="M3 3v18h18M7 14l3-3 3 3 5-6"/></svg></div><div class="lbl">Reports</div></div><div class="ritem" style="margin-top:auto"><div class="box"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 13a7 7 0 000-2l2-1.5-2-3.4-2.3 1a7 7 0 00-1.7-1L15 3h-4l-.4 2.6a7 7 0 00-1.7 1l-2.3-1-2 3.4L6.6 11a7 7 0 000 2l-2 1.5 2 3.4 2.3-1a7 7 0 001.7 1L11 21h4l.4-2.6a7 7 0 001.7-1l2.3 1 2-3.4z"/></svg></div><div class="lbl">Settings</div></div></div>
+<div class="main">
+  <div class="phead"><div><h1>Builds</h1><div class="sub">Name, save and navigate development builds. Reset a stage, or promote a finished build into a project.</div></div></div>
+  <div class="tbar"><span class="chip on">All</span><span class="chip">Draft</span><span class="chip">Review</span><span class="chip">Greenlit</span><span class="chip">Promoted</span><span class="search"><svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>Search builds</span></div>
+  <div class="grid">
+    <div class="bc">
+      <div class="r1"><span class="spill green">GREENLIT</span><span class="when">edited 2h ago</span></div>
+      <div><div class="nm">Antara — mythic cut</div><div class="ty">Adapt · Feature · Arabic</div></div>
+      <div class="ladder"><span class="d on"></span><span class="d on"></span><span class="d on"></span><span class="d on"></span><span class="d on"></span><span class="d cur"></span><span class="d"></span><span class="d"></span></div>
+      <div class="stg">Scenes · v3 · 6 of 8 stages</div>
+      <div class="ft"><span class="mini"><svg class="ico" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>Open</span><span class="mini gold"><svg class="ico" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Promote</span></div>
+    </div>
+    <div class="bc">
+      <div class="r1"><span class="spill review">REVIEW</span><span class="when">edited 1d ago</span></div>
+      <div><div class="nm">The Pulpit</div><div class="ty">Original · Feature · English</div></div>
+      <div class="ladder"><span class="d on"></span><span class="d on"></span><span class="d on"></span><span class="d cur"></span><span class="d"></span><span class="d"></span><span class="d"></span><span class="d"></span></div>
+      <div class="stg">Treatment · v2 · 4 of 8 stages</div>
+      <div class="ft"><span class="mini"><svg class="ico" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>Open</span><span class="mini"><svg class="ico" viewBox="0 0 24 24"><path d="M3 6h18M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg>Reset stage</span></div>
+    </div>
+    <div class="bc">
+      <div class="r1"><span class="spill prom">PROMOTED</span><span class="when">3d ago</span></div>
+      <div><div class="nm">Sand &amp; Glass</div><div class="ty">Adapt · Vertical · Arabic</div></div>
+      <div class="ladder"><span class="d on"></span><span class="d on"></span><span class="d on"></span><span class="d on"></span><span class="d on"></span><span class="d on"></span><span class="d on"></span><span class="d on"></span></div>
+      <div class="stg">Coverage · v5 · complete</div>
+      <div class="ft"><span class="linked"><svg class="ico" viewBox="0 0 24 24"><path d="M10 13a5 5 0 007 0l2-2a5 5 0 00-7-7l-1 1M14 11a5 5 0 00-7 0l-2 2a5 5 0 007 7l1-1"/></svg>Linked to “Sand &amp; Glass” project</span></div>
+    </div>
+    <div class="bc">
+      <div class="r1"><span class="spill draft">DRAFT</span><span class="when">edited 6h ago</span></div>
+      <div><div class="nm">Oryx — pilot</div><div class="ty">Original · Series · English</div></div>
+      <div class="ladder"><span class="d on"></span><span class="d cur"></span><span class="d"></span><span class="d"></span><span class="d"></span><span class="d"></span><span class="d"></span><span class="d"></span></div>
+      <div class="stg">Synopsis · v1 · 2 of 8 stages</div>
+      <div class="ft"><span class="mini"><svg class="ico" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>Open</span><span class="mini"><svg class="ico" viewBox="0 0 24 24"><path d="M3 6h18M19 6l-1 14H6L5 6"/></svg>Reset stage</span></div>
+    </div>
+    <div class="bc add"><div class="plus"><svg class="ico" viewBox="0 0 24 24" style="width:22px;height:22px"><path d="M12 5v14M5 12h14"/></svg></div><div style="font-weight:600">New build</div></div>
+  </div>
+</div>
+</div>
+<div class="scrim">
+  <div class="modal">
+    <div class="mh"><span class="mt">Promote “Antara — mythic cut”</span><span class="mx">✕</span></div>
+    <div class="msub">Snapshot the chosen draft into a project. The build keeps developing; this takes a frozen copy.</div>
+    <div class="opt">
+      <div class="ocard on"><div class="oi"><svg class="ico" viewBox="0 0 24 24"><path d="M4 4h6v16H4zM14 4h6v16h-6z"/></svg></div><div class="ot">Add to existing</div><div class="os">Land in a project's Script Library</div></div>
+      <div class="ocard"><div class="oi"><svg class="ico" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div><div class="ot">Start new project</div><div class="os">Spin a project, seed the script</div></div>
+    </div>
+    <div class="sel"><span>Project — Antara (2026)</span><span style="color:var(--faint)">▾</span></div>
+    <div class="xfer"><div class="xl">WHAT TRANSFERS</div>
+      <div class="xrow"><span class="c">✓</span>Chosen version → first master revision (WHITE draft)</div>
+      <div class="xrow"><span class="c">✓</span>Title · format · genre · logline · creative brief · coverage</div>
+      <div class="xrow"><span class="c">✓</span>Provenance back-link to this build</div>
+      <div class="snap">Snapshot, not live sync — push an updated draft later as an explicit action.</div>
+    </div>
+    <div class="mfoot"><span class="btn ghost">Cancel</span><span class="btn gold"><svg class="ico" viewBox="0 0 24 24" style="stroke:#1a1509"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Promote &amp; snapshot</span></div>
+  </div>
+</div>
+</div>
+</body></html>

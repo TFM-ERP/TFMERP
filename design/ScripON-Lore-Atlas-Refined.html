@@ -1,0 +1,155 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ScripON — Lore Atlas (refined)</title><style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Courier+Prime:wght@400;700&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap');
+:root{--bg:#0b0c0f;--panel:#14161c;--hair:rgba(255,255,255,.07);--gold:#C6A463;--gold2:#E6D2A2;--goldink:#1a1509;--cream:#F4EEE0;--text:#E8E6E0;--mute:#9aa1ab;--faint:#6b727d;--blue:#5b8def;--green:#57b368;--violet:#8b7cf0;--red:#e5635f;--amber:#e0a458}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:radial-gradient(1200px 700px at 50% -8%,#15171d,#0b0c0f 60%);font-family:Inter,sans-serif;color:var(--text);-webkit-font-smoothing:antialiased;padding:34px;display:flex;flex-direction:column;align-items:center;gap:14px}
+.cap{color:var(--faint);font-size:12px;max-width:1180px;line-height:1.5}.cap b{color:var(--gold);font-weight:600}
+.ft{align-self:center;width:1180px;font-size:12px;font-weight:700;letter-spacing:.4px;color:var(--gold2);margin-top:10px}
+.scr{width:1180px;background:var(--bg);border:1px solid var(--hair);border-radius:16px;overflow:hidden;box-shadow:0 40px 90px -30px rgba(0,0,0,.7)}
+.ico{width:18px;height:18px;stroke:currentColor;stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.hd{height:50px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;background:linear-gradient(180deg,#15181e,#121419);border-bottom:1px solid var(--hair)}
+.brand{display:flex;align-items:center;gap:9px;font-family:Fraunces,serif;font-size:16px;font-weight:600;color:var(--gold2)}
+.brand .lg{width:25px;height:25px;border-radius:7px;background:linear-gradient(160deg,var(--gold2),var(--gold));display:grid;place-items:center;color:var(--goldink);font-weight:800;font-size:10px;font-family:Inter}
+.pad{padding:16px 18px;display:flex;flex-direction:column;gap:13px}
+.bt{font-size:13.5px;font-weight:800;color:var(--cream);display:flex;align-items:center;gap:8px}
+.bt .hint{font-size:9px;font-weight:700;letter-spacing:.5px;color:var(--gold);background:rgba(198,164,99,.12);border-radius:5px;padding:2px 7px}
+.seg{display:inline-flex;background:#15181e;border:1px solid var(--hair);border-radius:9px;padding:3px;gap:2px}
+.seg span{padding:6px 13px;border-radius:7px;font-size:12px;font-weight:600;color:var(--mute);cursor:pointer;display:flex;align-items:center;gap:6px}.seg span.on{background:rgba(198,164,99,.16);color:var(--gold2)}
+.search{flex:1;display:flex;align-items:center;gap:9px;background:#0b0c0f;border:1px solid var(--hair);border-radius:10px;padding:9px 12px}
+.search input{flex:1;background:none;border:none;outline:none;color:var(--text);font-size:12.5px;font-family:Inter}.search .k{font-size:9.5px;color:var(--faint);border:1px solid var(--hair);border-radius:4px;padding:1px 6px}
+.arow{display:flex;align-items:center;gap:11px;padding:9px 0;border-bottom:1px solid var(--hair)}
+.alab{width:170px;flex:none;display:flex;flex-direction:column;gap:2px}
+.alab .an{font-size:12.5px;font-weight:700;color:var(--gold2)}.alab .ad{font-size:9.5px;color:var(--faint)}
+.achips{display:flex;gap:6px;flex-wrap:wrap}
+.lc{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:8px;font-size:11.5px;font-weight:600;color:var(--text);background:#171a20;border:1px solid var(--hair);cursor:pointer}
+.lc .o{font-size:8.5px;font-weight:700;letter-spacing:.3px;color:var(--gold);text-transform:uppercase}
+.lc.hit{border-color:rgba(198,164,99,.55);background:rgba(198,164,99,.1)}
+.lc .sd{width:6px;height:6px;border-radius:50%;background:#e3a05f}
+.note{font-size:10.5px;color:var(--faint);line-height:1.5}.note b{color:var(--mute)}
+.card{background:var(--panel);border:1px solid var(--hair);border-radius:12px;padding:14px 15px;display:flex;flex-direction:column;gap:12px}
+.card.lit{border-color:rgba(198,164,99,.32)}
+.selrow{display:flex;align-items:center;gap:12px;background:#171a20;border:1px solid var(--hair);border-radius:11px;padding:11px 13px}
+.selrow.spine{border-color:rgba(198,164,99,.4);background:rgba(198,164,99,.06)}
+.selrow .nm{width:130px;flex:none}.selrow .nm .n{font-size:13px;font-weight:700;color:var(--cream)}.selrow .nm .o{font-size:9px;font-weight:700;letter-spacing:.3px;color:var(--gold);text-transform:uppercase}
+.fl{font-size:9.5px;font-weight:600;color:var(--faint);margin-bottom:4px}
+.ddl{height:31px;border-radius:8px;background:#0e1014;border:1px solid var(--hair);color:var(--cream);font-size:11.5px;font-weight:600;display:flex;align-items:center;justify-content:space-between;padding:0 10px;min-width:150px}.ddl .c{color:var(--faint)}
+.weight{display:flex;align-items:center;gap:8px}
+.dots{display:flex;gap:3px}.dots i{width:9px;height:9px;border-radius:50%;background:#2a2d36}.dots i.f{background:var(--gold2)}
+.wlab{font-size:10.5px;font-weight:700}.wlab.spine{color:var(--gold2)}.wlab.spice{color:var(--mute)}
+.preview{background:#0b0c0f;border:1px solid rgba(198,164,99,.25);border-radius:10px;padding:12px 13px;font-family:"Courier Prime",monospace;font-size:11.5px;line-height:1.6;color:var(--text)}
+.preview b{color:var(--gold2)}.preview .lbl{font-family:Inter;font-size:9px;font-weight:800;letter-spacing:.5px;color:var(--green);background:rgba(87,179,104,.14);border-radius:4px;padding:2px 7px;margin-bottom:8px;display:inline-block}
+/* deep card */
+.deep{display:grid;grid-template-columns:1.1fr 1fr;gap:14px}
+.dimg{background:linear-gradient(160deg,#1a1d24,#101218);border:1px solid var(--hair);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;justify-content:flex-end;min-height:230px;position:relative;overflow:hidden}
+.dimg .glyph{position:absolute;top:-10px;right:-10px;width:150px;height:150px;opacity:.08;stroke:var(--gold2)}
+.dimg .dt{font-family:Fraunces,serif;font-size:26px;font-weight:600;color:var(--cream)}
+.dimg .do{font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--gold);text-transform:uppercase}
+.dimg .dtag{display:flex;gap:6px;margin-top:4px}
+.tg{font-size:8.5px;font-weight:700;letter-spacing:.3px;border-radius:4px;padding:2px 6px}
+.tg.open{color:#9fe3c0;background:rgba(87,179,104,.12);border:1px solid rgba(87,179,104,.3)}
+.tg.s{color:#f0c38f;background:rgba(229,160,95,.14);border:1px solid rgba(229,160,95,.3)}
+.tg.h{color:#c3b6f5;background:rgba(139,124,240,.12);border:1px solid rgba(139,124,240,.3)}
+.dinfo{display:flex;flex-direction:column;gap:11px}
+.blk .bl{font-size:9.5px;font-weight:800;letter-spacing:.5px;color:var(--faint);margin-bottom:4px}
+.blk p{font-size:11.5px;color:var(--mute);line-height:1.5}.blk p b{color:var(--text)}
+.hook{display:flex;gap:8px;font-size:11.5px;color:var(--mute);line-height:1.45;margin-bottom:5px}.hook .hb{color:var(--gold2);flex:none}
+.cite{display:flex;align-items:center;gap:7px;font-size:10.5px;color:var(--blue);background:rgba(91,141,239,.08);border:1px solid rgba(91,141,239,.25);border-radius:8px;padding:7px 10px}
+/* policy */
+.tier{display:flex;align-items:center;gap:13px;border:1px solid var(--hair);border-radius:11px;padding:12px 14px}
+.tier.lock{border-color:rgba(229,99,95,.35);background:rgba(229,99,95,.05)}
+.tier.flag{border-color:rgba(224,164,88,.35);background:rgba(224,164,88,.05)}
+.tier.open{border-color:rgba(87,179,104,.3);background:rgba(87,179,104,.04)}
+.tier .ti{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;flex:none}
+.tier.lock .ti{background:rgba(229,99,95,.14);color:var(--red)}.tier.flag .ti{background:rgba(224,164,88,.14);color:var(--amber)}.tier.open .ti{background:rgba(87,179,104,.14);color:var(--green)}
+.tier .tx{flex:1}.tier .tn{font-size:12.5px;font-weight:700;color:var(--cream)}.tier .td{font-size:10.5px;color:var(--mute);line-height:1.4;margin-top:2px}
+.tier .ex{font-size:9.5px;color:var(--faint);margin-top:3px}
+.tier .st{font-size:9px;font-weight:800;letter-spacing:.4px;border-radius:5px;padding:3px 8px;flex:none}
+.st.red{color:#f0a3a0;background:rgba(229,99,95,.16)}.st.amb{color:#f0c896;background:rgba(224,164,88,.16)}.st.grn{color:#9fe3c0;background:rgba(87,179,104,.16)}
+.sw{width:34px;height:19px;border-radius:999px;background:var(--amber);position:relative;flex:none}.sw i{position:absolute;top:2px;left:17px;width:15px;height:15px;border-radius:50%;background:#fff}
+.howto{width:1180px;max-width:1180px;display:flex;gap:11px;align-items:flex-start;background:linear-gradient(180deg,rgba(91,141,239,.11),rgba(91,141,239,.04));border:1px solid rgba(91,141,239,.42);border-radius:12px;padding:13px 15px}
+.howto svg{stroke:var(--blue);flex:none;margin-top:1px}
+.howto .ht{font-size:12px;line-height:1.55;color:var(--text)}.howto .ht b{color:#a9c4f7}
+</style></head><body>
+<div class="cap">ScripON · <b>Lore Atlas — refined concept (design only)</b> · the four upgrades you picked: <b>archetype lens + search</b> · <b>element roles + weight</b> · <b>deep element card</b> · <b>sacred-policy tiers</b>. Renamed to <b>Lore Atlas</b>.</div>
+<div class="howto"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 16v-5M12 8h.01"/></svg><div class="ht"><b>How the Lore Atlas works — note to users.</b> These choices <b>steer the genre and texture</b> of your story — they don’t write it. The Atlas <b>can’t build a story on its own</b>: it rides on top of your <b>Work source</b> and brief, pointing the AI in a direction per your own references. Without real source material and direction behind it, picking an element does nothing by itself.</div></div>
+
+<div class="ft">FRAME 1 — ARCHETYPE LENS + SEARCH · browse by function across all 12 cultures, not one at a time</div>
+<div class="scr">
+  <div class="hd"><div class="brand"><span class="lg">LA</span>Lore Atlas</div>
+    <div class="seg"><span>By culture</span><span class="on"><svg class="ico" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>By archetype</span></div>
+  </div>
+  <div class="pad">
+    <div class="search"><svg class="ico" style="width:15px;height:15px;stroke:var(--faint)" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg><input value="fox spirit" /><span class="k">2 matches across cultures</span></div>
+    <div>
+      <div class="arow"><div class="alab"><span class="an">Shapeshifters</span><span class="ad">8 across cultures</span></div><div class="achips">
+        <span class="lc hit">Kitsune <span class="o">JP</span></span><span class="lc hit">Huli jing <span class="o">CN</span></span><span class="lc">Ghoul <span class="o">Arab</span></span><span class="lc">Selkie <span class="o">Celtic</span></span><span class="lc">Nahual <span class="o">LatAm</span></span><span class="lc">Rakshasa <span class="sd"></span><span class="o">S.Asia</span></span><span class="lc">Aswang <span class="o">PH</span></span><span class="lc">Púca <span class="o">Celtic</span></span></div></div>
+      <div class="arow"><div class="alab"><span class="an">Death-omens &amp; heralds</span><span class="ad">5 across cultures</span></div><div class="achips">
+        <span class="lc">Banshee <span class="o">Celtic</span></span><span class="lc">Dullahan <span class="o">Celtic</span></span><span class="lc">La Llorona <span class="o">LatAm</span></span><span class="lc">Churel <span class="o">S.Asia</span></span><span class="lc">Yūrei <span class="o">JP</span></span></div></div>
+      <div class="arow"><div class="alab"><span class="an">Blood-drinkers &amp; undead</span><span class="ad">6 across cultures</span></div><div class="achips">
+        <span class="lc">Jiangshi <span class="o">CN</span></span><span class="lc">Manananggal <span class="o">PH</span></span><span class="lc">Adze <span class="o">W.Afr</span></span><span class="lc">Vetala <span class="o">S.Asia</span></span><span class="lc">Draugr <span class="o">Norse</span></span><span class="lc">Chupacabra <span class="o">LatAm</span></span></div></div>
+      <div class="arow"><div class="alab"><span class="an">Tricksters</span><span class="ad">4 across cultures</span></div><div class="achips">
+        <span class="lc">Anansi <span class="o">W.Afr</span></span><span class="lc">Tanuki <span class="o">JP</span></span><span class="lc">Tikbalang <span class="o">PH</span></span><span class="lc">Púca <span class="o">Celtic</span></span></div></div>
+      <div class="arow"><div class="alab"><span class="an">Guardians &amp; nature-spirits</span><span class="ad">5 across cultures</span></div><div class="achips">
+        <span class="lc">Leshy <span class="o">Slavic</span></span><span class="lc">Huldra <span class="o">Norse</span></span><span class="lc">Mami Wata <span class="o">W.Afr</span></span><span class="lc">Kappa <span class="o">JP</span></span><span class="lc">Domovoi <span class="o">Slavic</span></span></div></div>
+      <div class="arow" style="border:none"><div class="alab"><span class="an">World-systems &amp; cosmology</span><span class="ad">magic · realms · wealth</span></div><div class="achips">
+        <span class="lc">Djinn pact-magic <span class="sd"></span><span class="o">Arab</span></span><span class="lc">Naga water-realm <span class="sd"></span><span class="o">S.Asia</span></span><span class="lc">Simurgh wisdom <span class="o">Persia</span></span><span class="lc">Pixiu wealth <span class="o">CN</span></span></div></div>
+    </div>
+    <div class="note"><b>Type a trait or function</b> — “fox”, “water spirit”, “death omen”, “shapeshift” — and the Atlas surfaces every culture’s answer side by side. <span style="color:#e3a05f">●</span> = sacred-aware. This comparative view is the part nobody else has.</div>
+  </div>
+</div>
+
+<div class="ft">FRAME 2 — ELEMENT ROLES + WEIGHT · each pick carries intent, so the AI writes a world, not a word-list</div>
+<div class="scr"><div class="pad">
+  <div class="card lit"><div class="bt"><svg class="ico" viewBox="0 0 24 24"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/></svg>Your lore selection <span class="hint">3 chosen</span></div>
+    <div class="selrow spine"><div class="nm"><div class="n">Djinn</div><div class="o">Arabian</div></div>
+      <div><div class="fl">ROLE IN STORY</div><div class="ddl"><span>Antagonist force</span><span class="c">▾</span></div></div>
+      <div class="weight"><div><div class="fl">WEIGHT</div><div class="dots"><i class="f"></i><i class="f"></i><i class="f"></i><i></i></div></div><span class="wlab spine">Spine</span></div>
+      <div style="margin-left:auto"><span class="tg s">sacred-aware</span></div></div>
+    <div class="selrow"><div class="nm"><div class="n">Ghoul</div><div class="o">Arabian</div></div>
+      <div><div class="fl">ROLE IN STORY</div><div class="ddl"><span>Obstacle / threat</span><span class="c">▾</span></div></div>
+      <div class="weight"><div><div class="fl">WEIGHT</div><div class="dots"><i class="f"></i><i></i><i></i><i></i></div></div><span class="wlab spice">Spice</span></div>
+      <div style="margin-left:auto"><span class="tg h">horror</span></div></div>
+    <div class="selrow"><div class="nm"><div class="n">Qarin</div><div class="o">Arabian</div></div>
+      <div><div class="fl">ROLE IN STORY</div><div class="ddl"><span>Omen / inner-voice</span><span class="c">▾</span></div></div>
+      <div class="weight"><div><div class="fl">WEIGHT</div><div class="dots"><i class="f"></i><i class="f"></i><i></i><i></i></div></div><span class="wlab spice">Accent</span></div>
+      <div style="margin-left:auto"><span class="tg s">sacred-aware</span></div></div>
+    <div class="note">Roles: <b>Antagonist · Ally / guide · World-system · Obstacle · Omen</b>. Weight runs <b>Spine</b> (defines the world) → <b>Accent</b> (a flavour beat).</div>
+    <div class="preview"><span class="lbl">WHAT THE WRITERS-ROOM AI RECEIVES</span><br>World layer · <b>light touch</b> over a grounded pre-Islamic Arabia.<br>· <b>Djinn</b> — central <b>antagonist</b> system (pacts, possession). [spine]<br>· <b>Ghoul</b> — recurring <b>obstacle</b> on the desert road. [spice]<br>· <b>Qarin</b> — an <b>omen</b>/inner-voice shadowing the hero. [accent]<br>Guardrail · sacred-aware: jinn-kin as folklore; no deities, no scripture.</div>
+  </div>
+</div></div>
+
+<div class="ft">FRAME 3 — DEEP ELEMENT CARD · expand any element into a writers-room reference, with sources</div>
+<div class="scr"><div class="pad">
+  <div class="card"><div class="deep">
+    <div class="dimg"><svg class="glyph" viewBox="0 0 24 24"><path d="M12 2C7 6 6 10 8 14c1 2 2 4 4 8 2-4 3-6 4-8 2-4 1-8-4-12z"/></svg>
+      <div class="do">Arabian · desert folklore</div><div class="dt">Ghoul · الغول</div>
+      <div class="dtag"><span class="tg open">folklore · open</span><span class="tg h">horror</span><span class="tg s">jinn-kin</span></div></div>
+    <div class="dinfo">
+      <div class="blk"><div class="bl">ORIGIN</div><p>A shapeshifting desert demon of pre-Islamic Arabian lore, counted among the <b>jinn-kin</b>. Lures lone travellers off the road to devour them; also robs graves and preys on the dead.</p></div>
+      <div class="blk"><div class="bl">REGIONAL VARIANTS</div><p><b>Si’lat</b> — female form that passes as human · <b>Qutrub</b> — restless frenzied ghoul · Persian &amp; Turkic cognates across the trade routes.</p></div>
+      <div class="blk"><div class="bl">STORY HOOKS</div>
+        <div class="hook"><span class="hb">▸</span>The hired guide who knows the dunes too well — and never eats.</div>
+        <div class="hook"><span class="hb">▸</span>A grave-robbing that wakes something older than the tomb.</div>
+        <div class="hook"><span class="hb">▸</span>The traveller who realises the voice calling their name is wearing a dead friend’s face.</div></div>
+      <div class="blk"><div class="bl">SACRED / CARE</div><p>Folklore creature — <b>open to use</b>. Jinn-kin tag noted; the guardrail keeps it as lore, never tied to scripture or named deity.</p></div>
+      <div class="cite"><svg class="ico" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M4 19V5a2 2 0 012-2h10l4 4v12a2 2 0 01-2 2H6a2 2 0 01-2-2z"/></svg>Sourced · Arabian mythology &amp; jinn folklore references · 3 citations</div>
+    </div>
+  </div></div>
+</div></div>
+
+<div class="ft">FRAME 4 — SACRED-POLICY TIERS · living-religion locked, historical pantheons allowed-with-flag, folklore open</div>
+<div class="scr"><div class="pad">
+  <div class="card"><div class="bt"><svg class="ico" viewBox="0 0 24 24"><path d="M12 2L2 21h20zM12 9v5M12 18h.01"/></svg>Sacred policy — what the Atlas will and won’t surface</div>
+    <div class="tier lock"><span class="ti"><svg class="ico" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg></span>
+      <div class="tx"><div class="tn">Living-religion sacred — God, prophets, living-faith deities</div><div class="td">Never depicted, named, or voiced. Not listed in the Atlas at all.</div><div class="ex">e.g. Abrahamic prophets &amp; God · Hindu deities · Orisha · Buddhist figures</div></div>
+      <span class="st red">HARD-LOCKED</span></div>
+    <div class="tier flag"><span class="ti"><svg class="ico" viewBox="0 0 24 24"><path d="M5 3v18M5 4h11l-2 4 2 4H5"/></svg></span>
+      <div class="tx"><div class="tn">Historical / classical pantheons</div><div class="td">Deities of religions no longer practised — selectable, but flagged for review. Toggle the policy per project.</div><div class="ex">e.g. Greek · Norse · Egyptian · Mesopotamian gods &amp; heroes</div></div>
+      <div style="display:flex;align-items:center;gap:9px"><span class="st amb">ALLOWED · FLAGGED</span><span class="sw"><i></i></span></div></div>
+    <div class="tier open"><span class="ti"><svg class="ico" viewBox="0 0 24 24"><path d="M5 11V7a4 4 0 018 0M5 11h14v10H5z" /></svg></span>
+      <div class="tx"><div class="tn">Folklore beings &amp; creatures</div><div class="td">Djinn, ghoul, yokai, draugr, rusalka, aswang… open to use, each with its own tag.</div><div class="ex">all 12 cultures · the bulk of the library</div></div>
+      <span class="st grn">OPEN</span></div>
+    <div class="note">The tier sets the default; the per-project toggle on the middle tier lets a <b>Greek-myth</b> or <b>Norse-saga</b> production switch on classical pantheons while the hard lock on living-faith sacred figures never moves. Whatever you choose is written into the brief’s guardrail.</div>
+  </div>
+</div></div>
+</body></html>

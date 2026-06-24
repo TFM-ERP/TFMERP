@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en" data-theme="ink">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>TFM — Script Reader · Look & Feel across themes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --font-sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  --font-display:'Inter',sans-serif; --font-mono:'Courier Prime','Courier New',monospace;
+  --radius:12px; --radius-sm:8px; --shadow:0 8px 24px rgba(0,0,0,.40); --bg-image:none;
+  /* script sheet tokens (overridden per theme) */
+  --sheet:#FBF8F2; --ink:#1B1712; --sheet-edge:rgba(0,0,0,.10);
+}
+[data-theme="graphite"]{--bg:#0E1117;--surface-1:#161C28;--surface-2:#1E2632;--surface-3:#28313F;--text-1:#F4F6FA;--text-2:#C2CAD6;--text-3:#8A94A6;--border-1:#262E3B;--border-2:#333D4D;--accent:#C9A24A;--accent-on:#161C28;--accent-soft:rgba(201,162,74,.14);--ok:#34D399;--ok-soft:rgba(52,211,153,.14);--warn:#E0A53F;--warn-soft:rgba(224,165,63,.16);--danger:#E2574C;--danger-soft:rgba(226,87,76,.16);--radius:13px;--shadow:0 10px 30px rgba(0,0,0,.45);--font-display:'Inter',sans-serif;--sheet:#191F2B;--ink:#ECEFF4;--sheet-edge:rgba(0,0,0,.5)}
+[data-theme="studio"]{--bg:#F7F8FA;--surface-1:#FFFFFF;--surface-2:#F1F3F7;--surface-3:#E8EBF0;--text-1:#16202E;--text-2:#48536A;--text-3:#8A93A6;--border-1:#E6E9EF;--border-2:#D3D9E3;--accent:#5B5BD6;--accent-on:#FFFFFF;--accent-soft:#ECECFB;--ok:#1F9D63;--ok-soft:#E4F6EC;--warn:#B5791E;--warn-soft:#FBF0DA;--danger:#D14343;--danger-soft:#FBE7E7;--radius:10px;--shadow:0 1px 2px rgba(16,24,40,.06),0 6px 18px rgba(16,24,40,.07);--font-display:'Inter',sans-serif;--sheet:#FFFFFF;--ink:#1B2230;--sheet-edge:rgba(16,24,40,.12)}
+[data-theme="ink"]{--bg:#E9E1D2;--surface-1:#FBF8F2;--surface-2:#EFE8DC;--surface-3:#E6DCCA;--text-1:#1B1712;--text-2:#4A4338;--text-3:#867B6A;--border-1:#E3D9C8;--border-2:#CDBFA8;--accent:#B0532E;--accent-on:#FBF8F2;--accent-soft:#F0DFD2;--ok:#5E7A3A;--ok-soft:#E8EBD7;--warn:#B5791E;--warn-soft:#F3E6CC;--danger:#B23A2E;--danger-soft:#F2DBD5;--radius:6px;--shadow:0 1px 2px rgba(60,40,20,.10),0 10px 26px rgba(60,40,20,.10);--font-display:'Fraunces',Georgia,serif;--sheet:#FCFAF4;--ink:#16120C;--sheet-edge:rgba(60,40,20,.16)}
+[data-theme="slate"]{--bg:#0B1220;--surface-1:#121A2A;--surface-2:#1A2436;--surface-3:#243149;--text-1:#EAF0FA;--text-2:#A9B6CC;--text-3:#6E7C95;--border-1:#1F2A3D;--border-2:#2C3A52;--accent:#3BA6C9;--accent-on:#06131C;--accent-soft:rgba(59,166,201,.16);--ok:#37C2A0;--ok-soft:rgba(55,194,160,.15);--warn:#E0A53F;--warn-soft:rgba(224,165,63,.16);--danger:#E2574C;--danger-soft:rgba(226,87,76,.16);--radius:12px;--shadow:0 10px 30px rgba(0,0,0,.5);--font-display:'Inter',sans-serif;--sheet:#0F1726;--ink:#E7EEF8;--sheet-edge:rgba(0,0,0,.5)}
+[data-theme="aurora"]{--bg:#09080F;--surface-1:rgba(28,25,48,.72);--surface-2:rgba(40,35,68,.62);--surface-3:rgba(56,49,92,.6);--text-1:#F2EEFF;--text-2:#C6BFE2;--text-3:#928BB2;--border-1:rgba(150,130,255,.18);--border-2:rgba(150,130,255,.3);--accent:#8B7CF6;--accent-on:#0A0A14;--accent-soft:rgba(139,124,246,.2);--ok:#36D1A6;--ok-soft:rgba(54,209,166,.16);--warn:#E6B450;--warn-soft:rgba(230,180,80,.16);--danger:#F0606B;--danger-soft:rgba(240,96,107,.16);--radius:16px;--shadow:0 18px 50px rgba(80,40,160,.30);--font-display:'Inter',sans-serif;--bg-image:radial-gradient(900px 500px at 12% -8%,rgba(139,124,246,.22),transparent 60%),radial-gradient(800px 500px at 100% 0%,rgba(52,215,200,.16),transparent 55%);--sheet:#14122A;--ink:#EFEBFF;--sheet-edge:rgba(0,0,0,.45)}
+[data-theme="midnight"]{--bg:#000000;--surface-1:#0C0F14;--surface-2:#151A22;--surface-3:#1F2630;--text-1:#FFFFFF;--text-2:#D6DDE8;--text-3:#9AA6B6;--border-1:#222A35;--border-2:#3A4654;--accent:#F5A623;--accent-on:#000000;--accent-soft:rgba(245,166,35,.16);--ok:#3DDC84;--ok-soft:rgba(61,220,132,.16);--warn:#F5A623;--warn-soft:rgba(245,166,35,.16);--danger:#FF5A52;--danger-soft:rgba(255,90,82,.16);--radius:8px;--shadow:0 10px 30px rgba(0,0,0,.7);--font-display:'Inter',sans-serif;--sheet:#0A0D12;--ink:#FFFFFF;--sheet-edge:rgba(0,0,0,.7)}
+
+body{font-family:var(--font-sans);background:var(--bg);color:var(--text-1);background-image:var(--bg-image);background-attachment:fixed;-webkit-font-smoothing:antialiased;transition:background .35s,color .35s}
+
+.explorer-bar{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:13px 20px;background:color-mix(in srgb,var(--bg) 86%,transparent);backdrop-filter:blur(12px);border-bottom:1px solid var(--border-1)}
+.etitle{font-weight:800;letter-spacing:-.02em;font-size:14px}.etitle small{display:block;font-weight:500;font-size:11px;color:var(--text-3)}
+.pills{display:flex;gap:7px;flex-wrap:wrap}
+.pill{cursor:pointer;border:1px solid var(--border-2);background:var(--surface-1);color:var(--text-2);padding:6px 12px;border-radius:999px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;transition:all .18s}
+.pill:hover{color:var(--text-1);border-color:var(--accent)}
+.pill[aria-selected="true"]{background:var(--accent);color:var(--accent-on);border-color:var(--accent)}
+.pill .dot{width:9px;height:9px;border-radius:50%}
+.note{font-size:12px;color:var(--text-3);margin-left:auto;max-width:340px;text-align:right}.note b{color:var(--text-2);font-weight:600}
+
+.reader{max-width:1180px;margin:22px auto;padding:0 18px}
+/* toolbar */
+.toolbar{display:flex;align-items:center;gap:10px;padding:11px 14px;background:var(--surface-1);border:1px solid var(--border-1);border-radius:var(--radius) var(--radius) 0 0}
+.toolbar .tabs{display:flex;gap:4px;background:var(--surface-2);padding:3px;border-radius:999px}
+.toolbar .tab{font-size:12px;font-weight:600;color:var(--text-3);padding:6px 13px;border-radius:999px;cursor:pointer}
+.toolbar .tab.on{background:var(--accent);color:var(--accent-on)}
+.toolbar .sp{flex:1}
+.tbtn{border:1px solid var(--border-1);background:var(--surface-2);color:var(--text-2);width:32px;height:32px;border-radius:8px;display:grid;place-items:center;cursor:pointer;font-size:13px}
+.revchip{display:flex;align-items:center;gap:7px;font-size:11.5px;font-weight:700;color:var(--text-2);background:var(--surface-2);border:1px solid var(--border-1);padding:6px 11px;border-radius:999px}
+.revchip .sw{width:11px;height:11px;border-radius:3px;background:#5b8def}
+
+.work{display:grid;grid-template-columns:208px 1fr 232px;border:1px solid var(--border-1);border-top:none;border-radius:0 0 var(--radius) var(--radius);overflow:hidden;background:var(--surface-1);box-shadow:var(--shadow)}
+/* scene navigator */
+.rail{border-right:1px solid var(--border-1);padding:12px 10px;background:var(--surface-1);max-height:760px;overflow:auto}
+.rail .lbl{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-3);font-weight:700;margin:6px 6px 8px}
+.scene{display:flex;gap:9px;padding:8px 9px;border-radius:8px;cursor:pointer;margin-bottom:2px}
+.scene:hover{background:var(--surface-2)}
+.scene.on{background:var(--accent-soft)}
+.scene .no{font-weight:800;color:var(--accent);font-size:12px;width:20px;flex-shrink:0}
+.scene .tx{font-size:11.5px;color:var(--text-2);line-height:1.3}
+.scene.on .tx{color:var(--text-1)}
+.scene .tx small{display:block;color:var(--text-3);font-size:10px;margin-top:1px}
+
+/* the screenplay sheet */
+.sheetwrap{padding:30px 24px;display:flex;justify-content:center;max-height:760px;overflow:auto;background:color-mix(in srgb,var(--bg) 55%,var(--surface-2))}
+.sheet{width:640px;flex-shrink:0;background:var(--sheet);color:var(--ink);border-radius:3px;
+  padding:60px 76px 54px 92px;position:relative;box-shadow:0 2px 4px var(--sheet-edge),0 16px 40px var(--sheet-edge);
+  font-family:var(--font-mono);font-size:13px;line-height:1.5}
+.sheet .pageno{position:absolute;top:26px;right:42px;font-size:12px;color:var(--ink);opacity:.7}
+.sheet .punch{position:absolute;left:30px;top:0;height:100%;display:flex;flex-direction:column;justify-content:center;gap:120px}
+.sheet .punch span{width:13px;height:13px;border-radius:50%;background:color-mix(in srgb,var(--ink) 12%,transparent);box-shadow:inset 0 1px 2px var(--sheet-edge)}
+.sl{font-weight:700;text-transform:uppercase;letter-spacing:.01em;margin:0 0 12px;position:relative}
+.sl .scn{position:absolute;left:-58px;font-weight:700;opacity:.55}
+.sl .scnR{position:absolute;right:-46px;font-weight:700;opacity:.55}
+.ac{margin:0 0 13px}
+.ch{margin:0 0 1px;padding-left:36%;font-weight:700;text-transform:uppercase}
+.pa{margin:0 0 1px;padding-left:28%}
+.di{margin:0 0 13px;padding-left:21%;padding-right:16%}
+.tr{text-align:right;text-transform:uppercase;margin:0 0 13px}
+.rev{position:absolute;right:42px;color:var(--danger);font-weight:700}
+/* dual dialogue */
+.dual{display:flex;gap:24px;margin:0 0 13px}
+.dual .col{flex:1}
+.dual .ch{padding-left:18%}.dual .di{padding-left:4%;padding-right:2%}
+
+/* breakdown / tags rail (progressive disclosure) */
+.tags{border-left:1px solid var(--border-1);padding:14px 13px;background:var(--surface-1);max-height:760px;overflow:auto}
+.tags .lbl{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-3);font-weight:700;margin-bottom:10px}
+.tgroup{margin-bottom:15px}
+.tgroup .gh{font-size:11px;font-weight:700;color:var(--text-2);margin-bottom:7px;display:flex;align-items:center;gap:6px}
+.tag{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:4px 9px;border-radius:6px;margin:0 5px 5px 0;background:var(--surface-2);color:var(--text-2);border:1px solid var(--border-1)}
+.tag .d{width:8px;height:8px;border-radius:50%}
+.note-card{background:var(--surface-2);border:1px solid var(--border-1);border-radius:10px;padding:10px;font-size:11.5px;color:var(--text-2);margin-top:4px}
+.note-card .who{font-weight:700;color:var(--text-1);font-size:11px;margin-bottom:3px}
+
+.cap{max-width:1180px;margin:0 auto 40px;padding:14px 18px 0;font-size:12.5px;color:var(--text-3);text-align:center}
+@media(max-width:900px){.work{grid-template-columns:1fr}.rail,.tags{display:none}.sheet{width:100%;padding:40px 28px 40px 44px}.sheet .punch{display:none}.sl .scn{left:-30px}}
+</style>
+</head>
+<body>
+
+<div class="explorer-bar">
+  <div class="etitle">TFM · Script Reader<small>The “real script” surface, in all six themes — switch to compare</small></div>
+  <div class="pills" id="pills"></div>
+  <div class="note" id="note"></div>
+</div>
+
+<div class="reader">
+  <div class="toolbar">
+    <div class="tabs">
+      <div class="tab on">Reader</div>
+      <div class="tab">Pages</div>
+      <div class="tab">Audio Studio</div>
+    </div>
+    <span class="revchip"><span class="sw"></span> Rev. Blue · 15 Jun</span>
+    <div class="sp"></div>
+    <div class="tbtn" title="Scene navigator">☰</div>
+    <div class="tbtn" title="Search">🔎</div>
+    <div class="tbtn" title="Smaller">A−</div>
+    <div class="tbtn" title="Larger">A+</div>
+    <div class="tbtn" title="Full screen">⤢</div>
+  </div>
+
+  <div class="work">
+    <!-- scene navigator -->
+    <aside class="rail">
+      <div class="lbl">Scenes · Act II</div>
+      <div class="scene"><span class="no">22</span><span class="tx">Convoy Halt<small>EXT · Day · 1 1/8</small></span></div>
+      <div class="scene"><span class="no">23</span><span class="tx">Radio Tent<small>INT · Night · 0 6/8</small></span></div>
+      <div class="scene on"><span class="no">24</span><span class="tx">Field Hospital Tent<small>INT · Night · 2 4/8</small></span></div>
+      <div class="scene"><span class="no">25</span><span class="tx">Dune Ridge<small>EXT · Day · 1 2/8</small></span></div>
+      <div class="scene"><span class="no">26</span><span class="tx">Command Tent<small>INT · Night · 3 1/8</small></span></div>
+      <div class="scene"><span class="no">27</span><span class="tx">Checkpoint<small>EXT · Day · 0 6/8</small></span></div>
+    </aside>
+
+    <!-- screenplay sheet -->
+    <div class="sheetwrap">
+      <div class="sheet">
+        <div class="pageno">24.</div>
+        <div class="punch"><span></span><span></span><span></span></div>
+
+        <p class="sl"><span class="scn">24</span>INT. FIELD HOSPITAL TENT — NIGHT<span class="scnR">24</span></p>
+        <p class="ac">Rain hammers the canvas. A single lamp swings overhead. NADIA (30s), a field medic with steady hands and tired eyes, presses a blood-soaked cloth to a young SOLDIER’s shoulder.</p>
+        <p class="ch">NADIA</p>
+        <p class="di">Stay with me. Look at my eyes — not the wound. The eyes.</p>
+        <p class="ch">SOLDIER</p>
+        <p class="pa">(weakly)</p>
+        <p class="di">…it’s so cold in here.</p>
+        <p class="ac"><span class="rev">*</span>She tightens the dressing. Outside, an ENGINE roars past — headlights rake the tent wall.</p>
+
+        <!-- dual dialogue -->
+        <div class="dual">
+          <div class="col"><p class="ch">NADIA</p><p class="di">Pressure — now!</p></div>
+          <div class="col"><p class="ch">RECRUIT</p><p class="di">I’ve got it, I’ve got it—</p></div>
+        </div>
+
+        <p class="ac">The lamp steadies. For one breath, the chaos holds its breath with it.</p>
+        <p class="tr">CUT TO:</p>
+        <p class="sl"><span class="scn">25</span>EXT. DUNE RIDGE — DAY<span class="scnR">25</span></p>
+        <p class="ac">Heat shimmer. The convoy is a thin black seam stitched across an ocean of sand.</p>
+      </div>
+    </div>
+
+    <!-- breakdown / notes rail -->
+    <aside class="tags">
+      <div class="lbl">Sc. 24 · Breakdown</div>
+      <div class="tgroup"><div class="gh">🎭 Cast</div>
+        <span class="tag"><span class="d" style="background:var(--accent)"></span>Nadia</span>
+        <span class="tag"><span class="d" style="background:var(--ok)"></span>Soldier</span>
+        <span class="tag"><span class="d" style="background:var(--warn)"></span>Recruit</span>
+      </div>
+      <div class="tgroup"><div class="gh">🔧 Props</div>
+        <span class="tag">Field lamp</span><span class="tag">Dressing kit</span><span class="tag">Radio</span>
+      </div>
+      <div class="tgroup"><div class="gh">💧 SFX</div>
+        <span class="tag">Rain rig</span><span class="tag">Headlight sweep</span>
+      </div>
+      <div class="tgroup"><div class="gh">💬 Notes</div>
+        <div class="note-card"><div class="who">1st AD · Priya</div>Practical rain — wardrobe needs 3 doubles for Nadia. Lamp on dimmer for the “steadies” beat.</div>
+      </div>
+    </aside>
+  </div>
+  <div class="cap">Same screenplay, six themes. Notice how <b>Ink &amp; Paper</b> reads like a printed sides page, while the dark themes give a focused “night reading” page — the script formatting (sluglines, dialogue indents, dual dialogue, revision asterisk, scene numbers) never changes.</div>
+</div>
+
+<script>
+const THEMES=[
+ {id:'graphite',name:'Graphite & Gold',dot:'#C9A24A',note:'<b>Cinematic dark.</b> Dark reading page, warm gold accents on the navigator & tags.'},
+ {id:'studio',name:'Studio Light',dot:'#5B5BD6',note:'<b>Enterprise clean.</b> Bright white page, indigo accents — crisp and neutral.'},
+ {id:'ink',name:'Ink & Paper',dot:'#B0532E',note:'<b>Editorial — the script theme.</b> Warm paper sheet, ink text. Reads exactly like real printed sides.'},
+ {id:'slate',name:'Slate Pro',dot:'#3BA6C9',note:'<b>Cool dark.</b> Slate reading page, cyan accents. Modern and calm.'},
+ {id:'aurora',name:'Aurora Glass',dot:'#8B7CF6',note:'<b>Premium glass.</b> Glowing chrome around a deep reading page — bold, demo-ready.'},
+ {id:'midnight',name:'Midnight Contrast',dot:'#F5A623',note:'<b>AAA night mode.</b> True-black page, amber accents — maximum readability on set at night.'},
+];
+const pills=document.getElementById('pills'),note=document.getElementById('note'),root=document.documentElement;
+function select(id){root.setAttribute('data-theme',id);[...pills.children].forEach(p=>p.setAttribute('aria-selected',p.dataset.id===id));note.innerHTML=THEMES.find(t=>t.id===id).note;}
+THEMES.forEach(t=>{const b=document.createElement('button');b.className='pill';b.dataset.id=t.id;b.innerHTML='<span class="dot" style="background:'+t.dot+'"></span>'+t.name;b.onclick=()=>select(t.id);pills.appendChild(b);});
+select('ink');
+</script>
+</body>
+</html>

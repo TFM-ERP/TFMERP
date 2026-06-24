@@ -1,0 +1,157 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ScripON — Genre Intensity Controls (mockup)</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Fraunces:opsz,wght@9..144,600&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0b0c0f;--panel:#14161c;--hair:rgba(255,255,255,.08);--gold:#C6A463;--gold2:#E6D2A2;--ink:#1a1509;--cream:#F4EEE0;--text:#E8E6E0;--mut:#9aa1ab;--faint:#6b727d;--blue:#5b8def;--red:#e5635f;--green:#57b368}
+body{background:var(--bg);font-family:Inter,system-ui,sans-serif;color:var(--text);padding:26px 18px 80px;display:flex;flex-direction:column;align-items:center}
+.wrap{width:760px;max-width:100%}
+.h{font-family:Fraunces,Georgia,serif;font-size:22px;color:var(--cream);margin-bottom:4px}
+.sub{font-size:12.5px;color:var(--mut);margin-bottom:18px}
+.band{background:var(--panel);border:1px solid var(--hair);border-radius:14px;padding:14px 16px;margin-bottom:14px}
+.bt{font-size:12.5px;font-weight:800;letter-spacing:.4px;color:var(--gold)}
+/* collapsible header */
+.sec{background:var(--panel);border:1px solid var(--hair);border-radius:14px;overflow:hidden}
+.sechead{display:flex;align-items:center;gap:10px;padding:14px 16px;cursor:pointer;user-select:none}
+.chev{color:var(--gold2);font-size:14px;transition:transform .2s;display:inline-block}
+.sec.open .chev{transform:rotate(90deg)}
+.sechead .t{font-size:13px;font-weight:800;color:var(--cream)}
+.sechead .cnt{margin-left:auto;font-size:10.5px;color:var(--gold2);font-weight:700;background:rgba(198,164,99,.14);border:1px solid rgba(198,164,99,.3);border-radius:999px;padding:2px 9px}
+.body{display:none;padding:0 16px 16px;border-top:1px solid var(--hair)}
+.sec.open .body{display:block}
+.note{font-size:10.5px;color:var(--blue);background:rgba(91,141,239,.08);border:1px solid rgba(91,141,239,.25);border-radius:8px;padding:7px 9px;margin:12px 0}
+/* influence summary */
+.summary{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
+.spill{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:var(--gold2);background:rgba(198,164,99,.12);border:1px solid rgba(198,164,99,.3);border-radius:999px;padding:3px 10px}
+.spill .pct{font-family:'Courier Prime',monospace;color:var(--cream)}
+/* family row */
+.fam{border:1px solid var(--hair);border-radius:11px;margin-top:10px;overflow:hidden}
+.famhead{display:flex;align-items:center;gap:10px;padding:11px 13px;cursor:pointer}
+.fam.on .famhead{background:rgba(198,164,99,.07)}
+.famname{font-size:13px;font-weight:700;color:var(--cream)}
+.fbring{font-size:10.5px;color:var(--faint)}
+.tog{margin-left:auto;width:38px;height:21px;border-radius:999px;background:#2a2d36;position:relative;transition:.18s;flex:none}
+.fam.on .tog{background:linear-gradient(180deg,var(--gold2),var(--gold))}
+.tog i{position:absolute;top:2px;left:2px;width:17px;height:17px;border-radius:50%;background:#0b0c0f;transition:.18s}
+.fam.on .tog i{left:19px;background:#15120B}
+.ctrl{display:none;padding:4px 13px 14px;flex-direction:column;gap:14px}
+.fam.on .ctrl{display:flex}
+.slabel{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px}
+.slabel .k{font-size:10px;font-weight:700;letter-spacing:.5px;color:var(--gold);text-transform:uppercase}
+.slabel .v{font-size:12px;font-weight:700;color:var(--cream)}
+input[type=range]{-webkit-appearance:none;width:100%;height:5px;border-radius:5px;background:#23262e;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:linear-gradient(180deg,var(--gold2),var(--gold));cursor:pointer;border:2px solid #15120B}
+.ticks{display:flex;justify-content:space-between;margin-top:3px}
+.ticks span{font-size:8.5px;color:var(--faint);flex:1;text-align:center}
+.ticks span.act{color:var(--gold2);font-weight:700}
+.infrow{display:flex;align-items:center;gap:10px}
+.infbar{flex:1;height:7px;border-radius:6px;background:#23262e;overflow:hidden}
+.inffill{height:100%;background:linear-gradient(90deg,var(--gold),var(--gold2))}
+.infpct{font-family:'Courier Prime',monospace;font-size:13px;font-weight:700;color:var(--gold2);min-width:42px;text-align:right}
+.styles{display:flex;flex-wrap:wrap;gap:6px}
+.schip{font-size:11px;font-weight:600;color:var(--mut);background:#171a20;border:1px solid var(--hair);border-radius:999px;padding:5px 11px;cursor:pointer}
+.schip.on{background:rgba(198,164,99,.16);border-color:rgba(198,164,99,.45);color:var(--gold2)}
+.aiprev{font-size:10.5px;color:var(--text);background:#0e1014;border-left:3px solid var(--gold);border-radius:8px;padding:8px 10px;line-height:1.5}
+.aiprev b{color:var(--gold2)}
+</style></head>
+<body>
+<div class="wrap">
+<div class="h">Lore Atlas — genre intensity controls</div>
+<div class="sub">Toggle a genre to dial in how often it appears, how strong it gets, and its overall influence on the script.</div>
+
+<div class="sec" id="sec">
+  <div class="sechead" onclick="document.getElementById('sec').classList.toggle('open')">
+    <span class="chev">▶</span><span class="t">Genre &amp; texture layers</span>
+    <span class="cnt" id="cnt">0 active</span>
+  </div>
+  <div class="body">
+    <div class="summary" id="summary"></div>
+    <div class="note">Collapsed by default — click the header to expand. Each genre you switch on reveals Presence + Intensity dials and a 0–100% influence score the AI honours across every stage (Concept → Synopsis → Treatment → Beats → Scenes → Draft).</div>
+    <div id="fams"></div>
+  </div>
+</div>
+
+<div class="band" style="margin-top:14px">
+  <div class="bt">WHAT THE AI RECEIVES</div>
+  <div id="aiout" style="margin-top:8px;display:flex;flex-direction:column;gap:7px"></div>
+</div>
+</div>
+
+<script>
+const FAMS = [
+  { id:'comedy', name:'Comedy & humour', bring:'wit, gags, comic relief',
+    presence:['Rarely','Occasionally','Balanced','Frequent','Constant'],
+    intensity:['Subtle','Light','Moderate','Strong','Dominant'] },
+  { id:'action', name:'Action & spectacle', bring:'set-pieces, fights, chases',
+    presence:['Only When Required','Scene-Driven','Story-Driven','Frequent','Action-Centric'],
+    intensity:['Grounded','Moderate','High','Epic','Extreme'],
+    styles:['Hand-to-Hand Combat','Sword Fighting','Martial Arts','Military Combat','Gunfights','Tactical Operations','Large-Scale Battles','Chases & Pursuits','Vehicle Combat','Mixed Styles'] },
+  { id:'spy', name:'Espionage & spycraft', bring:'tradecraft, double-crosses',
+    presence:['Minimal','Occasional','Moderate','Significant','Core Story Element'],
+    intensity:['Realistic','Professional','High-Stakes','International','Mission Impossible / Bond Level'] },
+  { id:'horror', name:'Horror & dread', bring:'fear, dread, the unseen',
+    presence:['Rare','Occasional','Moderate','Frequent','Constant'],
+    intensity:['Uneasy','Suspenseful','Disturbing','Terrifying','Nightmare Fuel'] },
+  { id:'mystery', name:'Mystery & investigation', bring:'clues, reveals, deduction',
+    presence:['Light Mystery','Supporting Element','Balanced','Major Narrative Driver','Core Story Structure'],
+    intensity:['Straightforward','Layered','Complex','Highly Intricate','Puzzle Box'] },
+  { id:'drama', name:'Drama & emotion', bring:'character, feeling, theme',
+    presence:['Light Emotional Moments','Moderate','Balanced','Strong','Emotionally Driven'],
+    intensity:['Subtle','Moving','Powerful','Heartbreaking','Deeply Emotional'] },
+  { id:'scifi', name:'Sci-fi & speculative', bring:'tech, worlds, what-ifs',
+    presence:['Background Element','Supporting Concept','Balanced','Major Story Driver','World-Defining'],
+    intensity:['Near Future','Advanced Technology','High Sci-Fi','Extreme Speculative','Reality-Altering'] },
+];
+const state = {};
+const famsEl = document.getElementById('fams');
+
+FAMS.forEach(f => {
+  state[f.id] = { on:false, p:2, ii:2, inf:50, manualInf:false, styles:[] };
+  const row = document.createElement('div'); row.className='fam'; row.id='row-'+f.id;
+  const styleHtml = f.styles ? `<div><div class="slabel"><span class="k">Action style</span></div><div class="styles" id="st-${f.id}">${f.styles.map(s=>`<span class="schip" data-s="${s}">${s}</span>`).join('')}</div></div>` : '';
+  row.innerHTML = `
+    <div class="famhead" onclick="window.tog('${f.id}')">
+      <div><div class="famname">${f.name}</div><div class="fbring">${f.bring}</div></div>
+      <div class="tog"><i></i></div>
+    </div>
+    <div class="ctrl">
+      <div>
+        <div class="slabel"><span class="k">Presence — how often</span><span class="v" id="pv-${f.id}">${f.presence[2]}</span></div>
+        <input type="range" min="0" max="4" step="1" value="2" id="p-${f.id}">
+        <div class="ticks" id="pt-${f.id}">${f.presence.map((s,i)=>`<span class="${i===2?'act':''}">${s.split(' ')[0]}</span>`).join('')}</div>
+      </div>
+      <div>
+        <div class="slabel"><span class="k">Intensity — how strong</span><span class="v" id="iv-${f.id}">${f.intensity[2]}</span></div>
+        <input type="range" min="0" max="4" step="1" value="2" id="i-${f.id}">
+        <div class="ticks" id="it-${f.id}">${f.intensity.map((s,i)=>`<span class="${i===2?'act':''}">${s.split(' ')[0]}</span>`).join('')}</div>
+      </div>
+      ${styleHtml}
+      <div>
+        <div class="slabel"><span class="k">Narrative influence (0–100%)</span><span class="v" style="color:var(--faint);font-weight:500">how heavily it weighs</span></div>
+        <div class="infrow"><div class="infbar"><div class="inffill" id="if-${f.id}" style="width:50%"></div></div><input type="range" min="0" max="100" step="5" value="50" id="inf-${f.id}" style="flex:1.4"><span class="infpct" id="ip-${f.id}">50%</span></div>
+      </div>
+    </div>`;
+  famsEl.appendChild(row);
+
+  const st = state[f.id];
+  const pv=row.querySelector('#pv-'+f.id), iv=row.querySelector('#iv-'+f.id), ifb=row.querySelector('#if-'+f.id), ipc=row.querySelector('#ip-'+f.id);
+  const pr=row.querySelector('#p-'+f.id), ir=row.querySelector('#i-'+f.id), infr=row.querySelector('#inf-'+f.id);
+  function setTicks(id, idx){ const t=row.querySelector('#'+id); [...t.children].forEach((c,i)=>c.className=i===idx?'act':''); }
+  function autoInf(){ if(st.manualInf) return; const v=Math.round(((st.p+st.ii)/8)*100); st.inf=v; infr.value=v; ifb.style.width=v+'%'; ipc.textContent=v+'%'; }
+  pr.oninput=()=>{ st.p=+pr.value; pv.textContent=f.presence[st.p]; setTicks('pt-'+f.id,st.p); autoInf(); update(); };
+  ir.oninput=()=>{ st.ii=+ir.value; iv.textContent=f.intensity[st.ii]; setTicks('it-'+f.id,st.ii); autoInf(); update(); };
+  infr.oninput=()=>{ st.manualInf=true; st.inf=+infr.value; ifb.style.width=st.inf+'%'; ipc.textContent=st.inf+'%'; update(); };
+  if(f.styles){ row.querySelectorAll('#st-'+f.id+' .schip').forEach(ch=>ch.onclick=()=>{ const s=ch.dataset.s; const k=st.styles.indexOf(s); if(k>=0)st.styles.splice(k,1); else st.styles.push(s); ch.classList.toggle('on'); update(); }); }
+});
+
+window.tog=(id)=>{ const st=state[id]; st.on=!st.on; document.getElementById('row-'+id).classList.toggle('on',st.on); update(); };
+
+function update(){
+  const active=FAMS.filter(f=>state[f.id].on);
+  document.getElementById('cnt').textContent=active.length+' active';
+  document.getElementById('summary').innerHTML=active.map(f=>`<span class="spill">${f.name.split(' ')[0]} <span class="pct">${state[f.id].inf}%</span></span>`).join('') || '<span style="font-size:11px;color:var(--faint)">No genre layers yet — toggle one below.</span>';
+  document.getElementById('aiout').innerHTML = active.length ? active.map(f=>{const s=state[f.id];return `<div class="aiprev"><b>${f.name}:</b> presence <b>${f.presence[s.p]}</b>, intensity <b>${f.intensity[s.ii]}</b>, influence <b>${s.inf}%</b>${s.styles.length?`, styles: ${s.styles.join(', ')}`:''} — applied consistently from Concept → Draft.</div>`;}).join('') : '<div style="font-size:11px;color:var(--faint)">Toggle a genre to see the directive the AI will follow.</div>';
+}
+update();
+</script>
+</body></html>

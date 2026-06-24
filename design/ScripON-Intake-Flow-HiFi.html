@@ -1,0 +1,179 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ScripON — Intake flow (modes · steps · work source · project type)</title><style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Courier+Prime:wght@400;700&display=swap');
+:root{--bg:#0b0c0f;--panel:#14161c;--hair:rgba(255,255,255,.07);--gold:#C6A463;--gold2:#E6D2A2;--goldink:#1a1509;--cream:#F4EEE0;--text:#E8E6E0;--mute:#9aa1ab;--faint:#6b727d;--blue:#5b8def;--green:#57b368;--violet:#8b7cf0;--red:#e5635f}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:radial-gradient(1200px 700px at 50% -8%,#15171d,#0b0c0f 60%);font-family:Inter,sans-serif;color:var(--text);-webkit-font-smoothing:antialiased;padding:34px;display:flex;flex-direction:column;align-items:center;gap:14px}
+.cap{color:var(--faint);font-size:12px;max-width:1440px}.cap b{color:var(--gold);font-weight:600}
+.frametitle{align-self:flex-start;max-width:1440px;width:1440px;font-size:12px;font-weight:700;letter-spacing:.4px;color:var(--gold2);margin-top:8px}
+.screen{width:1440px;background:var(--bg);border:1px solid var(--hair);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 40px 90px -30px rgba(0,0,0,.7)}
+.ico{width:18px;height:18px;stroke:currentColor;stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.top{height:56px;flex:0 0 56px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;background:linear-gradient(180deg,#15181e,#121419);border-bottom:1px solid var(--hair)}
+.tl{display:flex;align-items:center;gap:12px}.logo{width:28px;height:28px;border-radius:9px;background:linear-gradient(160deg,var(--gold2),var(--gold));display:grid;place-items:center;color:var(--goldink);font-weight:800;font-size:11px}
+.namebox{display:flex;align-items:center;gap:8px;height:30px;padding:0 11px;background:#1a1d24;border:1px solid rgba(198,164,99,.35);border-radius:9px;font-size:13px;color:var(--cream);font-weight:600}
+.seg{display:inline-flex;background:#15181e;border:1px solid var(--hair);border-radius:9px;padding:3px;gap:2px}
+.seg span{padding:6px 13px;border-radius:7px;font-size:12px;font-weight:600;color:var(--mute);cursor:pointer}.seg span.on{background:rgba(198,164,99,.16);color:var(--gold2)}
+.steps{display:flex;align-items:center;gap:6px}
+.stp{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;color:var(--faint)}
+.stp .n{width:18px;height:18px;border-radius:50%;background:#23262e;display:grid;place-items:center;font-size:10px;color:var(--mute)}
+.stp.on{color:var(--gold2)}.stp.on .n{background:linear-gradient(160deg,var(--gold2),var(--gold));color:var(--goldink)}
+.stp .arr{color:var(--faint)}
+.btn{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 14px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid transparent}
+.btn.ghost{background:#1b1e25;border-color:var(--hair);color:var(--mute)}
+.btn.gold{background:linear-gradient(180deg,var(--gold2),var(--gold));color:var(--goldink);font-weight:700}
+.body{display:grid;grid-template-columns:1fr 296px;min-height:0}
+.formcol{padding:18px 22px;display:flex;flex-direction:column;gap:13px;max-height:844px;overflow:auto}
+.card{background:var(--panel);border:1px solid var(--hair);border-radius:13px;padding:14px 15px;display:flex;flex-direction:column;gap:10px}
+.card.lit{border-color:rgba(198,164,99,.34)}.card.sacred{border-color:rgba(229,99,95,.4);background:linear-gradient(180deg,rgba(229,99,95,.06),#14161c)}
+.bt{font-size:13.5px;font-weight:700;color:var(--cream);display:flex;align-items:center;gap:8px}
+.bt .hint{font-size:9.5px;font-weight:700;letter-spacing:.5px;color:var(--gold);background:rgba(198,164,99,.12);border-radius:5px;padding:2px 7px}
+.fl{font-size:11px;font-weight:600;color:var(--faint);margin-bottom:5px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{padding:6px 11px;border-radius:999px;font-size:12px;font-weight:600;color:var(--mute);background:#171a20;border:1px solid var(--hair);cursor:pointer}
+.chip.on{background:rgba(198,164,99,.15);border-color:rgba(198,164,99,.45);color:var(--gold2)}
+.chip.b.on{background:rgba(91,141,239,.15);border-color:rgba(91,141,239,.45);color:#a9c4f7}
+.chip.v.on{background:rgba(139,124,240,.15);border-color:rgba(139,124,240,.45);color:#c3b6f5}
+.chip.g.on{background:rgba(87,179,104,.15);border-color:rgba(87,179,104,.45);color:#9fe3c0}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px}
+.sel{height:36px;border-radius:9px;background:#171a20;border:1px solid var(--hair);color:var(--cream);font-size:12.5px;font-weight:600;display:flex;align-items:center;justify-content:space-between;padding:0 11px;cursor:pointer}.sel .c{color:var(--faint)}
+.ta{background:#0b0c0f;border:1px solid var(--hair);border-radius:10px;padding:10px 11px;font-size:12px;color:var(--mute);line-height:1.5;min-height:90px;font-family:"Courier Prime",monospace}
+.ta.sm{min-height:52px}
+/* source rows */
+.srow{display:flex;align-items:center;gap:10px;background:#0e1014;border:1px solid var(--hair);border-radius:10px;padding:9px 11px}
+.srow .si{width:26px;height:26px;border-radius:7px;background:rgba(198,164,99,.13);color:var(--gold2);display:grid;place-items:center;flex:none}.srow .si .ico{width:14px;height:14px}
+.srow .st{flex:1;font-size:12px;color:var(--text)}.srow .ss{font-size:10.5px;color:var(--faint)}
+.srow .x{color:var(--faint);cursor:pointer;font-size:15px}
+.addbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.addbtn{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:9px;border:1px dashed rgba(198,164,99,.4);color:var(--gold2);background:rgba(198,164,99,.06);font-size:12px;font-weight:600;cursor:pointer}.addbtn .ico{width:14px;height:14px}
+.note{font-size:10.5px;color:var(--faint)}
+.tog{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text)}
+.sw{width:32px;height:18px;border-radius:999px;background:var(--gold);position:relative;flex:none}.sw i{position:absolute;top:2px;left:16px;width:14px;height:14px;border-radius:50%;background:#fff}
+.rng{-webkit-appearance:none;width:100%;height:5px;border-radius:5px;background:#23262e;outline:none;margin-top:4px}.rng::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:var(--gold2);border:2px solid #0b0c0f}
+.gban{display:flex;gap:9px;align-items:flex-start;background:rgba(229,99,95,.1);border:1px solid rgba(229,99,95,.35);border-radius:10px;padding:9px 10px}.gban .gi{color:var(--red);flex:none;margin-top:1px}.gban .gt{font-size:10.5px;line-height:1.4;color:var(--text)}.gban .gt b{color:#f0a3a0}
+.ptype{display:grid;grid-template-columns:repeat(6,1fr);gap:7px}
+.ptile{border:1px solid var(--hair);border-radius:10px;padding:10px 8px;text-align:center;cursor:pointer;background:#171a20}
+.ptile.on{border-color:rgba(198,164,99,.5);background:rgba(198,164,99,.1)}
+.ptile .pi{color:var(--gold2);margin-bottom:5px}.ptile .pi .ico{width:18px;height:18px;margin:0 auto}.ptile.on .pt2{color:var(--gold2)}
+.ptile .pt2{font-size:11.5px;font-weight:700;color:var(--cream)}.ptile .ps{font-size:9px;color:var(--faint);margin-top:1px}
+.epi{margin-top:4px;border:1px solid rgba(198,164,99,.3);border-radius:10px;padding:11px 12px;background:rgba(198,164,99,.05)}
+.epi .el{font-size:10px;font-weight:700;letter-spacing:.5px;color:var(--gold)}
+.aside{background:#0e1015;border-left:1px solid var(--hair);padding:18px 16px;display:flex;flex-direction:column;gap:12px}
+.brief{background:linear-gradient(180deg,#16191f,#121419);border:1px solid rgba(198,164,99,.25);border-radius:12px;padding:13px}
+.brief .bh{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}.brief .btt{font-size:12px;font-weight:700;color:var(--cream)}
+.bl{font-size:11px;line-height:1.45;color:var(--mute);display:flex;gap:7px;margin-bottom:6px}.bl .bb{color:var(--gold2);flex:none}.bl b{color:var(--text);font-weight:600}
+.live{font-size:8.5px;font-weight:800;letter-spacing:.4px;color:var(--green);background:rgba(87,179,104,.16);border-radius:4px;padding:2px 6px}
+.legend{width:1440px;max-width:1440px;display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.lg{background:#0e1015;border:1px solid var(--hair);border-radius:12px;padding:13px 15px}
+.lg h4{font-size:12.5px;font-weight:800;color:var(--gold2);margin-bottom:5px}.lg p{font-size:11.5px;color:var(--mute);line-height:1.5}
+</style></head><body>
+<div class="cap">ScripON · <b>Intake — new flow (design preview, not yet built)</b> · mode-aware tabs · Step 1 Work source (+add multiple) → Next → Step 2 Brief · new Project-type with episodes/minutes (industry-standard)</div>
+
+<div class="frametitle">FRAME 1 — Adapt material · Step 1 of 2 · Work source (add as many sources as you want)</div>
+<div class="screen">
+  <div class="top">
+    <div class="tl"><div class="logo">TFM</div><span class="namebox">Antara — mythic cut ✎</span>
+      <div class="seg" style="margin-left:6px"><span>Original</span><span class="on">Adapt material</span><span>From a seed</span></div>
+    </div>
+    <div class="steps"><span class="stp on"><span class="n">1</span>Work source</span><span class="arr">›</span><span class="stp"><span class="n">2</span>Brief</span></div>
+  </div>
+  <div class="body" style="grid-template-columns:1fr">
+    <div class="formcol" style="max-height:none">
+      <div class="card lit"><div class="bt">Work source <span class="hint">PASTE IS THE MAIN BOX</span></div>
+        <div class="ta">Paste the primary work here — the pre-Islamic poet-warrior Antara ibn Shaddad, born into slavery, rises through valour and verse to win his freedom and the love of Abla… [4,200 words]</div>
+        <div class="fl" style="margin-top:4px">Added sources</div>
+        <div style="display:flex;flex-direction:column;gap:7px">
+          <div class="srow"><span class="si"><svg class="ico" viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/></svg></span><span class="st">Second pasted passage <span class="ss">· 1,100 words</span></span><span class="x">✕</span></div>
+          <div class="srow"><span class="si"><svg class="ico" viewBox="0 0 24 24"><path d="M8 3H5v18h14V8l-5-5z"/></svg></span><span class="st">Antara-diwan.pdf <span class="ss">· PDF · attached</span></span><span class="x">✕</span></div>
+          <div class="srow"><span class="si"><svg class="ico" viewBox="0 0 24 24"><path d="M8 3H5v18h14V8l-5-5z"/></svg></span><span class="st">Background-notes.docx <span class="ss">· Word · attached</span></span><span class="x">✕</span></div>
+          <div class="srow"><span class="si"><svg class="ico" viewBox="0 0 24 24"><path d="M10 13a5 5 0 007 0l2-2a5 5 0 00-7-7l-1 1"/></svg></span><span class="st">britannica.com/antarah-ibn-shaddad <span class="ss">· article URL</span></span><span class="x">✕</span></div>
+        </div>
+        <div class="addbar">
+          <span class="addbtn"><svg class="ico" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add paste box</span>
+          <span class="addbtn"><svg class="ico" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add file(s)</span>
+          <span class="addbtn"><svg class="ico" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add website / URL</span>
+        </div>
+        <div class="note">Upload accepts <b>PDF · FDX · Fountain · Word · EPUB · HTML</b> — one file or many. Add as many paste boxes and URLs as you like.</div>
+      </div>
+      <div style="display:flex;justify-content:flex-end"><span class="btn gold">Next → Brief <svg class="ico" viewBox="0 0 24 24" style="width:15px;height:15px;stroke:#1a1509"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></div>
+    </div>
+  </div>
+</div>
+
+<div class="legend">
+  <div class="lg"><h4>Original</h4><p>No source step — you're inventing from scratch. Click <b>Original</b> and it goes straight to <b>Step 2 · Brief</b>. (No Work-source, no grounding-in-reality.)</p></div>
+  <div class="lg"><h4>Adapt material</h4><p>Shows <b>Step 1 · Work source</b> (above) — paste + add files/URLs/passages — then <b>Next</b> to the brief, which also includes grounding-in-reality.</p></div>
+  <div class="lg"><h4>From a seed</h4><p>Step 1 is a single small <b>seed / idea box</b> (a logline or a paragraph) instead of full sources, then <b>Next</b> to the brief.</p></div>
+</div>
+
+<div class="frametitle">FRAME 2 — Step 2 of 2 · Brief — new “Project type” on top (episodes &amp; minutes appear for TV / Vertical), then all your existing fields</div>
+<div class="screen">
+  <div class="top">
+    <div class="tl"><div class="logo">TFM</div><span class="namebox">Antara — mythic cut</span>
+      <span class="btn ghost" style="margin-left:6px;height:30px">‹ Back to source</span>
+    </div>
+    <div class="steps"><span class="stp"><span class="n">1</span>Work source</span><span class="arr">›</span><span class="stp on"><span class="n">2</span>Brief</span>
+      <span class="btn gold" style="margin-left:10px"><svg class="ico" viewBox="0 0 24 24" style="width:15px;height:15px;stroke:#1a1509"><path d="M5 12h14M13 6l6 6-6 6"/></svg>Begin the build</span></div>
+  </div>
+  <div class="body">
+    <div class="formcol">
+      <div class="card lit"><div class="bt">Project type <span class="hint">NEW</span></div>
+        <div class="ptype">
+          <div class="ptile"><div class="pi"><svg class="ico" viewBox="0 0 24 24"><path d="M4 4h16v16H4zM4 9h16M9 4v16"/></svg></div><div class="pt2">Movie</div><div class="ps">~90–120 min</div></div>
+          <div class="ptile on"><div class="pi"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M8 21h8"/></svg></div><div class="pt2">TV series</div><div class="ps">8–22 ep</div></div>
+          <div class="ptile"><div class="pi"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/></svg></div><div class="pt2">Limited</div><div class="ps">4–8 ep</div></div>
+          <div class="ptile"><div class="pi"><svg class="ico" viewBox="0 0 24 24"><rect x="8" y="3" width="8" height="18" rx="2"/></svg></div><div class="pt2">Vertical</div><div class="ps">60–100 ep</div></div>
+          <div class="ptile"><div class="pi"><svg class="ico" viewBox="0 0 24 24"><path d="M4 6h16v12H4z"/></svg></div><div class="pt2">Short film</div><div class="ps">≤40 min</div></div>
+          <div class="ptile"><div class="pi"><svg class="ico" viewBox="0 0 24 24"><path d="M12 3v18M3 12h18"/></svg></div><div class="pt2">Documentary</div><div class="ps">varies</div></div>
+        </div>
+        <div class="epi"><div class="el">TV SERIES SELECTED — EPISODES &amp; LENGTH</div>
+          <div class="row3" style="margin-top:8px"><div><div class="fl">Episodes</div><div class="sel"><span>10</span><span class="c">▾</span></div></div><div><div class="fl">Minutes / episode</div><div class="sel"><span>50 min</span><span class="c">▾</span></div></div><div><div class="fl">Seasons</div><div class="sel"><span>1</span><span class="c">▾</span></div></div></div>
+          <div class="note" style="margin-top:7px">Industry norm: <b>network</b> ~22 ep × ~43 min · <b>streaming/cable drama</b> ~8–13 ep × ~50–60 min · <b>comedy</b> ~8–22 ep × ~22–30 min. <span style="color:var(--violet)">Vertical:</span> ~60–100 ep × ~60–90 sec.</div>
+        </div>
+      </div>
+
+      <div class="card lit"><div class="bt">Grounding in reality <span class="hint" style="color:var(--blue);background:rgba(91,141,239,.12)">ADAPT ONLY</span></div>
+        <div class="tog"><span class="sw"><i></i></span>Based on a real story / person</div>
+        <div class="row2"><div><div class="fl">How faithful vs invented</div><div class="chips"><span class="chip">Faithful</span><span class="chip on">Inspired-by</span><span class="chip">Loosely</span></div></div><div><div class="fl">How much real detail</div><input class="rng" type="range" value="55"></div></div>
+      </div>
+
+      <div class="card"><div class="bt">Creative blend · genre &amp; tone</div>
+        <div class="row2"><div><div class="fl">Base genre</div><div class="sel"><span>Historical</span><span class="c">▾</span></div></div><div><div class="fl">Treatment</div><div class="sel"><span>Linear</span><span class="c">▾</span></div></div></div>
+        <div><div class="fl">Genres / blend layers</div><div class="chips"><span class="chip on">Epic</span><span class="chip on">Historical</span><span class="chip">Drama</span><span class="chip">Romance</span><span class="chip">War</span><span class="chip b on">+ Myth</span></div></div>
+        <div><div class="fl">Tone</div><div class="chips"><span class="chip on">Epic</span><span class="chip on">Romantic</span><span class="chip">Gritty</span><span class="chip">Mythic</span></div></div>
+      </div>
+
+      <div class="card"><div class="bt">Fantasy / genre layer</div>
+        <div class="tog"><span class="sw"><i></i></span>Add a fantasy / genre layer</div>
+        <div><div class="fl">Kind · elements · mythology · mythic-vs-grounded</div><div class="chips"><span class="chip b on">High fantasy</span><span class="chip v on">Djinn</span><span class="chip v">Ghoul</span><span class="chip on">Arabian / pre-Islamic</span><span class="chip on">Mythic</span></div></div>
+      </div>
+
+      <div class="card"><div class="bt">Setting &amp; world</div>
+        <div class="row3"><div><div class="fl">Place</div><div class="chips"><span class="chip g on">Desert</span></div></div><div><div class="fl">Era</div><div class="sel"><span>Ancient</span><span class="c">▾</span></div></div><div><div class="fl">World</div><div class="sel"><span>Real / historical</span><span class="c">▾</span></div></div></div>
+      </div>
+
+      <div class="card sacred"><div class="bt" style="color:#f0a3a0">Culture &amp; era · sacred-aware</div>
+        <div class="chips"><span class="chip on">Arabian pre-Islam (Jahiliyya)</span><span class="chip">Abbasid</span><span class="chip">Ottoman</span></div>
+        <div class="gban"><svg class="ico gi" viewBox="0 0 24 24"><path d="M12 2L2 21h20zM12 9v5M12 18h.01"/></svg><div class="gt"><b>Tier-1 sacred rules active.</b> No prophets/deities depicted or named; folklore (djinn, ghoul, ifrit) allowed.</div></div>
+      </div>
+
+      <div class="card"><div class="bt">Target · budget · research</div>
+        <div class="row3"><div><div class="fl">Language</div><div class="sel"><span>Arabic</span><span class="c">▾</span></div></div><div><div class="fl">Market</div><div class="sel"><span>GCC / MENA</span><span class="c">▾</span></div></div><div><div class="fl">Rating</div><div class="sel"><span>PG-15</span><span class="c">▾</span></div></div></div>
+        <div><div class="fl">Project intent</div><div class="chips"><span class="chip on">Historical drama</span><span class="chip">Biopic</span><span class="chip">Apolitical</span></div></div>
+        <div><div class="fl">Budget scope</div><div class="chips"><span class="chip">Low $1–5M</span><span class="chip on">Mid $5–20M</span><span class="chip">Studio $20M+</span></div></div>
+        <div><div class="fl">Research scope · ON BY DEFAULT</div><div class="chips"><span class="chip on">Subject</span><span class="chip on">Craft</span><span class="chip on">Mythology</span><span class="chip on">Comps</span><span class="chip on">Legal</span><span class="chip on">Web</span></div></div>
+      </div>
+    </div>
+
+    <div class="aside">
+      <div class="brief"><div class="bh"><span class="btt">Creative brief</span><span class="live">LIVE</span></div>
+        <div class="bl"><span class="bb">•</span><span><b>TV series</b> · 10 ep × 50 min · 1 season.</span></div>
+        <div class="bl"><span class="bb">•</span><span>Adapting <b>Antara</b> (4 sources); inspired-by, research on.</span></div>
+        <div class="bl"><span class="bb">•</span><span><b>Historical</b> epic + myth; tone epic, romantic; high fantasy, djinn.</span></div>
+        <div class="bl"><span class="bb">•</span><span>Ancient desert · Arabian pre-Islam · <b>Arabic · GCC · PG-15</b>.</span></div>
+        <div class="bl"><span class="bb">•</span><span>Mid $5–20M · 6 research scopes.</span></div>
+      </div>
+      <div class="gban"><svg class="ico gi" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4M12 3l7 4v5c0 5-3 8-7 9-4-1-7-4-7-9V7z"/></svg><div class="gt"><b>Guardrail attached.</b> Sacred Tier-1 rules ride on every prompt.</div></div>
+      <div style="font-size:10px;color:var(--faint);line-height:1.5;margin-top:auto">Updates live as you choose. Begin saves the brief and writes the Logline.</div>
+    </div>
+  </div>
+</div>
+</body></html>

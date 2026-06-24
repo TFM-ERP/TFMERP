@@ -1,0 +1,194 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ScripON — Culture-aware lore layer (Mythic Atlas)</title><style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Courier+Prime:wght@400;700&display=swap');
+:root{--bg:#0b0c0f;--panel:#14161c;--hair:rgba(255,255,255,.07);--gold:#C6A463;--gold2:#E6D2A2;--goldink:#1a1509;--cream:#F4EEE0;--text:#E8E6E0;--mute:#9aa1ab;--faint:#6b727d;--blue:#5b8def;--green:#57b368;--violet:#8b7cf0;--red:#e5635f;--paper:#F7F4EC}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:radial-gradient(1200px 700px at 50% -8%,#15171d,#0b0c0f 60%);font-family:Inter,sans-serif;color:var(--text);-webkit-font-smoothing:antialiased;padding:34px;display:flex;flex-direction:column;align-items:center;gap:14px}
+.cap{color:var(--faint);font-size:12px;max-width:1180px;line-height:1.5}.cap b{color:var(--gold);font-weight:600}
+.ft{align-self:center;width:1180px;font-size:12px;font-weight:700;letter-spacing:.4px;color:var(--gold2);margin-top:10px}
+.scr{width:1180px;background:var(--bg);border:1px solid var(--hair);border-radius:16px;overflow:hidden;box-shadow:0 40px 90px -30px rgba(0,0,0,.7)}
+.ico{width:18px;height:18px;stroke:currentColor;stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.pad{padding:18px 20px;display:flex;flex-direction:column;gap:14px}
+.card{background:var(--panel);border:1px solid var(--hair);border-radius:13px;padding:15px 16px;display:flex;flex-direction:column;gap:12px}
+.card.lit{border-color:rgba(198,164,99,.34)}
+.bt{font-size:14px;font-weight:800;color:var(--cream);display:flex;align-items:center;gap:9px}
+.bt .hint{font-size:9.5px;font-weight:700;letter-spacing:.5px;color:var(--gold);background:rgba(198,164,99,.12);border-radius:5px;padding:2px 7px}
+.bt .hint.v{color:var(--violet);background:rgba(139,124,240,.12)}
+.tog{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--text)}
+.sw{width:34px;height:19px;border-radius:999px;background:#2a2d36;position:relative;flex:none}.sw i{position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:50%;background:#6b727d;transition:.15s}
+.sw.on{background:var(--gold)}.sw.on i{left:17px;background:#fff}
+.note{font-size:11px;color:var(--faint);line-height:1.5}.note b{color:var(--mute)}
+.gtabs{display:inline-flex;background:#15181e;border:1px solid var(--hair);border-radius:10px;padding:3px;gap:2px}
+.gtabs span{padding:7px 14px;border-radius:7px;font-size:12px;font-weight:600;color:var(--mute);cursor:pointer;display:flex;align-items:center;gap:6px}
+.gtabs span.on{background:rgba(198,164,99,.16);color:var(--gold2)}
+.gtabs span.onv{background:rgba(139,124,240,.16);color:#c3b6f5}
+.row{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+.blend{display:flex;align-items:center;gap:10px;font-size:11px;color:var(--mute)}
+.rng{-webkit-appearance:none;width:150px;height:5px;border-radius:5px;background:#23262e;outline:none}.rng::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:var(--gold2);border:2px solid #0b0c0f}
+.anchor{display:flex;align-items:center;gap:10px;background:rgba(198,164,99,.07);border:1px solid rgba(198,164,99,.25);border-radius:10px;padding:10px 12px}
+.anchor .ai{width:30px;height:30px;border-radius:8px;background:rgba(198,164,99,.16);color:var(--gold2);display:grid;place-items:center;flex:none}
+.anchor .at{font-size:12.5px;color:var(--text)}.anchor .at b{color:var(--gold2)}.anchor .as{font-size:10.5px;color:var(--faint)}
+.sban{display:flex;gap:9px;align-items:flex-start;background:rgba(229,99,95,.09);border:1px solid rgba(229,99,95,.32);border-radius:10px;padding:9px 11px}
+.sban .si{color:var(--red);flex:none;margin-top:1px}.sban .stx{font-size:10.5px;line-height:1.45;color:var(--text)}.sban .stx b{color:#f0a3a0}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
+.el{border:1px solid var(--hair);border-radius:11px;padding:11px 12px;background:#171a20;cursor:pointer;display:flex;flex-direction:column;gap:5px;position:relative;min-height:104px}
+.el.on{border-color:rgba(198,164,99,.55);background:rgba(198,164,99,.09)}
+.el.on .chk{opacity:1}
+.chk{position:absolute;top:9px;right:9px;width:17px;height:17px;border-radius:50%;background:linear-gradient(160deg,var(--gold2),var(--gold));color:var(--goldink);display:grid;place-items:center;opacity:0}
+.eln{font-size:13px;font-weight:700;color:var(--cream);display:flex;align-items:center;gap:6px}
+.elo{font-size:9.5px;font-weight:700;letter-spacing:.4px;color:var(--gold);text-transform:uppercase}
+.el.on .elo{color:var(--gold2)}
+.eld{font-size:10.5px;color:var(--mute);line-height:1.42}
+.eltags{display:flex;gap:5px;flex-wrap:wrap;margin-top:auto;padding-top:3px}
+.tg{font-size:8.5px;font-weight:700;letter-spacing:.3px;border-radius:4px;padding:2px 5px}
+.tg.s{color:#f0c38f;background:rgba(229,160,95,.14);border:1px solid rgba(229,160,95,.3)}
+.tg.h{color:#c3b6f5;background:rgba(139,124,240,.12);border:1px solid rgba(139,124,240,.3)}
+.tg.g{color:#9fe3c0;background:rgba(87,179,104,.12);border:1px solid rgba(87,179,104,.3)}
+.locked{border:1px dashed rgba(229,99,95,.4);border-radius:11px;padding:11px 12px;background:rgba(229,99,95,.05);display:flex;flex-direction:column;gap:5px;min-height:104px;opacity:.85}
+.locked .eln{color:#e9b4b2}.locked .lk{position:absolute;top:9px;right:9px;color:var(--red)}
+.atlas{display:flex;flex-direction:column;gap:9px}
+.atlrow{display:flex;gap:7px;flex-wrap:wrap}
+.cpill{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:999px;font-size:11.5px;font-weight:600;color:var(--mute);background:#171a20;border:1px solid var(--hair);cursor:pointer}
+.cpill .fl{font-size:12px}.cpill.on{background:rgba(91,141,239,.14);border-color:rgba(91,141,239,.45);color:#a9c4f7}
+.cpill .ct{font-size:9px;color:var(--faint);font-weight:700}
+.colgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.col{display:flex;flex-direction:column;gap:8px}
+.colh{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:700;color:var(--gold2);padding-bottom:6px;border-bottom:1px solid var(--hair)}
+.colh .fl{font-size:14px}
+.mini{border:1px solid var(--hair);border-radius:9px;padding:8px 10px;background:#15181e;display:flex;flex-direction:column;gap:3px}
+.minin{font-size:11.5px;font-weight:700;color:var(--cream);display:flex;align-items:center;justify-content:space-between}
+.minid{font-size:10px;color:var(--faint);line-height:1.4}
+.dotrow{display:flex;gap:4px}
+.dot{width:7px;height:7px;border-radius:50%}.dot.s{background:#e3a05f}.dot.h{background:var(--violet)}
+.engine{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;width:1180px}
+.eg{background:#0e1015;border:1px solid var(--hair);border-radius:12px;padding:14px 15px}
+.eg h4{font-size:12.5px;font-weight:800;color:var(--gold2);margin-bottom:6px;display:flex;align-items:center;gap:7px}
+.eg p{font-size:11.5px;color:var(--mute);line-height:1.55}.eg p b{color:var(--text)}
+.brief{background:linear-gradient(180deg,#16191f,#121419);border:1px solid rgba(198,164,99,.25);border-radius:11px;padding:12px 13px;max-width:340px}
+.brief .bh{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px}.brief .btt{font-size:11.5px;font-weight:700;color:var(--cream)}
+.live{font-size:8px;font-weight:800;letter-spacing:.4px;color:var(--green);background:rgba(87,179,104,.16);border-radius:4px;padding:2px 6px}
+.bl{font-size:11px;line-height:1.45;color:var(--mute);display:flex;gap:7px;margin-bottom:5px}.bl .bb{color:var(--gold2);flex:none}.bl b{color:var(--text);font-weight:600}
+</style></head><body>
+<div class="cap">ScripON · <b>Culture-aware lore layer — “Mythic Atlas” (design concept, not built)</b><br>The flat Western-default chip list becomes a <b>per-culture, researched element library</b>, anchored to your setting and browsable across cultures. Same engine reused for Horror, Folklore, Myth. Sacred-aware by design. All entries below are real folklore pulled from research.</div>
+
+<div class="ft">FRAME A — the layer stays hidden until you turn it on (you asked for this)</div>
+<div class="scr"><div class="pad">
+  <div class="card"><div class="row">
+    <div class="bt"><svg class="ico" viewBox="0 0 24 24"><path d="M12 3l2.5 5 5.5.8-4 3.9.9 5.5L12 21l-4.9 2.1.9-5.5-4-3.9 5.5-.8z"/></svg>Genre &amp; lore layer</div>
+    <div class="tog"><span style="color:var(--faint);font-size:11px">off</span><span class="sw"><i></i></span>Add a genre / lore layer</div>
+  </div>
+  <div class="note">Hidden by default. Turn it on and the layer opens to the <b>genre picker</b> and the <b>Mythic Atlas</b> below — pre-tuned to the culture in your Setting card.</div>
+  </div>
+</div></div>
+
+<div class="ft">FRAME B — turned on · Fantasy selected · anchored to your setting’s culture (Arabian, pre-Islam)</div>
+<div class="scr"><div class="pad">
+  <div class="card lit">
+    <div class="row">
+      <div class="bt"><svg class="ico" viewBox="0 0 24 24"><path d="M12 3l2.5 5 5.5.8-4 3.9.9 5.5L12 21l-4.9 2.1.9-5.5-4-3.9 5.5-.8z"/></svg>Genre &amp; lore layer <span class="hint">ON</span></div>
+      <div class="tog"><span class="sw on"><i></i></span><span style="color:var(--gold2);font-size:11px">on</span></div>
+    </div>
+    <div class="row">
+      <div class="gtabs"><span class="on"><svg class="ico" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M12 3l2.5 5 5.5.8-4 3.9.9 5.5L12 21l-4.9 2.1.9-5.5-4-3.9 5.5-.8z"/></svg>Fantasy</span><span>Horror</span><span>Folklore</span><span>Myth &amp; legend</span></div>
+      <div class="blend">Layer weight over the grounded story<input class="rng" type="range" value="42"><span style="color:var(--gold2);font-weight:700">Light touch</span></div>
+    </div>
+    <div class="anchor"><span class="ai"><svg class="ico" viewBox="0 0 24 24"><path d="M12 21s-7-5.2-7-11a7 7 0 0114 0c0 5.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg></span>
+      <div><div class="at">Anchored to your setting — <b>Arabian (pre-Islam · Jahiliyya)</b>. These elements come first.</div><div class="as">Change the setting culture and the atlas re-tunes automatically. You can still borrow from any culture below.</div></div>
+    </div>
+    <div class="sban"><svg class="ico si" viewBox="0 0 24 24"><path d="M12 2L2 21h20zM12 9v5M12 18h.01"/></svg><div class="stx"><b>Sacred-aware.</b> Folklore beings (djinn, ghoul, ifrit, marid) are available and tagged. <b>Deities &amp; prophets are locked</b> — never depicted, named, or voiced. “Sacred-aware” tags flag elements with living-religion roots so you choose deliberately.</div></div>
+
+    <div class="grid">
+      <div class="el on"><span class="chk"><svg class="ico" style="width:11px;height:11px;stroke:#1a1509" viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></svg></span><div class="eln">Djinn</div><div class="elo">Arabian</div><div class="eld">Fire-born spirits; shapeshift, bargain, possess — at a cost.</div><div class="eltags"><span class="tg s">sacred-aware</span></div></div>
+      <div class="el on"><span class="chk"><svg class="ico" style="width:11px;height:11px;stroke:#1a1509" viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></svg></span><div class="eln">Ghoul (Ghūl)</div><div class="elo">Arabian</div><div class="eld">Desert shapeshifter that lures and devours travellers.</div><div class="eltags"><span class="tg h">horror</span></div></div>
+      <div class="el on"><span class="chk"><svg class="ico" style="width:11px;height:11px;stroke:#1a1509" viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></svg></span><div class="eln">Marid</div><div class="elo">Arabian</div><div class="eld">Mightiest jinn; sea-born, grants wishes with a price.</div><div class="eltags"><span class="tg s">sacred-aware</span></div></div>
+      <div class="el"><div class="eln">Ifrit</div><div class="elo">Arabian</div><div class="eld">Malevolent fire spirit of vengeance and ruin.</div><div class="eltags"><span class="tg s">sacred-aware</span><span class="tg h">horror</span></div></div>
+      <div class="el on"><span class="chk"><svg class="ico" style="width:11px;height:11px;stroke:#1a1509" viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></svg></span><div class="eln">Qarin</div><div class="elo">Arabian</div><div class="eld">A spirit-double that shadows a person and whispers.</div><div class="eltags"><span class="tg s">sacred-aware</span></div></div>
+      <div class="el"><div class="eln">Si’lat</div><div class="elo">Arabian</div><div class="eld">Jinn that takes a convincing human (often female) form.</div><div class="eltags"><span class="tg s">sacred-aware</span></div></div>
+      <div class="el"><div class="eln">Nasnas</div><div class="elo">Arabian</div><div class="eld">Half-bodied creature that hops with eerie speed.</div><div class="eltags"><span class="tg h">horror</span></div></div>
+      <div class="el"><div class="eln">Rukh (Roc)</div><div class="elo">Arabian</div><div class="eld">Colossal bird of prey that can carry off an elephant.</div><div class="eltags"><span class="tg g">epic</span></div></div>
+    </div>
+
+    <div class="atlas">
+      <div class="bt" style="font-size:12px;font-weight:700">Borrow from another culture <span class="hint" style="color:var(--blue);background:rgba(91,141,239,.12)">ATLAS</span></div>
+      <div class="atlrow">
+        <span class="cpill on"><span class="fl">🌍</span>Arabian <span class="ct">8</span></span>
+        <span class="cpill"><span class="fl">🇯🇵</span>Japanese <span class="ct">6</span></span>
+        <span class="cpill"><span class="fl">⚔️</span>Norse <span class="ct">6</span></span>
+        <span class="cpill"><span class="fl">🪆</span>Slavic <span class="ct">6</span></span>
+        <span class="cpill"><span class="fl">🐉</span>Chinese <span class="ct">5</span></span>
+        <span class="cpill"><span class="fl">🕉️</span>S. Asian <span class="ct">5</span></span>
+        <span class="cpill"><span class="fl">🔥</span>Persian <span class="ct">5</span></span>
+        <span class="cpill"><span class="fl">☘️</span>Celtic <span class="ct">5</span></span>
+        <span class="cpill"><span class="fl">🥁</span>W. African <span class="ct">5</span></span>
+        <span class="cpill"><span class="fl">💀</span>Latin Am. <span class="ct">5</span></span>
+        <span class="cpill"><span class="fl">🌴</span>Filipino <span class="ct">5</span></span>
+        <span class="cpill"><span class="fl">🏛️</span>Greek <span class="ct">7</span></span>
+      </div>
+      <div class="note">Pick another culture to mix in a deliberate cross-cultural twist — e.g. an Arabian setting with a single Japanese <b>kitsune</b> thread. Every borrowed element keeps its origin label so the blend is intentional, not accidental.</div>
+    </div>
+  </div>
+</div></div>
+
+<div class="ft">FRAME C — the Atlas opened · browse real element sets across cultures · the same engine reused for Horror</div>
+<div class="scr"><div class="pad">
+  <div class="card">
+    <div class="row">
+      <div class="bt"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></svg>Mythic Atlas — every culture, one engine</div>
+      <div class="gtabs"><span class="on">Fantasy</span><span class="onv"><svg class="ico" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M9 2v4M15 2v4M5 9h14l-1 11a2 2 0 01-2 2H8a2 2 0 01-2-2z"/></svg>Horror</span><span>Folklore</span></div>
+    </div>
+    <div class="colgrid">
+      <div class="col"><div class="colh"><span class="fl">🇯🇵</span>Japanese</div>
+        <div class="mini"><div class="minin">Oni<span class="dotrow"><span class="dot h"></span></span></div><div class="minid">Horned demon-ogre with an iron club.</div></div>
+        <div class="mini"><div class="minin">Kitsune</div><div class="minid">Fox shapeshifter; power grows with age.</div></div>
+        <div class="mini"><div class="minin">Tengu</div><div class="minid">Mountain bird-spirit, martial trickster.</div></div>
+        <div class="mini"><div class="minin">Kappa</div><div class="minid">River imp; strength held in head-water.</div></div>
+        <div class="mini"><div class="minin">Yūrei<span class="dotrow"><span class="dot h"></span></span></div><div class="minid">Vengeful ghost bound by unfinished business.</div></div>
+        <div class="mini"><div class="minin">Tanuki</div><div class="minid">Shape-shifting raccoon-dog reveller.</div></div>
+      </div>
+      <div class="col"><div class="colh"><span class="fl">⚔️</span>Norse / Scandinavian</div>
+        <div class="mini"><div class="minin">Draugr<span class="dotrow"><span class="dot h"></span></span></div><div class="minid">Undead barrow-guardian that swells in size.</div></div>
+        <div class="mini"><div class="minin">Troll</div><div class="minid">Mountain giant; turns to stone in sunlight.</div></div>
+        <div class="mini"><div class="minin">Jötunn</div><div class="minid">Primordial giant, ancient foe of the gods.</div></div>
+        <div class="mini"><div class="minin">Huldra</div><div class="minid">Seductive forest spirit with a hidden tail.</div></div>
+        <div class="mini"><div class="minin">Nisse</div><div class="minid">Farm gnome; blessing or bane by how it’s treated.</div></div>
+        <div class="mini"><div class="minin">Kraken</div><div class="minid">Abyssal sea-beast that drags ships under.</div></div>
+      </div>
+      <div class="col"><div class="colh"><span class="fl">🪆</span>Slavic</div>
+        <div class="mini"><div class="minin">Baba Yaga</div><div class="minid">Witch in a hut on chicken legs.</div></div>
+        <div class="mini"><div class="minin">Rusalka<span class="dotrow"><span class="dot h"></span></span></div><div class="minid">Drowned water-maiden who lures men under.</div></div>
+        <div class="mini"><div class="minin">Leshy</div><div class="minid">Forest guardian who leads folk astray.</div></div>
+        <div class="mini"><div class="minin">Domovoi</div><div class="minid">House spirit that guards (or curses) a home.</div></div>
+        <div class="mini"><div class="minin">Koschei<span class="dotrow"><span class="dot h"></span></span></div><div class="minid">Deathless sorcerer; soul hidden far away.</div></div>
+        <div class="mini"><div class="minin">Vodyanoy</div><div class="minid">Vengeful water-man of rivers and mills.</div></div>
+      </div>
+    </div>
+    <div class="colgrid">
+      <div class="col"><div class="colh"><span class="fl">🔥</span>Persian</div>
+        <div class="mini"><div class="minin">Simurgh</div><div class="minid">Benevolent wisdom-bird of rebirth.</div></div>
+        <div class="mini"><div class="minin">Div<span class="dotrow"><span class="dot h"></span></span></div><div class="minid">Malevolent demon of the old epics.</div></div>
+        <div class="mini"><div class="minin">Peri</div><div class="minid">Winged, ethereal, neither wholly good nor ill.</div></div>
+        <div class="mini"><div class="minin">Azhdaha</div><div class="minid">Vast winged serpent — the Persian dragon.</div></div>
+      </div>
+      <div class="col"><div class="colh"><span class="fl">💀</span>Latin American</div>
+        <div class="mini"><div class="minin">La Llorona<span class="dotrow"><span class="dot h"></span></span></div><div class="minid">Weeping ghost mourning her drowned children.</div></div>
+        <div class="mini"><div class="minin">Nahual</div><div class="minid">Shape-shifter who becomes an animal at will.</div></div>
+        <div class="mini"><div class="minin">Chupacabra<span class="dotrow"><span class="dot h"></span></span></div><div class="minid">Livestock blood-drinker of modern legend.</div></div>
+        <div class="mini"><div class="minin">El Cucuy<span class="dotrow"><span class="dot h"></span></span></div><div class="minid">The boogeyman who takes wayward children.</div></div>
+      </div>
+      <div class="col"><div class="colh"><span class="fl">🌴</span>Filipino</div>
+        <div class="mini"><div class="minin">Aswang<span class="dotrow"><span class="dot h"></span></span></div><div class="minid">Shape-shifting witch-ghoul of the night.</div></div>
+        <div class="mini"><div class="minin">Manananggal<span class="dotrow"><span class="dot h"></span></span></div><div class="minid">Self-segmenting winged vampire.</div></div>
+        <div class="mini"><div class="minin">Tikbalang</div><div class="minid">Horse-headed trickster of the forest trail.</div></div>
+        <div class="mini"><div class="minin">Kapre</div><div class="minid">Tree-dwelling giant wreathed in tobacco smoke.</div></div>
+      </div>
+    </div>
+    <div class="sban"><svg class="ico si" viewBox="0 0 24 24"><path d="M12 2L2 21h20zM12 9v5M12 18h.01"/></svg><div class="stx"><b>Horror tab = same atlas, filtered.</b> Elements tagged <span style="color:var(--violet)">horror</span> (Aswang, Draugr, Rusalka, Yūrei, La Llorona…) surface first when the genre is Horror — proof the engine generalises beyond fantasy. Folklore, Myth &amp; legend work the same way.</div></div>
+  </div>
+</div></div>
+
+<div class="ft">HOW THE ENGINE WORKS</div>
+<div class="engine">
+  <div class="eg"><h4><svg class="ico" style="width:15px;height:15px" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg>One library, many lenses</h4><p>A single researched element library — <b>name · origin culture · genre tags · 1-line lore · sensitivity tier</b>. Genre tabs and the culture anchor are just <b>filters</b> over it. Add Crime, Romance customs, Sci-fi later by tagging the same rows.</p></div>
+  <div class="eg"><h4><svg class="ico" style="width:15px;height:15px" viewBox="0 0 24 24"><path d="M12 21s-7-5.2-7-11a7 7 0 0114 0c0 5.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Anchored, not trapped</h4><p>Defaults to your <b>setting’s culture</b> so the first options are authentic — but the Atlas lets you borrow any culture deliberately, every element keeping its origin label so blends are intentional.</p></div>
+  <div class="eg"><h4><svg class="ico" style="width:15px;height:15px" viewBox="0 0 24 24"><path d="M12 2L2 21h20zM12 9v5M12 18h.01"/></svg>Sacred-aware by design</h4><p>Deities &amp; prophets are <b>locked out</b>; living-religion roots get a <b>sacred-aware</b> tag. The guardrail rides every choice into the AI brief — respectful by default, in 12 cultures and counting.</p></div>
+</div>
+</body></html>

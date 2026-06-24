@@ -1,0 +1,151 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TFM — TVC Workflow & Brief→Script Intelligence</title>
+<style>
+  :root{--navy:#14142b;--navy2:#1f2147;--gold:#b08d57;--gold2:#caa46e;--paper:#f7f5f0;--ink:#1a1a2e;--mut:#6b7280;--line:#e7e3da;--ok:#0f766e;--okbg:#d8f0ec;--warn:#b45309;--warnbg:#fdebcf;--bad:#b91c1c;--badbg:#fbe0e0;--a:#3b5bdb;--abg:#e7ecff;--tvc:#7c3aed;--tvcbg:#f1ebff;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.65 -apple-system,Segoe UI,Roboto,Arial,sans-serif}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 26px 80px}
+  header.hero{background:linear-gradient(135deg,var(--navy),var(--navy2));color:#fff;padding:46px 26px 40px;margin-bottom:34px;border-bottom:4px solid var(--gold)}
+  header.hero .inner{max-width:1080px;margin:0 auto}
+  .kic{display:inline-block;font-size:11px;letter-spacing:2.5px;text-transform:uppercase;color:var(--gold2);font-weight:700;margin-bottom:10px}
+  header.hero h1{margin:0 0 8px;font-size:31px;font-weight:800;letter-spacing:-.5px}
+  header.hero p{margin:0;color:#c9cbe0;max-width:780px;font-size:15.5px}
+  h2{font-size:21px;font-weight:800;margin:42px 0 6px;letter-spacing:-.3px;display:flex;align-items:center;gap:10px}
+  h2 .n{background:var(--gold);color:#fff;width:28px;height:28px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;font-size:14px;flex:none}
+  h3{font-size:15.5px;font-weight:800;margin:20px 0 6px;color:var(--navy2)}
+  .lede{color:var(--mut);margin:2px 0 14px;font-size:14.5px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:14px 0;box-shadow:0 1px 2px rgba(20,20,43,.04)}
+  .grid{display:grid;gap:14px}.g3{grid-template-columns:repeat(3,1fr)}.g2{grid-template-columns:repeat(2,1fr)}
+  @media(max-width:760px){.g3,.g2{grid-template-columns:1fr}}
+  .tag{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;text-transform:uppercase;letter-spacing:.4px}
+  .t-bad{background:var(--badbg);color:var(--bad)}.t-ok{background:var(--okbg);color:var(--ok)}.t-warn{background:var(--warnbg);color:var(--warn)}.t-a{background:var(--abg);color:var(--a)}.t-n{background:#eee;color:#555}.t-tvc{background:var(--tvcbg);color:var(--tvc)}
+  table{border-collapse:collapse;width:100%;font-size:13.5px;margin:8px 0}
+  th{background:var(--navy);color:#fff;text-align:left;padding:8px 10px;font-size:11px;text-transform:uppercase;letter-spacing:.4px;font-weight:700}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  tr:nth-child(even) td{background:#faf9f6}
+  code{background:#f0ede6;border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:12.5px;font-family:ui-monospace,Menlo,monospace}
+  .flow{display:flex;align-items:stretch;gap:0;flex-wrap:wrap;margin:10px 0}
+  .node{background:#fff;border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;min-width:104px;text-align:center;font-size:12.5px}
+  .node b{display:block;font-size:13px}
+  .node.hot{border-color:var(--tvc);background:var(--tvcbg)}
+  .arrow{display:flex;align-items:center;color:var(--gold);font-weight:800;padding:0 8px;font-size:18px}
+  ul.clean{margin:6px 0;padding-left:20px}ul.clean li{margin:4px 0}
+  .callout{border-left:4px solid var(--gold);background:#fffdf8;padding:12px 16px;border-radius:0 10px 10px 0;margin:14px 0}
+  .callout.bad{border-color:var(--bad);background:#fff7f7}.callout.ok{border-color:var(--ok);background:#f4fbf9}.callout.tvc{border-color:var(--tvc);background:var(--tvcbg)}
+  .small{font-size:12.5px;color:var(--mut)}
+  .phase{display:flex;gap:12px;align-items:flex-start;margin:10px 0;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:#fff}
+  .phase .p{flex:none;width:42px;height:42px;border-radius:9px;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800}
+  .fork{border:1px dashed var(--gold);border-radius:10px;padding:14px 16px;margin:12px 0;background:#fffdf8}
+  .rec{color:var(--ok);font-weight:700}
+  a{color:var(--a)}
+</style></head><body>
+<header class="hero"><div class="inner">
+  <span class="kic">TFM-System · Deep-Research Proposal</span>
+  <h1>TVC as a First-Class Production — and the Brief→Script Compass</h1>
+  <p>Television commercials share prep/shoot/wrap with features but are a different organism: brief-driven, deliverable-centric, agency-governed, and compressed into 1–3 shoot days. This study covers how AI can read the brief and project it forward into the script, and exactly what should change when a producer picks <b>TVC</b> at project creation.</p>
+</div></header>
+<div class="wrap">
+
+<h2><span class="n">1</span> A TVC is a different organism than a feature</h2>
+<p class="lede">They look similar on the call sheet, but the spine is different. A feature is <b>scene/page-driven</b>; a TVC is <b>brief- and deliverable-driven</b>.</p>
+<table>
+  <thead><tr><th style="width:24%"></th><th>Feature / long-form</th><th>TVC / commercial</th></tr></thead>
+  <tbody>
+    <tr><td><b>Origin document</b></td><td>Screenplay (the script is the start)</td><td><b>Creative brief</b> → director's <b>treatment</b> → board/script. The brief is the "North Star."</td></tr>
+    <tr><td><b>Who owns it</b></td><td>Producer / studio</td><td><b>Brand → agency → production company</b> (client-vendor). The agency holds the brief; the production house <b>bids</b> (AICP form).</td></tr>
+    <tr><td><b>Unit of work</b></td><td>Scene → strip → shoot day (pages/eighths)</td><td><b>Deliverable / spot version</b> — one shoot yields 15–30 deliverables.</td></tr>
+    <tr><td><b>Schedule</b></td><td>Weeks–months; DOOD by page count</td><td><b>1–3 shoot days</b>; prep-heavy. DOOD-by-page is largely irrelevant.</td></tr>
+    <tr><td><b>The "output"</b></td><td>One locked cut / reels</td><td><b>Cutdowns</b> (60/30/15/6s) × <b>aspect ratios</b> (16:9, 9:16, 1:1) × captions/platform exports.</td></tr>
+    <tr><td><b>Budget</b></td><td>Movie-Magic chart; ETC/EFC over a long tail</td><td><b>AICP bid</b> (lettered sections A–X), client-vendor comparison, tight prep-loaded lines.</td></tr>
+    <tr><td><b>Talent</b></td><td>Cast contracts / SAG scale</td><td><b>Usage / buyout</b>: territory, media, window; SAG-AFTRA <b>holding fees every 13 weeks</b>; exclusivity.</td></tr>
+    <tr><td><b>Sign-off gate</b></td><td>Greenlight / locked budget</td><td><b>PPM</b> (Pre-Production Meeting) — agency + client approve boards, wardrobe, locations, cast before the shoot.</td></tr>
+  </tbody>
+</table>
+<div class="callout"><b>The producer's real question on a TVC is not "what page are we on" — it's "are we still on brief, and can this footage cut into every deliverable the client bought."</b> That is what the system should help answer.</div>
+<h2><span class="n">2</span> What the system does today</h2>
+<div class="grid g2">
+  <div class="card"><h3>The good news</h3><p class="small"><code>ProductionProject.projectType</code> already exists and is pickable at creation (<b>TVC is the default</b>): TVC · CORPORATE · DOCUMENTARY · FEATURE · SHORT · MUSIC_VIDEO · OTHER. It drives the projects-grid label/poster and one labor-cap rule.</p></div>
+  <div class="card"><h3>The gap</h3><p class="small"><b>Nothing in the workflow changes when you pick TVC.</b> There is no <b>brief</b> and no <b>treatment</b> level; no <b>deliverables/versions</b> (cutdowns/aspect ratios); no usage/buyout tracking; no PPM gate. A commercial is run through the identical feature machinery — script hub, page/scene stripboard, DOOD-by-page, the long-form budget chart.</p></div>
+</div>
+<div class="callout bad"><b>Net:</b> <code>projectType</code> is a stored label, not a behaviour. The producer who picks "TVC" still gets a feature's tools — and gets no help connecting the client's brief to what actually has to be shot and delivered.</div>
+
+<h2><span class="n">3</span> The Brief → Treatment → Script compass (your ask #1)</h2>
+<p class="lede">In commercials the chain is <b>Brief → Treatment → Board/Script → Deliverables</b>. The brief is the start and the judge. AI's highest-value role is to <b>read the brief, carry it forward, and keep the producer aware of drift</b> at each level.</p>
+<div class="card">
+  <div class="flow">
+    <div class="node hot"><b>① Brief</b>client/agency intake (PDF/doc/paste)</div><div class="arrow">→</div>
+    <div class="node hot"><b>② AI structure</b>objective · message · mandatories · durations</div><div class="arrow">→</div>
+    <div class="node hot"><b>③ Treatment / script</b>AI-scaffolded draft the producer edits</div><div class="arrow">→</div>
+    <div class="node"><b>④ Boards / shoot</b>existing script hub + schedule</div><div class="arrow">→</div>
+    <div class="node"><b>⑤ Deliverables</b>cutdowns × ratios</div>
+  </div>
+  <p class="small" style="text-align:center;margin:8px 0 0">A persistent <b>on-brief scorecard</b> sits across ②→⑤: "is the script still delivering what the brief bought?"</p>
+</div>
+<div class="grid g3">
+  <div class="card"><h3>① Brief intake</h3><p class="small">The brief becomes a first-class artifact at the top of the (renamed) <b>Creative hub</b> — uploaded, pasted, or built in-app. It's the level <i>before</i> the script that the system is missing today.</p></div>
+  <div class="card"><h3>② AI structures it</h3><p class="small">AI reads the brief and extracts a structured creative brief: <b>objective, single-minded proposition / key message, audience, tone, mandatories</b> (logo, pack shot, legal supers, tagline, claims), <b>required durations</b> (60/30/15/6), <b>aspect ratios</b>, channels, budget tier, references. Stored, editable — the brief stops being a PDF nobody re-reads.</p></div>
+  <div class="card"><h3>③ AI scaffolds forward</h3><p class="small">From the structured brief, AI drafts a <b>treatment outline + script/board beats</b> (reusing the existing breakdown AI). Not the final word — a fast, on-brief starting point the producer/director shapes. "Brief analysis → production-ready script in a morning."</p></div>
+</div>
+<div class="callout tvc"><b>The compass — "where am I heading":</b> an <b>on-brief alignment scorecard</b> continuously checks the live treatment / script / board / deliverables against the brief's mandatories, key message, and required durations — exactly the projection/change-list pattern already built for script→strips. It answers: <i>Key message present? Pack shot scripted? Legal super included? A 6-second cutdown viable from these beats? All bought aspect ratios coverable?</i> Green where on-brief, amber where drifting.</div>
+<h2><span class="n">4</span> What changes when you pick "TVC" at creation (your ask #2)</h2>
+<p class="lede">Picking TVC should switch the project into a <b>workflow profile</b> — same engine underneath, a different cockpit. Here's what flips.</p>
+<table>
+  <thead><tr><th style="width:22%">Area</th><th>Feature default</th><th>TVC profile</th></tr></thead>
+  <tbody>
+    <tr><td><b>Creation seeds</b></td><td>Script doc, full budget chart, page/DOOD globals</td><td><b>Brief + Treatment stubs</b>, a <b>Deliverables list</b> (prompts spot durations + aspect ratios), TVC budget globals (shoot 1–3 days, prep-loaded), agency/client stakeholder fields</td></tr>
+    <tr><td><b>Nav &amp; terminology</b></td><td>Script · Scenes · Stripboard · Reels</td><td><b>Brief · Treatment · Boards · Deliverables</b>; "spot/version" not "reel"; "PPM" gate</td></tr>
+    <tr><td><b>Schedule</b></td><td>Stripboard + DOOD by pages</td><td>Stripboard collapses to a <b>shot/setup list</b> over 1–3 days; page/eighths de-emphasised</td></tr>
+    <tr><td><b>The spine module</b></td><td>Script breakdown → budget</td><td><b>Deliverables &amp; Versions</b> — the cutdown/ratio matrix with a post pipeline</td></tr>
+    <tr><td><b>Budget view</b></td><td>Movie-Magic chart</td><td>Same engine, plus an optional <b>AICP bid view</b> (lettered sections) for agency comparison; MM import already supported</td></tr>
+    <tr><td><b>Talent</b></td><td>Cast contracts</td><td><b>Usage / buyout</b> tracking — territory, media, window, SAG-AFTRA-style <b>holding-fee cadence</b></td></tr>
+    <tr><td><b>Gate</b></td><td>Locked budget greenlight</td><td><b>PPM checklist</b> — agency + client sign-off on boards/cast/wardrobe/locations before the shoot</td></tr>
+  </tbody>
+</table>
+
+<h3>The TVC-defining addition: a Deliverables &amp; Versions module</h3>
+<div class="card">
+  <p class="small" style="margin-top:0">One shoot → many finished assets. This is where a TVC producer actually lives. A <b>Deliverable</b> = a finished spot at a length × ratio, each with its own post pipeline and delivery spec.</p>
+  <table>
+    <thead><tr><th>Master spot</th><th>Cutdowns</th><th>Aspect ratios</th><th>Per-asset pipeline</th></tr></thead>
+    <tbody>
+      <tr><td>"Hero — 60s"</td><td>60 · 30 · 15 · 6</td><td>16:9 · 9:16 · 1:1</td><td>Offline → Online → Grade → Mix → <b>Delivered</b> (status + due date + spec per cell)</td></tr>
+    </tbody>
+  </table>
+  <p class="small">The matrix doubles as a QC checklist (captions, legal supers, codec/bitrate per platform) and feeds delivery deadlines into the schedule and the cost report.</p>
+</div>
+<div class="grid g3">
+  <div class="card"><h3>Usage &amp; buyout</h3><p class="small">Per spot/talent: territory, media, licence window, and a <b>holding-fee clock</b> (SAG-AFTRA: every 13 weeks = session fee) with renewal alerts; music licence cost + term. Ties into budget + a "rights expiring" warning.</p></div>
+  <div class="card"><h3>PPM gate</h3><p class="small">A pre-production-meeting checklist (boards locked, cast approved, wardrobe, locations, schedule, legal) that agency + client sign off — the commercial equivalent of the budget-lock greenlight.</p></div>
+  <div class="card"><h3>Agency / client</h3><p class="small">First-class <b>agency</b> + <b>brand/client</b> stakeholders on the project (beyond a single clientId), so approvals, the brief, and the bid all attribute correctly.</p></div>
+</div>
+<h2><span class="n">5</span> Data model — additive only</h2>
+<p class="lede">Everything stacks on what exists (<code>projectType</code> already there; Script hub already the creative spine). All nullable/new — no destructive migration ("don't mess a thing").</p>
+<table>
+  <thead><tr><th>Model</th><th>Add</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr><td><code>ScriptDocument.kind</code></td><td>+ <code>BRIEF</code>, <code>TREATMENT</code></td><td>Brief &amp; treatment live in the existing hub as the levels above the script.</td></tr>
+    <tr><td><i>new</i> <code>CreativeBrief</code></td><td>projectId, objective, keyMessage, audience, tone, mandatories Json, durations Int[], aspectRatios String[], channels String[], budgetTier, references, sourceDocUrl, extracted Json, status</td><td>The structured brief AI produces and the compass measures against.</td></tr>
+    <tr><td><i>new</i> <code>Deliverable</code></td><td>projectId, name, durationSec, aspectRatio, parentId (cutdown-of), pipelineStatus, dueDate, spec Json, masterRef</td><td>The TVC spine — the cutdown × ratio matrix + post pipeline.</td></tr>
+    <tr><td><i>new</i> <code>UsageRight</code></td><td>projectId, deliverableId?, talentId?, territory, media, windowStart/End, holdingFeeEveryWeeks, nextHoldingFeeAt, fee, kind (TALENT|MUSIC|STOCK)</td><td>Buyouts, holding-fee clock, music/stock licences + expiry alerts.</td></tr>
+    <tr><td><i>new</i> <code>PpmChecklist</code> (or reuse setup-checklist)</td><td>projectId, items Json (locked/approvedBy), status</td><td>The agency/client pre-shoot sign-off gate.</td></tr>
+    <tr><td><code>ProductionProject</code></td><td>+ <code>agencyId?</code>, <code>brandId?</code>, <code>workflowProfile</code> (derived from projectType)</td><td>Client-vendor attribution + the profile that flips nav/terminology/seeds.</td></tr>
+  </tbody>
+</table>
+<p class="small">AI reuses the existing breakdown engine (Anthropic) for brief extraction + treatment/script scaffolding; the compass reuses the projection/alignment pattern already built for script→strips. No new AI infrastructure.</p>
+
+<h2><span class="n">6</span> Phased, additive plan</h2>
+<div class="phase"><div class="p">P0</div><div><b>Brief level (no behaviour change elsewhere).</b> Add <code>BRIEF</code>/<code>TREATMENT</code> doc kinds + the <code>CreativeBrief</code> model; brief intake (upload/paste) in the Creative hub; AI <b>extract structured brief</b>. Read-only "brief card." Nothing removed.</div></div>
+<div class="phase"><div class="p">P1</div><div><b>The compass.</b> AI <b>brief→treatment/script scaffold</b> + the <b>on-brief alignment scorecard</b> (mandatories / key message / durations coverage, green/amber) projecting the brief forward into the live script &amp; deliverables.</div></div>
+<div class="phase"><div class="p">P2</div><div><b>TVC workflow profile + Deliverables module.</b> Picking TVC seeds brief/treatment/deliverables, relabels nav, collapses the stripboard to a shot list; build the <b>Deliverables &amp; Versions</b> cutdown×ratio matrix with the post pipeline + delivery deadlines into schedule/cost.</div></div>
+<div class="phase"><div class="p">P3</div><div><b>Commercial controls.</b> Usage/buyout + holding-fee clock + music licences with expiry alerts; PPM sign-off gate; optional AICP bid view of the budget; agency/brand stakeholders.</div></div>
+
+<h2><span class="n">7</span> Decisions for you</h2>
+<div class="fork"><b>A · Where does the brief live?</b><br><span class="small">Extend the existing Script hub into a <b>"Creative hub"</b> (Brief · Treatment · Script · Boards · Deliverables) <span class="rec">(recommended — it's already the creative spine)</span>, vs a separate Brief module.</span></div>
+<div class="fork"><b>B · How far should the AI go from the brief?</b><br><span class="small">AI <b>scaffolds an editable treatment + script draft</b> and runs the on-brief compass <span class="rec">(recommended — fastest producer value)</span>, vs alignment/compass only (no generation), vs full auto-generate.</span></div>
+<div class="fork"><b>C · Project-type behaviour.</b><br><span class="small">A <b>workflow profile</b> per type that flips nav/terminology/seeds/module-emphasis <span class="rec">(recommended — scales to Corporate, Music Video, Doc too)</span>, vs hardcoded TVC-only branches.</span></div>
+<div class="fork"><b>D · Is the Deliverables matrix the TVC spine?</b><br><span class="small">Yes — Deliverables &amp; Versions becomes the primary TVC workspace <span class="rec">(recommended)</span>, with scenes/strips demoted to a shot list; vs keep the stripboard primary and add deliverables as a side panel.</span></div>
+
+<div class="callout ok"><b>Net effect.</b> "TVC" stops being a label and becomes a real mode: the client's brief is read once by AI and carried forward as a living compass, the producer always sees whether they're on-brief, and the project is organised around the deliverables the client actually bought — while every shared prep/shoot/wrap tool you already built keeps working underneath.</div>
+
+<p class="small" style="margin-top:26px;border-top:1px solid var(--line);padding-top:14px">Sources — TVC workflow &amp; treatment: StudioBinder/Robinpiree (director's treatment), M&amp;M Communications, The Sparkhouse, Hamza's Production. Deliverables/cutdowns/ratios: Image Studios, Jungle Films, Haunted Basement. Bid &amp; agency model: Saturation.io (AICP), Wrapbook. Usage/buyouts/holding fees: SAG-AFTRA guidance via Saturation.io. AI brief→script: Omneky, rule1, Creatify. Audit: TFM-System codebase (<code>ProductionProject.projectType</code>, <code>projects.service</code>, Script hub, <code>labor.service</code>).</p>
+</div></body></html>

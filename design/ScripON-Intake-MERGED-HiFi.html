@@ -1,0 +1,138 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ScripON — Intake (Merged, all features)</title><style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Courier+Prime:wght@400;700&display=swap');
+:root{--bg:#0b0c0f;--panel:#14161c;--hair:rgba(255,255,255,.07);--gold:#C6A463;--gold2:#E6D2A2;--goldink:#1a1509;--cream:#F4EEE0;--text:#E8E6E0;--mute:#9aa1ab;--faint:#6b727d;--blue:#5b8def;--green:#57b368;--violet:#8b7cf0;--red:#e5635f}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:radial-gradient(1200px 600px at 50% -8%,#15171d,#0b0c0f 60%);font-family:Inter,-apple-system,sans-serif;color:var(--text);-webkit-font-smoothing:antialiased;padding:36px;display:flex;flex-direction:column;align-items:center;gap:14px}
+.cap{color:var(--faint);font-size:12px}.cap b{color:var(--gold);font-weight:600}
+.screen{width:1440px;height:900px;background:var(--bg);border:1px solid var(--hair);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 50px 120px -30px rgba(0,0,0,.8)}
+.ico{width:18px;height:18px;stroke:currentColor;stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.top{height:58px;flex:0 0 58px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;background:linear-gradient(180deg,#15181e,#121419);border-bottom:1px solid var(--hair)}
+.tl{display:flex;align-items:center;gap:12px}.logo{width:30px;height:30px;border-radius:9px;background:linear-gradient(160deg,var(--gold2),var(--gold));display:grid;place-items:center;color:var(--goldink);font-weight:800;font-size:12px}
+.namebox{display:flex;align-items:center;gap:8px;height:32px;padding:0 12px;background:#1a1d24;border:1px solid rgba(198,164,99,.35);border-radius:9px;font-size:13px;color:var(--cream);font-weight:600}
+.meta{color:var(--faint);font-size:12px}
+.btn{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 14px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid transparent}
+.btn.ghost{background:#1b1e25;border-color:var(--hair);color:var(--mute)}
+.btn.gold{background:linear-gradient(180deg,var(--gold2),var(--gold));color:var(--goldink);font-weight:700}
+.body{flex:1;display:grid;grid-template-columns:1fr 296px;min-height:0}
+.formcol{overflow-y:auto;padding:18px 22px;display:flex;flex-direction:column;gap:13px}
+.formcol::-webkit-scrollbar{width:8px}.formcol::-webkit-scrollbar-thumb{background:#272b33;border-radius:8px}
+.seg{display:inline-flex;background:#15181e;border:1px solid var(--hair);border-radius:10px;padding:4px;gap:3px}
+.seg span{padding:7px 16px;border-radius:7px;font-size:12.5px;font-weight:600;color:var(--mute);cursor:pointer}.seg span.on{background:rgba(198,164,99,.16);color:var(--gold2)}
+.card{background:var(--panel);border:1px solid var(--hair);border-radius:13px;padding:14px 15px;display:flex;flex-direction:column;gap:10px}
+.card.lit{border-color:rgba(198,164,99,.34)}
+.card.sacred{border-color:rgba(229,99,95,.4);background:linear-gradient(180deg,rgba(229,99,95,.06),#14161c)}
+.ct{font-size:10px;font-weight:700;letter-spacing:1.1px;color:var(--gold)}
+.bt{font-size:13.5px;font-weight:700;color:var(--cream)}
+.fl{font-size:11px;font-weight:600;color:var(--faint);margin-bottom:5px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{padding:6px 11px;border-radius:999px;font-size:12px;font-weight:600;color:var(--mute);background:#171a20;border:1px solid var(--hair);cursor:pointer}
+.chip.on{background:rgba(198,164,99,.15);border-color:rgba(198,164,99,.45);color:var(--gold2)}
+.chip.b.on{background:rgba(91,141,239,.15);border-color:rgba(91,141,239,.45);color:#a9c4f7}
+.chip.v.on{background:rgba(139,124,240,.15);border-color:rgba(139,124,240,.45);color:#c3b6f5}
+.chip.g.on{background:rgba(87,179,104,.15);border-color:rgba(87,179,104,.45);color:#9fe3c0}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.grid3 .chip{text-align:center}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px}
+sel,.sel{height:36px;border-radius:9px;background:#171a20;border:1px solid var(--hair);color:var(--cream);font-size:12.5px;font-weight:600;display:flex;align-items:center;justify-content:space-between;padding:0 11px;cursor:pointer}.sel .c{color:var(--faint)}
+.ta{background:#0b0c0f;border:1px solid var(--hair);border-radius:10px;padding:10px 11px;font-size:12px;color:var(--mute);line-height:1.5;min-height:64px;font-family:"Courier Prime",monospace}
+.inp{height:34px;background:#0b0c0f;border:1px solid var(--hair);border-radius:9px;color:var(--text);font-size:12px;padding:0 11px;display:flex;align-items:center}
+.src{display:flex;gap:8px}.srcbtn{flex:1;height:32px;border-radius:9px;border:1px dashed var(--hair);color:var(--faint);font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer}.srcbtn.on{border-style:solid;border-color:rgba(198,164,99,.45);color:var(--gold2);background:rgba(198,164,99,.08)}
+.tog{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text);cursor:pointer}
+.sw{width:32px;height:18px;border-radius:999px;background:#2a2e36;position:relative;flex:none}.sw.on{background:var(--gold)}.sw i{position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff}.sw.on i{left:16px}
+.rng{-webkit-appearance:none;width:100%;height:5px;border-radius:5px;background:#23262e;outline:none;margin-top:4px}.rng::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:var(--gold2);border:2px solid #0b0c0f;cursor:pointer}
+.gban{display:flex;gap:9px;align-items:flex-start;background:rgba(229,99,95,.1);border:1px solid rgba(229,99,95,.35);border-radius:10px;padding:9px 10px}.gban .gi{color:var(--red);flex:none;margin-top:1px}.gban .gt{font-size:10.5px;line-height:1.4;color:var(--text)}.gban .gt b{color:#f0a3a0}
+.split{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+/* slim right rail */
+.aside{background:#0e1015;border-left:1px solid var(--hair);padding:18px 16px;display:flex;flex-direction:column;gap:12px;overflow-y:auto}
+.brief{background:linear-gradient(180deg,#16191f,#121419);border:1px solid rgba(198,164,99,.25);border-radius:12px;padding:13px}
+.brief .bh{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}.brief .btt{font-size:12px;font-weight:700;color:var(--cream)}
+.bl{font-size:11px;line-height:1.45;color:var(--mute);display:flex;gap:7px;margin-bottom:6px}.bl .bb{color:var(--gold2);flex:none}.bl b{color:var(--text);font-weight:600}
+.miniband{background:#0e1015;border:1px solid var(--hair);border-radius:11px;padding:11px}
+.sumrow{display:flex;align-items:center;justify-content:space-between;font-size:11px;padding:5px 0;border-top:1px solid var(--hair)}.sumrow:first-child{border-top:none}.sumrow .k{color:var(--faint)}.sumrow .v{color:var(--cream);font-weight:600}
+.live{font-size:8.5px;font-weight:800;letter-spacing:.4px;color:var(--green);background:rgba(87,179,104,.16);border-radius:4px;padding:2px 6px}
+</style></head><body>
+<div class="cap">ScripON · <b>Intake — MERGED (every feature from both versions, one tab)</b> · Original/Adapt/Seed kept · slim functional brief rail</div>
+<div class="screen">
+<div class="top">
+  <div class="tl"><div class="logo">TFM</div><span class="namebox">Antara — mythic cut ✎</span><span class="meta">Start a build · steers the whole ladder</span></div>
+  <div style="display:flex;gap:8px"><span class="btn ghost">Skip / close</span><span class="btn gold"><svg class="ico" viewBox="0 0 24 24" style="width:15px;height:15px;stroke:#1a1509"><path d="M5 12h14M13 6l6 6-6 6"/></svg>Begin the build</span></div>
+</div>
+<div class="body">
+  <div class="formcol">
+    <div class="seg"><span class="on">Original</span><span>Adapt material</span><span>From a seed</span></div>
+
+    <div class="card lit"><div class="bt">Source</div>
+      <div class="src"><span class="srcbtn on">Paste</span><span class="srcbtn">⬆ Upload (PDF·FDX·Fountain·Word·EPUB)</span><span class="srcbtn">Website / article URL</span><span class="srcbtn">HTML file</span></div>
+      <div class="ta">Paste a synopsis, excerpt, or logline… — the pre-Islamic poet-warrior Antara ibn Shaddad rises through valour and verse to win his freedom and the love of Abla…</div>
+      <div class="fl">Or a real subject / article URL</div>
+      <div class="inp" style="color:var(--faint)">Real person, event, or a news / article URL…</div>
+    </div>
+
+    <div class="card lit"><div class="bt">Grounding in reality</div>
+      <div class="tog"><span class="sw on"><i></i></span>Based on a real story / person</div>
+      <div><div class="fl">How faithful vs invented</div><div class="chips"><span class="chip">Faithful</span><span class="chip on">Inspired-by</span><span class="chip">Loosely based</span></div></div>
+      <div class="split"><span class="tog"><span class="sw on"><i></i></span>Research the subject online</span><div style="flex:1;min-width:170px"><div class="fl">How much real detail to use</div><input class="rng" type="range" value="55"></div></div>
+    </div>
+
+    <div class="card lit"><div class="bt">Creative blend · genre &amp; tone</div>
+      <div class="row2"><div><div class="fl">Base genre</div><div class="sel"><span>Historical</span><span class="c">▾</span></div></div><div><div class="fl">Treatment</div><div class="sel"><span>Linear</span><span class="c">▾</span></div></div></div>
+      <div><div class="fl">Genres / blend layers</div><div class="chips"><span class="chip on">Epic</span><span class="chip on">Historical</span><span class="chip">Drama</span><span class="chip">Romance</span><span class="chip">War</span><span class="chip">Thriller</span><span class="chip">Comedy</span><span class="chip">Horror</span><span class="chip">Sci-fi</span><span class="chip b on">+ Myth</span><span class="chip b">+ Adventure</span></div></div>
+      <div><div class="fl">Tone</div><div class="chips"><span class="chip on">Epic</span><span class="chip on">Romantic</span><span class="chip">Gritty</span><span class="chip">Brutal</span><span class="chip">Bittersweet</span><span class="chip">Mythic</span></div></div>
+    </div>
+
+    <div class="card lit"><div class="bt">Fantasy / genre layer</div>
+      <div class="tog"><span class="sw on"><i></i></span>Add a fantasy / genre layer</div>
+      <div><div class="fl">What kind of fantasy?</div><div class="chips"><span class="chip b on">High fantasy (GoT)</span><span class="chip b">Grounded / low</span><span class="chip b">Mythological</span><span class="chip b">Magical realism</span><span class="chip b">Sci-fi</span></div></div>
+      <div><div class="fl">Mythical elements</div><div class="chips"><span class="chip v on">Djinn</span><span class="chip v">Ghoul</span><span class="chip v">Dragons</span><span class="chip v">Magic system</span><span class="chip v">Prophecy</span><span class="chip v">Shapeshifters</span><span class="chip v">Undead</span></div></div>
+      <div><div class="fl">Mythology / culture the magic draws from</div><div class="grid3"><span class="chip on">Arabian / pre-Islamic</span><span class="chip">Norse</span><span class="chip">Greek</span><span class="chip">Egyptian</span><span class="chip">Mesopotamian</span><span class="chip">Persian</span><span class="chip">Chinese</span><span class="chip">Yoruba</span><span class="chip">Slavic</span><span class="chip">Aztec</span><span class="chip">Hindu</span><span class="chip">Wholly fictional</span></div></div>
+      <div><div class="fl">How mythic vs grounded</div><div class="chips"><span class="chip">Realistic</span><span class="chip">Balanced</span><span class="chip on">Mythic</span></div></div>
+    </div>
+
+    <div class="card"><div class="bt">Setting &amp; world</div>
+      <div class="row3"><div><div class="fl">Place</div><div class="chips"><span class="chip g on">Desert</span><span class="chip g">Town</span></div></div><div><div class="fl">Era</div><div class="sel"><span>Ancient</span><span class="c">▾</span></div></div><div><div class="fl">World</div><div class="sel"><span>Real / historical</span><span class="c">▾</span></div></div></div>
+      <div class="tog"><span class="sw on"><i></i></span>Research the setting online</div>
+    </div>
+
+    <div class="card sacred"><div class="ct" style="color:#f0a3a0">CULTURE &amp; ERA · SACRED-AWARE</div>
+      <div class="chips"><span class="chip on">Arabian pre-Islam (Jahiliyya)</span><span class="chip">Abbasid</span><span class="chip">Al-Andalus</span><span class="chip">Ottoman</span><span class="chip">Contemporary Arab</span></div>
+      <div class="gban"><svg class="ico gi" viewBox="0 0 24 24"><path d="M12 2L2 21h20zM12 9v5M12 18h.01"/></svg><div class="gt"><b>Tier-1 sacred rules active.</b> No depiction, naming or voicing of prophets or deities; no verbatim scripture. Folklore beings (djinn, ghoul, ifrit) allowed. The AI redirects rather than refuses.</div></div>
+    </div>
+
+    <div class="card"><div class="bt">Target</div>
+      <div class="row2"><div><div class="fl">Format</div><div class="sel"><span>Feature · 3-act</span><span class="c">▾</span></div></div><div><div class="fl">Language</div><div class="sel"><span>Arabic</span><span class="c">▾</span></div></div></div>
+      <div class="row2"><div><div class="fl">Country / market</div><div class="sel"><span>GCC / MENA</span><span class="c">▾</span></div></div><div><div class="fl">Rating target</div><div class="sel"><span>PG-15 (GCAM)</span><span class="c">▾</span></div></div></div>
+      <div><div class="fl">Project intent</div><div class="chips"><span class="chip on">Historical drama</span><span class="chip">Biopic</span><span class="chip">Apolitical</span><span class="chip">Tribute</span></div></div>
+    </div>
+
+    <div class="card"><div class="bt">Budget scope</div>
+      <div class="chips"><span class="chip">Micro &lt;$1M</span><span class="chip">Low $1–5M</span><span class="chip on">Mid $5–20M</span><span class="chip">Studio $20M+</span></div>
+      <div class="row2"><div><div class="fl">Max locations</div><div class="sel"><span>12</span><span class="c">▾</span></div></div><div><div class="fl">Cast size</div><div class="sel"><span>Medium</span><span class="c">▾</span></div></div></div>
+    </div>
+
+    <div class="card"><div class="bt">Research scope <span style="font-size:9px;font-weight:700;letter-spacing:.6px;color:var(--gold);margin-left:6px">ON BY DEFAULT</span></div>
+      <div class="chips"><span class="chip on">Real subject &amp; history</span><span class="chip on">Story-craft &amp; creative refs</span><span class="chip on">Mythology / culture</span><span class="chip on">Comps &amp; box office</span><span class="chip on">Cultural / legal fit</span><span class="chip on">General web</span></div>
+      <div><div class="fl">Research depth</div><input class="rng" type="range" value="60"></div>
+    </div>
+  </div>
+
+  <div class="aside">
+    <div class="brief">
+      <div class="bh"><span class="btt">Creative brief</span><span class="live">LIVE</span></div>
+      <div class="bl"><span class="bb">•</span><span>Adapting <b>Antara ibn Shaddad</b> (real subject, inspired-by); research on.</span></div>
+      <div class="bl"><span class="bb">•</span><span><b>Historical</b> epic + <b>myth</b> layer; tone epic, romantic; linear.</span></div>
+      <div class="bl"><span class="bb">•</span><span>Fantasy: <b>high</b>, djinn; mythology <b>Arabian pre-Islamic</b>; mythic.</span></div>
+      <div class="bl"><span class="bb">•</span><span>Setting <b>ancient desert</b>; culture <b>Arabian pre-Islam</b>.</span></div>
+      <div class="bl"><span class="bb">•</span><span>Target <b>Feature · Arabic · GCC · PG-15</b>; intent historical drama.</span></div>
+      <div class="bl"><span class="bb">•</span><span>Filmable within <b>Mid $5–20M</b> · ≤12 locations.</span></div>
+    </div>
+    <div class="gban"><svg class="ico gi" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4M12 3l7 4v5c0 5-3 8-7 9-4-1-7-4-7-9V7z"/></svg><div class="gt"><b>Guardrail attached.</b> Sacred Tier-1 rules ride on every prompt.</div></div>
+    <div class="miniband">
+      <div class="sumrow"><span class="k">Build</span><span class="v">Antara — mythic cut</span></div>
+      <div class="sumrow"><span class="k">Status</span><span class="v" style="color:var(--gold2)">Draft · unlinked</span></div>
+      <div class="sumrow"><span class="k">Research</span><span class="v">6 scopes · depth 60</span></div>
+      <div class="sumrow"><span class="k">On Begin</span><span class="v">Write Logline</span></div>
+    </div>
+    <div style="font-size:10px;color:var(--faint);line-height:1.5">Saves your brief and writes the Logline from it. Revisit anytime before each stage.</div>
+  </div>
+</div>
+</div>
+</body></html>

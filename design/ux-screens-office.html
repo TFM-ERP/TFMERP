@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en" data-theme="studio">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>TFM — Office & Business screens (Studio Light)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+[data-theme="studio"]{--bg:#F7F8FA;--surface-1:#FFFFFF;--surface-2:#F1F3F7;--surface-3:#E8EBF0;--text-1:#16202E;--text-2:#48536A;--text-3:#8A93A6;--border-1:#E6E9EF;--border-2:#D3D9E3;--accent:#5B5BD6;--accent-on:#FFF;--accent-soft:#ECECFB;--ok:#1F9D63;--ok-soft:#E4F6EC;--warn:#B5791E;--warn-soft:#FBF0DA;--danger:#D14343;--danger-soft:#FBE7E7;--info:#2D74D6;--info-soft:#E4EEFB}
+body{font-family:'Inter',-apple-system,'Segoe UI',Roboto,sans-serif;background:#EAEDF2;color:var(--text-1);-webkit-font-smoothing:antialiased;padding:32px 22px 70px}
+.ph{max-width:1280px;margin:0 auto 24px}.ph h1{font-size:23px;font-weight:800;letter-spacing:-.02em}.ph p{font-size:13px;color:#6b7governs;color:#6b7585;margin-top:5px}
+.board{max-width:1280px;margin:0 auto 30px}
+.cap{display:flex;align-items:center;gap:10px;margin-bottom:10px}.cap .b{font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;background:#ECECFB;color:#5B5BD6;border:1px solid #d7dae6}.cap h2{font-size:15px;font-weight:700}.cap small{color:#8A93A6;font-size:12px}
+.frame{border:1px solid var(--border-1);border-radius:15px;overflow:hidden;background:var(--surface-1);box-shadow:0 12px 34px rgba(16,24,40,.12)}
+.tb{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border-1)}
+.brand{display:flex;align-items:center;gap:7px;font-weight:800;font-size:13px}.brand .lg{width:23px;height:23px;border-radius:7px;display:grid;place-items:center;font-size:12px;font-weight:800;background:var(--accent);color:var(--accent-on)}
+.chip{display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:var(--surface-2);border:1px solid var(--border-1);font-size:11px;color:var(--text-2);font-weight:600}.tb .sp{flex:1}.dot{width:28px;height:28px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-size:11px;font-weight:700;border:1px solid var(--border-2)}
+.tabs{display:flex;gap:3px;background:var(--surface-2);padding:3px;border-radius:999px}.tab{font-size:11px;font-weight:600;color:var(--text-3);padding:5px 12px;border-radius:999px}.tab.on{background:var(--accent);color:var(--accent-on)}
+.mn{padding:16px 18px}
+.hdr{display:flex;align-items:flex-end;margin-bottom:14px}.hdr h3{font-size:18px;font-weight:700;letter-spacing:-.01em}.hdr .s{font-size:11.5px;color:var(--text-3);margin-top:2px}.hdr .sp{flex:1}
+.btn{border:none;cursor:pointer;font-weight:700;font-size:11.5px;padding:8px 13px;border-radius:8px;background:var(--accent);color:var(--accent-on)}.btn.gh{background:var(--surface-2);color:var(--text-2);border:1px solid var(--border-1)}
+.bd{display:inline-block;font-size:9px;font-weight:700;padding:2px 7px;border-radius:999px}.b-ok{background:var(--ok-soft);color:var(--ok)}.b-warn{background:var(--warn-soft);color:var(--warn)}.b-dn{background:var(--danger-soft);color:var(--danger)}.b-info{background:var(--info-soft);color:var(--info)}.b-ac{background:var(--accent-soft);color:var(--accent)}
+table{width:100%;border-collapse:collapse;font-size:11.5px}th{text-align:left;padding:8px 12px;color:var(--text-3);font-weight:600;font-size:9px;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--border-1)}td{padding:9px 12px;border-bottom:1px solid var(--border-1);color:var(--text-2)}tr:last-child td{border-bottom:none}
+
+/* casting */
+.cast{display:grid;grid-template-columns:1fr 250px;gap:14px}
+.tg{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.tc{border:1px solid var(--border-1);border-radius:11px;overflow:hidden;background:var(--surface-1)}
+.tc .ph2{height:84px;background:linear-gradient(135deg,#cfd6e6,#aeb8cf)}.tc.s2 .ph2{background:linear-gradient(135deg,#e6cfd9,#cfaeb9)}.tc.s3 .ph2{background:linear-gradient(135deg,#cfe6d9,#aecfbb)}.tc.s4 .ph2{background:linear-gradient(135deg,#e6dfcf,#cfc3ae)}
+.tc .i{padding:8px 9px}.tc .nm{font-size:11.5px;font-weight:700;color:var(--text-1)}.tc .rl{font-size:10px;color:var(--text-3);margin-top:1px}
+.prof{border:1px solid var(--border-1);border-radius:11px;padding:13px;background:var(--surface-2)}
+.prof .big{height:120px;border-radius:9px;background:linear-gradient(135deg,#cfd6e6,#aeb8cf);margin-bottom:10px}.prof .nm{font-size:15px;font-weight:800}.prof .rl{font-size:11px;color:var(--text-3);margin-bottom:10px}
+.kv{display:flex;justify-content:space-between;font-size:11px;padding:5px 0;border-top:1px solid var(--border-1)}.kv .k{color:var(--text-3)}.kv .v{color:var(--text-1);font-weight:600}
+
+/* locations */
+.loc{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.gal{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.gt{height:96px;border-radius:9px;background:linear-gradient(135deg,#c7d2e4,#9fb0cd)}.gt.b{background:linear-gradient(135deg,#d9cdbf,#bfa headers,#bfa789)}.gt.b{background:linear-gradient(135deg,#d9cdbf,#bfa789)}.gt.c{background:linear-gradient(135deg,#c7e0d6,#9fc6b3)}.gt.d{background:linear-gradient(135deg,#e0d3c7,#c6a99f)}
+.lmap{min-height:150px;border-radius:10px;border:1px solid var(--border-1);position:relative;background:radial-gradient(circle at 40% 45%,rgba(91,91,214,.16),transparent 42%),repeating-linear-gradient(0deg,#eef1f6 0 22px,#e7ebf2 22px 23px),repeating-linear-gradient(90deg,#eef1f6 0 22px,#e7ebf2 22px 23px),#eef1f6;margin-bottom:10px}
+.pin{position:absolute;width:13px;height:13px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+
+/* contracts */
+.con{display:grid;grid-template-columns:1.1fr .9fr;gap:14px}
+.doc{border:1px solid var(--border-1);border-radius:10px;background:#fff;padding:18px 20px;font-size:10.5px;color:var(--text-2);line-height:1.6}
+.doc h5{font-size:13px;color:var(--text-1);font-weight:800;text-align:center;margin-bottom:3px}.doc .sub{text-align:center;color:var(--text-3);font-size:9px;margin-bottom:12px}
+.doc .ln{height:7px;background:var(--surface-2);border-radius:3px;margin:5px 0}.doc .ln.s{width:70%}.doc .ln.m{width:88%}
+.sig{margin-top:16px;display:flex;gap:14px}.sigbox{flex:1;border-top:1.5px solid var(--text-3);padding-top:5px;font-size:9px;color:var(--text-3)}.sigbox .sgn{font-family:cursive;font-size:15px;color:var(--accent);margin-bottom:2px}
+
+/* finance */
+.fin{display:grid;grid-template-columns:1fr;gap:14px}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:6px}
+.kp{background:var(--surface-2);border:1px solid var(--border-1);border-radius:10px;padding:11px}.kp .k{font-size:9px;text-transform:uppercase;color:var(--text-3);font-weight:700}.kp .v{font-size:18px;font-weight:800;margin-top:3px}
+.bar{display:flex;align-items:center;gap:10px;margin:7px 0;font-size:11px}.bar .nm{width:130px;color:var(--text-2)}.bar .track{flex:1;height:14px;background:var(--surface-2);border-radius:7px;overflow:hidden}.bar .fill{height:100%;background:var(--accent);border-radius:7px}.bar .amt{width:96px;text-align:right;color:var(--text-1);font-weight:700}
+.foot{max-width:1280px;margin:26px auto 0;font-size:12.5px;color:#6b7585;text-align:center;line-height:1.6}
+</style></head>
+<body>
+<div class="ph"><h1>TFM · Office &amp; business screens</h1><p>Studio Light (day / office mode). The same screens flip to Graphite &amp; Gold for night/on-set — one token system, two modes.</p></div>
+
+<!-- 5 · CASTING -->
+<div class="board">
+  <div class="cap"><span class="b">Casting</span><h2>Talent database + profile</h2><small>search, shortlist, side-panel profile</small></div>
+  <div class="frame">
+    <div class="tb"><div class="brand"><span class="lg">T</span>TFM</div><span class="chip">🎬 Desert Crossing</span><div class="tabs"><div class="tab on">Talent</div><div class="tab">Shortlists</div><div class="tab">Sessions</div></div><div class="sp"></div><span class="chip">🔎 Search talent</span><div class="dot">QQ</div></div>
+    <div class="mn"><div class="hdr"><div><h3>Talent database</h3><div class="s">1,284 profiles · 6 on shortlist for “Nadia”</div></div><div class="sp"></div><button class="btn gh">Filters</button><button class="btn">＋ Add talent</button></div>
+      <div class="cast">
+        <div class="tg">
+          <div class="tc"><div class="ph2"></div><div class="i"><div class="nm">L. Haddad</div><div class="rl">Lead · Nadia <span class="bd b-ok">✓</span></div></div></div>
+          <div class="tc s2"><div class="ph2"></div><div class="i"><div class="nm">M. Saleh</div><div class="rl">Lead · Nadia</div></div></div>
+          <div class="tc s3"><div class="ph2"></div><div class="i"><div class="nm">A. Karam</div><div class="rl">Lead · Nadia</div></div></div>
+          <div class="tc s4"><div class="ph2"></div><div class="i"><div class="nm">N. Fares</div><div class="rl">Support · Recruit</div></div></div>
+          <div class="tc s3"><div class="ph2"></div><div class="i"><div class="nm">O. Mansour</div><div class="rl">Support · Soldier <span class="bd b-ac">cast</span></div></div></div>
+          <div class="tc"><div class="ph2"></div><div class="i"><div class="nm">R. Aziz</div><div class="rl">Support · Recruit</div></div></div>
+        </div>
+        <div class="prof"><div class="big"></div><div class="nm">Layla Haddad</div><div class="rl">Lead — “Nadia” · shortlisted</div>
+          <div class="kv"><span class="k">Agency</span><span class="v">Mirage Talent</span></div><div class="kv"><span class="k">Availability</span><span class="v" style="color:var(--ok)">Jun 10–Aug 2</span></div><div class="kv"><span class="k">Quote</span><span class="v">On file</span></div><div class="kv"><span class="k">Self-tape</span><span class="v" style="color:var(--accent)">▶ 2 clips</span></div>
+          <button class="btn" style="width:100%;margin-top:11px">Send to producers</button></div>
+      </div></div>
+  </div>
+</div>
+
+<!-- 6 · LOCATIONS -->
+<div class="board">
+  <div class="cap"><span class="b">Locations</span><h2>Location scout + recce</h2><small>gallery, map pin, recce notes &amp; permits</small></div>
+  <div class="frame">
+    <div class="tb"><div class="brand"><span class="lg">T</span>TFM</div><span class="chip">🎬 Desert Crossing</span><div class="tabs"><div class="tab on">Locations</div><div class="tab">Recce</div><div class="tab">Permits</div></div><div class="sp"></div><div class="dot">QQ</div></div>
+    <div class="mn"><div class="hdr"><div><h3>Wadi Rim — Field Hospital</h3><div class="s">📍 29.5° N, 35.4° E · 4 scenes · permit ✓</div></div><div class="sp"></div><button class="btn gh">Share recce</button><button class="btn">＋ Location</button></div>
+      <div class="loc">
+        <div class="gal"><div class="gt"></div><div class="gt b"></div><div class="gt c"></div><div class="gt d"></div></div>
+        <div><div class="lmap"><span class="pin" style="background:var(--accent);left:42%;top:46%"></span><span class="pin" style="background:var(--ok);left:64%;top:60%"></span></div>
+          <table><tbody><tr><td style="color:var(--text-3)">Permit</td><td style="text-align:right"><span class="bd b-ok">Approved</span></td></tr><tr><td style="color:var(--text-3)">Power</td><td style="text-align:right">Genny + tie-in</td></tr><tr><td style="color:var(--text-3)">Parking</td><td style="text-align:right">40 units · 600m</td></tr><tr><td style="color:var(--text-3)">Nearest hospital</td><td style="text-align:right">22 km · Aqaba</td></tr></tbody></table>
+        </div>
+      </div></div>
+  </div>
+</div>
+
+<!-- 7 · CONTRACTS -->
+<div class="board">
+  <div class="cap"><span class="b">Contracts</span><h2>Agreements + e-signature</h2><small>templates, status, signing</small></div>
+  <div class="frame">
+    <div class="tb"><div class="brand"><span class="lg">T</span>TFM</div><span class="chip">🎬 Desert Crossing</span><div class="tabs"><div class="tab on">Contracts</div><div class="tab">Templates</div></div><div class="sp"></div><button class="btn">＋ New contract</button></div>
+    <div class="mn"><div class="con">
+      <div><table><thead><tr><th>Party</th><th>Type</th><th>Value</th><th>Status</th></tr></thead><tbody>
+        <tr><td style="color:var(--text-1);font-weight:600">L. Haddad</td><td>Cast — Lead</td><td>—</td><td><span class="bd b-ok">Signed</span></td></tr>
+        <tr><td style="color:var(--text-1);font-weight:600">Mirage Talent</td><td>Agency</td><td>—</td><td><span class="bd b-warn">Awaiting</span></td></tr>
+        <tr><td style="color:var(--text-1);font-weight:600">Wadi Rim Estate</td><td>Location</td><td>$18,000</td><td><span class="bd b-warn">Out for sign</span></td></tr>
+        <tr><td style="color:var(--text-1);font-weight:600">Apex Camera Rental</td><td>Vendor</td><td>$42,500</td><td><span class="bd b-info">Draft</span></td></tr>
+      </tbody></table></div>
+      <div class="doc"><h5>LOCATION AGREEMENT</h5><div class="sub">Wadi Rim Estate · Desert Crossing Prod. Ltd</div>
+        <div class="ln m"></div><div class="ln"></div><div class="ln s"></div><div class="ln m"></div><div class="ln"></div>
+        <div class="sig"><div class="sigbox"><div class="sgn">L. Haddad</div>Producer</div><div class="sigbox"><span style="color:var(--warn)">Pending…</span><br>Estate owner</div></div>
+        <button class="btn" style="width:100%;margin-top:13px">Send for signature</button></div>
+    </div></div>
+  </div>
+</div>
+
+<!-- 8 · FINANCE -->
+<div class="board">
+  <div class="cap"><span class="b">Finance</span><h2>Budget &amp; cost report</h2><small>budget vs actual by department</small></div>
+  <div class="frame">
+    <div class="tb"><div class="brand"><span class="lg">T</span>TFM</div><span class="chip">🎬 Desert Crossing</span><div class="tabs"><div class="tab on">Cost report</div><div class="tab">PO &amp; invoices</div><div class="tab">Petty cash</div></div><div class="sp"></div><div class="dot">QQ</div></div>
+    <div class="mn"><div class="hdr"><div><h3>Cost report — Week 3</h3><div class="s">Budget $4.20M · committed 61%</div></div><div class="sp"></div><button class="btn gh">Export</button></div>
+      <div class="kpis"><div class="kp"><div class="k">Budget</div><div class="v">$4.20M</div></div><div class="kp"><div class="k">Actual</div><div class="v">$2.56M</div></div><div class="kp"><div class="k">Committed</div><div class="v" style="color:var(--warn)">$2.93M</div></div><div class="kp"><div class="k">Variance</div><div class="v" style="color:var(--danger)">−$0.17M</div></div></div>
+      <div style="margin-top:6px">
+        <div class="bar"><span class="nm">Cast</span><div class="track"><div class="fill" style="width:72%"></div></div><span class="amt">$612k / 850k</span></div>
+        <div class="bar"><span class="nm">Camera &amp; grip</span><div class="track"><div class="fill" style="width:58%;background:var(--ok)"></div></div><span class="amt">$348k / 600k</span></div>
+        <div class="bar"><span class="nm">Locations</span><div class="track"><div class="fill" style="width:91%;background:var(--warn)"></div></div><span class="amt">$273k / 300k</span></div>
+        <div class="bar"><span class="nm">Transport</span><div class="track"><div class="fill" style="width:104%;background:var(--danger)"></div></div><span class="amt">$208k / 200k</span></div>
+        <div class="bar"><span class="nm">Art dept</span><div class="track"><div class="fill" style="width:44%;background:var(--ok)"></div></div><span class="amt">$176k / 400k</span></div>
+      </div></div>
+  </div>
+</div>
+
+<div class="foot">Casting · Locations · Contracts · Finance — Studio Light. Together with the on-set gallery, that’s 8 modules across the dual system.</div>
+</body></html>

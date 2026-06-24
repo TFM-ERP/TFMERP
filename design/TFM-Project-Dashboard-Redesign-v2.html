@@ -1,0 +1,483 @@
+<!doctype html>
+<html lang="en" data-theme="graphite">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>TFM — Project Container Dashboard (redesign v2)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--font-sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;--font-display:'Inter',sans-serif;--font-mono:'Courier Prime','Courier New',monospace;--radius:12px;--radius-sm:8px;--shadow:0 8px 24px rgba(0,0,0,.40);--bg-image:none}
+[data-theme="graphite"]{--bg:#0E1117;--surface-1:#161C28;--surface-2:#1E2632;--surface-3:#28313F;--text-1:#F4F6FA;--text-2:#C2CAD6;--text-3:#8A94A6;--border-1:#262E3B;--border-2:#333D4D;--accent:#C9A24A;--accent-on:#161C28;--accent-soft:rgba(201,162,74,.14);--ok:#34D399;--ok-soft:rgba(52,211,153,.14);--warn:#E0A53F;--warn-soft:rgba(224,165,63,.16);--danger:#E2574C;--danger-soft:rgba(226,87,76,.16);--radius:13px;--shadow:0 10px 30px rgba(0,0,0,.45);--font-display:'Inter',sans-serif}
+[data-theme="studio"]{--bg:#F7F8FA;--surface-1:#FFFFFF;--surface-2:#F1F3F7;--surface-3:#E8EBF0;--text-1:#16202E;--text-2:#48536A;--text-3:#8A93A6;--border-1:#E6E9EF;--border-2:#D3D9E3;--accent:#5B5BD6;--accent-on:#FFFFFF;--accent-soft:#ECECFB;--ok:#1F9D63;--ok-soft:#E4F6EC;--warn:#B5791E;--warn-soft:#FBF0DA;--danger:#D14343;--danger-soft:#FBE7E7;--radius:10px;--shadow:0 1px 2px rgba(16,24,40,.06),0 6px 18px rgba(16,24,40,.07);--font-display:'Inter',sans-serif}
+[data-theme="ink"]{--bg:#F2ECE1;--surface-1:#FBF8F2;--surface-2:#EFE8DC;--surface-3:#E6DCCA;--text-1:#1B1712;--text-2:#4A4338;--text-3:#867B6A;--border-1:#E3D9C8;--border-2:#CDBFA8;--accent:#B0532E;--accent-on:#FBF8F2;--accent-soft:#F0DFD2;--ok:#5E7A3A;--ok-soft:#E8EBD7;--warn:#B5791E;--warn-soft:#F3E6CC;--danger:#B23A2E;--danger-soft:#F2DBD5;--radius:6px;--shadow:0 1px 2px rgba(60,40,20,.10),0 8px 20px rgba(60,40,20,.06);--font-display:'Fraunces',Georgia,serif}
+[data-theme="slate"]{--bg:#0B1220;--surface-1:#121A2A;--surface-2:#1A2436;--surface-3:#243149;--text-1:#EAF0FA;--text-2:#A9B6CC;--text-3:#6E7C95;--border-1:#1F2A3D;--border-2:#2C3A52;--accent:#3BA6C9;--accent-on:#06131C;--accent-soft:rgba(59,166,201,.16);--ok:#37C2A0;--ok-soft:rgba(55,194,160,.15);--warn:#E0A53F;--warn-soft:rgba(224,165,63,.16);--danger:#E2574C;--danger-soft:rgba(226,87,76,.16);--radius:12px;--shadow:0 10px 30px rgba(0,0,0,.5);--font-display:'Inter',sans-serif}
+[data-theme="aurora"]{--bg:#09080F;--surface-1:rgba(28,25,48,.72);--surface-2:rgba(40,35,68,.62);--surface-3:rgba(56,49,92,.6);--text-1:#F2EEFF;--text-2:#C6BFE2;--text-3:#928BB2;--border-1:rgba(150,130,255,.18);--border-2:rgba(150,130,255,.3);--accent:#8B7CF6;--accent-on:#0A0A14;--accent-soft:rgba(139,124,246,.2);--ok:#36D1A6;--ok-soft:rgba(54,209,166,.16);--warn:#E6B450;--warn-soft:rgba(230,180,80,.16);--danger:#F0606B;--danger-soft:rgba(240,96,107,.16);--radius:16px;--shadow:0 18px 50px rgba(80,40,160,.30);--font-display:'Inter',sans-serif;--bg-image:radial-gradient(900px 500px at 12% -8%,rgba(139,124,246,.22),transparent 60%),radial-gradient(800px 500px at 100% 0%,rgba(52,215,200,.16),transparent 55%)}
+[data-theme="midnight"]{--bg:#000;--surface-1:#0C0F14;--surface-2:#151A22;--surface-3:#1F2630;--text-1:#FFF;--text-2:#D6DDE8;--text-3:#9AA6B6;--border-1:#222A35;--border-2:#3A4654;--accent:#F5A623;--accent-on:#000;--accent-soft:rgba(245,166,35,.16);--ok:#3DDC84;--ok-soft:rgba(61,220,132,.16);--warn:#F5A623;--warn-soft:rgba(245,166,35,.16);--danger:#FF5A52;--danger-soft:rgba(255,90,82,.16);--radius:8px;--shadow:0 10px 30px rgba(0,0,0,.7);--font-display:'Inter',sans-serif}
+body{font-family:var(--font-sans);background:var(--bg);color:var(--text-1);background-image:var(--bg-image);background-attachment:fixed;-webkit-font-smoothing:antialiased;line-height:1.45;transition:background .35s,color .35s}
+
+.bar{position:sticky;top:0;z-index:60;display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:11px 18px;background:color-mix(in srgb,var(--bg) 86%,transparent);backdrop-filter:blur(12px);border-bottom:1px solid var(--border-1)}
+.bar .ttl{font-weight:800;letter-spacing:-.02em;font-size:13.5px}.bar .ttl small{display:block;font-weight:500;font-size:11px;color:var(--text-3)}
+.pills{display:flex;gap:7px;flex-wrap:wrap}
+.pill{cursor:pointer;border:1px solid var(--border-2);background:var(--surface-1);color:var(--text-2);padding:6px 12px;border-radius:999px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;transition:all .18s}
+.pill:hover{color:var(--text-1);border-color:var(--accent)}.pill[aria-selected="true"]{background:var(--accent);color:var(--accent-on);border-color:var(--accent)}
+.pill .dot{width:9px;height:9px;border-radius:50%}
+.hint{font-size:11.5px;color:var(--text-3);margin-left:auto;max-width:300px;text-align:right}
+
+.app{position:relative;margin:18px auto;width:min(1320px,calc(100% - 28px));border:1px solid var(--border-1);border-radius:calc(var(--radius) + 4px);overflow:hidden;background:var(--surface-1);box-shadow:var(--shadow)}
+.topbar{display:flex;align-items:center;gap:12px;padding:11px 15px;border-bottom:1px solid var(--border-1);background:var(--surface-1);position:relative;z-index:5}
+.brand{display:flex;align-items:center;gap:9px;font-weight:800;letter-spacing:-.02em}
+.brand .logo{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;font-size:14px;font-weight:800;background:var(--accent);color:var(--accent-on)}
+.projchip{display:flex;align-items:center;gap:8px;padding:6px 11px;border-radius:999px;background:var(--surface-2);border:1px solid var(--border-1);font-size:12.5px;color:var(--text-1);font-weight:700;cursor:pointer}
+.projchip .ph{font-weight:600;color:var(--accent);font-size:11px}
+.search{flex:1;max-width:280px;display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;background:var(--surface-2);border:1px solid var(--border-1);color:var(--text-3);font-size:12.5px}
+.sp{flex:1}
+.dockctl{display:inline-flex;border:1px solid var(--border-1);border-radius:9px;overflow:hidden}
+.dockctl button{width:32px;height:30px;display:grid;place-items:center;background:var(--surface-2);color:var(--text-3);border:none;cursor:pointer;font-size:13px;border-left:1px solid var(--border-1)}
+.dockctl button:first-child{border-left:none}
+.dockctl button.on{background:var(--accent);color:var(--accent-on)}
+.iconbtn{width:33px;height:33px;border-radius:9px;border:1px solid var(--border-1);background:var(--surface-2);display:grid;place-items:center;color:var(--text-2);cursor:pointer;font-size:14px}
+.avatar{width:33px;height:33px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-weight:700;font-size:12.5px;border:1px solid var(--border-2)}
+
+/* horizontal TOP menu (shown only when docked top) */
+.topmenu{display:none;align-items:center;gap:5px;flex-wrap:wrap;padding:9px 14px;border-bottom:1px solid var(--border-1);background:var(--surface-1)}
+.topmenu .tm{font-size:12.5px;font-weight:600;color:var(--text-2);padding:7px 12px;border-radius:999px;cursor:pointer;display:flex;align-items:center;gap:7px;border:1px solid transparent}
+.topmenu .tm:hover{background:var(--surface-2)}
+.topmenu .tm.active{background:var(--accent-soft);color:var(--accent);font-weight:700}
+.topmenu .tm .pip{font-size:9px;font-weight:700;color:var(--text-3);background:var(--surface-2);border:1px solid var(--border-1);border-radius:999px;padding:0 6px}
+.topmenu .tm.active .pip{background:var(--surface-1)}
+
+.body{display:flex;min-height:740px}
+.side{width:238px;flex-shrink:0;border-right:1px solid var(--border-1);background:var(--surface-1);display:flex;flex-direction:column;max-height:820px}
+.side .phead{padding:11px 12px;border-bottom:1px solid var(--border-1);display:flex;align-items:center;gap:9px}
+.side .grip{cursor:grab;color:var(--text-3);font-size:14px;line-height:1;user-select:none;padding:2px 1px}
+.side .phead .pn{font-weight:800;font-size:14px;letter-spacing:-.01em;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.side .phead .ph-badge{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--accent);background:var(--accent-soft);padding:2px 7px;border-radius:999px}
+.side .scroll{overflow:auto;padding:8px 9px 16px;flex:1}
+.grp{margin-top:5px}
+.grp>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:8px;font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-3);font-weight:700}
+.grp>summary::-webkit-details-marker{display:none}
+.grp>summary:hover{color:var(--text-2)}
+.grp>summary .chev{margin-left:auto;transition:transform .18s;font-size:9px;opacity:.7}
+.grp[open]>summary .chev{transform:rotate(90deg)}
+.grp>summary .pip{font-size:9px;font-weight:700;color:var(--text-3);background:var(--surface-2);border:1px solid var(--border-1);border-radius:999px;padding:1px 6px}
+.grp>summary .pip.done{color:var(--ok);border-color:transparent;background:var(--ok-soft)}
+.nav{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;color:var(--text-2);font-size:13px;font-weight:500;cursor:pointer;margin:1px 0}
+.nav .ic{width:16px;text-align:center;opacity:.85;font-size:14px}
+.nav:hover{background:var(--surface-2);color:var(--text-1)}
+.nav.active{background:var(--accent-soft);color:var(--accent);font-weight:700}
+.nav .tag{margin-left:auto;font-size:9px;font-weight:800;padding:1px 6px;border-radius:999px}
+.nav .tag.warn{background:var(--warn-soft);color:var(--warn)}.nav .tag.ok{background:var(--ok-soft);color:var(--ok)}
+
+.main{flex:1;padding:18px 20px 28px;overflow:auto;max-height:820px;background:color-mix(in srgb,var(--bg) 40%,var(--surface-1))}
+.crumb{font-size:11.5px;color:var(--text-3);margin-bottom:9px}.crumb b{color:var(--text-2);font-weight:600}
+
+/* dock variants */
+.app.dock-right .body{flex-direction:row-reverse}
+.app.dock-right .side{border-right:none;border-left:1px solid var(--border-1)}
+.app.dock-top .side{display:none}.app.dock-top .topmenu{display:flex}
+.app.dock-hidden .side{display:none}
+.showmenu{display:none;position:absolute;top:64px;left:14px;z-index:8;align-items:center;gap:7px;padding:7px 12px;border-radius:999px;background:var(--accent);color:var(--accent-on);border:none;font-weight:700;font-size:12px;cursor:pointer;box-shadow:var(--shadow)}
+.app.dock-hidden .showmenu{display:inline-flex}
+
+/* drag drop zones */
+.dz-wrap{position:absolute;inset:0;z-index:40;display:none}
+.dz-wrap.show{display:block}
+.dz{position:absolute;border:2px dashed var(--accent);background:var(--accent-soft);border-radius:14px;opacity:.35;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.06em}
+.dz.hot{opacity:.85}
+.dz-left{left:10px;top:64px;bottom:10px;width:30%}
+.dz-right{right:10px;top:64px;bottom:10px;width:30%}
+.dz-top{left:10px;right:10px;top:56px;height:74px}
+
+/* ===== PROJECT INFO hero ===== */
+.hero{display:flex;gap:16px;align-items:stretch;margin-bottom:14px;flex-wrap:wrap}
+.poster{width:96px;height:132px;border-radius:10px;flex-shrink:0;background:linear-gradient(160deg,var(--surface-3),var(--surface-2));border:1px solid var(--border-1);position:relative;overflow:hidden;display:grid;place-items:center;color:var(--text-3);font-size:10px;text-align:center;font-weight:700}
+.poster .tape{position:absolute;top:9px;left:-22px;transform:rotate(-38deg);background:var(--accent);color:var(--accent-on);font-size:8.5px;font-weight:800;padding:2px 26px;letter-spacing:.05em}
+.hbody{flex:1;min-width:260px}
+.hbody h1{font-family:var(--font-display);font-size:25px;font-weight:800;letter-spacing:-.02em;line-height:1.05}
+.hchips{display:flex;gap:7px;flex-wrap:wrap;margin-top:7px}
+.hchip{font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;background:var(--surface-2);border:1px solid var(--border-1);color:var(--text-2);display:inline-flex;gap:5px;align-items:center}
+.hchip.acc{background:var(--accent-soft);color:var(--accent);border-color:transparent}
+.hchip.ok{background:var(--ok-soft);color:var(--ok);border-color:transparent}
+.logline{font-size:12.5px;color:var(--text-2);margin-top:9px;max-width:640px;font-style:italic}
+.hact{display:flex;flex-direction:column;gap:7px;align-items:flex-end;justify-content:flex-start}
+.btn{border:none;cursor:pointer;font-family:inherit;font-weight:700;font-size:12.5px;padding:9px 14px;border-radius:var(--radius-sm);background:var(--accent);color:var(--accent-on);display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn.ghost{background:var(--surface-2);color:var(--text-2);border:1px solid var(--border-1)}
+
+/* project info data grid */
+.pinfo{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px}
+.icard{background:var(--surface-1);border:1px solid var(--border-1);border-radius:var(--radius);padding:12px 14px}
+.icard h4{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-3);font-weight:700;margin-bottom:9px;display:flex;align-items:center;gap:6px}
+.irow{display:flex;justify-content:space-between;gap:10px;padding:5px 0;font-size:12.5px;border-bottom:1px solid var(--border-1)}
+.irow:last-child{border-bottom:none}.irow .l{color:var(--text-3)}.irow .r{font-weight:700;color:var(--text-1);text-align:right}
+.crewrow{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:12.5px;border-bottom:1px solid var(--border-1)}
+.crewrow:last-child{border-bottom:none}
+.crewrow .role{color:var(--text-3);width:84px;flex-shrink:0;font-size:11px}
+.crewrow .who{font-weight:700;color:var(--text-1)}
+.crewrow .av{width:22px;height:22px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-size:9px;font-weight:800;flex-shrink:0}
+
+/* workflow (minimizable) */
+.wf{border:1px solid var(--border-1);background:var(--surface-1);border-radius:var(--radius);margin-bottom:16px;overflow:hidden}
+.wf .wmin{display:flex;align-items:center;gap:12px;padding:10px 13px;cursor:pointer;flex-wrap:wrap}
+.wf .wmin .wl{display:flex;align-items:center;gap:8px;font-weight:700;font-size:12.5px;white-space:nowrap}
+.wf .wmin .wl .i{width:24px;height:24px;border-radius:7px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-size:13px}
+.spips{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.spip{font-size:10px;font-weight:700;color:var(--text-3);display:flex;align-items:center;gap:5px}
+.spip .b{width:9px;height:9px;border-radius:50%;background:var(--surface-3);border:1px solid var(--border-2)}
+.spip.done .b{background:var(--ok);border-color:transparent}.spip.done{color:var(--text-2)}
+.spip.now .b{background:var(--accent);border-color:transparent;box-shadow:0 0 0 3px var(--accent-soft)}.spip.now{color:var(--accent)}
+.spip .sep{color:var(--border-2)}
+.wf .wmin .prog{flex:1;min-width:80px;height:6px;border-radius:999px;background:var(--surface-2);overflow:hidden}
+.wf .wmin .prog>i{display:block;height:100%;background:var(--accent);border-radius:999px}
+.wf .wmin .cnt{font-size:11px;color:var(--text-3);white-space:nowrap}
+.wf .wmin .next{font-size:11px;font-weight:700;color:var(--accent);white-space:nowrap}
+.wf .wmin .exp{margin-left:2px;font-size:12px;color:var(--text-3);border:1px solid var(--border-1);background:var(--surface-2);border-radius:7px;width:28px;height:28px;display:grid;place-items:center;cursor:pointer}
+.wf .wfull{display:none;border-top:1px solid var(--border-1);padding:6px 8px 8px}
+.wf.open .wfull{display:block}
+.wf .wmin .exp .e2{display:none}.wf.open .wmin .exp .e1{display:none}.wf.open .wmin .exp .e2{display:inline}
+.wstep{display:flex;align-items:center;gap:11px;padding:8px 10px;border-radius:8px;cursor:pointer}
+.wstep:hover{background:var(--surface-2)}.wstep.now{background:var(--accent-soft)}
+.wstep .n{font-size:10px;font-family:var(--font-mono);color:var(--text-3);width:16px}
+.wstep .s{width:17px;text-align:center}.wstep .s.done{color:var(--ok)}.wstep .s.now{color:var(--accent)}.wstep .s.lock{color:var(--text-3)}
+.wstep .lab{flex:1;font-size:13px;color:var(--text-1)}
+.wstep.is-done .lab{color:var(--text-3);text-decoration:line-through;text-decoration-color:var(--border-2)}
+.wstep.is-lock .lab{color:var(--text-3)}
+.wstep .lab small{color:var(--text-3);font-weight:500;margin-left:7px;font-size:10.5px;text-decoration:none;display:inline-block}
+.wstep .lab small.need{color:var(--warn)}
+.wstep .go{font-size:10px;font-weight:800;color:var(--accent);display:flex;align-items:center;gap:3px}
+.wacct{margin:6px 8px 2px;padding-top:9px;border-top:1px solid var(--border-1);display:flex;gap:16px;flex-wrap:wrap;font-size:11.5px;color:var(--text-2)}.wacct b{color:var(--text-1)}
+
+.kgroup{margin-bottom:14px}.kglab{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-3);font-weight:700;margin:0 2px 7px}
+.kstrip{display:grid;gap:10px}.kstrip.today{grid-template-columns:repeat(6,1fr)}.kstrip.money{grid-template-columns:repeat(4,1fr)}
+.stat{background:var(--surface-1);border:1px solid var(--border-1);border-radius:var(--radius);padding:11px 12px}
+.stat .k{font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-3);font-weight:700;display:flex;align-items:center;gap:5px}
+.stat .v{font-size:20px;font-weight:800;margin-top:5px;letter-spacing:-.02em}
+.stat .d{font-size:10.5px;margin-top:2px;color:var(--text-3)}.stat .d.up{color:var(--ok)}.stat .d.dn{color:var(--danger)}.stat .d.wn{color:var(--warn)}
+
+.cols{display:grid;grid-template-columns:1.5fr 1fr;gap:14px}
+.card{background:var(--surface-1);border:1px solid var(--border-1);border-radius:var(--radius);overflow:hidden}
+.card .hd{display:flex;align-items:center;gap:9px;padding:11px 14px;border-bottom:1px solid var(--border-1)}
+.card .hd h3{font-size:13px;font-weight:700}.card .hd .more{margin-left:auto;color:var(--accent);font-size:11px;cursor:pointer;font-weight:600}
+.card .pad{padding:12px 14px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;padding:8px 13px;color:var(--text-3);font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--border-1)}
+td{padding:9px 13px;border-bottom:1px solid var(--border-1);color:var(--text-2)}tr:last-child td{border-bottom:none}
+.scene-no{font-weight:800;color:var(--accent)}
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px}
+.b-int{background:var(--accent-soft);color:var(--accent)}.b-ok{background:var(--ok-soft);color:var(--ok)}.b-warn{background:var(--warn-soft);color:var(--warn)}.b-dn{background:var(--danger-soft);color:var(--danger)}
+.kv{display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:12.5px;border-bottom:1px solid var(--border-1)}.kv:last-child{border-bottom:none}.kv .l{color:var(--text-3)}.kv .r{font-weight:700;color:var(--text-1)}
+.attn{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:9px;background:var(--surface-2);font-size:12px;margin-bottom:7px;color:var(--text-2)}.attn .dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.stack{display:flex;flex-direction:column;gap:14px}
+.script{font-family:var(--font-mono);font-size:12px;line-height:1.5;color:var(--text-1)}.script .sh{font-weight:700;text-transform:uppercase;margin:0 0 9px}.script .ac{margin:0 0 10px;color:var(--text-2)}.script .ch{text-align:center;font-weight:700;margin:0 0 1px;padding-left:8%}.script .di{margin:0 auto 10px;width:66%}
+.jump{display:flex;flex-wrap:wrap;gap:7px}.jbtn{font-size:11.5px;font-weight:600;padding:7px 11px;border-radius:var(--radius-sm);background:var(--surface-2);border:1px solid var(--border-1);color:var(--text-2);cursor:pointer;display:inline-flex;gap:6px;align-items:center}.jbtn:hover{border-color:var(--accent);color:var(--text-1)}
+
+@media(max-width:1080px){.kstrip.today{grid-template-columns:repeat(3,1fr)}.kstrip.money{grid-template-columns:repeat(2,1fr)}.cols{grid-template-columns:1fr}.pinfo{grid-template-columns:1fr}.side{display:none}}
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <div class="ttl">TFM · Project Container Dashboard — v2<small>Project info + day-aware dashboard · dockable menu (Left / Top / Right / Hide · drag the ⠿ grip)</small></div>
+  <div class="pills" id="pills"></div>
+  <div class="hint" id="hint"></div>
+</div>
+
+<div class="app dock-left" id="app">
+  <div class="topbar">
+    <div class="brand"><span class="logo">T</span> TFM</div>
+    <div class="projchip"><span>🎬</span><span>Desert Crossing</span><span class="ph">· Shoot</span><span>▾</span></div>
+    <div class="search">🔎 Search scenes, cast, POs, crew…</div>
+    <div class="sp"></div>
+    <div class="dockctl" title="Dock the project menu">
+      <button id="d-left" class="on" onclick="setDock('left')" title="Menu left">◧</button>
+      <button id="d-top" onclick="setDock('top')" title="Menu top">▤</button>
+      <button id="d-right" onclick="setDock('right')" title="Menu right">◨</button>
+      <button id="d-hidden" onclick="setDock('hidden')" title="Hide menu">⊘</button>
+    </div>
+    <div class="iconbtn">🔔</div>
+    <div class="avatar">QQ</div>
+  </div>
+
+  <!-- horizontal menu (top dock) -->
+  <nav class="topmenu" id="topmenu">
+    <div class="tm active">▦ Overview</div>
+    <div class="tm">Develop <span class="pip">1/1</span></div>
+    <div class="tm">Plan <span class="pip">8/10</span></div>
+    <div class="tm">Budget <span class="pip">4/4</span></div>
+    <div class="tm">Shoot <span class="pip">4/7</span></div>
+    <div class="tm">Account <span class="pip">2/5</span></div>
+    <div class="tm">Deliver <span class="pip">0/2</span></div>
+    <div class="tm">⚙ Setup</div>
+  </nav>
+
+  <button class="showmenu" onclick="setDock('left')">☰ Show menu</button>
+
+  <!-- drag drop zones -->
+  <div class="dz-wrap" id="dzwrap">
+    <div class="dz dz-left" data-zone="left">Dock left</div>
+    <div class="dz dz-top" data-zone="top">Dock top</div>
+    <div class="dz dz-right" data-zone="right">Dock right</div>
+  </div>
+
+  <div class="body">
+    <aside class="side" id="side">
+      <div class="phead">
+        <span class="grip" id="grip" title="Drag to dock left / top / right">⠿</span>
+        <span class="pn">Desert Crossing</span>
+        <span class="ph-badge">Shoot</span>
+      </div>
+      <div class="scroll">
+        <div class="nav active"><span class="ic">▦</span> Overview</div>
+        <details class="grp"><summary>Develop <span class="pip done">1/1</span><span class="chev">▶</span></summary>
+          <div class="nav"><span class="ic">📄</span> Script (ScriptON)</div></details>
+        <details class="grp"><summary>Plan <span class="pip">8/10</span><span class="chev">▶</span></summary>
+          <div class="nav"><span class="ic">🗓</span> Schedule</div>
+          <div class="nav"><span class="ic">▥</span> Breakdowns</div>
+          <div class="nav"><span class="ic">📍</span> Locations</div>
+          <div class="nav"><span class="ic">🎭</span> Casting</div>
+          <div class="nav"><span class="ic">👥</span> Crew <span class="tag warn">3</span></div>
+          <div class="nav"><span class="ic">📝</span> Contracts <span class="tag warn">2</span></div>
+          <div class="nav"><span class="ic">✈️</span> Travel &amp; Visas</div>
+          <div class="nav"><span class="ic">🛏</span> Accommodation</div>
+          <div class="nav"><span class="ic">🚐</span> Transport</div>
+          <div class="nav"><span class="ic">🧭</span> Captain</div></details>
+        <details class="grp"><summary>Budget <span class="pip done">4/4</span><span class="chev">▶</span></summary>
+          <div class="nav"><span class="ic">🧮</span> Budget</div>
+          <div class="nav"><span class="ic">✅</span> Top Sheet</div>
+          <div class="nav"><span class="ic">🧱</span> Fringe Detail</div>
+          <div class="nav"><span class="ic">🎁</span> Incentives</div></details>
+        <details class="grp" open><summary>Shoot <span class="pip">4/7</span><span class="chev">▶</span></summary>
+          <div class="nav"><span class="ic">📋</span> Call Sheets <span class="tag ok">●</span></div>
+          <div class="nav"><span class="ic">💵</span> Per Diem</div>
+          <div class="nav"><span class="ic">🚌</span> Shuttle</div>
+          <div class="nav"><span class="ic">🛬</span> Arrivals</div>
+          <div class="nav"><span class="ic">⛽</span> Fuel &amp; rental</div>
+          <div class="nav"><span class="ic">📊</span> Logistics report</div>
+          <div class="nav"><span class="ic">⚠️</span> Overages</div></details>
+        <details class="grp"><summary>Account <span class="pip">2/5</span><span class="chev">▶</span></summary>
+          <div class="nav"><span class="ic">📈</span> Budget vs Actual</div>
+          <div class="nav"><span class="ic">📊</span> Cost Report</div>
+          <div class="nav"><span class="ic">🛒</span> Purchasing <span class="tag warn">3</span></div>
+          <div class="nav"><span class="ic">📒</span> Ledger</div>
+          <div class="nav"><span class="ic">🏦</span> Cash</div></details>
+        <details class="grp"><summary>Deliver <span class="pip">0/2</span><span class="chev">▶</span></summary>
+          <div class="nav"><span class="ic">🎬</span> End Credits</div>
+          <div class="nav"><span class="ic">📁</span> Documents</div></details>
+        <details class="grp"><summary>Setup <span class="chev">▶</span></summary>
+          <div class="nav"><span class="ic">⚙️</span> Project Settings</div>
+          <div class="nav"><span class="ic">⚖️</span> Labor &amp; Union</div></details>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="crumb">Productions / <b>Desert Crossing</b> / Overview</div>
+
+      <!-- ===== PROJECT INFO hero ===== -->
+      <div class="hero">
+        <div class="poster"><span class="tape">REV. BLUE</span>POSTER<br>2.39:1</div>
+        <div class="hbody">
+          <h1>Desert Crossing</h1>
+          <div class="hchips">
+            <span class="hchip acc">#TFM-2025-014</span>
+            <span class="hchip">Feature Film</span>
+            <span class="hchip ok">● Production</span>
+            <span class="hchip">Client: Mirage Films</span>
+            <span class="hchip">🇦🇪 UAE · Wadi Rim</span>
+            <span class="hchip">AED</span>
+          </div>
+          <p class="logline">“A field medic must lead a stranded convoy across hostile desert before nightfall.” — 92 pages · 86 scenes</p>
+        </div>
+        <div class="hact">
+          <button class="btn">＋ New call sheet</button>
+          <button class="btn ghost">⤓ Export pack</button>
+          <button class="btn ghost">✎ Edit project</button>
+        </div>
+      </div>
+
+      <!-- ===== PROJECT INFO data ===== -->
+      <div class="pinfo">
+        <div class="icard">
+          <h4>🗓 Schedule &amp; dates</h4>
+          <div class="irow"><span class="l">Prep start</span><span class="r">02 Jun 2025</span></div>
+          <div class="irow"><span class="l">Shoot</span><span class="r">15 Jun → 18 Jul</span></div>
+          <div class="irow"><span class="l">Shoot day</span><span class="r">14 of 32</span></div>
+          <div class="irow"><span class="l">Wrap / delivery</span><span class="r">30 Sep 2025</span></div>
+          <div class="irow"><span class="l">Country / unit</span><span class="r">UAE · Unit 1</span></div>
+        </div>
+        <div class="icard">
+          <h4>💷 Budget &amp; finance</h4>
+          <div class="irow"><span class="l">Total budget</span><span class="r">AED 4.20M</span></div>
+          <div class="irow"><span class="l">Est. final cost</span><span class="r" style="color:var(--warn)">AED 4.37M · 104%</span></div>
+          <div class="irow"><span class="l">Per diem (dom / intl)</span><span class="r">120 / 220</span></div>
+          <div class="irow"><span class="l">Incentive</span><span class="r">30% rebate</span></div>
+          <div class="irow"><span class="l">Type</span><span class="r">Client project</span></div>
+        </div>
+        <div class="icard">
+          <h4>🎬 Key crew &amp; counts</h4>
+          <div class="crewrow"><span class="av">LH</span><span class="role">Director</span><span class="who">Layla Haddad</span></div>
+          <div class="crewrow"><span class="av">OM</span><span class="role">Producer</span><span class="who">Omar Mansour</span></div>
+          <div class="crewrow"><span class="av">RK</span><span class="role">Line Prod.</span><span class="who">Rana Khoury</span></div>
+          <div class="crewrow"><span class="av">SF</span><span class="role">DOP · 1st AD</span><span class="who">S. Farouk · J. Aziz</span></div>
+          <div class="irow" style="margin-top:5px;border-top:1px solid var(--border-1);padding-top:8px"><span class="l">Locations · Cast · Crew</span><span class="r">11 · 18 · 38</span></div>
+        </div>
+      </div>
+
+      <!-- ===== minimizable Production Workflow ===== -->
+      <div class="wf" id="wf">
+        <div class="wmin" onclick="toggleWf(event)">
+          <div class="wl"><span class="i">☑</span> Production Workflow</div>
+          <div class="spips">
+            <span class="spip done"><span class="b"></span>Develop</span><span class="sep">·</span>
+            <span class="spip done"><span class="b"></span>Plan</span><span class="sep">·</span>
+            <span class="spip done"><span class="b"></span>Budget</span><span class="sep">·</span>
+            <span class="spip now"><span class="b"></span>Shoot</span><span class="sep">·</span>
+            <span class="spip"><span class="b"></span>Account</span><span class="sep">·</span>
+            <span class="spip"><span class="b"></span>Deliver</span>
+          </div>
+          <div class="prog"><i style="width:67%"></i></div>
+          <div class="cnt">8 / 12</div>
+          <div class="next">Next: Publish call sheet →</div>
+          <button class="exp" title="Expand / minimize" onclick="toggleWf(event)"><span class="e1">⤢</span><span class="e2">⤡</span></button>
+        </div>
+        <div class="wfull">
+          <div class="wstep is-done"><span class="n">1</span><span class="s done">✓</span><span class="lab">Import &amp; lock script</span></div>
+          <div class="wstep is-done"><span class="n">2</span><span class="s done">✓</span><span class="lab">Break down scenes <small>312 elements tagged</small></span></div>
+          <div class="wstep is-done"><span class="n">3</span><span class="s done">✓</span><span class="lab">Build stripboard &amp; schedule <small>32 shoot days</small></span></div>
+          <div class="wstep is-done"><span class="n">4</span><span class="s done">✓</span><span class="lab">Approve budget &amp; top sheet</span></div>
+          <div class="wstep is-done"><span class="n">5</span><span class="s done">✓</span><span class="lab">Lock locations &amp; permits</span></div>
+          <div class="wstep is-done"><span class="n">6</span><span class="s done">✓</span><span class="lab">Cast principals &amp; deal memos</span></div>
+          <div class="wstep is-done"><span class="n">7</span><span class="s done">✓</span><span class="lab">Crew &amp; contracts <small class="need">2 unsigned</small></span></div>
+          <div class="wstep now"><span class="n">8</span><span class="s now">◉</span><span class="lab">Publish today's call sheet <small>Sc 24–27 · crew 06:30</small></span><span class="go">Open →</span></div>
+          <div class="wstep is-lock"><span class="n">9</span><span class="s lock">🔒</span><span class="lab">Daily cost report <small class="need">needs: PO approvals</small></span></div>
+          <div class="wstep is-lock"><span class="n">10</span><span class="s lock">🔒</span><span class="lab">Post actuals to ledger</span></div>
+          <div class="wstep is-lock"><span class="n">11</span><span class="s lock">🔒</span><span class="lab">Reconcile cash &amp; per diem</span></div>
+          <div class="wstep is-lock"><span class="n">12</span><span class="s lock">🔒</span><span class="lab">Wrap &amp; deliver credits</span></div>
+          <div class="wacct">
+            <span>🏦 Open payables: <b style="color:var(--warn)">AED 410,000</b> (3)</span>
+            <span>🔓 Period 6: <b style="color:var(--ok)">OPEN</b></span>
+            <span>📅 Last close: 31 May</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="kgroup">
+        <div class="kglab">Today · on set</div>
+        <div class="kstrip today">
+          <div class="stat"><div class="k">⏱ Crew call</div><div class="v">06:30</div><div class="d">Basecamp</div></div>
+          <div class="stat"><div class="k">🎬 Shoot call</div><div class="v">08:00</div><div class="d">Unit 1</div></div>
+          <div class="stat"><div class="k">🌙 Est. wrap</div><div class="v">19:00</div><div class="d">Sunset 18:52</div></div>
+          <div class="stat"><div class="k">🎞 Scenes</div><div class="v">7</div><div class="d up">▲ on schedule</div></div>
+          <div class="stat"><div class="k">📄 Pages</div><div class="v">5 4/8</div><div class="d">today</div></div>
+          <div class="stat"><div class="k">👥 On set</div><div class="v">12<span style="font-size:12px;color:var(--text-3)"> cast</span></div><div class="d">+ 38 crew</div></div>
+        </div>
+      </div>
+
+      <div class="kgroup">
+        <div class="kglab">Money · live</div>
+        <div class="kstrip money">
+          <div class="stat"><div class="k">📈 Est. final cost</div><div class="v">4.37M</div><div class="d wn">104% · 61% spent</div></div>
+          <div class="stat"><div class="k">⚖ Variance</div><div class="v" style="color:var(--danger)">−170k</div><div class="d dn">▼ over budget</div></div>
+          <div class="stat"><div class="k">🏦 Cash position</div><div class="v">612k</div><div class="d">float + petty</div></div>
+          <div class="stat"><div class="k">🛒 Committed</div><div class="v">410k</div><div class="d wn">3 open POs</div></div>
+        </div>
+      </div>
+
+      <div class="cols">
+        <div class="stack">
+          <div class="card">
+            <div class="hd"><h3>Today's scenes</h3><span class="more">View call sheet →</span></div>
+            <table>
+              <thead><tr><th>Sc.</th><th>I/E</th><th>Set</th><th>D/N</th><th>Pages</th><th>Cast</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr><td class="scene-no">24</td><td><span class="badge b-int">INT</span></td><td>Field Hospital Tent</td><td>N</td><td>2 4/8</td><td>Nadia, Soldier</td><td><span class="badge b-ok">Ready</span></td></tr>
+                <tr><td class="scene-no">25</td><td><span class="badge b-int">EXT</span></td><td>Dune Ridge — convoy</td><td>D</td><td>1 2/8</td><td>Nadia +12 BG</td><td><span class="badge b-warn">Blocking</span></td></tr>
+                <tr><td class="scene-no">26</td><td><span class="badge b-int">INT</span></td><td>Command Tent</td><td>N</td><td>3 1/8</td><td>Colonel, Nadia</td><td><span class="badge b-ok">Ready</span></td></tr>
+                <tr><td class="scene-no">27</td><td><span class="badge b-int">EXT</span></td><td>Checkpoint Alpha</td><td>D</td><td>0 6/8</td><td>Full unit</td><td><span class="badge b-dn">Weather hold</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="card">
+            <div class="hd"><h3>Needs your attention</h3><span class="more">All tasks →</span></div>
+            <div class="pad">
+              <div class="attn"><span class="dot" style="background:var(--warn)"></span><span><b style="color:var(--text-1)">3 purchase orders</b> awaiting approval — blocking the daily cost report.</span></div>
+              <div class="attn"><span class="dot" style="background:var(--danger)"></span><span><b style="color:var(--text-1)">2 crew deal memos</b> unsigned (Gaffer, Key Grip).</span></div>
+              <div class="attn"><span class="dot" style="background:var(--warn)"></span><span>Scene 27 on <b style="color:var(--text-1)">weather hold</b> — cover set 31 on standby.</span></div>
+              <div class="attn"><span class="dot" style="background:var(--ok)"></span><span>Today's call sheet ready to publish to <b style="color:var(--text-1)">50 recipients</b>.</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <div class="hd"><h3>Script · Sc. 24</h3><span class="more">Open reader →</span></div>
+            <div class="pad script">
+              <p class="sh">INT. FIELD HOSPITAL TENT — NIGHT</p>
+              <p class="ac">Rain hammers the canvas. NADIA (30s), a field medic with steady hands, presses a blood-soaked cloth to a young soldier's shoulder.</p>
+              <p class="ch">NADIA</p>
+              <p class="di">Stay with me. Look at my eyes — not the wound.</p>
+            </div>
+          </div>
+          <div class="card">
+            <div class="hd"><h3>Schedule</h3><span class="more">Open →</span></div>
+            <div class="pad">
+              <div class="kv"><span class="l">Scenes / pages</span><span class="r">86 · 92.0 pg</span></div>
+              <div class="kv"><span class="l">Shoot days</span><span class="r">32</span></div>
+              <div class="kv"><span class="l">Next day</span><span class="r">Day 15 · Tue 16 Jun</span></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="hd"><h3>Crew &amp; call sheets</h3><span class="more">Open →</span></div>
+            <div class="pad">
+              <div class="kv"><span class="l">Crew assigned</span><span class="r">38</span></div>
+              <div class="kv"><span class="l">Deal memos signed</span><span class="r">36 / 38</span></div>
+              <div class="kv"><span class="l">Call sheets published</span><span class="r" style="color:var(--ok)">13 / 14</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:14px"><div class="pad">
+        <div class="kglab" style="margin-bottom:9px">Jump to</div>
+        <div class="jump">
+          <span class="jbtn">🧮 Budget</span><span class="jbtn">📊 Cost Report</span><span class="jbtn">🛒 Purchasing</span>
+          <span class="jbtn">🏦 Cash</span><span class="jbtn">🗓 Schedule</span><span class="jbtn">📋 Call Sheets</span>
+          <span class="jbtn">👥 Crew</span><span class="jbtn">📍 Locations</span><span class="jbtn">🚐 Transport</span>
+        </div>
+      </div></div>
+    </main>
+  </div>
+</div>
+
+<script>
+const THEMES=[
+ {id:'graphite',name:'Graphite & Gold',dot:'#C9A24A',note:'<b>Cinematic dark — current brand.</b> Project info hero + dockable menu. Try the dock buttons or drag the ⠿ grip.'},
+ {id:'studio',name:'Studio Light',dot:'#5B5BD6',note:'<b>Enterprise clean.</b> Neutral grays + indigo.'},
+ {id:'ink',name:'Ink & Paper',dot:'#B0532E',note:'<b>Editorial.</b> Warm paper, serif headings.'},
+ {id:'slate',name:'Slate Pro',dot:'#3BA6C9',note:'<b>Cool dark SaaS.</b> Slate + cyan.'},
+ {id:'aurora',name:'Aurora Glass',dot:'#8B7CF6',note:'<b>Premium glass.</b> Violet→teal glow.'},
+ {id:'midnight',name:'Midnight Contrast',dot:'#F5A623',note:'<b>AAA night mode.</b> True-black + amber.'},
+];
+const pills=document.getElementById('pills'),hint=document.getElementById('hint'),root=document.documentElement;
+function selectTheme(id){root.setAttribute('data-theme',id);[...pills.children].forEach(p=>p.setAttribute('aria-selected',p.dataset.id===id));hint.innerHTML=THEMES.find(t=>t.id===id).note;}
+THEMES.forEach(t=>{const b=document.createElement('button');b.className='pill';b.dataset.id=t.id;b.innerHTML='<span class="dot" style="background:'+t.dot+'"></span>'+t.name;b.onclick=()=>selectTheme(t.id);pills.appendChild(b);});
+selectTheme('graphite');
+
+function toggleWf(e){e.stopPropagation();document.getElementById('wf').classList.toggle('open');}
+
+const app=document.getElementById('app');
+function setDock(pos){
+  app.classList.remove('dock-left','dock-top','dock-right','dock-hidden');
+  app.classList.add('dock-'+pos);
+  ['left','top','right','hidden'].forEach(p=>{const b=document.getElementById('d-'+p);if(b)b.classList.toggle('on',p===pos);});
+}
+
+/* drag-and-drop docking via the ⠿ grip */
+const grip=document.getElementById('grip'),dz=document.getElementById('dzwrap');
+let dragging=false;
+function zoneAt(x,y){const r=app.getBoundingClientRect();if(y<r.top+130)return 'top';if(x<r.left+r.width*0.34)return 'left';if(x>r.left+r.width*0.66)return 'right';return null;}
+grip.addEventListener('mousedown',e=>{e.preventDefault();dragging=true;dz.classList.add('show');grip.style.cursor='grabbing';});
+document.addEventListener('mousemove',e=>{if(!dragging)return;const z=zoneAt(e.clientX,e.clientY);dz.querySelectorAll('.dz').forEach(d=>d.classList.toggle('hot',d.dataset.zone===z));});
+document.addEventListener('mouseup',e=>{if(!dragging)return;dragging=false;dz.classList.remove('show');grip.style.cursor='grab';const z=zoneAt(e.clientX,e.clientY);if(z)setDock(z);});
+</script>
+</body>
+</html>

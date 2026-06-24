@@ -1,0 +1,78 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>ScripON Doctor — Reader (Mobile)</title><style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Courier+Prime:wght@400;700&display=swap');
+:root{--bg:#0b0c0f;--panel:#14161c;--panel2:#1a1d24;--hair:rgba(255,255,255,.08);--hair2:rgba(255,255,255,.14);--gold:#C6A463;--gold2:#E6D2A2;--goldink:#1a1509;--cream:#F4EEE0;--text:#E8E6E0;--mute:#9aa1ab;--faint:#6b727d;--paper:#F7F4EC;--ink:#23231f;--blue:#5b8def;--green:#57b368;--amber:#e0a23b;--violet:#8b7cf0;--pink:#d6649a}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:radial-gradient(900px 480px at 50% -10%,#15171d,#0b0c0f 60%);font-family:Inter,sans-serif;color:var(--text);-webkit-font-smoothing:antialiased;padding:40px;display:flex;flex-wrap:wrap;justify-content:center;gap:30px;min-height:100vh}
+.wrap{display:flex;flex-direction:column;align-items:center;gap:12px}
+.cap{color:var(--faint);font-size:12px;text-align:center}.cap b{color:var(--gold)}
+.ico{stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round;display:block;width:20px;height:20px}
+.screen{width:390px;height:844px;background:var(--bg);border:1px solid var(--hair);border-radius:44px;overflow:hidden;display:flex;flex-direction:column;position:relative;box-shadow:0 50px 110px -28px rgba(0,0,0,.85),inset 0 0 0 6px #04050799}
+.sb{height:34px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 26px 0 30px;font-size:13px;font-weight:700;color:var(--cream)}
+.sb .r{display:flex;gap:6px;align-items:center}.sb .r svg{width:16px;height:16px;stroke:var(--cream)}
+.mtop{height:54px;flex:none;display:flex;align-items:center;gap:12px;padding:0 16px;border-bottom:1px solid var(--hair);background:linear-gradient(180deg,#15181e,#121419);position:relative;z-index:2}
+.mtop .bk{width:34px;height:34px;border-radius:10px;background:#1b1e25;border:1px solid var(--hair);display:grid;place-items:center;color:var(--mute)}
+.mtop .ti{flex:1;min-width:0}.mtop .t1{font-size:14px;font-weight:700;color:var(--cream);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mtop .t2{font-size:11px;color:var(--faint);margin-top:1px}
+.mtop .dr{width:36px;height:36px;border-radius:11px;background:linear-gradient(160deg,var(--gold2),var(--gold));display:grid;place-items:center;color:var(--goldink)}
+.pill{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:999px;font-size:10px;font-weight:700;background:rgba(91,141,239,.16);color:#a9c4f7}.pill .d{width:6px;height:6px;border-radius:50%;background:var(--blue)}
+.mbody{flex:1;min-height:0;position:relative;z-index:1;overflow:hidden;display:flex;flex-direction:column}
+.sheet{flex:none;background:linear-gradient(180deg,#16181f,#121419);border-top:1px solid var(--hair2);border-radius:22px 22px 0 0;padding:10px 16px 14px;box-shadow:0 -16px 40px -20px rgba(0,0,0,.7);display:flex;flex-direction:column;gap:11px}
+.grab{width:38px;height:4px;border-radius:3px;background:#3a3f49;margin:2px auto 4px}
+.sh-h{display:flex;align-items:center;justify-content:space-between}.sh-h .t{font-size:13px;font-weight:700;color:var(--cream)}
+.eyebrow{font-size:10px;font-weight:700;letter-spacing:1.2px;color:var(--gold)}
+.kvr{display:flex;justify-content:space-between;font-size:12.5px;padding:6px 0;border-top:1px solid var(--hair)}.kvr:first-of-type{border-top:none}.kvr .k{color:var(--faint)}.kvr .v{color:var(--text);font-weight:600}
+.badge{font-size:10px;font-weight:800;padding:3px 8px;border-radius:999px}.badge.amber{background:rgba(224,162,59,.16);color:var(--amber)}.badge.green{background:rgba(87,179,104,.16);color:var(--green)}.badge.blue{background:rgba(91,141,239,.16);color:#a9c4f7}
+.chips{display:flex;gap:8px;overflow:hidden}
+.achip{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 6px;border-radius:12px;background:#1b1e25;border:1px solid var(--hair);font-size:10.5px;font-weight:600;color:var(--mute)}
+.achip svg{width:18px;height:18px;stroke:var(--gold2)}
+.row2{display:flex;gap:9px}
+.btn{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;height:46px;border-radius:13px;font-size:14px;font-weight:700;border:1px solid transparent}.btn svg{width:17px;height:17px}
+.flag{background:rgba(224,162,59,.14);border-color:rgba(224,162,59,.5);color:var(--amber)}
+.appr{background:linear-gradient(180deg,#6cc77c,var(--green));color:#08230f}
+.gold{background:linear-gradient(180deg,var(--gold2),var(--gold));color:var(--goldink)}
+.tabbar{height:74px;flex:none;display:flex;align-items:flex-start;padding:9px 8px 0;background:#0e1015;border-top:1px solid var(--hair);position:relative;z-index:2}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--faint);font-size:9.5px;font-weight:600}
+.tab svg{width:22px;height:22px}.tab.on{color:var(--gold2)}
+.tab .b{width:46px;height:30px;border-radius:11px;display:grid;place-items:center}.tab.on .b{background:rgba(198,164,99,.15)}
+
+.mscript{flex:1;overflow:hidden;padding:18px 16px;background:radial-gradient(120% 80% at 50% 0,#101218,#0a0b0e)}
+.page{background:var(--paper);color:var(--ink);border-radius:8px;padding:22px 22px;font-family:'Courier Prime',monospace;font-size:13px;line-height:1.85;box-shadow:0 20px 50px -16px rgba(0,0,0,.7)}
+.sh{font-weight:700}.ce{text-align:center;font-weight:700}.di{margin:0 30px}
+</style></head><body>
+<div class="wrap">
+<div class="cap">ScripON Doctor · <b>Reader — Mobile (on-set, 390×844)</b></div>
+<div class="screen">
+  <div class="sb"><span>9:41</span><div class="r"><svg viewBox="0 0 24 24"><path d="M2 20h.01M6 20v-4M10 20v-8M14 20V8M18 20V4"/></svg><svg viewBox="0 0 24 24"><path d="M5 12.5a10 10 0 0114 0M8.5 15.5a5 5 0 017 0M12 18.5h.01"/></svg><svg viewBox="0 0 24 24"><rect x="2" y="7" width="18" height="10" rx="2"/><path d="M22 11v2"/></svg></div></div>
+  <div class="mtop"><div class="bk"><svg class="ico" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></div><div class="ti"><div class="t1">EXT. ALLEY — NIGHT</div><div class="t2">Scene 14 of 64 · Blue v4</div></div><div class="dr"><svg class="ico" viewBox="0 0 24 24" style="stroke:#1a1509"><path d="M12 3l1.9 5.6L19.5 9l-4.5 3.3L16.8 18 12 14.7 7.2 18l1.8-5.7L4.5 9z"/></svg></div></div>
+  <div class="mbody">
+    <div class="mscript"><div class="page">
+      <p class="sh">14&nbsp;&nbsp;EXT. ALLEY — NIGHT</p><br>
+      <p>Rain ticks off the dumpster lids. SARAH presses into the shadow, eyes on the alley mouth.</p><br>
+      <p class="ce">SARAH</p>
+      <p class="di">Come on. Come on.</p><br>
+      <p>Headlights sweep the alley mouth — too fast for a patrol. Two cars. They've boxed the street.</p><br>
+      <p class="ce">RILEY (O.S.)</p>
+      <p class="di">Whatever you're about to do — don't.</p>
+    </div></div>
+    <div class="sheet">
+      <div class="grab"></div>
+      <div class="sh-h"><span class="t">Doctor · Scene 14</span><span class="badge amber">TIGHTEN</span></div>
+      <div class="kvr"><span class="k">Wants</span><span class="v">Make the handoff</span></div>
+      <div class="kvr"><span class="k">Obstacle</span><span class="v">Ambush · boxed in</span></div>
+      <div class="chips">
+        <div class="achip"><svg class="ico" viewBox="0 0 24 24"><path d="M3 12h4l2 6 4-14 2 8h6"/></svg>Diagnose</div>
+        <div class="achip"><svg class="ico" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg>Rewrite</div>
+        <div class="achip"><svg class="ico" viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>Note</div>
+        <div class="achip"><svg class="ico" viewBox="0 0 24 24"><path d="M12 2l9 5-9 5-9-5z"/></svg>Sides</div>
+      </div>
+      <div class="row2"><div class="btn flag"><svg viewBox="0 0 24 24" class="ico"><path d="M4 21V4h12l-2 4 2 4H4"/></svg>Flag</div><div class="btn appr"><svg viewBox="0 0 24 24" class="ico" style="stroke:#08230f"><path d="M20 6L9 17l-5-5"/></svg>Approve</div></div>
+    </div>
+  </div>
+  <div class="tabbar">
+    <div class="tab"><div class="b"><svg viewBox="0 0 24 24" class="ico"><path d="M3 11l9-8 9 8M5 10v10h14V10"/></svg></div>Home</div>
+    <div class="tab"><div class="b"><svg viewBox="0 0 24 24" class="ico"><path d="M4 4h6v16H4zM14 4h6v16h-6z"/></svg></div>Library</div>
+    <div class="tab on"><div class="b"><svg viewBox="0 0 24 24" class="ico"><path d="M6 2h9l5 5v15H6z"/></svg></div>Reader</div>
+    <div class="tab"><div class="b"><svg viewBox="0 0 24 24" class="ico"><path d="M12 2l9 5-9 5-9-5z"/></svg></div>Breakdown</div>
+    <div class="tab"><div class="b"><svg viewBox="0 0 24 24" class="ico"><path d="M12 3l1.9 5.6L19.5 9l-4.5 3.3L16.8 18 12 14.7 7.2 18l1.8-5.7L4.5 9z"/></svg></div>Doctor</div>
+  </div>
+</div></div>
+</body></html>

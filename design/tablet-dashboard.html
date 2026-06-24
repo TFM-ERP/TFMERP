@@ -1,0 +1,97 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>ScripON Doctor — Dashboard (Tablet)</title><style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Courier+Prime:wght@400;700&display=swap');
+:root{--bg:#0b0c0f;--panel:#14161c;--panel2:#1a1d24;--hair:rgba(255,255,255,.07);--hair2:rgba(255,255,255,.13);--gold:#C6A463;--gold2:#E6D2A2;--goldink:#1a1509;--cream:#F4EEE0;--text:#E8E6E0;--mute:#9aa1ab;--faint:#6b727d;--paper:#F7F4EC;--ink:#23231f;--blue:#5b8def;--green:#57b368;--amber:#e0a23b;--violet:#8b7cf0;--pink:#d6649a}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:radial-gradient(1000px 500px at 50% -8%,#15171d,#0b0c0f 60%);font-family:Inter,sans-serif;color:var(--text);-webkit-font-smoothing:antialiased;padding:40px;display:flex;flex-direction:column;align-items:center;gap:14px;min-height:100vh}
+.cap{color:var(--faint);font-size:12px}.cap b{color:var(--gold)}
+.ico{width:18px;height:18px;stroke:currentColor;stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round;display:block}
+.screen{width:1112px;height:834px;background:var(--bg);border:1px solid var(--hair);border-radius:20px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 50px 120px -30px rgba(0,0,0,.8);position:relative}
+.screen:before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(600px 240px at 70% -6%,rgba(198,164,99,.09),transparent 70%)}
+.top{height:62px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 18px;background:linear-gradient(180deg,#15181e,#121419);border-bottom:1px solid var(--hair);position:relative;z-index:2}
+.tl{display:flex;align-items:center;gap:11px}.logo{width:30px;height:30px;border-radius:9px;background:linear-gradient(160deg,var(--gold2),var(--gold));display:grid;place-items:center;color:var(--goldink);font-weight:800;font-size:12px}
+.proj{font-weight:700;font-size:15px;color:var(--cream)}.meta{color:var(--faint);font-size:12px}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(91,141,239,.16);color:#a9c4f7}.pill .d{width:7px;height:7px;border-radius:50%;background:var(--blue)}
+.seg{display:flex;gap:4px;background:#10131a;border:1px solid var(--hair);border-radius:11px;padding:4px}
+.segtab{display:flex;align-items:center;gap:6px;padding:7px 13px;border-radius:8px;font-size:12.5px;font-weight:600;color:var(--mute);cursor:pointer}.segtab .ico{width:15px;height:15px}
+.segtab.on{background:linear-gradient(180deg,var(--gold2),var(--gold));color:var(--goldink)}
+.btn{display:inline-flex;align-items:center;gap:7px;height:40px;padding:0 16px;border-radius:11px;font-size:13.5px;font-weight:700;cursor:pointer;border:1px solid transparent;white-space:nowrap}.btn .ico{width:16px;height:16px}
+.btn.ghost{background:#1b1e25;border-color:var(--hair);color:var(--mute)}
+.btn.outline{background:#1c1d1a;border-color:rgba(198,164,99,.55);color:var(--gold2)}
+.btn.gold{background:linear-gradient(180deg,var(--gold2),var(--gold));color:var(--goldink)}
+.flag{background:rgba(224,162,59,.14);border-color:rgba(224,162,59,.5);color:var(--amber)}
+.appr{background:linear-gradient(180deg,#6cc77c,var(--green));color:#08230f;box-shadow:0 6px 18px -4px rgba(87,179,104,.5)}
+.eyebrow{font-size:10.5px;font-weight:700;letter-spacing:1.3px;color:var(--gold)}
+.card{background:var(--panel);border:1px solid var(--hair);border-radius:13px;padding:14px;display:flex;flex-direction:column;gap:9px}
+.pc-h{display:flex;align-items:center;justify-content:space-between}.pc-h .t{font-size:13px;font-weight:700;color:var(--cream)}
+.kv{display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--hair);font-size:12.5px}.kv:first-of-type{border-top:none}.kv .k{color:var(--faint)}.kv .v{color:var(--text);font-weight:600}
+.qa{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.tile{background:linear-gradient(180deg,#1b1e25,#171a20);border:1px solid var(--hair);border-radius:11px;padding:12px;cursor:pointer}
+.tile .ti{width:30px;height:30px;border-radius:9px;background:rgba(198,164,99,.14);display:grid;place-items:center;color:var(--gold2);margin-bottom:8px}.tile .ti .ico{width:16px;height:16px}
+.tile .tt{font-size:12.5px;font-weight:600;color:var(--cream)}.tile .ts{font-size:10px;color:var(--faint);margin-top:2px}
+.badge{font-size:10px;font-weight:800;padding:4px 9px;border-radius:999px}
+.badge.amber{background:rgba(224,162,59,.16);color:var(--amber)}.badge.green{background:rgba(87,179,104,.16);color:var(--green)}.badge.blue{background:rgba(91,141,239,.16);color:#a9c4f7}
+.mtr{height:6px;border-radius:4px;background:#23262e;overflow:hidden}.mtr i{display:block;height:100%;background:linear-gradient(90deg,var(--gold),var(--gold2))}
+.lenses{display:flex;gap:7px;align-items:center;padding:10px 18px;background:#0e1015;border-bottom:1px solid var(--hair);position:relative;z-index:1;overflow:hidden}
+.lens{display:flex;align-items:center;gap:7px;padding:8px 12px;border-radius:10px;font-size:12.5px;font-weight:600;color:var(--mute);background:#171a20;border:1px solid var(--hair);white-space:nowrap}
+.lens .ld{width:8px;height:8px;border-radius:3px}.lens .cn{font-size:10.5px;color:var(--faint);font-weight:700}.lens.on{background:#1c1f27;border-color:var(--hair2);color:var(--cream)}
+.content{flex:1;overflow:hidden;padding:20px;display:flex;flex-direction:column;gap:15px;position:relative;z-index:1}
+.h1{font-size:21px;font-weight:800;color:var(--cream);letter-spacing:-.4px}.sub{font-size:12.5px;color:var(--mute);margin-top:3px}
+.loop{display:flex;background:linear-gradient(180deg,#15181e,#121419);border:1px solid var(--hair);border-radius:13px;padding:5px}
+.step{flex:1;display:flex;flex-direction:column;gap:6px;padding:11px 13px}.step+.step{border-left:1px solid var(--hair)}
+.step .sl{font-size:12px;font-weight:600;color:var(--cream)}.step .pc{font-size:10.5px;color:var(--faint)}
+.step .m{height:5px;border-radius:4px;background:#23262e;overflow:hidden}.step .m i{display:block;height:100%;background:linear-gradient(90deg,var(--gold),var(--gold2))}
+.step.done .m i{background:var(--green)}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:11px}
+.kpi{background:linear-gradient(180deg,#16191f,#131519);border:1px solid var(--hair);border-radius:12px;padding:13px}
+.kpi .kl{font-size:10.5px;color:var(--faint);font-weight:600}.kpi .kv{font-size:21px;font-weight:800;color:var(--cream);margin-top:5px}.kpi .kc{font-size:10.5px;margin-top:4px;font-weight:600}
+.twocol{flex:1;display:grid;grid-template-columns:1.7fr 1fr;gap:13px;min-height:0}
+.col{display:flex;flex-direction:column;gap:13px;min-height:0}
+.lrow{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--hair);font-size:12px}.lrow:first-of-type{border-top:none}
+.lrow .dot{width:8px;height:8px;border-radius:50%;flex:none}.lrow .lt{flex:1;color:var(--text)}
+.dim{color:var(--mute)}
+</style></head><body>
+<div class="cap">ScripON Doctor · <b>Dashboard — Tablet (1112×834)</b> · the production at a glance</div>
+<div class="screen">
+  <div class="top"><div class="tl"><div class="logo">TFM</div><div class="proj">Midnight Run</div><span class="pill"><span class="d"></span>BLUE v4</span></div>
+    <div class="seg"><span class="segtab on"><svg class="ico" viewBox="0 0 24 24"><path d="M3 11l9-8 9 8M5 10v10h14V10"/></svg>Home</span><span class="segtab"><svg class="ico" viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/></svg>Reader</span><span class="segtab"><svg class="ico" viewBox="0 0 24 24"><path d="M12 2l9 5-9 5-9-5z"/></svg>Breakdown</span><span class="segtab"><svg class="ico" viewBox="0 0 24 24"><path d="M12 3l1.9 5.6L19.5 9l-4.5 3.3L16.8 18 12 14.7 7.2 18l1.8-5.7L4.5 9z"/></svg>Doctor</span></div>
+    <div class="btn gold"><svg class="ico" viewBox="0 0 24 24" style="stroke:#1a1509"><path d="M6 2h9l5 5v15H6z"/></svg>Coverage</div>
+  </div>
+  <div class="content">
+    <div><div class="h1">Production Command Centre</div><div class="sub">Midnight Run · script to wrap, one view.</div></div>
+    <div class="loop">
+      <div class="step done"><div class="sl">Script</div><div class="pc">Locked · Blue v4</div><div class="m"><i style="width:100%"></i></div></div>
+      <div class="step"><div class="sl">Breakdown</div><div class="pc">82% · 52/64</div><div class="m"><i style="width:82%"></i></div></div>
+      <div class="step"><div class="sl">Schedule</div><div class="pc">60% · 18 days</div><div class="m"><i style="width:60%"></i></div></div>
+      <div class="step"><div class="sl">Budget</div><div class="pc">$1.24M · on track</div><div class="m"><i style="width:74%"></i></div></div>
+      <div class="step"><div class="sl">Coverage</div><div class="pc">CONSIDER · 2h</div><div class="m"><i style="width:55%;background:var(--amber)"></i></div></div>
+    </div>
+    <div class="kpis">
+      <div class="kpi"><div class="kl">SCENES</div><div class="kv">64</div><div class="kc dim">9 INT · 5 EXT night</div></div>
+      <div class="kpi"><div class="kl">SHOOT DAYS</div><div class="kv">18</div><div class="kc dim">6.2 pp/day</div></div>
+      <div class="kpi"><div class="kl">BUDGET (EFC)</div><div class="kv">$1.24M</div><div class="kc" style="color:var(--green)">+2% vs plan</div></div>
+    </div>
+    <div class="twocol">
+      <div class="col"><div class="card" style="flex:1">
+        <div class="pc-h"><span class="t">Needs attention</span><span class="eyebrow">DOCTOR</span></div>
+        <div class="lrow"><span class="dot" style="background:var(--amber)"></span><span class="lt">Act 2 midpoint reads flat — pull the betrayal earlier.</span><span class="badge amber">HIGH</span></div>
+        <div class="lrow"><span class="dot" style="background:var(--amber)"></span><span class="lt">3 locations over the day-rate cap.</span><span class="badge amber">MED</span></div>
+        <div class="lrow"><span class="dot" style="background:var(--faint)"></span><span class="lt">2 speaking roles uncast (Leo, Broker).</span><span class="badge blue">CAST</span></div>
+        <div class="lrow"><span class="dot" style="background:var(--green)"></span><span class="lt">Breakdown synced 11 strips to Schedule.</span><span class="dim" style="font-size:10.5px">yesterday</span></div>
+      </div></div>
+      <div class="col">
+        <div class="card"><div class="pc-h"><span class="t">Script status</span><span class="pill"><span class="d"></span>BLUE v4</span></div>
+          <div class="kv"><span class="k">Coverage</span><span class="badge amber">CONSIDER</span></div>
+          <div class="kv"><span class="k">Revisions</span><span class="v">5</span></div>
+        </div>
+        <div class="card" style="flex:1"><div class="pc-h"><span class="t">Quick actions</span></div>
+          <div class="qa">
+            <div class="tile"><div class="ti"><svg class="ico" viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/></svg></div><div class="tt">Coverage</div></div>
+            <div class="tile"><div class="ti"><svg class="ico" viewBox="0 0 24 24"><path d="M3 12h4l2 6 4-14 2 8h6"/></svg></div><div class="tt">Diagnose</div></div>
+            <div class="tile"><div class="ti"><svg class="ico" viewBox="0 0 24 24"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div><div class="tt">Budget-fit</div></div>
+            <div class="tile"><div class="ti"><svg class="ico" viewBox="0 0 24 24"><path d="M16 3l5 5-5 5M21 8H9M8 21l-5-5 5-5M3 16h12"/></svg></div><div class="tt">Compare</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div></body></html>

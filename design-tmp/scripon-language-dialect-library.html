@@ -1,0 +1,180 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ScripON — Script Language, Dialect &amp; Accent Library (proposal)</title>
+<style>
+  :root{--bg:#0b0c0f;--panel:#14161c;--panel2:#181b22;--hair:rgba(255,255,255,.09);--gold:#C6A463;--gold2:#E6D2A2;--ink:#15120B;--cream:#F4EEE0;--text:#E8E6E0;--mut:#9aa1ab;--faint:#6b727d;--green:#6FCF97;--blue:#5b8def;--amber:#E0A458;--violet:#8b7cf0}
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 600px at 50% -8%,#15171d,#0b0c0f 60%);color:var(--text);font-family:Inter,system-ui,'Noto Sans Arabic',sans-serif;line-height:1.55;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1080px;margin:0 auto;padding:40px 26px 90px}
+  h1{font-size:30px;margin:0 0 4px;letter-spacing:-.3px}
+  h2{font-size:20px;margin:38px 0 10px;color:var(--gold2);border-bottom:1px solid var(--hair);padding-bottom:7px}
+  h3{font-size:15px;margin:20px 0 6px;color:var(--cream)}
+  p{margin:8px 0;color:#d6d3cb}
+  .sub{color:var(--mut);font-size:14px;margin-top:0}
+  .tag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--gold2);background:rgba(198,164,99,.13);border:1px solid rgba(198,164,99,.3);border-radius:999px;padding:3px 10px;margin-bottom:14px}
+  .card{background:var(--panel);border:1px solid var(--hair);border-radius:14px;padding:16px 18px;margin:12px 0}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .lead{background:linear-gradient(180deg,rgba(198,164,99,.08),transparent);border:1px solid rgba(198,164,99,.25)}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .pill{display:inline-block;font-size:11px;font-weight:700;border-radius:6px;padding:2px 7px;margin-inline-end:4px}
+  .write{background:rgba(111,207,151,.15);color:var(--green);border:1px solid rgba(111,207,151,.35)}
+  .accent{background:rgba(91,141,239,.15);color:#a9c4f7;border:1px solid rgba(91,141,239,.35)}
+  table{width:100%;border-collapse:collapse;margin:10px 0;font-size:13.5px}
+  th,td{text-align:start;padding:7px 9px;border-bottom:1px solid var(--hair);vertical-align:top}
+  th{color:var(--faint);font-size:11px;text-transform:uppercase;letter-spacing:.4px;font-weight:700}
+  td .ar{font-family:'Noto Sans Arabic',sans-serif;font-size:15px;color:var(--cream);direction:rtl;unicode-bidi:isolate}
+  .def{color:var(--gold2);font-weight:700}
+  .muted{color:var(--faint)}
+  code{background:#0e1014;border:1px solid var(--hair);border-radius:5px;padding:1px 6px;font-size:12.5px;color:var(--gold2);font-family:ui-monospace,Menlo,monospace}
+  .note{font-size:12.5px;color:var(--mut)}
+  .step{display:flex;gap:11px;align-items:flex-start;margin:8px 0}
+  .num{flex:0 0 24px;height:24px;border-radius:7px;background:linear-gradient(160deg,var(--gold2),var(--gold));color:var(--ink);font-weight:800;font-size:12px;display:grid;place-items:center}
+  ul{margin:8px 0;padding-inline-start:20px}li{margin:4px 0;color:#d6d3cb}
+  .src a{color:#a9c4f7;text-decoration:none;font-size:12.5px}.src li{color:var(--mut)}
+  .kbd{font-family:ui-monospace,monospace;background:#0e1014;border:1px solid var(--hair);border-radius:5px;padding:1px 6px;font-size:12px}
+  .hd{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px}
+</style></head>
+<body><div class="wrap">
+
+<div class="tag">ScripON · Proposal for review</div>
+<h1>Script Language, Dialect &amp; Accent Library</h1>
+<p class="sub">The language a <b>build</b> is written in — set per script, defaulting to formal — with an authentic, professionally-grounded dialect/accent layer. Research-backed; built to be accurate, not decorative.</p>
+
+<div class="card lead">
+<h3 style="margin-top:0">The one idea</h3>
+<p>This is <b>not</b> the interface language (that's the Arabic UI we already shipped). This is <b>the language the screenplay itself is written in</b>, chosen when you create/develop a build. Default stays <b>Formal — Modern Standard Arabic (الفصحى)</b>. From there you pick a <b>country</b> and a specific <b>dialect/accent</b> (and most countries have several).</p>
+</div>
+
+<h2>1 · The principle that makes it professional</h2>
+<p>Getting this right hinges on two facts that working screenwriters live by:</p>
+
+<div class="two">
+<div class="card">
+<h3>① Arabic scripts are diglossic</h3>
+<p>A real Arabic screenplay mixes two registers: <b>action &amp; scene description in فصحى/MSA</b>, and <b>dialogue in the characters' colloquial dialect (عامية)</b>. MSA is effectively "read-only" — nobody speaks it at home — so MSA dialogue reads as stiff and erases regional/ethnic identity. Prestige/historical/pan‑Arab dramas may stay all‑فصحى; contemporary realism uses the local dialect for voices.</p>
+<p class="note">So the choice isn't one switch — it's <b>narration register</b> (default فصحى) + <b>dialogue register</b> (formal فصحى <em>or</em> a specific dialect).</p>
+</div>
+<div class="card">
+<h3>② Two kinds of variety, written differently</h3>
+<p><span class="pill write">WRITE‑IT</span> Arabic colloquial &amp; Chinese topolects genuinely change the <b>written</b> words/grammar. The AI must <b>compose the dialogue in that dialect</b>.</p>
+<p><span class="pill accent">ACCENT</span> English/Spanish/etc. regional varieties are mostly <b>phonetic</b>. Best practice: <b>do not</b> misspell phonetically ("eye dialect" distracts the reader). Keep standard spelling, colour it with <b>regional idiom/word‑choice</b>, and put the accent in a <b>parenthetical / scene‑note</b> for the actor &amp; dialect coach.</p>
+</div>
+</div>
+
+<h2>2 · The Arabic library</h2>
+<p>Default = <b class="def">الفصحى — Modern Standard Arabic</b> (formal; also a <b>Classical/Quranic</b> register for period/scripture‑adjacent work, used carefully under the sacred guardrails). Below: the six dialect families → countries → the sub‑dialects inside them, each with a signature marker so generation is authentic, not generic. "I want" is the quickest fingerprint of a dialect.</p>
+
+<h3>① Egyptian — المصرية <span class="pill write">write‑it</span></h3>
+<table>
+<tr><th>Dialect</th><th>Native</th><th>"I want"</th><th>Signature markers</th></tr>
+<tr><td>Cairene (default Egyptian)</td><td class="ar">مصري — قاهري</td><td class="ar">عايز / عاوز</td><td>neg <span class="ar">مش / م..ش</span> · future <span class="ar">ح/هـ</span> · "this" <span class="ar">ده/دي</span> · ج→g</td></tr>
+<tr><td>Sa'idi (Upper Egypt)</td><td class="ar">صعيدي</td><td class="ar">عايز</td><td>q→g; rural cadence, distinct vowel colour — the "country" voice</td></tr>
+</table>
+
+<h3>② Levantine — الشامية <span class="pill write">write‑it</span></h3>
+<table>
+<tr><th>Dialect</th><th>Native</th><th>"I want"</th><th>Signature markers</th></tr>
+<tr><td>Syrian — Damascene (default Levantine)</td><td class="ar">شامي — دمشقي</td><td class="ar">بدّي</td><td>future <span class="ar">رح</span> · neg <span class="ar">ما / مو</span> · "like this" <span class="ar">هيك</span> · q→ʔ (hamza)</td></tr>
+<tr><td>Syrian — Aleppine / Homsi / Hamawi / Idlibi / Deiri</td><td class="ar">حلبي · حمصي · حموي · إدلبي · ديري</td><td class="ar">بدّي</td><td>city‑by‑city vowels &amp; intonation; Aleppine has Turkish loanwords</td></tr>
+<tr><td>Lebanese</td><td class="ar">لبناني</td><td class="ar">بدّي</td><td>heavy imāla (ē); French loanwords; very media‑prominent</td></tr>
+<tr><td>Palestinian (urban / rural / Gazan)</td><td class="ar">فلسطيني</td><td class="ar">بدّي / بِدْنا</td><td>rural keeps q→k; urban q→ʔ</td></tr>
+<tr><td>Jordanian (Ammani / Bedouin)</td><td class="ar">أردني</td><td class="ar">بدّي / أبغى</td><td>Bedouin q→g; Ammani koine blends with Palestinian</td></tr>
+</table>
+
+<h3>③ Gulf / Peninsular — الخليجية <span class="pill write">write‑it</span></h3>
+<table>
+<tr><th>Dialect</th><th>Native</th><th>"I want"</th><th>Signature markers</th></tr>
+<tr><td>Khaleeji — Emirati (default Gulf)</td><td class="ar">خليجي — إماراتي</td><td class="ar">أبا / أبغى</td><td>neg <span class="ar">مو / ما</span> · "like this" <span class="ar">جذي</span> · ق→g · ك→ch (in some positions)</td></tr>
+<tr><td>Kuwaiti</td><td class="ar">كويتي</td><td class="ar">أبي / أبا</td><td>extra consonant clusters; distinct from Qatari/Emirati in pronunciation</td></tr>
+<tr><td>Qatari · Bahraini · Eastern Saudi (Hasawi)</td><td class="ar">قطري · بحريني · حساوي</td><td class="ar">أبي / أبغى</td><td>shared coastal Gulf core; <b>badawi</b> (Bedouin) vs <b>hadari</b> (urban) split runs through all of them</td></tr>
+<tr><td>Najdi (central Saudi)</td><td class="ar">نجدي</td><td class="ar">أبغى / أبا</td><td>Bedouin prestige variety; affrication ك→ts, ق→dz in some words</td></tr>
+<tr><td>Hejazi (western Saudi — Jeddah/Makkah/Madinah)</td><td class="ar">حجازي</td><td class="ar">أبغى / أبا</td><td>urban; ق→g (urban Hejazi keeps ʔ in some words); media‑familiar</td></tr>
+<tr><td>Omani</td><td class="ar">عُماني</td><td class="ar">أبا / أبغي</td><td>conservative; own lexicon; sometimes treated outside core Gulf</td></tr>
+<tr><td>Bahrani (Baharna)</td><td class="ar">بحراني</td><td class="ar">أريد / أبا</td><td>distinct sedentary Shia variety, separate from Sunni Bahraini</td></tr>
+</table>
+
+<h3>④ Mesopotamian — العراقية <span class="pill write">write‑it</span></h3>
+<table>
+<tr><th>Dialect</th><th>Native</th><th>"I want"</th><th>Signature markers</th></tr>
+<tr><td>Gelet (Baghdad &amp; south, Muslim/Bedouin — default Iraqi)</td><td class="ar">گِلِت — بغدادي</td><td class="ar">أريد (آني أريد)</td><td>q→g (gelet = "I said") · "now" <span class="ar">هسّه</span> · "good" <span class="ar">زين</span> · Persian/Turkish loanwords</td></tr>
+<tr><td>Qeltu (Mosul / north / older urban)</td><td class="ar">قِلْتُ — موصلي</td><td class="ar">أريد</td><td>keeps q; sedentary northern variety</td></tr>
+</table>
+
+<h3>⑤ Maghrebi — المغاربية (الدارجة) <span class="pill write">write‑it</span></h3>
+<p class="note">A continuum: neighbours understand each other; Moroccan ↔ Tunisian far less so. Heavy Amazigh + French/Spanish/Italian layers. Often <b>not</b> understood by Mashriq audiences — a real market decision.</p>
+<table>
+<tr><th>Dialect</th><th>Native</th><th>"I want"</th><th>Signature markers</th></tr>
+<tr><td>Moroccan Darija</td><td class="ar">دارجة مغربية</td><td class="ar">بغيت</td><td>vowel‑dropping, fast; Amazigh + French/Spanish; future <span class="ar">غادي</span></td></tr>
+<tr><td>Algerian Darja</td><td class="ar">دارجة جزائرية</td><td class="ar">حاب / راني نحب</td><td>heavy French; "bridge" between Morocco &amp; Tunisia</td></tr>
+<tr><td>Tunisian Derja</td><td class="ar">دارجة تونسية</td><td class="ar">نحب</td><td>"musical" intonation; French + Italian; future <span class="ar">باش</span></td></tr>
+<tr><td>Libyan</td><td class="ar">ليبي</td><td class="ar">نبي / نحب</td><td>Maghrebi base with Egyptian/Gulf bridge features; some Italian loanwords</td></tr>
+<tr><td>Hassaniya (Mauritania / W. Sahara)</td><td class="ar">حسانية</td><td class="ar">نبغي</td><td>Bedouin, archaic, strong Amazigh/African contact — quite distinct</td></tr>
+</table>
+
+<h3>⑥ Nile / Peninsular edges <span class="pill write">write‑it</span></h3>
+<table>
+<tr><th>Dialect</th><th>Native</th><th>"I want"</th><th>Signature markers</th></tr>
+<tr><td>Sudanese</td><td class="ar">سوداني</td><td class="ar">داير / عايز</td><td>ج→g; close to Egyptian but own lexicon &amp; cadence</td></tr>
+<tr><td>Yemeni — Sanaani</td><td class="ar">صنعاني</td><td class="ar">أشتي / أبغي</td><td>conservative, archaic features; ق→g</td></tr>
+<tr><td>Yemeni — Hadhrami · Ta'izzi‑Adeni · Tihami</td><td class="ar">حضرمي · تعزّي‑عدني · تهامي</td><td class="ar">أشتي</td><td>four distinct clusters across north/east/south/west Yemen</td></tr>
+</table>
+
+<h2>3 · English — accents &amp; dialects <span class="pill accent">accent</span></h2>
+<p>Default = <b class="def">Neutral / General</b> (General American or RP, per market). ~160 documented varieties; we seed the screen‑relevant ones, handled the professional way — idiom + an actor parenthetical, never phonetic misspelling.</p>
+<div class="grid2">
+<div class="card"><h3 style="margin-top:0">British Isles</h3><ul>
+<li><b>England</b>: RP/Received, Estuary, Cockney (East London), Multicultural London (MLE), West Country, Brummie (Birmingham), Scouse (Liverpool), Mancunian, Yorkshire, Geordie (Newcastle)</li>
+<li><b>Scotland</b>: Glaswegian, Edinburgh, Highland</li>
+<li><b>Wales</b>: North &amp; South Welsh (sing‑song)</li>
+<li><b>Ireland</b>: Dublin, Cork, Northern Irish (Belfast)</li>
+</ul></div>
+<div class="card"><h3 style="margin-top:0">North America &amp; wider world</h3><ul>
+<li><b>USA</b>: General American, Southern, New York, Boston, AAVE, Chicago/Inland‑North, Texan, Appalachian, Californian</li>
+<li><b>Canada</b>: Standard Canadian, Newfoundland</li>
+<li><b>Other</b>: Australian, New Zealand, South African, Indian, Irish, Caribbean/Jamaican Patois (borderline write‑it)</li>
+</ul></div>
+</div>
+
+<h2>4 · Chinese &amp; extensibility</h2>
+<p>Chinese varieties are largely <b>mutually unintelligible</b> — closer to separate languages. Default = <b class="def">Standard Mandarin (Putonghua)</b>. Seed the major groups: Mandarin (+ Beijing, Northeastern, Taiwanese Mandarin), Yue/Cantonese, Wu (Shanghainese), Min (Hokkien/Taiwanese), Hakka, Xiang, Gan, Jin. These are <span class="pill write">write‑it</span> (Cantonese especially has its own written forms). The same model extends to <b>Spanish</b> (Castilian, Mexican, Rioplatense, Caribbean…), <b>French</b> (Metropolitan, Québécois, Maghrebi), <b>Portuguese</b> (European, Brazilian), Hindi‑Urdu, etc.</p>
+
+<h2>5 · Data model (per build)</h2>
+<div class="card"><p>Stored on the build/intake (additive — no migration risk; one db:push):</p>
+<ul>
+<li><code>scriptLanguage</code> — e.g. <code>ar</code>, <code>en</code>, <code>zh</code> (default: formal Arabic / or the UI locale)</li>
+<li><code>variety</code> — the dialect/accent id, e.g. <code>ar-MSA</code> (default), <code>ar-EG-cairene</code>, <code>en-GB-cockney</code>, <code>zh-yue</code></li>
+<li><code>dialogueRegister</code> — <code>formal</code> (default) | <code>colloquial</code> &nbsp;<span class="muted">(write‑it languages)</span></li>
+<li><code>narrationRegister</code> — <code>formal</code> (default; action lines stay MSA/standard)</li>
+<li><code>accentNote</code> — optional free text for the parenthetical (accent languages)</li>
+</ul>
+<p class="note">Backed by a seeded <code>LanguageVariety</code> reference table: <code>{ lang, region/country, id, nameEN, nameNative, type: write|accent, isDefault, register, signatureMarkers[], examplePhrase, note }</code> — the researched library above becomes this seed.</p>
+</div>
+
+<h2>6 · How it steers generation</h2>
+<div class="step"><div class="num">1</div><div><b>Write‑it + colloquial</b> → the generator writes <b>dialogue</b> in the chosen dialect (using its signature vocab/particles/grammar from the seed), while <b>action/sluglines/parentheticals stay فصحى/MSA</b>. A scene‑note records the dialect ("الحوار باللهجة المصرية").</div></div>
+<div class="step"><div class="num">2</div><div><b>Write‑it + formal</b> (default) → everything in فصحى/MSA — the safe pan‑Arab default you asked to keep.</div></div>
+<div class="step"><div class="num">3</div><div><b>Accent</b> (English etc.) → dialogue in <b>standard spelling</b>, flavoured with region‑appropriate idiom/lexis; a one‑line <b>parenthetical/scene‑note</b> flags the accent for cast &amp; dialect coach (no eye‑dialect).</div></div>
+<div class="step"><div class="num">4</div><div>The variety is also written into the brief, the <b>coverage</b> (market fit), and a <b>casting/dialect‑coach note</b> in the package — so it travels downstream, not just at generation.</div></div>
+<p class="note">Guardrails preserved: Classical/Quranic register and sacred figures stay under the existing sacred guardrail; dialect choice never overrides it.</p>
+
+<h2>7 · The UI (build intake)</h2>
+<p>Extends the intake's existing <b>Target</b> step (it already has a "Target language" field). New <b>Script language</b> control, searchable like the current target dropdowns:</p>
+<div class="card"><p style="margin:0"><b>Language</b> ▸ <b>Country / region</b> ▸ <b>Dialect / accent</b> &nbsp;·&nbsp; <b>Register</b>: ◉ Formal (default) ○ Colloquial &nbsp;·&nbsp; <span class="muted">optional accent note</span></p></div>
+<p class="note">Each dialect shows its native name + the "I want" fingerprint as a confidence cue (e.g. <span class="ar">المصرية — عايز</span>). Default lands on <span class="ar">الفصحى</span> so nothing changes unless chosen.</p>
+
+<h2>8 · Phasing</h2>
+<ul>
+<li><b>P1 — Arabic, deep &amp; accurate.</b> The full library above + the diglossic generation steering (the priority; verify the Arabic with you first).</li>
+<li><b>P2 — English accents</b> (idiom + actor‑note handling).</li>
+<li><b>P3 — Chinese + the rest</b> (Spanish/French/Portuguese…) as the same model.</li>
+</ul>
+
+<h2>9 · Sources</h2>
+<ul class="src">
+<li><a href="https://talkpal.ai/culture/what-is-the-difference-between-fusha-and-ammiya/">Fusha vs Ammiya — Talkpal</a> · <a href="https://www.twelvept.com/faq/en/questions/FAQ009-arabic-screenwriting.html">Arabic screenwriting (Twelvept)</a> · <a href="https://arablit.org/2014/06/04/cant-let-it-go-the-role-of-colloquial-and-modern-standard-arabic-in-childrens-literature-and-entertainment/">MSA vs colloquial in media (ArabLit)</a></li>
+<li><a href="https://en.wikipedia.org/wiki/Varieties_of_Arabic">Varieties of Arabic — Wikipedia</a> · <a href="https://en.wikipedia.org/wiki/Maghrebi_Arabic">Maghrebi Arabic</a> · <a href="https://en.wikipedia.org/wiki/Gulf_Arabic">Gulf Arabic</a> · <a href="https://en.wikipedia.org/wiki/Mesopotamian_Arabic">Mesopotamian (Gelet/Qeltu)</a> · <a href="https://en.wikipedia.org/wiki/Yemeni_Arabic">Yemeni Arabic</a></li>
+<li><a href="https://discoverdiscomfort.com/arabic-dialects-maghrebi-egyptian-levantine-gulf-hejazi-msa/">Arabic dialects compared (Discover Discomfort)</a> · <a href="https://www.qasidonline.com/blog/the-ultimate-guide-to-arabic-dialects">Guide to Arabic dialects (Qasid)</a></li>
+<li><a href="https://en.wikipedia.org/wiki/List_of_dialects_of_English">List of dialects of English</a> · <a href="https://www.dialectsarchive.com/england">IDEA dialect archive</a> · <a href="https://en.wikipedia.org/wiki/List_of_varieties_of_Chinese">Varieties of Chinese</a></li>
+<li><a href="https://www.thestorydepartment.com/dialogue-foreign-language-dialect-accent/">Formatting accent/dialect in scripts (Story Department)</a> · <a href="https://theconversation.com/how-oscar-nominated-screenwriters-attempt-to-craft-authentic-dialogue-dialects-and-accents-247658">Crafting authentic dialect (The Conversation)</a> · <a href="https://www.masterclass.com/articles/how-to-write-character-accents">Writing character accents (MasterClass)</a></li>
+</ul>
+
+</div></body></html>

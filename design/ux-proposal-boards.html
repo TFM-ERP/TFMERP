@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>TFM — Hi-Fi Screen Proposals (Dashboard + Script Reader · light & dark)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',-apple-system,'Segoe UI',Roboto,sans-serif;background:#15171C;color:#e8eaf0;-webkit-font-smoothing:antialiased;padding:34px 24px 70px}
+.page-h{max-width:1320px;margin:0 auto 26px}
+.page-h h1{font-size:24px;font-weight:800;letter-spacing:-.02em}
+.page-h p{font-size:13.5px;color:#9aa3b2;margin-top:6px;max-width:760px;line-height:1.5}
+.grid{max-width:1320px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:26px}
+@media(max-width:1180px){.grid{grid-template-columns:1fr}}
+.board{display:flex;flex-direction:column}
+.cap{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.cap .badge{font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;background:#252a33;color:#cfd6e2;border:1px solid #333b47}
+.cap .badge.dark{background:#1b212c;color:#C9A24A;border-color:#3a3322}
+.cap .badge.light{background:#eef0f6;color:#5B5BD6;border-color:#d7dae6}
+.cap .badge.ink{background:#efe6d6;color:#B0532E;border-color:#dac9ad}
+.cap h2{font-size:14px;font-weight:700}
+.cap small{color:#7f8696;font-size:12px;font-weight:500}
+
+/* themed frame: vars scoped per board via data-theme */
+[data-theme]{--font-display:'Inter',sans-serif;--font-mono:'Courier Prime','Courier New',monospace;--radius:12px;--radius-sm:8px}
+[data-theme="graphite"]{--bg:#0E1117;--surface-1:#161C28;--surface-2:#1E2632;--surface-3:#28313F;--text-1:#F4F6FA;--text-2:#C2CAD6;--text-3:#8A94A6;--border-1:#262E3B;--border-2:#333D4D;--accent:#C9A24A;--accent-on:#161C28;--accent-soft:rgba(201,162,74,.14);--ok:#34D399;--ok-soft:rgba(52,211,153,.14);--warn:#E0A53F;--warn-soft:rgba(224,165,63,.16);--danger:#E2574C;--danger-soft:rgba(226,87,76,.16);--sheet:#191F2B;--ink:#ECEFF4;--sheet-edge:rgba(0,0,0,.5)}
+[data-theme="studio"]{--bg:#F7F8FA;--surface-1:#FFFFFF;--surface-2:#F1F3F7;--surface-3:#E8EBF0;--text-1:#16202E;--text-2:#48536A;--text-3:#8A93A6;--border-1:#E6E9EF;--border-2:#D3D9E3;--accent:#5B5BD6;--accent-on:#FFFFFF;--accent-soft:#ECECFB;--ok:#1F9D63;--ok-soft:#E4F6EC;--warn:#B5791E;--warn-soft:#FBF0DA;--danger:#D14343;--danger-soft:#FBE7E7;--sheet:#FFFFFF;--ink:#1B2230;--sheet-edge:rgba(16,24,40,.12)}
+[data-theme="ink"]{--bg:#E9E1D2;--surface-1:#FBF8F2;--surface-2:#EFE8DC;--surface-3:#E6DCCA;--text-1:#1B1712;--text-2:#4A4338;--text-3:#867B6A;--border-1:#E3D9C8;--border-2:#CDBFA8;--accent:#B0532E;--accent-on:#FBF8F2;--accent-soft:#F0DFD2;--ok:#5E7A3A;--ok-soft:#E8EBD7;--warn:#B5791E;--warn-soft:#F3E6CC;--danger:#B23A2E;--danger-soft:#F2DBD5;--font-display:'Fraunces',Georgia,serif;--sheet:#FCFAF4;--ink:#16120C;--sheet-edge:rgba(60,40,20,.16)}
+
+.frame{border-radius:16px;overflow:hidden;border:1px solid var(--border-1);background:var(--surface-1);box-shadow:0 20px 50px rgba(0,0,0,.45);height:520px;display:flex;flex-direction:column}
+
+/* ---- shared app bits ---- */
+.tb{display:flex;align-items:center;gap:10px;padding:10px 13px;border-bottom:1px solid var(--border-1);background:var(--surface-1)}
+.brand{display:flex;align-items:center;gap:7px;font-weight:800;font-size:13px;color:var(--text-1)}
+.brand .lg{width:23px;height:23px;border-radius:7px;display:grid;place-items:center;font-size:12px;font-weight:800;background:var(--accent);color:var(--accent-on)}
+.chip{display:flex;align-items:center;gap:6px;padding:5px 9px;border-radius:999px;background:var(--surface-2);border:1px solid var(--border-1);font-size:11px;color:var(--text-2);font-weight:600}
+.tb .sp{flex:1}
+.dot{width:28px;height:28px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-size:11px;font-weight:700;border:1px solid var(--border-2)}
+.body{flex:1;display:flex;min-height:0}
+.side{width:148px;border-right:1px solid var(--border-1);padding:10px 8px;flex-shrink:0}
+.nv{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:8px;font-size:11.5px;color:var(--text-2);font-weight:500;margin-bottom:1px}
+.nv .i{width:7px;height:7px;border-radius:2px;background:var(--text-3);opacity:.6}
+.nv.on{background:var(--accent-soft);color:var(--accent);font-weight:700}
+.nv.on .i{background:var(--accent);opacity:1}
+.main{flex:1;padding:15px;overflow:auto;min-width:0}
+.h1{font-family:var(--font-display);font-size:18px;font-weight:700;letter-spacing:-.01em}
+.sub{font-size:11px;color:var(--text-3);margin-top:2px}
+.btn{border:none;cursor:pointer;font-weight:700;font-size:11.5px;padding:7px 12px;border-radius:8px;background:var(--accent);color:var(--accent-on)}
+.btn.gh{background:var(--surface-2);color:var(--text-2);border:1px solid var(--border-1)}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin:13px 0}
+.st{background:var(--surface-2);border:1px solid var(--border-1);border-radius:10px;padding:9px 10px}
+.st .k{font-size:8.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-3);font-weight:700}
+.st .v{font-size:17px;font-weight:800;margin-top:3px;color:var(--text-1)}
+.st .d{font-size:9px;margin-top:2px;color:var(--text-3)} .st .d.up{color:var(--ok)} .st .d.dn{color:var(--danger)}
+.card{background:var(--surface-1);border:1px solid var(--border-1);border-radius:11px;overflow:hidden}
+.card .hd{display:flex;align-items:center;padding:9px 12px;border-bottom:1px solid var(--border-1);font-size:11.5px;font-weight:700;color:var(--text-1)}
+.card .hd .m{margin-left:auto;font-size:10px;color:var(--text-3);font-weight:500}
+table{width:100%;border-collapse:collapse;font-size:11px}
+th{text-align:left;padding:7px 12px;color:var(--text-3);font-weight:600;font-size:8.5px;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--border-1)}
+td{padding:7px 12px;border-bottom:1px solid var(--border-1);color:var(--text-2)}
+tr:last-child td{border-bottom:none}
+.scn{font-weight:800;color:var(--accent)}
+.bd{display:inline-block;font-size:8.5px;font-weight:700;padding:2px 7px;border-radius:999px}
+.b-int{background:var(--accent-soft);color:var(--accent)} .b-ok{background:var(--ok-soft);color:var(--ok)} .b-warn{background:var(--warn-soft);color:var(--warn)} .b-dn{background:var(--danger-soft);color:var(--danger)}
+
+/* ---- script reader board ---- */
+.rwrap{flex:1;display:flex;min-height:0}
+.rrail{width:130px;border-right:1px solid var(--border-1);padding:10px 8px;flex-shrink:0;overflow:auto}
+.rrail .l{font-size:8.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);font-weight:700;margin:2px 6px 7px}
+.sc{display:flex;gap:7px;padding:6px 7px;border-radius:7px;margin-bottom:1px}
+.sc.on{background:var(--accent-soft)} .sc .n{font-weight:800;color:var(--accent);font-size:10px;width:15px} .sc .t{font-size:10px;color:var(--text-2);line-height:1.25}
+.sc .t small{display:block;color:var(--text-3);font-size:8.5px}
+.rmain{flex:1;display:flex;justify-content:center;padding:16px;overflow:auto;background:color-mix(in srgb,var(--bg) 55%,var(--surface-2))}
+.sheet{width:380px;flex-shrink:0;background:var(--sheet);color:var(--ink);border-radius:3px;padding:26px 34px 26px 40px;font-family:var(--font-mono);font-size:9.5px;line-height:1.5;box-shadow:0 2px 4px var(--sheet-edge),0 14px 30px var(--sheet-edge);position:relative}
+.sheet .pg{position:absolute;top:12px;right:18px;font-size:9px;opacity:.6}
+.sl{font-weight:700;text-transform:uppercase;margin:0 0 8px}
+.ac{margin:0 0 9px}
+.ch{margin:0 0 1px;padding-left:34%;font-weight:700;text-transform:uppercase}
+.pa{margin:0 0 1px;padding-left:26%}
+.di{margin:0 0 9px;padding-left:19%;padding-right:14%}
+.ttag{display:flex;gap:5px;flex-wrap:wrap;margin-top:4px}
+.tg{font-size:8.5px;font-weight:600;padding:2px 7px;border-radius:5px;background:var(--surface-2);color:var(--text-2);border:1px solid var(--border-1)}
+.toolbar{display:flex;align-items:center;gap:7px;padding:8px 12px;border-bottom:1px solid var(--border-1)}
+.tabs{display:flex;gap:3px;background:var(--surface-2);padding:2px;border-radius:999px}
+.tab{font-size:10px;font-weight:600;color:var(--text-3);padding:4px 10px;border-radius:999px}
+.tab.on{background:var(--accent);color:var(--accent-on)}
+.foot{max-width:1320px;margin:30px auto 0;font-size:12.5px;color:#7f8696;text-align:center;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="page-h">
+  <h1>TFM · High-fidelity screen proposals</h1>
+  <p>The two surfaces from the prompt — Production Dashboard and Script Reader — rendered in the recommended dual system: Graphite &amp; Gold (night / on-set) and Studio Light (day / office), with Ink &amp; Paper as the reading mode. These are my hi-fi renders; run the prompt in Figma’s AI agent to compare its independent version.</p>
+</div>
+
+<div class="grid">
+
+  <!-- 1 · DASHBOARD — DARK -->
+  <div class="board">
+    <div class="cap"><span class="badge dark">Graphite &amp; Gold · dark</span><h2>Production Dashboard</h2><small>night / on-set</small></div>
+    <div class="frame" data-theme="graphite">
+      <div class="tb"><div class="brand"><span class="lg">T</span>TFM</div><span class="chip">🎬 Desert Crossing ▾</span><div class="sp"></div><span class="chip">🔎 Search</span><div class="dot">QQ</div></div>
+      <div class="body">
+        <aside class="side">
+          <div class="nv on"><span class="i"></span>Dashboard</div><div class="nv"><span class="i"></span>Scheduling</div><div class="nv"><span class="i"></span>Script</div><div class="nv"><span class="i"></span>Casting</div><div class="nv"><span class="i"></span>Locations</div><div class="nv"><span class="i"></span>Transport</div><div class="nv"><span class="i"></span>Contracts</div><div class="nv"><span class="i"></span>Finance</div>
+        </aside>
+        <div class="main">
+          <div style="display:flex;align-items:flex-end"><div><div class="h1">Production Dashboard</div><div class="sub">Day 14 of 32 · Mon, 15 Jun · Wadi Rim Basecamp</div></div><div class="sp" style="flex:1"></div><button class="btn">＋ Call sheet</button></div>
+          <div class="stats"><div class="st"><div class="k">Crew call</div><div class="v">06:30</div></div><div class="st"><div class="k">Shoot</div><div class="v">08:00</div></div><div class="st"><div class="k">Scenes</div><div class="v">7</div><div class="d up">▲ on track</div></div><div class="st"><div class="k">Budget</div><div class="v">61%</div><div class="d dn">▲ 4%</div></div></div>
+          <div class="card"><div class="hd">Today’s scenes<span class="m">call sheet →</span></div><table><thead><tr><th>Sc</th><th>I/E</th><th>Set</th><th>Status</th></tr></thead><tbody><tr><td class="scn">24</td><td><span class="bd b-int">INT</span></td><td>Field Hospital</td><td><span class="bd b-ok">Ready</span></td></tr><tr><td class="scn">25</td><td><span class="bd b-int">EXT</span></td><td>Dune Ridge</td><td><span class="bd b-warn">Blocking</span></td></tr><tr><td class="scn">27</td><td><span class="bd b-int">EXT</span></td><td>Checkpoint</td><td><span class="bd b-dn">Weather hold</span></td></tr></tbody></table></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2 · DASHBOARD — LIGHT -->
+  <div class="board">
+    <div class="cap"><span class="badge light">Studio Light · light</span><h2>Production Dashboard</h2><small>day / office</small></div>
+    <div class="frame" data-theme="studio">
+      <div class="tb"><div class="brand"><span class="lg">T</span>TFM</div><span class="chip">🎬 Desert Crossing ▾</span><div class="sp"></div><span class="chip">🔎 Search</span><div class="dot">QQ</div></div>
+      <div class="body">
+        <aside class="side">
+          <div class="nv on"><span class="i"></span>Dashboard</div><div class="nv"><span class="i"></span>Scheduling</div><div class="nv"><span class="i"></span>Script</div><div class="nv"><span class="i"></span>Casting</div><div class="nv"><span class="i"></span>Locations</div><div class="nv"><span class="i"></span>Transport</div><div class="nv"><span class="i"></span>Contracts</div><div class="nv"><span class="i"></span>Finance</div>
+        </aside>
+        <div class="main">
+          <div style="display:flex;align-items:flex-end"><div><div class="h1">Production Dashboard</div><div class="sub">Day 14 of 32 · Mon, 15 Jun · Wadi Rim Basecamp</div></div><div class="sp" style="flex:1"></div><button class="btn">＋ Call sheet</button></div>
+          <div class="stats"><div class="st"><div class="k">Crew call</div><div class="v">06:30</div></div><div class="st"><div class="k">Shoot</div><div class="v">08:00</div></div><div class="st"><div class="k">Scenes</div><div class="v">7</div><div class="d up">▲ on track</div></div><div class="st"><div class="k">Budget</div><div class="v">61%</div><div class="d dn">▲ 4%</div></div></div>
+          <div class="card"><div class="hd">Today’s scenes<span class="m">call sheet →</span></div><table><thead><tr><th>Sc</th><th>I/E</th><th>Set</th><th>Status</th></tr></thead><tbody><tr><td class="scn">24</td><td><span class="bd b-int">INT</span></td><td>Field Hospital</td><td><span class="bd b-ok">Ready</span></td></tr><tr><td class="scn">25</td><td><span class="bd b-int">EXT</span></td><td>Dune Ridge</td><td><span class="bd b-warn">Blocking</span></td></tr><tr><td class="scn">27</td><td><span class="bd b-int">EXT</span></td><td>Checkpoint</td><td><span class="bd b-dn">Weather hold</span></td></tr></tbody></table></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3 · SCRIPT READER — INK -->
+  <div class="board">
+    <div class="cap"><span class="badge ink">Ink &amp; Paper · reading mode</span><h2>Script Reader</h2><small>looks like real sides</small></div>
+    <div class="frame" data-theme="ink">
+      <div class="toolbar"><div class="tabs"><div class="tab on">Reader</div><div class="tab">Pages</div><div class="tab">Audio</div></div><span class="chip"><span style="width:9px;height:9px;border-radius:2px;background:#5b8def;display:inline-block"></span> Rev. Blue</span><div class="sp" style="flex:1"></div><span class="chip">Sc. 24</span></div>
+      <div class="rwrap">
+        <aside class="rrail"><div class="l">Scenes</div><div class="sc"><span class="n">23</span><span class="t">Radio Tent<small>INT·N</small></span></div><div class="sc on"><span class="n">24</span><span class="t">Field Hospital<small>INT·N</small></span></div><div class="sc"><span class="n">25</span><span class="t">Dune Ridge<small>EXT·D</small></span></div><div class="sc"><span class="n">26</span><span class="t">Command Tent<small>INT·N</small></span></div></aside>
+        <div class="rmain"><div class="sheet"><div class="pg">24.</div><p class="sl">INT. FIELD HOSPITAL TENT — NIGHT</p><p class="ac">Rain hammers the canvas. NADIA (30s), a field medic with steady hands, presses a cloth to a young SOLDIER’s shoulder.</p><p class="ch">NADIA</p><p class="di">Stay with me. Look at my eyes — not the wound. The eyes.</p><p class="ch">SOLDIER</p><p class="pa">(weakly)</p><p class="di">…it’s so cold in here.</p></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4 · SCRIPT READER — DARK -->
+  <div class="board">
+    <div class="cap"><span class="badge dark">Graphite &amp; Gold · night reading</span><h2>Script Reader</h2><small>same script, on-set at night</small></div>
+    <div class="frame" data-theme="graphite">
+      <div class="toolbar"><div class="tabs"><div class="tab on">Reader</div><div class="tab">Pages</div><div class="tab">Audio</div></div><span class="chip"><span style="width:9px;height:9px;border-radius:2px;background:#5b8def;display:inline-block"></span> Rev. Blue</span><div class="sp" style="flex:1"></div><span class="chip">Sc. 24</span></div>
+      <div class="rwrap">
+        <aside class="rrail"><div class="l">Scenes</div><div class="sc"><span class="n">23</span><span class="t">Radio Tent<small>INT·N</small></span></div><div class="sc on"><span class="n">24</span><span class="t">Field Hospital<small>INT·N</small></span></div><div class="sc"><span class="n">25</span><span class="t">Dune Ridge<small>EXT·D</small></span></div><div class="sc"><span class="n">26</span><span class="t">Command Tent<small>INT·N</small></span></div></aside>
+        <div class="rmain"><div class="sheet"><div class="pg">24.</div><p class="sl">INT. FIELD HOSPITAL TENT — NIGHT</p><p class="ac">Rain hammers the canvas. NADIA (30s), a field medic with steady hands, presses a cloth to a young SOLDIER’s shoulder.</p><p class="ch">NADIA</p><p class="di">Stay with me. Look at my eyes — not the wound. The eyes.</p><p class="ch">SOLDIER</p><p class="pa">(weakly)</p><p class="di">…it’s so cold in here.</p></div></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="foot">Four boards · two surfaces × the dual system. The script formatting never changes — only the surface around it.<br/>Want these as editable Figma frames next? I can build them straight into your file’s Graphite &amp; Gold components.</div>
+</body>
+</html>

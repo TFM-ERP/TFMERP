@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>TFM · Production Accounting — Industry Study & Gap Analysis</title>
+<style>
+  :root{--navy:#141d33;--navy2:#1d2947;--ink:#1a1e27;--gold:#c2922f;--gold-soft:#f7efda;--line:#d7dbe2;--line2:#eceef2;--muted:#69707d;--bg:#eceef2;
+        --ok:#1c7a4a;--ok-soft:#e6f3ec;--warn:#9a6a00;--warn-soft:#fbf2dc;--bad:#b3261e;--bad-soft:#fbeeed;--blue:#2f4fb0;--blue-soft:#eef1fb}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);font-family:"Helvetica Neue",Arial,sans-serif;color:var(--ink);line-height:1.5}
+  .bar{position:sticky;top:0;z-index:50;background:var(--navy);color:#fff;display:flex;align-items:center;gap:14px;padding:11px 20px;flex-wrap:wrap}
+  .bar h1{font-size:14px;margin:0;font-weight:800}.bar .sp{flex:1}
+  .pr{background:var(--gold);color:#211807;border:none;border-radius:8px;padding:8px 14px;font:inherit;font-size:12px;font-weight:800;cursor:pointer}
+  .doc{max-width:1000px;margin:22px auto;background:#fff;box-shadow:0 6px 30px rgba(0,0,0,.13);padding:0 0 50px}
+  .hero{background:linear-gradient(135deg,var(--navy),#26324f);color:#fff;padding:30px 40px}
+  .hero .k{font-size:10px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--gold)}
+  .hero h1{font-size:27px;margin:6px 0 4px;font-weight:800;letter-spacing:-.01em}
+  .hero p{margin:6px 0 0;color:#c5ccdb;font-size:13px;max-width:760px}
+  .body{padding:8px 40px}
+  h2{font-size:18px;margin:30px 0 6px;padding-top:14px;border-top:3px solid var(--gold);color:var(--navy);font-weight:800}
+  h2 .n{display:inline-block;background:var(--gold);color:#211807;border-radius:6px;font-size:12px;padding:1px 9px;margin-right:9px;vertical-align:middle}
+  h3{font-size:14px;margin:18px 0 5px;color:var(--navy);font-weight:800}
+  p,li{font-size:12.7px}
+  .lead{font-size:13.5px;color:#333843}
+  .verdict{background:var(--gold-soft);border:1px solid #e6d09a;border-radius:12px;padding:16px 18px;margin:16px 0}
+  .verdict b{color:#6e5510}
+  table{border-collapse:collapse;width:100%;margin:10px 0;font-size:11.6px}
+  th{background:var(--navy);color:#fff;text-align:left;padding:6px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.03em;font-weight:700;vertical-align:bottom}
+  td{border-bottom:1px solid var(--line2);padding:5px 8px;vertical-align:top}
+  tr:nth-child(even) td{background:#fafbfc}
+  .chip{display:inline-block;font-size:9.5px;font-weight:800;padding:1px 7px;border-radius:999px;white-space:nowrap}
+  .c-ok{background:var(--ok-soft);color:var(--ok)}.c-part{background:var(--warn-soft);color:var(--warn)}.c-no{background:var(--bad-soft);color:var(--bad)}.c-na{background:#eef0f3;color:#69707d}
+  .pill{display:inline-block;font-size:9px;font-weight:800;padding:1px 6px;border-radius:4px;background:var(--navy);color:#fff}
+  .cols2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .card{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:10px 0}
+  .card.ok{border-color:#bfe0cb;background:#f4faf6}.card.bad{border-color:#eccac8;background:var(--bad-soft)}.card.warn{border-color:#e6d09a;background:var(--gold-soft)}
+  .spine{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;background:var(--navy);color:#e8ecf5;border-radius:8px;padding:10px 14px;overflow-x:auto}
+  .spine b{color:var(--gold)}
+  ul{margin:6px 0;padding-left:20px}li{margin:2px 0}
+  .src{font-size:11px;color:var(--muted)}
+  .legend{font-size:10.5px;color:var(--muted);margin:4px 0 0}
+  .phase{border-left:4px solid var(--gold);background:#fcfaf4;border-radius:6px;padding:9px 13px;margin:8px 0}
+  .phase b{color:var(--navy)}
+  .tag-now{background:var(--bad);color:#fff}.tag-soon{background:var(--warn);color:#fff}.tag-later{background:var(--blue);color:#fff}
+  .tag{display:inline-block;font-size:9px;font-weight:800;padding:1px 7px;border-radius:999px;margin-right:6px}
+  svg{max-width:100%;height:auto;display:block;margin:10px auto}
+  @media print{@page{size:A4;margin:10mm}.bar{display:none}.doc{box-shadow:none;margin:0;max-width:none}h2{break-after:avoid}table,svg,.card,.phase{break-inside:avoid}}
+</style>
+</head>
+<body>
+<div class="bar">
+  <h1>🎬 Production-Accounting Industry Study &amp; Gap Analysis</h1><span class="sp"></span>
+  <button class="pr" onclick="window.print()">🖨 Print / Save PDF</button>
+</div>
+<div class="doc">
+  <div class="hero">
+    <div class="k">TFM-System · Validation Study</div>
+    <h1>Is the budgeting & cost engine ready for real productions?</h1>
+    <p>A deep look at how professional film/TV productions run budgets, commitments, payroll and actuals from script breakdown to final cost report — benchmarked against the leading platforms and measured against what TFM has built today, with a phased plan to close the gaps before launch.</p>
+  </div>
+  <div class="body">
+
+    <div class="verdict">
+      <b>Verdict.</b> The TFM cost engine is already <b>well above indie-tool level</b> and close to studio-grade in several areas most systems never reach: a true locked-budget lifecycle (Draft→Review→Approved→Locked→Working) with an audit log, a real fringe/labor-burden engine, a Budget→Committed→Actual→ETC→EFC→Variance cost report, PO approval + invoicing, petty cash, AP with three-way-match and segregation-of-duties, a shared period-close lock, and contract/deal-memo→auto-PO encumbrance. The work that remains before it can be <b>trusted by studios, line producers, accountants and financiers</b> is concentrated in five places: (1) the project ledger and the double-entry GL are not reconciled, (2) forecasting isn't schedule-driven, (3) commitments bind to a cost-center code rather than a budget <i>line</i>, (4) several real-world transaction types are missing (purchase requests, cash advances, card feeds, project expense claims), and (5) there is no Daily Production Report / financier reporting pack. None of these are architectural dead-ends — they are additive, and the spine to hang them on already exists.</p>
+    </div>
+
+    <!-- ===================== 1. WORKFLOW ===================== -->
+    <h2><span class="n">1</span>The industry-standard workflow</h2>
+    <p>Every professional production runs the same financial spine. Creative decisions enter as a script breakdown, become a schedule, drive a budget, and that budget is <b>locked</b> as a baseline before principal photography. From that point the budget is never edited — it is tracked against, and changed only by formal revision.</p>
+    <div class="spine"><b>Script</b> → Breakdown (elements) → <b>Schedule</b> (stripboard) → <b>Budget</b> → <span style="color:#ff9d9d">LOCK ▣</span> → Commitments (PR→PO, deal memos) → Actuals (AP, petty cash, payroll, cards) → <b>Forecast (EFC)</b> → General Ledger → <b>Cost Report / Final Cost</b></div>
+
+    <h3>1.1 Locked budget vs actuals — the core discipline</h3>
+    <p>Productions do <b>not</b> keep a single editable budget. They keep the <b>approved/locked budget as a fixed baseline</b> and track everything against it. The living document is the <b>Weekly Cost Report (WCR)</b>, the line-producer/accountant's instrument that, per cost-center, shows:</p>
+    <table>
+      <thead><tr><th style="width:18%">Column</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td><b>Budget</b></td><td>The locked baseline (only moved by approved revisions/transfers/overages → the "revised budget").</td></tr>
+        <tr><td><b>Cost this week / to date</b></td><td>Actuals paid or incurred (cumulative).</td></tr>
+        <tr><td><b>Committed</b></td><td>Open purchase-order value not yet invoiced (encumbrance).</td></tr>
+        <tr><td><b>ETC</b> (Estimate&nbsp;to&nbsp;Complete)</td><td>The accountant's forward estimate of what's left to spend on the line.</td></tr>
+        <tr><td><b>EFC</b> (Estimated&nbsp;Final&nbsp;Cost)</td><td>= Actual + Committed + ETC. The number everyone watches.</td></tr>
+        <tr><td><b>Variance</b></td><td>= Budget − EFC. Drives "find the money or cut" decisions; the bond company watches this weekly.</td></tr>
+      </tbody>
+    </table>
+    <p>Revisions are handled by creating a <b>new budget version</b> (or by approved <b>transfers</b> between lines and approved <b>overages</b> that lift a line) — never by silently editing the locked baseline. Most productions therefore hold several versions: <span class="pill">Draft</span> <span class="pill">Approved</span> <span class="pill">Locked</span> <span class="pill">Revised (V2, V3…)</span> and a continuously-updated <span class="pill">Forecast/EFC</span> view.</p>
+
+    <h3>1.2 Hiring cast & crew → cost</h3>
+    <p>A negotiated <b>deal memo</b> fixes the rate; that value becomes a <b>commitment</b> against a budget line (an encumbrance). Actual employment cost then accrues through <b>timecards</b> (days, overtime, turnaround/meal penalties) plus <b>per diems, travel, accommodation, box/kit rentals</b>, and is reconciled against the budgeted amount as a per-person/per-line variance. The deal-memo value, the commitment and the actuals must all reference the <i>same</i> budget line for the variance to be meaningful.</p>
+
+    <h3>1.3 Fringes & labor burden</h3>
+    <p>Labor never costs its face rate. Productions add <b>fringes</b> — automatically calculated percentages/flat amounts on gross wages: payroll taxes (FICA/SS, Medicare, FUTA/SUI), workers' comp, union pension &amp; health (SAG-AFTRA ≈ 21%, DGA ≈ 8.75% pension + 11.25% health, IATSE flat-per-hour + %), guild dues, plus a payroll-service handling fee. Total burden commonly runs <b>22–34%</b> on top of wages. Per diems are non-taxable reimbursements; box/kit rentals are 1099/non-fringed. These belong in the budget from day one and must flow through to actuals and the forecast automatically.</p>
+
+    <h3>1.4 Production-accounting transaction types &amp; their cost-report effect</h3>
+    <table>
+      <thead><tr><th style="width:22%">Transaction</th><th>Effect on the cost report</th></tr></thead>
+      <tbody>
+        <tr><td>Purchase Request (requisition)</td><td>Pre-commitment / soft encumbrance; approval converts it to a PO.</td></tr>
+        <tr><td>Purchase Order</td><td>Adds to <b>Committed</b>; reduces remaining; not yet an actual.</td></tr>
+        <tr><td>Invoice (against PO)</td><td>Moves value from Committed → <b>Actual</b> (AP); three-way match (PO/receipt/invoice).</td></tr>
+        <tr><td>Vendor payment</td><td>Disburses cash; actual already booked; updates cash position.</td></tr>
+        <tr><td>Petty cash (PCA)</td><td>Small actuals coded to lines; reconciled against the float.</td></tr>
+        <tr><td>Cash advance / float</td><td>Cash issued to a holder; cleared by receipts/expense report (not itself a cost).</td></tr>
+        <tr><td>Credit card (P-card)</td><td>Card feed coded to lines → actuals; reconciled to statement.</td></tr>
+        <tr><td>Expense claim</td><td>Crew out-of-pocket → reimbursement → actual on the coded line.</td></tr>
+        <tr><td>Payroll</td><td>Gross + fringes posted as actuals to labor lines; the largest single cost.</td></tr>
+        <tr><td>Journal entry</td><td>Cost-coding corrections / accruals; keeps the GL and cost report aligned.</td></tr>
+      </tbody>
+    </table>
+    <p>Underneath, everything is double-checked against the <b>general ledger</b>: the production books (cost report) and the company GL/trial balance must reconcile, and the <b>final cost report</b> at wrap is audited and tied to the GL before it goes to the studio/financier/bond.</p>
+
+    <!-- ===================== 2. PLATFORM MATRIX ===================== -->
+    <h2><span class="n">2</span>The platform landscape</h2>
+    <p>A critical industry fact: <b>no single legacy tool does all of this</b>. Productions stitch together three categories. TFM's strategic bet is to unify them.</p>
+    <table>
+      <thead><tr><th style="width:20%">Platform</th><th>Category</th><th>Budget</th><th>Schedule / Breakdown</th><th>POs / Commit</th><th>Payroll</th><th>Actuals / GL</th><th>Forecast</th></tr></thead>
+      <tbody>
+        <tr><td><b>Movie Magic Budgeting</b> (EP)</td><td>Budgeting</td><td><span class="chip c-ok">Gold standard</span> 3-tier topsheet/account/detail, globals, fringes, groups</td><td><span class="chip c-na">Imports MMS elements</span></td><td><span class="chip c-no">No</span></td><td><span class="chip c-no">No</span></td><td><span class="chip c-no">No</span></td><td><span class="chip c-na">Budget only</span></td></tr>
+        <tr><td><b>Movie Magic Scheduling</b> (EP)</td><td>Scheduling</td><td><span class="chip c-na">Exports to MMB</span></td><td><span class="chip c-ok">Gold standard</span> stripboard + element breakdown</td><td><span class="chip c-no">No</span></td><td><span class="chip c-no">No</span></td><td><span class="chip c-no">No</span></td><td><span class="chip c-no">No</span></td></tr>
+        <tr><td><b>EP Vista / SmartAccounting</b></td><td>Production accounting</td><td><span class="chip c-part">Imports budget</span></td><td><span class="chip c-no">No</span></td><td><span class="chip c-ok">SmartPO</span></td><td><span class="chip c-ok">SmartTime + EP payroll</span></td><td><span class="chip c-ok">Full GL, 250+ reports, ACH, audit</span></td><td><span class="chip c-ok">Cost report / WCR</span></td></tr>
+        <tr><td><b>Cast &amp; Crew / PSL+</b></td><td>Production accounting</td><td><span class="chip c-part">Imports</span></td><td><span class="chip c-no">No</span></td><td><span class="chip c-ok">Yes</span></td><td><span class="chip c-ok">Payroll + fringes</span></td><td><span class="chip c-ok">Cost mgmt + GL</span></td><td><span class="chip c-ok">Yes</span></td></tr>
+        <tr><td><b>Scenechronize</b> (EP)</td><td>Prod. management</td><td><span class="chip c-no">No</span></td><td><span class="chip c-ok">Breakdown + docs</span></td><td><span class="chip c-no">No</span></td><td><span class="chip c-no">No</span></td><td><span class="chip c-no">No</span></td><td><span class="chip c-no">No</span></td></tr>
+        <tr><td><b>Yamdu</b></td><td>Prod. management</td><td><span class="chip c-part">Light</span></td><td><span class="chip c-ok">Yes + call sheets/tasks</span></td><td><span class="chip c-no">No</span></td><td><span class="chip c-no">No</span></td><td><span class="chip c-no">No</span></td><td><span class="chip c-no">No</span></td></tr>
+        <tr><td><b>StudioBinder</b></td><td>Prod. management</td><td><span class="chip c-part">Light</span></td><td><span class="chip c-ok">Yes + call sheets/shots</span></td><td><span class="chip c-no">No</span></td><td><span class="chip c-no">No</span></td><td><span class="chip c-no">No</span></td><td><span class="chip c-no">No</span></td></tr>
+        <tr><td><b>SetHero</b></td><td>Prod. management (indie)</td><td><span class="chip c-part">Light</span></td><td><span class="chip c-ok">Schedule + call sheets</span></td><td><span class="chip c-no">No</span></td><td><span class="chip c-no">No</span></td><td><span class="chip c-no">No</span></td><td><span class="chip c-no">No</span></td></tr>
+        <tr><td><b>Wrapbook / GreenSlate / Saturation</b></td><td>Modern cloud accounting</td><td><span class="chip c-part">Some</span></td><td><span class="chip c-no">No</span></td><td><span class="chip c-ok">Yes</span></td><td><span class="chip c-ok">Yes</span></td><td><span class="chip c-ok">Yes</span></td><td><span class="chip c-ok">Yes</span></td></tr>
+        <tr style="background:var(--gold-soft)"><td><b>TFM-System</b> (target)</td><td><b>Unified</b></td><td><span class="chip c-ok">Versioned + locked</span></td><td><span class="chip c-ok">Stripboard + breakdown</span></td><td><span class="chip c-part">PO yes, no PR</span></td><td><span class="chip c-part">Timecards+fringe; no run</span></td><td><span class="chip c-part">Project ledger ≠ GL</span></td><td><span class="chip c-part">EFC, not schedule-driven</span></td></tr>
+      </tbody>
+    </table>
+    <p class="legend">Takeaway: the leaders are deep but siloed (EP forces a 3-product chain; the management tools have no accounting). TFM already spans all three columns — the remaining work is depth in the accounting/forecast column, not breadth.</p>
+
+    <!-- ===================== 3. GAP ANALYSIS ===================== -->
+    <h2><span class="n">3</span>Gap analysis — TFM vs industry standard</h2>
+    <p class="legend"><span class="chip c-ok">Aligned</span> meets/exceeds standard &nbsp; <span class="chip c-part">Partial</span> exists but incomplete &nbsp; <span class="chip c-no">Missing</span> absent &nbsp; · "Risk" = what breaks in a real production/audit.</p>
+
+    <h3>3.1 What's already aligned (the strong core)</h3>
+    <table>
+      <thead><tr><th style="width:26%">Capability</th><th>Status</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>Locked budget lifecycle</td><td><span class="chip c-ok">Aligned</span></td><td>Draft→Review→Approved→Locked→Working state machine, role-gated, <code>lockedAt</code>, read-only enforcement, full lifecycle audit log, sequential V-numbering, working-copy branching.</td></tr>
+        <tr><td>Baseline vs working comparison</td><td><span class="chip c-ok">Aligned</span></td><td>Top-sheet dual-column locked-baseline vs current-working with per-section variance.</td></tr>
+        <tr><td>Fringes / labor burden</td><td><span class="chip c-ok">Aligned</span></td><td>Real fringe engine (PERCENT, FLAT/day/week/hr, capped, tiered) covering tax, unemployment, workers' comp, pension/health, guild dues, gratuity; per-diem + box/kit on timecards.</td></tr>
+        <tr><td>Globals &amp; formula engine</td><td><span class="chip c-ok">Aligned</span></td><td>Shoot-days/prep-weeks globals drive line formulas (MMB-equivalent).</td></tr>
+        <tr><td>Cost report (EFC chain)</td><td><span class="chip c-ok">Aligned</span></td><td>Budget→Committed→Actual→ETC→EFC→Variance per cost center, with overages + transfers + bond-grade snapshots.</td></tr>
+        <tr><td>PO lifecycle + AP controls</td><td><span class="chip c-ok">Aligned</span></td><td>7-state PO, approval routing + capability gate, partial invoicing, AP aging, payment run with three-way-match + segregation-of-duties.</td></tr>
+        <tr><td>Period close lock</td><td><span class="chip c-ok">Aligned</span></td><td>Shared month-lock enforced across ledger, costing, payroll, locations, contracts.</td></tr>
+        <tr><td>Contracts / deal memos → commitment</td><td><span class="chip c-ok">Aligned</span></td><td>Deal memo links to a budget line; full e-signature auto-creates an approved PO (encumbrance) on that line's cost center.</td></tr>
+        <tr><td>Vendors master → project</td><td><span class="chip c-ok">Aligned</span></td><td>Supplier master → project vendor snapshot → PO, with self-onboarding.</td></tr>
+        <tr><td>Breakdown → budget</td><td><span class="chip c-ok">Aligned</span></td><td>Full MMS element taxonomy; push-to-budget + category-count→rate-card budget generation; script-tag→draft line bridge.</td></tr>
+        <tr><td>e-invoicing compliance</td><td><span class="chip c-ok">Aligned</span></td><td>ZATCA (KSA) + JoFotara (Jordan) fields built in — ahead of most platforms for the region.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>3.2 What's missing / risky / needs redesign</h3>
+    <table>
+      <thead><tr><th style="width:22%">Gap</th><th>Status</th><th>Risk in a real production</th><th>Action</th></tr></thead>
+      <tbody>
+        <tr><td><b>Project ledger ≠ double-entry GL</b></td><td><span class="chip c-no">Missing link</span></td><td><b>Highest.</b> Project actuals (ProjectTransaction) never post to the journal/trial balance; the final cost report cannot be tied to audited books. Auditors and financiers require this reconciliation.</td><td>Posting bridge: every project COST/INCOME → balanced journal entry; cost report reconciles to trial balance.</td></tr>
+        <tr><td><b>Forecast not schedule-driven</b></td><td><span class="chip c-part">Partial</span></td><td>ETC = manual or = open-PO remaining only; moving a shoot day or strips does not move the EFC. WCR forecasting is supposed to be continuous.</td><td>First-class Forecast: burn-rate + schedule-driven ETC, scenario versions, variance alerts.</td></tr>
+        <tr><td><b>PO binds to cost-center code, not budget line</b></td><td><span class="chip c-part">Redesign</span></td><td>Commitments roll up by account only — no PO↔line traceability, so line-level variance and "what committed against this line" are unanswerable.</td><td>Add <code>budgetLineItemId</code> to PO lines; commit/actual at line level.</td></tr>
+        <tr><td><b>No Purchase Request / requisition</b></td><td><span class="chip c-no">Missing</span></td><td>POs are created directly — no requisition→approval→PO control, a standard studio procurement gate.</td><td>Add PurchaseRequest (req→approve→convert to PO).</td></tr>
+        <tr><td><b>No cash advance / float clearing</b></td><td><span class="chip c-no">Missing</span></td><td>Floats issued to ADs/PMs can't be tracked or cleared by receipts — a real cash-control hole.</td><td>CashAdvance model + reconciliation against petty cash / expense report.</td></tr>
+        <tr><td><b>No credit-card (P-card) feed</b></td><td><span class="chip c-no">Missing</span></td><td>Card spend (large on modern shoots) has nowhere to live except generic costs; no statement reconciliation.</td><td>Card-transaction import + coding + statement rec.</td></tr>
+        <tr><td><b>Expense claims hit company GL, not project</b></td><td><span class="chip c-part">Partial</span></td><td>Crew out-of-pocket reimbursements don't reach the project cost report.</td><td>Project-scoped expense claim → reimbursement → coded actual.</td></tr>
+        <tr><td><b>No production PayrollRun register</b></td><td><span class="chip c-part">Partial</span></td><td>Each timecard posts individually; no batch payroll register to reconcile to the cost report or to a payroll service.</td><td>Wire PayrollRun/Payslip to production timecards → batched posting + register.</td></tr>
+        <tr><td><b>No Daily Production Report (DPR)</b></td><td><span class="chip c-no">Missing</span></td><td>The DPR (scenes/pages shot, hours, meal penalties, raw daily cost / "hot costs") is a mandatory studio artifact and the daily companion to the call sheet.</td><td>DPR model + hot-cost capture; financier daily.</td></tr>
+        <tr><td>Script→scene→strip→element FKs are soft</td><td><span class="chip c-part">Partial</span></td><td>Linked by scene-number/subtitle matching, not referential integrity — sync can drift on re-import.</td><td>Hard FKs + change-propagation warnings.</td></tr>
+        <tr><td>Project cash not bank-reconciled</td><td><span class="chip c-no">Missing</span></td><td>Bank rec exists only for the company GL, not project disbursements.</td><td>Per-project bank rec (follows the GL bridge).</td></tr>
+        <tr><td>No financier / bond reporting pack</td><td><span class="chip c-part">Partial</span></td><td>Snapshot exists, but no packaged WCR + DPR + cashflow + cast/crew cost deliverable.</td><td>Reporting pack export (PDF bundle).</td></tr>
+      </tbody>
+    </table>
+
+    <!-- ===================== 4. RECOMMENDATIONS ===================== -->
+    <h2><span class="n">4</span>Recommendations — a phased, additive plan</h2>
+    <p>All changes are additive and reversible; nothing requires tearing down the strong core. Ordered by what protects auditability and trust first.</p>
+    <div class="phase"><span class="tag tag-now">PHASE 1 · before launch — integrity & audit</span><br/>
+      <b>① GL posting bridge</b> — post every project COST/INCOME actual to the double-entry journal so the cost report reconciles to the trial balance (this is the single biggest credibility item for accountants/financiers). <b>② PO → budget line</b> — line-level commitments &amp; variance. <b>③ Fold location/parallel rollups into cost-center actuals</b> so the cost report is the one source of truth.</div>
+    <div class="phase"><span class="tag tag-soon">PHASE 2 · controls — procurement & cash</span><br/>
+      <b>④ Purchase Requests</b> (requisition→approve→PO). <b>⑤ Cash advances</b> + float clearing. <b>⑥ Credit-card feed</b> + coding + statement rec. <b>⑦ Project expense claims</b> → reimbursement. <b>⑧ Per-project bank reconciliation.</b></div>
+    <div class="phase"><span class="tag tag-later">PHASE 3 · forecasting & reporting</span><br/>
+      <b>⑨ First-class Forecast</b> — schedule/burn-driven ETC + scenario versions + variance alerts. <b>⑩ Daily Production Report + hot costs.</b> <b>⑪ Financier/bond reporting pack</b> (WCR + DPR + cashflow + cast/crew cost). <b>⑫ Batch production PayrollRun register.</b></div>
+    <div class="phase"><span class="tag tag-later">PHASE 4 · sync integrity</span><br/>
+      <b>⑬ Hard FKs</b> across script→scene→strip→element→budget line→commitment→actual. <b>⑭ Change-propagation</b> — breakdown/schedule edits raise budget &amp; forecast warnings (the "creative decision changed a cost" alert).</div>
+
+    <h3>Essential for enterprise/studio use (the must-haves)</h3>
+    <p>If the goal is for studios, line producers, accountants and financiers to <i>rely</i> on TFM: the GL reconciliation (①), line-level commitments (②), purchase requests (④), a real forecast (⑨), and the DPR + reporting pack (⑩⑪) are the non-negotiables. Everything else is competitive polish.</p>
+
+    <!-- ===================== 5. DATA MODEL ===================== -->
+    <h2><span class="n">5</span>Proposed enterprise data model</h2>
+    <p>The spine already largely exists in TFM. Solid arrows are links that exist today; <span style="color:var(--bad);font-weight:800">dashed red</span> are the missing/weak links from §3 that close the loop to true industry standard.</p>
+    <svg viewBox="0 0 1000 540" xmlns="http://www.w3.org/2000/svg" font-family="Helvetica,Arial,sans-serif">
+      <defs>
+        <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#141d33"/></marker>
+        <marker id="ark" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#141d33"/></marker>
+        <marker id="arr" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#b3261e"/></marker>
+      </defs>
+      <style>
+        .box{rx:8;fill:#fff;stroke:#141d33;stroke-width:1.5}
+        .lbl{font-size:11px;font-weight:800;fill:#141d33}.sub{font-size:8.5px;fill:#69707d}
+        .core{fill:#f7efda;stroke:#c2922f}
+        .miss{fill:#fbeeed;stroke:#b3261e;stroke-dasharray:4 3}
+        .ln{stroke:#141d33;stroke-width:1.6;fill:none;marker-end:url(#ark)}
+        .lnr{stroke:#b3261e;stroke-width:1.8;fill:none;stroke-dasharray:5 3;marker-end:url(#arr)}
+        .et{font-size:8px;fill:#b3261e;font-weight:700}
+      </style>
+      <!-- spine row 1 -->
+      <g>
+        <rect class="box" x="20" y="30" width="120" height="46"/><text class="lbl" x="30" y="52">Script</text><text class="sub" x="30" y="65">scenes · annotations</text>
+        <rect class="box" x="180" y="30" width="130" height="46"/><text class="lbl" x="190" y="52">Breakdown</text><text class="sub" x="190" y="65">elements (cast/props…)</text>
+        <rect class="box" x="350" y="30" width="130" height="46"/><text class="lbl" x="360" y="52">Schedule</text><text class="sub" x="360" y="65">stripboard · shoot days</text>
+        <rect class="box core" x="520" y="26" width="150" height="54"/><text class="lbl" x="530" y="48">Budget ▣ Locked</text><text class="sub" x="530" y="62">versions · sections</text><text class="sub" x="530" y="73">accounts · lines · fringes</text>
+      </g>
+      <path class="ln" d="M140,53 L178,53"/>
+      <path class="lnr" d="M310,53 L348,53"/><text class="et" x="312" y="46">soft FK</text>
+      <path class="ln" d="M480,53 L518,53"/>
+      <!-- commitments -->
+      <rect class="miss" x="180" y="150" width="140" height="48"/><text class="lbl" x="190" y="170">Purchase Request</text><text class="sub" x="190" y="183">requisition → approve</text>
+      <rect class="box core" x="360" y="150" width="140" height="48"/><text class="lbl" x="370" y="170">Purchase Order</text><text class="sub" x="370" y="183">committed (encumbrance)</text>
+      <rect class="box core" x="540" y="150" width="150" height="48"/><text class="lbl" x="550" y="170">Contract / Deal Memo</text><text class="sub" x="550" y="183">rate → auto-PO</text>
+      <path class="lnr" d="M250,150 L250,86 L255,86" transform="translate(0,0)"/>
+      <path class="lnr" d="M320,174 L358,174"/><text class="et" x="322" y="167">convert</text>
+      <path class="ln" d="M430,150 L520,86" /><text class="sub" x="455" y="120">commit→line?</text>
+      <path class="lnr" d="M600,150 L600,86" /><text class="et" x="604" y="120">to line</text>
+      <path class="ln" d="M540,174 L502,174"/>
+      <!-- actuals -->
+      <rect class="box" x="40" y="270" width="150" height="64"/><text class="lbl" x="50" y="290">Actuals — AP</text><text class="sub" x="50" y="303">invoice · vendor pay</text><text class="sub" x="50" y="315">petty cash</text><text class="sub" x="50" y="327" fill="#b3261e">+ card · cash adv · claim</text>
+      <rect class="box" x="220" y="270" width="150" height="64"/><text class="lbl" x="230" y="290">Timecards</text><text class="sub" x="230" y="303">OT · per-diem · box/kit</text><text class="sub" x="230" y="315">→ Fringe engine</text><text class="sub" x="230" y="327" fill="#b3261e">→ PayrollRun register</text>
+      <rect class="box core" x="430" y="276" width="150" height="52"/><text class="lbl" x="440" y="298">Actual Cost</text><text class="sub" x="440" y="312">ProjectTransaction</text>
+      <path class="ln" d="M380,166 L430,260 L450,276"/><text class="sub" x="392" y="230">invoice→actual</text>
+      <path class="ln" d="M150,270 L150,334 L430,300 "/><path class="ln" d="M190,302 L428,302"/>
+      <path class="ln" d="M300,334 L300,360 L455,328"/><path class="ln" d="M370,308 L428,308"/>
+      <!-- forecast + GL + report row -->
+      <rect class="miss" x="430" y="380" width="150" height="48"/><text class="lbl" x="440" y="400">Forecast (EFC)</text><text class="sub" x="440" y="413" fill="#b3261e">schedule/burn-driven</text>
+      <rect class="miss" x="620" y="276" width="150" height="52"/><text class="lbl" x="630" y="298">General Ledger</text><text class="sub" x="630" y="312" fill="#b3261e">journal · trial balance</text>
+      <rect class="box core" x="700" y="380" width="170" height="60"/><text class="lbl" x="710" y="402">Cost Report / WCR</text><text class="sub" x="710" y="416">budget→commit→actual</text><text class="sub" x="710" y="427">→ETC→EFC→variance</text>
+      <rect class="miss" x="700" y="460" width="170" height="44"/><text class="lbl" x="710" y="480">DPR + Snapshot</text><text class="sub" x="710" y="493" fill="#b3261e">daily · financier pack</text>
+      <path class="ln" d="M580,302 L640,86 L640,80"/><text class="sub" x="600" y="180">budget feeds report</text>
+      <path class="ln" d="M505,328 L505,378"/>
+      <path class="lnr" d="M580,302 L618,302"/><text class="et" x="582" y="295">post to GL</text>
+      <path class="ln" d="M580,404 L698,404"/>
+      <path class="ln" d="M770,328 L800,378"/><text class="sub" x="775" y="356">GL ties</text>
+      <path class="ln" d="M785,440 L785,458"/>
+      <text x="20" y="525" font-size="9" fill="#69707d">Solid = link exists in TFM today · Dashed red = missing/weak link to add (PR, PO→line, card/cash-adv/claim, PayrollRun, GL bridge, schedule-driven Forecast, DPR/pack).</text>
+    </svg>
+
+    <p>Relationship spine in words: <b>Script.scene → Breakdown.element → Strip(schedule) → BudgetLineItem</b> (the locked baseline) → committed by <b>PurchaseRequest→PurchaseOrder.line</b> and <b>Contract/DealMemo</b> → realized by <b>ProjectTransaction</b> (AP invoice / petty cash / card / cash-advance / expense-claim) and <b>Timecard→PayrollRun</b> (with the fringe engine) → continuously projected by <b>Forecast (ETC/EFC)</b> → posted to the <b>General Ledger</b> → reported in the <b>Cost Report / WCR</b>, frozen as <b>Snapshots</b> and reported daily as the <b>DPR</b>. Every node except PurchaseRequest, the GL bridge, schedule-driven Forecast and the DPR already exists; the redesign work is to make the commitment/actual links bind at the <i>line</i> level and to reconcile the project ledger to the GL.</p>
+
+    <!-- ===================== SOURCES ===================== -->
+    <h2><span class="n">6</span>Sources</h2>
+    <p class="src">
+      Saturation.io — <a href="https://saturation.io/blog/production-cost-report">Production Cost Report guide</a>, <a href="https://saturation.io/blog/film-production-accounting-software">accounting software</a> · Film Production &amp; The Money — <a href="https://filmproduction.wordpress.com/2013/12/30/crossing-over-to-film-accounting-the-cost-report/">The Cost Report</a> · Wander CPA — <a href="https://www.wandercpa.com/production-cost-report/">Decoding the Cost Report</a> · Movie Magic Budgeting Manual — <a href="https://mmb-docs.ep.com/Topsheet/Topsheet_Structure.html">Topsheet structure</a>, <a href="https://mmb-docs.ep.com/Budget_Preferences/Budget_Prefs_Fringe.html">Fringe settings</a> · Movie Magic Scheduling Manual — <a href="https://mms-docs.ep.com/Stripboards/Stripboard.html">Stripboard</a> · Wrapbook — <a href="https://www.wrapbook.com/blog/fringe-mapping-basics-to-keep-in-mind">Fringe mapping</a>, <a href="https://www.wrapbook.com/blog/best-production-accounting-software">Best production accounting software</a> · West One Entertainment — <a href="https://westoneentertainment.com/news/unraveling-fringes-in-film-budgeting-accounting-for-employee-benefits-and-payroll-taxes/">Fringes explained</a> · CMS Productions — <a href="https://cmsproductions.com/blog/understanding-iatse-fringe-rates/">IATSE fringe rates</a> · Entertainment Partners — <a href="https://www.ep.com/smartaccounting/">SmartAccounting</a> · StudioBinder — <a href="https://www.studiobinder.com/blog/production-management-software/">Production management software</a>, <a href="https://www.studiobinder.com/blog/free-script-breakdown-sheet/">Script breakdown</a>.
+    </p>
+    <p class="legend">Prepared for TFM-System · benchmark + gap analysis · Generated as a planning artifact — no code changed.</p>
+  </div>
+</div>
+</body>
+</html>

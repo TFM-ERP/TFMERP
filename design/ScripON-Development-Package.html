@@ -1,0 +1,309 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ScripON · Development Package — proposal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b0c0f;--panel:#14161c;--panel2:#1a1d24;--hair:rgba(255,255,255,.08);--hair2:rgba(255,255,255,.14);--gold:#C6A463;--gold2:#E6D2A2;--goldink:#15120B;--cream:#F4EEE0;--text:#E8E6E0;--mute:#9aa1ab;--faint:#6b727d;--blue:#5b8def;--green:#57b368;--amber:#e0a23b;--red:#e5635f;--violet:#8b7cf0;--paper:#F7F4EC;--ink:#23231f}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(1100px 560px at 50% -10%,#15171d,#0b0c0f 60%);color:var(--text);font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased;padding:0 0 80px}
+.wrap{max-width:1180px;margin:0 auto;padding:0 22px}
+.intro{padding:22px 0 8px}
+.intro h1{font-family:Fraunces,Georgia,serif;font-weight:600;font-size:26px;color:var(--cream);margin:0 0 6px}
+.intro p{color:var(--mute);font-size:13.5px;line-height:1.6;margin:0 0 8px;max-width:900px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;margin:12px 0 4px;font-size:11.5px;color:var(--faint)}
+.legend b{font-weight:700}
+.tag{display:inline-flex;align-items:center;gap:6px;border-radius:99px;padding:3px 10px;font-size:11px;font-weight:700}
+.tag.live{color:var(--green);background:rgba(87,179,104,.12);border:1px solid rgba(87,179,104,.35)}
+.tag.gen{color:var(--gold2);background:rgba(198,164,99,.12);border:1px solid rgba(198,164,99,.35)}
+/* app frame */
+.frame{margin-top:16px;background:#0c0d10;border:1px solid var(--hair2);border-radius:18px;overflow:hidden;box-shadow:0 40px 90px -30px rgba(0,0,0,.8)}
+.tabs{display:flex;align-items:center;gap:8px;padding:12px 16px;background:linear-gradient(180deg,#101218,#0c0d10);border-bottom:1px solid var(--hair)}
+.tab{font-size:13px;font-weight:700;color:var(--mute);padding:7px 13px;border-radius:9px}
+.tab.on{color:var(--gold2);background:rgba(198,164,99,.12);border:1px solid rgba(198,164,99,.32)}
+.crumb{margin-left:auto;font-size:11.5px;color:var(--faint)}
+/* header strip */
+.head{display:flex;gap:18px;align-items:flex-start;padding:20px 24px;border-bottom:1px solid var(--hair);background:linear-gradient(180deg,rgba(198,164,99,.05),transparent 60%)}
+.poster{width:96px;height:132px;border-radius:10px;flex:none;background:linear-gradient(160deg,#2a2418,#15120b);border:1px solid rgba(198,164,99,.3);display:grid;place-items:center;color:var(--gold2);font-family:Fraunces,serif;font-size:13px;text-align:center;padding:8px;box-shadow:0 16px 30px -16px rgba(0,0,0,.7)}
+.htitle{flex:1;min-width:0}
+.eyebrow{font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--gold)}
+.htitle h2{font-family:Fraunces,Georgia,serif;font-weight:600;font-size:30px;color:var(--cream);margin:4px 0 6px}
+.logline{font-size:15px;color:var(--text);line-height:1.5;max-width:680px;font-style:italic}
+.chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
+.chip{font-size:11.5px;color:var(--gold2);background:rgba(198,164,99,.1);border:1px solid rgba(198,164,99,.28);border-radius:99px;padding:4px 11px}
+.chip.muted{color:var(--mute);background:#171a20;border-color:var(--hair)}
+.chip.blend{color:var(--violet);background:rgba(139,124,240,.1);border-color:rgba(139,124,240,.32)}
+.hactions{display:flex;flex-direction:column;gap:8px;flex:none}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:11px;padding:10px 15px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap}
+.btn.gold{background:linear-gradient(180deg,var(--gold2),var(--gold));color:var(--goldink);border:none}
+.btn.outline{background:transparent;border:1px solid rgba(198,164,99,.5);color:var(--gold2)}
+.btn.ghost{background:#171a20;border:1px solid var(--hair);color:var(--mute)}
+.verdict{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:800;border-radius:8px;padding:6px 11px}
+.verdict.consider{color:var(--amber);background:rgba(224,162,59,.12);border:1px solid rgba(224,162,59,.4)}
+/* body: section nav + content */
+.body{display:grid;grid-template-columns:208px 1fr;min-height:600px}
+.snav{border-right:1px solid var(--hair);padding:16px 10px;display:flex;flex-direction:column;gap:2px;background:#0e1015}
+.snav a{font-size:12.5px;font-weight:600;color:var(--mute);padding:8px 11px;border-radius:9px;text-decoration:none;display:flex;align-items:center;gap:9px}
+.snav a.on,.snav a:hover{color:var(--gold2);background:rgba(198,164,99,.1)}
+.snav .num{font-size:10px;color:var(--faint);width:14px}
+.content{padding:8px 26px 30px;min-width:0}
+.sec{padding:22px 0;border-bottom:1px solid var(--hair)}
+.sec:last-child{border-bottom:none}
+.sh{display:flex;align-items:center;gap:10px;margin:0 0 14px}
+.sh h3{font-family:Fraunces,Georgia,serif;font-weight:600;font-size:19px;color:var(--cream);margin:0}
+.metagrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.mcell{background:var(--panel);border:1px solid var(--hair);border-radius:12px;padding:12px 13px}
+.mcell .k{font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:var(--faint);margin-bottom:4px}
+.mcell .v{font-size:14px;font-weight:700;color:var(--cream)}
+.prose{font-family:Fraunces,Georgia,serif;font-size:15px;line-height:1.8;color:#d9d4c6;max-width:760px}
+.prose p{margin:0 0 14px}
+/* beats */
+.beats{display:flex;flex-direction:column;gap:0}
+.beat{display:flex;gap:12px;padding:10px 0;border-top:1px solid var(--hair)}
+.beat:first-child{border-top:none}
+.beat .bn{width:26px;height:26px;border-radius:50%;background:rgba(198,164,99,.15);color:var(--gold2);display:grid;place-items:center;font-size:11px;font-weight:800;flex:none}
+.beat .bt{font-size:13px;font-weight:700;color:var(--cream)}
+.beat .bs{font-size:12px;color:var(--mute);margin-top:2px;line-height:1.5}
+/* character bible */
+.chars{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.cc{background:var(--panel);border:1px solid var(--hair);border-radius:14px;padding:16px 17px}
+.cc .cn{font-family:Fraunces,serif;font-weight:600;font-size:17px;color:var(--cream);letter-spacing:.3px}
+.cc .ct{font-size:12.5px;color:var(--gold2);font-style:italic;margin:2px 0 8px}
+.cc .meta{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.cc .mb{font-size:10.5px;color:var(--mute);background:#171a20;border:1px solid var(--hair);border-radius:7px;padding:3px 8px}
+.cc h5{font-size:10px;letter-spacing:.6px;text-transform:uppercase;color:var(--faint);margin:11px 0 4px}
+.cc .ci{font-size:12.5px;color:var(--text);line-height:1.55}
+.cc ul{margin:3px 0 0;padding-left:16px;color:var(--mute);font-size:12px;line-height:1.6}
+.cc .arc{font-size:12.5px;color:var(--gold2);font-weight:600}
+.cc .arc b{color:var(--cream)}
+/* lore + genre */
+.cols2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.card{background:var(--panel);border:1px solid var(--hair);border-radius:13px;padding:15px 16px}
+.card .ct2{font-size:12px;font-weight:800;letter-spacing:.4px;color:var(--gold2);text-transform:uppercase;margin-bottom:9px}
+.lorechips{display:flex;flex-wrap:wrap;gap:6px}
+.lorechip{font-size:11.5px;color:var(--cream);background:rgba(198,164,99,.08);border:1px solid rgba(198,164,99,.25);border-radius:8px;padding:4px 9px}
+.gbar{display:flex;align-items:center;gap:10px;margin:9px 0}
+.gbar .gl{width:120px;font-size:12px;color:var(--text);font-weight:600}
+.gbar .track{flex:1;height:7px;border-radius:99px;background:#1b1e25;overflow:hidden}
+.gbar .track i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--gold),var(--gold2))}
+.gbar .gv{width:42px;text-align:right;font-size:11px;color:var(--gold2);font-weight:700}
+/* comps */
+.comp{display:flex;gap:11px;padding:9px 0;border-top:1px solid var(--hair)}
+.comp:first-child{border-top:none}
+.comp .ci3{font-size:13px;font-weight:700;color:var(--cream);width:200px;flex:none}
+.comp .cr{font-size:12px;color:var(--mute);line-height:1.5}
+/* coverage scores */
+.scores{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.score{background:var(--panel);border:1px solid var(--hair);border-radius:12px;padding:12px;text-align:center}
+.score .sv{font-family:Fraunces,serif;font-size:26px;font-weight:600;color:var(--gold2)}
+.score .sk{font-size:10px;letter-spacing:.4px;text-transform:uppercase;color:var(--faint);margin-top:2px}
+.cmt{font-size:12.5px;color:var(--mute);line-height:1.6;margin:6px 0}
+.cmt b{color:var(--cream);font-weight:700}
+/* scene cards */
+.scn{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.scard{background:#15171d;border:1px solid var(--hair);border-radius:9px;padding:8px 10px}
+.scard .sl{font-size:11px;font-weight:700;color:var(--cream)}
+.scard .ss{font-size:10.5px;color:var(--mute);margin-top:3px;line-height:1.45}
+@media(max-width:900px){.body{grid-template-columns:1fr}.chars,.cols2,.metagrid,.scores,.scn{grid-template-columns:1fr 1fr}.snav{flex-direction:row;flex-wrap:wrap;border-right:none;border-bottom:1px solid var(--hair)}}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="intro">
+    <h1>ScripON · Library → Development Package</h1>
+    <p>Today, opening a promoted project shows <b>only the script PDF</b>. This proposal turns it into a full <b>Development Package</b> — the same artifact a producer takes to a financier: logline, synopsis, treatment, structure, a character bible, the story world &amp; lore, genre &amp; texture, market &amp; comps, the coverage verdict, and the script. Almost all of it is data your <b>build &amp; develop stages already generated</b>; one new piece (a richer character bible) is generated on demand.</p>
+    <div class="legend">
+      <span class="tag live">● Live</span> already generated (develop stages / coverage / the build brief)
+      <span class="tag gen">✦ Generate</span> new one-click AI step (character bible, tone/world notes)
+    </div>
+  </div>
+
+  <div class="frame">
+    <div class="tabs"><span class="tab">Library</span><span class="tab on">Development Package</span><span class="crumb">ScripON › Library › Antara — mythic cut</span></div>
+
+    <!-- HEADER -->
+    <div class="head">
+      <div class="poster">ANTARA<br>mythic cut</div>
+      <div class="htitle">
+        <div class="eyebrow">Feature · 3-act · ~106 pp</div>
+        <h2>Antara — mythic cut</h2>
+        <div class="logline">A slave-born warrior-poet must cross enemy kingdoms and a cursed desert to win an impossible bride-price — and his own name — before the desert, the tribes, or a Persian army take it from him.</div>
+        <div class="chips">
+          <span class="chip">Historical Epic</span><span class="chip">Mythic Adventure</span>
+          <span class="chip blend">+ war-film grit</span><span class="chip blend">+ poetic drama</span>
+          <span class="chip muted">6th-c. Arabia · the Najd</span><span class="chip muted">Arabic / English</span><span class="chip muted">MENA + Global</span>
+        </div>
+      </div>
+      <div class="hactions">
+        <span class="verdict consider">◆ CONSIDER</span>
+        <button class="btn gold">▤ Read script</button>
+        <button class="btn outline">↓ Download PDF</button>
+        <button class="btn ghost">⤓ Export package</button>
+      </div>
+    </div>
+
+    <div class="body">
+      <!-- SECTION NAV -->
+      <div class="snav">
+        <a class="on"><span class="num">01</span> Overview</a>
+        <a><span class="num">02</span> Logline &amp; Synopsis</a>
+        <a><span class="num">03</span> Treatment</a>
+        <a><span class="num">04</span> Structure</a>
+        <a><span class="num">05</span> Characters</a>
+        <a><span class="num">06</span> World &amp; Lore</a>
+        <a><span class="num">07</span> Genre &amp; Texture</a>
+        <a><span class="num">08</span> Market &amp; Comps</a>
+        <a><span class="num">09</span> Coverage</a>
+        <a><span class="num">10</span> Scenes &amp; Script</a>
+      </div>
+
+      <div class="content">
+        <!-- 01 OVERVIEW -->
+        <div class="sec">
+          <div class="sh"><h3>Overview</h3><span class="tag live">● Live</span></div>
+          <div class="metagrid">
+            <div class="mcell"><div class="k">Format</div><div class="v">Feature · 3-act</div></div>
+            <div class="mcell"><div class="k">Length</div><div class="v">~106 pages</div></div>
+            <div class="mcell"><div class="k">Period · Locale</div><div class="v">6th-c. · the Najd</div></div>
+            <div class="mcell"><div class="k">Language · Market</div><div class="v">AR/EN · MENA+Global</div></div>
+            <div class="mcell"><div class="k">Framework</div><div class="v">Save the Cat</div></div>
+            <div class="mcell"><div class="k">Budget tier</div><div class="v">Mid-high epic</div></div>
+            <div class="mcell"><div class="k">Scenes · Locations</div><div class="v">45 · 18</div></div>
+            <div class="mcell"><div class="k">Status</div><div class="v" style="color:var(--gold2)">Promoted</div></div>
+          </div>
+        </div>
+
+        <!-- 02 LOGLINE + SYNOPSIS -->
+        <div class="sec">
+          <div class="sh"><h3>Logline &amp; Synopsis</h3><span class="tag live">● Live</span><span style="font-size:11px;color:var(--faint)">from Logline + Synopsis stages</span></div>
+          <div class="prose">
+            <p style="font-style:italic;color:var(--gold2)">A slave-born warrior-poet must cross enemy kingdoms and a cursed desert to win an impossible bride-price — and his own name.</p>
+            <p>Antara ibn Shaddad — half-Abyssinian, born property to the man who fathered him — is told he may marry Abla only if he delivers the Asafir camels, a royal herd held three kingdoms deep in Persian-controlled territory. The demand is an elegant execution. He accepts anyway, because the alternative is a life that has already been killing him slowly.</p>
+            <p>With his half-brother Shayboob he crosses the blood-enemy Dhubyan corridor, a djinn-warped no-man's-desert, and a Persian frontier at war — and is recognised, at last, by a king who respects strength over lineage. He returns with the herd and a name spoken aloud. The wedding is barely begun when a new banner crests the ridge: Aksum. The legend has only started.</p>
+          </div>
+        </div>
+
+        <!-- 03 TREATMENT -->
+        <div class="sec">
+          <div class="sh"><h3>Treatment</h3><span class="tag live">● Live</span><span style="font-size:11px;color:var(--faint)">≈10 beats / 3 acts · expandable</span></div>
+          <div class="prose"><p>The Najd at first light — a land that looks like the beginning of the world. Antara stands outside the gate of his own people's celebration, dressed as a free man but holding borrowed ground. Makhram names his price in public; Shaddad says nothing. In that silence Antara sees the whole architecture of his non-existence — and accepts the impossible. <span style="color:var(--faint)">[Read the full treatment →]</span></p></div>
+        </div>
+
+        <!-- 04 STRUCTURE -->
+        <div class="sec">
+          <div class="sh"><h3>Structure</h3><span class="tag live">● Live</span><span style="font-size:11px;color:var(--faint)">Save the Cat beat map</span></div>
+          <div class="beats">
+            <div class="beat"><div class="bn">1</div><div><div class="bt">Opening Image / Setup</div><div class="bs">The Najd at dawn; Antara outside the gate of his own clan's feast.</div></div></div>
+            <div class="beat"><div class="bn">2</div><div><div class="bt">Catalyst</div><div class="bs">Makhram names the Asafir-camel bride-price — an elegant execution.</div></div></div>
+            <div class="beat"><div class="bn">3</div><div><div class="bt">Break into Two</div><div class="bs">He accepts; the gate closes behind him, the desert opens ahead.</div></div></div>
+            <div class="beat"><div class="bn">4</div><div><div class="bt">Midpoint — The Ordeal</div><div class="bs">The djinn shows Shayboob Antara's most likely death; he names it instead.</div></div></div>
+            <div class="beat"><div class="bn">5</div><div><div class="bt">All Is Lost / Finale</div><div class="bs">The Persian river crossing; the herd won, the name spoken — Aksum on the ridge.</div></div></div>
+          </div>
+        </div>
+
+        <!-- 05 CHARACTERS -->
+        <div class="sec">
+          <div class="sh"><h3>Characters</h3><span class="tag gen">✦ Generate</span><span style="font-size:11px;color:var(--faint)">enriched from Coverage characters + scenes + draft</span></div>
+          <div class="chars">
+            <div class="cc">
+              <div class="cn">ANTARA IBN SHADDAD</div><div class="ct">"Born property, dies a legend"</div>
+              <div class="meta"><span class="mb">Age: 30s</span><span class="mb">Status: Freed slave-warrior</span><span class="mb">Role: Protagonist</span></div>
+              <h5>Core Identity</h5><div class="ci">A half-Abyssinian warrior-poet who must win his own name before he can win anything else.</div>
+              <h5>Traits</h5><ul><li>Ferocious yet courtly</li><li>Poet's tongue, soldier's hands</li><li>His tenderness is his armour's only gap</li></ul>
+              <h5>Function</h5><ul><li>Carries the spine — the engine of the whole film</li><li>Every other character measures themselves against him</li></ul>
+              <h5>Arc</h5><div class="arc"><b>Property → Champion → Free man → Legend.</b> He stops asking permission to exist.</div>
+            </div>
+            <div class="cc">
+              <div class="cn">KING AL-NU&lsquo;MAN IBN AL-MUNDHIR</div><div class="ct">"Power recognizes power"</div>
+              <div class="meta"><span class="mb">Age: 50s</span><span class="mb">Status: King of Al-Hira</span><span class="mb">Role: Imperial Authority</span></div>
+              <h5>Core Identity</h5><div class="ci">A ruler who respects strength and honour above lineage.</div>
+              <h5>Traits</h5><ul><li>Calculating, intelligent</li><li>Not racist, not sentimental</li><li>Values results over ideology</li></ul>
+              <h5>Function</h5><ul><li>Elevates Antara from tribal legend to regional force</li><li>Expands the scale of the story</li></ul>
+              <h5>Arc</h5><div class="arc"><b>Evaluator → Ally → Kingmaker.</b> He returns Antara as a prince, not a pawn.</div>
+            </div>
+            <div class="cc">
+              <div class="cn">SHAYBOOB</div><div class="ct">"The shadow that keeps him alive"</div>
+              <div class="meta"><span class="mb">Age: 30s</span><span class="mb">Status: Half-brother, scout</span><span class="mb">Role: Ally / conscience</span></div>
+              <h5>Core Identity</h5><div class="ci">A survivor who feels nothing on purpose — until loyalty costs him.</div>
+              <h5>Traits</h5><ul><li>Quick, invisible, wry</li><li>Reads terrain and people</li><li>Armour of detachment</li></ul>
+              <h5>Function</h5><ul><li>The witness, not the hero</li><li>Grounds Antara's myth in human cost</li></ul>
+              <h5>Arc</h5><div class="arc"><b>Detached survivor → Committed brother.</b> The debt comes due at the worst moment.</div>
+            </div>
+            <div class="cc">
+              <div class="cn">ABLA</div><div class="ct">"The name he fights toward"</div>
+              <div class="meta"><span class="mb">Age: 20s</span><span class="mb">Status: Free-born of Banu Abs</span><span class="mb">Role: The stake made human</span></div>
+              <h5>Core Identity</h5><div class="ci">Not a prize but the one person who ever named Antara without a qualifier.</div>
+              <h5>Traits</h5><ul><li>Present, choosing, steady</li><li>Holds the line across an impossible distance</li></ul>
+              <h5>Function</h5><ul><li>Turns an abstract goal (freedom) into a face</li><li>The why beneath every battle</li></ul>
+              <h5>Arc</h5><div class="arc"><b>Held-apart → Chosen.</b> Present and choosing, never passive.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 06 WORLD & LORE -->
+        <div class="sec">
+          <div class="sh"><h3>World &amp; Lore</h3><span class="tag live">● Live</span><span style="font-size:11px;color:var(--faint)">from the Lore Atlas + setting in the brief</span></div>
+          <div class="cols2">
+            <div class="card"><div class="ct2">Setting</div><div class="cmt"><b>Pre-Islamic Najd, 6th century.</b> Tribal Arabia between the Banu Abs and the Dhubyan blood-feud, the Lakhmid kingdom of Al-Hira, and the Persian frontier. Ochre stone, wind-carved silence, a culture of honour, raid and verse.</div></div>
+            <div class="card"><div class="ct2">Lore Atlas · layers</div><div class="lorechips"><span class="lorechip">Arabian folklore — djinn</span><span class="lorechip">Desert omens</span><span class="lorechip">Tribal honour codes</span><span class="lorechip">Naming &amp; dress customs</span><span class="lorechip">Raid &amp; feud lore</span></div><div class="cmt" style="margin-top:9px">Density: <b>Balanced</b> · the djinn is folklore, not a deity — it warps terrain and memory, never speaks as a god. Guardrail tier honoured.</div></div>
+          </div>
+        </div>
+
+        <!-- 07 GENRE & TEXTURE -->
+        <div class="sec">
+          <div class="sh"><h3>Genre &amp; Texture</h3><span class="tag live">● Live</span><span style="font-size:11px;color:var(--faint)">genres + blend layers + intensity</span></div>
+          <div class="cols2">
+            <div class="card"><div class="ct2">Genre &amp; blend</div><div class="chips"><span class="chip">Historical Epic</span><span class="chip">Mythic Adventure</span><span class="chip blend">+ war-film grit</span><span class="chip blend">+ poetic-drama lyricism</span></div><div class="cmt" style="margin-top:10px">Blend layers were pulled from other genres in Develop and steer every stage — the war grit sharpens the battles, the poetry threads Antara's Mu&lsquo;allaqa through the spine.</div></div>
+            <div class="card"><div class="ct2">Intensity</div>
+              <div class="gbar"><span class="gl">Historical epic</span><span class="track"><i style="width:88%"></i></span><span class="gv">88%</span></div>
+              <div class="gbar"><span class="gl">Mythic</span><span class="track"><i style="width:55%"></i></span><span class="gv">55%</span></div>
+              <div class="gbar"><span class="gl">War grit</span><span class="track"><i style="width:70%"></i></span><span class="gv">70%</span></div>
+              <div class="gbar"><span class="gl">Poetic drama</span><span class="track"><i style="width:48%"></i></span><span class="gv">48%</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 08 MARKET & COMPS -->
+        <div class="sec">
+          <div class="sh"><h3>Market &amp; Comps</h3><span class="tag live">● Live</span><span style="font-size:11px;color:var(--faint)">for the financier conversation</span></div>
+          <div class="cols2" style="margin-bottom:14px">
+            <div class="card"><div class="ct2">Positioning</div><div class="cmt"><b>MENA-first, global crossover.</b> Arabic principal with English-language path. Audience: epic-historical + four-quadrant crossover, the way a non-Western myth travels. Intent: theatrical feature + festival; financier pitch. Budget tier: mid-high studio epic — or vertical-scalable.</div></div>
+            <div class="card"><div class="ct2">Comparables</div>
+              <div class="comp"><div class="ci3">Gladiator (2000)</div><div class="cr">Enslaved fighter wins freedom through the arena, then history — same engine, proven box office.</div></div>
+              <div class="comp"><div class="ci3">Lawrence of Arabia</div><div class="cr">Desert epic + an outsider becoming legend; the visual scale benchmark.</div></div>
+              <div class="comp"><div class="ci3">The Message (1976)</div><div class="cr">Pre-Islamic Arabia at regional scale, reverent to culture — the audience precedent.</div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 09 COVERAGE -->
+        <div class="sec">
+          <div class="sh"><h3>Coverage</h3><span class="tag live">● Live</span><span style="font-size:11px;color:var(--faint)">the studio read — scores are holistic, not averaged</span></div>
+          <div class="scores">
+            <div class="score"><div class="sv">8</div><div class="sk">Premise</div></div>
+            <div class="score"><div class="sv">8</div><div class="sk">Characters</div></div>
+            <div class="score"><div class="sv">7</div><div class="sk">Structure</div></div>
+            <div class="score"><div class="sv">7</div><div class="sk">Market</div></div>
+          </div>
+          <div class="cmt"><b>Plot.</b> A clean want-vs-cost spine; the bride-price is a genuine ticking clock. Watch the mid-section travel beats for repetition (sc. 18–24).</div>
+          <div class="cmt"><b>Characters.</b> Antara's interiority carries; Shayboob's detachment-to-commitment is the sleeper arc. Abla needs one more active choice in Act 2.</div>
+          <div class="cmt"><b>Marketability.</b> Underserved myth with crossover comps and a built-in sequel banner (Aksum). Verdict: <b style="color:var(--amber)">CONSIDER</b> · writer <b style="color:var(--amber)">CONSIDER</b>.</div>
+        </div>
+
+        <!-- 10 SCENES & SCRIPT -->
+        <div class="sec">
+          <div class="sh"><h3>Scenes &amp; Script</h3><span class="tag live">● Live</span><span style="font-size:11px;color:var(--faint)">45 scene cards + the screenplay</span></div>
+          <div class="scn">
+            <div class="scard"><div class="sl">1 · EXT. THE NAJD - DAWN</div><div class="ss">Antara outside the gate; the bride-price is named.</div></div>
+            <div class="scard"><div class="sl">7 · EXT. DRY WADI - NIGHT</div><div class="ss">Shayboob calls it a death sentence; the refusal dies.</div></div>
+            <div class="scard"><div class="sl">22 · EXT. SALT PAN - NIGHT</div><div class="ss">The djinn shows Shayboob the death; Antara names it.</div></div>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:14px"><button class="btn gold">▤ Read full script</button><button class="btn outline">↓ Download PDF</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="intro" style="padding-top:22px">
+    <p style="font-size:12.5px"><b style="color:var(--cream)">What's already there vs new:</b> Overview, Logline/Synopsis, Treatment, Structure, World&amp;Lore, Genre&amp;Texture, Market&amp;Comps, Coverage and Scenes/Script all read from data your Develop stages, the Coverage report and the build brief already produce. The only <span class="tag gen">✦ Generate</span> step is the <b>character bible</b> (one click — enriches the coverage characters into tagline / core identity / traits / function / arc using the draft + scene cards). Everything here also drives an <b>Export package</b> (a pitch-ready PDF) for financing.</p>
+  </div>
+</div>
+</body></html>

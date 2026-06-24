@@ -1,0 +1,101 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ScripON — Package (Role/Look/Market/Notes)</title><style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Courier+Prime:wght@400;700&display=swap');
+:root{--bg:#0b0c0f;--panel:#14161c;--panel2:#1a1d24;--hair:rgba(255,255,255,.07);--hair2:rgba(255,255,255,.13);--gold:#C6A463;--gold2:#E6D2A2;--goldink:#1a1509;--cream:#F4EEE0;--text:#E8E6E0;--mute:#9aa1ab;--faint:#6b727d;--blue:#5b8def;--green:#57b368;--amber:#e0a23b;--red:#e5635f;--violet:#8b7cf0}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:radial-gradient(1200px 600px at 50% -8%,#15171d,#0b0c0f 60%);font-family:Inter,sans-serif;color:var(--text);-webkit-font-smoothing:antialiased;padding:40px;display:flex;flex-direction:column;align-items:center;gap:16px;min-height:100vh}
+.cap{color:var(--faint);font-size:12px}.cap b{color:var(--gold);font-weight:600}
+.screen{width:1440px;height:900px;background:var(--bg);border:1px solid var(--hair);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 50px 120px -30px rgba(0,0,0,.8);position:relative}
+svg{display:block}.ico{width:18px;height:18px;stroke:currentColor;stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.top{height:60px;flex:0 0 60px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;background:linear-gradient(180deg,#15181e,#121419);border-bottom:1px solid var(--hair)}
+.tl{display:flex;align-items:center;gap:12px}.logo{width:30px;height:30px;border-radius:9px;background:linear-gradient(160deg,var(--gold2),var(--gold));display:grid;place-items:center;color:var(--goldink);font-weight:800;font-size:12px}
+.proj{font-weight:700;font-size:15.5px;color:var(--cream)}.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700}.pill.blue{background:rgba(91,141,239,.16);color:#a9c4f7}.pill.blue .d{width:7px;height:7px;border-radius:50%;background:var(--blue)}.meta{color:var(--faint);font-size:12px}
+.btn{display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 14px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid transparent;color:var(--text)}.btn .ico{width:15px;height:15px}
+.btn.outline{background:#1c1d1a;border-color:rgba(198,164,99,.55);color:var(--gold2)}
+.btn.gold{background:linear-gradient(180deg,var(--gold2),var(--gold));color:var(--goldink);font-weight:700;box-shadow:0 6px 18px -4px rgba(198,164,99,.45)}
+.body{flex:1;display:flex;min-height:0}
+.rail{width:74px;flex:0 0 74px;background:#0e1015;border-right:1px solid var(--hair);display:flex;flex-direction:column;align-items:center;padding:14px 0;gap:6px}
+.ritem{width:58px;display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 0;border-radius:12px;color:var(--faint);position:relative}.ritem .box{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:#171a21;border:1px solid var(--hair);color:var(--mute)}.ritem .lbl{font-size:9px;font-weight:600}
+.ritem.on .box{background:linear-gradient(160deg,var(--gold2),var(--gold));border-color:transparent;color:var(--goldink)}.ritem.on .lbl{color:var(--gold2)}.ritem.on:before{content:"";position:absolute;left:-1px;top:14px;bottom:14px;width:3px;border-radius:3px;background:var(--gold)}
+.main{flex:1;min-width:0;display:flex;flex-direction:column;padding:20px 26px;gap:14px}
+.phead{display:flex;align-items:flex-end;justify-content:space-between}.phead h1{font-size:23px;font-weight:800;color:var(--cream);letter-spacing:-.5px}.phead .sub{font-size:12.5px;color:var(--mute);margin-top:3px}
+.tabs{display:flex;gap:8px}.tab{padding:8px 15px;border-radius:10px;font-size:12.5px;font-weight:600;color:var(--mute);background:#171a20;border:1px solid var(--hair);cursor:pointer}.tab.on{background:rgba(198,164,99,.14);border-color:rgba(198,164,99,.45);color:var(--gold2)}
+.grid{flex:1;display:grid;grid-template-columns:1.45fr 1fr;gap:16px;min-height:0;overflow:hidden}
+.col{display:flex;flex-direction:column;gap:14px;min-height:0;overflow:hidden}
+.card{background:var(--panel);border:1px solid var(--hair);border-radius:14px;padding:15px 16px;display:flex;flex-direction:column;gap:11px}
+.ch{display:flex;align-items:center;justify-content:space-between}.ch .t{font-size:13px;font-weight:700;color:var(--cream)}.eyebrow{font-size:10px;font-weight:700;letter-spacing:1.1px;color:var(--gold)}
+.role{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--hair)}.role:first-of-type{border-top:none}
+.rin{width:38px;height:38px;border-radius:10px;flex:none;display:grid;place-items:center;font-weight:800;font-size:15px;color:#0b0c0f}
+.rnm{font-size:13.5px;font-weight:700;color:var(--cream)}.rmt{font-size:10.5px;color:var(--faint);margin-top:1px}.rds{font-size:11.5px;color:var(--mute);margin-top:3px}
+.rpc{margin-left:auto;text-align:right}.rpc .n{font-size:17px;font-weight:800;color:var(--gold2)}.rpc .l{font-size:8.5px;color:var(--faint);letter-spacing:.5px}
+.boards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.board{border-radius:11px;height:96px;position:relative;overflow:hidden;border:1px solid var(--hair)}.board .bc{position:absolute;left:0;right:0;bottom:0;padding:8px 9px;background:linear-gradient(0deg,rgba(8,9,12,.85),transparent)}.board .bk{font-size:8px;font-weight:800;letter-spacing:.6px;color:rgba(255,255,255,.8)}.board .bt{font-size:10.5px;font-weight:600;color:#fff;margin-top:1px;line-height:1.2}.board .rf{position:absolute;top:6px;right:7px;font-size:7.5px;font-family:"Courier Prime",monospace;color:rgba(255,255,255,.6)}
+.note{font-size:10px;color:var(--faint);font-style:italic}
+.mtable{width:100%;border-collapse:collapse;font-size:11px}.mtable th{text-align:left;font-size:8.5px;letter-spacing:.4px;color:var(--faint);text-transform:uppercase;padding:5px 6px;border-bottom:1px solid var(--hair)}.mtable td{padding:6px;border-bottom:1px solid var(--hair);color:var(--mute)}.mtable td b{color:var(--text)}
+.quad{display:grid;grid-template-columns:1fr 1fr;gap:5px}.qc{border:1px solid var(--hair);border-radius:7px;padding:6px 8px;background:#15181e;font-size:10px}.qc .ql{color:var(--faint)}.qc .qv{font-weight:800;margin-top:1px}
+.ranges{display:flex;gap:8px}.rg{flex:1;border:1px solid var(--hair);border-radius:9px;padding:8px;background:#15181e;text-align:center}.rg .rgl{font-size:8.5px;font-weight:700;color:var(--faint);letter-spacing:.4px}.rg .rgv{font-size:16px;font-weight:800;color:var(--cream);margin-top:2px}
+.disc{font-size:9.5px;color:var(--faint);font-style:italic}
+.tile{display:flex;align-items:center;gap:10px;background:#171a20;border:1px solid var(--hair);border-radius:10px;padding:10px 12px;cursor:pointer}.tile:hover{border-color:rgba(198,164,99,.4)}.tile .ti{width:28px;height:28px;border-radius:8px;background:rgba(198,164,99,.14);color:var(--gold2);display:grid;place-items:center;flex:none}.tile .ti .ico{width:15px;height:15px}.tile .tt{font-size:12.5px;font-weight:600;color:var(--cream)}.tile .ts{font-size:10px;color:var(--faint)}.tile .go{margin-left:auto;color:var(--faint)}
+.nstat{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--mute)}.nbadge{font-size:9px;font-weight:800;padding:3px 7px;border-radius:999px;background:rgba(224,162,59,.16);color:var(--amber)}
+</style></head><body>
+<div class="cap">ScripON · <b>Coverage package — Desktop</b> · role types (no performers) · world boards · honest market · feeds the lookbook</div>
+<div class="screen">
+<div class="top"><div class="tl"><div class="logo">TFM</div><div class="proj">Midnight Run</div><span class="pill blue"><span class="d"></span>BLUE · v4</span><span class="meta">Coverage package · grounded</span></div><div class="btn gold"><svg class="ico" viewBox="0 0 24 24" style="stroke:#1a1509"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Assemble lookbook PDF</div></div>
+<div class="body">
+<div class="rail"><div class="ritem"><div class="box"><svg class="ico" viewBox="0 0 24 24"><path d="M3 11l9-8 9 8M5 10v10h14V10"/></svg></div><div class="lbl">Home</div></div><div class="ritem"><div class="box"><svg class="ico" viewBox="0 0 24 24"><path d="M4 4h6v16H4zM14 4h6v16h-6z"/></svg></div><div class="lbl">Library</div></div><div class="ritem"><div class="box"><svg class="ico" viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/></svg></div><div class="lbl">Reader</div></div><div class="ritem"><div class="box"><svg class="ico" viewBox="0 0 24 24"><path d="M12 2l9 5-9 5-9-5z"/></svg></div><div class="lbl">Breakdown</div></div><div class="ritem"><div class="box"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></div><div class="lbl">Schedule</div></div><div class="ritem on"><div class="box"><svg class="ico" viewBox="0 0 24 24"><path d="M12 3l1.9 5.6L19.5 9l-4.5 3.3L16.8 18 12 14.7 7.2 18l1.8-5.7L4.5 9z"/></svg></div><div class="lbl">Doctor</div></div><div class="ritem"><div class="box"><svg class="ico" viewBox="0 0 24 24"><path d="M3 3v18h18M7 14l3-3 3 3 5-6"/></svg></div><div class="lbl">Reports</div></div><div class="ritem" style="margin-top:auto"><div class="box"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 13a7 7 0 000-2l2-1.5-2-3.4-2.3 1a7 7 0 00-1.7-1L15 3h-4l-.4 2.6a7 7 0 00-1.7 1l-2.3-1-2 3.4L6.6 11a7 7 0 000 2l-2 1.5 2 3.4 2.3-1a7 7 0 001.7 1L11 21h4l.4-2.6a7 7 0 001.7-1l2.3 1 2-3.4z"/></svg></div><div class="lbl">Settings</div></div></div>
+<div class="main">
+  <div class="phead"><div><h1>Coverage package</h1><div class="sub">Character types, world boards and an honest market read — no performers, no faces — assembled for the lookbook.</div></div><div class="eyebrow">NO PERFORMERS · LICENSED IMAGES ON EXPORT</div></div>
+  <div class="tabs"><span class="tab on">Role types</span><span class="tab">Look boards</span><span class="tab">Market</span><span class="tab">Notes · 12</span></div>
+  <div class="grid">
+    <div class="col">
+      <div class="card">
+        <div class="ch"><span class="t">Character types</span><span class="eyebrow">NO PERFORMERS · SCENES-% GROUNDED</span></div>
+        <div class="role"><div class="rin" style="background:linear-gradient(150deg,#d8b465,#a07f37)">S</div><div><div class="rnm">SARAH</div><div class="rmt">LEAD · 30s · female</div><div class="rds">Coiled, watchful; wary warmth under a fixer's armour.</div></div><div class="rpc"><div class="n">92%</div><div class="l">SCENES</div></div></div>
+        <div class="role"><div class="rin" style="background:linear-gradient(150deg,#5b8def,#3f5e9e)">R</div><div><div class="rnm">RILEY</div><div class="rmt">SUPPORTING · 40s · male</div><div class="rds">Steady, principled foil — the conscience she resists.</div></div><div class="rpc"><div class="n">54%</div><div class="l">SCENES</div></div></div>
+        <div class="role"><div class="rin" style="background:linear-gradient(150deg,#8b7cf0,#5d4fb0)">B</div><div><div class="rnm">THE BROKER</div><div class="rmt">SUPPORTING · 50s · male</div><div class="rds">Genial menace; trades in everyone's worst night.</div></div><div class="rpc"><div class="n">19%</div><div class="l">SCENES</div></div></div>
+      </div>
+      <div class="card" style="flex:1">
+        <div class="ch"><span class="t">World &amp; look boards</span><span class="eyebrow">NO FACES · PLAN</span></div>
+        <div class="boards">
+          <div class="board" style="background:linear-gradient(150deg,#2a3550,#0f1622)"><span class="rf">REF</span><div class="bc"><div class="bk">LOCATION</div><div class="bt">Rain-slick downtown</div></div></div>
+          <div class="board" style="background:linear-gradient(150deg,#3a2330,#161019)"><span class="rf">REF</span><div class="bc"><div class="bk">MOOD</div><div class="bt">Neon on wet asphalt</div></div></div>
+          <div class="board" style="background:linear-gradient(150deg,#332c1c,#15120a)"><span class="rf">REF</span><div class="bc"><div class="bk">PALETTE</div><div class="bt">Amber vs cold blue</div></div></div>
+          <div class="board" style="background:linear-gradient(150deg,#1f3329,#0f1713)"><span class="rf">REF</span><div class="bc"><div class="bk">LOCATION</div><div class="bt">Empty parking decks</div></div></div>
+          <div class="board" style="background:linear-gradient(150deg,#26283a,#111018)"><span class="rf">REF</span><div class="bc"><div class="bk">ERA</div><div class="bt">Present-day metropolis</div></div></div>
+          <div class="board" style="background:linear-gradient(150deg,#3a2a22,#16100c)"><span class="rf">REF</span><div class="bc"><div class="bk">MOOD</div><div class="bt">Back-rooms at 3am</div></div></div>
+        </div>
+        <div class="note">Plan only — images bound to licensed sources (Unsplash · Pexels · Wikimedia) on export. No faces, no people-as-casting.</div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="card">
+        <div class="ch"><span class="t">Market read</span><span class="eyebrow">HONEST · ESTIMATES</span></div>
+        <table class="mtable"><tr><th>Comp</th><th>Yr</th><th>Tier</th><th>Note</th></tr>
+          <tr><td><b>Nightcrawler</b></td><td>'14</td><td>$8.5M</td><td>closest tone+budget</td></tr>
+          <tr><td><b>Drive</b></td><td>'11</td><td>$15M</td><td>style-forward, legs</td></tr>
+          <tr><td><b>Good Time</b></td><td>'17</td><td>$2M</td><td>micro tonal sibling</td></tr>
+        </table>
+        <div class="quad">
+          <div class="qc"><div class="ql">Male &lt;25</div><div class="qv" style="color:var(--green)">HIGH</div></div>
+          <div class="qc"><div class="ql">Male 25+</div><div class="qv" style="color:var(--green)">HIGH</div></div>
+          <div class="qc"><div class="ql">Female &lt;25</div><div class="qv" style="color:var(--amber)">MED</div></div>
+          <div class="qc"><div class="ql">Female 25+</div><div class="qv" style="color:var(--amber)">MED</div></div>
+        </div>
+        <div class="ranges"><div class="rg"><div class="rgl">P10</div><div class="rgv">$6M</div></div><div class="rg"><div class="rgl">P50</div><div class="rgv">$28M</div></div><div class="rg"><div class="rgl">P90</div><div class="rgv">$70M</div></div></div>
+        <div class="disc">Confidence MEDIUM · comps by theme + budget band, not plot · no one can guarantee box office.</div>
+      </div>
+      <div class="card">
+        <div class="ch"><span class="t">Generate</span><span class="eyebrow">ON THIS SCRIPT</span></div>
+        <div class="tile"><div class="ti"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0116 0"/></svg></div><div><div class="tt">Role types</div><div class="ts">character briefs · no performers</div></div><span class="go">↻</span></div>
+        <div class="tile"><div class="ti"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 14l5-5 4 4 3-3 6 6"/></svg></div><div><div class="tt">Look-board plan</div><div class="ts">world · location · palette</div></div><span class="go">↻</span></div>
+        <div class="tile"><div class="ti"><svg class="ico" viewBox="0 0 24 24"><path d="M3 3v18h18M7 14l3-3 3 3 5-6"/></svg></div><div><div class="tt">Market read</div><div class="ts">comps · quadrant · ranges</div></div><span class="go">↻</span></div>
+      </div>
+      <div class="card">
+        <div class="ch"><span class="t">Living notes</span><span class="eyebrow">SCENE-ANCHORED</span></div>
+        <div class="nstat"><span>12 notes across the script</span><span class="nbadge">1 STALE</span></div>
+        <div class="note">Anchored to durable scene IDs — survive rewrites; flagged stale when their scene changes. Manage in the Coverage view.</div>
+      </div>
+    </div>
+  </div>
+</div>
+</div></div>
+</body></html>

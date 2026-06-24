@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="en" data-theme="graphite">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>TFM — Locations Module · Redesigned (clickable prototype)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--font-sans:'Inter',system-ui,sans-serif;--font-display:'Inter',sans-serif;--font-mono:'Courier Prime',monospace;--radius:12px;--shadow:0 8px 24px rgba(0,0,0,.4);--bg-image:none}
+[data-theme="graphite"]{--bg:#0E1117;--surface-1:#161C28;--surface-2:#1E2632;--surface-3:#28313F;--text-1:#F4F6FA;--text-2:#C2CAD6;--text-3:#8A94A6;--border-1:#262E3B;--border-2:#333D4D;--accent:#C9A24A;--accent-on:#161C28;--accent-soft:rgba(201,162,74,.14);--ok:#34D399;--ok-soft:rgba(52,211,153,.14);--warn:#E0A53F;--warn-soft:rgba(224,165,63,.16);--danger:#E2574C;--danger-soft:rgba(226,87,76,.16);--info:#5b8def;--info-soft:rgba(91,141,239,.16);--radius:13px;--shadow:0 10px 30px rgba(0,0,0,.45);--font-display:'Inter',sans-serif}
+[data-theme="studio"]{--bg:#F7F8FA;--surface-1:#FFFFFF;--surface-2:#F1F3F7;--surface-3:#E8EBF0;--text-1:#16202E;--text-2:#48536A;--text-3:#8A93A6;--border-1:#E6E9EF;--border-2:#D3D9E3;--accent:#5B5BD6;--accent-on:#FFFFFF;--accent-soft:#ECECFB;--ok:#1F9D63;--ok-soft:#E4F6EC;--warn:#B5791E;--warn-soft:#FBF0DA;--danger:#D14343;--danger-soft:#FBE7E7;--info:#2563eb;--info-soft:#E5EDFB;--radius:10px;--shadow:0 1px 2px rgba(16,24,40,.06),0 6px 18px rgba(16,24,40,.07);--font-display:'Inter',sans-serif}
+[data-theme="ink"]{--bg:#F2ECE1;--surface-1:#FBF8F2;--surface-2:#EFE8DC;--surface-3:#E6DCCA;--text-1:#1B1712;--text-2:#4A4338;--text-3:#867B6A;--border-1:#E3D9C8;--border-2:#CDBFA8;--accent:#B0532E;--accent-on:#FBF8F2;--accent-soft:#F0DFD2;--ok:#5E7A3A;--ok-soft:#E8EBD7;--warn:#B5791E;--warn-soft:#F3E6CC;--danger:#B23A2E;--danger-soft:#F2DBD5;--info:#3E6E8E;--info-soft:#DFE9EF;--radius:6px;--shadow:0 1px 2px rgba(60,40,20,.10),0 8px 20px rgba(60,40,20,.06);--font-display:'Fraunces',Georgia,serif}
+[data-theme="slate"]{--bg:#0B1220;--surface-1:#121A2A;--surface-2:#1A2436;--surface-3:#243149;--text-1:#EAF0FA;--text-2:#A9B6CC;--text-3:#6E7C95;--border-1:#1F2A3D;--border-2:#2C3A52;--accent:#3BA6C9;--accent-on:#06131C;--accent-soft:rgba(59,166,201,.16);--ok:#37C2A0;--ok-soft:rgba(55,194,160,.15);--warn:#E0A53F;--warn-soft:rgba(224,165,63,.16);--danger:#E2574C;--danger-soft:rgba(226,87,76,.16);--info:#6aa9e0;--info-soft:rgba(106,169,224,.16);--radius:12px;--shadow:0 10px 30px rgba(0,0,0,.5);--font-display:'Inter',sans-serif}
+[data-theme="aurora"]{--bg:#09080F;--surface-1:rgba(28,25,48,.72);--surface-2:rgba(40,35,68,.62);--surface-3:rgba(56,49,92,.6);--text-1:#F2EEFF;--text-2:#C6BFE2;--text-3:#928BB2;--border-1:rgba(150,130,255,.18);--border-2:rgba(150,130,255,.3);--accent:#8B7CF6;--accent-on:#0A0A14;--accent-soft:rgba(139,124,246,.2);--ok:#36D1A6;--ok-soft:rgba(54,209,166,.16);--warn:#E6B450;--warn-soft:rgba(230,180,80,.16);--danger:#F0606B;--danger-soft:rgba(240,96,107,.16);--info:#7c9cf6;--info-soft:rgba(124,156,246,.16);--radius:16px;--shadow:0 18px 50px rgba(80,40,160,.3);--font-display:'Inter',sans-serif;--bg-image:radial-gradient(900px 500px at 12% -8%,rgba(139,124,246,.22),transparent 60%),radial-gradient(800px 500px at 100% 0%,rgba(52,215,200,.16),transparent 55%)}
+[data-theme="midnight"]{--bg:#000;--surface-1:#0C0F14;--surface-2:#151A22;--surface-3:#1F2630;--text-1:#FFF;--text-2:#D6DDE8;--text-3:#9AA6B6;--border-1:#222A35;--border-2:#3A4654;--accent:#F5A623;--accent-on:#000;--accent-soft:rgba(245,166,35,.16);--ok:#3DDC84;--ok-soft:rgba(61,220,132,.16);--warn:#F5A623;--warn-soft:rgba(245,166,35,.16);--danger:#FF5A52;--danger-soft:rgba(255,90,82,.16);--info:#5b8def;--info-soft:rgba(91,141,239,.16);--radius:8px;--shadow:0 10px 30px rgba(0,0,0,.7);--font-display:'Inter',sans-serif}
+body{font-family:var(--font-sans);background:var(--bg);color:var(--text-1);background-image:var(--bg-image);background-attachment:fixed;-webkit-font-smoothing:antialiased;line-height:1.5;transition:background .35s,color .35s}
+.bar{position:sticky;top:0;z-index:60;display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:11px 18px;background:color-mix(in srgb,var(--bg) 86%,transparent);backdrop-filter:blur(12px);border-bottom:1px solid var(--border-1)}
+.bar .ttl{font-weight:800;letter-spacing:-.02em;font-size:13.5px}.bar .ttl small{display:block;font-weight:500;font-size:11px;color:var(--text-3)}
+.pills{display:flex;gap:7px;flex-wrap:wrap}.pill{cursor:pointer;border:1px solid var(--border-2);background:var(--surface-1);color:var(--text-2);padding:6px 12px;border-radius:999px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px}
+.pill:hover{color:var(--text-1);border-color:var(--accent)}.pill[aria-selected="true"]{background:var(--accent);color:var(--accent-on);border-color:var(--accent)}.pill .dot{width:9px;height:9px;border-radius:50%}
+.app{max-width:1280px;margin:16px auto;width:calc(100% - 26px);border:1px solid var(--border-1);border-radius:calc(var(--radius)+4px);overflow:hidden;background:var(--surface-1);box-shadow:var(--shadow)}
+.topbar{display:flex;align-items:center;gap:11px;padding:10px 14px;border-bottom:1px solid var(--border-1);flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:8px;font-weight:800}.brand .logo{width:26px;height:26px;border-radius:7px;display:grid;place-items:center;font-size:13px;font-weight:800;background:var(--accent);color:var(--accent-on)}
+.projchip{display:flex;align-items:center;gap:7px;padding:6px 11px;border-radius:999px;background:var(--surface-2);border:1px solid var(--border-1);font-size:12.5px;font-weight:700}.projchip .ph{font-weight:600;color:var(--accent);font-size:11px}
+.search{flex:1;max-width:260px;display:flex;align-items:center;gap:8px;padding:7px 11px;border-radius:999px;background:var(--surface-2);border:1px solid var(--border-1);color:var(--text-3);font-size:12px}
+.sp{flex:1}
+.seg{display:inline-flex;border:1px solid var(--border-1);border-radius:8px;overflow:hidden}
+.seg button{font-size:11.5px;font-weight:700;padding:6px 11px;background:var(--surface-2);color:var(--text-3);border:none;cursor:pointer}.seg button.on{background:var(--accent);color:var(--accent-on)}
+.avatar{width:30px;height:30px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-weight:700;font-size:12px;border:1px solid var(--border-2)}
+.navtabs{display:flex;gap:4px;padding:9px 14px;border-bottom:1px solid var(--border-1);overflow-x:auto;background:var(--surface-1)}
+.nt{font-size:12.5px;font-weight:600;color:var(--text-3);padding:7px 13px;border-radius:999px;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:6px;border:1px solid transparent}
+.nt:hover{background:var(--surface-2);color:var(--text-1)}.nt.on{background:var(--accent-soft);color:var(--accent);font-weight:700}
+.nt .ct{font-size:9.5px;font-weight:800;background:var(--surface-2);border:1px solid var(--border-1);border-radius:999px;padding:0 6px}.nt.on .ct{background:var(--surface-1)}
+.body{padding:16px 18px 26px;background:color-mix(in srgb,var(--bg) 35%,var(--surface-1));min-height:560px}
+.page{display:none}.page.on{display:block}
+.ph{display:flex;align-items:flex-end;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+.ph .k{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.14em;color:var(--accent)}
+.ph h1{font-family:var(--font-display);font-size:21px;font-weight:800;letter-spacing:-.02em;line-height:1.1}
+.ph .s{font-size:12px;color:var(--text-3);margin-top:2px}
+.btn{border:none;cursor:pointer;font-family:inherit;font-weight:700;font-size:12px;padding:8px 13px;border-radius:9px;background:var(--accent);color:var(--accent-on);display:inline-flex;align-items:center;gap:6px}
+.btn.ghost{background:var(--surface-2);color:var(--text-2);border:1px solid var(--border-1)}
+.bdg{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px}
+.b-ok{background:var(--ok-soft);color:var(--ok)}.b-warn{background:var(--warn-soft);color:var(--warn)}.b-dn{background:var(--danger-soft);color:var(--danger)}.b-ac{background:var(--accent-soft);color:var(--accent)}.b-in{background:var(--info-soft);color:var(--info)}.b-n{background:var(--surface-2);color:var(--text-3);border:1px solid var(--border-1)}
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px}
+.stat{background:var(--surface-1);border:1px solid var(--border-1);border-radius:11px;padding:10px 12px}.stat .k{font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-3);font-weight:700}.stat .v{font-size:20px;font-weight:800;margin-top:3px;letter-spacing:-.02em}.stat .d{font-size:10px;color:var(--text-3);margin-top:1px}
+/* kanban */
+.kanban{display:grid;grid-template-columns:repeat(5,1fr);gap:11px;align-items:start}
+.kcol{background:var(--surface-2);border:1px solid var(--border-1);border-radius:12px;padding:9px}
+.khead{display:flex;align-items:center;justify-content:space-between;padding:3px 5px 9px;font-size:11px;font-weight:800;color:var(--text-2)}
+.khead .ct{font-size:9px;color:var(--text-3);background:var(--surface-1);border:1px solid var(--border-1);border-radius:999px;padding:1px 6px}
+.kcard{background:var(--surface-1);border:1px solid var(--border-1);border-radius:9px;padding:9px 10px;margin-bottom:7px;cursor:pointer;transition:all .15s}
+.kcard:hover{border-color:var(--accent);transform:translateY(-1px)}
+.kcard .t{font-size:12.5px;font-weight:700}.kcard .s{font-size:10.5px;color:var(--text-3);margin-top:2px}
+.kgate{margin-top:7px;display:flex;flex-direction:column;gap:3px}
+.kg{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text-2)}.kg .x{width:13px;text-align:center}.kg .x.ok{color:var(--ok)}.kg .x.no{color:var(--text-3)}.kg .x.wn{color:var(--warn)}
+.bars{height:6px;border-radius:999px;background:var(--surface-3);overflow:hidden;margin-top:6px}.bars>i{display:block;height:100%;background:var(--accent)}
+.card{background:var(--surface-1);border:1px solid var(--border-1);border-radius:12px;overflow:hidden}
+.card .hd{display:flex;align-items:center;gap:9px;padding:11px 14px;border-bottom:1px solid var(--border-1)}.card .hd h3{font-size:13px;font-weight:700;flex:1}.card .hd .more{color:var(--accent);font-size:11px;font-weight:600;cursor:pointer}
+.card .pad{padding:13px 14px}
+/* map */
+.maparea{position:relative;border-radius:12px;overflow:hidden;border:1px solid var(--border-1);min-height:420px;background:linear-gradient(135deg,var(--surface-2),var(--surface-3))}
+.maparea .grid{position:absolute;inset:0;background-image:linear-gradient(var(--border-1) 1px,transparent 1px),linear-gradient(90deg,var(--border-1) 1px,transparent 1px);background-size:46px 46px;opacity:.5}
+.pin{position:absolute;transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer}
+.pin .dot{width:16px;height:16px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2px solid var(--surface-1);box-shadow:var(--shadow)}
+.pin .lb{font-size:10px;font-weight:700;background:var(--surface-1);border:1px solid var(--border-1);border-radius:6px;padding:2px 6px;white-space:nowrap}
+.route{position:absolute;height:2px;background:repeating-linear-gradient(90deg,var(--accent) 0 8px,transparent 8px 14px);transform-origin:left center}
+.ovl{position:absolute;border:1.5px dashed var(--info);border-radius:10px;background:var(--info-soft)}
+.maplist{position:absolute;top:12px;right:12px;width:230px;max-height:calc(100% - 24px);overflow:auto;background:color-mix(in srgb,var(--surface-1) 88%,transparent);backdrop-filter:blur(8px);border:1px solid var(--border-1);border-radius:11px;padding:9px}
+.mlrow{display:flex;align-items:center;gap:8px;padding:7px 6px;border-radius:8px;cursor:pointer;font-size:11.5px}.mlrow:hover{background:var(--surface-2)}.mlrow .n{flex:1}.mlrow .n b{display:block;color:var(--text-1);font-size:11.5px}.mlrow .n small{color:var(--text-3);font-size:10px}
+.mtoggles{position:absolute;left:12px;bottom:12px;display:flex;gap:6px;flex-wrap:wrap}
+.mt{font-size:10.5px;font-weight:700;padding:5px 9px;border-radius:999px;background:color-mix(in srgb,var(--surface-1) 88%,transparent);backdrop-filter:blur(8px);border:1px solid var(--border-1);color:var(--text-2);cursor:pointer}.mt.on{background:var(--accent);color:var(--accent-on);border-color:var(--accent)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:13px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.tbl{width:100%;border-collapse:collapse;font-size:12px}.tbl th{text-align:start;padding:8px 12px;font-size:9.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--text-3);font-weight:700;border-bottom:1px solid var(--border-1)}.tbl td{padding:9px 12px;border-bottom:1px solid var(--border-1);color:var(--text-2)}.tbl tr:last-child td{border-bottom:none}.tbl td b{color:var(--text-1)}
+.lrow{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid var(--border-1)}.lrow:last-child{border-bottom:none}.lrow .ic{width:30px;height:30px;border-radius:8px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-size:14px;flex-shrink:0}.lrow .m{flex:1}.lrow .m b{display:block;font-size:12.5px;color:var(--text-1)}.lrow .m small{font-size:10.5px;color:var(--text-3)}
+.subtabs{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:13px}.subt{font-size:11.5px;font-weight:600;color:var(--text-3);padding:6px 11px;border-radius:8px;cursor:pointer}.subt.on{background:var(--accent);color:var(--accent-on)}
+.kv{display:flex;justify-content:space-between;gap:8px;padding:6px 0;font-size:12.5px;border-bottom:1px solid var(--border-1)}.kv:last-child{border-bottom:none}.kv .l{color:var(--text-3)}.kv .r{font-weight:700;color:var(--text-1);text-align:end}
+.mgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.mtile{aspect-ratio:4/3;border-radius:9px;background:linear-gradient(135deg,var(--surface-2),var(--surface-3));border:1px solid var(--border-1);position:relative;overflow:hidden;display:grid;place-items:center;color:var(--text-3);font-size:10px;font-weight:700}.mtile .tag{position:absolute;left:5px;bottom:5px;font-size:8.5px;font-weight:800;background:var(--accent);color:var(--accent-on);padding:1px 6px;border-radius:5px}
+.back{font-size:12px;font-weight:700;color:var(--text-3);cursor:pointer;display:inline-flex;align-items:center;gap:5px;margin-bottom:10px}.back:hover{color:var(--accent)}
+.phone{width:300px;margin:0 auto;border:1px solid var(--border-2);border-radius:30px;padding:11px;background:var(--surface-1);box-shadow:var(--shadow)}
+.phone .scr{border-radius:22px;overflow:hidden;border:1px solid var(--border-1);background:var(--bg);background-image:var(--bg-image)}
+.phone .pb{display:flex;align-items:center;gap:7px;padding:13px 13px 7px;font-size:11px;font-weight:800}.phone .pb .lg{width:22px;height:22px;border-radius:6px;background:var(--accent);color:var(--accent-on);display:grid;place-items:center;font-size:11px}
+.phone .ptab{display:flex;justify-content:space-around;border-top:1px solid var(--border-1);padding:9px 4px}.phone .pt{font-size:9px;color:var(--text-3);display:flex;flex-direction:column;align-items:center;gap:3px;font-weight:600}.phone .pt.on{color:var(--accent)}.phone .pt .i{width:16px;height:16px;border-radius:5px;background:var(--surface-3)}.phone .pt.on .i{background:var(--accent)}
+@media(max-width:1024px){.kpis{grid-template-columns:repeat(2,1fr)}.kanban{grid-template-columns:1fr 1fr;overflow:visible}.grid2,.grid3{grid-template-columns:1fr}.navtabs{flex-wrap:nowrap}}
+</style>
+</head>
+<body>
+<div class="bar">
+  <div class="ttl">TFM · Locations — Redesigned<small>Clickable prototype · click the tabs &amp; a location card · switch themes →</small></div>
+  <div class="pills" id="pills"></div>
+</div>
+
+<div class="app" id="app">
+  <div class="topbar">
+    <div class="brand"><span class="logo">T</span> TFM</div>
+    <div class="projchip"><span>🎬</span><span>Desert Crossing</span><span class="ph">· Locations</span></div>
+    <div class="search">🔎 Search locations, permits, owners…</div>
+    <div class="sp"></div>
+    <div class="seg" title="Preview"><button class="on" onclick="setView('desk',event)">🖥 Desktop</button><button onclick="setView('mob',event)">📱 Scout</button></div>
+    <div class="avatar">QQ</div>
+  </div>
+
+  <div id="deskview">
+  <div class="navtabs" id="navtabs">
+    <div class="nt on" data-t="board" onclick="tab('board')">▦ Board</div>
+    <div class="nt" data-t="map" onclick="tab('map')">🗺 Map &amp; Routes</div>
+    <div class="nt" data-t="scouting" onclick="tab('scouting')">🧭 Scouting</div>
+    <div class="nt" data-t="clearance" onclick="tab('clearance')">🛡 Clearance &amp; Compliance <span class="ct">3</span></div>
+    <div class="nt" data-t="logistics" onclick="tab('logistics')">🚚 Logistics &amp; Unit Moves</div>
+    <div class="nt" data-t="reports" onclick="tab('reports')">📊 Reports</div>
+  </div>
+
+  <div class="body">
+
+    <!-- ===== BOARD ===== -->
+    <div class="page on" id="p-board">
+      <div class="ph"><div><div class="k">Locations · Pipeline</div><h1>Location Board</h1><div class="s">8 locations · 14 script needs · 2 blocked on clearance</div></div><div class="sp"></div><button class="btn ghost">⟲ Sync from breakdown</button><button class="btn">＋ New location</button></div>
+      <div class="kpis">
+        <div class="stat"><div class="k">Needs open</div><div class="v">6</div><div class="d">of 14</div></div>
+        <div class="stat"><div class="k">In recce</div><div class="v">3</div><div class="d">2 this week</div></div>
+        <div class="stat"><div class="k">Clearing</div><div class="v">2</div><div class="d">gate blocked</div></div>
+        <div class="stat"><div class="k">Confirmed</div><div class="v">5</div><div class="d">director ✓</div></div>
+        <div class="stat"><div class="k">Loc. budget</div><div class="v">812k</div><div class="d">of 940k · 86%</div></div>
+      </div>
+      <div class="kanban">
+        <div class="kcol"><div class="khead">① Need · sourcing <span class="ct">2</span></div>
+          <div class="kcard" onclick="openLoc('Field Hospital')"><div class="t">Field Hospital</div><div class="s">INT · Sc 24,26 · 3 options</div></div>
+          <div class="kcard" onclick="openLoc('Checkpoint Alpha')"><div class="t">Checkpoint Alpha</div><div class="s">EXT · Sc 27 · 1 option</div></div>
+        </div>
+        <div class="kcol"><div class="khead">② Recce <span class="ct">1</span></div>
+          <div class="kcard" onclick="openLoc('Dune Ridge')"><div class="t">Dune Ridge</div><div class="s">EXT · tech recce Thu</div><div class="kgate"><div class="kg"><span class="x ok">✓</span> 4 HODs invited</div><div class="kg"><span class="x wn">⚠</span> Grip: crane access</div></div></div>
+        </div>
+        <div class="kcol"><div class="khead">③ Clearing ▣ <span class="ct">2</span></div>
+          <div class="kcard" onclick="openLoc('Command Tent')"><div class="t">Command Tent</div><div class="s">INT · Sc 26</div><div class="kgate"><div class="kg"><span class="x ok">✓</span> NOC</div><div class="kg"><span class="x ok">✓</span> Permit</div><div class="kg"><span class="x wn">⧗</span> COI issuing</div><div class="kg"><span class="x no">○</span> Agreement</div></div><div class="bars"><i style="width:62%"></i></div></div>
+          <div class="kcard" onclick="openLoc('Radio Tent')"><div class="t">Radio Tent</div><div class="s">INT · Sc 23</div><div class="kgate"><div class="kg"><span class="x ok">✓</span> Permit</div><div class="kg"><span class="x dn">✗</span> Police permit exp 4d</div></div><div class="bars"><i style="width:40%"></i></div></div>
+        </div>
+        <div class="kcol"><div class="khead">④ Confirmed <span class="ct">2</span></div>
+          <div class="kcard" onclick="openLoc('Wadi Rim Basecamp')"><div class="t">Wadi Rim Basecamp</div><div class="s">EXT · Locked · D14</div><div class="kgate"><div class="kg"><span class="x ok">✓</span> Cleared · director ✓</div></div></div>
+          <div class="kcard" onclick="openLoc('Convoy Road')"><div class="t">Convoy Road</div><div class="s">EXT · Locked · D15</div></div>
+        </div>
+        <div class="kcol"><div class="khead">⑤ Wrapped <span class="ct">1</span></div>
+          <div class="kcard" onclick="openLoc('Airport Hangar')"><div class="t">Airport Hangar</div><div class="s">Restored · final paid</div><div class="kgate"><div class="kg"><span class="x ok">✓</span> Condition report</div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== MAP & ROUTES ===== -->
+    <div class="page" id="p-map">
+      <div class="ph"><div><div class="k">Locations · GIS</div><h1>Map &amp; Routes</h1><div class="s">Unit base · 8 locations · draw a move to get drive &amp; walk time</div></div><div class="sp"></div><button class="btn ghost">⤓ Movement order</button><button class="btn">＋ Draw route</button></div>
+      <div class="maparea">
+        <div class="grid"></div>
+        <div class="ovl" style="left:10%;top:48%;width:120px;height:80px"></div>
+        <div class="route" style="left:21%;top:36%;width:240px;transform:rotate(20deg)"></div>
+        <div class="route" style="left:46%;top:30%;width:180px;transform:rotate(40deg)"></div>
+        <div class="pin" style="left:20%;top:40%"><span class="dot" style="background:var(--accent)"></span><span class="lb">◎ Unit base</span></div>
+        <div class="pin" style="left:55%;top:24%"><span class="dot" style="background:var(--ok)"></span><span class="lb">Command Tent</span></div>
+        <div class="pin" style="left:40%;top:64%"><span class="dot" style="background:var(--info)"></span><span class="lb">Dune Ridge</span></div>
+        <div class="pin" style="left:72%;top:58%"><span class="dot" style="background:var(--warn)"></span><span class="lb">Checkpoint · permit</span></div>
+        <div class="pin" style="left:30%;top:22%"><span class="dot" style="background:var(--ok)"></span><span class="lb">Wadi Rim</span></div>
+        <div class="maplist">
+          <div style="font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--text-3);margin:2px 4px 6px">Locations · drive from base</div>
+          <div class="mlrow" onclick="openLoc('Wadi Rim Basecamp')"><span class="bdg b-ok">●</span><div class="n"><b>Wadi Rim Basecamp</b><small>8 min · 6.2 km</small></div></div>
+          <div class="mlrow" onclick="openLoc('Command Tent')"><span class="bdg b-warn">●</span><div class="n"><b>Command Tent</b><small>14 min · 11 km</small></div></div>
+          <div class="mlrow" onclick="openLoc('Dune Ridge')"><span class="bdg b-in">●</span><div class="n"><b>Dune Ridge</b><small>22 min · 18 km</small></div></div>
+          <div class="mlrow" onclick="openLoc('Checkpoint Alpha')"><span class="bdg b-dn">●</span><div class="n"><b>Checkpoint Alpha</b><small>27 min · 24 km · permit</small></div></div>
+          <div style="font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--text-3);margin:10px 4px 6px">Nearby</div>
+          <div class="mlrow"><span class="bdg b-n">🏨</span><div class="n"><b>Bab Al Nojoum</b><small>14 min · crew hotel</small></div></div>
+          <div class="mlrow"><span class="bdg b-n">🏥</span><div class="n"><b>SKMC Hospital</b><small>9 min · nearest A&amp;E</small></div></div>
+        </div>
+        <div class="mtoggles"><span class="mt on">Locations</span><span class="mt on">Routes</span><span class="mt">Parking</span><span class="mt">Holding</span><span class="mt">Catering</span><span class="mt">Closure</span><span class="mt">Camera</span></div>
+      </div>
+      <p style="font-size:11.5px;color:var(--text-3);margin-top:9px">Pins &amp; the drawn route push straight into the <b>movement order</b> and the day's <b>call sheet</b> (base camp, parking, hospital, map link).</p>
+    </div>
+    <!-- ===== SCOUTING ===== -->
+    <div class="page" id="p-scouting">
+      <div class="ph"><div><div class="k">Locations · Field</div><h1>Scouting</h1><div class="s">Plan scout days · capture candidates · run assignments</div></div><div class="sp"></div><button class="btn ghost">＋ Assignment</button><button class="btn">＋ Scout visit</button></div>
+      <div class="grid2">
+        <div class="card"><div class="hd"><h3>🗓 Scout visits</h3><span class="more">Calendar →</span></div><div class="pad">
+          <div class="lrow"><div class="ic">🚐</div><div class="m"><b>Tech recce · Dune Ridge + Command Tent</b><small>Thu 12 Jun · call 07:00 · meet basecamp · 3 stops</small></div><span class="bdg b-ac">Tech recce</span></div>
+          <div class="lrow"><div class="ic">📸</div><div class="m"><b>Recon · North desert sweep</b><small>Sat 14 Jun · 5 candidates · scout: R. Khoury</small></div><span class="bdg b-in">Recon</span></div>
+          <div class="lrow"><div class="ic">🚐</div><div class="m"><b>Preliminary · Checkpoint options</b><small>Mon 16 Jun · transport requested ✓ · party 4</small></div><span class="bdg b-warn">Prelim</span></div>
+          <div style="margin-top:10px;padding:10px;border:1px dashed var(--border-2);border-radius:9px;font-size:11.5px;color:var(--text-3)">Each visit → multi-stop route · scout party (lead flag) · printable <b>scout call sheet</b> · per-visit transport request.</div>
+        </div></div>
+        <div class="card"><div class="hd"><h3>📥 Candidate submissions</h3><span class="more">Library →</span></div><div class="pad">
+          <div class="mgrid" style="grid-template-columns:repeat(3,1fr);margin-bottom:10px">
+            <div class="mtile">PHOTO<span class="tag">GPS</span></div><div class="mtile">PHOTO</div><div class="mtile">360°<span class="tag">PANO</span></div>
+            <div class="mtile">PHOTO</div><div class="mtile">DRONE<span class="tag">AIR</span></div><div class="mtile">PHOTO</div>
+          </div>
+          <div class="lrow"><div class="ic">📍</div><div class="m"><b>Abandoned clinic — Al Ain</b><small>Field Hospital brief · 8.4/10 eval · submitted by scout</small></div><button class="btn ghost" style="padding:5px 9px">Promote</button></div>
+          <div class="lrow"><div class="ic">📍</div><div class="m"><b>Quarry ridge</b><small>Dune Ridge brief · AI-matched · what3words set</small></div><button class="btn ghost" style="padding:5px 9px">Promote</button></div>
+        </div></div>
+      </div>
+      <div class="card" style="margin-top:13px"><div class="hd"><h3>🤖 AI brief-match &amp; assignments</h3></div><div class="pad">
+        <div class="grid3">
+          <div style="background:var(--surface-2);border:1px solid var(--border-1);border-radius:10px;padding:11px"><div style="font-size:11px;font-weight:800;color:var(--text-2)">Open assignment</div><div style="font-size:12px;color:var(--text-3);margin-top:4px">"Field hospital — weathered canvas, INT, power on site"</div><div class="bars" style="margin-top:8px"><i style="width:55%"></i></div><div style="font-size:10px;color:var(--text-3);margin-top:4px">3 of 5 submissions in</div></div>
+          <div style="background:var(--surface-2);border:1px solid var(--border-1);border-radius:10px;padding:11px"><div style="font-size:11px;font-weight:800;color:var(--text-2)">Library match</div><div style="font-size:12px;color:var(--text-3);margin-top:4px">2 past locations fit this brief — reuse history &amp; spend</div><div class="bdg b-in" style="margin-top:8px">Look-alike</div></div>
+          <div style="background:var(--surface-2);border:1px solid var(--border-1);border-radius:10px;padding:11px"><div style="font-size:11px;font-weight:800;color:var(--text-2)">Mobile field</div><div style="font-size:12px;color:var(--text-3);margin-top:4px">3 offline captures queued from the scout PWA</div><div class="bdg b-warn" style="margin-top:8px">Syncing</div></div>
+        </div>
+      </div></div>
+    </div>
+
+    <!-- ===== CLEARANCE & COMPLIANCE ===== -->
+    <div class="page" id="p-clearance">
+      <div class="ph"><div><div class="k">Locations · Compliance</div><h1>Clearance &amp; Compliance</h1><div class="s">Permits · COI · agreements · insurance · ID packs · risk — one source of truth</div></div><div class="sp"></div><button class="btn ghost">⚖ Authorities</button><button class="btn">＋ Permit</button></div>
+      <div class="kpis" style="grid-template-columns:repeat(4,1fr)">
+        <div class="stat"><div class="k">Permits active</div><div class="v">3</div><div class="d">1 expiring 4d</div></div>
+        <div class="stat"><div class="k">COI queue</div><div class="v">2</div><div class="d">1 now issuable</div></div>
+        <div class="stat"><div class="k">Docs expiring</div><div class="v">1</div><div class="d">insurance 12d</div></div>
+        <div class="stat"><div class="k">Open risks</div><div class="v">2</div><div class="d">1 high</div></div>
+      </div>
+      <div class="card" style="margin-bottom:13px"><div class="hd"><h3>🪪 Permits — lifecycle &amp; lead-times</h3><span class="more">Permit board →</span></div>
+        <table class="tbl"><thead><tr><th>Permit</th><th>Location</th><th>Authority</th><th>Lead</th><th>Status</th><th>Expiry</th></tr></thead><tbody>
+          <tr><td><b>Ground filming</b></td><td>Wadi Rim</td><td>ADFC</td><td>5d</td><td><span class="bdg b-ok">Approved</span></td><td>30 Jun</td></tr>
+          <tr><td><b>Drone (GCAA)</b></td><td>Dune Ridge</td><td>GCAA</td><td>10d</td><td><span class="bdg b-warn">Submitted ⧗</span></td><td>—</td></tr>
+          <tr><td><b>Police / road</b></td><td>Radio Tent</td><td>Abu Dhabi Police</td><td>7d</td><td><span class="bdg b-dn">Expiring 4d</span></td><td>20 Jun</td></tr>
+          <tr><td><b>Heritage (DCT)</b></td><td>Command Tent</td><td>DCT Abu Dhabi</td><td>14d</td><td><span class="bdg b-n">Not started</span></td><td>—</td></tr>
+        </tbody></table>
+      </div>
+      <div class="grid2">
+        <div class="card"><div class="hd"><h3>📄 COI &amp; agreements gate</h3></div><div class="pad">
+          <div class="lrow"><div class="ic">📄</div><div class="m"><b>Command Tent → owner</b><small>Permit ✓ → COI now issuable</small></div><button class="btn" style="padding:5px 10px">Issue COI</button></div>
+          <div class="lrow"><div class="ic">📄</div><div class="m"><b>Dune Ridge → landowner</b><small>Blocked — awaiting permit</small></div><span class="bdg b-warn">Blocked</span></div>
+          <div class="lrow"><div class="ic">✍</div><div class="m"><b>Location agreement · Command Tent</b><small>Out for signature · 2 days</small></div><span class="bdg b-in">Sent</span></div>
+          <div class="lrow"><div class="ic">🛡</div><div class="m"><b>Production insurance</b><small>Expiring 12d — renew before D20</small></div><span class="bdg b-dn">12d</span></div>
+        </div></div>
+        <div class="card"><div class="hd"><h3>🪪 Crew-ID clearance packs · ⚠ Risk register</h3></div><div class="pad">
+          <div class="lrow"><div class="ic">🔗</div><div class="m"><b>Checkpoint visit · 6 crew</b><small>Public link live · expires 48h · 3 views</small></div><span class="bdg b-ok">Live</span></div>
+          <div class="lrow"><div class="ic">🔗</div><div class="m"><b>Heritage site · 4 crew</b><small>Consent 3/4 · awaiting 1</small></div><span class="bdg b-warn">Pending</span></div>
+          <div class="lrow"><div class="ic" style="background:var(--danger-soft);color:var(--danger)">⚠</div><div class="m"><b>Dune Ridge — crane on soft sand</b><small>Likelihood 3 × impact 4 = 12 · mitigation: matting</small></div><span class="bdg b-dn">High</span></div>
+          <div class="lrow"><div class="ic" style="background:var(--warn-soft);color:var(--warn)">⚠</div><div class="m"><b>Checkpoint — public road</b><small>Marshals + police notification</small></div><span class="bdg b-warn">Open</span></div>
+        </div></div>
+      </div>
+    </div>
+
+    <!-- ===== LOGISTICS & UNIT MOVES ===== -->
+    <div class="page" id="p-logistics">
+      <div class="ph"><div><div class="k">Locations · Logistics</div><h1>Logistics &amp; Unit Moves</h1><div class="s">Movement orders · company moves · parking &amp; basecamp · proximity</div></div><div class="sp"></div><button class="btn ghost">🖨 Print pack</button><button class="btn">＋ Movement order</button></div>
+      <div class="grid2">
+        <div class="card"><div class="hd"><h3>🚚 Movement order · Day 14</h3><span class="more">Open PDF →</span></div><div class="pad">
+          <div class="kv"><span class="l">From → To</span><span class="r">Production office → Wadi Rim Basecamp</span></div>
+          <div class="kv"><span class="l">Drive time · distance</span><span class="r">22 min · 18 km</span></div>
+          <div class="kv"><span class="l">Convoy</span><span class="r">9 vehicles · marshalled 06:15</span></div>
+          <div class="kv"><span class="l">Parking</span><span class="r">40-spot lot · trucks rear</span></div>
+          <div class="kv"><span class="l">Facilities</span><span class="r">Holding 200m · catering on-site · toilets</span></div>
+          <div class="kv"><span class="l">Map</span><span class="r" style="color:var(--accent)">📍 GPS pin attached</span></div>
+          <div class="kv"><span class="l">Unit contacts</span><span class="r">LM · Asst LM · Transport captain</span></div>
+        </div></div>
+        <div class="card"><div class="hd"><h3>🔁 Company moves &amp; proximity</h3></div><div class="pad">
+          <div class="lrow"><div class="ic">🔁</div><div class="m"><b>D14 → D15 · Command Tent → Checkpoint</b><small>18 min · transport requested ✓ · wrap-to-move 45 min</small></div><span class="bdg b-ok">Planned</span></div>
+          <div class="lrow"><div class="ic">🔁</div><div class="m"><b>D15 → D16 · Checkpoint → Dune Ridge</b><small>Estimate 26 min · awaiting lock</small></div><span class="bdg b-warn">Draft</span></div>
+          <div class="lrow"><div class="ic">🏨</div><div class="m"><b>Nearest crew hotel</b><small>Bab Al Nojoum · 14 min from base</small></div><span class="bdg b-in">Accom</span></div>
+          <div class="lrow"><div class="ic">🏥</div><div class="m"><b>Nearest hospital</b><small>SKMC · 9 min · pushes to call-sheet safety</small></div><span class="bdg b-n">Safety</span></div>
+        </div></div>
+      </div>
+      <div class="card" style="margin-top:13px"><div class="hd"><h3>🅿 Parking &amp; basecamp plan · Wadi Rim</h3></div><div class="pad">
+        <div class="maparea" style="min-height:200px"><div class="grid"></div>
+          <div class="ovl" style="left:12%;top:24%;width:120px;height:70px"></div><div class="pin" style="left:22%;top:30%"><span class="lb">🚚 Trucks</span></div>
+          <div class="ovl" style="left:50%;top:30%;width:90px;height:60px"></div><div class="pin" style="left:60%;top:36%"><span class="lb">🍽 Catering</span></div>
+          <div class="pin" style="left:42%;top:66%"><span class="dot" style="background:var(--accent)"></span><span class="lb">◎ Set</span></div>
+          <div class="pin" style="left:78%;top:62%"><span class="lb">🚻 Holding 200m</span></div>
+        </div>
+        <p style="font-size:11.5px;color:var(--text-3);margin-top:9px">Drawn once, reused on the movement order, the call sheet, and dispatch — every department pulls the same plan.</p>
+      </div></div>
+    </div>
+    <!-- ===== REPORTS ===== -->
+    <div class="page" id="p-reports">
+      <div class="ph"><div><div class="k">Locations · Insights</div><h1>Reports</h1><div class="s">Location report · lookbook · storyboard · readiness · budget</div></div><div class="sp"></div><button class="btn ghost">⤓ Export PDF</button></div>
+      <div class="grid3" style="margin-bottom:13px">
+        <div class="card"><div class="pad"><div class="lrow" style="border:none;padding:0"><div class="ic">📑</div><div class="m"><b>Location Report</b><small>Per-location, plate-tagged, branded</small></div></div></div></div>
+        <div class="card"><div class="pad"><div class="lrow" style="border:none;padding:0"><div class="ic">🖼</div><div class="m"><b>Scene Lookbook</b><small>Photos grouped by scene</small></div></div></div></div>
+        <div class="card"><div class="pad"><div class="lrow" style="border:none;padding:0"><div class="ic">🎞</div><div class="m"><b>Storyboard / shots</b><small>Plate → shot reference</small></div></div></div></div>
+      </div>
+      <div class="grid2">
+        <div class="card"><div class="hd"><h3>✅ Producer readiness</h3></div><div class="pad">
+          <div class="lrow"><div class="ic" style="background:var(--ok-soft);color:var(--ok)">✓</div><div class="m"><b>Wadi Rim Basecamp</b><small>Cleared · recced · signed · D14</small></div><span class="bdg b-ok">Ready</span></div>
+          <div class="lrow"><div class="ic" style="background:var(--warn-soft);color:var(--warn)">!</div><div class="m"><b>Command Tent</b><small>COI + agreement outstanding</small></div><span class="bdg b-warn">Outstanding</span></div>
+          <div class="lrow"><div class="ic" style="background:var(--danger-soft);color:var(--danger)">✗</div><div class="m"><b>Radio Tent</b><small>Police permit expiring · blocked</small></div><span class="bdg b-dn">Blocked</span></div>
+        </div></div>
+        <div class="card"><div class="hd"><h3>💷 Location budget vs actual</h3><span class="more">Cost report →</span></div><div class="pad">
+          <div style="margin-bottom:9px"><div style="display:flex;justify-content:space-between;font-size:12px"><span>Fees</span><b>312k / 340k</b></div><div class="bars"><i style="width:92%"></i></div></div>
+          <div style="margin-bottom:9px"><div style="display:flex;justify-content:space-between;font-size:12px"><span>Permits</span><b>58k / 70k</b></div><div class="bars"><i style="width:83%;background:var(--info)"></i></div></div>
+          <div style="margin-bottom:9px"><div style="display:flex;justify-content:space-between;font-size:12px"><span>Security</span><b>96k / 90k</b></div><div class="bars"><i style="width:100%;background:var(--danger)"></i></div></div>
+          <div><div style="display:flex;justify-content:space-between;font-size:12px"><span>Total</span><b>812k / 940k · 86%</b></div><div class="bars"><i style="width:86%;background:var(--ok)"></i></div></div>
+          <p style="font-size:11px;color:var(--text-3);margin-top:8px">Per-location envelopes roll up here and into the production EFC.</p>
+        </div></div>
+      </div>
+    </div>
+
+    <!-- ===== LOCATION WORKSPACE (detail) ===== -->
+    <div class="page" id="p-locdetail">
+      <div class="back" onclick="tab('board')">← Back to Board</div>
+      <div class="ph"><div><div class="k">Location workspace</div><h1 id="loc-name">Command Tent</h1><div class="s">INT · Sc 26 · Wadi Rim · stage: Clearing → Confirm gate</div></div><div class="sp"></div><button class="btn ghost">✎ Edit</button><button class="btn">✓ Clear to confirm</button></div>
+      <div class="subtabs"><span class="subt on">Overview</span><span class="subt">Media</span><span class="subt">Recce</span><span class="subt">Clearance</span><span class="subt">Budget</span><span class="subt">Risk</span><span class="subt">Sun &amp; Weather</span><span class="subt">History</span></div>
+      <div class="grid2">
+        <div class="card"><div class="hd"><h3>📋 Overview</h3></div><div class="pad">
+          <div class="kv"><span class="l">Type / status</span><span class="r">INT · Clearing</span></div>
+          <div class="kv"><span class="l">Address</span><span class="r">Wadi Rim, Al Dhafra</span></div>
+          <div class="kv"><span class="l">GPS · what3words</span><span class="r">24.18, 55.74 · ///dune.tent.east</span></div>
+          <div class="kv"><span class="l">Location manager</span><span class="r">R. Khoury</span></div>
+          <div class="kv"><span class="l">Owner</span><span class="r">DCT Abu Dhabi · agent on file</span></div>
+          <div class="kv"><span class="l">Access · power</span><span class="r">Graded track · 3-phase on site</span></div>
+          <div class="kv"><span class="l">Nearest hospital</span><span class="r">SKMC · 9 min</span></div>
+        </div></div>
+        <div class="card"><div class="hd"><h3>🛡 Clearance gate</h3></div><div class="pad">
+          <div class="kgate" style="gap:7px">
+            <div class="kg" style="font-size:12px"><span class="x ok">✓</span> NOC received</div>
+            <div class="kg" style="font-size:12px"><span class="x ok">✓</span> Permit approved (DCT)</div>
+            <div class="kg" style="font-size:12px"><span class="x wn">⧗</span> COI — now issuable</div>
+            <div class="kg" style="font-size:12px"><span class="x no">○</span> Location agreement — out for signature</div>
+            <div class="kg" style="font-size:12px"><span class="x ok">✓</span> Insurance valid</div>
+            <div class="kg" style="font-size:12px"><span class="x ok">✓</span> Risk assessment signed</div>
+          </div>
+          <div class="bars" style="margin-top:10px"><i style="width:66%"></i></div>
+          <p style="font-size:11px;color:var(--text-3);margin-top:7px">Confirm unlocks when every gate is green.</p>
+        </div></div>
+      </div>
+      <div class="grid2" style="margin-top:13px">
+        <div class="card"><div class="hd"><h3>🎥 Tech recce — by department</h3></div><div class="pad">
+          <div class="lrow"><div class="ic" style="background:var(--ok-soft);color:var(--ok)">📷</div><div class="m"><b>Camera</b><small>Clear sightlines · no notes</small></div><span class="bdg b-ok">OK</span></div>
+          <div class="lrow"><div class="ic" style="background:var(--warn-soft);color:var(--warn)">🔧</div><div class="m"><b>Grip</b><small>Crane needs 6m clear — action item</small></div><span class="bdg b-warn">Action</span></div>
+          <div class="lrow"><div class="ic" style="background:var(--ok-soft);color:var(--ok)">🎨</div><div class="m"><b>Art</b><small>Dress walls · power confirmed</small></div><span class="bdg b-ok">OK</span></div>
+          <div class="lrow"><div class="ic" style="background:var(--danger-soft);color:var(--danger)">⛑</div><div class="m"><b>Safety</b><small>Access road dust — marshals</small></div><span class="bdg b-dn">Block</span></div>
+        </div></div>
+        <div class="card"><div class="hd"><h3>🖼 Media · 🌅 Sun &amp; weather</h3></div><div class="pad">
+          <div class="mgrid" style="grid-template-columns:repeat(4,1fr);margin-bottom:11px"><div class="mtile">WIDE<span class="tag">FEAT</span></div><div class="mtile">APPROACH</div><div class="mtile">360°<span class="tag">PANO</span></div><div class="mtile">PLAN<span class="tag">CAD</span></div></div>
+          <div class="kv"><span class="l">Sunrise · sunset</span><span class="r">05:41 · 18:52</span></div>
+          <div class="kv"><span class="l">Golden hour</span><span class="r">18:10–18:52 · backlit E</span></div>
+          <div class="kv"><span class="l">Forecast D14</span><span class="r">Clear 34° · wind 12kph</span></div>
+        </div></div>
+      </div>
+    </div>
+
+  </div><!-- /body -->
+  </div><!-- /deskview -->
+
+  <!-- ===== MOBILE SCOUT ===== -->
+  <div id="mobview" style="display:none;padding:20px 14px">
+    <div class="phone"><div class="scr">
+      <div class="pb"><span class="lg">T</span> Scout<span style="margin-inline-start:auto;font-size:10px;color:var(--text-3)">⚠ 3 queued offline</span></div>
+      <div style="padding:0 13px 4px"><div style="font-size:10px;font-weight:800;color:var(--accent);letter-spacing:.1em">FIELD CAPTURE</div><div style="font-size:17px;font-weight:800">Field Hospital</div><div style="font-size:11px;color:var(--text-3)">brief · weathered canvas · INT · power</div></div>
+      <div style="padding:9px 13px"><div class="mgrid" style="grid-template-columns:repeat(3,1fr)"><div class="mtile" style="aspect-ratio:1">📷<span class="tag">GPS</span></div><div class="mtile" style="aspect-ratio:1">📷</div><div class="mtile" style="aspect-ratio:1;background:var(--accent-soft);color:var(--accent)">＋</div></div>
+        <div style="margin-top:9px">
+          <div class="lrow" style="padding:7px 0"><div class="ic" style="width:26px;height:26px;background:var(--ok-soft);color:var(--ok)">✓</div><div class="m"><b style="font-size:12px">Power</b><small>3-phase on site</small></div></div>
+          <div class="lrow" style="padding:7px 0"><div class="ic" style="width:26px;height:26px;background:var(--warn-soft);color:var(--warn)">⚠</div><div class="m"><b style="font-size:12px">Access / parking</b><small>narrow approach — trucks?</small></div></div>
+          <div class="lrow" style="padding:7px 0"><div class="ic" style="width:26px;height:26px;background:var(--accent-soft);color:var(--accent)">🌅</div><div class="m"><b style="font-size:12px">Sun</b><small>golden 18:10 · backlit E</small></div></div>
+        </div>
+        <button class="btn" style="width:100%;justify-content:center;margin-top:6px">Save candidate</button>
+      </div>
+      <div class="ptab"><div class="pt on"><span class="i"></span>Capture</div><div class="pt"><span class="i"></span>Checklist</div><div class="pt"><span class="i"></span>Recce</div><div class="pt"><span class="i"></span>Map</div><div class="pt"><span class="i"></span>Sync</div></div>
+    </div></div>
+    <p style="text-align:center;font-size:11.5px;color:var(--text-3);margin-top:12px">Offline-first PWA — capture photos + GPS + what3words in the field, run the scout checklist, file HOD recce notes — syncs to the Board on connection.</p>
+  </div>
+
+</div><!-- /app -->
+
+<script>
+const THEMES=[{id:'graphite',name:'Graphite & Gold',dot:'#C9A24A'},{id:'studio',name:'Studio Light',dot:'#5B5BD6'},{id:'ink',name:'Ink & Paper',dot:'#B0532E'},{id:'slate',name:'Slate Pro',dot:'#3BA6C9'},{id:'aurora',name:'Aurora Glass',dot:'#8B7CF6'},{id:'midnight',name:'Midnight',dot:'#F5A623'}];
+const pills=document.getElementById('pills'),root=document.documentElement;
+function sel(id){root.setAttribute('data-theme',id);[...pills.children].forEach(p=>p.setAttribute('aria-selected',p.dataset.id===id));}
+THEMES.forEach(t=>{const b=document.createElement('button');b.className='pill';b.dataset.id=t.id;b.innerHTML='<span class="dot" style="background:'+t.dot+'"></span>'+t.name;b.onclick=()=>sel(t.id);pills.appendChild(b);});
+sel('graphite');
+function tab(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));const el=document.getElementById('p-'+id);if(el)el.classList.add('on');document.querySelectorAll('.nt').forEach(n=>n.classList.toggle('on',n.dataset.t===id));window.scrollTo({top:0,behavior:'smooth'});}
+function openLoc(name){document.getElementById('loc-name').textContent=name;document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));document.getElementById('p-locdetail').classList.add('on');document.querySelectorAll('.nt').forEach(n=>n.classList.remove('on'));window.scrollTo({top:0,behavior:'smooth'});}
+function setView(v,e){document.getElementById('deskview').style.display=v==='desk'?'block':'none';document.getElementById('mobview').style.display=v==='mob'?'block':'none';if(e){e.currentTarget.parentNode.querySelectorAll('button').forEach(b=>b.classList.remove('on'));e.currentTarget.classList.add('on');}}
+document.querySelectorAll('.subt').forEach(s=>s.onclick=()=>{s.parentNode.querySelectorAll('.subt').forEach(x=>x.classList.remove('on'));s.classList.add('on');});
+document.querySelectorAll('.mt').forEach(m=>m.onclick=()=>m.classList.toggle('on'));
+</script>
+</body>
+</html>

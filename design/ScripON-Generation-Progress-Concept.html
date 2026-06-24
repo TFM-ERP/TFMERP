@@ -1,0 +1,125 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ScripON — Generation progress (concept)</title><style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Courier+Prime&display=swap');
+:root{--bg:#0b0c0f;--panel:#14161c;--hair:rgba(255,255,255,.08);--gold:#C6A463;--gold2:#E6D2A2;--goldink:#1a1509;--cream:#F4EEE0;--text:#E8E6E0;--mute:#9aa1ab;--faint:#6b727d;--green:#57b368;--blue:#5b8def;--violet:#8b7cf0}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#07080a;font-family:Inter,sans-serif;color:var(--text);-webkit-font-smoothing:antialiased;padding:30px;display:flex;flex-direction:column;align-items:center;gap:14px}
+.cap{color:var(--faint);font-size:12px;max-width:1100px;line-height:1.55}.cap b{color:var(--gold);font-weight:600}
+.ft{align-self:center;width:1100px;font-size:12px;font-weight:700;letter-spacing:.4px;color:var(--gold2);margin-top:8px}
+.scr{width:1100px;height:560px;border-radius:16px;border:1px solid var(--hair);overflow:hidden;position:relative;background:radial-gradient(1100px 560px at 50% 0%,#15171d,#0b0c0f 62%);display:flex;align-items:center;justify-content:center}
+.scr:before{content:"";position:absolute;inset:0;background:radial-gradient(620px 300px at 50% 38%,rgba(198,164,99,.10),transparent 70%);pointer-events:none}
+/* compose card */
+.compose{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:0;width:560px;text-align:center}
+.eyebrow{font-size:11px;font-weight:800;letter-spacing:2.5px;color:var(--gold);text-transform:uppercase}
+.proj{font-family:Fraunces,serif;font-size:27px;font-weight:600;color:var(--cream);margin-top:8px}
+.stagepill{display:inline-flex;align-items:center;gap:7px;margin-top:9px;padding:5px 13px;border-radius:999px;background:rgba(198,164,99,.12);border:1px solid rgba(198,164,99,.3);font-size:11.5px;font-weight:700;color:var(--gold2);letter-spacing:.4px}
+.stagepill .d{width:7px;height:7px;border-radius:50%;background:var(--gold);animation:blink 1s infinite}
+/* sparkle motif */
+.motif{position:relative;width:140px;height:140px;margin:26px 0 22px;display:grid;place-items:center}
+.ring{position:absolute;inset:0;border-radius:50%;border:1px solid rgba(198,164,99,.18)}
+.ring.r2{inset:18px;border-color:rgba(198,164,99,.10);animation:spin 9s linear infinite reverse}
+.orbit{position:absolute;inset:0;animation:spin 6s linear infinite}
+.orbit i{position:absolute;top:-3px;left:50%;width:6px;height:6px;border-radius:50%;background:var(--gold2);transform:translateX(-50%);box-shadow:0 0 10px rgba(230,210,162,.8)}
+.orbit.o2{animation-duration:8s;animation-direction:reverse}.orbit.o2 i{background:var(--blue);box-shadow:0 0 10px rgba(91,141,239,.7);top:auto;bottom:-3px}
+.orbit.o3{animation-duration:11s}.orbit.o3 i{background:var(--violet);box-shadow:0 0 10px rgba(139,124,240,.7);left:-3px;top:50%;transform:translateY(-50%)}
+.star{width:60px;height:60px;animation:pulse 1.8s ease-in-out infinite}
+.star svg{width:100%;height:100%;filter:drop-shadow(0 0 14px rgba(198,164,99,.55))}
+/* progress */
+.pwrap{width:100%;margin-top:4px}
+.bar{height:7px;border-radius:6px;background:#1d2027;overflow:hidden;position:relative}
+.fill{height:100%;border-radius:6px;width:8%;background:linear-gradient(90deg,var(--gold),var(--gold2));transition:width .6s cubic-bezier(.4,0,.2,1);position:relative;overflow:hidden}
+.fill:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.45),transparent);transform:translateX(-100%);animation:shimmer 1.4s linear infinite}
+.prow{display:flex;justify-content:space-between;align-items:baseline;margin-top:11px}
+.status{font-size:14px;color:var(--cream);font-weight:500;min-height:20px}
+.status .dotty:after{content:"";animation:dots 1.4s steps(4,end) infinite}
+.pct{font-family:"Courier Prime",monospace;font-size:13px;color:var(--gold2);font-weight:700}
+.subnote{font-size:11px;color:var(--faint);margin-top:16px;line-height:1.5}
+/* stepped variant */
+.steps{width:340px;display:flex;flex-direction:column;gap:2px;margin-top:22px;text-align:left}
+.step{display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:10px;font-size:13px}
+.step .ic{width:22px;height:22px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:12px;font-weight:800}
+.step.done .ic{background:rgba(87,179,104,.18);color:var(--green)}
+.step.active{background:rgba(198,164,99,.08);border:1px solid rgba(198,164,99,.25)}
+.step.active .ic{background:linear-gradient(160deg,var(--gold2),var(--gold));color:var(--goldink)}
+.step.wait .ic{background:#1b1e25;color:var(--faint);border:1px solid var(--hair)}
+.step .lbl{font-weight:600;color:var(--mute)}.step.done .lbl{color:var(--text)}.step.active .lbl{color:var(--gold2);font-weight:700}
+.step .ic .spin{display:inline-block;width:12px;height:12px;border:2px solid rgba(26,21,9,.35);border-top-color:var(--goldink);border-radius:50%;animation:spin .7s linear infinite}
+.skip{position:absolute;bottom:16px;right:18px;font-size:11.5px;color:var(--faint);border:1px solid var(--hair);border-radius:9px;padding:6px 12px;background:rgba(20,22,28,.7)}
+@keyframes pulse{0%,100%{transform:scale(.92);opacity:.85}50%{transform:scale(1.08);opacity:1}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes shimmer{to{transform:translateX(100%)}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+@keyframes dots{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}
+.notes{width:1100px;display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.nc{background:#0e1015;border:1px solid var(--hair);border-radius:12px;padding:13px 15px}
+.nc h4{font-size:12.5px;font-weight:800;color:var(--gold2);margin-bottom:6px}.nc p{font-size:11.5px;color:var(--mute);line-height:1.55}.nc p b{color:var(--text)}
+</style></head><body>
+<div class="cap">ScripON · <b>Generation progress — concept (design only, animated)</b><br>The Begin→Develop flow is <b>lazy</b>: each stage is one ~3–15s AI call. This overlay turns that wait into a branded, reassuring moment with eased progress + cycling <b>truthful</b> status (no fake "searching the web"). Frame 2 shows an optional <b>auto-build</b> that front-loads several stages with real stepped progress.</div>
+
+<div class="ft">OPTION A — Per-generation "composing" overlay (shown on Begin · Advance · Regenerate) · recommended</div>
+<div class="scr">
+  <div class="compose">
+    <div class="eyebrow">ScripON · Composing</div>
+    <div class="proj">Antara — mythic cut</div>
+    <div class="stagepill"><span class="d"></span>WRITING THE LOGLINE</div>
+    <div class="motif">
+      <div class="ring"></div><div class="ring r2"></div>
+      <div class="orbit"><i></i></div><div class="orbit o2"><i></i></div><div class="orbit o3"><i></i></div>
+      <div class="star"><svg viewBox="0 0 24 24" fill="none" stroke="#E6D2A2" stroke-width="1.4"><path d="M12 2l2.4 6.3L21 10l-5.4 4 1.9 6.6L12 17.4 6.5 20.6 8.4 14 3 10l6.6-1.7z"/></svg></div>
+    </div>
+    <div class="pwrap">
+      <div class="bar"><div class="fill" id="fillA"></div></div>
+      <div class="prow"><div class="status" id="statusA">Reading your work source<span class="dotty"></span></div><div class="pct" id="pctA">8%</div></div>
+    </div>
+    <div class="subnote">Drawing on your brief, target market &amp; the Lore Atlas — grounded in the material you provided. Sacred &amp; care guardrails active.</div>
+  </div>
+  <div class="skip">Working in the background — you can keep reading</div>
+</div>
+
+<div class="ft">OPTION B — "Auto-build" stepped progress (optional: Begin writes several stages in one run, real progress)</div>
+<div class="scr">
+  <div class="compose">
+    <div class="eyebrow">ScripON · Building your development ladder</div>
+    <div class="proj">Antara — mythic cut</div>
+    <div class="motif" style="margin:20px 0 8px;width:96px;height:96px">
+      <div class="ring"></div><div class="orbit"><i></i></div><div class="orbit o2"><i></i></div>
+      <div class="star" style="width:42px;height:42px"><svg viewBox="0 0 24 24" fill="none" stroke="#E6D2A2" stroke-width="1.4"><path d="M12 2l2.4 6.3L21 10l-5.4 4 1.9 6.6L12 17.4 6.5 20.6 8.4 14 3 10l6.6-1.7z"/></svg></div>
+    </div>
+    <div class="pwrap" style="width:340px"><div class="bar"><div class="fill" id="fillB" style="width:28%"></div></div><div class="prow"><div class="status" id="statusB">Writing the Synopsis<span class="dotty"></span></div><div class="pct" id="pctB">2 / 7</div></div></div>
+    <div class="steps" id="stepsB">
+      <div class="step done"><span class="ic">✓</span><span class="lbl">Logline</span></div>
+      <div class="step active"><span class="ic"><span class="spin"></span></span><span class="lbl">Synopsis</span></div>
+      <div class="step wait"><span class="ic">3</span><span class="lbl">Treatment</span></div>
+      <div class="step wait"><span class="ic">4</span><span class="lbl">Beats</span></div>
+      <div class="step wait"><span class="ic">5</span><span class="lbl">Scenes</span></div>
+      <div class="step wait"><span class="ic">6</span><span class="lbl">Step outline</span></div>
+      <div class="step wait"><span class="ic">7</span><span class="lbl">Draft</span></div>
+    </div>
+  </div>
+  <div class="skip">Stop &amp; review each stage instead</div>
+</div>
+
+<div class="ft">WHY THIS DESIGN (from the research)</div>
+<div class="notes">
+  <div class="nc"><h4>Right indicator for the wait</h4><p>3–15s waits → <b>progress + status</b>, not a bare spinner. Skeletons/progress cut perceived wait <b>20–70%</b>; an eased bar + % reads as "moving," killing the "is it stuck?" moment.</p></div>
+  <div class="nc"><h4>Truthful, contextual microcopy</h4><p>Status reflects the <b>real</b> work — reading source, applying brief, drawing on the Lore Atlas, composing, gate-checking. No invented "searching the web," since the model answers from knowledge.</p></div>
+  <div class="nc"><h4>Branded &amp; calming</h4><p>On-brand gold sparkle, Fraunces title, the project name front-and-centre. The wait becomes a small "your story is being written" moment — and you can keep reading (non-blocking) or skip.</p></div>
+</div>
+<script>
+(function(){
+  var msgs=['Reading your work source','Weighing your brief & target market','Drawing on the Lore Atlas','Composing the logline','Gate-checking against the brief','Polishing the wording'];
+  var i=0, p=8, fill=document.getElementById('fillA'), st=document.getElementById('statusA'), pc=document.getElementById('pctA');
+  setInterval(function(){ i=(i+1)%msgs.length; st.innerHTML=msgs[i]+'<span class="dotty"></span>'; }, 1700);
+  setInterval(function(){ p=p+Math.max(1,(92-p)*0.16); if(p>96)p=96; fill.style.width=p.toFixed(0)+'%'; pc.textContent=p.toFixed(0)+'%'; }, 700);
+  // Option B stepper
+  var order=['Logline','Synopsis','Treatment','Beats','Scenes','Step outline','Draft'];
+  var bmsg=['Writing the Synopsis','Writing the Treatment','Mapping the Beats','Breaking into Scenes','Drafting the Step outline','Writing the opening Draft','Finishing up'];
+  var done=2, steps=document.getElementById('stepsB'), fb=document.getElementById('fillB'), sb=document.getElementById('statusB'), pb=document.getElementById('pctB');
+  setInterval(function(){ if(done>=7){return;}
+    var nodes=steps.children;
+    nodes[done-1].className='step done'; nodes[done-1].children[0].innerHTML='✓';
+    if(done<7){ nodes[done].className='step active'; nodes[done].children[0].innerHTML='<span class="spin"></span>'; }
+    done++; fb.style.width=Math.round(done/7*100)+'%'; pb.textContent=done+' / 7'; sb.innerHTML=(bmsg[done-1]||'Done')+'<span class="dotty"></span>';
+  }, 1500);
+})();
+</script>
+</body></html>

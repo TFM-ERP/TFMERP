@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ScripON v3 — Adapt / Build redesign (for approval)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700&family=Tajawal:wght@400;500;700&family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Aref+Ruqaa:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b0c0f;--panel:#14161c;--panel2:#191c23;--hair:rgba(255,255,255,.08);--hair2:rgba(255,255,255,.14);--gold:#C6A463;--gold2:#E6D2A2;--goldink:#15120B;--cream:#F4EEE0;--text:#E7E3D8;--mut:#9aa1ab;--faint:#6b727d;--blue:#5b8def;--green:#57b368;--amber:#e0a23b;--red:#e5635f;--violet:#8b7cf0;--teal:#48b6a0}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:radial-gradient(1200px 700px at 50% -10%,#15171d,#0b0c0f 60%);color:var(--text);font-family:'Rubik',system-ui,sans-serif;line-height:1.55;-webkit-font-smoothing:antialiased;padding:0 0 90px}
+.wrap{max-width:1100px;margin:0 auto;padding:0 22px}
+header.top{padding:40px 0 18px;border-bottom:1px solid var(--hair);margin-bottom:8px}
+.eyebrow{font-size:11px;font-weight:700;letter-spacing:2px;color:var(--gold);text-transform:uppercase}
+h1{font-family:'Fraunces',serif;font-size:32px;font-weight:600;color:var(--cream);letter-spacing:-.4px;margin:8px 0 6px}
+.sub{font-size:15px;color:var(--mut);max-width:840px}
+h2{font-family:'Fraunces',serif;font-size:22px;font-weight:600;color:var(--cream);margin:40px 0 4px;scroll-margin-top:14px}
+.h2note{font-size:13px;color:var(--mut);margin-bottom:14px;max-width:860px}
+h3{font-size:12px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--gold);margin:16px 0 8px}
+h4{font-size:14px;font-weight:600;color:var(--cream);margin:6px 0}
+.ar{font-family:'Tajawal',sans-serif;direction:rtl}.artitle{font-family:'Aref Ruqaa',serif}
+.card{background:var(--panel);border:1px solid var(--hair);border-radius:16px;padding:18px 20px;margin:14px 0}
+.card.lit{border-color:rgba(198,164,99,.4)}.card.warn{border-color:rgba(229,99,95,.4);background:rgba(229,99,95,.05)}
+.chips{display:flex;flex-wrap:wrap;gap:7px;margin:8px 0}
+.chip{font-size:12.5px;font-weight:500;color:var(--text);background:#171a21;border:1px solid var(--hair);border-radius:999px;padding:6px 12px}
+.chip.on{color:var(--goldink);background:linear-gradient(180deg,var(--gold2),var(--gold));border-color:transparent;font-weight:600}
+.chip.b{color:#a9c4f7;background:rgba(91,141,239,.12);border-color:rgba(91,141,239,.3)}
+.chip.v{color:#c3b6f5;background:rgba(139,124,240,.12);border-color:rgba(139,124,240,.3)}
+.chip.g{color:#9fe3c0;background:rgba(87,179,104,.12);border-color:rgba(87,179,104,.3)}
+.chip.t{color:#a7e4d8;background:rgba(72,182,160,.12);border-color:rgba(72,182,160,.3)}
+.chip .r{font-size:10px;opacity:.7;margin-inline-start:6px}
+.dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-inline-end:6px;vertical-align:middle}
+.dot.on{background:var(--green)}.dot.off{background:var(--faint)}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.fld{display:flex;flex-direction:column;gap:6px;margin:8px 0}
+.lbl{font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--faint)}
+.inp{background:#0f1218;border:1px solid var(--hair);border-radius:9px;color:var(--text);font-size:13.5px;padding:10px 12px;font-family:inherit}
+.muted{color:var(--mut);font-size:13px}.cite{color:var(--faint);font-size:12px;margin-top:6px}
+.pill{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.4px;padding:2px 8px;border-radius:999px}
+.p-new{background:rgba(87,179,104,.16);color:var(--green)}.p-keep{background:rgba(91,141,239,.16);color:var(--blue)}.p-guard{background:rgba(229,99,95,.16);color:var(--red)}.p-dedupe{background:rgba(224,162,59,.16);color:var(--amber)}.p-res{background:rgba(139,124,240,.16);color:var(--violet)}
+table{width:100%;border-collapse:collapse;margin:10px 0;font-size:12px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--hair);vertical-align:top}
+th{color:var(--gold);font-size:10px;letter-spacing:.5px;text-transform:uppercase}
+td.c{color:var(--mut)}
+tr.hi td{background:rgba(198,164,99,.06)}
+.device{background:#0c0d10;border:1px solid var(--hair2);border-radius:20px;overflow:hidden;box-shadow:0 40px 90px -30px rgba(0,0,0,.85);margin:16px 0}
+.dtop{height:46px;display:flex;align-items:center;gap:10px;padding:0 16px;background:linear-gradient(180deg,#15181e,#121419);border-bottom:1px solid var(--hair)}
+.dlogo{width:26px;height:26px;border-radius:7px;background:linear-gradient(160deg,var(--gold2),var(--gold));color:var(--goldink);display:grid;place-items:center;font-weight:800;font-size:11px}
+.seg{display:flex;gap:4px;background:#0e1015;border:1px solid var(--hair);border-radius:9px;padding:3px}
+.seg span{font-size:12px;font-weight:600;color:var(--mut);padding:5px 11px;border-radius:7px}.seg span.on{background:rgba(198,164,99,.16);color:var(--gold2)}
+.vsw{margin-inline-start:auto;display:flex;align-items:center;gap:6px;font-size:12px;color:var(--mut)}
+.vbtn{font-size:11.5px;font-weight:700;padding:4px 9px;border-radius:7px;border:1px solid var(--hair);color:var(--mut)}
+.vbtn.on{background:rgba(198,164,99,.16);color:var(--gold2);border-color:rgba(198,164,99,.4)}
+.dbody{display:flex;min-height:280px}
+.drail{width:200px;flex:none;border-inline-end:1px solid var(--hair);background:#0e1015;padding:14px 10px}
+.sn{display:flex;align-items:center;gap:9px;font-size:12.5px;font-weight:600;color:var(--mut);padding:9px 11px;border-radius:9px;margin-bottom:2px}
+.sn.on{background:rgba(198,164,99,.13);color:var(--gold2)}.sn .n{font-size:10px;color:var(--faint);width:14px}.sn.done .n{color:var(--green)}
+.dmain{flex:1;min-width:0;padding:18px 22px}
+.flow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:8px 0}
+.step{background:#171a20;border:1px solid var(--hair);border-radius:9px;padding:6px 10px;font-size:12px;font-weight:600;color:var(--cream)}
+.arrowx{color:var(--faint)}
+.spine{position:relative;margin:10px 0 0 0;padding-inline-start:26px}
+.spine:before{content:"";position:absolute;inset-inline-start:8px;top:6px;bottom:6px;width:2px;background:linear-gradient(180deg,var(--gold),rgba(198,164,99,.2))}
+.snode{position:relative;margin:0 0 12px}
+.snode:before{content:"";position:absolute;inset-inline-start:-22px;top:4px;width:12px;height:12px;border-radius:50%;background:var(--gold);box-shadow:0 0 0 3px rgba(198,164,99,.18)}
+.snode.off:before{background:var(--faint);box-shadow:none}
+.snode .st{font-weight:600;color:var(--cream);font-size:14px}.snode .sd{font-size:12.5px;color:var(--mut);margin-top:2px}.snode .prov{font-size:11px;color:var(--faint);margin-top:3px}
+.fcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin:12px 0}
+.fcard{background:var(--panel2);border:1px solid var(--hair);border-radius:13px;padding:14px 15px}
+.fcard h4{color:var(--gold2)}
+.fcard .led{font-size:12.5px;color:var(--mut);line-height:1.6}
+.beat{display:grid;grid-template-columns:64px 1fr;gap:8px;font-size:12.5px;margin:5px 0;align-items:start}
+.beat .ts{font-family:'Courier Prime',ui-monospace,monospace;font-size:11px;color:var(--gold2);background:#0e1014;border:1px solid var(--hair);border-radius:6px;padding:2px 6px;text-align:center}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--mut);margin:8px 0 0}
+.toc{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 0}
+.toc a{font-size:12.5px;color:var(--gold2);text-decoration:none;border:1px solid rgba(198,164,99,.3);border-radius:999px;padding:5px 12px}
+.foot{margin-top:44px;padding-top:16px;border-top:1px solid var(--hair);color:var(--faint);font-size:12px;line-height:1.7}
+b{color:var(--cream);font-weight:600}
+.slider{height:6px;border-radius:4px;background:#23262e;position:relative;margin:12px 0 6px}.slider i{position:absolute;left:0;top:0;bottom:0;border-radius:4px;width:55%;background:linear-gradient(90deg,var(--gold),var(--gold2))}.slider .knob{position:absolute;left:55%;width:16px;height:16px;border-radius:50%;background:#fff;top:-5px;box-shadow:0 2px 6px rgba(0,0,0,.5)}
+.exp{font-size:11.5px;color:var(--faint);font-style:italic}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <div class="eyebrow">ScripON · Studio · Adapt / Build — v3 redesign · research-backed · for approval</div>
+  <h1>The build adapts to the format — and the Brief, versions &amp; Package follow</h1>
+  <p class="sub">This second pass adds everything you asked for: a <b>Format Engine</b> where picking Feature / Series / Vertical / Documentary re‑wires the entire develop pipeline (verified against the MENA Verticals guide + live 2026 research on verticals, regional episode formats, and documentary craft); <b>country + era as a deep creative substrate</b> (timeline of civilisations → language · accent · customs, beyond Arabic); a <b>real‑person brief</b> with fidelity; <b>auto character breakdown</b>, guaranteed Period·Locale &amp; Budget cards, and <b>PDF + Word export</b> on the Development Package; build <b>versions V1·V2·V3</b>; and full Arabic. Fonts are your picks. <b>Nothing is coded until you approve.</b></p>
+  <div class="toc">
+    <a href="#gap">1 · Gap closed</a><a href="#brief">2 · The Brief</a><a href="#format">3 · Format Engine</a><a href="#country">4 · Country + Era</a><a href="#real">5 · Real‑person</a><a href="#versions">6 · Versions</a><a href="#pkg">7 · Package + export</a><a href="#data">8 · Data &amp; Arabic</a>
+  </div>
+</header>
+
+<!-- 1 GAP -->
+<h2 id="gap">1 · What this closes</h2>
+<div class="card">
+<table>
+<tr><th>You asked for</th><th>Now</th><th>This adds</th></tr>
+<tr><td>Full Intake‑v2 taxonomy (genre/blend/tone/mood/treatment · setting · culture/era · intent · budget)</td><td class="c">Flat genre list only</td><td><span class="pill p-new">add</span> all categories, deduped</td></tr>
+<tr><td><b>Character breakdown auto‑generated</b> whenever there are characters, visible in the Package — no manual step</td><td class="c">Manual "Generate character bible"</td><td><span class="pill p-new">auto</span> runs with Scenes; always shown</td></tr>
+<tr><td><b>Period·Locale</b> &amp; <b>Budget tier</b> cards always filled in the Package</td><td class="c">Often "—" (data not collected/derived)</td><td><span class="pill p-new">guarantee</span> from brief + derive</td></tr>
+<tr><td><b>Package export</b> — investor‑grade PDF + editable Word</td><td class="c">Web view only</td><td><span class="pill p-new">add</span> .pdf + .docx</td></tr>
+<tr><td><b>Real‑person / based‑on‑reality</b> brief + fidelity + search</td><td class="c">Missing</td><td><span class="pill p-new">add</span> per‑person card</td></tr>
+<tr><td><b>World languages &amp; accents</b> driven by country · era (not just Arabic)</td><td class="c">Arabic dialect engine only</td><td><span class="pill p-new">add</span> country→era→accent substrate</td></tr>
+<tr><td><b>Project type drives everything</b> downstream (beats, treatment, bible…)</td><td class="c">One feature‑shaped pipeline for all</td><td><span class="pill p-new">add</span> the Format Engine</td></tr>
+<tr><td><b>Vertical</b>, regional <b>episode structures</b>, <b>documentary</b> all build differently</td><td class="c">Treated like a feature</td><td><span class="pill p-new">add</span> per‑format pipelines</td></tr>
+<tr><td>Build <b>versions</b> (V1·V2·V3) + go back to the brief</td><td class="c">Per‑stage versions only</td><td><span class="pill p-new">add</span> run‑level versions</td></tr>
+</table>
+</div>
+
+<!-- 2 BRIEF -->
+<h2 id="brief">2 · The re‑architected Brief — six steps, zero duplication</h2>
+<div class="h2note">Left rail = the brief outline + autosave map. Genre lives in <b>one</b> place; the Lore Atlas becomes the depth panel that only appears for fantasy/myth/cultural elements. <b>Project type is chosen first</b> because it re‑wires every step below it (§3).</div>
+<div class="device">
+  <div class="dtop"><div class="dlogo">Sx</div><div class="seg"><span>Adapt</span><span class="on">Build from scratch</span></div>
+    <div class="vsw"><span class="ar artitle" style="font-size:16px;color:var(--cream)">عنترة</span> · New build <span class="vbtn on">Brief</span></div></div>
+  <div class="dbody">
+    <div class="drail">
+      <div class="sn done"><span class="n">1</span> Project type &amp; source</div>
+      <div class="sn on"><span class="n">2</span> Story DNA</div>
+      <div class="sn"><span class="n">3</span> Setting &amp; world</div>
+      <div class="sn"><span class="n">4</span> Culture &amp; era</div>
+      <div class="sn"><span class="n">5</span> Targets &amp; intent</div>
+      <div class="sn"><span class="n">6</span> Structure &amp; title</div>
+      <div style="margin-top:14px;border-top:1px solid var(--hair);padding-top:12px;font-size:11px;color:var(--green)"><span class="dot on"></span>Autosaved · just now</div>
+    </div>
+    <div class="dmain">
+      <h3>Base genre · <span style="color:var(--mut);text-transform:none;letter-spacing:0;font-weight:500">single — the noun</span></h3>
+      <div class="chips"><span class="chip">Action</span><span class="chip">Comedy</span><span class="chip">Crime</span><span class="chip">Drama</span><span class="chip">Fantasy</span><span class="chip on">Historical</span><span class="chip">Horror</span><span class="chip">Mystery</span><span class="chip">Romance</span><span class="chip">Sci‑Fi</span><span class="chip">Thriller</span><span class="chip">War</span><span class="chip">Western</span><span class="chip">…19</span></div>
+      <div class="fld"><span class="lbl">Subgenre (depends on base)</span><div class="inp" style="color:var(--mut)">Epic / period ▾</div></div>
+      <h3>Blend layers <span style="color:var(--mut);text-transform:none;letter-spacing:0;font-weight:500">· multi</span> &nbsp;·&nbsp; Tone &nbsp;·&nbsp; Mood &nbsp;·&nbsp; Treatment</h3>
+      <div class="chips"><span class="chip b on" style="background:rgba(91,141,239,.3);color:#cfe0fb">+ War</span><span class="chip b on" style="background:rgba(91,141,239,.3);color:#cfe0fb">+ Romance</span><span class="chip b on" style="background:rgba(91,141,239,.3);color:#cfe0fb">+ Fantasy</span><span class="chip b">+ Noir</span><span class="chip b">+ Satire</span></div>
+      <div class="chips"><span class="chip on">Epic</span><span class="chip on">Tragic</span><span class="chip">Ironic</span><span class="chip on" style="background:rgba(72,182,160,.3);color:#bdeee4">Foreboding</span><span class="chip" style="border-color:rgba(72,182,160,.3);color:#a7e4d8">Bittersweet (mood)</span><span class="chip">Linear</span></div>
+      <p class="cite">+ Fantasy / Myth or a cultural era → reveals the <b>Lore Atlas depth panel</b> (texture · roles · density dial · guardrail) — one home for genre.</p>
+      <div class="card" style="margin:10px 0 0;background:#10131a"><h4 style="color:var(--gold2)">⚑ Based on a real story / real person?</h4><div class="muted">Toggle on → per‑person brief + fidelity (Faithful · Inspired‑by · Loosely) + “how much real detail” slider + research‑online tick (§5).</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- 3 FORMAT ENGINE -->
+<h2 id="format">3 · The Format Engine — project type re‑wires the whole build</h2>
+<div class="h2note">The biggest change. Today every project is shaped like a feature. In v3, <b>{format} + {market}</b> picks the develop ladder, the episode/length/act presets, and the writing rules. Verified against the MENA Verticals guide and live 2026 research (ReelShort/DramaBox craft, broadcaster/streamer norms, documentary practice).</div>
+
+<h3>3a · Each format has its own develop ladder</h3>
+<div class="card">
+<table>
+<tr><th>Format</th><th>Develop ladder (stages generated)</th><th>Output</th></tr>
+<tr class="hi"><td><b>Feature</b></td><td class="c">Logline → Synopsis → Treatment (3‑act) → Beats (framework) → Scenes → Step outline → Draft</td><td class="c">~90–120 pp screenplay</td></tr>
+<tr><td><b>Series</b> (TV / streaming / limited)</td><td class="c">Logline → Series synopsis → <b>Season arc</b> → <b>Episode map</b> (count×length by market) → per‑episode beats/acts → Scenes → Draft per episode</td><td class="c">Bible + season map + pilot/episodes</td></tr>
+<tr><td><b>Vertical micro‑drama</b></td><td class="c">Premise (pre‑loaded conflict) → Story engine → <b>Episode map 40–100</b> → per‑episode <b>Beat Engine</b> (Hook·Friction·Spike·Button) + cliffhanger → <b>paywall‑aware</b> free block → Script (write to the second)</td><td class="c">Series bible + first 10–15 episode scripts</td></tr>
+<tr><td><b>Documentary</b></td><td class="c">Premise / <b>Thesis</b> → Treatment (living) → <b>Research / archive plan</b> → <b>Rights &amp; access plan</b> → Interview / shooting outline → <b>Paper edit (string‑out)</b> → Narration script (last)</td><td class="c">Treatment + research/rights + narration</td></tr>
+</table>
+<p class="cite"><span class="pill p-guard">guardrail</span> A documentary never gets "beats + dialogue" — it's written in the edit. The pipeline swaps the stage chain, it doesn't relabel it.</p>
+</div>
+
+<h3>3b · Episode &amp; length presets switch by market <span class="pill p-res">research‑backed</span></h3>
+<div class="card">
+<table>
+<tr><th>Format · market</th><th>Episodes</th><th>Length</th><th>Act template / arc</th></tr>
+<tr><td>Feature</td><td class="c">1</td><td class="c">~110 pp</td><td class="c">3‑act</td></tr>
+<tr><td>US streaming drama</td><td class="c"><b>8</b> (6·10·13)</td><td class="c">45–75 min</td><td class="c">continuous · serialized</td></tr>
+<tr><td>US network hour</td><td class="c"><b>22</b> (13·18)</td><td class="c">44 min</td><td class="c">Teaser + 5 acts (ABC 6) · act‑out</td></tr>
+<tr><td>UK / BBC drama</td><td class="c"><b>6</b> (3·8)</td><td class="c">58 min</td><td class="c">continuous · "Series N"</td></tr>
+<tr><td>K‑drama (modern)</td><td class="c"><b>12</b> (16 classic)</td><td class="c">60–70 min</td><td class="c">per‑ep + mid‑ep hook; live‑shoot vs pre‑produced</td></tr>
+<tr><td>Turkish dizi (home)</td><td class="c">~36 / season</td><td class="c"><b>120–150 min</b></td><td class="c">novelistic; export re‑cut ×3 @45 min</td></tr>
+<tr><td>Telenovela</td><td class="c"><b>120</b> (60–200)</td><td class="c">45 min</td><td class="c">daily, finite END</td></tr>
+<tr><td>Anime</td><td class="c"><b>12</b> (24–26)</td><td class="c">24 min</td><td class="c">cour; OP/ED + eyecatch</td></tr>
+<tr class="hi"><td>MENA Ramadan musalsal</td><td class="c"><b>30</b> (15·20)</td><td class="c">30–45 min</td><td class="c">nightly, closed 30‑arc</td></tr>
+<tr class="hi"><td>Vertical (global)</td><td class="c"><b>60–100</b></td><td class="c">60–90 s</td><td class="c">per‑episode Beat Engine + cliffhanger</td></tr>
+<tr class="hi"><td>Vertical (MENA)</td><td class="c"><b>40–80</b></td><td class="c">60–90 s (→120)</td><td class="c">Addiction Loop · Arabic‑first</td></tr>
+</table>
+<p class="cite">Two flags carried always: <b>terminology</b> (UK/EU = "Series N" not "Season"); <b>K‑drama production model</b> (live‑shoot = keep later episodes mutable · pre‑produced = lock for global drop).</p>
+</div>
+
+<h3>3c · Vertical micro‑drama engine <span class="pill p-res">MENA + global</span></h3>
+<div class="fcards">
+  <div class="fcard">
+    <h4>Per‑episode Beat Engine</h4>
+    <div class="beat"><span class="ts">0:00</span><span><b>Hook</b> — detonate in the first 15s (the “explosion point”).</span></div>
+    <div class="beat"><span class="ts">0:15</span><span><b>Friction</b> — a <i>filmable</i> conflict, not subtext.</span></div>
+    <div class="beat"><span class="ts">1:00</span><span><b>Spike</b> — the jolt that re‑prices everything before it.</span></div>
+    <div class="beat"><span class="ts">1:50</span><span><b>Button</b> — cut on the question, ~sec 55–58. Mandatory cliffhanger.</span></div>
+    <p class="cite">Generated as a timestamp skeleton before dialogue; a lint rule fails any episode that resolves.</p>
+  </div>
+  <div class="fcard">
+    <h4>Reversal &amp; paywall</h4>
+    <div class="led"><b>反转 engine:</b> Shock (concrete evidence — a text, a transfer, a second name on a will) → Hurt (artifacts) → <b>Release in public</b>. <br><br><b>Paywall‑aware:</b> free E1–~10 = a complete emotional argument; map is written <i>backwards</i> from the paywall; a major reveal lands 1–2 eps after it. <br><br><b>Golden three:</b> a cliffhanger by end of E1; peaks E5 (re‑price premise), E10 (collide two secrets).</div>
+  </div>
+  <div class="fcard">
+    <h4 class="ar artitle" style="font-size:17px">قواعد الفيرتيكال · MENA</h4>
+    <div class="led ar"><b>قاعدة الإدمان:</b> كل حلقة تُغلق حلقة صغيرة وتفتح أخرى — «نعم، لكن» و«لا، وأيضًا» كل ٢–٣ حلقات، مع مكافأة حقيقية (دليل · اعتراف · فضح حليف).<br><br><b>محرّكات القصة:</b> علاقة تعاقدية تحت المراقبة · انهيار سمعة وإعادة بناء · صعود المرأة ضد الحُرّاس · حرب ميراث بوثيقة مشبوهة · حب ممنوع عبر الطبقات.<br><br><b>السلوك أهم من الديكور</b> · حوار محلي طبيعي · الرومانسية ضمن قيود اجتماعية حقيقية.</div>
+  </div>
+  <div class="fcard">
+    <h4>8 MENA episode templates</h4>
+    <div class="chips"><span class="chip">Confrontation</span><span class="chip">Broken confession</span><span class="chip">Secret revealed</span><span class="chip">Public humiliation</span><span class="chip">Power struggle</span><span class="chip">Dangerous arrival</span><span class="chip">Family‑dinner explosion</span><span class="chip">Wedding interruption</span></div>
+    <p class="cite">9:16 rules: face‑first framing → auto‑expand reaction beats; props carry emotion; block action/ensemble generation with a warning.</p>
+  </div>
+</div>
+
+<h3>3d · Documentary engine <span class="pill p-res">subgenre × Nichols mode</span></h3>
+<div class="card">
+<p class="muted" style="margin-bottom:6px">Two independent axes: <b>subgenre</b> (subject) and <b>mode</b> (voice). They decide which stages exist and whether a narration script is even written.</p>
+<div class="chips"><span class="chip">Nature / wildlife</span><span class="chip">Sports</span><span class="chip">True‑crime</span><span class="chip">Political / investigative</span><span class="chip">Biographical</span><span class="chip">Music</span><span class="chip">Observational / vérité</span><span class="chip">Essay</span></div>
+<div class="chips"><span class="chip v">Expository</span><span class="chip v">Observational</span><span class="chip v">Participatory</span><span class="chip v">Reflexive</span><span class="chip v">Performative</span><span class="chip v">Poetic</span></div>
+<table>
+<tr><th>Subgenre</th><th>Default shape</th><th>Distinct blocking artifact</th></tr>
+<tr><td>Nature/wildlife</td><td class="c">6–11 × 50 min by biome; "hero animal" sequences; narration last</td><td class="c">season‑locked shot wish‑list + field schedule</td></tr>
+<tr><td>True‑crime</td><td class="c">3–10 × 45–60 min; crime→investigation→trial→aftermath; per‑ep cliffhanger</td><td class="c">legal/defamation pack (2‑source rule)</td></tr>
+<tr><td>Music</td><td class="c">scenes around songs; concert vs portrait</td><td class="c">sync + master‑use licensing plan (budget‑critical)</td></tr>
+<tr><td>Political/investigative</td><td class="c">thesis‑argument outline; expository or participatory</td><td class="c">fact‑check / source‑verification matrix</td></tr>
+</table>
+<p class="cite"><span class="pill p-guard">guardrail</span> "outcome known/unknown" flag → dramatic‑irony structure (sports/historical) vs shoot‑as‑you‑go (vérité). Rights/clearance is a tracked entity, not prose.</p>
+</div>
+
+<!-- 4 COUNTRY -->
+<h2 id="country">4 · Country + Era — a deep creative substrate, not a tag</h2>
+<div class="h2note">Selecting a country reveals an ordered <b>timeline of the civilisations who lived there</b> (ancient → present). Each era carries language (High/Low register), script, accent/dialect, naming, dress/customs, and a sacred‑sensitivity flag — feeding the actual writing, not just coverage. Research‑online (ON by default) deepens the selected era live and cites sources.</div>
+<div class="card">
+  <div class="fld"><span class="lbl">Country</span><div class="inp" style="color:var(--cream)">Egypt ▾ &nbsp;<span class="muted">· research online <span class="dot on"></span>on</span></div></div>
+  <h4>Civilisation timeline — Egypt <span class="exp">(spans are fuzzy; “c.” on debated edges)</span></h4>
+  <div class="chips"><span class="chip">Pharaonic · c.2600 BC</span><span class="chip">Demotic · 700 BC</span><span class="chip">Ptolemaic / Greco‑Roman</span><span class="chip">Coptic</span><span class="chip on">Arab‑Islamic · 639 AD</span><span class="chip">Ottoman</span><span class="chip">Modern Egyptian</span></div>
+  <div class="row" style="margin-top:8px">
+    <div class="card" style="margin:0;background:#10131a"><h4>Language &amp; accent (auto from era)</h4><div class="muted">High: <b>MSA / fuṣḥā</b> · Low: <b>Egyptian Cairene</b> (diglossia) · script Arabic. Dialect colour picker + actor parenthetical — never phonetic eye‑dialect.</div></div>
+    <div class="card" style="margin:0;background:#10131a"><h4>Texture &amp; guardrail</h4><div class="muted">Naming (theophoric: Ramesses) · dress (linen kalasiris, thread‑count = status) · <span style="color:var(--red)">sacred‑sensitivity: high</span> → Islamic aniconism caution.</div></div>
+  </div>
+  <h3>Beyond Arabic — accents as idiom + parenthetical</h3>
+  <div class="chips"><span class="chip">RP</span><span class="chip">Cockney</span><span class="chip">Glaswegian</span><span class="chip">Hiberno (Irish)</span><span class="chip">US Southern</span><span class="chip">AAVE</span><span class="chip">Castilian</span><span class="chip">Rioplatense (voseo)</span><span class="chip">Mexican</span><span class="chip">Kansai‑ben</span></div>
+  <p class="cite">Two knobs: <b>horizontal</b> dialect (where they're from) and <b>vertical</b> diglossia/register (class · formality · the dramatic H↔L switch mid‑scene). Rule‑safe (AAVE habitual <i>be</i> only for recurring action; false‑friend warnings e.g. <i>guagua</i> bus‑vs‑baby). Verified: Britannica · Wikipedia language histories · Yale Grammatical Diversity Project · RAE · Ferguson 1959.</p>
+</div>
+
+<!-- 5 REAL PERSON -->
+<h2 id="real">5 · Real‑person / based‑on‑reality</h2>
+<div class="card">
+  <h4>⚑ This story is based on reality / a real protagonist</h4>
+  <div class="chips"><span class="chip on">Faithful</span><span class="chip">Inspired‑by</span><span class="chip">Loosely</span></div>
+  <div class="fld" style="margin-top:8px"><span class="lbl">Write a brief about the real person (fed into their character build)</span><div class="inp" style="color:var(--mut);min-height:54px">Name · era · what's true · the wound · the public record vs the private truth · what you want kept and what you'll dramatise…</div></div>
+  <h3>How much real detail</h3>
+  <div class="slider"><i></i><span class="knob"></span></div>
+  <div class="muted" style="display:flex;justify-content:space-between"><span>Essence only</span><span>Balanced</span><span>Documented</span></div>
+  <div class="muted" style="margin-top:8px"><span class="dot on"></span><b>Search this person online</b> — enriches the character build from sources (kept separate from coverage). Intent ties to the clearance flag (life‑rights / defamation pack for Biopic·True‑crime).</div>
+  <p class="cite">The fidelity + slider + brief all flow into the character breakdown so the real person is honoured at the chosen level — Faithful, Inspired‑by, or Loosely.</p>
+</div>
+
+<!-- 6 VERSIONS -->
+<h2 id="versions">6 · Build versions, persistence &amp; “go back to the brief”</h2>
+<div class="h2note">A build is a creative project; each <b>Version</b> is one full attempt — its own frozen brief + ladder + script + character breakdown. Re‑running makes V2 without destroying V1.</div>
+<div class="card lit">
+  <div class="device" style="margin:0 0 8px">
+    <div class="dtop"><div class="dlogo">Sx</div><div class="seg"><span>Develop</span><span>Reader</span><span>Package</span></div>
+      <div class="vsw"><span class="vbtn">Brief ↩</span><span class="vbtn on">V2</span><span class="vbtn">V1</span><span class="vbtn" style="color:var(--green);border-color:rgba(87,179,104,.4)">+ New version</span></div></div>
+    <div style="padding:14px 18px"><div class="muted"><b>Brief ↩</b> opens the exact brief that produced the active version (read‑only reference; editing offers “save as new version”). <b>V1/V2</b> switch the whole ladder + script + breakdown. <b>+ New version</b> clones the brief, re‑runs, keeps V1.</div></div>
+  </div>
+  <div class="chips"><span class="chip">Frozen brief snapshot</span><span class="chip">Logline → Draft</span><span class="chip">Generated script</span><span class="chip">Character breakdown</span><span class="chip">Coverage</span></div>
+  <p class="cite"><span class="pill p-new">one db:push</span> new <span class="chip" style="padding:2px 8px">BuildVersion{id,buildId,n,label,briefSnapshot,status}</span> + <span class="chip" style="padding:2px 8px">buildVersionId</span> on stages + script doc. Today versioning is only per‑stage; this adds the run‑level version.</p>
+</div>
+
+<!-- 7 PACKAGE -->
+<h2 id="pkg">7 · Development Package — connected spine, auto breakdown, PDF + Word</h2>
+<div class="h2note">Reads top‑to‑bottom as the ladder that built it; each rung shows what it inherited. Character breakdown is generated automatically (no manual step), Period·Locale &amp; Budget always fill, and it exports as an investor‑grade PDF and an editable Word file. The spine adapts to the format (a documentary spine shows Treatment→Research→Paper edit→Narration instead).</div>
+<div class="device">
+  <div class="dtop"><div class="dlogo">Sx</div><div class="seg"><span>Library</span><span class="on">Development Package</span></div>
+    <div class="vsw"><span class="vbtn on">V2</span><span class="vbtn">V1</span><span class="vbtn" style="color:var(--gold2)">↓ PDF</span><span class="vbtn" style="color:var(--blue)">↓ Word</span><span class="vbtn" style="color:var(--gold2)">⤴ Promote</span></div></div>
+  <div style="padding:20px 24px">
+    <div style="display:flex;gap:16px;align-items:flex-start;border-bottom:1px solid var(--hair);padding-bottom:14px;margin-bottom:14px">
+      <div style="width:74px;height:104px;border-radius:9px;background:linear-gradient(160deg,#2a2418,#15120b);border:1px solid rgba(198,164,99,.3);display:grid;place-items:center"><span class="artitle ar" style="color:var(--gold2);font-size:22px">عنترة</span></div>
+      <div><div class="eyebrow">Feature · 3‑act · Historical + War + Fantasy</div>
+        <div style="font-family:'Fraunces',serif;font-size:24px;color:var(--cream)">Antarah <span class="ar artitle" style="font-size:20px">عنترة</span></div>
+        <div class="muted" style="font-style:italic;max-width:560px">A warrior‑slave fights for a freedom named Abla; his hidden royal blood threatens to turn victory into a trap.</div></div>
+    </div>
+    <div class="row" style="margin-bottom:12px">
+      <div class="card" style="margin:0;background:#10131a"><div class="lbl">Period · Locale <span class="pill p-new">always filled</span></div><div style="color:var(--cream);font-weight:600">Jahiliyya · Arabian Peninsula</div></div>
+      <div class="card" style="margin:0;background:#10131a"><div class="lbl">Budget tier <span class="pill p-new">always filled</span></div><div style="color:var(--cream);font-weight:600">Mid $5–20M · ≤12 locations</div></div>
+      <div class="card" style="margin:0;background:#10131a"><div class="lbl">Language · Market</div><div style="color:var(--cream);font-weight:600">Arabic (MSA) · GCC/MENA · KSA PG15</div></div>
+    </div>
+    <div class="muted" style="margin-bottom:6px"><b>Development spine</b> — each rung derived from the one above (scoped to V2):</div>
+    <div class="spine">
+      <div class="snode"><div class="st">Brief → DNA &amp; world</div><div class="sd">Historical+War+Fantasy · Jahiliyya · Tier‑2 guardrail · Mid budget</div></div>
+      <div class="snode"><div class="st">Logline → Synopsis → Treatment</div><div class="prov">↑ each expands the one before</div></div>
+      <div class="snode"><div class="st">Beats <span class="pill p-keep">Hero's Journey</span> → Scenes</div><div class="prov">↑ framework maps treatment; scenes explode beats</div></div>
+      <div class="snode"><div class="st">Character breakdown <span class="pill p-new">auto</span></div><div class="sd">principals · arcs · function · look notes — generated with Scenes</div><div class="prov">↑ from scenes + brief; no manual step</div></div>
+      <div class="snode"><div class="st">Draft → Script · Coverage</div><div class="prov">↑ writes every scene; coverage scores it</div></div>
+    </div>
+    <p class="cite" style="margin-top:10px"><b>Export:</b> <span class="pill p-new">PDF</span> a designed, investor‑ready dossier (cover · logline · spine · characters · world · market · coverage) — send to financiers. <span class="pill p-new">Word</span> the same, fully formatted and editable, to work anywhere.</p>
+  </div>
+</div>
+
+<!-- 8 DATA + ARABIC -->
+<h2 id="data">8 · How it all connects · Arabic</h2>
+<div class="card">
+<div class="flow"><span class="step">Brief (IntakeProfile)</span><span class="arrowx">→</span><span class="step">BuildVersion snapshot</span><span class="arrowx">→</span><span class="step">Format‑specific ladder</span><span class="arrowx">→</span><span class="step">Script + auto character breakdown</span><span class="arrowx">→</span><span class="step">Package (read‑model) → PDF / Word</span><span class="arrowx">→</span><span class="step">Promote → Project</span></div>
+<p class="muted">The Package is a read‑model over the active version, so everything from the Brief (period, locale, budget, framework, layers, intent, real‑person fidelity, country/era language) shows up downstream automatically — and adapts its shape to the format.</p>
+<h3>Arabic — everything localised</h3>
+<p class="muted">Every new label, chip, tone/mood word, era, civilisation, accent, intent, budget tier, format term, and helper text ships in <span class="chip" style="padding:2px 8px">AR_SCRIPON</span>, RTL, in Tajawal / Aref Ruqaa. <span class="ar" style="color:var(--gold2)">المحرّك حسب الصيغة · النوع الأساسي · طبقات المزج · الإطار الزمني للحضارات · النيّة · نطاق الميزانية · تفصيل الشخصيات تلقائيًا · تصدير PDF و Word</span>.</p>
+</div>
+
+<div class="foot">
+<b>Build order on approval:</b> (P1) intake taxonomy + format‑switch wiring into IntakeProfile/steer + Arabic → (P2) Format Engine ladders (vertical · series episode‑map · documentary stage‑swap) + episode/length/act presets → (P3) country→era substrate + accents/diglossia beyond Arabic + real‑person brief/fidelity → (P4) auto character breakdown + Period·Locale/Budget guarantee + Package spine + <b>PDF/Word export</b> → (P5) build versions (BuildVersion + buildVersionId + switcher + Brief‑reference). Each phase: verify (tsc/NUL) + a copy‑paste db:push/restart where schema changes.<br><br>
+<b>Research (verified, June 2026):</b> MENA Verticals guide · ReelShort/DramaBox/Filmustage/Real‑Reel/Vitrina/Variety/Deadline (vertical craft + economics) · broadcaster &amp; streamer norms + Wikipedia format pages (regional episode structures) · Documentary Film Academy / PBS Frontline / IDA / No Film School (documentary stage‑chain + Nichols modes) · Britannica / Wikipedia language histories / Yale Grammatical Diversity Project / RAE / Ferguson 1959 (country‑era language &amp; accent). Multi‑source adversarial verification.
+</div>
+
+</div>
+</body>
+</html>

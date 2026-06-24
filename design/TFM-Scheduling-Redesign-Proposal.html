@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>TFM · Scheduling / Stripboard — Redesign Proposal</title>
+<style>
+  :root{--navy:#141d33;--navy2:#1d2947;--ink:#1a1e27;--gold:#c2922f;--gold-soft:#f7efda;--line:#d7dbe2;--line2:#eceef2;--muted:#69707d;--bg:#eceef2;
+        --ok:#1c7a4a;--ok-soft:#e6f3ec;--warn:#9a6a00;--warn-soft:#fbf2dc;--bad:#b3261e;--bad-soft:#fbeeed;--blue:#2f4fb0;--blue-soft:#eef1fb}
+  *{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:"Helvetica Neue",Arial,sans-serif;color:var(--ink);line-height:1.5}
+  .bar{position:sticky;top:0;z-index:50;background:var(--navy);color:#fff;display:flex;align-items:center;gap:14px;padding:11px 20px;flex-wrap:wrap}
+  .bar h1{font-size:14px;margin:0;font-weight:800}.bar .sp{flex:1}
+  .pr{background:var(--gold);color:#211807;border:none;border-radius:8px;padding:8px 14px;font:inherit;font-size:12px;font-weight:800;cursor:pointer}
+  .doc{max-width:1000px;margin:22px auto;background:#fff;box-shadow:0 6px 30px rgba(0,0,0,.13);padding:0 0 50px}
+  .hero{background:linear-gradient(135deg,var(--navy),#26324f);color:#fff;padding:30px 40px}
+  .hero .k{font-size:10px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--gold)}
+  .hero h1{font-size:26px;margin:6px 0 4px;font-weight:800}.hero p{margin:6px 0 0;color:#c5ccdb;font-size:13px;max-width:780px}
+  .body{padding:8px 40px}
+  h2{font-size:18px;margin:30px 0 6px;padding-top:14px;border-top:3px solid var(--gold);color:var(--navy);font-weight:800}
+  h2 .n{display:inline-block;background:var(--gold);color:#211807;border-radius:6px;font-size:12px;padding:1px 9px;margin-right:9px;vertical-align:middle}
+  h3{font-size:14px;margin:18px 0 5px;color:var(--navy);font-weight:800}
+  p,li{font-size:12.7px}
+  .verdict{background:var(--gold-soft);border:1px solid #e6d09a;border-radius:12px;padding:16px 18px;margin:16px 0}
+  .verdict b{color:#6e5510}
+  table{border-collapse:collapse;width:100%;margin:10px 0;font-size:11.6px}
+  th{background:var(--navy);color:#fff;text-align:left;padding:6px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.03em;font-weight:700;vertical-align:bottom}
+  td{border-bottom:1px solid var(--line2);padding:5px 8px;vertical-align:top}tr:nth-child(even) td{background:#fafbfc}
+  .chip{display:inline-block;font-size:9.5px;font-weight:800;padding:1px 7px;border-radius:999px;white-space:nowrap}
+  .c-ok{background:var(--ok-soft);color:var(--ok)}.c-part{background:var(--warn-soft);color:var(--warn)}.c-no{background:var(--bad-soft);color:var(--bad)}
+  ul{margin:6px 0;padding-left:20px}li{margin:2px 0}
+  .src{font-size:11px;color:var(--muted)}.legend{font-size:10.5px;color:var(--muted);margin:4px 0 0}
+  .phase{border-left:4px solid var(--gold);background:#fcfaf4;border-radius:6px;padding:9px 13px;margin:8px 0}.phase b{color:var(--navy)}
+  .tag{display:inline-block;font-size:9px;font-weight:800;padding:1px 7px;border-radius:999px;margin-right:6px}
+  .tag-now{background:var(--bad);color:#fff}.tag-soon{background:var(--warn);color:#fff}.tag-later{background:var(--blue);color:#fff}
+  code{background:#f3f4f7;border-radius:4px;padding:0 4px;font-size:11px}
+  svg{max-width:100%;height:auto;display:block;margin:12px auto}
+  /* mini stripboard mock */
+  .mock{border:1px solid var(--line);border-radius:10px;overflow:hidden;margin:12px 0}
+  .mock .mh{background:var(--navy);color:#fff;font-size:10px;font-weight:800;padding:6px 10px;display:flex;gap:10px;flex-wrap:wrap}
+  .mock .mh .f{background:var(--navy2);border:1px solid #2c3a5e;border-radius:999px;padding:1px 8px;font-weight:600;font-size:9px}
+  .board{display:flex;gap:8px;padding:10px;overflow-x:auto;background:#f6f7f9}
+  .col{flex:0 0 150px;background:#fff;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .col .ch{background:var(--gold-soft);font-size:9px;font-weight:800;color:#6e5510;padding:4px 7px;border-bottom:1px solid var(--line)}
+  .strip{font-size:9px;padding:4px 7px;border-bottom:1px solid var(--line2);display:flex;gap:4px;align-items:center}
+  .strip .d{width:8px;height:14px;border-radius:2px;flex:none}
+  .b-int{background:#e7eefc}.b-ext{background:#fdeede}.b-day{border-left:3px solid #f0b429}.b-night{border-left:3px solid #3b4a6b}
+  .banner{background:#222;color:#fff;font-size:8.5px;font-weight:800;text-align:center;padding:2px}
+  .warnw{background:var(--bad-soft);color:var(--bad);font-size:8px;padding:2px 7px;border-top:1px solid #f0caca}
+  @media print{@page{size:A4;margin:10mm}.bar{display:none}.doc{box-shadow:none;margin:0;max-width:none}h2,table,svg,.phase,.mock{break-inside:avoid}}
+</style></head>
+<body>
+<div class="bar"><h1>🎬 Scheduling / Stripboard — Redesign Proposal</h1><span class="sp"></span><button class="pr" onclick="window.print()">🖨 Print / PDF</button></div>
+<div class="doc">
+  <div class="hero">
+    <div class="k">TFM-System · SYS-SCHED</div>
+    <h1>Make the stripboard a true scheduling engine</h1>
+    <p>Your scheduling backbone is already strong — a real stripboard, drag-reorder, auto-schedule, a live per-category Day-Out-of-Days with Drop logic, and calendar anchoring that already feeds budget, call sheets, per-diem and the cost forecast. This proposal closes the gap to Movie Magic Scheduling: a real work-week calendar, a shooting-order optimizer, conflict detection, multi-board scenarios, richer DOOD, and the classic schedule outputs.</p>
+  </div>
+  <div class="body">
+
+    <div class="verdict"><b>Verdict.</b> The hard part is done. Strips, breakdown (21 Movie-Magic categories), DOOD and the downstream wiring (board → call sheet, → budget, → per-diem, → forecast burn) already exist and work. What's missing is the <b>scheduling intelligence</b> a 1st AD expects: a calendar that knows weekends/turnaround, a one-click optimizer that groups by location → cast → day/night to cut company moves and cast hold days, conflict warnings (cast double-booking, location/permit windows, sun gating — and you already have the sun engine), what-if boards, and proper outputs (one-liner, shooting schedule, DOOD export). All additive on top of the existing models.</div>
+
+    <!-- 1. HOW IT WORKS -->
+    <h2><span class="n">1</span>How film scheduling actually works</h2>
+    <p>The spine is universal: the script is broken down into <b>elements</b> per scene; each scene becomes a <b>strip</b>; strips are reordered into the most efficient shooting order; that order drives the <b>Day-Out-of-Days</b> (cast working calendar) and every downstream document.</p>
+    <svg viewBox="0 0 980 120" xmlns="http://www.w3.org/2000/svg" font-family="Helvetica,Arial">
+      <style>.bx{fill:#fff;stroke:#141d33;stroke-width:1.4;rx:7}.cr{fill:#f7efda;stroke:#c2922f}.t{font-size:11px;font-weight:800;fill:#141d33}.s{font-size:8px;fill:#69707d}.ln{stroke:#141d33;stroke-width:1.5;fill:none;marker-end:url(#a)}</style>
+      <defs><marker id="a" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#141d33"/></marker></defs>
+      <rect class="bx" x="8" y="40" width="120" height="42"/><text class="t" x="18" y="60">Script</text><text class="s" x="18" y="73">scenes</text>
+      <rect class="bx" x="160" y="40" width="130" height="42"/><text class="t" x="170" y="60">Breakdown</text><text class="s" x="170" y="73">elements (21 cats)</text>
+      <rect class="bx cr" x="322" y="36" width="150" height="50"/><text class="t" x="332" y="56">Stripboard ▣</text><text class="s" x="332" y="69">shooting order · day breaks</text>
+      <rect class="bx" x="504" y="40" width="120" height="42"/><text class="t" x="514" y="60">DOOD</text><text class="s" x="514" y="73">cast SW/W/H/PU</text>
+      <rect class="bx" x="656" y="22" width="150" height="34"/><text class="t" x="666" y="43">Calendar (work-week)</text>
+      <rect class="bx" x="656" y="66" width="150" height="40"/><text class="t" x="666" y="84">Call sheet · Budget</text><text class="s" x="666" y="97">Per-diem · Forecast · DPR</text>
+      <path class="ln" d="M128,61 L158,61"/><path class="ln" d="M290,61 L320,61"/><path class="ln" d="M472,61 L502,61"/>
+      <path class="ln" d="M624,55 L654,42"/><path class="ln" d="M624,66 L654,82"/>
+    </svg>
+    <h3>The optimization a 1st AD does by hand</h3>
+    <p>Strips are ordered to minimise the most expensive things, in priority order: <b>① location</b> (a company move can burn ~3 hours with nothing shot), <b>② cast availability &amp; hold days</b> (don't pay an actor to sit idle between an early and a late scene — that's what Drop/Pick-up is for), <b>③ day vs night</b> (group so the unit isn't flipping schedules), then setup complexity. The software's job is to make that reorder fast, show the cost of each arrangement, and keep the DOOD + budget in sync automatically.</p>
+
+    <!-- 2. CURRENT STATE -->
+    <h2><span class="n">2</span>Where TFM stands today</h2>
+    <h3>Strengths to keep</h3>
+    <p>Stripboard with full drag-reorder (<code>SchedulingService.reorder</code>); a real breakdown with the 21 Movie-Magic categories; a <b>live per-category DOOD</b> that computes SW/W/H/WF/SWF/<b>Drop</b> from the board with nothing stored (<code>DoodCalculationService</code>) + a working DOOD UI; calendar anchoring off the locked-budget Day 1; and the downstream integrations already wired — board → call sheet, board → budget lines, board → per-diem, and board shoot-days → the cost forecast we just built.</p>
+    <h3>Capability scan</h3>
+    <table>
+      <thead><tr><th style="width:24%">Capability</th><th>Status</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>Stripboard + drag-reorder</td><td><span class="chip c-ok">Present</span></td><td>Day-grouped cards, DnD, per-strip day select, inline add-scene.</td></tr>
+        <tr><td>Breakdown elements (21 categories)</td><td><span class="chip c-ok">Present</span></td><td>Attached to strips; feeds budget by cost-centre.</td></tr>
+        <tr><td>Day Out of Days</td><td><span class="chip c-ok">Present</span></td><td>Live per-category matrix with Drop; UI + mobile. Missing Pick-up code &amp; export.</td></tr>
+        <tr><td>Calendar anchoring</td><td><span class="chip c-part">Partial</span></td><td>Ripples prep/shoot/wrap off Day 1 — but <b>every day is a shoot day</b> (no weekends/holidays/turnaround).</td></tr>
+        <tr><td>Auto-schedule</td><td><span class="chip c-part">Partial</span></td><td>Groups by set + packs to pages only — no cast-day / D-N / company-move optimisation.</td></tr>
+        <tr><td>Conflict detection</td><td><span class="chip c-no">Missing</span></td><td>No cast double-booking, location-availability, permit-window or sun-gating checks.</td></tr>
+        <tr><td>Multi-board scenarios</td><td><span class="chip c-no">Missing</span></td><td>One implicit board per project; no what-if / version compare.</td></tr>
+        <tr><td>Banners / day-breaks / 2nd unit / lock</td><td><span class="chip c-no">Missing</span></td><td>Board is just strips grouped by a <code>shootDay</code> integer.</td></tr>
+        <tr><td>Script ↔ strip link</td><td><span class="chip c-no">Soft/dead</span></td><td><code>ScriptScene.productionStripId</code> exists but is never read or written; joined by scene-number only.</td></tr>
+        <tr><td>Outputs (one-liner / shooting schedule / DOOD export)</td><td><span class="chip c-no">Thin</span></td><td>Only an A4 stripboard print exists.</td></tr>
+      </tbody>
+    </table>
+
+    <!-- 3. PROPOSED REDESIGN -->
+    <h2><span class="n">3</span>Proposed redesign</h2>
+    <h3>3.1 The board, reimagined (horizontal day columns + banners + filters)</h3>
+    <p>Move from vertical stacked day-cards to a true <b>horizontal day-column board</b> with INT/EXT colour + D/N edge stripes, <b>banners &amp; day-breaks</b> (e.g. "COMPANY MOVE", "DAY OFF", "2ND UNIT"), strip <b>locking</b>, and a filter bar (by cast / location / D-N / set). Live warnings render inline.</p>
+    <div class="mock">
+      <div class="mh"><span>▣ Stripboard — Board A (Main Unit)</span><span class="f">Filter: Cast ▾</span><span class="f">Location ▾</span><span class="f">D/N ▾</span><span class="f">⚙ Optimize</span><span class="f">⤓ One-liner</span></div>
+      <div class="board">
+        <div class="col"><div class="ch">Day 1 · Mon 16 · Qasr Al Hosn</div>
+          <div class="strip b-int b-day"><span class="d b-int"></span>24A EXT/D · Sc gates · 1²⁄₈ · 1</div>
+          <div class="strip b-ext b-day"><span class="d b-ext"></span>24B EXT/D · guards · 2⁴⁄₈ · 1,3</div>
+          <div class="strip b-int b-day"><span class="d b-int"></span>31 INT/D · watchtower · 1⁶⁄₈ · 2</div></div>
+        <div class="col" style="flex-basis:90px"><div class="banner">🚚 COMPANY MOVE</div></div>
+        <div class="col"><div class="ch">Day 1 · Corniche</div>
+          <div class="strip b-ext b-day"><span class="d b-ext"></span>55 EXT/D · reunion · 2 · 1,2</div>
+          <div class="strip b-ext b-night"><span class="d b-ext"></span>56 EXT/N · chase · 2⁵⁄₈ · 1,3</div>
+          <div class="warnw">⚠ Cast 3 holds Days 2–4 (consider Drop)</div></div>
+        <div class="col"><div class="ch">Day 2 · Al Wathba</div>
+          <div class="strip b-ext b-day"><span class="d b-ext"></span>40 EXT/D · caravan · 2²⁄₈ · 1,2</div>
+          <div class="warnw">☀ Golden-hour scene — sched 06:30–07:00</div></div>
+        <div class="col" style="flex-basis:90px"><div class="banner" style="background:#7a5a10">DAY OFF · Fri</div></div>
+      </div>
+    </div>
+
+    <h3>3.2 Real calendar engine</h3>
+    <p>Replace the naive day-ripple with a work-week aware calendar: configurable <b>5-day / 6-day week</b>, weekend &amp; <b>holiday calendar</b>, <b>turnaround / rest-day</b> handling, and day-off banners on the board — so shoot-day → date is correct and the forecast/DOOD/call-sheet dates are trustworthy.</p>
+    <h3>3.3 Shooting-order optimizer (one click)</h3>
+    <p>A real optimiser that reorders strips to minimise, in priority: company moves (group by location), cast hold days (cluster each actor's scenes, suggest Drop/Pick-up windows), and day/night flips — packed to a target pages/day. It shows a <b>before/after</b>: company moves, total cast days, idle hold days. Manual drag always overrides; locked strips stay put.</p>
+    <h3>3.4 Conflict detection &amp; gating</h3>
+    <table>
+      <thead><tr><th style="width:26%">Check</th><th>What it catches</th></tr></thead>
+      <tbody>
+        <tr><td>Cast double-booking</td><td>Same actor required in two units/locations on one day.</td></tr>
+        <tr><td>Location availability</td><td>Strip scheduled outside the location's available window / before permit approval.</td></tr>
+        <tr><td>Permit window</td><td>Shoot day falls outside an approved permit's validity (ties to the Clearance module).</td></tr>
+        <tr><td>Sun / daylight gating</td><td>EXT/Day scene scheduled outside the daylight window, or a golden-hour scene not at golden hour — <b>using the sun engine we already built</b>.</td></tr>
+        <tr><td>Over-target day</td><td>A day exceeds the pages or hours target.</td></tr>
+      </tbody>
+    </table>
+    <h3>3.5 DOOD upgrades</h3>
+    <p>Add the <b>Pick-up (PU)</b> code (and Travel/Idle), DOOD <b>versioning + dates</b> (industry practice is to version and re-issue weekly), and <b>PDF/CSV export</b> of the grid for the cast department and payroll.</p>
+    <h3>3.6 Multi-board scenarios (what-if)</h3>
+    <p>A <code>Stripboard</code>/<code>Scenario</code> model so a 1st AD can keep <b>Board A vs Board B</b> (e.g. actor-availability change, a lost location), compare days/cast-days/cost, and promote one to the live board. Today there's a single implicit board.</p>
+    <h3>3.7 Outputs</h3>
+    <p>The classic deliverables: a <b>one-liner</b> (compact scene-per-line schedule), a full <b>shooting schedule</b> (scene detail + elements per day), the <b>DOOD report</b> export, and an upgraded stripboard print — each branded and PDF-ready like the call-sheet and financier pack.</p>
+
+    <!-- 4. ROADMAP -->
+    <h2><span class="n">4</span>Phased roadmap (additive, reversible)</h2>
+    <div class="phase"><span class="tag tag-now">M1 · board UX</span><br/><b>Horizontal day-column board</b> with INT/EXT colour + D/N stripes, filters (cast/location/D-N/set), banners + day-breaks + strip lock. Pure frontend over the existing strips.</div>
+    <div class="phase"><span class="tag tag-now">M2 · calendar engine</span><br/><b>Work-week calendar</b> — 5/6-day week, weekends, holiday list, turnaround, day-off banners; corrects every downstream date.</div>
+    <div class="phase"><span class="tag tag-soon">M3 · optimizer</span><br/><b>Shooting-order optimiser</b> (location → cast-days → D/N → pages) with before/after metrics + Drop/Pick-up suggestions; manual + locks override.</div>
+    <div class="phase"><span class="tag tag-soon">M4 · conflicts &amp; gating</span><br/><b>Conflict engine</b> — cast double-book, location availability, permit window, sun/daylight gating (reuses the sun engine), over-target day. Inline board warnings.</div>
+    <div class="phase"><span class="tag tag-later">M5 · DOOD + outputs</span><br/>DOOD <b>Pick-up code + versioning + export</b>; <b>one-liner</b> + <b>shooting-schedule</b> + DOOD <b>PDF/CSV</b>; upgraded board print.</div>
+    <div class="phase"><span class="tag tag-later">M6 · multi-board scenarios</span><br/><b>Scenario boards</b> (what-if A/B, compare, promote) + a reconciled script↔strip link so scene edits propagate.</div>
+
+    <h2><span class="n">5</span>Sources</h2>
+    <p class="src">Movie Magic Scheduling Manual — <a href="https://mms-docs.ep.com/DayOutofDays/DayOutofDays.html">Day Out of Days</a>, <a href="https://mms-docs.ep.com/DayOutofDays/DOODRules.html">DOOD Rules</a>, <a href="https://mms-docs.ep.com/Stripboards/Stripboard.html">Stripboard</a> · StudioBinder — <a href="https://www.studiobinder.com/blog/shooting-schedule-stripboard/">Stripboard scheduling</a>, <a href="https://www.studiobinder.com/blog/day-out-of-days-reports-explained/">DOOD explained</a> · Jungle Software — <a href="https://junglesoftware.com/film-location-scheduling/">Location scheduling</a> · SetHero — <a href="https://sethero.com/blog/film-shooting-schedule-stripboard-template/">Stripboard template</a> · Staff Me Up — <a href="https://blog.staffmeup.com/understanding-day-out-of-days-reports-and-stripboards-in-film-production/">DOOD &amp; stripboards</a>.</p>
+    <p class="legend">Research-backed proposal · TFM-System scheduling redesign · planning artifact, no code changed.</p>
+  </div>
+</div></body></html>

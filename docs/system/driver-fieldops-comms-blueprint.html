@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TFM Field-Ops &amp; Comms — Build Blueprint</title>
+<style>
+  :root{
+    --paper:#F5F4F1; --card:#FFFFFF; --ink:#1B1B1A; --ink2:#54524C; --ink3:#8A877F;
+    --line:#E3E0D8; --line2:#CFCBC0; --gold:#B08D4F; --gold-soft:#F3ECDD;
+    --char:#16161A; --char2:#23232A;
+    --ok:#3B6D11; --ok-bg:#EAF3DE; --warn:#854F0B; --warn-bg:#FAEEDA;
+    --bad:#A32D2D; --bad-bg:#FCEBEB; --info:#185FA5; --info-bg:#E6F1FB;
+    --r:10px; --r-lg:16px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.6;font-size:15px;-webkit-font-smoothing:antialiased}
+  a{color:var(--gold);text-decoration:none}
+  .wrap{display:flex;max-width:1280px;margin:0 auto;gap:0}
+  /* nav */
+  nav{position:sticky;top:0;align-self:flex-start;height:100vh;width:236px;flex:0 0 236px;
+    background:var(--char);color:#D9D6CE;padding:22px 16px;overflow-y:auto}
+  nav .brand{font-size:13px;letter-spacing:.16em;color:var(--gold);text-transform:uppercase;font-weight:600;margin-bottom:4px}
+  nav .sub{font-size:12px;color:#85827A;margin-bottom:18px}
+  nav a{display:block;color:#B7B4AC;font-size:13.5px;padding:6px 10px;border-radius:8px;margin:1px 0}
+  nav a:hover{background:var(--char2);color:#fff}
+  nav .grp{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#6F6C64;margin:16px 0 4px 10px}
+  main{flex:1;min-width:0;padding:0 0 120px}
+  section{padding:54px 56px;border-bottom:1px solid var(--line)}
+  section:nth-child(even){background:#FBFAF7}
+  .kick{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);font-weight:600;margin:0 0 8px}
+  h1{font-size:38px;line-height:1.12;margin:0 0 14px;font-weight:680;letter-spacing:-.01em}
+  h2{font-size:26px;margin:0 0 12px;font-weight:640;letter-spacing:-.01em}
+  h3{font-size:17px;margin:26px 0 8px;font-weight:600}
+  p{color:var(--ink2);margin:0 0 12px;max-width:74ch}
+  .lead{font-size:18px;color:var(--ink);max-width:72ch}
+  .muted{color:var(--ink3)}
+  .pill{display:inline-block;background:var(--gold-soft);color:var(--gold);border:1px solid #E6D8BA;
+    border-radius:999px;font-size:12px;font-weight:600;padding:3px 11px;margin:2px 4px 2px 0}
+  .grid{display:grid;gap:18px}
+  .g2{grid-template-columns:repeat(2,1fr)} .g3{grid-template-columns:repeat(3,1fr)} .g4{grid-template-columns:repeat(4,1fr)}
+  @media(max-width:1080px){.g3,.g4{grid-template-columns:repeat(2,1fr)}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);padding:18px 20px}
+  .card h4{margin:0 0 6px;font-size:15px;font-weight:640}
+  .card p{font-size:13.5px;margin:0}
+  .ico{width:34px;height:34px;border-radius:9px;background:var(--gold-soft);color:var(--gold);
+    display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:10px}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;margin:8px 0}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line)}
+  th{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);font-weight:600}
+  td .tag{font-size:11px;font-weight:600;padding:2px 8px;border-radius:6px}
+  /* phone frame */
+  .phones{display:flex;flex-wrap:wrap;gap:26px}
+  .phone{width:280px;background:#0E0E11;border-radius:30px;padding:9px;box-shadow:0 10px 34px rgba(0,0,0,.16)}
+  .scr{background:var(--card);border-radius:23px;overflow:hidden}
+  .pcap{font-size:12.5px;color:var(--ink3);text-align:center;margin-top:8px}
+  .pname{font-size:13px;font-weight:640;text-align:center;margin-top:10px;color:var(--ink)}
+  .sb{display:flex;justify-content:space-between;align-items:center;padding:8px 14px;background:#F0EEE9;font-size:11px;color:var(--ink3)}
+  .sb .on{color:var(--ok);font-weight:600}
+  .pbody{padding:12px 14px}
+  .map{height:118px;background:var(--info-bg);display:flex;align-items:center;justify-content:center;
+    color:var(--info);font-size:12px;position:relative}
+  .dot{position:absolute;width:24px;height:24px;border-radius:50%;background:#fff;border:1px solid var(--line2);
+    display:flex;align-items:center;justify-content:center;font-size:12px}
+  .lbl{font-size:11px;color:var(--ink3);margin-bottom:1px}
+  .ttl{font-size:15px;font-weight:640}
+  .meta{font-size:12px;color:var(--ink2)}
+  .btnrow{display:flex;gap:7px;margin:10px 0}
+  .btn{flex:1;text-align:center;border-radius:9px;padding:9px;font-size:13px;font-weight:600;border:1px solid var(--line2);color:var(--ink2)}
+  .btn.pri{background:var(--info-bg);color:var(--info);border:none;flex:2}
+  .btn.bad{background:var(--bad-bg);color:var(--bad);border:none}
+  .quad{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+  .qa{border:1px solid var(--line);border-radius:9px;padding:9px;text-align:center;font-size:11.5px;color:var(--ink2)}
+  .qa i{font-size:17px;display:block;margin-bottom:3px}
+  .tabbar{display:flex;background:#F0EEE9;border-top:1px solid var(--line)}
+  .tabbar div{flex:1;text-align:center;padding:7px 0;font-size:9.5px;color:var(--ink3)}
+  .tabbar div.act{color:var(--info)}
+  .tabbar i{font-size:17px;display:block}
+  .msg{max-width:78%;padding:7px 10px;border-radius:12px;font-size:12.5px;margin:5px 0}
+  .msg.them{background:#F0EEE9;color:var(--ink)}
+  .msg.me{background:var(--info-bg);color:#0C447C;margin-left:auto}
+  .msg .who{font-size:10.5px;color:var(--ink3);margin-bottom:1px}
+  .chip{display:inline-flex;align-items:center;gap:4px;background:#F0EEE9;border-radius:8px;padding:4px 9px;font-size:11.5px;margin:2px 4px 2px 0;color:var(--ink2)}
+  .row{display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--line)}
+  .av{width:30px;height:30px;border-radius:50%;background:var(--info-bg);color:var(--info);
+    display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex:0 0 30px}
+  .badge{margin-left:auto;background:var(--bad-bg);color:var(--bad);border-radius:50%;min-width:18px;height:18px;
+    font-size:10px;display:flex;align-items:center;justify-content:center;padding:0 5px}
+  /* flow */
+  .flow{display:flex;align-items:stretch;gap:0;flex-wrap:wrap;margin:14px 0}
+  .step{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 13px;min-width:140px;max-width:200px}
+  .step .n{font-size:11px;color:var(--gold);font-weight:700}
+  .step .t{font-size:13.5px;font-weight:600;margin:2px 0}
+  .step .d{font-size:12px;color:var(--ink2)}
+  .arr{display:flex;align-items:center;color:var(--gold);font-size:20px;padding:0 8px}
+  .gate{border:1px dashed var(--warn);background:var(--warn-bg)}
+  .gate .t{color:var(--warn)}
+  .note{background:var(--gold-soft);border:1px solid #E6D8BA;border-radius:12px;padding:13px 16px;font-size:13.5px;color:#6e5828;margin:14px 0;max-width:80ch}
+  .note b{color:#5a4720}
+  .legend{font-size:12px;color:var(--ink3);margin:6px 0}
+  .ph-strip{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}
+  .ph-strip .pill{background:#fff;border:1px solid var(--line)}
+  .roadmap{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+  @media(max-width:1080px){.roadmap{grid-template-columns:1fr}}
+  .rc{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden}
+  .rc .hd{padding:12px 16px;font-weight:700;color:#fff}
+  .rc.now .hd{background:var(--gold)} .rc.next .hd{background:#6b6a64} .rc.later .hd{background:#9a978e}
+  .rc ul{margin:0;padding:14px 16px 16px 30px} .rc li{font-size:13.5px;color:var(--ink2);margin:5px 0}
+  .toc-top{display:none}
+  @media(max-width:820px){
+    nav{display:none} .toc-top{display:block} .wrap{display:block}
+    section{padding:34px 20px} h1{font-size:30px}
+    .flow{flex-direction:column} .arr{transform:rotate(90deg);padding:4px 0}
+  }
+  i.ti{font-style:normal}
+</style>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+</head>
+<body>
+<div class="wrap">
+<nav>
+  <div class="brand">TFM System</div>
+  <div class="sub">Field-Ops &amp; Comms — Build Blueprint</div>
+  <a href="#summary">Executive summary</a>
+  <a href="#decisions">Decisions locked</a>
+  <div class="grp">The product</div>
+  <a href="#driver">Driver app — screens</a>
+  <a href="#comms">Comms backbone</a>
+  <a href="#ptt">Walkie-talkie (PTT)</a>
+  <a href="#admin">Dispatch &amp; supervisor</a>
+  <a href="#audit">Audit vault (admin-only)</a>
+  <div class="grp">How it works</div>
+  <a href="#offline">Offline-first</a>
+  <a href="#storage">Storage &amp; media</a>
+  <a href="#stack">Free / self-hosted stack</a>
+  <a href="#ai">AI in the loop</a>
+  <a href="#permissions">Permissions</a>
+  <a href="#data">Data model</a>
+  <div class="grp">Flows &amp; plan</div>
+  <a href="#flows">Real-life flowcharts</a>
+  <a href="#roadmap">Phased roadmap</a>
+</nav>
+<main>
+
+<section id="summary">
+  <div class="kick">Build blueprint · v1 draft</div>
+  <h1>A field-ops &amp; communication platform<br>for drivers, crews, dispatch &amp; admins</h1>
+  <p class="lead">We're turning the read-only driver web page into an installable, offline-capable field app, and adding a company-wide messaging backbone — text, voice notes, push-to-talk, locations, and media — all self-hosted, all free of paid subscriptions, with a tamper-proof audit trail visible only to admins.</p>
+  <div class="ph-strip">
+    <span class="pill">Installable PWA</span>
+    <span class="pill">Works offline</span>
+    <span class="pill">One comms backbone, two surfaces</span>
+    <span class="pill">Push-to-talk</span>
+    <span class="pill">Immutable audit</span>
+    <span class="pill">No paid SaaS</span>
+    <span class="pill">AI-assisted</span>
+  </div>
+  <div class="grid g3" style="margin-top:26px">
+    <div class="card"><div class="ico"><i class="ti ti-device-mobile"></i></div><h4>For the field</h4><p>Drivers &amp; crews get a one-handed app: today's jobs, live route, capture, and chat — usable with no signal.</p></div>
+    <div class="card"><div class="ico"><i class="ti ti-broadcast"></i></div><h4>For coordination</h4><p>Dispatch, planners and supervisors talk to the right people through channels scoped to projects, units, jobs and trips.</p></div>
+    <div class="card"><div class="ico"><i class="ti ti-shield-lock"></i></div><h4>For the record</h4><p>Every message and file is retained immutably. "Delete" only hides; admins always hold the full history.</p></div>
+  </div>
+</section>
+
+<section id="decisions">
+  <div class="kick">Settled before we build</div>
+  <h2>Decisions locked</h2>
+  <p>These are the constraints we've agreed on. The rest of this document is built around them.</p>
+  <table>
+    <tr><th>Decision</th><th>Choice</th><th>Why</th></tr>
+    <tr><td>Form factor</td><td><b>Installable PWA now, native (React Native) later</b></td><td>Reuses all existing code, adds install + offline + push with no app store; native door stays open.</td></tr>
+    <tr><td>Cost model</td><td><b>No paid subscriptions — all self-hosted / open-source</b></td><td>Maps, real-time, push, storage, transcoding, PTT all run on your own server.</td></tr>
+    <tr><td>Connectivity</td><td><b>Offline-first</b></td><td>Remote shoots have no signal; the app must read cached data and queue new data, then sync.</td></tr>
+    <tr><td>Comms shape</td><td><b>One backbone, surfaced as a global inbox + in-module threads</b></td><td>Single history &amp; notifications; channels auto-scoped to entities the system already knows.</td></tr>
+    <tr><td>Audit</td><td><b>Append-only; delete is cosmetic; history &amp; copies retained</b></td><td>Tamper-evident record of all chat &amp; files for compliance and reporting.</td></tr>
+    <tr><td>Audit visibility</td><td><b>Admin role only</b></td><td>Drivers/crew never see the vault; every admin read is itself logged.</td></tr>
+    <tr><td>Media</td><td><b>Capped sizes; videos transcoded smaller but clear; originals kept in audit</b></td><td>Light on the wire and storage; pristine originals sealed for evidence.</td></tr>
+    <tr><td>AI</td><td><b>In the loop, local/existing keys only</b></td><td>Whisper transcription self-hosted; summaries via existing Anthropic key; degrades offline.</td></tr>
+  </table>
+</section>
+
+<section id="driver">
+  <div class="kick">The product · driver &amp; crew</div>
+  <h2>Driver app — every screen</h2>
+  <p>Five tabs at the bottom: <b>Today</b>, <b>Map</b>, <b>Chat</b>, <b>Capture</b>, <b>Me</b>. The driver lives on Today; everything else is one tap away. Designed for one-handed, gloves-on use with large targets and minimal typing (voice everywhere).</p>
+
+  <div class="phones">
+
+    <div>
+      <div class="phone"><div class="scr">
+        <div class="sb"><span>9:41</span><span class="on">● On shift · GPS live</span><span><i class="ti ti-battery-3"></i></span></div>
+        <div class="map"><i class="ti ti-map-2" style="font-size:18px;margin-right:6px"></i> live route · 3 stops
+          <span class="dot" style="top:12px;left:16px;color:var(--info)"><i class="ti ti-navigation"></i></span>
+          <span class="dot" style="bottom:14px;right:20px;color:var(--bad)"><i class="ti ti-flag"></i></span>
+        </div>
+        <div class="pbody">
+          <div class="lbl">Next stop · 2 of 3</div>
+          <div class="ttl">Desert Base Camp</div>
+          <div class="meta">Caravan #4 + generator · 14 km · ~22 min</div>
+          <div class="btnrow"><div class="btn pri"><i class="ti ti-navigation"></i> Navigate</div><div class="btn"><i class="ti ti-check"></i> Arrived</div></div>
+          <div class="quad">
+            <div class="qa"><i class="ti ti-camera"></i>Inspect</div>
+            <div class="qa"><i class="ti ti-link"></i>Hitch</div>
+            <div class="qa"><i class="ti ti-gas-station"></i>Fuel</div>
+            <div class="qa" style="border-color:var(--bad);color:var(--bad)"><i class="ti ti-alert-triangle"></i>Issue</div>
+          </div>
+        </div>
+        <div class="tabbar"><div class="act"><i class="ti ti-clipboard-list"></i>Today</div><div><i class="ti ti-map-2"></i>Map</div><div><i class="ti ti-message-2"></i>Chat</div><div><i class="ti ti-camera"></i>Capture</div><div><i class="ti ti-user"></i>Me</div></div>
+      </div></div>
+      <div class="pname">Today — active job</div>
+      <div class="pcap">Current leg, big nav button, contextual actions, unread-chat dot.</div>
+    </div>
+
+    <div>
+      <div class="phone"><div class="scr">
+        <div class="sb"><span>9:41</span><span class="on">● 3 stops</span><span><i class="ti ti-battery-3"></i></span></div>
+        <div class="map" style="height:200px"><i class="ti ti-route" style="font-size:20px;margin-right:6px"></i> full route
+          <span class="dot" style="top:18px;left:22px">1</span>
+          <span class="dot" style="top:88px;left:120px;color:var(--info)">2</span>
+          <span class="dot" style="bottom:20px;right:26px;color:var(--bad)">3</span>
+        </div>
+        <div class="pbody">
+          <div class="row"><span class="av" style="background:var(--ok-bg);color:var(--ok)">✓</span><div><div class="meta" style="font-weight:600">Studio Lot 7</div><div class="lbl">Done · 08:12</div></div></div>
+          <div class="row"><span class="av">2</span><div style="flex:1"><div class="meta" style="font-weight:600">Desert Base Camp</div><div class="lbl">En route</div></div><span class="chip"><i class="ti ti-navigation"></i>Go</span></div>
+          <div class="row" style="border:none"><span class="av" style="background:#F0EEE9;color:var(--ink3)">3</span><div><div class="meta" style="font-weight:600">Return — Depot</div><div class="lbl">Planned</div></div></div>
+        </div>
+        <div class="tabbar"><div><i class="ti ti-clipboard-list"></i>Today</div><div class="act"><i class="ti ti-map-2"></i>Map</div><div><i class="ti ti-message-2"></i>Chat</div><div><i class="ti ti-camera"></i>Capture</div><div><i class="ti ti-user"></i>Me</div></div>
+      </div></div>
+      <div class="pname">Map — sequential route</div>
+      <div class="pcap">Ordered stops, status per leg, one-tap navigate hand-off to Google/Waze.</div>
+    </div>
+
+    <div>
+      <div class="phone"><div class="scr">
+        <div class="sb"><span>9:41</span><span>Chat</span><span><i class="ti ti-battery-3"></i></span></div>
+        <div class="pbody" style="padding-top:8px">
+          <div class="row"><span class="av">JB</span><div style="flex:1"><div class="meta" style="font-weight:600">Job #412 · Desert Camp</div><div class="lbl">Sarah: gate code is 4471</div></div><span class="badge">2</span></div>
+          <div class="row"><span class="av" style="background:var(--gold-soft);color:var(--gold)"><i class="ti ti-microphone"></i></span><div style="flex:1"><div class="meta" style="font-weight:600">Drivers on shift · PTT</div><div class="lbl">live voice room · 4 on</div></div></div>
+          <div class="row"><span class="av" style="background:var(--char);color:#fff">M</span><div style="flex:1"><div class="meta" style="font-weight:600">Mike — Supervisor</div><div class="lbl">photo of the access road</div></div></div>
+          <div class="row" style="border:none"><span class="av" style="background:var(--warn-bg);color:var(--warn)"><i class="ti ti-speakerphone"></i></span><div style="flex:1"><div class="meta" style="font-weight:600">Fleet announcements</div><div class="lbl">Fuel cards renewed Monday</div></div></div>
+        </div>
+        <div class="tabbar"><div><i class="ti ti-clipboard-list"></i>Today</div><div><i class="ti ti-map-2"></i>Map</div><div class="act"><i class="ti ti-message-2"></i>Chat</div><div><i class="ti ti-camera"></i>Capture</div><div><i class="ti ti-user"></i>Me</div></div>
+      </div></div>
+      <div class="pname">Chat — channel list</div>
+      <div class="pcap">Job/trip threads, DMs, PTT rooms, broadcasts — auto-joined by assignment.</div>
+    </div>
+
+    <div>
+      <div class="phone"><div class="scr">
+        <div class="sb"><span>9:41</span><span>Job #412 · Desert Camp</span><span><i class="ti ti-dots"></i></span></div>
+        <div class="pbody" style="min-height:236px;padding-top:10px">
+          <div class="msg them"><div class="who">Sarah · Dispatch</div>Gate code is 4471, ask for Hassan</div>
+          <div class="msg them"><i class="ti ti-map-pin"></i> shared a location pin</div>
+          <div class="msg me">On my way, 20 min out</div>
+          <div class="msg me"><i class="ti ti-microphone"></i> voice note · 0:08</div>
+          <div class="msg them"><div class="who">Mike · Supervisor</div><i class="ti ti-photo"></i> access_road.jpg</div>
+        </div>
+        <div style="display:flex;gap:6px;padding:8px 12px;border-top:1px solid var(--line);align-items:center">
+          <i class="ti ti-plus" style="color:var(--ink3)"></i>
+          <div style="flex:1;background:#F0EEE9;border-radius:14px;padding:6px 10px;font-size:12px;color:var(--ink3)">Message…</div>
+          <i class="ti ti-microphone" style="color:var(--gold);font-size:18px"></i>
+        </div>
+        <div class="tabbar"><div><i class="ti ti-clipboard-list"></i>Today</div><div><i class="ti ti-map-2"></i>Map</div><div class="act"><i class="ti ti-message-2"></i>Chat</div><div><i class="ti ti-camera"></i>Capture</div><div><i class="ti ti-user"></i>Me</div></div>
+      </div></div>
+      <div class="pname">Chat — thread</div>
+      <div class="pcap">Text, voice notes, photos, location pins, entity cards. Hold mic to talk.</div>
+    </div>
+
+    <div>
+      <div class="phone"><div class="scr">
+        <div class="sb"><span>9:41</span><span>Capture</span><span><i class="ti ti-battery-3"></i></span></div>
+        <div class="map" style="height:150px;background:#1B1B1A;color:#fff"><i class="ti ti-camera" style="font-size:26px"></i>
+          <span style="position:absolute;bottom:8px;left:10px;font-size:10px;color:#cfcbc0">25.197, 55.274 · 09:41 · Caravan #4</span>
+        </div>
+        <div class="pbody">
+          <div class="quad">
+            <div class="qa"><i class="ti ti-photo"></i>Photo</div>
+            <div class="qa"><i class="ti ti-video"></i>Video</div>
+            <div class="qa"><i class="ti ti-microphone"></i>Voice note</div>
+            <div class="qa"><i class="ti ti-qrcode"></i>Scan asset</div>
+            <div class="qa"><i class="ti ti-signature"></i>Signature</div>
+            <div class="qa"><i class="ti ti-clipboard-check"></i>Inspection</div>
+          </div>
+          <div class="note" style="margin:10px 0 0;font-size:12px;padding:9px 11px">Every capture is stamped with GPS + time + asset, then queued — even with no signal.</div>
+        </div>
+        <div class="tabbar"><div><i class="ti ti-clipboard-list"></i>Today</div><div><i class="ti ti-map-2"></i>Map</div><div><i class="ti ti-message-2"></i>Chat</div><div class="act"><i class="ti ti-camera"></i>Capture</div><div><i class="ti ti-user"></i>Me</div></div>
+      </div></div>
+      <div class="pname">Capture — stamped evidence</div>
+      <div class="pcap">Photo / video / voice / QR scan / signature. Auto-stamped &amp; queued offline.</div>
+    </div>
+
+    <div>
+      <div class="phone"><div class="scr">
+        <div class="sb"><span>9:41</span><span>Check-out inspection</span><span><i class="ti ti-x"></i></span></div>
+        <div class="pbody" style="min-height:240px">
+          <div class="lbl">Caravan #4 · DELIVERY</div>
+          <div class="row"><i class="ti ti-square-check" style="color:var(--ok)"></i><div class="meta">Tyres &amp; pressure</div></div>
+          <div class="row"><i class="ti ti-square-check" style="color:var(--ok)"></i><div class="meta">Lights &amp; indicators</div></div>
+          <div class="row"><i class="ti ti-square" style="color:var(--ink3)"></i><div class="meta">Bodywork — add photo</div><span class="chip" style="margin-left:auto"><i class="ti ti-camera"></i>2</span></div>
+          <div class="row" style="border:none"><i class="ti ti-gauge"></i><div class="meta">Odometer</div><span class="chip" style="margin-left:auto">84,210 km</span></div>
+          <div class="btnrow" style="margin-top:14px"><div class="btn pri"><i class="ti ti-check"></i> Submit inspection</div></div>
+        </div>
+        <div class="tabbar"><div><i class="ti ti-clipboard-list"></i>Today</div><div><i class="ti ti-map-2"></i>Map</div><div><i class="ti ti-message-2"></i>Chat</div><div class="act"><i class="ti ti-camera"></i>Capture</div><div><i class="ti ti-user"></i>Me</div></div>
+      </div></div>
+      <div class="pname">Inspection — check-out / in</div>
+      <div class="pcap">Checklist + photos + odometer → feeds preventive maintenance &amp; the hire record.</div>
+    </div>
+
+    <div>
+      <div class="phone"><div class="scr">
+        <div class="sb"><span>9:41</span><span style="color:var(--bad);font-weight:600">Report an issue</span><span><i class="ti ti-x"></i></span></div>
+        <div class="pbody" style="min-height:240px">
+          <div class="lbl">Type</div>
+          <div style="margin:4px 0 8px"><span class="chip" style="background:var(--bad-bg);color:var(--bad)">Asset unfit</span><span class="chip">Accident</span><span class="chip">Delay</span></div>
+          <div class="msg them" style="max-width:100%"><i class="ti ti-microphone"></i> "Generator won't start, smells of diesel" — transcribed</div>
+          <div class="chip"><i class="ti ti-photo"></i> 2 photos</div><span class="chip"><i class="ti ti-map-pin"></i> GPS attached</span>
+          <div class="note" style="font-size:12px;padding:9px 11px;margin:10px 0 0">Filing this flags the asset for maintenance and offers available equivalents to swap.</div>
+          <div class="btnrow"><div class="btn bad"><i class="ti ti-send"></i> Submit report</div></div>
+        </div>
+        <div class="tabbar"><div><i class="ti ti-clipboard-list"></i>Today</div><div><i class="ti ti-map-2"></i>Map</div><div><i class="ti ti-message-2"></i>Chat</div><div class="act"><i class="ti ti-camera"></i>Capture</div><div><i class="ti ti-user"></i>Me</div></div>
+      </div></div>
+      <div class="pname">Issue — report a problem</div>
+      <div class="pcap">Voice-to-text, photos, GPS. Triggers the maintenance + substitution flow.</div>
+    </div>
+
+    <div>
+      <div class="phone"><div class="scr">
+        <div class="sb"><span>9:41</span><span>Me</span><span><i class="ti ti-battery-3"></i></span></div>
+        <div class="pbody" style="min-height:240px">
+          <div class="row"><span class="av" style="width:42px;height:42px;flex-basis:42px;font-size:14px">QQ</span><div><div class="ttl">Qais Q.</div><div class="lbl">Driver · License valid to 2027</div></div></div>
+          <div class="row"><i class="ti ti-clock"></i><div class="meta">Shift</div><span class="chip" style="margin-left:auto;background:var(--ok-bg);color:var(--ok)">On · 3h 12m</span></div>
+          <div class="row"><i class="ti ti-receipt"></i><div class="meta">My submissions</div><span class="chip" style="margin-left:auto">5</span></div>
+          <div class="row"><i class="ti ti-wifi-off"></i><div class="meta">Pending sync</div><span class="chip" style="margin-left:auto;background:var(--warn-bg);color:var(--warn)">3 queued</span></div>
+          <div class="row" style="border:none"><i class="ti ti-shield"></i><div class="meta">Compliance</div><span class="chip" style="margin-left:auto;background:var(--ok-bg);color:var(--ok)">All clear</span></div>
+          <div class="btnrow" style="margin-top:8px"><div class="btn bad"><i class="ti ti-urgent"></i> SOS — alert dispatch</div></div>
+        </div>
+        <div class="tabbar"><div><i class="ti ti-clipboard-list"></i>Today</div><div><i class="ti ti-map-2"></i>Map</div><div><i class="ti ti-message-2"></i>Chat</div><div><i class="ti ti-camera"></i>Capture</div><div class="act"><i class="ti ti-user"></i>Me</div></div>
+      </div></div>
+      <div class="pname">Me — shift, sync &amp; safety</div>
+      <div class="pcap">Clock on/off, submissions, offline-queue status, compliance, SOS panic.</div>
+    </div>
+
+  </div>
+</section>
+
+<section id="comms">
+  <div class="kick">The product · coordination</div>
+  <h2>Comms backbone — one engine, two surfaces</h2>
+  <p>We build <b>one</b> messaging service, not a chat per module. It appears two ways: a <b>global inbox</b> (the standalone app — every conversation in one place) and <b>embedded threads</b> (the same conversation shown inside the project, job or trip it belongs to). Same data, two doorways.</p>
+
+  <div class="grid g2" style="margin-top:18px">
+    <div class="card"><div class="ico"><i class="ti ti-inbox"></i></div><h4>Global inbox</h4><p>Slack/WhatsApp-style: all your channels, DMs, PTT rooms and broadcasts in one list. Where admins and dispatch live.</p></div>
+    <div class="card"><div class="ico"><i class="ti ti-layout-sidebar-right"></i></div><h4>In-module threads</h4><p>The Job #412 thread shows on the job page; the project channel shows on the project page. Context never lost.</p></div>
+  </div>
+
+  <h3>Channels are scoped to things the system already knows</h3>
+  <p>Nobody hand-manages groups. A channel is keyed to an entity, and <b>membership is derived automatically</b> from who's assigned to it. Cast a crew member to a unit → they're in that unit's channel. Assign a driver to a trip → they're in that trip thread with dispatch. Close the job → the channel auto-archives (and is retained).</p>
+  <div class="ph-strip">
+    <span class="pill"><i class="ti ti-building"></i> Company</span>
+    <span class="pill"><i class="ti ti-category"></i> Business unit (Production / Rental / Finance)</span>
+    <span class="pill"><i class="ti ti-movie"></i> Project</span>
+    <span class="pill"><i class="ti ti-users-group"></i> Production unit</span>
+    <span class="pill"><i class="ti ti-briefcase"></i> Team / department</span>
+    <span class="pill"><i class="ti ti-truck"></i> Rental job</span>
+    <span class="pill"><i class="ti ti-route"></i> Trip / leg</span>
+    <span class="pill"><i class="ti ti-user"></i> Direct message</span>
+    <span class="pill"><i class="ti ti-speakerphone"></i> Broadcast / announcement</span>
+    <span class="pill"><i class="ti ti-microphone"></i> Live PTT room</span>
+  </div>
+
+  <h3>What a message can carry</h3>
+  <div class="grid g4" style="margin-top:6px">
+    <div class="card"><h4><i class="ti ti-message"></i> Text &amp; @mentions</h4><p>Threaded replies, reactions, read receipts.</p></div>
+    <div class="card"><h4><i class="ti ti-microphone"></i> Voice notes</h4><p>Recorded clips, auto-transcribed to text.</p></div>
+    <div class="card"><h4><i class="ti ti-photo"></i> Photos &amp; video</h4><p>Downsized for sharing, original kept in audit.</p></div>
+    <div class="card"><h4><i class="ti ti-map-pin"></i> Live / pinned location</h4><p>"I'm stuck here" or "here's the gate".</p></div>
+    <div class="card"><h4><i class="ti ti-file"></i> Files &amp; links</h4><p>Documents, call sheets, external links.</p></div>
+    <div class="card"><h4><i class="ti ti-id"></i> Entity cards</h4><p>Share a job, asset, inspection or invoice as a deep-link card.</p></div>
+    <div class="card"><h4><i class="ti ti-bell"></i> Push notifications</h4><p>Web Push (VAPID) — new job, message, approval.</p></div>
+    <div class="card"><h4><i class="ti ti-language"></i> Translation (later)</h4><p>Multi-language crews chat across languages.</p></div>
+  </div>
+</section>
+
+<section id="ptt">
+  <div class="kick">The product · live voice</div>
+  <h2>Walkie-talkie (push-to-talk)</h2>
+  <p>A channel can be a <b>live voice room</b>: hold to talk, release to listen, audio streams to everyone tuned in — exactly how a film set's radios or a fleet's dispatch work. Same membership model as text channels, so "Unit B set radio" or "Drivers on shift" becomes a live room automatically. Built on <b>WebRTC</b> (peer-to-peer for small groups, a self-hosted media server for bigger ones) — no subscription, runs on your server.</p>
+  <div class="grid g3" style="margin-top:16px">
+    <div class="card"><div class="ico"><i class="ti ti-hand-click"></i></div><h4>Hold to talk</h4><p>One big button. Live audio to the room. Release to listen.</p></div>
+    <div class="card"><div class="ico"><i class="ti ti-microphone-2"></i></div><h4>Async fallback</h4><p>Off-room or offline? It becomes a voice note that delivers on reconnect.</p></div>
+    <div class="card"><div class="ico"><i class="ti ti-lock"></i></div><h4>Still audited</h4><p>PTT sessions are logged; recordings retained per policy in the vault.</p></div>
+  </div>
+  <div class="note"><b>Needs signal.</b> Live PTT is the one feature that can't run fully offline — but voice notes queue and deliver the instant the driver reconnects, so the channel still works in a dead zone, just asynchronously.</div>
+</section>
+
+<section id="admin">
+  <div class="kick">The product · dispatch &amp; supervisors</div>
+  <h2>The desktop side — command centre</h2>
+  <p>Everything the field produces surfaces for the people coordinating it, in the existing Live Logistics command centre and the global inbox. This is where planners assign, dispatch talks, and supervisors watch.</p>
+  <div class="grid g2">
+    <div class="card"><h4><i class="ti ti-map-2"></i> Live map &amp; roster</h4><p>Real-time positions of on-shift drivers and units (from the continuous GPS stream), per-location status, crew counts, alerts.</p></div>
+    <div class="card"><h4><i class="ti ti-messages"></i> Inbox &amp; channels</h4><p>All job/project/unit threads, DMs, PTT rooms and broadcasts. Send a pin, a gate code, a call sheet to exactly the right people.</p></div>
+    <div class="card"><h4><i class="ti ti-checklist"></i> Approvals &amp; exceptions</h4><p>Fuel/expense approvals, incident triage, the maintenance + substitution flow when a driver reports an unfit asset.</p></div>
+    <div class="card"><h4><i class="ti ti-speakerphone"></i> Broadcast</h4><p>One-to-many announcements to a unit, a project, or the whole fleet — with read tracking.</p></div>
+  </div>
+</section>
+
+<section id="audit">
+  <div class="kick">The record · admin-only</div>
+  <h2>Audit vault</h2>
+  <p>Every message and file is written <b>append-only</b>. A user "delete" inserts a tombstone — the thread shows "message deleted", but the original content, the file copy, and <i>who deleted it and when</i> are retained permanently. Edits keep prior versions. Each item carries a content hash so you can prove it wasn't altered.</p>
+  <div class="note"><b>Visibility is admin-only.</b> Drivers, crew, supervisors and dispatch never see the vault or deleted content. Only the admin role can open it — and <b>every admin read is itself logged</b>, so there's a record of who looked at what.</div>
+  <div class="phones" style="margin-top:8px">
+    <div>
+      <div class="phone" style="width:320px"><div class="scr">
+        <div class="sb"><span>Audit vault</span><span style="color:var(--bad);font-weight:600"><i class="ti ti-shield-lock"></i> Admin only</span><span></span></div>
+        <div class="pbody">
+          <div class="row"><span class="av" style="background:var(--bad-bg);color:var(--bad)"><i class="ti ti-trash"></i></span><div style="flex:1"><div class="meta" style="font-weight:600">Deleted message · Job #412</div><div class="lbl">by Driver Qais · 14:02 · original retained</div></div><span class="chip"><i class="ti ti-eye"></i> View</span></div>
+          <div class="row"><span class="av"><i class="ti ti-photo"></i></span><div style="flex:1"><div class="meta" style="font-weight:600">access_road.jpg</div><div class="lbl">original 4.2 MB · shared copy 280 KB</div></div></div>
+          <div class="row" style="border:none"><span class="av"><i class="ti ti-history"></i></span><div style="flex:1"><div class="meta" style="font-weight:600">Edit trail · 3 versions</div><div class="lbl">hash-verified · unaltered</div></div></div>
+          <div class="note" style="font-size:11.5px;margin:10px 0 0;padding:8px 10px">This view was opened by admin@tfm · logged 14:31</div>
+        </div>
+      </div></div>
+      <div class="pname">Audit vault — admin view</div>
+      <div class="pcap">Deleted &amp; edited items, original files, hash verification, access log.</div>
+    </div>
+  </div>
+</section>
+
+<section id="offline">
+  <div class="kick">How it works</div>
+  <h2>Offline-first</h2>
+  <p>A <b>service worker</b> caches the app shell so it opens instantly with no signal. Two on-device stores (IndexedDB) do the rest: a read cache so the driver always sees today's work, and an outbox that queues everything they do until signal returns.</p>
+  <div class="flow">
+    <div class="step"><div class="n">ON DEVICE</div><div class="t">Read cache</div><div class="d">Jobs, route, map tiles, chat history — readable instantly, offline.</div></div>
+    <div class="arr"><i class="ti ti-arrow-right"></i></div>
+    <div class="step"><div class="n">ON DEVICE</div><div class="t">Outbox queue</div><div class="d">Photos, inspections, messages, GPS — saved &amp; stamped with real time + location.</div></div>
+    <div class="arr"><i class="ti ti-arrow-right"></i></div>
+    <div class="step gate"><div class="n">WATCHER</div><div class="t">Service worker</div><div class="d">Detects reconnect, flushes outbox in order, pulls fresh data down.</div></div>
+    <div class="arr"><i class="ti ti-arrow-right"></i></div>
+    <div class="step" style="background:var(--info-bg);border-color:#B5D4F4"><div class="n" style="color:var(--info)">SERVER</div><div class="t" style="color:var(--info)">Source of truth</div><div class="d" style="color:#0C447C">Resolves order &amp; conflicts, pushes updates to everyone.</div></div>
+  </div>
+  <div class="grid g3" style="margin-top:8px">
+    <div class="card"><h4>Captured-at, not synced-at</h4><p>Records reflect when the action truly happened in the field, even if it uploads hours later.</p></div>
+    <div class="card"><h4>Conflict handling</h4><p>Field is authoritative for field events; the server reconciles rare clashes and flags anything that changed under the driver.</p></div>
+    <div class="card"><h4>Honest limits</h4><p>Live navigation re-route &amp; live PTT need signal; cached tiles still show the route and voice notes queue.</p></div>
+  </div>
+</section>
+
+<section id="storage">
+  <div class="kick">How it works</div>
+  <h2>Storage &amp; media pipeline</h2>
+  <p>Server disk for now, foldered cleanly so it lifts to self-hosted object storage (MinIO) later with no app changes. Live files and their immutable audit copies live in separate trees, so cleaning the live store can never touch the vault.</p>
+  <div class="card" style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;color:var(--ink2);white-space:pre;overflow:auto">/storage
+  /chat/&lt;scope&gt;/&lt;channel-id&gt;/&lt;year&gt;/&lt;month&gt;/      → live attachments (downsized)
+  /audit/chat/&lt;channel-id&gt;/&lt;year&gt;/&lt;month&gt;/        → immutable originals (write-once)
+  /inspections  /incidents  /fuel  /signatures      → module evidence</div>
+  <h3>Media is small on the wire, clear on screen</h3>
+  <table>
+    <tr><th>Media</th><th>Shared copy</th><th>Kept in audit</th></tr>
+    <tr><td>Photos</td><td>~1920px long edge, JPEG/WebP, ~200–500 KB</td><td>Full-resolution original</td></tr>
+    <tr><td>Video</td><td>H.264/265 MP4, 720–1080p, ~1.5–2.5 Mbps, ~10–20 MB</td><td>Higher-fidelity original</td></tr>
+    <tr><td>Voice note</td><td>Opus, a few KB/sec + transcript</td><td>Original audio</td></tr>
+  </table>
+  <p>Transcoding uses <b>FFmpeg</b> (free, self-hosted, same Docker pattern as your TTS). Hard caps on size, type and duration are enforced at upload, so storage can't be bloated and unwanted file types are rejected. Thumbnails make lists load fast.</p>
+</section>
+
+<section id="stack">
+  <div class="kick">How it works</div>
+  <h2>Free / self-hosted stack</h2>
+  <p>Every capability has a zero-subscription path you already run or can run alongside your existing services.</p>
+  <table>
+    <tr><th>Capability</th><th>Choice</th><th>Notes</th></tr>
+    <tr><td>Maps &amp; tiles</td><td>Leaflet + OpenStreetMap</td><td>Already in use; tiles cached on device for offline</td></tr>
+    <tr><td>Turn-by-turn</td><td>Hand off to phone's Google / Waze / Apple</td><td>We launch, not rebuild</td></tr>
+    <tr><td>Real-time chat &amp; presence</td><td>Socket.IO on your NestJS server</td><td>Self-hosted, no SaaS</td></tr>
+    <tr><td>Push notifications</td><td>Web Push (VAPID)</td><td>Open standard — no Firebase paid tier</td></tr>
+    <tr><td>Push-to-talk</td><td>WebRTC → self-hosted SFU (mediasoup) at scale</td><td>Runs on your box</td></tr>
+    <tr><td>Attachment storage</td><td>Local disk → self-hosted MinIO (S3-compatible)</td><td>No cloud bill</td></tr>
+    <tr><td>Offline store</td><td>IndexedDB + service worker</td><td>Built into every browser</td></tr>
+    <tr><td>Transcription</td><td>Self-hosted Whisper (Docker)</td><td>Same pattern as Chatterbox TTS</td></tr>
+    <tr><td>AI summaries / routing</td><td>Existing Anthropic key or local model</td><td>No new subscription</td></tr>
+    <tr><td>Media transcoding</td><td>FFmpeg</td><td>Free, self-hosted</td></tr>
+  </table>
+</section>
+
+<section id="ai">
+  <div class="kick">How it works</div>
+  <h2>AI in the loop</h2>
+  <p>Optional, low-cost, and graceful offline (queue and process on sync). Nothing here adds a recurring bill.</p>
+  <div class="grid g3">
+    <div class="card"><div class="ico"><i class="ti ti-file-text"></i></div><h4>Voice → record</h4><p>Transcribe a driver's voice note into a written incident or inspection note (local Whisper).</p></div>
+    <div class="card"><div class="ico"><i class="ti ti-list-details"></i></div><h4>Thread summary</h4><p>"What changed, what's blocked, who's waiting" over a long job/project thread (existing Anthropic key).</p></div>
+    <div class="card"><div class="ico"><i class="ti ti-route-2"></i></div><h4>Smart routing</h4><p>Read an unclear "I'm stuck here" and route it to the right supervisor with context.</p></div>
+  </div>
+</section>
+
+<section id="permissions">
+  <div class="kick">How it works</div>
+  <h2>Permissions at a glance</h2>
+  <table>
+    <tr><th>Action</th><th>Driver / crew</th><th>Supervisor / dispatch</th><th>Admin</th></tr>
+    <tr><td>See channels they're assigned to</td><td>✓</td><td>✓</td><td>✓</td></tr>
+    <tr><td>Broadcast / announce</td><td>—</td><td>✓</td><td>✓</td></tr>
+    <tr><td>Set asset status</td><td>— (report only)</td><td>✓</td><td>✓</td></tr>
+    <tr><td>Approve substitutions / expenses</td><td>—</td><td>✓</td><td>✓</td></tr>
+    <tr><td>"Delete" own message (cosmetic)</td><td>✓</td><td>✓</td><td>✓</td></tr>
+    <tr><td>See audit vault &amp; deleted content</td><td>—</td><td>—</td><td><b>✓ only</b></td></tr>
+    <tr><td>Export chat/file history for reporting</td><td>—</td><td>—</td><td><b>✓ only</b></td></tr>
+  </table>
+</section>
+
+<section id="data">
+  <div class="kick">How it works</div>
+  <h2>Data model (new tables)</h2>
+  <p>Additive to your Prisma schema — nothing existing is disturbed. Channels use a polymorphic <code>scopeType + scopeId</code> so any entity can own one.</p>
+  <div class="grid g2">
+    <div class="card"><h4>Channel</h4><p>id · scopeType (PROJECT|UNIT|JOB|TRIP|TEAM|DM|BROADCAST|PTT) · scopeId · title · isPTT · archivedAt</p></div>
+    <div class="card"><h4>ChannelMember</h4><p>channelId · userId/driverId · role · joinedAt · derived-from-assignment flag · lastReadAt</p></div>
+    <div class="card"><h4>Message</h4><p>id · channelId · authorId · body · type · replyToId · createdAt · gps · contentHash · deletedAt · deletedBy</p></div>
+    <div class="card"><h4>MessageVersion</h4><p>messageId · version · body · editedAt — prior versions retained for the edit trail</p></div>
+    <div class="card"><h4>Attachment</h4><p>messageId · kind · sharedPath · sharedBytes · originalPath · originalBytes · transcript · contentHash</p></div>
+    <div class="card"><h4>AuditAccessLog</h4><p>adminId · target (message/attachment id) · action · at — every vault read recorded</p></div>
+    <div class="card"><h4>PttSession</h4><p>channelId · startedAt · participants[] · recordingPath (per policy)</p></div>
+    <div class="card"><h4>OutboxItem (device)</h4><p>local only · kind · payload · capturedAt · gps · syncState — flushed on reconnect</p></div>
+  </div>
+</section>
+
+<section id="flows">
+  <div class="kick">Flows &amp; plan</div>
+  <h2>Real-life flowcharts</h2>
+
+  <h3>1 · A multi-stop trip, start to finish</h3>
+  <div class="flow">
+    <div class="step"><div class="t">Planner builds hire</div><div class="d">Adds stops (pins) &amp; units on the booking.</div></div>
+    <div class="arr"><i class="ti ti-arrow-right"></i></div>
+    <div class="step"><div class="t">Driver assigned</div><div class="d">Auto-joined to the trip chat with dispatch.</div></div>
+    <div class="arr"><i class="ti ti-arrow-right"></i></div>
+    <div class="step"><div class="t">Check-out</div><div class="d">Inspection + hitch confirm + odometer.</div></div>
+    <div class="arr"><i class="ti ti-arrow-right"></i></div>
+    <div class="step"><div class="t">Navigate stops</div><div class="d">Go → Arrived (GPS pin) → Depart, in order.</div></div>
+    <div class="arr"><i class="ti ti-arrow-right"></i></div>
+    <div class="step"><div class="t">Return &amp; check-in</div><div class="d">Return inspection, odometer, mileage closed.</div></div>
+  </div>
+
+  <h3>2 · Offline capture → sync</h3>
+  <div class="flow">
+    <div class="step gate"><div class="t">No signal</div><div class="d">Driver in a remote location.</div></div>
+    <div class="arr"><i class="ti ti-arrow-right"></i></div>
+    <div class="step"><div class="t">Capture &amp; act</div><div class="d">Photos, inspection, messages — saved + stamped locally.</div></div>
+    <div class="arr"><i class="ti ti-arrow-right"></i></div>
+    <div class="step"><div class="t">Queued</div><div class="d">Shown as "done, pending sync".</div></div>
+    <div class="arr"><i class="ti ti-arrow-right"></i></div>
+    <div class="step"><div class="t">Signal returns</div><div class="d">Service worker flushes outbox in order.</div></div>
+    <div class="arr"><i class="ti ti-arrow-right"></i></div>
+    <div class="step" style="background:var(--ok-bg);border-color:#C0DD97"><div class="t" style="color:var(--ok)">Synced</div><div class="d" style="color:#27500A">Server records it at captured-at time.</div></div>
+  </div>
+
+  <h3>3 · A message is deleted</h3>
+  <div class="flow">
+    <div class="step"><div class="t">User taps delete</div><div class="d">On their own message.</div></div>
+    <div class="arr"><i class="ti ti-arrow-right"></i></div>
+    <div class="step"><div class="t">Thread hides it</div><div class="d">Shows "message deleted" to everyone.</div></div>
+    <div class="arr"><i class="ti ti-arrow-right"></i></div>
+    <div class="step" style="background:var(--info-bg);border-color:#B5D4F4"><div class="t" style="color:var(--info)">Vault retains</div><div class="d" style="color:#0C447C">Original + file copy + who/when, forever.</div></div>
+    <div class="arr"><i class="ti ti-arrow-right"></i></div>
+    <div class="step gate"><div class="t">Admin only</div><div class="d">Can view it; their read is logged.</div></div>
+  </div>
+
+  <h3>4 · Asset reported unfit → substitution</h3>
+  <div class="flow">
+    <div class="step bad" style="background:var(--bad-bg);border-color:#F09595"><div class="t" style="color:var(--bad)">Driver reports issue</div><div class="d" style="color:#791F1F">Voice + photos + GPS.</div></div>
+    <div class="arr"><i class="ti ti-arrow-right"></i></div>
+    <div class="step"><div class="t">Asset flagged</div><div class="d">Auto maintenance flag — can't be re-assigned.</div></div>
+    <div class="arr"><i class="ti ti-arrow-right"></i></div>
+    <div class="step"><div class="t">Equivalents found</div><div class="d">System suggests available swaps.</div></div>
+    <div class="arr"><i class="ti ti-arrow-right"></i></div>
+    <div class="step gate"><div class="t">Coordinator approves</div><div class="d">Substitution confirmed; driver notified.</div></div>
+  </div>
+
+  <h3>5 · Dispatch reaches a driver fast (PTT + pin)</h3>
+  <div class="flow">
+    <div class="step"><div class="t">Driver: "where's the gate?"</div><div class="d">In the trip thread.</div></div>
+    <div class="arr"><i class="ti ti-arrow-right"></i></div>
+    <div class="step"><div class="t">Dispatch holds PTT</div><div class="d">Live voice to the trip room.</div></div>
+    <div class="arr"><i class="ti ti-arrow-right"></i></div>
+    <div class="step"><div class="t">Sends location pin</div><div class="d">+ gate code as a message.</div></div>
+    <div class="arr"><i class="ti ti-arrow-right"></i></div>
+    <div class="step" style="background:var(--ok-bg);border-color:#C0DD97"><div class="t" style="color:var(--ok)">Driver navigates</div><div class="d" style="color:#27500A">One tap to the pin. Logged in audit.</div></div>
+  </div>
+</section>
+
+<section id="roadmap">
+  <div class="kick">Flows &amp; plan</div>
+  <h2>Phased roadmap</h2>
+  <p>Build in slices that each ship value. The PWA shell comes first because everything else rides on it; PTT and native come once the text/comms backbone is proven.</p>
+  <div class="roadmap">
+    <div class="rc now"><div class="hd">Now</div><ul>
+      <li>PWA shell: installable, offline cache + outbox, Web Push</li>
+      <li>Redesigned map-led <b>Today</b> screen + bottom nav</li>
+      <li>Continuous on-shift GPS to the command-centre map</li>
+      <li>Capture upgrades: stamped camera, voice notes, QR scan, signature</li>
+    </ul></div>
+    <div class="rc next"><div class="hd">Next</div><ul>
+      <li>Comms backbone: channels, scoped auto-membership, two surfaces</li>
+      <li>Text, photo/video (transcoded), location pins, entity cards</li>
+      <li>Immutable audit + admin-only vault + access logging</li>
+      <li>MinIO storage move; Whisper transcription; thread summaries</li>
+    </ul></div>
+    <div class="rc later"><div class="hd">Later</div><ul>
+      <li>Push-to-talk live voice rooms (WebRTC → mediasoup)</li>
+      <li>Client-facing booking channels &amp; real-time translation</li>
+      <li>Native app (React Native / Expo) reusing the same APIs</li>
+      <li>Background location &amp; richer offline maps</li>
+    </ul></div>
+  </div>
+  <div class="note" style="margin-top:24px"><b>Before any of this:</b> the pending migration (TowCoupling + mileage + substitution fields) still needs running, and the driver-portal coupling/route work is uncommitted. We close those out, then start the <b>Now</b> column.</div>
+</section>
+
+</main>
+</div>
+</body>
+</html>

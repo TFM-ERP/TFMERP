@@ -1,0 +1,105 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ScripON — Lore density bar</title><style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Courier+Prime:wght@400;700&family=Fraunces:opsz,wght@9..144,600&display=swap');
+:root{--bg:#0b0c0f;--panel:#14161c;--hair:rgba(255,255,255,.07);--gold:#C6A463;--gold2:#E6D2A2;--goldink:#1a1509;--cream:#F4EEE0;--text:#E8E6E0;--mute:#9aa1ab;--faint:#6b727d;--blue:#5b8def;--green:#57b368;--violet:#8b7cf0;--red:#e5635f;--amber:#e0a458}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:radial-gradient(1200px 700px at 50% -8%,#15171d,#0b0c0f 60%);font-family:Inter,sans-serif;color:var(--text);-webkit-font-smoothing:antialiased;padding:34px;display:flex;flex-direction:column;align-items:center;gap:14px}
+.cap{color:var(--faint);font-size:12px;max-width:1100px;line-height:1.5}.cap b{color:var(--gold);font-weight:600}
+.ft{align-self:center;width:1100px;font-size:12px;font-weight:700;letter-spacing:.4px;color:var(--gold2);margin-top:10px}
+.scr{width:1100px;background:var(--bg);border:1px solid var(--hair);border-radius:16px;overflow:hidden;box-shadow:0 40px 90px -30px rgba(0,0,0,.7)}
+.ico{width:18px;height:18px;stroke:currentColor;stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.pad{padding:18px 22px;display:flex;flex-direction:column;gap:15px}
+.bt{font-size:14px;font-weight:800;color:var(--cream);display:flex;align-items:center;gap:9px}
+.bt .hint{font-size:9px;font-weight:700;letter-spacing:.5px;color:var(--gold);background:rgba(198,164,99,.12);border-radius:5px;padding:2px 7px}
+.card{background:var(--panel);border:1px solid var(--hair);border-radius:13px;padding:16px 18px;display:flex;flex-direction:column;gap:14px}
+.card.lit{border-color:rgba(198,164,99,.3)}
+/* slider */
+.slwrap{display:flex;flex-direction:column;gap:9px}
+.track{position:relative;height:8px;border-radius:6px;background:#1d2027;margin:14px 6px 4px}
+.fill{position:absolute;left:0;top:0;height:100%;border-radius:6px;background:linear-gradient(90deg,rgba(198,164,99,.5),var(--gold))}
+.tick{position:absolute;top:50%;width:2px;height:8px;background:#2f333c;transform:translate(-1px,-50%);border-radius:2px}
+.thumb{position:absolute;top:50%;width:20px;height:20px;border-radius:50%;background:linear-gradient(160deg,var(--gold2),var(--gold));border:3px solid #0b0c0f;transform:translate(-50%,-50%);box-shadow:0 2px 8px rgba(0,0,0,.5)}
+.pips{display:flex;justify-content:space-between;padding:0 2px}
+.pip{font-size:10px;font-weight:600;color:var(--faint);width:16.6%;text-align:center}
+.pip.on{color:var(--gold2);font-weight:800}
+.pip:first-child{text-align:left}.pip:last-child{text-align:right}
+.lvl{display:flex;align-items:center;gap:10px}
+.lvl .lbadge{font-family:Fraunces,serif;font-size:19px;font-weight:600;color:var(--cream)}
+.lvl .lmeta{font-size:10px;font-weight:700;letter-spacing:.4px;color:var(--gold);text-transform:uppercase}
+.lvl .pct{margin-left:auto;font-size:11px;color:var(--mute)}.lvl .pct b{color:var(--gold2)}
+.lnote{background:#0e1014;border:1px solid var(--hair);border-left:3px solid var(--gold);border-radius:9px;padding:11px 13px;font-size:12px;line-height:1.55;color:var(--text)}
+.lnote b{color:var(--gold2)}
+.ai{background:#0b0c0f;border:1px solid rgba(91,141,239,.28);border-radius:9px;padding:10px 12px;font-family:"Courier Prime",monospace;font-size:11px;line-height:1.55;color:var(--text)}
+.ai .lbl{font-family:Inter;font-size:8.5px;font-weight:800;letter-spacing:.5px;color:#a9c4f7;background:rgba(91,141,239,.14);border-radius:4px;padding:2px 7px;margin-bottom:7px;display:inline-block}
+.ai b{color:#a9c4f7}
+.pos{display:flex;flex-direction:column;gap:11px;padding:14px;border:1px solid var(--hair);border-radius:12px;background:#15181e}
+.poscap{font-size:10px;font-weight:800;letter-spacing:.5px;color:var(--faint);display:flex;align-items:center;gap:7px}
+.poscap .d{width:7px;height:7px;border-radius:50%}
+.d.lo{background:var(--green)}.d.mid{background:var(--amber)}.d.hi{background:var(--red)}
+.principle{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;width:1100px}
+.pr{background:#0e1015;border:1px solid var(--hair);border-radius:12px;padding:14px 15px}
+.pr h4{font-size:12.5px;font-weight:800;color:var(--gold2);margin-bottom:6px;display:flex;align-items:center;gap:7px}
+.pr p{font-size:11.5px;color:var(--mute);line-height:1.55}.pr p b{color:var(--text)}
+.split{display:flex;gap:12px}
+.half{flex:1;background:#0e1014;border:1px solid var(--hair);border-radius:10px;padding:12px 13px}
+.half h5{font-size:11.5px;font-weight:800;color:var(--cream);margin-bottom:5px}.half p{font-size:11px;color:var(--mute);line-height:1.5}.half p b{color:var(--gold2)}
+</style></head><body>
+<div class="cap">ScripON · <b>Lore-density bar — concept (design only)</b> · one stepped slider; as you raise it the live note rewrites itself to say <b>exactly how far the lore bends this story</b>. What you read is what the AI is told. Shown below as the same bar at three positions.</div>
+
+<div class="ft">THE BAR — same control, three positions · the note + the AI instruction change with it</div>
+<div class="scr"><div class="pad">
+  <div class="card lit">
+    <div class="bt"><svg class="ico" viewBox="0 0 24 24"><path d="M4 18V9M4 9l4-4 6 6 6-7"/></svg>Lore density — how far the layer bends the story <span class="hint">LIVE</span></div>
+
+    <div class="pos"><div class="poscap"><span class="d lo"></span>LOW</div>
+      <div class="slwrap">
+        <div class="track"><div class="fill" style="width:20%"></div>
+          <div class="tick" style="left:0%"></div><div class="tick" style="left:20%"></div><div class="tick" style="left:40%"></div><div class="tick" style="left:60%"></div><div class="tick" style="left:80%"></div><div class="tick" style="left:100%"></div>
+          <div class="thumb" style="left:20%"></div></div>
+        <div class="pips"><span class="pip">Off</span><span class="pip on">Accent</span><span class="pip">Subplot</span><span class="pip">Woven</span><span class="pip">Driver</span><span class="pip">Saturated</span></div>
+      </div>
+      <div class="lvl"><span class="lbadge">Accent</span><span class="lmeta">set-dressing</span><span class="pct">lore touches <b>~10–20%</b> of scenes</span></div>
+      <div class="lnote">The <b>djinn pact</b> stays flavour — a handful of beats and images. The world and the plot remain fully grounded; <b>no scene turns on the lore</b>, and the ending would still work if you deleted it.</div>
+      <div class="ai"><span class="lbl">WHAT THE AI IS TOLD</span><br>density=<b>ACCENT</b> · lore is decorative only · premise/midpoint/climax <b>grounded</b> · ~15% of scenes carry a lore beat · never resolve a plot turn with lore.</div>
+    </div>
+
+    <div class="pos"><div class="poscap"><span class="d mid"></span>MEDIUM</div>
+      <div class="slwrap">
+        <div class="track"><div class="fill" style="width:60%"></div>
+          <div class="tick" style="left:0%"></div><div class="tick" style="left:20%"></div><div class="tick" style="left:40%"></div><div class="tick" style="left:60%"></div><div class="tick" style="left:80%"></div><div class="tick" style="left:100%"></div>
+          <div class="thumb" style="left:60%"></div></div>
+        <div class="pips"><span class="pip">Off</span><span class="pip">Accent</span><span class="pip">Subplot</span><span class="pip on">Woven</span><span class="pip">Driver</span><span class="pip">Saturated</span></div>
+      </div>
+      <div class="lvl"><span class="lbadge">Woven</span><span class="lmeta">part of the world's rules</span><span class="pct">lore touches <b>~40–50%</b> of scenes</span></div>
+      <div class="lnote">The <b>djinn pact</b> is now woven into how the world works and into several turns. The grounded story still owns the spine, but the lore shapes the <b>midpoint</b> and recurs across acts — remove it and you'd lose real plot, not just colour.</div>
+      <div class="ai"><span class="lbl">WHAT THE AI IS TOLD</span><br>density=<b>WOVEN</b> · lore is a world-rule · <b>midpoint</b> lore-driven · premise &amp; climax grounded · ~45% of scenes carry it · 1–2 set-pieces hinge on the lore.</div>
+    </div>
+
+    <div class="pos"><div class="poscap"><span class="d hi"></span>HIGH</div>
+      <div class="slwrap">
+        <div class="track"><div class="fill" style="width:80%"></div>
+          <div class="tick" style="left:0%"></div><div class="tick" style="left:20%"></div><div class="tick" style="left:40%"></div><div class="tick" style="left:60%"></div><div class="tick" style="left:80%"></div><div class="tick" style="left:100%"></div>
+          <div class="thumb" style="left:80%"></div></div>
+        <div class="pips"><span class="pip">Off</span><span class="pip">Accent</span><span class="pip">Subplot</span><span class="pip">Woven</span><span class="pip on">Driver</span><span class="pip">Saturated</span></div>
+      </div>
+      <div class="lvl"><span class="lbadge">Driver</span><span class="lmeta">the engine of the plot</span><span class="pct">lore touches <b>~60–80%</b> of scenes</span></div>
+      <div class="lnote">The <b>djinn pact</b> isn't colour any more — it's the engine. The <b>inciting incident, the midpoint and the climax all turn on it</b>, and grounded realism becomes the contrast rather than the base. This is full mythic-forward territory.</div>
+      <div class="ai"><span class="lbl">WHAT THE AI IS TOLD</span><br>density=<b>DRIVER</b> · lore is the central engine · inciting + midpoint + climax <b>lore-driven</b> · ~70% of scenes carry it · the protagonist's goal is defined by the lore.</div>
+    </div>
+  </div>
+</div></div>
+
+<div class="ft">WHY IT WORKS — and the one catch the research flagged</div>
+<div class="principle">
+  <div class="pr"><h4><svg class="ico" style="width:15px;height:15px" viewBox="0 0 24 24"><path d="M3 12h18M12 3v18"/></svg>The note IS the instruction</h4><p>The text you read at each step is <b>the same text injected into the AI brief</b> — not UX flavour. “What you read is what the model gets,” so the control is legible: you always know what you just told it.</p></div>
+  <div class="pr"><h4><svg class="ico" style="width:15px;height:15px" viewBox="0 0 24 24"><path d="M5 7h14M5 12h14M5 17h8"/></svg>Stepped, not a raw number</h4><p>Research on steering models is clear: a bare “density = 0.62” is followed <b>unreliably</b>. Named levels with a <b>definition + concrete anchors</b> (which act-beats, what share of scenes) steer far more consistently. So the bar snaps to 6 defined stops.</p></div>
+  <div class="pr"><h4><svg class="ico" style="width:15px;height:15px" viewBox="0 0 24 24"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/></svg>Two readouts, one truth</h4><p>You see the friendly note; the model also gets <b>structural anchors</b> (premise/midpoint/climax flags, scene-share %). Same decision, expressed for a human and for the machine — that pairing is the novel bit.</p></div>
+</div>
+
+<div class="ft">DON'T CONFUSE IT WITH PER-ELEMENT WEIGHT</div>
+<div class="scr"><div class="pad"><div class="split">
+  <div class="half"><h5>Lore density — the global dial</h5><p>How far the <b>whole layer</b> bends the grounded story, from <b>Accent → Saturated</b>. One per build.</p></div>
+  <div class="half"><h5>Element role + weight — per element</h5><p>Which <b>single element</b> owns which beats — <b>djinn as antagonist (spine)</b>, ghoul as obstacle (accent). Many per build.</p></div>
+</div>
+<div class="cap" style="max-width:none">Together: the density bar sets the overall pressure; each element's role/weight says where that pressure lands. Both ride into the brief — on top of your Work source, which still does the storytelling.</div>
+</div></div>
+</body></html>

@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="en" data-theme="graphite">
+<head>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>TFM — Locations Module · Film Location Scouting & Management System (Redesign Proposal)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--font-sans:'Inter',system-ui,sans-serif;--font-display:'Inter',sans-serif;--font-mono:'Courier Prime',monospace;--radius:12px;--shadow:0 8px 24px rgba(0,0,0,.4);--bg-image:none}
+[data-theme="graphite"]{--bg:#0E1117;--surface-1:#161C28;--surface-2:#1E2632;--surface-3:#28313F;--text-1:#F4F6FA;--text-2:#C2CAD6;--text-3:#8A94A6;--border-1:#262E3B;--border-2:#333D4D;--accent:#C9A24A;--accent-on:#161C28;--accent-soft:rgba(201,162,74,.14);--ok:#34D399;--ok-soft:rgba(52,211,153,.14);--warn:#E0A53F;--warn-soft:rgba(224,165,63,.16);--danger:#E2574C;--danger-soft:rgba(226,87,76,.16);--info:#5b8def;--info-soft:rgba(91,141,239,.16);--radius:13px;--shadow:0 10px 30px rgba(0,0,0,.45);--font-display:'Inter',sans-serif}
+[data-theme="studio"]{--bg:#F7F8FA;--surface-1:#FFFFFF;--surface-2:#F1F3F7;--surface-3:#E8EBF0;--text-1:#16202E;--text-2:#48536A;--text-3:#8A93A6;--border-1:#E6E9EF;--border-2:#D3D9E3;--accent:#5B5BD6;--accent-on:#FFFFFF;--accent-soft:#ECECFB;--ok:#1F9D63;--ok-soft:#E4F6EC;--warn:#B5791E;--warn-soft:#FBF0DA;--danger:#D14343;--danger-soft:#FBE7E7;--info:#2563eb;--info-soft:#E5EDFB;--radius:10px;--shadow:0 1px 2px rgba(16,24,40,.06),0 6px 18px rgba(16,24,40,.07);--font-display:'Inter',sans-serif}
+[data-theme="ink"]{--bg:#F2ECE1;--surface-1:#FBF8F2;--surface-2:#EFE8DC;--surface-3:#E6DCCA;--text-1:#1B1712;--text-2:#4A4338;--text-3:#867B6A;--border-1:#E3D9C8;--border-2:#CDBFA8;--accent:#B0532E;--accent-on:#FBF8F2;--accent-soft:#F0DFD2;--ok:#5E7A3A;--ok-soft:#E8EBD7;--warn:#B5791E;--warn-soft:#F3E6CC;--danger:#B23A2E;--danger-soft:#F2DBD5;--info:#3E6E8E;--info-soft:#DFE9EF;--radius:6px;--shadow:0 1px 2px rgba(60,40,20,.10),0 8px 20px rgba(60,40,20,.06);--font-display:'Fraunces',Georgia,serif}
+[data-theme="slate"]{--bg:#0B1220;--surface-1:#121A2A;--surface-2:#1A2436;--surface-3:#243149;--text-1:#EAF0FA;--text-2:#A9B6CC;--text-3:#6E7C95;--border-1:#1F2A3D;--border-2:#2C3A52;--accent:#3BA6C9;--accent-on:#06131C;--accent-soft:rgba(59,166,201,.16);--ok:#37C2A0;--ok-soft:rgba(55,194,160,.15);--warn:#E0A53F;--warn-soft:rgba(224,165,63,.16);--danger:#E2574C;--danger-soft:rgba(226,87,76,.16);--info:#6aa9e0;--info-soft:rgba(106,169,224,.16);--radius:12px;--shadow:0 10px 30px rgba(0,0,0,.5);--font-display:'Inter',sans-serif}
+[data-theme="aurora"]{--bg:#09080F;--surface-1:rgba(28,25,48,.72);--surface-2:rgba(40,35,68,.62);--surface-3:rgba(56,49,92,.6);--text-1:#F2EEFF;--text-2:#C6BFE2;--text-3:#928BB2;--border-1:rgba(150,130,255,.18);--border-2:rgba(150,130,255,.3);--accent:#8B7CF6;--accent-on:#0A0A14;--accent-soft:rgba(139,124,246,.2);--ok:#36D1A6;--ok-soft:rgba(54,209,166,.16);--warn:#E6B450;--warn-soft:rgba(230,180,80,.16);--danger:#F0606B;--danger-soft:rgba(240,96,107,.16);--info:#7c9cf6;--info-soft:rgba(124,156,246,.16);--radius:16px;--shadow:0 18px 50px rgba(80,40,160,.3);--font-display:'Inter',sans-serif;--bg-image:radial-gradient(900px 500px at 12% -8%,rgba(139,124,246,.22),transparent 60%),radial-gradient(800px 500px at 100% 0%,rgba(52,215,200,.16),transparent 55%)}
+[data-theme="midnight"]{--bg:#000;--surface-1:#0C0F14;--surface-2:#151A22;--surface-3:#1F2630;--text-1:#FFF;--text-2:#D6DDE8;--text-3:#9AA6B6;--border-1:#222A35;--border-2:#3A4654;--accent:#F5A623;--accent-on:#000;--accent-soft:rgba(245,166,35,.16);--ok:#3DDC84;--ok-soft:rgba(61,220,132,.16);--warn:#F5A623;--warn-soft:rgba(245,166,35,.16);--danger:#FF5A52;--danger-soft:rgba(255,90,82,.16);--info:#5b8def;--info-soft:rgba(91,141,239,.16);--radius:8px;--shadow:0 10px 30px rgba(0,0,0,.7);--font-display:'Inter',sans-serif}
+body{font-family:var(--font-sans);background:var(--bg);color:var(--text-1);background-image:var(--bg-image);background-attachment:fixed;-webkit-font-smoothing:antialiased;line-height:1.55;transition:background .35s,color .35s}
+.bar{position:sticky;top:0;z-index:60;display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:12px 20px;background:color-mix(in srgb,var(--bg) 86%,transparent);backdrop-filter:blur(12px);border-bottom:1px solid var(--border-1)}
+.bar .ttl{font-weight:800;letter-spacing:-.02em;font-size:14px}.bar .ttl small{display:block;font-weight:500;font-size:11px;color:var(--text-3)}
+.pills{display:flex;gap:7px;flex-wrap:wrap}.pill{cursor:pointer;border:1px solid var(--border-2);background:var(--surface-1);color:var(--text-2);padding:6px 12px;border-radius:999px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px}
+.pill:hover{color:var(--text-1);border-color:var(--accent)}.pill[aria-selected="true"]{background:var(--accent);color:var(--accent-on);border-color:var(--accent)}.pill .dot{width:9px;height:9px;border-radius:50%}
+.wrap{max-width:1100px;margin:0 auto;padding:30px 22px 80px}
+.kicker{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.16em;color:var(--gold,var(--accent));color:var(--accent)}
+h1.title{font-family:var(--font-display);font-size:34px;font-weight:800;letter-spacing:-.02em;line-height:1.08;margin:8px 0 10px}
+.lead{font-size:15.5px;color:var(--text-2);max-width:820px}
+.sec{margin-top:46px}
+.sec>h2{font-family:var(--font-display);font-size:23px;font-weight:800;letter-spacing:-.01em;display:flex;align-items:center;gap:11px;margin-bottom:6px}
+.sec>h2 .n{width:30px;height:30px;border-radius:9px;background:var(--accent);color:var(--accent-on);display:grid;place-items:center;font-size:14px;font-weight:800;flex-shrink:0}
+.sec>.sub{color:var(--text-3);font-size:13px;margin-bottom:18px}
+.card{background:var(--surface-1);border:1px solid var(--border-1);border-radius:var(--radius);padding:16px 18px;margin-bottom:14px}
+.card h3{font-size:15px;font-weight:700;margin-bottom:7px;display:flex;align-items:center;gap:8px}
+.card p{color:var(--text-2);font-size:13.5px;margin-bottom:8px}.card p:last-child{margin-bottom:0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:13px}
+.muted{color:var(--text-3)}.b1{color:var(--text-1);font-weight:600}
+ul.clean{list-style:none;margin:6px 0 0}ul.clean li{position:relative;padding-inline-start:18px;margin-bottom:6px;font-size:13.5px;color:var(--text-2)}
+ul.clean li::before{content:'';position:absolute;inset-inline-start:2px;top:8px;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+.pillrow{display:flex;gap:7px;flex-wrap:wrap;margin-top:4px}
+.tag{font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;background:var(--surface-2);border:1px solid var(--border-1);color:var(--text-2)}
+.tag.ok{background:var(--ok-soft);color:var(--ok);border-color:transparent}.tag.warn{background:var(--warn-soft);color:var(--warn);border-color:transparent}.tag.dn{background:var(--danger-soft);color:var(--danger);border-color:transparent}.tag.ac{background:var(--accent-soft);color:var(--accent);border-color:transparent}.tag.in{background:var(--info-soft);color:var(--info);border-color:transparent}
+/* lifecycle stepper */
+.flow{display:flex;align-items:stretch;gap:0;flex-wrap:wrap;margin:8px 0}
+.flow .st{flex:1;min-width:118px;background:var(--surface-2);border:1px solid var(--border-1);padding:10px 12px;position:relative}
+.flow .st:first-child{border-start-start-radius:10px;border-end-start-radius:10px}.flow .st:last-child{border-start-end-radius:10px;border-end-end-radius:10px}
+.flow .st .k{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3)}
+.flow .st .v{font-size:13px;font-weight:700;margin-top:3px}
+.flow .st .g{font-size:10.5px;color:var(--text-3);margin-top:3px}
+.flow .st.gate{border-color:var(--accent);background:var(--accent-soft)}
+/* tables */
+.tbl{width:100%;border-collapse:collapse;font-size:13px;background:var(--surface-1);border:1px solid var(--border-1);border-radius:var(--radius);overflow:hidden}
+.tbl th{text-align:start;padding:9px 13px;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-3);font-weight:700;border-bottom:1px solid var(--border-1);background:var(--surface-2)}
+.tbl td{padding:10px 13px;border-bottom:1px solid var(--border-1);color:var(--text-2);vertical-align:top}.tbl tr:last-child td{border-bottom:none}
+.tbl td b{color:var(--text-1)}
+/* before/after */
+.ba{display:grid;grid-template-columns:1fr 40px 1fr;gap:10px;align-items:center}
+.ba .col{background:var(--surface-1);border:1px solid var(--border-1);border-radius:var(--radius);padding:13px}
+.ba .col.new{border-color:var(--accent)}
+.ba .hd{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:8px}
+.ba .col.new .hd{color:var(--accent)}
+.ba .arrow{text-align:center;color:var(--accent);font-size:20px}
+.ba .it{font-size:12.5px;color:var(--text-2);padding:5px 0;border-bottom:1px dashed var(--border-1)}.ba .it:last-child{border-bottom:none}
+@media(max-width:760px){.grid2,.grid3{grid-template-columns:1fr}.ba{grid-template-columns:1fr}.ba .arrow{transform:rotate(90deg)}}
+/* screen wireframe */
+.screen{border:1px solid var(--border-2);border-radius:14px;overflow:hidden;background:var(--surface-1);box-shadow:var(--shadow);margin:6px 0}
+.screen .top{display:flex;align-items:center;gap:7px;padding:9px 13px;border-bottom:1px solid var(--border-1);background:var(--surface-2);font-size:12px;font-weight:700;color:var(--text-2)}
+.screen .top .dt{width:9px;height:9px;border-radius:50%;background:var(--border-2)}
+.screen .top .tabs{display:flex;gap:4px;margin-inline-start:10px}
+.screen .top .tabs span{font-size:11px;font-weight:600;color:var(--text-3);padding:3px 8px;border-radius:999px}
+.screen .top .tabs span.on{background:var(--accent);color:var(--accent-on)}
+.screen .canvas{padding:14px;min-height:150px}
+.wf-row{display:flex;gap:10px;flex-wrap:wrap}
+.wf-col{flex:1;min-width:130px;background:var(--surface-2);border:1px solid var(--border-1);border-radius:10px;padding:10px}
+.wf-col .ch{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--text-3);margin-bottom:7px}
+.wf-card{background:var(--surface-1);border:1px solid var(--border-1);border-radius:8px;padding:8px 9px;margin-bottom:6px;font-size:11.5px;color:var(--text-2)}
+.wf-card .t{font-weight:700;color:var(--text-1);font-size:11.5px}
+.wf-card .s{font-size:10px;color:var(--text-3);margin-top:1px}
+.bars{height:8px;border-radius:999px;background:var(--surface-3);overflow:hidden;margin-top:5px}.bars>i{display:block;height:100%;background:var(--accent)}
+.src{font-size:12.5px;color:var(--text-3)}.src a{color:var(--accent);text-decoration:none}.src a:hover{text-decoration:underline}
+.callout{border-inline-start:3px solid var(--accent);background:var(--accent-soft);padding:11px 14px;border-radius:0 10px 10px 0;font-size:13.5px;color:var(--text-1);margin:10px 0}
+</style>
+</head>
+<body>
+<div class="bar">
+  <div class="ttl">TFM · Locations — Redesign Proposal<small>Film Location Scouting &amp; Management System · research-backed · themed (switch →)</small></div>
+  <div class="pills" id="pills"></div>
+</div>
+<div class="wrap">
+
+  <div class="kicker">Production · Locations Module</div>
+  <h1 class="title">From a location database to a Location Department operating system</h1>
+  <p class="lead">The module already holds remarkably rich data — needs, options, scout visits, clearance packs, tech recces, evaluations, permits, risks, payments, sun-path. The problem isn't the data; it's that the lifecycle is <b>fragmented across six tabs and a deep modal</b>, the connection to the rest of production runs on <b>free-text strings</b>, and the highest-value automations (call-sheet autofill, unit moves, per-location budget, a project map) are missing. This proposal benchmarks the leading film-location platforms, maps the current state, and reorganises the module around the real <b>location lifecycle</b> — clustering, merging, and wiring it into scheduling, call sheets, transport, travel, budget and assets.</p>
+
+  <!-- 1 · BENCHMARK -->
+  <div class="sec">
+    <h2><span class="n">1</span> Industry benchmark — how the best systems work</h2>
+    <div class="sub">Synthesised from current location-management platforms and location-department practice (sources at the end).</div>
+
+    <div class="card">
+      <h3>The canonical location lifecycle</h3>
+      <p>Every professional location workflow — studio, streamer, feature, commercial — follows the same spine. Best-in-class software makes each stage a tracked state with an explicit <b>gate</b> before the next:</p>
+      <div class="flow">
+        <div class="st"><div class="k">01 · Brief</div><div class="v">Script need</div><div class="g">From breakdown — INT/EXT, scenes, look</div></div>
+        <div class="st"><div class="k">02 · Source</div><div class="v">Find &amp; options</div><div class="g">Scout / library / AI match</div></div>
+        <div class="st"><div class="k">03 · Recce</div><div class="v">Tech scout</div><div class="g">Per-HOD, ~1 wk before</div></div>
+        <div class="st gate"><div class="k">04 · Clear ▣</div><div class="v">Permit · COI · agreement</div><div class="g">Gate: cannot confirm until cleared</div></div>
+        <div class="st"><div class="k">05 · Confirm</div><div class="v">Lock + sign-off</div><div class="g">Director + producer</div></div>
+        <div class="st"><div class="k">06 · Shoot</div><div class="v">Move &amp; deliver</div><div class="g">Movement order, call sheet</div></div>
+        <div class="st"><div class="k">07 · Wrap</div><div class="v">Restore &amp; close</div><div class="g">Return condition, final payment</div></div>
+      </div>
+      <p class="muted" style="margin-top:8px">Two hard gates the industry enforces: <b>(a)</b> a location can't be <i>confirmed</i> until it's <i>cleared</i> (permit granted → COI issued to that holder → signed agreement + insurance), and <b>(b)</b> a <i>tech recce</i> happens after selection and before the shoot so every department turns the choice into a plan. The current module has the data for both but enforces neither.</p>
+    </div>
+
+    <div class="grid2">
+      <div class="card">
+        <h3>🛰 What leading platforms do well</h3>
+        <ul class="clean">
+          <li><b>Mobile-first field capture</b> with offline sync — shoot photos/notes/GPS on a phone, sync later (SuperScout, Massif, Cadrage).</li>
+          <li><b>Virtual / 360° / VR scouting</b> and drone media — explore before travelling.</li>
+          <li><b>AI brief-matching</b> — "rustic bridge over a serene river" → curated candidates with logistics.</li>
+          <li><b>Centralised binder</b>: addresses, permits, COIs, contracts, photos, contacts, notes in one record.</li>
+          <li><b>Mapping</b>: base camp, parking, holding, catering, closure perimeter, camera positions on one map; draw the route, measure drive &amp; walk time (Scribble Maps, Google Maps movement orders).</li>
+          <li><b>Integration</b> with scheduling &amp; call sheets so the chosen location flows downstream automatically.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>🎬 The location department it must serve</h3>
+        <p>Software should map to real roles, not a generic CRM:</p>
+        <ul class="clean">
+          <li><b>Location Manager</b> — secures locations, negotiates, owns permits/insurance, PR &amp; crew safety on site.</li>
+          <li><b>Location Scout</b> — finds &amp; photographs candidates against the director's brief.</li>
+          <li><b>Location Coordinator</b> — day-to-day: site visits, owner liaison, permit admin.</li>
+          <li><b>Assistant LM</b> — prepares <b>movement orders</b>, organises <b>tech recces</b> for HODs, resident letters, end-of-day clear &amp; restore.</li>
+        </ul>
+        <p class="muted" style="margin-top:6px">Implication: the module needs role-aware permissions, an approval chain, a movement-order generator, a recce tool per department, and a compliance/clearance command centre — not just a card grid.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2 · CURRENT STATE -->
+  <div class="sec">
+    <h2><span class="n">2</span> Current state — strong bones, fragmented surface</h2>
+    <div class="sub">What exists in TFM today across the project Locations tab, the AssessModal, and the standalone Master Library.</div>
+    <div class="grid2">
+      <div class="card">
+        <h3>✅ Already built (a real asset)</h3>
+        <ul class="clean">
+          <li>6 inner tabs: <b>Locations</b> · <b>Breakdown &amp; options</b> (need→options→lock + director sign-off) · <b>Scout visits</b> (multi-stop planner + transport) · <b>Clearance packs</b> (crew-ID public links, audited) · <b>Report &amp; plates</b> (purpose-tagged photos, lookbook, sun-gating) · <b>Readiness</b>.</li>
+          <li>A deep <b>AssessModal</b>: pipeline stage + compliance gates (NOC/Agreement/Insurance), plus Documents, Permits (typed, OCR, authority routing), Security, Payments, 10-criterion Evaluation, Tech recce (per-HOD), Risk register.</li>
+          <li>A company-wide <b>Master Library</b> with usage history (timesUsed, totalSpent), compliance-expiry alerts, and a Google-Maps view with clustering + spend heatmap.</li>
+          <li>Ledger wiring: location fee, permit fee, security, payments all post to the project ledger.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>⚠ The structural problem</h3>
+        <ul class="clean">
+          <li><b>String coupling.</b> Stripboard, breakdown, call sheets and transport all reference a location by free-text. The only real link is one stamped column (<span class="tag">ProductionStrip.locationId</span>) set on Lock — with no Prisma relation. Rename a script location → the join silently breaks.</li>
+          <li><b>The lifecycle is hidden in a modal.</b> Permits, recce, risk, budget and payments live behind "Assess", so the producer view and the field workflow never see the whole picture.</li>
+          <li><b>Downstream automation is missing.</b> Call sheets carry address/hospital/basecamp/parking/daylight fields but they're filled <i>by hand</i> — the linked Location is never resolved at generation.</li>
+          <li><b>Two permit truths.</b> A loose <span class="tag">permitStatus</span> string on Location vs the rich typed <span class="tag">LocationPermit</span> in Assess — they can disagree, and neither blocks a shoot date on expiry.</li>
+          <li><b>No project map, no unit moves, no per-location budget.</b> The map is library-only; there's no movement order, drive-time, or budget-vs-actual per location.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="callout">Verdict: this is <b>not</b> a rebuild. ~80% of the data model is already production-grade. The work is <b>re-surfacing</b> it around the lifecycle, <b>resolving the entity link</b> so data flows, and <b>adding the three missing operational surfaces</b> — Map/GIS, Unit moves, and a unified Clearance/Compliance centre.</div>
+  </div>
+  <!-- 3 · NEW IA -->
+  <div class="sec">
+    <h2><span class="n">3</span> Proposed information architecture — cluster, merge, regroup</h2>
+    <div class="sub">Six fragmented tabs + a hidden modal → six lifecycle-oriented surfaces + a full-page Location workspace.</div>
+    <div class="ba">
+      <div class="col">
+        <div class="hd">Today — 6 tabs + modal</div>
+        <div class="it">Locations <span class="muted">(card grid)</span></div>
+        <div class="it">Breakdown &amp; options</div>
+        <div class="it">Scout visits</div>
+        <div class="it">Clearance packs</div>
+        <div class="it">Report &amp; plates</div>
+        <div class="it">Readiness</div>
+        <div class="it muted">＋ AssessModal: Docs · Permits · Security · Payments · Evaluation · Recce · Risk (buried)</div>
+        <div class="it muted">Master Library + Map (separate app, library-only)</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="col new">
+        <div class="hd">Proposed — 6 lifecycle tabs + detail</div>
+        <div class="it"><b>Board</b> — lifecycle pipeline <span class="muted">(merges Breakdown&amp;options + Readiness)</span></div>
+        <div class="it"><b>Map &amp; Routes</b> — project GIS + base camp + drive-times <span class="tag in">new</span></div>
+        <div class="it"><b>Scouting</b> — visits + field capture + assignments <span class="muted">(merges Scout visits + scouting)</span></div>
+        <div class="it"><b>Clearance &amp; Compliance</b> — permits · COI · agreements · ID packs · risk <span class="muted">(merges Clearance packs + Assess compliance)</span></div>
+        <div class="it"><b>Logistics &amp; Unit Moves</b> — movement orders · parking/basecamp · transport <span class="tag in">new</span></div>
+        <div class="it"><b>Reports</b> — location report · lookbook · readiness · budget <span class="muted">(merges Report&amp;plates + readiness reporting)</span></div>
+        <div class="it new" style="color:var(--accent);font-weight:700">Location workspace — full page, replaces the modal (Overview · Media · Recce · Clearance · Risk · Budget · Sun&amp;Weather · History)</div>
+      </div>
+    </div>
+    <div class="callout">The organising principle changes from <b>"what kind of thing is this"</b> (a tab per data type) to <b>"where is this location in its lifecycle"</b> (a tab per stage of work). That single re-frame collapses the modal, fills the gaps, and matches how a location department actually thinks.</div>
+  </div>
+
+  <!-- 4 · KEY SCREENS -->
+  <div class="sec">
+    <h2><span class="n">4</span> Key screens — the redesign, in our theme</h2>
+    <div class="sub">Wireframes on the live token system (switch themes above). Built on the same shell, primitives and patterns as the rest of TFM.</div>
+
+    <h3 style="font-size:15px;margin:18px 0 6px">4.1 · Board — the location lifecycle pipeline</h3>
+    <div class="screen">
+      <div class="top"><span class="dt"></span><span class="dt" style="background:var(--accent)"></span> Desert Crossing · Locations
+        <span class="tabs"><span class="on">Board</span><span>Map</span><span>Scouting</span><span>Clearance</span><span>Logistics</span><span>Reports</span></span></div>
+      <div class="canvas">
+        <div class="wf-row">
+          <div class="wf-col"><div class="ch">① Need · sourcing</div>
+            <div class="wf-card"><div class="t">Field Hospital</div><div class="s">INT · Sc 24,26 · 3 options</div></div>
+            <div class="wf-card"><div class="t">Checkpoint</div><div class="s">EXT · Sc 27 · 1 option</div></div></div>
+          <div class="wf-col"><div class="ch">② Recce</div>
+            <div class="wf-card"><div class="t">Dune Ridge</div><div class="s">Tech recce Thu · 4 HODs</div></div></div>
+          <div class="wf-col"><div class="ch">③ Clearing ▣</div>
+            <div class="wf-card"><div class="t">Command Tent</div><div class="s">Permit ✓ · COI pending · agreement out</div><div class="bars"><i style="width:66%"></i></div></div></div>
+          <div class="wf-col"><div class="ch">④ Confirmed</div>
+            <div class="wf-card"><div class="t">Wadi Rim Base</div><div class="s">Locked · director ✓ · shoot D14</div></div></div>
+          <div class="wf-col"><div class="ch">⑤ Wrapped</div>
+            <div class="wf-card"><div class="t">Airport Hangar</div><div class="s">Restored · final paid</div></div></div>
+        </div>
+        <p class="muted" style="font-size:11.5px;margin-top:10px">Drag a card across stages. The <b>Clearing</b> gate shows a live checklist (permit · COI · agreement · insurance · risk-assessment) and won't allow <b>Confirm</b> until cleared. Sync-from-breakdown seeds column ①.</p>
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div>
+        <h3 style="font-size:15px;margin:18px 0 6px">4.2 · Map &amp; Routes (project GIS)</h3>
+        <div class="screen"><div class="top"><span class="dt"></span> Map &amp; Routes</div>
+          <div class="canvas" style="background:linear-gradient(135deg,var(--surface-2),var(--surface-3));min-height:170px;position:relative">
+            <span class="tag ac" style="position:absolute;left:18%;top:30%">◎ Unit base</span>
+            <span class="tag" style="position:absolute;left:55%;top:22%">📍 Command Tent</span>
+            <span class="tag" style="position:absolute;left:38%;top:62%">📍 Dune Ridge</span>
+            <span class="tag warn" style="position:absolute;left:70%;top:60%">📍 Checkpoint · permit</span>
+            <div style="position:absolute;left:18%;top:33%;width:42%;height:2px;background:var(--accent);transform:rotate(18deg)"></div>
+          </div></div>
+        <p class="muted" style="font-size:12px">All project locations + base camp + scout routes. Draw the company move, get <b>drive &amp; walk time</b>; overlay parking, holding, catering, closure perimeter, camera positions. Pins push to movement orders &amp; call sheets.</p>
+      </div>
+      <div>
+        <h3 style="font-size:15px;margin:18px 0 6px">4.3 · Location workspace (replaces the modal)</h3>
+        <div class="screen"><div class="top"><span class="dt"></span> Command Tent
+          <span class="tabs"><span class="on">Overview</span><span>Media</span><span>Recce</span><span>Clearance</span><span>Budget</span></span></div>
+          <div class="canvas">
+            <div class="wf-row">
+              <div class="wf-card" style="flex:1"><div class="t">Stage</div><div class="s">Clearing → Confirm gate</div><div class="bars"><i style="width:66%"></i></div></div>
+              <div class="wf-card" style="flex:1"><div class="t">Budget</div><div class="s">AED 84k / 95k · 88%</div></div>
+            </div>
+            <div class="wf-card"><div class="t">Clearance checklist</div><div class="s">NOC ✓ · Permit ✓ · COI ⧗ · Agreement ⧗ · Insurance ✓ · Risk ✓</div></div>
+            <div class="wf-card"><div class="t">Recce — 4 HODs</div><div class="s">Camera ✓ · Grip ⚠ power · Art ✓ · Safety ⚠ access</div></div>
+          </div></div>
+        <p class="muted" style="font-size:12px">One full-page home per location. Everything the AssessModal hid — now a first-class, linkable, permission-aware page.</p>
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div>
+        <h3 style="font-size:15px;margin:18px 0 6px">4.4 · Clearance &amp; Compliance centre</h3>
+        <div class="screen"><div class="top"><span class="dt"></span> Clearance &amp; Compliance</div>
+          <div class="canvas">
+            <div class="wf-card"><div class="t">Permits · 3 active</div><div class="s">Ground filming ✓ · Drone GCAA ⧗ (lead 10d) · Police ✗ expiring 4d</div></div>
+            <div class="wf-card"><div class="t">COI queue</div><div class="s">Command Tent → owner · blocked on permit ✓ now issuable</div></div>
+            <div class="wf-card"><div class="t">Documents</div><div class="s">2 agreements out for signature · 1 insurance expiring 12d</div></div>
+            <div class="wf-card"><div class="t">ID clearance packs</div><div class="s">Checkpoint visit · 6 crew · link live 48h</div></div>
+          </div></div>
+        <p class="muted" style="font-size:12px">The compliance command centre: permit lifecycle with <b>authority lead-times</b> &amp; expiry alarms, the permit→COI→agreement gate, document vault, risk register and crew-ID packs — one place, one truth.</p>
+      </div>
+      <div>
+        <h3 style="font-size:15px;margin:18px 0 6px">4.5 · Logistics &amp; Unit Moves</h3>
+        <div class="screen"><div class="top"><span class="dt"></span> Logistics &amp; Unit Moves</div>
+          <div class="canvas">
+            <div class="wf-card"><div class="t">Movement order · Day 14</div><div class="s">Base → Wadi Rim · 22 min · convoy 09 vehicles · map attached</div></div>
+            <div class="wf-card"><div class="t">Parking &amp; basecamp</div><div class="s">Trucks 40-spot lot · holding 200m · catering on-site</div></div>
+            <div class="wf-card"><div class="t">Company move D14→D15</div><div class="s">Command Tent → Checkpoint · 18 min · transport requested ✓</div></div>
+            <div class="wf-card"><div class="t">Proximity</div><div class="s">Nearest hotel 14 min · hospital 9 min</div></div>
+          </div></div>
+        <p class="muted" style="font-size:12px">Auto-builds the <b>movement order</b> from confirmed locations + the call-sheet day (directions, parking, facilities, map, contacts), raises transport orders, and surfaces travel/accommodation proximity.</p>
+      </div>
+    </div>
+
+    <h3 style="font-size:15px;margin:18px 0 6px">4.6 · Mobile scout portal (PWA · offline)</h3>
+    <div class="grid3">
+      <div class="screen"><div class="top"><span class="dt"></span> Scout · capture</div><div class="canvas"><div class="wf-card"><div class="t">📷 New candidate</div><div class="s">12 photos · GPS auto · what3words</div></div><div class="wf-card"><div class="t">Brief</div><div class="s">"Field hospital — weathered canvas"</div></div><div class="wf-card"><div class="t">⚠ Offline</div><div class="s">3 captures queued · sync when online</div></div></div></div>
+      <div class="screen"><div class="top"><span class="dt"></span> Scout · checklist</div><div class="canvas"><div class="wf-card"><div class="t">Power</div><div class="s">✓ 3-phase on site</div></div><div class="wf-card"><div class="t">Access / parking</div><div class="s">⚠ narrow approach, trucks?</div></div><div class="wf-card"><div class="t">Sun</div><div class="s">Golden hour 18:10 · backlit east</div></div></div></div>
+      <div class="screen"><div class="top"><span class="dt"></span> Recce · my dept</div><div class="canvas"><div class="wf-card"><div class="t">Grip notes</div><div class="s">Crane needs 6m clear — flag to LM</div></div><div class="wf-card"><div class="t">Action</div><div class="s">Confirm rigging points · severity ⚠</div></div></div></div>
+    </div>
+    <p class="muted" style="font-size:12px">Field-first: capture candidates with photos + GPS offline, run the scout checklist, and let HODs file recce notes on their phone — all syncing to the Board and the location workspace.</p>
+  </div>
+
+  <!-- 5 · INTEGRATIONS -->
+  <div class="sec">
+    <h2><span class="n">5</span> How it connects — and changes — the rest of the system</h2>
+    <div class="sub">The redesign's biggest payoff is wiring. Resolve the <b>Location entity</b> (a real relation, not a string), and the whole production inherits it.</div>
+    <table class="tbl">
+      <thead><tr><th style="width:150px">Module</th><th>Today</th><th>After — and the effect on that module</th></tr></thead>
+      <tbody>
+        <tr><td><b>Scheduling / stripboard</b></td><td>String join; <span class="tag">locationId</span> stamped on lock, no relation</td><td>Strip → real <b>Location</b> relation. Locking a location flows everywhere; sun-path + weather feed auto-schedule. <b>Effect:</b> stripboard shows real location status &amp; gate.</td></tr>
+        <tr><td><b>Call sheets</b></td><td>Address/hospital/basecamp/parking/map filled <b>by hand</b></td><td>Generation resolves the linked Location → auto-fills the whole location + safety block + daylight + attaches the movement-order map. <b>Effect:</b> call sheets become one-click and always correct.</td></tr>
+        <tr><td><b>Transport / dispatch</b></td><td><span class="tag">fromLocation</span>/<span class="tag">toLocation</span> strings</td><td>Movement orders &amp; scout routes raise transport orders with real <b>coordinates &amp; drive-times</b>. <b>Effect:</b> dispatch gets routable pickups, not free text.</td></tr>
+        <tr><td><b>Travel &amp; accommodation</b></td><td>No link to locations</td><td>Proximity: nearest hotels &amp; airports to the unit base / location; per-location travel time. <b>Effect:</b> accommodation booked by distance-to-set.</td></tr>
+        <tr><td><b>Budget / cost</b></td><td>Ad-hoc ledger postings; no per-location envelope</td><td>Per-location <b>budget vs actual</b> (fee + permit + security + payments) commits &amp; rolls up to the cost report. <b>Effect:</b> Locations becomes a real cost centre with variance.</td></tr>
+        <tr><td><b>Assets / rental</b></td><td>Separate <span class="tag">BookingLocation</span></td><td>Shared geocoding &amp; map layer between production locations and rental bookings. <b>Effect:</b> one geographic source of truth.</td></tr>
+        <tr><td><b>Comms / approvals</b></td><td>Director sign-off, permit routing, gates — three separate mechanisms</td><td>One unified <b>location approval state</b> + notifications; departments subscribe to a location. <b>Effect:</b> clear, audited sign-off chain.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <!-- 6 · GAPS -->
+  <div class="sec">
+    <h2><span class="n">6</span> Gap → solution — the 12 fixes</h2>
+    <div class="sub">Every gap surfaced in the code audit, with the concrete remedy.</div>
+    <table class="tbl">
+      <thead><tr><th style="width:38px">#</th><th>Gap today</th><th>Fix</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>String coupling; only one stamped column, no relation</td><td><b>Resolve the Location entity</b> — make <span class="tag">ProductionStrip.locationId</span> a real relation; key call sheets / per-diem / transport off the entity, not the string.</td></tr>
+        <tr><td>2</td><td>Call sheets don't inherit location data</td><td>Resolve linked Location at generation → autofill address, hospital, basecamp, parking, map, daylight, safety.</td></tr>
+        <tr><td>3</td><td>Two permit truths (loose string vs typed model)</td><td>Single typed <b>LocationPermit</b> as source of truth; expiry auto-blocks confirm + shoot date; authority lead-times drive reminders.</td></tr>
+        <tr><td>4</td><td>No unit-move / logistics-day planning</td><td>New <b>Logistics</b> surface: movement orders, company moves between shoot days, drive-times, marshalling.</td></tr>
+        <tr><td>5</td><td>No GIS for project locations</td><td>New project <b>Map &amp; Routes</b>: all locations + base + routes + overlays; pins feed movement orders &amp; call sheets.</td></tr>
+        <tr><td>6</td><td>Risk/safety never reaches operations</td><td>Risk register + method statements flow to the <b>call-sheet safety block</b> and hard-gate confirm; recce blockers block lock.</td></tr>
+        <tr><td>7</td><td>No per-location budget vs actual</td><td>Per-location <b>budget envelope</b> → commitments &amp; actuals → variance into the cost report.</td></tr>
+        <tr><td>8</td><td>Approval/sign-off fragmented (3 mechanisms)</td><td>One unified <b>location approval state</b> machine spanning director sign-off + permit routing + compliance gates.</td></tr>
+        <tr><td>9</td><td>Media is flat; 360/floorplan unused</td><td><b>Media manager</b>: real uploads (not pasted URLs), versioning, before/after, 360°/floorplan/drone viewer; lookbook auto-built.</td></tr>
+        <tr><td>10</td><td>Weather/sun read-only &amp; isolated</td><td>Live <b>weather forecast feed</b> alongside sun-path; both into scheduling and the call-sheet daylight block.</td></tr>
+        <tr><td>11</td><td>Dept coordination doesn't close the loop</td><td>Recce action-items tie to <b>readiness gating + notifications</b>; departments subscribe to a location.</td></tr>
+        <tr><td>12</td><td>Project/master duplication</td><td>Consolidate dual-target ops (permits/docs/security/payments) behind one service with a scope flag; one component, two scopes.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 7 · ADVANCED -->
+  <div class="sec">
+    <h2><span class="n">7</span> Advanced features that lift it to studio standard</h2>
+    <div class="grid3">
+      <div class="card"><h3>🗺 GIS &amp; routing</h3><p>Project map, base-camp/parking/closure overlays, draw-the-move with drive &amp; walk time, movement-order export, geofenced arrival check-in (already in Comms).</p></div>
+      <div class="card"><h3>📱 Offline field PWA</h3><p>Capture candidates with photos + GPS + what3words offline; queue &amp; sync; HOD recce on phone — matching the leading scout apps.</p></div>
+      <div class="card"><h3>🤖 AI brief-matching</h3><p>Match a director's brief against the Master Library &amp; submissions; auto-tag photos by purpose; surface look-alike past locations.</p></div>
+      <div class="card"><h3>🛡 Clearance automation</h3><p>Permit→COI→agreement gate; authority lead-time reminders; auto-generate NOC/resident letters (EN/AR); insurance-expiry alarms.</p></div>
+      <div class="card"><h3>💷 Location cost centre</h3><p>Per-location budget vs actual, commitments, and a Locations line that rolls into the production cost report &amp; EFC.</p></div>
+      <div class="card"><h3>🎞 360 / floorplan media</h3><p>PANO360 / FLOORPLAN / CAD / DRONE viewers (the enum values already exist), versioned, with auto lookbook &amp; storyboard.</p></div>
+      <div class="card"><h3>🌤 Weather + sun gating</h3><p>Forecast feed + sun-path → schedule gates ("golden-hour only", "rain cover set"), and the call-sheet daylight block.</p></div>
+      <div class="card"><h3>✅ Readiness &amp; gates</h3><p>One confirm gate (cleared + recced + risk-assessed + signed) producers can trust; blockers visible on the Board.</p></div>
+      <div class="card"><h3>🔐 Role-aware permissions</h3><p>LM / scout / coordinator / asst-LM / producer scopes; owner-PII reveal audited (OTP already exists for ID packs).</p></div>
+    </div>
+  </div>
+
+  <!-- 8 · ROADMAP -->
+  <div class="sec">
+    <h2><span class="n">8</span> Phased roadmap — low-risk, additive, in this order</h2>
+    <div class="grid3">
+      <div class="card" style="border-top:3px solid var(--accent)"><h3>Phase 1 · Foundation</h3><p class="muted">Make data flow before re-skinning.</p><ul class="clean"><li>Real <b>Location relation</b> on strips/call sheets</li><li>Call-sheet <b>autofill</b> from location</li><li>Unify permit status (one typed truth)</li><li>Per-location budget field</li></ul></div>
+      <div class="card" style="border-top:3px solid var(--info)"><h3>Phase 2 · Surfaces</h3><p class="muted">Re-surface around the lifecycle.</p><ul class="clean"><li>Promote AssessModal → <b>Location workspace</b></li><li><b>Board</b> (lifecycle pipeline)</li><li><b>Clearance &amp; Compliance</b> centre</li><li>Project <b>Map &amp; Routes</b></li></ul></div>
+      <div class="card" style="border-top:3px solid var(--ok)"><h3>Phase 3 · Advanced</h3><p class="muted">Studio-grade operations.</p><ul class="clean"><li><b>Logistics / unit moves</b> + movement orders</li><li>Offline mobile scout PWA</li><li>Weather feed · 360 media · AI matching</li><li>Budget-vs-actual rollup to cost report</li></ul></div>
+    </div>
+    <div class="callout">Everything is <b>additive and reversible</b>, exactly like the dashboard work — new surfaces beside the existing ones, the entity-resolution done behind a compatibility shim so nothing breaks while it lands.</div>
+  </div>
+
+  <!-- SOURCES -->
+  <div class="sec">
+    <h2><span class="n">9</span> Sources</h2>
+    <div class="card src">
+      <p>Industry benchmarking drew on current location-management platforms and location-department practice:</p>
+      <ul class="clean">
+        <li><a href="https://superscout.ai/blog/film-location-management-software/" target="_blank" rel="noreferrer">SuperScout — Film location management software</a> · <a href="https://massif.network/location-scouting/digital-location-scouting-platforms-2025-guide/" target="_blank" rel="noreferrer">Massif — Digital location scouting platforms 2025</a> · <a href="https://destinationfilmguide.com/hi-tech-film-location-scouting-tools/" target="_blank" rel="noreferrer">Destination Film Guide — Hi-tech scouting tools</a></li>
+        <li><a href="https://www.studiobinder.com/blog/essential-film-location-scouting-tips/" target="_blank" rel="noreferrer">StudioBinder — Location scouting tips &amp; checklist</a> · <a href="https://nofilmschool.com/tech-scout" target="_blank" rel="noreferrer">No Film School — Tech scout guide</a> · <a href="https://www.wrapbook.com/blog/location-scouting" target="_blank" rel="noreferrer">Wrapbook — Location scouting 101</a> · <a href="https://yamdu.com/en/learn/preproduction/location-scouting/" target="_blank" rel="noreferrer">Yamdu — Location scouting</a></li>
+        <li><a href="https://www.screenskills.com/job-profiles/browse/film-and-tv-drama/production-management/locations-manager/" target="_blank" rel="noreferrer">ScreenSkills — Locations manager role</a> · <a href="https://www.locationhq.co.uk/location-department-roles/" target="_blank" rel="noreferrer">Location HQ — Department roles</a> · <a href="https://en.wikipedia.org/wiki/Location_manager" target="_blank" rel="noreferrer">Location manager (overview)</a></li>
+        <li><a href="https://www.wrapbook.com/blog/producers-guide-certificates-of-insurance-film" target="_blank" rel="noreferrer">Wrapbook — Certificates of insurance</a> · <a href="https://film.ca.gov/state-permits/insurance-requirements/" target="_blank" rel="noreferrer">California Film Commission — Insurance &amp; permits</a></li>
+        <li><a href="https://filminireland.com/irish-co-producer/movement-order-template/" target="_blank" rel="noreferrer">Film in Ireland — Movement order template</a> · <a href="https://www.scribblemaps.com/industries/film-production" target="_blank" rel="noreferrer">Scribble Maps — Film production mapping</a> · <a href="https://junglesoftware.com/film-location-scheduling/" target="_blank" rel="noreferrer">Jungle Software — Location scheduling</a></li>
+      </ul>
+    </div>
+  </div>
+
+  <p class="muted" style="margin-top:34px;font-size:12px;text-align:center">TFM · Locations redesign proposal — current-state audit from the live codebase, benchmarked against industry practice, organised around the location lifecycle. Switch themes at the top to preview the look.</p>
+</div>
+<script>
+const THEMES=[{id:'graphite',name:'Graphite & Gold',dot:'#C9A24A'},{id:'studio',name:'Studio Light',dot:'#5B5BD6'},{id:'ink',name:'Ink & Paper',dot:'#B0532E'},{id:'slate',name:'Slate Pro',dot:'#3BA6C9'},{id:'aurora',name:'Aurora Glass',dot:'#8B7CF6'},{id:'midnight',name:'Midnight',dot:'#F5A623'}];
+const pills=document.getElementById('pills'),root=document.documentElement;
+function sel(id){root.setAttribute('data-theme',id);[...pills.children].forEach(p=>p.setAttribute('aria-selected',p.dataset.id===id));}
+THEMES.forEach(t=>{const b=document.createElement('button');b.className='pill';b.dataset.id=t.id;b.innerHTML='<span class="dot" style="background:'+t.dot+'"></span>'+t.name;b.onclick=()=>sel(t.id);pills.appendChild(b);});
+sel('graphite');
+</script>
+</body>
+</html>

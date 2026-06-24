@@ -1,0 +1,94 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ScripON Doctor — Script Library (Desktop)</title><style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Courier+Prime:wght@400;700&display=swap');
+:root{--bg:#0b0c0f;--chrome:#121419;--panel:#14161c;--panel2:#1a1d24;--panel3:#1f232b;--hair:rgba(255,255,255,.07);--hair2:rgba(255,255,255,.13);--gold:#C6A463;--gold2:#E6D2A2;--goldink:#1a1509;--cream:#F4EEE0;--text:#E8E6E0;--mute:#9aa1ab;--faint:#6b727d;--paper:#F7F4EC;--ink:#23231f;--blue:#5b8def;--green:#57b368;--amber:#e0a23b;--red:#e5635f;--violet:#8b7cf0;--pink:#d6649a}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:radial-gradient(1200px 600px at 50% -8%,#15171d,#0b0c0f 60%);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--text);-webkit-font-smoothing:antialiased;padding:40px;display:flex;flex-direction:column;align-items:center;gap:16px;min-height:100vh}
+.cap{color:var(--faint);font-size:12px;letter-spacing:.4px}.cap b{color:var(--gold);font-weight:600}
+.screen{width:1440px;height:900px;background:var(--bg);border:1px solid var(--hair);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 50px 120px -30px rgba(0,0,0,.8);position:relative}
+.screen:before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(700px 280px at 72% -6%,rgba(198,164,99,.09),transparent 70%);z-index:0}
+svg{display:block}.ico{width:18px;height:18px;stroke:currentColor;stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.top{height:60px;flex:0 0 60px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;background:linear-gradient(180deg,#15181e,#121419);border-bottom:1px solid var(--hair);position:relative;z-index:2}
+.tl{display:flex;align-items:center;gap:12px}.logo{width:30px;height:30px;border-radius:9px;background:linear-gradient(160deg,var(--gold2),var(--gold));display:grid;place-items:center;color:var(--goldink);font-weight:800;font-size:12px;box-shadow:0 4px 14px rgba(198,164,99,.3)}
+.proj{font-weight:700;font-size:15.5px;color:var(--cream)}.meta{color:var(--faint);font-size:12px;font-weight:500}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:.3px}.pill .d{width:7px;height:7px;border-radius:50%}
+.pill.blue{background:rgba(91,141,239,.16);color:#a9c4f7}.pill.blue .d{background:var(--blue)}
+.tr{display:flex;align-items:center;gap:8px}
+.btn{display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 14px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid transparent;color:var(--text);white-space:nowrap}.btn .ico{width:15px;height:15px}
+.btn.ghost{background:#1b1e25;border-color:var(--hair);color:var(--mute)}.btn.kbd{background:transparent;border:1px solid var(--hair);color:var(--faint)}
+.btn.outline{background:#1c1d1a;border-color:rgba(198,164,99,.55);color:var(--gold2)}
+.btn.gold{background:linear-gradient(180deg,var(--gold2),var(--gold));color:var(--goldink);font-weight:700;box-shadow:0 6px 18px -4px rgba(198,164,99,.45),inset 0 1px 0 rgba(255,255,255,.3)}
+.body{flex:1;display:flex;min-height:0;position:relative;z-index:1}
+.rail{width:74px;flex:0 0 74px;background:#0e1015;border-right:1px solid var(--hair);display:flex;flex-direction:column;align-items:center;padding:14px 0;gap:6px}
+.ritem{width:58px;display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 0;border-radius:12px;color:var(--faint);cursor:pointer;position:relative}
+.ritem .box{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:#171a21;border:1px solid var(--hair);color:var(--mute)}
+.ritem .lbl{font-size:9px;font-weight:600}.ritem:hover .box{border-color:var(--hair2);color:var(--cream)}
+.ritem.on .box{background:linear-gradient(160deg,var(--gold2),var(--gold));border-color:transparent;color:var(--goldink);box-shadow:0 6px 16px -4px rgba(198,164,99,.5)}.ritem.on .lbl{color:var(--gold2)}
+.ritem.on:before{content:"";position:absolute;left:-1px;top:14px;bottom:14px;width:3px;border-radius:3px;background:var(--gold)}
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.content{flex:1;overflow:hidden;padding:26px 30px;display:flex;flex-direction:column;gap:20px}
+.phead{display:flex;align-items:flex-end;justify-content:space-between}
+.phead h1{font-size:24px;font-weight:800;color:var(--cream);letter-spacing:-.5px}.phead .sub{font-size:13px;color:var(--mute);margin-top:4px}
+.eyebrow{font-size:11px;font-weight:700;letter-spacing:1.4px;color:var(--gold)}
+.loop{display:flex;align-items:stretch;gap:0;background:linear-gradient(180deg,#15181e,#121419);border:1px solid var(--hair);border-radius:14px;padding:6px;overflow:hidden}
+.step{flex:1;display:flex;flex-direction:column;gap:7px;padding:14px 16px;position:relative}
+.step+.step{border-left:1px solid var(--hair)}
+.step .sl{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;color:var(--cream)}
+.step .si{width:24px;height:24px;border-radius:7px;display:grid;place-items:center;background:rgba(198,164,99,.14);color:var(--gold2)}.step .si .ico{width:14px;height:14px}
+.step .pc{font-size:11px;color:var(--faint);font-weight:600}
+.step .mtr{height:5px;border-radius:4px;background:#23262e;overflow:hidden}.step .mtr i{display:block;height:100%;border-radius:4px;background:linear-gradient(90deg,var(--gold),var(--gold2))}
+.step.done .si{background:rgba(87,179,104,.16);color:var(--green)}.step.done .mtr i{background:var(--green)}
+.kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}
+.kpi{background:linear-gradient(180deg,#16191f,#131519);border:1px solid var(--hair);border-radius:13px;padding:15px}
+.kpi .kl{font-size:11px;color:var(--faint);font-weight:600;letter-spacing:.3px}.kpi .kv{font-size:23px;font-weight:800;color:var(--cream);margin-top:7px;letter-spacing:-.5px}.kpi .kc{font-size:11px;margin-top:5px;font-weight:600}
+.twocol{flex:1;display:grid;grid-template-columns:1.9fr 1fr;gap:16px;min-height:0}
+.col{display:flex;flex-direction:column;gap:16px;min-height:0}
+.panelcard{background:var(--panel);border:1px solid var(--hair);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:11px}
+.pc-h{display:flex;align-items:center;justify-content:space-between}.pc-h .t{font-size:13.5px;font-weight:700;color:var(--cream)}
+.lrow{display:flex;align-items:center;gap:11px;padding:9px 0;border-top:1px solid var(--hair)}
+.lrow:first-of-type{border-top:none}
+.lrow .dot{width:8px;height:8px;border-radius:50%;flex:none}
+.lrow .lt{flex:1;font-size:12.5px;color:var(--text)}.lrow .lm{font-size:11px;color:var(--faint)}
+.qa{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.tile{background:linear-gradient(180deg,#1b1e25,#171a20);border:1px solid var(--hair);border-radius:12px;padding:13px;cursor:pointer}.tile:hover{border-color:rgba(198,164,99,.4)}
+.tile .ti{width:30px;height:30px;border-radius:9px;background:rgba(198,164,99,.14);display:grid;place-items:center;color:var(--gold2);margin-bottom:9px}.tile .ti .ico{width:16px;height:16px}
+.tile .tt{font-size:13px;font-weight:600;color:var(--cream)}.tile .ts{font-size:10.5px;color:var(--faint);margin-top:2px}
+.badge{font-size:10px;font-weight:800;letter-spacing:.4px;padding:4px 9px;border-radius:999px}
+.badge.amber{background:rgba(224,162,59,.16);color:var(--amber)}.badge.green{background:rgba(87,179,104,.16);color:var(--green)}.badge.red{background:rgba(229,99,95,.16);color:var(--red)}.badge.blue{background:rgba(91,141,239,.16);color:#a9c4f7}
+.filters{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.chip{padding:7px 13px;border-radius:999px;font-size:12.5px;font-weight:600;color:var(--mute);background:#171a20;border:1px solid var(--hair);cursor:pointer}.chip.on{background:rgba(198,164,99,.14);border-color:rgba(198,164,99,.45);color:var(--gold2)}
+.search{display:flex;align-items:center;gap:8px;height:36px;padding:0 12px;background:#1a1d24;border:1px solid var(--hair);border-radius:10px;color:var(--faint);font-size:12.5px}.search .ico{width:15px;height:15px}
+.cardgrid{flex:1;display:grid;grid-template-columns:repeat(4,1fr);gap:16px;align-content:start;overflow:hidden}
+.scard{background:var(--panel);border:1px solid var(--hair);border-radius:14px;overflow:hidden;cursor:pointer;display:flex;flex-direction:column;transition:border-color .15s,transform .15s}
+.scard:hover{border-color:var(--hair2);transform:translateY(-2px)}
+.scard .cover{height:128px;position:relative;display:flex;align-items:flex-end;padding:12px}
+.scard .cover .badge{position:absolute;top:12px;left:12px}
+.scard .cover .rev{position:absolute;top:12px;right:12px}
+.scard .b{padding:13px 14px;display:flex;flex-direction:column;gap:8px}
+.scard .ti2{font-size:14.5px;font-weight:700;color:var(--cream)}
+.scard .mrow{display:flex;align-items:center;gap:10px;font-size:11px;color:var(--faint);font-weight:500}
+.scard.add{border-style:dashed;align-items:center;justify-content:center;color:var(--faint);gap:10px;min-height:240px}
+.scard.add:hover{color:var(--gold2);border-color:rgba(198,164,99,.5)}
+.scard.add .plus{width:46px;height:46px;border-radius:50%;border:1.5px dashed currentColor;display:grid;place-items:center}
+.dim{color:var(--mute)}.gold{color:var(--gold2)}
+</style></head><body>
+<div class="cap">ScripON Doctor · <b>Script Library — Desktop</b></div>
+<div class="screen">
+<div class="top"><div class="tl"><div class="logo">TFM</div><div class="proj">Script Library</div><span class="meta">12 scripts across the slate</span></div><div class="tr"><div class="search"><svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>Search title, writer, character…</div><div class="btn outline"><svg class="ico" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Import</div><div class="btn gold"><svg class="ico" viewBox="0 0 24 24" style="stroke:#1a1509"><path d="M12 5v14M5 12h14"/></svg>New script</div></div></div>
+<div class="body">
+<div class="rail"><div class="ritem"><div class="box"><svg class="ico" viewBox="0 0 24 24"><path d="M3 11l9-8 9 8M5 10v10h14V10"/></svg></div><div class="lbl">Home</div></div><div class="ritem on"><div class="box"><svg class="ico" viewBox="0 0 24 24"><path d="M4 4h6v16H4zM14 4h6v16h-6z"/></svg></div><div class="lbl">Library</div></div><div class="ritem"><div class="box"><svg class="ico" viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6zM15 2v5h5M9 13h7M9 17h7"/></svg></div><div class="lbl">Reader</div></div><div class="ritem"><div class="box"><svg class="ico" viewBox="0 0 24 24"><path d="M12 2l9 5-9 5-9-5zM3 12l9 5 9-5M3 17l9 5 9-5"/></svg></div><div class="lbl">Breakdown</div></div><div class="ritem"><div class="box"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></div><div class="lbl">Schedule</div></div><div class="ritem"><div class="box"><svg class="ico" viewBox="0 0 24 24"><path d="M12 3l1.9 5.6L19.5 9l-4.5 3.3L16.8 18 12 14.7 7.2 18l1.8-5.7L4.5 9z"/></svg></div><div class="lbl">Doctor</div></div><div class="ritem"><div class="box"><svg class="ico" viewBox="0 0 24 24"><path d="M3 3v18h18M7 14l3-3 3 3 5-6"/></svg></div><div class="lbl">Reports</div></div><div class="ritem" style="margin-top:auto"><div class="box"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 13a7 7 0 000-2l2-1.5-2-3.4-2.3 1a7 7 0 00-1.7-1L15 3h-4l-.4 2.6a7 7 0 00-1.7 1l-2.3-1-2 3.4L6.6 11a7 7 0 000 2l-2 1.5 2 3.4 2.3-1a7 7 0 001.7 1L11 21h4l.4-2.6a7 7 0 001.7-1l2.3 1 2-3.4z"/></svg></div><div class="lbl">Settings</div></div></div>
+<div class="main"><div class="content">
+  <div class="phead"><div><h1>Scripts</h1><div class="sub">Develop, adapt, import (FDX · Fountain · Celtx · Word · PDF + OCR) — one source of truth per title.</div></div></div>
+  <div class="filters"><span class="chip on">All</span><span class="chip">Features</span><span class="chip">Series</span><span class="chip">Commercials</span><span class="chip">Vertical</span><span class="chip">Adaptations</span><span style="margin-left:auto" class="meta">Sorted by recently updated</span></div>
+  <div class="cardgrid">
+   <div class="scard"><div class="cover" style="background:2h"><span class="badge" style="background:rgba(255,255,255,.10);color:#a9c4f7">FEATURE</span><span class="pill" style="background:rgba(0,0,0,.35);color:var(--blue)" ><span class="d" style="background:var(--blue)"></span>BLUE v4</span></div><div class="b"><div class="ti2">Midnight Run</div><div class="mrow"><span>111 pp</span><span>·</span><span style="color:var(--amber);font-weight:700">CONSIDER</span><span style="margin-left:auto">linear-gradient(150deg,#243046,#141821)</span></div></div></div>
+   <div class="scard"><div class="cover" style="background:3d"><span class="badge" style="background:rgba(255,255,255,.10);color:#a9c4f7">FEATURE</span><span class="pill" style="background:rgba(0,0,0,.35);color:#cfd3da" ><span class="d" style="background:#cfd3da"></span>WHITE</span></div><div class="b"><div class="ti2">The Pulpit</div><div class="mrow"><span>119 pp</span><span>·</span><span style="color:var(--amber);font-weight:700">CONSIDER</span><span style="margin-left:auto">linear-gradient(150deg,#3a2730,#151016)</span></div></div></div>
+   <div class="scard"><div class="cover" style="background:1w"><span class="badge" style="background:rgba(255,255,255,.10);color:#f0a3a0">HORROR</span><span class="pill" style="background:rgba(0,0,0,.35);color:#cfd3da" ><span class="d" style="background:#cfd3da"></span>WHITE</span></div><div class="b"><div class="ti2">Virulent</div><div class="mrow"><span>101 pp</span><span>·</span><span style="color:var(--red);font-weight:700">PASS</span><span style="margin-left:auto">linear-gradient(150deg,#2a1f2e,#120f15)</span></div></div></div>
+   <div class="scard"><div class="cover" style="background:today"><span class="badge" style="background:rgba(255,255,255,.10);color:#e7a6c6">VERTICAL</span><span class="pill" style="background:rgba(0,0,0,.35);color:var(--faint)" ><span class="d" style="background:var(--faint)"></span>DRAFT</span></div><div class="b"><div class="ti2">Layla · Ep 1-8</div><div class="mrow"><span>8×90s</span><span>·</span><span style="color:var(--faint);font-weight:700">—</span><span style="margin-left:auto">linear-gradient(150deg,#3a2336,#15101a)</span></div></div></div>
+   <div class="scard"><div class="cover" style="background:5d"><span class="badge" style="background:rgba(255,255,255,.10);color:#c3b6f5">SERIES</span><span class="pill" style="background:rgba(0,0,0,.35);color:var(--pink)" ><span class="d" style="background:var(--pink)"></span>PINK</span></div><div class="b"><div class="ti2">Oryx (Pilot)</div><div class="mrow"><span>58 pp</span><span>·</span><span style="color:var(--green);font-weight:700">RECOMMEND</span><span style="margin-left:auto">linear-gradient(150deg,#262046,#131020)</span></div></div></div>
+   <div class="scard"><div class="cover" style="background:2d"><span class="badge" style="background:rgba(255,255,255,.10);color:var(--gold2)">TVC</span><span class="pill" style="background:rgba(0,0,0,.35);color:var(--gold)" ><span class="d" style="background:var(--gold)"></span>v2</span></div><div class="b"><div class="ti2">Sand & Glass</div><div class="mrow"><span>:60 / :30</span><span>·</span><span style="color:var(--faint);font-weight:700">—</span><span style="margin-left:auto">linear-gradient(150deg,#332c1c,#151209)</span></div></div></div>
+   <div class="scard"><div class="cover" style="background:6h"><span class="badge" style="background:rgba(255,255,255,.10);color:#9fe3c0">ADAPTATION</span><span class="pill" style="background:rgba(0,0,0,.35);color:var(--faint)" ><span class="d" style="background:var(--faint)"></span>DRAFT</span></div><div class="b"><div class="ti2">A Long Way</div><div class="mrow"><span>92 pp</span><span>·</span><span style="color:var(--faint);font-weight:700">—</span><span style="margin-left:auto">linear-gradient(150deg,#1f3329,#101713)</span></div></div></div>
+   <div class="scard add"><div class="plus"><svg class="ico" viewBox="0 0 24 24" style="width:22px;height:22px"><path d="M12 5v14M5 12h14"/></svg></div><div style="font-size:13px;font-weight:600">New · Import · Develop</div></div>
+  </div>
+</div></div>
+</div></div>
+</body></html>

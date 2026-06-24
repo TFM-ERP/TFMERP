@@ -1,0 +1,83 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>ScripON Doctor — Dashboard (Mobile)</title><style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Courier+Prime:wght@400;700&display=swap');
+:root{--bg:#0b0c0f;--panel:#14161c;--panel2:#1a1d24;--hair:rgba(255,255,255,.08);--hair2:rgba(255,255,255,.14);--gold:#C6A463;--gold2:#E6D2A2;--goldink:#1a1509;--cream:#F4EEE0;--text:#E8E6E0;--mute:#9aa1ab;--faint:#6b727d;--paper:#F7F4EC;--ink:#23231f;--blue:#5b8def;--green:#57b368;--amber:#e0a23b;--violet:#8b7cf0;--pink:#d6649a}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:radial-gradient(900px 480px at 50% -10%,#15171d,#0b0c0f 60%);font-family:Inter,sans-serif;color:var(--text);-webkit-font-smoothing:antialiased;padding:40px;display:flex;flex-wrap:wrap;justify-content:center;gap:30px;min-height:100vh}
+.wrap{display:flex;flex-direction:column;align-items:center;gap:12px}
+.cap{color:var(--faint);font-size:12px;text-align:center}.cap b{color:var(--gold)}
+.ico{stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round;display:block;width:20px;height:20px}
+.screen{width:390px;height:844px;background:var(--bg);border:1px solid var(--hair);border-radius:44px;overflow:hidden;display:flex;flex-direction:column;position:relative;box-shadow:0 50px 110px -28px rgba(0,0,0,.85),inset 0 0 0 6px #04050799}
+.sb{height:34px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 26px 0 30px;font-size:13px;font-weight:700;color:var(--cream)}
+.sb .r{display:flex;gap:6px;align-items:center}.sb .r svg{width:16px;height:16px;stroke:var(--cream)}
+.mtop{height:54px;flex:none;display:flex;align-items:center;gap:12px;padding:0 16px;border-bottom:1px solid var(--hair);background:linear-gradient(180deg,#15181e,#121419);position:relative;z-index:2}
+.mtop .bk{width:34px;height:34px;border-radius:10px;background:#1b1e25;border:1px solid var(--hair);display:grid;place-items:center;color:var(--mute)}
+.mtop .ti{flex:1;min-width:0}.mtop .t1{font-size:14px;font-weight:700;color:var(--cream);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mtop .t2{font-size:11px;color:var(--faint);margin-top:1px}
+.mtop .dr{width:36px;height:36px;border-radius:11px;background:linear-gradient(160deg,var(--gold2),var(--gold));display:grid;place-items:center;color:var(--goldink)}
+.pill{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:999px;font-size:10px;font-weight:700;background:rgba(91,141,239,.16);color:#a9c4f7}.pill .d{width:6px;height:6px;border-radius:50%;background:var(--blue)}
+.mbody{flex:1;min-height:0;position:relative;z-index:1;overflow:hidden;display:flex;flex-direction:column}
+.sheet{flex:none;background:linear-gradient(180deg,#16181f,#121419);border-top:1px solid var(--hair2);border-radius:22px 22px 0 0;padding:10px 16px 14px;box-shadow:0 -16px 40px -20px rgba(0,0,0,.7);display:flex;flex-direction:column;gap:11px}
+.grab{width:38px;height:4px;border-radius:3px;background:#3a3f49;margin:2px auto 4px}
+.sh-h{display:flex;align-items:center;justify-content:space-between}.sh-h .t{font-size:13px;font-weight:700;color:var(--cream)}
+.eyebrow{font-size:10px;font-weight:700;letter-spacing:1.2px;color:var(--gold)}
+.kvr{display:flex;justify-content:space-between;font-size:12.5px;padding:6px 0;border-top:1px solid var(--hair)}.kvr:first-of-type{border-top:none}.kvr .k{color:var(--faint)}.kvr .v{color:var(--text);font-weight:600}
+.badge{font-size:10px;font-weight:800;padding:3px 8px;border-radius:999px}.badge.amber{background:rgba(224,162,59,.16);color:var(--amber)}.badge.green{background:rgba(87,179,104,.16);color:var(--green)}.badge.blue{background:rgba(91,141,239,.16);color:#a9c4f7}
+.chips{display:flex;gap:8px;overflow:hidden}
+.achip{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 6px;border-radius:12px;background:#1b1e25;border:1px solid var(--hair);font-size:10.5px;font-weight:600;color:var(--mute)}
+.achip svg{width:18px;height:18px;stroke:var(--gold2)}
+.row2{display:flex;gap:9px}
+.btn{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;height:46px;border-radius:13px;font-size:14px;font-weight:700;border:1px solid transparent}.btn svg{width:17px;height:17px}
+.flag{background:rgba(224,162,59,.14);border-color:rgba(224,162,59,.5);color:var(--amber)}
+.appr{background:linear-gradient(180deg,#6cc77c,var(--green));color:#08230f}
+.gold{background:linear-gradient(180deg,var(--gold2),var(--gold));color:var(--goldink)}
+.tabbar{height:74px;flex:none;display:flex;align-items:flex-start;padding:9px 8px 0;background:#0e1015;border-top:1px solid var(--hair);position:relative;z-index:2}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--faint);font-size:9.5px;font-weight:600}
+.tab svg{width:22px;height:22px}.tab.on{color:var(--gold2)}
+.tab .b{width:46px;height:30px;border-radius:11px;display:grid;place-items:center}.tab.on .b{background:rgba(198,164,99,.15)}
+
+.mscroll{flex:1;overflow:hidden;padding:16px 14px;display:flex;flex-direction:column;gap:13px}
+.loopv{display:flex;flex-direction:column;gap:8px;background:linear-gradient(180deg,#16191f,#131519);border:1px solid var(--hair);border-radius:14px;padding:14px}
+.lstep{display:flex;align-items:center;gap:11px}
+.lstep .ls{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;background:rgba(198,164,99,.14);color:var(--gold2);flex:none}.lstep.done .ls{background:rgba(87,179,104,.16);color:var(--green)}
+.lstep .lt{flex:1;font-size:12.5px;font-weight:600;color:var(--cream)}.lstep .lm{font-size:11px;color:var(--faint)}
+.kpis2{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.kpi{background:linear-gradient(180deg,#16191f,#131519);border:1px solid var(--hair);border-radius:13px;padding:14px}
+.kpi .kl{font-size:10.5px;color:var(--faint);font-weight:600}.kpi .kv{font-size:22px;font-weight:800;color:var(--cream);margin-top:5px}.kpi .kc{font-size:10.5px;margin-top:4px;font-weight:600}
+.card{background:var(--panel);border:1px solid var(--hair);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:9px}
+.pc-h{display:flex;align-items:center;justify-content:space-between}.pc-h .t{font-size:13px;font-weight:700;color:var(--cream)}
+.lrow{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--hair);font-size:12px}.lrow:first-of-type{border-top:none}.lrow .dot{width:8px;height:8px;border-radius:50%;flex:none}.lrow .lt{flex:1;color:var(--text)}
+.dim{color:var(--mute)}
+</style></head><body>
+<div class="wrap">
+<div class="cap">ScripON Doctor · <b>Dashboard — Mobile (390×844)</b></div>
+<div class="screen">
+  <div class="sb"><span>9:41</span><div class="r"><svg viewBox="0 0 24 24"><path d="M2 20h.01M6 20v-4M10 20v-8M14 20V8M18 20V4"/></svg><svg viewBox="0 0 24 24"><path d="M5 12.5a10 10 0 0114 0M8.5 15.5a5 5 0 017 0M12 18.5h.01"/></svg><svg viewBox="0 0 24 24"><rect x="2" y="7" width="18" height="10" rx="2"/><path d="M22 11v2"/></svg></div></div>
+  <div class="mtop"><div class="dr" style="background:linear-gradient(160deg,#E6D2A2,#C6A463)"><span style="font-weight:800;font-size:11px;color:#1a1509">TFM</span></div><div class="ti"><div class="t1">Midnight Run</div><div class="t2">Command centre · prep</div></div><span class="pill"><span class="d"></span>BLUE v4</span></div>
+  <div class="mbody"><div class="mscroll">
+    <div class="loopv">
+      <div class="lstep done"><span class="ls"><svg class="ico" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></span><span class="lt">Script</span><span class="lm">Locked · Blue v4</span></div>
+      <div class="lstep"><span class="ls"><svg class="ico" viewBox="0 0 24 24"><path d="M12 2l9 5-9 5-9-5z"/></svg></span><span class="lt">Breakdown</span><span class="lm">82% · 52/64</span></div>
+      <div class="lstep"><span class="ls"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 9h18"/></svg></span><span class="lt">Schedule</span><span class="lm">60% · 18 days</span></div>
+      <div class="lstep"><span class="ls"><svg class="ico" viewBox="0 0 24 24"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></span><span class="lt">Coverage</span><span class="lm" style="color:var(--amber)">CONSIDER</span></div>
+    </div>
+    <div class="kpis2">
+      <div class="kpi"><div class="kl">SCENES</div><div class="kv">64</div><div class="kc dim">111 pages</div></div>
+      <div class="kpi"><div class="kl">SHOOT DAYS</div><div class="kv">18</div><div class="kc dim">6.2 pp/day</div></div>
+      <div class="kpi"><div class="kl">EFC</div><div class="kv">$1.24M</div><div class="kc" style="color:var(--green)">+2% vs plan</div></div>
+      <div class="kpi"><div class="kl">LOCATIONS</div><div class="kv">11</div><div class="kc" style="color:var(--amber)">3 over cap</div></div>
+    </div>
+    <div class="card">
+      <div class="pc-h"><span class="t">Needs attention</span><span class="eyebrow">DOCTOR</span></div>
+      <div class="lrow"><span class="dot" style="background:var(--amber)"></span><span class="lt">Act 2 midpoint flat</span><span class="badge amber">HIGH</span></div>
+      <div class="lrow"><span class="dot" style="background:var(--amber)"></span><span class="lt">3 locations over cap</span><span class="badge amber">MED</span></div>
+      <div class="lrow"><span class="dot" style="background:var(--faint)"></span><span class="lt">2 roles uncast</span><span class="badge blue">CAST</span></div>
+    </div>
+  </div></div>
+  <div class="tabbar">
+    <div class="tab on"><div class="b"><svg viewBox="0 0 24 24" class="ico"><path d="M3 11l9-8 9 8M5 10v10h14V10"/></svg></div>Home</div>
+    <div class="tab"><div class="b"><svg viewBox="0 0 24 24" class="ico"><path d="M4 4h6v16H4zM14 4h6v16h-6z"/></svg></div>Library</div>
+    <div class="tab"><div class="b"><svg viewBox="0 0 24 24" class="ico"><path d="M6 2h9l5 5v15H6z"/></svg></div>Reader</div>
+    <div class="tab"><div class="b"><svg viewBox="0 0 24 24" class="ico"><path d="M12 2l9 5-9 5-9-5z"/></svg></div>Breakdown</div>
+    <div class="tab"><div class="b"><svg viewBox="0 0 24 24" class="ico"><path d="M12 3l1.9 5.6L19.5 9l-4.5 3.3L16.8 18 12 14.7 7.2 18l1.8-5.7L4.5 9z"/></svg></div>Doctor</div>
+  </div>
+</div></div>
+</body></html>

@@ -1,0 +1,551 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TFM — Release-Readiness & AI Audit</title>
+<style>
+:root{--bg:#0C0D10;--panel:#15171c;--panel2:#1b1e24;--line:#2a2e35;--gold:#C6A463;--goldhi:#E6D2A2;--cream:#F3ECDD;--mute:#9aa0a8;--faint:#6b7178;
+--crit:#E5484D;--high:#E0843B;--med:#C6A463;--low:#6B7280;--strong:#46A758;--dev:#E0A23B;--solid:#6EA8FE;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--cream);font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif}
+.bg{position:fixed;inset:0;pointer-events:none;background:radial-gradient(1200px 700px at 50% -200px,rgba(198,164,99,.14),transparent 60%),radial-gradient(900px 600px at 100% 100%,rgba(94,131,168,.08),transparent 70%)}
+.wrap{max-width:1140px;margin:0 auto;padding:0 22px}
+nav{position:sticky;top:0;z-index:20;background:rgba(12,13,16,.86);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+nav .wrap{display:flex;gap:4px;flex-wrap:wrap;align-items:center;padding:10px 22px}
+nav .brand{font-weight:800;letter-spacing:.5px;color:var(--gold);margin-right:10px}
+nav a{color:var(--mute);text-decoration:none;font-size:12.5px;font-weight:600;padding:5px 9px;border-radius:8px}
+nav a:hover{color:var(--cream);background:var(--panel2)}
+header.hero{padding:54px 0 26px}
+.eyebrow{color:var(--gold);font-weight:700;letter-spacing:4px;font-size:11px;text-transform:uppercase}
+h1{font-size:38px;line-height:1.1;margin:12px 0 6px;letter-spacing:-1px}
+h1 b{background:linear-gradient(180deg,var(--goldhi),var(--gold));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.sub{color:var(--mute);max-width:760px}
+.meta{color:var(--faint);font-size:12.5px;margin-top:10px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:24px;margin:18px 0}
+.hero-card{display:flex;gap:26px;align-items:center;flex-wrap:wrap}
+.dial{--p:53;width:150px;height:150px;border-radius:50%;flex:none;display:grid;place-items:center;
+background:conic-gradient(var(--dev) calc(var(--p)*1%),#23262d 0);position:relative}
+.dial::before{content:"";position:absolute;inset:12px;border-radius:50%;background:var(--panel)}
+.dial .v{position:relative;text-align:center}
+.dial .v b{font-size:40px;display:block;line-height:1;color:var(--goldhi)}
+.dial .v span{font-size:11px;color:var(--mute);letter-spacing:1px}
+.verdict-txt{flex:1;min-width:300px}
+.verdict-txt h2{margin:.1em 0 .3em;font-size:21px}
+.verdict-txt p{color:var(--mute);margin:.4em 0}
+h2.sec{font-size:13px;letter-spacing:3px;text-transform:uppercase;color:var(--gold);margin:40px 0 6px}
+h3{font-size:19px;margin:0 0 6px}
+.intro{color:var(--mute);margin:.2em 0 16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:14px}
+.g{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px}
+.g-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.g-label{font-weight:700;font-size:13.5px}
+.g-num{font-size:22px;font-weight:800}
+.track{height:7px;background:#23262d;border-radius:6px;overflow:hidden;margin:8px 0}
+.fill{height:100%;border-radius:6px}
+.g-rat{color:var(--faint);font-size:12px;line-height:1.45}
+.crit{color:var(--crit)} .dev{color:var(--dev)} .solid{color:var(--solid)} .strong{color:var(--strong)}
+.fill.crit{background:var(--crit)} .fill.dev{background:var(--dev)} .fill.solid{background:var(--solid)} .fill.strong{background:var(--strong)}
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+.issues th,.issues td{text-align:left;padding:10px 11px;border-bottom:1px solid var(--line);vertical-align:top}
+.issues th{color:var(--faint);font-size:11px;letter-spacing:.5px;text-transform:uppercase;font-weight:700}
+td.t{font-weight:700;color:var(--cream)}
+td.pri{color:var(--goldhi);font-weight:600;white-space:nowrap}
+.sev{display:inline-block;font-size:10.5px;font-weight:800;padding:3px 8px;border-radius:20px;white-space:nowrap;text-transform:uppercase;letter-spacing:.4px}
+.sev.crit{background:rgba(229,72,77,.16);color:#ff8a8d;border:1px solid rgba(229,72,77,.4)}
+.sev.high{background:rgba(224,132,59,.16);color:#f0a868;border:1px solid rgba(224,132,59,.4)}
+.sev.med{background:rgba(198,164,99,.16);color:var(--goldhi);border:1px solid rgba(198,164,99,.4)}
+.sev.low{background:rgba(107,114,128,.18);color:#aeb4bd;border:1px solid rgba(107,114,128,.4)}
+.sev.strength{background:rgba(70,167,88,.16);color:#7fd996;border:1px solid rgba(70,167,88,.4)}
+.pill{display:inline-block;font-size:11px;font-weight:800;padding:4px 10px;border-radius:20px;text-transform:uppercase;letter-spacing:.4px}
+.pill.dev{background:rgba(224,162,59,.16);color:#f0c069;border:1px solid rgba(224,162,59,.4)}
+.pill.crit{background:rgba(229,72,77,.16);color:#ff8a8d;border:1px solid rgba(229,72,77,.4)}
+.pill.strong{background:rgba(70,167,88,.16);color:#7fd996;border:1px solid rgba(70,167,88,.4)}
+details{margin-top:12px;border-top:1px dashed var(--line);padding-top:10px}
+summary{cursor:pointer;color:var(--gold);font-weight:700;font-size:13px}
+ul.notes{color:var(--mute);font-size:13px}
+.mk{text-align:center;font-weight:800}
+.mk.yy{color:var(--strong)} .mk.pp{color:var(--dev)} .mk.nn{color:var(--crit)}
+.matrix th,.matrix td{padding:9px 8px;border-bottom:1px solid var(--line);font-size:12.5px;text-align:center}
+.matrix th:first-child,.matrix td:first-child{text-align:left}
+.matrix th{color:var(--faint);text-transform:uppercase;font-size:10.5px;letter-spacing:.4px}
+.matrix thead th:nth-child(2){color:var(--goldhi)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:760px){.two{grid-template-columns:1fr}}
+.box{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:16px}
+.box h4{margin:0 0 8px;font-size:15px;color:var(--goldhi)}
+.box ul{margin:0;padding-left:18px;color:var(--mute);font-size:13px}
+.callout{border-left:3px solid var(--gold);background:var(--panel2);padding:14px 16px;border-radius:0 12px 12px 0;margin:14px 0;color:var(--cream)}
+footer{color:var(--faint);font-size:12px;padding:30px 0 60px;border-top:1px solid var(--line);margin-top:30px}
+a.src{color:var(--solid)}
+.legend{color:var(--faint);font-size:12px;margin:6px 0 0}
+.legend b.yy{color:var(--strong)} .legend b.pp{color:var(--dev)} .legend b.nn{color:var(--crit)}
+</style></head>
+<body><div class="bg"></div>
+<nav><div class="wrap"><span class="brand">TFM · AUDIT</span><a href="#verdict">Verdict</a><a href="#scores">Scores</a><a href="#a-arch">Architecture</a><a href="#a-acct">Accounting</a><a href="#a-sched">Scheduling</a><a href="#a-ux">UX</a><a href="#a-data">Data</a><a href="#a-ent">Enterprise</a><a href="#a-comp">Competitive</a><a href="#ai">AI</a><a href="#punch">Pre-launch</a></div></nav>
+<div class="wrap">
+
+<header class="hero">
+  <div class="eyebrow">Release-Readiness &amp; AI Audit · The Film Makers Production OS</div>
+  <h1>Is TFM ready for <b>commercial release</b>?</h1>
+  <p class="sub">A brutally honest, architecture-grounded assessment benchmarked against the live June 2026 market — Movie Magic, StudioBinder, Wrapbook+Cinapse, Yamdu, GreenSlate, Saturation and Filmustage.</p>
+  <p class="meta">Scope: 258 data models · 47 backend modules · 109 frontend routes · 60+ production panels · 10 AI integration points. Grounding: architecture-level. Date: 17 June 2026.</p>
+</header>
+
+<section id="verdict" class="card hero-card">
+  <div class="dial"><div class="v"><b>53</b><span>/ 100 · Developing</span></div></div>
+  <div class="verdict-txt">
+    <h2>Verdict: not yet ready for broad commercial / multi-tenant release — but a uniquely complete foundation.</h2>
+    <p>No tool benchmarked covers as much of the production as TFM does, and its schedule⇄budget⇄cost loop is exactly where the market leaders are racing (Wrapbook's Dec-2025 Cinapse acquisition; Yamdu's Dynamic Globals). That breadth is the moat.</p>
+    <p>But four things stand between today and "a professional production can trust this": no <b>migration discipline</b> (the schema runs ahead of the live DB — the current "scaffold 500" is a textbook symptom), no <b>multi-tenancy</b> (it's built for one studio), a <b>fragmented AI layer</b>, and no visible <b>automated tests</b>. None are creative-vision problems; all are hardening problems — fixable in a focused sprint.</p>
+  </div>
+</section>
+
+<h2 class="sec">Release verdict by production type</h2>
+<div class="card"><div class="tablewrap"><table class="issues">
+  <thead><tr><th>Segment</th><th>Status</th><th>Why</th></tr></thead>
+  <tbody><tr><td class="t">Independent film</td><td><span class="pill dev">Conditional</span></td><td>Usable for a single managed production once migrations + tests land; today&#x27;s db-drift class of bug (live scaffold 500) is disqualifying for unattended use.</td></tr><tr><td class="t">Commercial / TVC</td><td><span class="pill dev">Conditional</span></td><td>The TVC brief→treatment→script→deliverables spine is a differentiator; needs AI reliability + the same hardening before client-facing use.</td></tr><tr><td class="t">Television series</td><td><span class="pill crit">Not yet</span></td><td>Multi-episode / multi-unit must be first-class (Movie Magic has explicit sub-boards); episodic pattern budgeting and scale testing unproven.</td></tr><tr><td class="t">Feature film</td><td><span class="pill crit">Not yet</span></td><td>Breadth fits, but accountant trust requires applied migrations, control tests, segregation-of-duties and reconciliation validation.</td></tr><tr><td class="t">Studios</td><td><span class="pill crit">Not yet</span></td><td>Blocked by single-tenant architecture (no company/tenant scoping) and absent enterprise compliance (SSO/SOC2/data residency).</td></tr><tr><td class="t">Government productions</td><td><span class="pill crit">Not yet</span></td><td>Requires audit reversibility, retention, security certification and rollback discipline that are not yet present.</td></tr><tr><td class="t">Multi-company groups</td><td><span class="pill crit">Not yet</span></td><td>Hard block: ProductionProject has no tenant FK; CompanyProfile/Settings are singletons — data is not isolated per company.</td></tr></tbody>
+</table></div></div>
+
+<h2 class="sec" id="scores">System scores</h2>
+<div class="grid"><div class="g">
+      <div class="g-top"><span class="g-label">Release Readiness (overall)</span><span class="g-num dev">53</span></div>
+      <div class="track"><div class="fill dev" style="width:53%"></div></div>
+      <div class="g-rat">Unmatched feature breadth, but multi-tenancy, migration discipline, testing and AI consolidation gaps block broad commercial trust today.</div>
+    </div><div class="g">
+      <div class="g-top"><span class="g-label">Product Architecture</span><span class="g-num dev">58</span></div>
+      <div class="track"><div class="fill dev" style="width:58%"></div></div>
+      <div class="g-rat">Cleanly modular (47 modules) yet highly coupled (258 models); no migration history and single-tenant scoping are structural risks.</div>
+    </div><div class="g">
+      <div class="g-top"><span class="g-label">Script-to-Screen Workflow</span><span class="g-num solid">68</span></div>
+      <div class="track"><div class="fill solid" style="width:68%"></div></div>
+      <div class="g-rat">The full prep→shoot loop exists and is a real differentiator; weakened by dual import/sync paths and a soft (projection-based) script↔strip link.</div>
+    </div><div class="g">
+      <div class="g-top"><span class="g-label">Production Accounting</span><span class="g-num solid">65</span></div>
+      <div class="track"><div class="fill solid" style="width:65%"></div></div>
+      <div class="g-rat">Breadth rivals Movie Magic/GreenSlate (GL, PO, fringes, payroll, ACH, AICP, incentives, multi-currency) but auditability/controls are unproven without applied migrations and tests.</div>
+    </div><div class="g">
+      <div class="g-top"><span class="g-label">Scheduling &amp; Call Sheets</span><span class="g-num solid">72</span></div>
+      <div class="track"><div class="fill solid" style="width:72%"></div></div>
+      <div class="g-rat">Stripboard, DOOD, conflicts, sun, optimizer, scenarios and auto-filled call sheets are near StudioBinder/MM parity — the strongest area.</div>
+    </div><div class="g">
+      <div class="g-top"><span class="g-label">UX / UI</span><span class="g-num dev">61</span></div>
+      <div class="track"><div class="fill dev" style="width:61%"></div></div>
+      <div class="g-rat">Modern shell, tokens, themes, RTL/i18n — but 60+ panels and overlapping module names create a steep, power-user-only first run.</div>
+    </div><div class="g">
+      <div class="g-top"><span class="g-label">Data Model</span><span class="g-num dev">57</span></div>
+      <div class="track"><div class="fill dev" style="width:57%"></div></div>
+      <div class="g-rat">Mostly relational with audit logs and multi-currency, undercut by polymorphic/soft references, non-standard soft-delete, and type-cast erosion.</div>
+    </div><div class="g">
+      <div class="g-top"><span class="g-label">Enterprise Readiness</span><span class="g-num crit">49</span></div>
+      <div class="track"><div class="fill crit" style="width:49%"></div></div>
+      <div class="g-rat">Roles, 2FA, approvals and audit logs exist, but no multi-tenancy, unproven compliance (SSO/SOC2), and no rollback discipline fail studio/government bars.</div>
+    </div><div class="g">
+      <div class="g-top"><span class="g-label">Competitive Positioning</span><span class="g-num dev">60</span></div>
+      <div class="track"><div class="fill dev" style="width:60%"></div></div>
+      <div class="g-rat">Scope exceeds any single competitor and matches the 2026 &#x27;operating system&#x27; thesis — but the platform is unproven with no production track record.</div>
+    </div></div>
+
+<h2 class="sec">AI scores</h2>
+<div class="grid"><div class="g">
+      <div class="g-top"><span class="g-label">AI Readiness</span><span class="g-num crit">46</span></div>
+      <div class="track"><div class="fill crit" style="width:46%"></div></div>
+      <div class="g-rat">Genuinely useful AI (breakdown, brief→script, labor-rate research, crew parse) but fragmented, single-model, and reliability-fragile (the live scaffold 500).</div>
+    </div><div class="g">
+      <div class="g-top"><span class="g-label">AI Architecture</span><span class="g-num crit">36</span></div>
+      <div class="track"><div class="fill crit" style="width:36%"></div></div>
+      <div class="g-rat">Ten services each call the Anthropic API directly with a hardcoded model and duplicated headers — the exact &#x27;isolated features&#x27; anti-pattern to avoid.</div>
+    </div><div class="g">
+      <div class="g-top"><span class="g-label">Automation Coverage</span><span class="g-num crit">41</span></div>
+      <div class="track"><div class="fill crit" style="width:41%"></div></div>
+      <div class="g-rat">Breakdown→schedule→budget is partially automated; most modules and all reporting remain manual; no cross-module copilot.</div>
+    </div><div class="g">
+      <div class="g-top"><span class="g-label">AI ROI (realised)</span><span class="g-num dev">50</span></div>
+      <div class="track"><div class="fill dev" style="width:50%"></div></div>
+      <div class="g-rat">The high-value automations are real, but underused because they are scattered and not reused across modules.</div>
+    </div><div class="g">
+      <div class="g-top"><span class="g-label">AI Feature Gap</span><span class="g-num crit">42</span></div>
+      <div class="track"><div class="fill crit" style="width:42%"></div></div>
+      <div class="g-rat">Behind Filmustage&#x27;s AI agent (any-language tagging, strip moves, turnaround/overtime conflict surfacing) and the emerging copilots; no AI reports/DPR.</div>
+    </div><div class="g">
+      <div class="g-top"><span class="g-label">AI Governance</span><span class="g-num crit">45</span></div>
+      <div class="track"><div class="fill crit" style="width:45%"></div></div>
+      <div class="g-rat">Labor rates have confidence + PENDING + source-quote gates; the rest lacks uniform confidence, output versioning, prompt management, or a central AI audit trail.</div>
+    </div></div>
+
+<h2 class="sec">Findings by area</h2>
+<section id="a-arch" class="card area">
+      <h3>1 · Product Architecture</h3>
+      <p class="intro">Modular and ambitious — 47 backend modules, 258 Prisma models, 109 frontend routes — but the ambition has outrun two foundations every commercial system needs: a tenancy boundary and a migration history.</p>
+      <div class="tablewrap"><table class="issues">
+        <thead><tr><th>Severity</th><th>Issue</th><th>Business impact</th><th>Industry impact</th><th>Recommended solution</th><th>Priority before launch</th></tr></thead>
+        <tbody><tr>
+          <td><span class="sev crit">Critical</span></td>
+          <td class="t">No multi-tenancy / data isolation</td>
+          <td>Cannot sell to studios or multi-company groups; one shared dataset.</td>
+          <td>Studios will not adopt a system that can&#x27;t isolate productions by company.</td>
+          <td>Introduce an Org/Tenant entity; scope every project + child record by tenantId; enforce row-level isolation in a base query layer.</td>
+          <td class="pri">Before any multi-company or SaaS launch</td>
+        </tr><tr>
+          <td><span class="sev crit">Critical</span></td>
+          <td class="t">No migration history (db push + drift)</td>
+          <td>Unsafe deploys/rollbacks; the live &#x27;scaffold 500&#x27; is a direct symptom (schema ahead of the live DB).</td>
+          <td>Production accounting on an undisciplined DB is an audit red flag.</td>
+          <td>Adopt Prisma Migrate, baseline the current DB, gate deploys on migrations in CI; retire ad-hoc db push.</td>
+          <td class="pri">Before any production deployment</td>
+        </tr><tr>
+          <td><span class="sev high">High</span></td>
+          <td class="t">Fragmented AI layer (see §10)</td>
+          <td>Higher cost, inconsistent behaviour, no central control.</td>
+          <td>Falls short of the &#x27;centralised intelligence layer&#x27; the market now expects.</td>
+          <td>Single AI service + gateway (see AI strategy).</td>
+          <td class="pri">First hardening sprint</td>
+        </tr><tr>
+          <td><span class="sev med">Medium</span></td>
+          <td class="t">High coupling, no change orchestrator</td>
+          <td>A script change must fan out to breakdown→strips→schedule→budget by convention, not by a guaranteed mechanism.</td>
+          <td>Silent divergence between modules erodes trust.</td>
+          <td>Add a change-propagation orchestrator + integration tests across the spine.</td>
+          <td class="pri">Pre-scale</td>
+        </tr></tbody>
+      </table></div>
+      <details><summary>Deeper notes</summary><ul class="notes"><li>258 models is more domain surface than any single competitor ships — a genuine moat and a genuine maintenance liability.</li><li>CompanyProfile / CompanySettings are literal singletons (id=&#x27;singleton&#x27;); the design assumes one studio (The Film Makers), not many.</li><li>224 `as any` + 59 `(this.prisma as any)` casts are the build-ahead-of-migration smell; they will mostly disappear once the client is generated from an applied migration.</li></ul></details>
+    </section><section id="a-workflow" class="card area">
+      <h3>2 · Film-Industry Workflow Compliance</h3>
+      <p class="intro">The system follows real-world role workflows more faithfully than most — there are genuine artifacts for the AD (stripboard, DOOD, call sheets), the UPM/line producer (budget, cost report, EFC), the coordinator (PO, travel, movement orders) and the accountant (GL, payroll, ACH). The weak link is single-entry: the same fact can still be created in more than one place.</p>
+      <div class="tablewrap"><table class="issues">
+        <thead><tr><th>Severity</th><th>Issue</th><th>Business impact</th><th>Industry impact</th><th>Recommended solution</th><th>Priority before launch</th></tr></thead>
+        <tbody><tr>
+          <td><span class="sev high">High</span></td>
+          <td class="t">Dual import / sync pipelines</td>
+          <td>Movie-Magic import vs script projection/sync, and a legacy schedule-import path, can produce divergent strips/elements.</td>
+          <td>Two sources of truth is the cardinal sin of a production OS.</td>
+          <td>Make the Script Hub the only pipeline; fully retire legacy import; one reconcile report.</td>
+          <td class="pri">First hardening sprint</td>
+        </tr><tr>
+          <td><span class="sev med">Medium</span></td>
+          <td class="t">Soft script↔strip link</td>
+          <td>Hard-FK refactor was deliberately declined; integrity depends on projection logic, risking orphaned strips on revision.</td>
+          <td>ADs lose confidence if a re-issued script silently mismatches the board.</td>
+          <td>Offer an opt-in hard-link mode + a standing reconciliation/diff report.</td>
+          <td class="pri">Pre-scale</td>
+        </tr><tr>
+          <td><span class="sev med">Medium</span></td>
+          <td class="t">Re-entry risk across casting/locations/schedule</td>
+          <td>Cast and locations surface from the script but aren&#x27;t guaranteed to be one shared entity end-to-end.</td>
+          <td>Re-keying is exactly what crews abandon tools over.</td>
+          <td>Shared entity references threaded through every downstream module.</td>
+          <td class="pri">Pre-scale</td>
+        </tr><tr>
+          <td><span class="sev low">Low</span></td>
+          <td class="t">Wrap workflow underdeveloped</td>
+          <td>Wrap/close-out is thinner than prep/shoot.</td>
+          <td>Incomplete story from script to wrap.</td>
+          <td>Add a wrap checklist + asset return + final cost lock.</td>
+          <td class="pri">Post-launch</td>
+        </tr></tbody>
+      </table></div>
+      <details><summary>Deeper notes</summary><ul class="notes"><li>Role coverage audited against Producer, Line Producer, UPM, PM, Coordinator, AD, Accountant, Casting, Locations and Post — all represented in modules/panels.</li><li>This is, on coverage, the most complete role map of any tool benchmarked — the question is reliability, not presence.</li></ul></details>
+    </section><section id="a-s2s" class="card area">
+      <h3>3 · Script-to-Screen Pipeline</h3>
+      <p class="intro">Script → revisions → breakdown → schedule → budget → casting → locations → crew → call sheets → reports → cost → wrap is all present, and the schedule→budget→cost loop is exactly the 2026 thesis Wrapbook+Cinapse and Yamdu are racing toward. The gaps are at the seams.</p>
+      <div class="tablewrap"><table class="issues">
+        <thead><tr><th>Severity</th><th>Issue</th><th>Business impact</th><th>Industry impact</th><th>Recommended solution</th><th>Priority before launch</th></tr></thead>
+        <tbody><tr>
+          <td><span class="sev high">High</span></td>
+          <td class="t">Breakdown &#x27;tag once&#x27; must be guaranteed, not encouraged</td>
+          <td>If elements can be re-tagged downstream, counts drift.</td>
+          <td>Filmustage&#x27;s whole pitch is tag-once-from-script.</td>
+          <td>Enforce a single tagging surface; downstream modules read, never re-create.</td>
+          <td class="pri">First hardening sprint</td>
+        </tr><tr>
+          <td><span class="sev med">Medium</span></td>
+          <td class="t">Automated cascade on revision</td>
+          <td>A revised script should auto-flag affected strips/budget lines; today this leans on manual sync.</td>
+          <td>Revisions are constant; manual propagation fails under pressure.</td>
+          <td>Revision diff → impact report → one-click apply with undo (partly built — finish + test).</td>
+          <td class="pri">Pre-scale</td>
+        </tr><tr>
+          <td><span class="sev low">Low</span></td>
+          <td class="t">Coverage/sides/lining integration depth</td>
+          <td>Rich script sub-features exist but their links to schedule/call-sheets vary.</td>
+          <td>Minor.</td>
+          <td>Audit each sub-feature&#x27;s downstream wiring.</td>
+          <td class="pri">Post-launch</td>
+        </tr></tbody>
+      </table></div>
+      <details><summary>Deeper notes</summary><ul class="notes"><li>The loop existing at all is a competitive strength; most rivals only recently acquired it (Cinapse) or bolt it on (Yamdu Dynamic Globals).</li></ul></details>
+    </section><section id="a-acct" class="card area">
+      <h3>4 · Budgeting &amp; Production Accounting</h3>
+      <p class="intro">On paper this rivals the incumbents: budget versions/lock, revisions, EFC forecast, commitments, POs, requisitions, vendor management, payroll runs, fringes, petty cash, card feeds, cost reports, budget-vs-actual, a GL bridge with trial balance, ACH/NACHA and an AICP bid view. The blocker is trust, not features.</p>
+      <div class="tablewrap"><table class="issues">
+        <thead><tr><th>Severity</th><th>Issue</th><th>Business impact</th><th>Industry impact</th><th>Recommended solution</th><th>Priority before launch</th></tr></thead>
+        <tbody><tr>
+          <td><span class="sev high">High</span></td>
+          <td class="t">Auditability without applied migrations</td>
+          <td>Accountants can&#x27;t trust a finance DB that runs ahead of its schema.</td>
+          <td>This alone fails production-accountant due diligence.</td>
+          <td>Migrations + immutable posted journals + period-close locks, then an external review.</td>
+          <td class="pri">Before finance go-live</td>
+        </tr><tr>
+          <td><span class="sev high">High</span></td>
+          <td class="t">Controls &amp; segregation of duties unproven</td>
+          <td>Approval models exist but enforcement/SoD and reconciliation are unvalidated and untested.</td>
+          <td>Internal-control failure is a fireable offence on a studio show.</td>
+          <td>Control tests; enforce maker≠checker; lock posted periods; reconciliation sign-off.</td>
+          <td class="pri">Before finance go-live</td>
+        </tr><tr>
+          <td><span class="sev med">Medium</span></td>
+          <td class="t">No certified bank / payroll / tax-credit integrations</td>
+          <td>EP, GreenSlate and Wrapbook win on connected payroll + bank + tax-credit; TFM exports files but integrations are unproven.</td>
+          <td>Limits adoption on incentivised shoots.</td>
+          <td>Certified connectors (bank, payroll bureau, tax-credit reporting).</td>
+          <td class="pri">Post-launch, market-dependent</td>
+        </tr><tr>
+          <td><span class="sev med">Medium</span></td>
+          <td class="t">FX revaluation &amp; multi-entity consolidation</td>
+          <td>Multi-currency exists (FxRate) but gain/loss revaluation and group consolidation are unclear.</td>
+          <td>Needed for international co-productions.</td>
+          <td>Add FX revaluation + entity consolidation.</td>
+          <td class="pri">Pre-scale</td>
+        </tr></tbody>
+      </table></div>
+      <details><summary>Deeper notes</summary><ul class="notes"><li>GreenSlate/EP differentiate on tax-credit dashboards and connected payroll; Movie Magic on 3-level hierarchy, template libraries and pattern budgeting — verify TFM matches hierarchy depth and template breadth.</li></ul></details>
+    </section><section id="a-sched" class="card area">
+      <h3>5 · Scheduling &amp; Call Sheets</h3>
+      <p class="intro">The strongest area. Stripboard, day-out-of-days, conflict and sun gating, a shooting-order optimizer, scenarios, a work-week calendar, and call sheets auto-populated with weather, sun, daylight and nearest-hospital — at or near StudioBinder and Movie Magic parity, plus the budget loop they lack natively.</p>
+      <div class="tablewrap"><table class="issues">
+        <thead><tr><th>Severity</th><th>Issue</th><th>Business impact</th><th>Industry impact</th><th>Recommended solution</th><th>Priority before launch</th></tr></thead>
+        <tbody><tr>
+          <td><span class="sev med">Medium</span></td>
+          <td class="t">Multi-unit / multi-episode parity</td>
+          <td>Movie Magic ships explicit multi-unit sub-boards and multi-episode schedules; TFM has scenarios + work-week but unit/episode isn&#x27;t a first-class dimension.</td>
+          <td>Blocks episodic TV adoption.</td>
+          <td>Make unit and episode first-class dimensions on the board.</td>
+          <td class="pri">Before TV go-live</td>
+        </tr><tr>
+          <td><span class="sev med">Medium</span></td>
+          <td class="t">Optimizer is deterministic, not AI-assisted</td>
+          <td>Filmustage&#x27;s agent moves strips and surfaces turnaround/overtime conflicts.</td>
+          <td>Falling behind the AI-scheduling frontier.</td>
+          <td>Layer AI suggestions on top of the deterministic optimizer (assist, not auto).</td>
+          <td class="pri">Roadmap</td>
+        </tr><tr>
+          <td><span class="sev strength">Strength</span></td>
+          <td class="t">Auto-filled call sheets</td>
+          <td>Weather/sun/hospital autofill matches StudioBinder&#x27;s headline feature.</td>
+          <td>Competitive parity achieved.</td>
+          <td>Maintain; add delivery/read tracking if not present.</td>
+          <td class="pri">—</td>
+        </tr></tbody>
+      </table></div>
+      <details><summary>Deeper notes</summary><ul class="notes"><li>Revision tracking, colour-coded pages and lock exist (script centralization work) — a real strength versus indie tools.</li></ul></details>
+    </section><section id="a-ux" class="card area">
+      <h3>6 · UX &amp; Product Design</h3>
+      <p class="intro">Modern foundations — design tokens, six themes, RTL/Arabic, i18n, a command palette, a redesigned login — but the sheer surface (60+ production panels, 109 routes) makes the product power-user-only on first contact.</p>
+      <div class="tablewrap"><table class="issues">
+        <thead><tr><th>Severity</th><th>Issue</th><th>Business impact</th><th>Industry impact</th><th>Recommended solution</th><th>Priority before launch</th></tr></thead>
+        <tbody><tr>
+          <td><span class="sev high">High</span></td>
+          <td class="t">Onboarding / first-run complexity</td>
+          <td>New users face dozens of panels with thin guidance.</td>
+          <td>Adoption dies in the first session.</td>
+          <td>Role-based home, guided project setup, progressive disclosure, empty-state coaching.</td>
+          <td class="pri">Before external users</td>
+        </tr><tr>
+          <td><span class="sev med">Medium</span></td>
+          <td class="t">Naming / IA collisions</td>
+          <td>locations-library vs production/locations; HR payroll vs production payroll; procurement vs suppliers confuse users.</td>
+          <td>Erodes trust and increases support load.</td>
+          <td>Consolidate nomenclature; cross-link the paired modules; one glossary.</td>
+          <td class="pri">First hardening sprint</td>
+        </tr><tr>
+          <td><span class="sev med">Medium</span></td>
+          <td class="t">Inconsistent panel patterns</td>
+          <td>Panels built incrementally vary; AI-hint icons were just being added/removed — evidence of churn.</td>
+          <td>Inconsistency reads as unfinished.</td>
+          <td>Component/token conformance pass; a panel pattern library.</td>
+          <td class="pri">Pre-scale</td>
+        </tr><tr>
+          <td><span class="sev low">Low</span></td>
+          <td class="t">Click depth on cross-module flows</td>
+          <td>Some journeys span many clicks.</td>
+          <td>Friction.</td>
+          <td>Deep actions in ⌘K; cross-module shortcuts.</td>
+          <td class="pri">Post-launch</td>
+        </tr></tbody>
+      </table></div>
+      <details><summary>Deeper notes</summary><ul class="notes"><li>⌘K palette, themes and RTL are genuinely ahead of most competitors on polish — the issue is density, not craft.</li></ul></details>
+    </section><section id="a-data" class="card area">
+      <h3>7 · Data Structure &amp; Database</h3>
+      <p class="intro">Predominantly relational (326 @relation links) with audit logs, version models and multi-currency — but several integrity and lifecycle gaps will bite at scale.</p>
+      <div class="tablewrap"><table class="issues">
+        <thead><tr><th>Severity</th><th>Issue</th><th>Business impact</th><th>Industry impact</th><th>Recommended solution</th><th>Priority before launch</th></tr></thead>
+        <tbody><tr>
+          <td><span class="sev crit">Critical</span></td>
+          <td class="t">Single-tenant scoping</td>
+          <td>(See Architecture) No tenant boundary on projects.</td>
+          <td>Blocks the entire enterprise segment.</td>
+          <td>Tenant entity + row-level isolation.</td>
+          <td class="pri">Before multi-company launch</td>
+        </tr><tr>
+          <td><span class="sev high">High</span></td>
+          <td class="t">Polymorphic / soft references</td>
+          <td>JournalEntry.sourceType+sourceId and bare revisionId strings can orphan and can&#x27;t be FK-enforced.</td>
+          <td>Financial lineage must be unbreakable.</td>
+          <td>Typed join tables or enforced relations; integrity sweeps.</td>
+          <td class="pri">Before finance go-live</td>
+        </tr><tr>
+          <td><span class="sev high">High</span></td>
+          <td class="t">Soft-delete not standard</td>
+          <td>Hard-delete cascade = irreversible loss + audit gaps.</td>
+          <td>Fails audit/reversibility expectations.</td>
+          <td>deletedAt + restore + retention policy across core entities.</td>
+          <td class="pri">First hardening sprint</td>
+        </tr><tr>
+          <td><span class="sev med">Medium</span></td>
+          <td class="t">Type-cast erosion</td>
+          <td>224 `as any` casts reduce compile-time safety.</td>
+          <td>Latent runtime bugs.</td>
+          <td>Regenerate client from applied migration; remove casts.</td>
+          <td class="pri">First hardening sprint</td>
+        </tr></tbody>
+      </table></div>
+      <details><summary>Deeper notes</summary><ul class="notes"><li>Performance: at 258 models with soft links, list/aggregate queries risk N+1 and missing indexes — load-test the cost report, board and GL at scale.</li></ul></details>
+    </section><section id="a-ent" class="card area">
+      <h3>8 · Enterprise Readiness</h3>
+      <p class="intro">The primitives of a serious system are present — 17-role model, 2FA/TOTP, audit logs, approval workflows, version models, multi-currency, tax rates — but the bar for studios and government is higher than what&#x27;s proven.</p>
+      <div class="tablewrap"><table class="issues">
+        <thead><tr><th>Severity</th><th>Issue</th><th>Business impact</th><th>Industry impact</th><th>Recommended solution</th><th>Priority before launch</th></tr></thead>
+        <tbody><tr>
+          <td><span class="sev crit">Critical</span></td>
+          <td class="t">Multi-tenancy &amp; isolation</td>
+          <td>Cannot serve studios/multi-company/government.</td>
+          <td>Hard commercial blocker.</td>
+          <td>Tenant architecture (see §1/§7).</td>
+          <td class="pri">Before enterprise launch</td>
+        </tr><tr>
+          <td><span class="sev high">High</span></td>
+          <td class="t">Rollback / migration discipline</td>
+          <td>No migration history → no safe upgrade/rollback story for studio IT.</td>
+          <td>Studio IT will reject.</td>
+          <td>Prisma Migrate + CI gate + backup/restore runbook.</td>
+          <td class="pri">Before enterprise launch</td>
+        </tr><tr>
+          <td><span class="sev high">High</span></td>
+          <td class="t">Unproven compliance posture</td>
+          <td>No evidence of SSO/SAML, SOC 2, pen-test, data residency or retention.</td>
+          <td>Government/studio procurement requires these.</td>
+          <td>Stand up a security program: SSO, SOC 2 path, pen-test, DPA, residency options.</td>
+          <td class="pri">Enterprise track</td>
+        </tr><tr>
+          <td><span class="sev med">Medium</span></td>
+          <td class="t">Audit reversibility / version coverage</td>
+          <td>Versioning is per-domain and uneven; soft-delete absent.</td>
+          <td>Weakens defensibility.</td>
+          <td>Uniform versioning + soft-delete + immutable audit.</td>
+          <td class="pri">First hardening sprint</td>
+        </tr></tbody>
+      </table></div>
+      <details><summary>Deeper notes</summary><ul class="notes"><li>Multi-currency + tax + RTL/Arabic make TFM unusually strong for international and MENA productions — a real wedge if the enterprise gaps close.</li></ul></details>
+    </section><section id="a-comp" class="card area">
+      <h3>9 · Competitive Positioning</h3>
+      <p class="intro">Benchmarked live (June 2026) against Movie Magic, StudioBinder, Wrapbook+Cinapse, Yamdu, GreenSlate, Saturation and Filmustage. TFM&#x27;s distinctive claim is scope: it spans what those tools cover individually, plus transport, comms, travel and a first-class TVC spine, with international/Arabic support.</p>
+      <div class="tablewrap"><table class="issues">
+        <thead><tr><th>Severity</th><th>Issue</th><th>Business impact</th><th>Industry impact</th><th>Recommended solution</th><th>Priority before launch</th></tr></thead>
+        <tbody><tr>
+          <td><span class="sev strength">Strength</span></td>
+          <td class="t">Breadth = the integrated &#x27;operating system&#x27;</td>
+          <td>One platform, one dataset across the whole production.</td>
+          <td>Exactly the direction Wrapbook+Cinapse and Yamdu are converging on.</td>
+          <td>Lean into the integrated story; prove reliability.</td>
+          <td class="pri">—</td>
+        </tr><tr>
+          <td><span class="sev high">High</span></td>
+          <td class="t">No production track record</td>
+          <td>Unproven vs battle-tested rivals (Cinapse: $6B+, Euphoria/The Boys).</td>
+          <td>Buyers fear betting a show on unproven software.</td>
+          <td>Pilot productions + case studies + uptime/SLA evidence.</td>
+          <td class="pri">Go-to-market</td>
+        </tr><tr>
+          <td><span class="sev high">High</span></td>
+          <td class="t">AI breakdown maturity behind Filmustage</td>
+          <td>Filmustage tags any-language scripts in ~2 min with an AI agent.</td>
+          <td>Breakdown is a headline buying criterion.</td>
+          <td>Match speed/quality; integrate breakdown into the loop (already a strength) + AI agent assist.</td>
+          <td class="pri">Roadmap</td>
+        </tr><tr>
+          <td><span class="sev med">Medium</span></td>
+          <td class="t">Brand / integrations / ecosystem</td>
+          <td>Incumbents have payroll, bank, tax-credit and studio integrations.</td>
+          <td>Switching costs favour incumbents.</td>
+          <td>Build the connectors that matter regionally first (UAE/MENA), then expand.</td>
+          <td class="pri">Market-dependent</td>
+        </tr></tbody>
+      </table></div>
+      <details><summary>Deeper notes</summary><ul class="notes"><li>Where TFM can lead: the AI-native, internationally-aware, commercial+film operating system in one — *if* reliability and enterprise readiness are closed first.</li></ul></details>
+    </section>
+
+<section id="comp-matrix" class="card">
+  <h3>Competitive capability matrix</h3>
+  <p class="intro">Live-benchmarked, June 2026. This is a positioning view, not a feature-parity certification.</p>
+  <div class="tablewrap"><table class="matrix"><thead><tr><th>Capability</th><th>TFM</th><th>Movie Magic</th><th>StudioBinder</th><th>Wrapbook + Cinapse</th><th>Yamdu</th><th>GreenSlate</th><th>Filmustage</th></tr></thead><tbody><tr><td class="t">Script breakdown</td><td class="mk pp">~</td><td class="mk nn">✕</td><td class="mk yy">✓</td><td class="mk nn">✕</td><td class="mk pp">~</td><td class="mk nn">✕</td><td class="mk yy">✓</td></tr><tr><td class="t">Stripboard / DOOD</td><td class="mk yy">✓</td><td class="mk yy">✓</td><td class="mk yy">✓</td><td class="mk yy">✓</td><td class="mk yy">✓</td><td class="mk nn">✕</td><td class="mk pp">~</td></tr><tr><td class="t">Call sheets (autofill)</td><td class="mk yy">✓</td><td class="mk nn">✕</td><td class="mk yy">✓</td><td class="mk pp">~</td><td class="mk yy">✓</td><td class="mk nn">✕</td><td class="mk nn">✕</td></tr><tr><td class="t">Budgeting depth</td><td class="mk pp">~</td><td class="mk yy">✓</td><td class="mk nn">✕</td><td class="mk pp">~</td><td class="mk pp">~</td><td class="mk yy">✓</td><td class="mk pp">~</td></tr><tr><td class="t">Production accounting / GL</td><td class="mk pp">~</td><td class="mk pp">~</td><td class="mk nn">✕</td><td class="mk yy">✓</td><td class="mk pp">~</td><td class="mk yy">✓</td><td class="mk nn">✕</td></tr><tr><td class="t">Payroll</td><td class="mk pp">~</td><td class="mk pp">~</td><td class="mk nn">✕</td><td class="mk yy">✓</td><td class="mk pp">~</td><td class="mk yy">✓</td><td class="mk nn">✕</td></tr><tr><td class="t">Schedule⇄budget⇄cost loop</td><td class="mk yy">✓</td><td class="mk pp">~</td><td class="mk nn">✕</td><td class="mk yy">✓</td><td class="mk yy">✓</td><td class="mk pp">~</td><td class="mk pp">~</td></tr><tr><td class="t">Casting / talent</td><td class="mk yy">✓</td><td class="mk nn">✕</td><td class="mk yy">✓</td><td class="mk nn">✕</td><td class="mk pp">~</td><td class="mk nn">✕</td><td class="mk nn">✕</td></tr><tr><td class="t">Locations (scout→clearance)</td><td class="mk yy">✓</td><td class="mk nn">✕</td><td class="mk pp">~</td><td class="mk nn">✕</td><td class="mk pp">~</td><td class="mk nn">✕</td><td class="mk nn">✕</td></tr><tr><td class="t">Transport / comms / travel</td><td class="mk yy">✓</td><td class="mk nn">✕</td><td class="mk nn">✕</td><td class="mk nn">✕</td><td class="mk pp">~</td><td class="mk nn">✕</td><td class="mk nn">✕</td></tr><tr><td class="t">TVC / commercial spine</td><td class="mk yy">✓</td><td class="mk nn">✕</td><td class="mk pp">~</td><td class="mk nn">✕</td><td class="mk pp">~</td><td class="mk nn">✕</td><td class="mk nn">✕</td></tr><tr><td class="t">AI automation</td><td class="mk pp">~</td><td class="mk nn">✕</td><td class="mk nn">✕</td><td class="mk pp">~</td><td class="mk pp">~</td><td class="mk nn">✕</td><td class="mk yy">✓</td></tr><tr><td class="t">Multi-currency / international</td><td class="mk yy">✓</td><td class="mk yy">✓</td><td class="mk pp">~</td><td class="mk pp">~</td><td class="mk yy">✓</td><td class="mk pp">~</td><td class="mk nn">✕</td></tr><tr><td class="t">Multi-tenant / studio-grade</td><td class="mk nn">✕</td><td class="mk pp">~</td><td class="mk pp">~</td><td class="mk yy">✓</td><td class="mk pp">~</td><td class="mk yy">✓</td><td class="mk pp">~</td></tr><tr><td class="t">Production track record</td><td class="mk nn">✕</td><td class="mk yy">✓</td><td class="mk yy">✓</td><td class="mk yy">✓</td><td class="mk yy">✓</td><td class="mk yy">✓</td><td class="mk yy">✓</td></tr></tbody></table></div>
+  <p class="legend"><b class="yy">✓</b> strong &nbsp; <b class="pp">~</b> partial / emerging &nbsp; <b class="nn">✕</b> weak or absent</p>
+  <div class="callout">Where TFM can <b>lead</b>: the AI-native, internationally-aware operating system that runs <b>commercials and film in one</b> — spanning breakdown, schedule, budget, accounting, casting, locations, transport, comms and post. The incumbents each own a slice; none own the whole, and none are built MENA-first. The prize is real <i>if</i> reliability and enterprise readiness are closed before chasing it.</div>
+</section>
+
+<h2 class="sec" id="ai">10 · AI, Automation &amp; Intelligence</h2>
+<section class="card">
+  <h3>The core finding: AI is bolted on, not built in</h3>
+  <p class="intro">Ten services each call the Anthropic API directly, with the model string hardcoded (claude-3-5-sonnet-20241022) and headers duplicated. There is no shared AI service, no central token/rate control, no uniform confidence scoring, no AI-output versioning, and no central audit of AI runs. Governance is strong in exactly one place (labor-rate proposals: confidence + PENDING + source quote) and uneven everywhere else. This is the opposite of the "centralised intelligence layer" you asked for.</p>
+  <div class="two">
+    <div class="box"><h4>What's genuinely good</h4><ul>
+      <li>Script breakdown (tag-once), TVC brief→treatment→script, labor-rate research, crew-profile parsing — all real, useful AI.</li>
+      <li>The labor-rate flow is a model for the rest: confidence score, human approval gate, verbatim source quote, audit record.</li>
+      <li>AI outputs are tagged by source (AI vs manual) in the breakdown.</li>
+    </ul></div>
+    <div class="box"><h4>What's holding it back</h4><ul>
+      <li>Fragmentation → inconsistent behaviour, duplicated cost, no central control or observability.</li>
+      <li>Reliability — the scaffold 500 is an AI-path failure caused by the same migration drift.</li>
+      <li>No copilot, no AI-generated reports, behind Filmustage's any-language agent.</li>
+    </ul></div>
+  </div>
+</section>
+
+<section class="card">
+  <h3>Where AI should sit, per module</h3>
+  <div class="tablewrap"><table class="issues">
+    <thead><tr><th>Module</th><th>Recommended mode</th><th>Notes</th></tr></thead>
+    <tbody><tr><td class="t">Script breakdown</td><td><b>AI-assisted → tag once, human confirms</b></td><td>Already core; make it the only tagging surface and add confidence per element.</td></tr><tr><td class="t">Scheduling / optimizer</td><td><b>AI-assisted</b></td><td>Suggest strip order + flag turnaround/overtime; never auto-commit the board.</td></tr><tr><td class="t">Budgeting from breakdown</td><td><b>AI-assisted + approval</b></td><td>Draft budget lines from elements; producer approves before they post.</td></tr><tr><td class="t">Cost control / variance</td><td><b>AI-assisted</b></td><td>Explain overages and burn; draft narrative for the cost report.</td></tr><tr><td class="t">Casting / talent</td><td><b>AI-assisted</b></td><td>Shortlist + summarise submissions; humans decide. No autonomous selection.</td></tr><tr><td class="t">Locations</td><td><b>AI-assisted</b></td><td>Summarise scout reports, surface clearance/permit gaps.</td></tr><tr><td class="t">Call sheets</td><td><b>Fully automated draft</b></td><td>Generate from schedule + autofill; human signs before send.</td></tr><tr><td class="t">Crew management</td><td><b>Manual + AI parse</b></td><td>Parse pasted profiles (exists); keep assignment manual.</td></tr><tr><td class="t">Production / cost / DPR reports</td><td><b>Fully automated draft → human review</b></td><td>Generate from project data; require sign-off before publish.</td></tr><tr><td class="t">Purchase orders / invoices</td><td><b>AI-assisted + approval</b></td><td>Draft + code to CoA; approval gate mandatory.</td></tr><tr><td class="t">Travel &amp; accommodation</td><td><b>AI-assisted</b></td><td>Optimise/itinerary draft; human books.</td></tr><tr><td class="t">Risk / health &amp; safety</td><td><b>AI-assisted + approval</b></td><td>Draft risk assessments from location + activity; safety officer approves.</td></tr><tr><td class="t">Deliverables / post</td><td><b>AI-assisted</b></td><td>Generate deliverable matrices from the brief (exists for TVC).</td></tr></tbody>
+  </table></div>
+  <p class="legend">Principle: <b>fully-automated only for drafts</b>; anything that posts money, sends a message, or commits the board requires explicit human approval.</p>
+</section>
+
+<div class="two">
+  <section class="card"><h3>AI-generated reports (draft → human sign-off)</h3>
+    <ul class="notes"><li>Daily Production Report (DPR)</li><li>Progress report</li><li>Cost report narrative</li><li>Executive summary</li><li>Schedule-impact report</li><li>Location &amp; scout reports</li><li>Talent &amp; crew reports</li><li>Risk report</li><li>Production-meeting notes</li><li>Wrap report</li></ul>
+    <p class="legend">All generatable from existing project data; none should auto-publish.</p>
+  </section>
+  <section class="card"><h3>Proposed platform copilot</h3>
+    <ul class="notes"><li>Answer project questions across scripts, schedules, budgets, reports and documents (retrieval over the project&#x27;s own data).</li><li>Generate call sheets, schedules from breakdowns, and budget drafts from a script — routed through existing engines, not re-implemented.</li><li>Surface risks, conflicts and missing information (turnaround, sun, budget overage, unfilled roles).</li><li>Explain cost overruns and schedule slips in plain language.</li><li>Suggest crew, vendors, locations and resources from history.</li><li>Always write through the same approval gates — the copilot proposes, humans dispose.</li></ul>
+  </section>
+</div>
+
+<section class="card">
+  <h3>Recommended unified AI strategy</h3>
+  <ul class="notes"><li><b>One AI gateway service</b> — Replace the 10 direct `fetch` call sites with a single `AiService` (model config, retries, timeouts, streaming, token accounting, rate limits, key handling).</li><li><b>One governance spine</b> — Every AI output gets: a stored prompt+model version, a confidence score, a source/quote where applicable, a PENDING→APPROVED lifecycle, and an entry in a central AiRun audit table.</li><li><b>Reusable outputs</b> — AI results are first-class records other modules read — breakdown elements, budget drafts, report drafts — never re-generated ad hoc.</li><li><b>Model strategy</b> — Centralise model choice (today hardcoded claude-3-5-sonnet); allow per-task model + a managed upgrade path; consider multi-model like Filmustage.</li><li><b>Human-in-the-loop by default</b> — Fully-automated only for drafts; anything that posts money, sends a message or commits a board requires explicit approval.</li></ul>
+  <div class="callout">Net: keep the strong individual features, but route them all through <b>one AI service + one governance spine</b>. That single change moves AI Architecture from the 30s toward enterprise-grade, and unlocks the copilot and AI-reports without multiplying the fragmentation.</div>
+</section>
+
+<h2 class="sec" id="punch">Pre-launch punch list</h2>
+<section class="card"><div class="tablewrap"><table class="issues">
+  <thead><tr><th>Severity</th><th>Must do before commercial release</th><th>Why it's on the critical path</th></tr></thead>
+  <tbody><tr><td><span class="sev crit">Critical</span></td><td class="t">Adopt Prisma migrations + baseline the live DB</td><td>Kills the entire db-drift bug class (incl. the live scaffold 500) and is the precondition for accountant trust.</td></tr><tr><td><span class="sev crit">Critical</span></td><td class="t">Decide the tenancy model (single-studio v1 vs multi-tenant)</td><td>Either scope v1 explicitly to The Film Makers, or build the tenant boundary now. Don&#x27;t ship ambiguous.</td></tr><tr><td><span class="sev crit">Critical</span></td><td class="t">Stand up an automated test suite (+ finance control tests)</td><td>No evidence of tests was found; trust in a finance/production system requires them.</td></tr><tr><td><span class="sev high">High</span></td><td class="t">Centralise AI into one service + governance spine</td><td>Turns scattered features into the intelligence layer the market expects.</td></tr><tr><td><span class="sev high">High</span></td><td class="t">Add soft-delete + uniform versioning + immutable audit</td><td>Reversibility and defensibility.</td></tr><tr><td><span class="sev high">High</span></td><td class="t">Reconcile the dual import/sync pipelines to one source of truth</td><td>Eliminate divergent strips/elements.</td></tr><tr><td><span class="sev high">High</span></td><td class="t">Onboarding + IA simplification pass</td><td>Make the first session survivable; fix naming collisions.</td></tr><tr><td><span class="sev high">High</span></td><td class="t">Security/compliance program for the enterprise track</td><td>SSO, SOC 2 path, pen-test, data residency.</td></tr></tbody>
+</table></div>
+<div class="callout">Sequencing: <b>migrations + tests + tenancy decision first</b> (they unblock trust and kill the current bug class), then <b>AI consolidation + soft-delete + pipeline reconciliation</b>, then <b>onboarding + enterprise compliance</b>. A focused team can clear Critical/High in a single hardening cycle; the feature surface is already built.</div>
+</section>
+
+<h2 class="sec">Sources (live, June 2026)</h2>
+<section class="card"><ul class="notes" style="columns:2"><li><a href="https://www.ep.com/movie-magic-scheduling/" target="_blank" rel="noopener">Movie Magic Scheduling — Entertainment Partners</a></li><li><a href="https://www.ep.com/movie-magic-budgeting/" target="_blank" rel="noopener">Movie Magic Budgeting — Entertainment Partners</a></li><li><a href="https://www.studiobinder.com/" target="_blank" rel="noopener">StudioBinder — production management</a></li><li><a href="https://www.studiobinder.com/script-breakdown-software/" target="_blank" rel="noopener">StudioBinder — script breakdown software</a></li><li><a href="https://www.prnewswire.com/news-releases/wrapbook-acquires-cinapse-advancing-a-connected-back-office-for-entertainment-302634490.html" target="_blank" rel="noopener">Wrapbook acquires Cinapse — PR Newswire</a></li><li><a href="https://variety.com/2025/biz/news/wrapbook-payrollproduction-accounting-company-buys-cinapse-film-scheduling-platform-1236603203/" target="_blank" rel="noopener">Wrapbook acquires Cinapse — Variety</a></li><li><a href="https://www.tvtechnology.com/news/wrapbook-acquires-tv-and-film-production-scheduling-platform-cinapse" target="_blank" rel="noopener">Wrapbook acquires Cinapse — TV Tech</a></li><li><a href="https://yamdu.com/" target="_blank" rel="noopener">Yamdu — production management</a></li><li><a href="https://greenslate.com/" target="_blank" rel="noopener">GreenSlate — production accounting &amp; payroll</a></li><li><a href="https://saturation.io/blog/film-production-accounting-software" target="_blank" rel="noopener">Saturation — production accounting</a></li><li><a href="https://filmustage.com/script-breakdown/" target="_blank" rel="noopener">Filmustage — AI script breakdown</a></li><li><a href="https://filmustage.com/blog/how-ai-agents-are-rewiring-film-pre-production/" target="_blank" rel="noopener">Filmustage — AI agents in pre-production</a></li><li><a href="https://cmsproductions.com/blog/best-film-commercial-production-budgeting-software-2026/" target="_blank" rel="noopener">Top film budgeting software 2026 — comparison</a></li></ul></section>
+
+<footer>
+  Prepared as an independent, architecture-level audit of the TFM Production OS. Scores are judgement calls grounded in a structural read of the codebase and a live competitor benchmark; they are intended to drive decisions, not to certify compliance. Treat severity and priority as a launch plan, not a verdict on the team — the build is impressively broad; the work now is hardening it into something a professional production can bet a shoot on.
+</footer>
+</div></body></html>

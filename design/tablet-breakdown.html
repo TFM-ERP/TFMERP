@@ -1,0 +1,91 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>ScripON Doctor — Breakdown (Tablet)</title><style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Courier+Prime:wght@400;700&display=swap');
+:root{--bg:#0b0c0f;--panel:#14161c;--panel2:#1a1d24;--hair:rgba(255,255,255,.07);--hair2:rgba(255,255,255,.13);--gold:#C6A463;--gold2:#E6D2A2;--goldink:#1a1509;--cream:#F4EEE0;--text:#E8E6E0;--mute:#9aa1ab;--faint:#6b727d;--paper:#F7F4EC;--ink:#23231f;--blue:#5b8def;--green:#57b368;--amber:#e0a23b;--violet:#8b7cf0;--pink:#d6649a}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:radial-gradient(1000px 500px at 50% -8%,#15171d,#0b0c0f 60%);font-family:Inter,sans-serif;color:var(--text);-webkit-font-smoothing:antialiased;padding:40px;display:flex;flex-direction:column;align-items:center;gap:14px;min-height:100vh}
+.cap{color:var(--faint);font-size:12px}.cap b{color:var(--gold)}
+.ico{width:18px;height:18px;stroke:currentColor;stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round;display:block}
+.screen{width:1112px;height:834px;background:var(--bg);border:1px solid var(--hair);border-radius:20px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 50px 120px -30px rgba(0,0,0,.8);position:relative}
+.screen:before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(600px 240px at 70% -6%,rgba(198,164,99,.09),transparent 70%)}
+.top{height:62px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 18px;background:linear-gradient(180deg,#15181e,#121419);border-bottom:1px solid var(--hair);position:relative;z-index:2}
+.tl{display:flex;align-items:center;gap:11px}.logo{width:30px;height:30px;border-radius:9px;background:linear-gradient(160deg,var(--gold2),var(--gold));display:grid;place-items:center;color:var(--goldink);font-weight:800;font-size:12px}
+.proj{font-weight:700;font-size:15px;color:var(--cream)}.meta{color:var(--faint);font-size:12px}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(91,141,239,.16);color:#a9c4f7}.pill .d{width:7px;height:7px;border-radius:50%;background:var(--blue)}
+.seg{display:flex;gap:4px;background:#10131a;border:1px solid var(--hair);border-radius:11px;padding:4px}
+.segtab{display:flex;align-items:center;gap:6px;padding:7px 13px;border-radius:8px;font-size:12.5px;font-weight:600;color:var(--mute);cursor:pointer}.segtab .ico{width:15px;height:15px}
+.segtab.on{background:linear-gradient(180deg,var(--gold2),var(--gold));color:var(--goldink)}
+.btn{display:inline-flex;align-items:center;gap:7px;height:40px;padding:0 16px;border-radius:11px;font-size:13.5px;font-weight:700;cursor:pointer;border:1px solid transparent;white-space:nowrap}.btn .ico{width:16px;height:16px}
+.btn.ghost{background:#1b1e25;border-color:var(--hair);color:var(--mute)}
+.btn.outline{background:#1c1d1a;border-color:rgba(198,164,99,.55);color:var(--gold2)}
+.btn.gold{background:linear-gradient(180deg,var(--gold2),var(--gold));color:var(--goldink)}
+.flag{background:rgba(224,162,59,.14);border-color:rgba(224,162,59,.5);color:var(--amber)}
+.appr{background:linear-gradient(180deg,#6cc77c,var(--green));color:#08230f;box-shadow:0 6px 18px -4px rgba(87,179,104,.5)}
+.eyebrow{font-size:10.5px;font-weight:700;letter-spacing:1.3px;color:var(--gold)}
+.card{background:var(--panel);border:1px solid var(--hair);border-radius:13px;padding:14px;display:flex;flex-direction:column;gap:9px}
+.pc-h{display:flex;align-items:center;justify-content:space-between}.pc-h .t{font-size:13px;font-weight:700;color:var(--cream)}
+.kv{display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--hair);font-size:12.5px}.kv:first-of-type{border-top:none}.kv .k{color:var(--faint)}.kv .v{color:var(--text);font-weight:600}
+.qa{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.tile{background:linear-gradient(180deg,#1b1e25,#171a20);border:1px solid var(--hair);border-radius:11px;padding:12px;cursor:pointer}
+.tile .ti{width:30px;height:30px;border-radius:9px;background:rgba(198,164,99,.14);display:grid;place-items:center;color:var(--gold2);margin-bottom:8px}.tile .ti .ico{width:16px;height:16px}
+.tile .tt{font-size:12.5px;font-weight:600;color:var(--cream)}.tile .ts{font-size:10px;color:var(--faint);margin-top:2px}
+.badge{font-size:10px;font-weight:800;padding:4px 9px;border-radius:999px}
+.badge.amber{background:rgba(224,162,59,.16);color:var(--amber)}.badge.green{background:rgba(87,179,104,.16);color:var(--green)}.badge.blue{background:rgba(91,141,239,.16);color:#a9c4f7}
+.mtr{height:6px;border-radius:4px;background:#23262e;overflow:hidden}.mtr i{display:block;height:100%;background:linear-gradient(90deg,var(--gold),var(--gold2))}
+.lenses{display:flex;gap:7px;align-items:center;padding:10px 18px;background:#0e1015;border-bottom:1px solid var(--hair);position:relative;z-index:1;overflow:hidden}
+.lens{display:flex;align-items:center;gap:7px;padding:8px 12px;border-radius:10px;font-size:12.5px;font-weight:600;color:var(--mute);background:#171a20;border:1px solid var(--hair);white-space:nowrap}
+.lens .ld{width:8px;height:8px;border-radius:3px}.lens .cn{font-size:10.5px;color:var(--faint);font-weight:700}.lens.on{background:#1c1f27;border-color:var(--hair2);color:var(--cream)}
+.body{flex:1;display:grid;grid-template-columns:1.5fr 1fr;min-height:0;position:relative;z-index:1}
+.elist{border-right:1px solid var(--hair);display:flex;flex-direction:column;overflow:hidden}
+.elhead{padding:10px 18px;border-bottom:1px solid var(--hair);font-size:10.5px;font-weight:700;letter-spacing:.4px;color:var(--faint);display:flex}
+.erow{display:flex;align-items:center;gap:11px;padding:14px 18px;border-bottom:1px solid var(--hair)}
+.edot{width:9px;height:9px;border-radius:50%;flex:none}.en{flex:1}.enm{font-size:13.5px;font-weight:600;color:var(--cream)}.erl{font-size:11px;color:var(--faint);margin-top:2px}
+.ec{width:64px;text-align:right;font-size:12px;color:var(--mute)}
+.dock{padding:16px;display:flex;flex-direction:column;gap:13px;overflow:hidden}
+.schip{padding:4px 8px;border-radius:7px;background:#1b1e25;border:1px solid var(--hair);font-size:11px;color:var(--mute);font-weight:600}
+</style></head><body>
+<div class="cap">ScripON Doctor · <b>Breakdown — Tablet (review-first, 1112×834)</b> · one breakdown, six lenses</div>
+<div class="screen">
+  <div class="top"><div class="tl"><div class="logo">TFM</div><div class="proj">Midnight Run</div><span class="pill"><span class="d"></span>BLUE v4</span></div>
+    <div class="seg"><span class="segtab"><svg class="ico" viewBox="0 0 24 24"><path d="M4 4h6v16H4z"/></svg>Library</span><span class="segtab"><svg class="ico" viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/></svg>Reader</span><span class="segtab on"><svg class="ico" viewBox="0 0 24 24"><path d="M12 2l9 5-9 5-9-5z"/></svg>Breakdown</span><span class="segtab"><svg class="ico" viewBox="0 0 24 24"><path d="M12 3l1.9 5.6L19.5 9l-4.5 3.3L16.8 18 12 14.7 7.2 18l1.8-5.7L4.5 9z"/></svg>Doctor</span></div>
+    <div class="btn appr"><svg class="ico" viewBox="0 0 24 24" style="stroke:#08230f"><path d="M20 6L9 17l-5-5"/></svg>Confirm tags</div>
+  </div>
+  <div class="lenses">
+    <span class="lens on"><span class="ld" style="background:var(--blue)"></span>Cast <span class="cn">18</span></span>
+    <span class="lens"><span class="ld" style="background:var(--gold)"></span>Props <span class="cn">46</span></span>
+    <span class="lens"><span class="ld" style="background:var(--green)"></span>Locations <span class="cn">11</span></span>
+    <span class="lens"><span class="ld" style="background:var(--violet)"></span>Wardrobe <span class="cn">23</span></span>
+    <span class="lens"><span class="ld" style="background:var(--amber)"></span>Vehicles <span class="cn">7</span></span>
+    <span class="lens"><span class="ld" style="background:var(--pink)"></span>VFX <span class="cn">9</span></span>
+  </div>
+  <div class="body">
+    <div class="elist">
+      <div class="elhead"><span style="width:9px"></span><span style="flex:1;margin-left:11px">CAST ELEMENT</span><span class="ec">SCENES</span><span style="width:74px;text-align:right">TAG</span></div>
+      <div class="erow" style="background:rgba(198,164,99,.10)"><span class="edot" style="background:var(--green)"></span><div class="en"><div class="enm">SARAH CHEN</div><div class="erl">Principal · lead</div></div><div class="ec">38 sc</div><span class="badge green">TAGGED</span></div>
+      <div class="erow"><span class="edot" style="background:var(--green)"></span><div class="en"><div class="enm">DET. MARCUS RILEY</div><div class="erl">Principal</div></div><div class="ec">29 sc</div><span class="badge green">TAGGED</span></div>
+      <div class="erow"><span class="edot" style="background:var(--amber)"></span><div class="en"><div class="enm">THE BROKER</div><div class="erl">Supporting · uncast</div></div><div class="ec">9 sc</div><span class="badge amber">UNCAST</span></div>
+      <div class="erow"><span class="edot" style="background:var(--amber)"></span><div class="en"><div class="enm">LEO</div><div class="erl">Supporting · uncast</div></div><div class="ec">7 sc</div><span class="badge amber">UNCAST</span></div>
+      <div class="erow"><span class="edot" style="background:var(--green)"></span><div class="en"><div class="enm">BARTENDER</div><div class="erl">Day player</div></div><div class="ec">3 sc</div><span class="badge green">TAGGED</span></div>
+      <div class="erow"><span class="edot" style="background:var(--green)"></span><div class="en"><div class="enm">UNIFORM COP</div><div class="erl">Day player</div></div><div class="ec">2 sc</div><span class="badge green">TAGGED</span></div>
+      <div class="erow"><span class="edot" style="background:var(--faint)"></span><div class="en"><div class="enm">BACKGROUND</div><div class="erl">12 groups</div></div><div class="ec">—</div><span class="badge blue">BG</span></div>
+    </div>
+    <div class="dock">
+      <div class="card">
+        <div class="pc-h"><span class="t">SARAH CHEN</span><span class="badge blue">PRINCIPAL</span></div>
+        <div class="kv"><span class="k">Department</span><span class="v">Cast · Lead</span></div>
+        <div class="kv"><span class="k">First / last</span><span class="v">Sc 1 → 64</span></div>
+        <div class="kv"><span class="k">Wardrobe</span><span class="v">6 changes</span></div>
+        <div class="kv"><span class="k">Stunt / intimacy</span><span class="v" style="color:var(--amber)">Sc 41</span></div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px"><span class="schip">1</span><span class="schip">3</span><span class="schip">14</span><span class="schip">22</span><span class="schip">41</span><span class="schip">+33</span></div>
+      </div>
+      <div class="card" style="flex:1">
+        <div class="pc-h"><span class="t">Actions</span><span class="eyebrow">ALWAYS VISIBLE</span></div>
+        <div class="qa">
+          <div class="tile"><div class="ti" style="background:rgba(139,124,240,.16);color:var(--violet)"><svg class="ico" viewBox="0 0 24 24"><path d="M20 6H10M20 12H10M20 18H10M4 6h.01M4 12h.01M4 18h.01"/></svg></div><div class="tt">Link wardrobe</div></div>
+          <div class="tile"><div class="ti"><svg class="ico" viewBox="0 0 24 24"><path d="M12 2l9 5-9 5-9-5z"/></svg></div><div class="tt">Add to strips</div></div>
+          <div class="tile"><div class="ti"><svg class="ico" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13"/></svg></div><div class="tt">Merge dup</div></div>
+          <div class="tile"><div class="ti" style="background:rgba(224,162,59,.16);color:var(--amber)"><svg class="ico" viewBox="0 0 24 24"><path d="M10.3 3.9l-8 14A2 2 0 004 21h16a2 2 0 001.7-3l-8-14a2 2 0 00-3.4 0z"/><path d="M12 9v4"/></svg></div><div class="tt">Flag Doctor</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div></body></html>

@@ -1,0 +1,176 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ScripON — Adapt / Develop Intake (hi-fi)</title>
+<style>
+:root{--bg:#0b0c0f;--chrome:#121419;--panel:#14161c;--panel2:#191c23;--hair:rgba(255,255,255,.08);--hair2:rgba(255,255,255,.14);--gold:#C6A463;--gold2:#E6D2A2;--ink:#1a1509;--cream:#F4EEE0;--text:#E7E3D8;--mut:#9aa1ab;--faint:#6b727d;--blue:#5b8def;--green:#57b368;--amber:#e0a23b;--violet:#8b7cf0;--pink:#e7a6c6}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:radial-gradient(1200px 700px at 50% -10%,#15171d,#0b0c0f 60%);color:var(--text);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.55;-webkit-font-smoothing:antialiased;padding:0 0 70px}
+.wrap{max-width:1180px;margin:0 auto;padding:0 22px}
+header{padding:42px 0 18px}
+.eyebrow{font-size:11px;font-weight:700;letter-spacing:2px;color:var(--gold);text-transform:uppercase}
+h1{font-size:28px;font-weight:800;color:var(--cream);letter-spacing:-.4px;margin:8px 0 4px}
+.sub{font-size:14.5px;color:var(--mut);max-width:760px}
+.row{display:grid;grid-template-columns:1fr 320px;gap:22px;align-items:start;margin-top:24px}
+@media(max-width:920px){.row{grid-template-columns:1fr}}
+.frame{background:linear-gradient(180deg,#101216,#0c0d11);border:1px solid var(--hair);border-radius:18px;overflow:hidden;box-shadow:0 30px 80px -30px rgba(0,0,0,.8)}
+.top{height:54px;display:flex;align-items:center;gap:12px;padding:0 18px;background:linear-gradient(180deg,#15181e,#121419);border-bottom:1px solid var(--hair)}
+.logo{width:28px;height:28px;border-radius:8px;background:linear-gradient(160deg,var(--gold2),var(--gold));display:grid;place-items:center;color:var(--ink);font-weight:800;font-size:11px}
+.seg{display:inline-flex;background:#171a20;border:1px solid var(--hair);border-radius:10px;padding:3px;gap:2px;margin-left:6px}
+.seg b{font-size:12px;font-weight:600;color:var(--mut);padding:5px 12px;border-radius:8px;cursor:pointer}
+.seg b.on{background:rgba(198,164,99,.16);color:var(--gold2)}
+.body{padding:20px}
+.band{border:1px solid var(--hair);border-radius:14px;padding:16px 16px;margin-bottom:14px;background:linear-gradient(180deg,#14161c,#111318)}
+.band.lit{border-color:rgba(198,164,99,.4);box-shadow:0 0 0 1px rgba(198,164,99,.12) inset}
+.bh{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.bt{font-size:13.5px;font-weight:700;color:var(--cream)}
+.bn{font-size:10px;font-weight:700;letter-spacing:1.2px;color:var(--gold)}
+.lab{font-size:11px;color:var(--faint);font-weight:600;margin:10px 0 5px}
+.chips{display:flex;flex-wrap:wrap;gap:7px}
+.chip{font-size:12px;font-weight:600;color:var(--mut);background:#171a20;border:1px solid var(--hair);border-radius:999px;padding:6px 12px;cursor:pointer}
+.chip.on{background:rgba(198,164,99,.16);color:var(--gold2);border-color:rgba(198,164,99,.4)}
+.chip.b{border-color:rgba(91,141,239,.4);color:#a9c4f7;background:rgba(91,141,239,.12)}
+.chip.v{border-color:rgba(139,124,240,.4);color:#c3b6f5;background:rgba(139,124,240,.12)}
+.field{width:100%;background:#0b0c0f;border:1px solid var(--hair);border-radius:10px;padding:11px 12px;color:var(--text);font-size:13px}
+.ta{min-height:64px;resize:none}
+.drop{border:1px dashed var(--hair2);border-radius:10px;padding:12px;text-align:center;color:var(--faint);font-size:12px;margin-top:8px}
+.tog{display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:12.5px;color:var(--text)}
+.sw{width:36px;height:20px;border-radius:999px;background:#23262e;border:1px solid var(--hair);position:relative;flex:none}
+.sw.on{background:linear-gradient(180deg,var(--gold2),var(--gold))}
+.sw i{position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#0b0c0f;transition:.15s}
+.sw.on i{left:18px;background:var(--ink)}
+.dial{margin-top:6px}
+.track{height:5px;border-radius:4px;background:linear-gradient(90deg,#2a6c43,#c9a24a,#8b5cf0);position:relative;margin:14px 4px 6px}
+.knob{position:absolute;top:50%;width:16px;height:16px;border-radius:50%;background:#fff;border:2px solid var(--gold);transform:translate(-50%,-50%);box-shadow:0 2px 8px rgba(0,0,0,.5)}
+.ends{display:flex;justify-content:space-between;font-size:10.5px;color:var(--faint)}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:6px}
+@media(max-width:520px){.grid{grid-template-columns:repeat(3,1fr)}}
+.cult{font-size:11.5px;text-align:center;color:var(--mut);background:#171a20;border:1px solid var(--hair);border-radius:9px;padding:8px 4px;cursor:pointer}
+.cult.on{background:rgba(198,164,99,.16);color:var(--gold2);border-color:rgba(198,164,99,.4)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.begin{width:100%;height:48px;border:none;border-radius:12px;background:linear-gradient(180deg,var(--gold2),var(--gold));color:var(--ink);font-weight:800;font-size:14.5px;cursor:pointer;margin-top:4px;box-shadow:0 10px 24px -8px rgba(198,164,99,.5)}
+.hint{font-size:11px;color:var(--faint);margin-top:6px;text-align:center}
+/* side notes */
+.side{position:sticky;top:18px}
+.note{background:linear-gradient(180deg,#14161c,#111318);border:1px solid var(--hair);border-radius:14px;padding:14px 16px;margin-bottom:12px}
+.note h3{font-size:13px;color:var(--gold2);font-weight:700;margin-bottom:6px}
+.note p{font-size:12.5px;color:var(--mut);margin:6px 0}
+.note .pill{display:inline-block;font-size:10.5px;font-weight:700;color:var(--gold2);background:rgba(198,164,99,.14);border:1px solid rgba(198,164,99,.3);border-radius:999px;padding:2px 8px;margin:2px 3px 0 0}
+.mobile{width:300px;margin:0 auto;border:8px solid #0a0b0e;border-radius:30px;overflow:hidden;box-shadow:0 30px 70px -20px rgba(0,0,0,.85)}
+.mobile .top{height:46px}
+.mobile .body{padding:14px}
+.mlab{font-size:9px;letter-spacing:1.5px;color:var(--faint);text-align:center;margin:10px 0 6px;text-transform:uppercase}
+.worked{font-size:12px;color:var(--text);background:#0e1014;border:1px solid var(--hair);border-radius:10px;padding:10px 12px;margin-top:6px;line-height:1.6}
+.worked b{color:var(--gold2)}
+.foot{margin-top:26px;color:var(--faint);font-size:12px}
+</style></head><body><div class="wrap">
+
+<header>
+<div class="eyebrow">ScripON · Studio · new intake</div>
+<h1>Start a build — one screen that asks, instead of guessing</h1>
+<p class="sub">Replaces the single textarea. Progressive disclosure: three fields visible, the rest expands as needed. Every choice here steers the whole ladder (Logline → … → Draft). This is the hi-fi look for sign-off; mobile mirror on the right.</p>
+</header>
+
+<div class="row">
+  <!-- DESKTOP INTAKE -->
+  <div class="frame">
+    <div class="top"><div class="logo">TFM</div><b style="color:var(--cream);font-weight:700">New build</b>
+      <span class="seg"><b>Original</b><b class="on">Adapt material</b><b>From a seed</b></span>
+    </div>
+    <div class="body">
+
+      <div class="band lit">
+        <div class="bh"><span class="bt">Source</span><span class="bn">BOOK · STORY · ARTICLE · SCRIPT</span></div>
+        <textarea class="field ta" placeholder="Paste a synopsis, excerpt, or logline…">The story of Antara ibn Shaddad — a real pre-Islamic Arabian warrior-poet, born a slave, who fought for his freedom and the hand of Abla…</textarea>
+        <div class="drop">⬆ or drop a file — PDF · FDX · Fountain · Word · EPUB</div>
+        <div class="lab">Or point at a real subject / article</div>
+        <input class="field" placeholder="Real person, event, or a news/article URL…" value="Antara ibn Shaddad (historical figure)">
+      </div>
+
+      <div class="band lit">
+        <div class="bh"><span class="bt">Grounding in reality</span><span class="bn">REALITY DIAL</span></div>
+        <label class="tog"><span class="sw on"><i></i></span> Based on a real story / person</label>
+        <div class="dial">
+          <div class="track"><div class="knob" style="left:38%"></div></div>
+          <div class="ends"><span>Faithful</span><span>Inspired-by</span><span>Loosely based</span></div>
+        </div>
+        <div class="two" style="margin-top:10px">
+          <label class="tog"><span class="sw on"><i></i></span> Research the subject online</label>
+          <div><div class="lab" style="margin:0 0 5px">How much real detail to use</div><div class="track" style="background:linear-gradient(90deg,#23262e,#c9a24a)"><div class="knob" style="left:55%"></div></div></div>
+        </div>
+      </div>
+
+      <div class="band lit">
+        <div class="bh"><span class="bt">Creative blend</span><span class="bn">GENRE · FANTASY LAYER</span></div>
+        <div class="lab">Genre &amp; tone</div>
+        <div class="chips"><span class="chip on">Epic</span><span class="chip on">Historical</span><span class="chip">Romance</span><span class="chip">War</span><span class="chip">Drama</span></div>
+        <label class="tog" style="margin-top:12px"><span class="sw on"><i></i></span> Add a fantasy / genre layer</label>
+        <div class="lab">What kind of fantasy?</div>
+        <div class="chips"><span class="chip on b">High fantasy (GoT)</span><span class="chip b">Grounded / low</span><span class="chip b">Mythological</span><span class="chip b">Magical realism</span><span class="chip b">Sci-fi</span></div>
+        <div class="lab">Mythical elements</div>
+        <div class="chips"><span class="chip on v">Djinn</span><span class="chip on v">Ghoul</span><span class="chip v">Magic system</span><span class="chip v">Prophecy</span><span class="chip v">Gods</span><span class="chip v">Dragons</span><span class="chip v">+ add</span></div>
+        <div class="lab">Mythology / culture the magic draws from</div>
+        <div class="grid">
+          <span class="cult on">Arabian / pre-Islamic</span><span class="cult">Norse</span><span class="cult">Greek</span><span class="cult">Egyptian</span>
+          <span class="cult">Mesopotamian</span><span class="cult">Persian</span><span class="cult">Chinese</span><span class="cult">Yoruba</span>
+          <span class="cult">Slavic</span><span class="cult">Aztec</span><span class="cult">Hindu</span><span class="cult">Wholly fictional</span>
+        </div>
+        <div class="lab" style="margin-top:12px">How mythic vs grounded</div>
+        <div class="track"><div class="knob" style="left:62%"></div></div>
+        <div class="ends"><span>Realistic</span><span>Balanced</span><span>Mythic</span></div>
+      </div>
+
+      <div class="band">
+        <div class="bh"><span class="bt">Target &amp; spine</span><span class="bn">FORMAT · MARKET</span></div>
+        <div class="two">
+          <div><div class="lab">Format</div><div class="field" style="display:flex;justify-content:space-between">Feature · 3-act <span style="color:var(--faint)">▾</span></div></div>
+          <div><div class="lab">Language</div><div class="field" style="display:flex;justify-content:space-between">Arabic <span style="color:var(--faint)">▾</span></div></div>
+          <div><div class="lab">Country / market</div><div class="field" style="display:flex;justify-content:space-between">GCC + global <span style="color:var(--faint)">▾</span></div></div>
+          <div><div class="lab">Rating target</div><div class="field" style="display:flex;justify-content:space-between">PG-15 <span style="color:var(--faint)">▾</span></div></div>
+        </div>
+        <div class="lab">Spine (optional — AI proposes if blank)</div>
+        <div class="chips"><span class="chip">Want vs need</span><span class="chip">Opposing force</span><span class="chip">Theme</span><span class="chip">Ending type</span><span class="chip">Framework: Save the Cat</span></div>
+      </div>
+
+      <div class="band">
+        <div class="bh"><span class="bt">Research scope</span><span class="bn">ON BY DEFAULT</span></div>
+        <div class="chips">
+          <span class="chip on">Real subject &amp; history</span><span class="chip on">Story-craft &amp; creative refs</span><span class="chip on">Mythology / culture</span><span class="chip on">Comps &amp; box office</span><span class="chip on">Cultural / legal fit</span><span class="chip on">General web</span>
+        </div>
+        <div class="lab" style="margin-top:10px">Research depth</div>
+        <div class="track" style="background:linear-gradient(90deg,#23262e,#c9a24a)"><div class="knob" style="left:60%"></div></div>
+        <div class="ends"><span>Light flavour</span><span>Balanced</span><span>Deep dossier</span></div>
+      </div>
+
+      <button class="begin">Begin the build →</button>
+      <div class="hint">Seeds the ladder with everything above. You can revisit any choice before each stage.</div>
+
+    </div>
+  </div>
+
+  <!-- SIDE: rationale + mobile + worked example -->
+  <div class="side">
+    <div class="note">
+      <h3>Why this fixes the "weird" flow</h3>
+      <p>The system asks before it writes — no more guessing from one blob. Each control becomes steering the AI carries down every rung.</p>
+      <p><span class="pill">progressive disclosure</span><span class="pill">3 fields → expand</span><span class="pill">budget-aware</span><span class="pill">mobile-first</span></p>
+    </div>
+    <div class="note">
+      <h3>Your example, captured</h3>
+      <div class="worked">Real hero <b>Antara</b> · reality = <b>inspired-by</b> · fantasy = <b>high (GoT)</b> · creatures = <b>djinn, ghoul</b> · mythology = <b>Arabian / pre-Islamic</b> · blend = <b>mythic-leaning</b> · research = <b>on, balanced</b>. → the Logline the ladder writes already knows all of this.</div>
+    </div>
+    <div class="mlab">Mobile — same intake, stacked</div>
+    <div class="mobile">
+      <div class="top"><div class="logo" style="width:24px;height:24px">TFM</div><b style="color:var(--cream);font-size:12px">New build</b></div>
+      <div class="body">
+        <span class="seg" style="width:100%;justify-content:space-between"><b>Original</b><b class="on">Adapt</b><b>Seed</b></span>
+        <div class="band lit" style="margin-top:12px;padding:12px"><div class="bt" style="font-size:12.5px">Source</div><div class="drop" style="margin-top:8px">Paste · drop file · real subject</div></div>
+        <div class="band lit" style="padding:12px"><div class="bt" style="font-size:12.5px">Reality</div><div class="track" style="margin-top:12px"><div class="knob" style="left:38%"></div></div><div class="ends"><span>Faithful</span><span>Loose</span></div></div>
+        <div class="band lit" style="padding:12px"><div class="bt" style="font-size:12.5px">Fantasy + culture</div><div class="chips" style="margin-top:8px"><span class="chip on b" style="font-size:11px">High fantasy</span><span class="chip on v" style="font-size:11px">Djinn</span><span class="chip on" style="font-size:11px">Arabian</span></div></div>
+        <button class="begin" style="height:42px;font-size:13px">Begin →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="foot">Hi-fi mock for sign-off · charcoal-gold theme · controls are illustrative (static). On approval: build the intake screen (desktop/tablet/mobile) + the backend steering + research integration, and wire Begin → seed the pipeline.</div>
+
+</div></body></html>

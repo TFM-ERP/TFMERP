@@ -1,0 +1,215 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TFM — Centralized Script Workflow Proposal</title>
+<style>
+  :root{--navy:#14142b;--navy2:#1f2147;--gold:#b08d57;--gold2:#caa46e;--paper:#f7f5f0;--ink:#1a1a2e;--mut:#6b7280;--line:#e7e3da;--ok:#0f766e;--okbg:#d8f0ec;--warn:#b45309;--warnbg:#fdebcf;--bad:#b91c1c;--badbg:#fbe0e0;--a:#3b5bdb;--abg:#e7ecff;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.65 -apple-system,Segoe UI,Roboto,Arial,sans-serif}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 26px 80px}
+  header.hero{background:linear-gradient(135deg,var(--navy),var(--navy2));color:#fff;padding:46px 26px 40px;margin-bottom:34px;border-bottom:4px solid var(--gold)}
+  header.hero .inner{max-width:1080px;margin:0 auto}
+  .kic{display:inline-block;font-size:11px;letter-spacing:2.5px;text-transform:uppercase;color:var(--gold2);font-weight:700;margin-bottom:10px}
+  header.hero h1{margin:0 0 8px;font-size:32px;font-weight:800;letter-spacing:-.5px}
+  header.hero p{margin:0;color:#c9cbe0;max-width:760px;font-size:15.5px}
+  h2{font-size:21px;font-weight:800;margin:42px 0 6px;letter-spacing:-.3px;display:flex;align-items:center;gap:10px}
+  h2 .n{background:var(--gold);color:#fff;width:28px;height:28px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;font-size:14px;flex:none}
+  h3{font-size:15.5px;font-weight:800;margin:22px 0 6px;color:var(--navy2)}
+  .lede{color:var(--mut);margin:2px 0 14px;font-size:14.5px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:14px 0;box-shadow:0 1px 2px rgba(20,20,43,.04)}
+  .grid{display:grid;gap:14px}
+  .g3{grid-template-columns:repeat(3,1fr)}.g2{grid-template-columns:repeat(2,1fr)}
+  @media(max-width:760px){.g3,.g2{grid-template-columns:1fr}}
+  .tag{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;text-transform:uppercase;letter-spacing:.4px}
+  .t-bad{background:var(--badbg);color:var(--bad)}.t-ok{background:var(--okbg);color:var(--ok)}.t-warn{background:var(--warnbg);color:var(--warn)}.t-a{background:var(--abg);color:var(--a)}.t-n{background:#eee;color:#555}
+  table{border-collapse:collapse;width:100%;font-size:13.5px;margin:8px 0}
+  th{background:var(--navy);color:#fff;text-align:left;padding:8px 10px;font-size:11px;text-transform:uppercase;letter-spacing:.4px;font-weight:700}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  tr:nth-child(even) td{background:#faf9f6}
+  code{background:#f0ede6;border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:12.5px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .flow{display:flex;align-items:stretch;gap:0;flex-wrap:wrap;margin:10px 0}
+  .node{background:#fff;border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;min-width:120px;text-align:center;font-size:12.5px}
+  .node b{display:block;font-size:13px}
+  .arrow{display:flex;align-items:center;color:var(--gold);font-weight:800;padding:0 8px;font-size:18px}
+  .pill{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--line);border-radius:999px;padding:4px 12px;font-size:12.5px;margin:3px 4px 3px 0}
+  .swatch{width:13px;height:13px;border-radius:3px;border:1px solid rgba(0,0,0,.15);display:inline-block}
+  ul.clean{margin:6px 0;padding-left:20px}ul.clean li{margin:4px 0}
+  .callout{border-left:4px solid var(--gold);background:#fffdf8;padding:12px 16px;border-radius:0 10px 10px 0;margin:14px 0}
+  .callout.bad{border-color:var(--bad);background:#fff7f7}
+  .callout.ok{border-color:var(--ok);background:#f4fbf9}
+  .small{font-size:12.5px;color:var(--mut)}
+  .phase{display:flex;gap:12px;align-items:flex-start;margin:10px 0;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:#fff}
+  .phase .p{flex:none;width:42px;height:42px;border-radius:9px;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800}
+  .fork{border:1px dashed var(--gold);border-radius:10px;padding:14px 16px;margin:12px 0;background:#fffdf8}
+  .rec{color:var(--ok);font-weight:700}
+  a{color:var(--a)}
+</style></head><body>
+<header class="hero"><div class="inner">
+  <span class="kic">TFM-System · Architecture Proposal</span>
+  <h1>One Script to Feed Them All</h1>
+  <p>Centralizing script upload, color-revision versioning, AI breakdown, and downstream sync into a single source of truth that projects into scheduling, casting, locations, budgeting and call sheets — with production-standard revision tracking and far fewer steps.</p>
+</div></header>
+<div class="wrap">
+
+<h2><span class="n">1</span> The real problem: three scripts, not one</h2>
+<p class="lede">An audit of the codebase shows the chaos isn't just duplicate buttons — the same screenplay is represented in <b>three systems that never reconcile</b>.</p>
+<div class="grid g3">
+  <div class="card"><span class="tag t-bad">System A</span><h3 style="margin-top:8px">Stripboard / Breakdown</h3><p class="small"><code>production/breakdown</code> + <code>scheduling</code>. Upload → parse → <b>AI element tagging</b> → <code>ProductionStrip</code> + <code>BreakdownElement</code>. The <b>only</b> path that runs AI and the only one feeding budget, DOOD, cast and call sheets.</p></div>
+  <div class="card"><span class="tag t-warn">System B</span><h3 style="margin-top:8px">Script Hub / Documents</h3><p class="small"><code>production/script</code>. Upload → parse scenes → <code>ScriptDocument / Revision / Scene</code>. Holds the <b>real PDF, revisions, annotations, lining, sides</b> — but produces <b>no breakdown elements</b> (a $0 local heuristic only).</p></div>
+  <div class="card"><span class="tag t-n">System C</span><h3 style="margin-top:8px">Script Library</h3><p class="small"><code>MasterScript</code> — a company-level script linkable into many projects, copied in as a System-B document. Scenes stored as denormalized JSON.</p></div>
+</div>
+<div class="callout bad"><b>Headline finding.</b> The proper, revision-tracked script (System&nbsp;B) is <b>breakdown-blind</b>; the AI only ever runs on a <i>separate</i> strip-side upload (System&nbsp;A). A user can upload the same screenplay twice and get two unrelated representations that never sync. There are <b>two different parsers</b> and <b>two scene schemas</b> for the same file.</p></div>
+
+<h3>Where the same work can be triggered today</h3>
+<table>
+  <thead><tr><th>Entry point</th><th>What it actually does</th><th>Writes</th><th>Data behavior</th></tr></thead>
+  <tbody>
+    <tr><td>Schedule → <b>Script → full setup</b></td><td>Upload + parse + AI tag + auto-schedule + budget</td><td>Strips, Elements, Budget</td><td><span class="tag t-bad">Replaces</span></td></tr>
+    <tr><td>Schedule → <b>Import script</b></td><td>Upload + parse + AI tag</td><td>Strips, Elements</td><td><span class="tag t-bad">Replaces</span></td></tr>
+    <tr><td>Script tab → <b>Upload revision</b></td><td>Upload + parse scenes (no AI)</td><td>Revision, Scenes</td><td><span class="tag t-ok">Appends</span></td></tr>
+    <tr><td><b>/scripts</b> Library → Upload</td><td>Upload + parse scenes (no AI)</td><td>Master revision</td><td><span class="tag t-ok">Appends</span></td></tr>
+    <tr><td>Project creation → "break down"</td><td>Just deep-links to Schedule (entry 1/2)</td><td>—</td><td><span class="tag t-n">Redirect</span></td></tr>
+    <tr><td>Casting → <b>Generate from breakdown</b></td><td>Reads Elements → casting calls</td><td>Calls</td><td><span class="tag t-ok">Idempotent</span></td></tr>
+    <tr><td>Captain → <b>Sync from schedule</b></td><td>Reads call sheet → transport runs</td><td>Runs</td><td><span class="tag t-ok">Idempotent</span></td></tr>
+  </tbody>
+</table>
+<p class="small">Plus <b>three</b> separate Breakdown→Budget generators (<code>pushToBudget</code>, <code>budgetFromBreakdown</code>, <code>applyMapping</code>) that can each add lines independently — silent divergence risk.</p>
+<h2><span class="n">2</span> What the industry does</h2>
+<p class="lede">Modern production platforms (StudioBinder, Filmustage, Scenechronize/Movie&nbsp;Magic) converge on one model: <b>the script is the master; you tag once; everything else is a projection that re-syncs on a new revision.</b></p>
+<div class="grid g2">
+  <div class="card"><h3>Single-source sync</h3><ul class="clean small">
+    <li><b>StudioBinder:</b> "Syncing your script ensures screenplay updates are applied across your <i>entire</i> project — breakdowns, stripboards, shot lists, call sheets stay on the latest version."</li>
+    <li><b>Filmustage:</b> structured breakdown "keeps everything in sync when the script changes — updating breakdowns and reports instead of forcing teams to restart." Every tagged element "becomes a budget line item." AI "links all mentions" of an element across the script.</li>
+    <li>Tag an element <b>once</b>; it flows to schedule, budget, cast and reports. A new draft → a <b>diff/sync</b>, never a re-do.</li>
+  </ul></div>
+  <div class="card"><h3>Production-standard revisions</h3>
+    <p class="small" style="margin:0 0 8px">The WGA colour wheel, in order:</p>
+    <div>
+      <span class="pill"><span class="swatch" style="background:#ffffff"></span>White</span>
+      <span class="pill"><span class="swatch" style="background:#9ec5ff"></span>Blue</span>
+      <span class="pill"><span class="swatch" style="background:#ffc0cb"></span>Pink</span>
+      <span class="pill"><span class="swatch" style="background:#fff27a"></span>Yellow</span>
+      <span class="pill"><span class="swatch" style="background:#b6e7a0"></span>Green</span>
+      <span class="pill"><span class="swatch" style="background:#e7c84e"></span>Goldenrod</span>
+      <span class="pill"><span class="swatch" style="background:#f3e4c0"></span>Buff</span>
+      <span class="pill"><span class="swatch" style="background:#ff9e80"></span>Salmon</span>
+      <span class="pill"><span class="swatch" style="background:#d6444a"></span>Cherry</span>
+      <span class="pill"><span class="swatch" style="background:#d8c39a"></span>Tan</span>
+    </div>
+    <p class="small" style="margin:8px 0 0">…then <b>Double White, Double Blue…</b> if it keeps going. Paired with <b>locked pages</b> (freeze page numbering for production), <b>A-pages</b> (3 → 3A when content expands), and <b>asterisk revision marks</b> on changed lines. "Lock the script" is the gate that starts scheduling.</p>
+  </div>
+</div>
+<div class="callout"><b>The principle to adopt:</b> the screenplay is not an input to five tools — it is the <b>spine</b>. Each module renders a <i>view</i> of the current locked revision, and re-renders when a new revision is approved.</p></div>
+<h2><span class="n">3</span> Proposed architecture — "Script is the Spine"</h2>
+<p class="lede">Collapse the three systems into one. The <b>Script Hub document + its active locked revision</b> becomes the single source of truth. Breakdown is tagged on the script's scenes. Everything downstream is a generated projection.</p>
+<div class="card">
+  <div class="flow">
+    <div class="node" style="border-color:var(--gold);background:#fffdf8"><b>① Script Hub</b>upload · parse · revisions (colour wheel) · lock</div>
+    <div class="arrow">→</div>
+    <div class="node" style="border-color:var(--gold);background:#fffdf8"><b>② Breakdown</b>AI tag once per revision · elements on <code>ScriptScene</code></div>
+    <div class="arrow">→</div>
+    <div class="node"><b>③ Projection engine</b>one scene → one strip (by id) · "Sync"</div>
+  </div>
+  <div class="flow" style="justify-content:center;margin-top:4px">
+    <div class="arrow" style="transform:rotate(90deg)">→</div>
+  </div>
+  <div class="flow">
+    <div class="node"><b>Scheduling</b>strips, DOOD, scenarios</div>
+    <div class="node"><b>Casting</b>roles from CAST elements</div>
+    <div class="node"><b>Locations</b>needs from sets/locations</div>
+    <div class="node"><b>Budget</b>lines from elements</div>
+    <div class="node"><b>Call sheets</b>day = scheduled scenes</div>
+  </div>
+  <p class="small" style="text-align:center;margin:10px 0 0">All five read the <b>same</b> tagged master. None of them ingest or re-parse a file.</p>
+</div>
+
+<div class="grid g3">
+  <div class="card"><h3>① One front door</h3><p class="small">The <b>only</b> place a file is uploaded/parsed is the Script Hub revision uploader (System B's pipeline, which already does PDF + revisions + annotations). The second parser is retired. Every other "import" becomes a shortcut that opens the hub or triggers the shared pipeline — never a parallel ingest.</p></div>
+  <div class="card"><h3>② Tag once</h3><p class="small">The AI breakdown engine is re-pointed to run over a revision's <code>ScriptScene</code> rows, writing <code>BreakdownElement</code> bound to <b>sceneId</b> (the master) — not to a strip. It runs <b>once per revision</b>, with a per-scene <code>brokenDownAt</code> stamp and a <code>source</code> flag so manual edits are never wiped.</p></div>
+  <div class="card"><h3>③ Project, don't duplicate</h3><p class="small">Strips, budget lines, casting calls, per-diem and call-sheet inputs are <b>generated views</b> of the tagged scenes, linked by id. One <b>"Sync from script"</b> action refreshes them; a new revision produces a reviewed <b>change-list</b>, not a silent overwrite.</p></div>
+</div>
+
+<h2><span class="n">4</span> Data model — additive deltas only</h2>
+<p class="lede">Every change is additive and nullable, so existing rows and queries keep working (the project's governing rule: "don't mess a thing"). No destructive migration.</p>
+<table>
+  <thead><tr><th>Model</th><th>Add</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr><td><code>BreakdownElement</code></td><td><code>sceneId → ScriptScene?</code>, <code>source (AI|MANUAL)</code>, <code>revisionId?</code></td><td><b>The keystone.</b> Moves breakdown onto the script scene (master); keeps <code>stripId</code> for the derived strip. Lets the same element drive strip, budget &amp; cast.</td></tr>
+    <tr><td><code>ScriptScene</code></td><td><code>breakdownStatus</code>, <code>brokenDownAt</code>, <code>setName</code>, <code>locationId?</code>, <code>pages(eighths)</code>, <code>estMinutes?</code></td><td>The scene becomes the unit of work (it already has <code>productionStripId</code>). Carries enough to <i>generate</i> a strip 1:1.</td></tr>
+    <tr><td><code>ScriptRevision</code></td><td><code>revisionColor(enum)</code>, <code>revisionRound</code>, <code>revisionDate</code>, <code>isLocked</code>, <code>lockedAt</code>, <code>supersedesId?</code>, <code>changeSummary</code></td><td>Production-standard colour wheel + "lock the script" gate + parent link for diffing.</td></tr>
+    <tr><td><code>ScriptScene</code> (marks)</td><td><code>revisionMark(bool)</code>, <code>pageLabel ("3A")</code></td><td>Asterisk revision marks &amp; A-page labels carried per scene/page.</td></tr>
+    <tr><td><i>new</i> <code>ScriptSyncLog</code></td><td>revisionId, diff JSON, appliedBy, appliedAt</td><td>Audit of every change-list applied to downstream modules — reversible &amp; traceable.</td></tr>
+  </tbody>
+</table>
+<p class="small"><b>Back-compat:</b> <code>ProductionStrip</code> stays exactly as-is and remains the schedule unit; it simply gains its content <i>from</i> a scene instead of from a separate import. The existing <code>ScriptScene.productionStripId</code> becomes the live 1:1 link (already built in M6's reconciler — by id, not scene-number string).</p>
+<h2><span class="n">5</span> Change propagation — the reviewed "sync", not a silent overwrite</h2>
+<p class="lede">When a new revision is locked, the system computes a <b>diff</b> and shows a change-list the AD/producer approves. Locked or hand-edited downstream items are protected — they warn, they don't get clobbered.</p>
+<div class="card">
+  <div class="flow">
+    <div class="node"><b>New revision</b>Pink locked</div><div class="arrow">→</div>
+    <div class="node"><b>Diff vs prior</b>scenes ± · elements ±</div><div class="arrow">→</div>
+    <div class="node" style="border-color:var(--a)"><b>Change-list</b>review &amp; approve</div><div class="arrow">→</div>
+    <div class="node" style="border-color:var(--ok)"><b>Apply</b>to projections + log</div>
+  </div>
+</div>
+<div class="grid g2">
+  <div class="card"><h3>Example change-list</h3><ul class="clean small">
+    <li><span class="tag t-ok">＋ Scene 14A</span> EXT / DESERT / NIGHT → add 1 strip, 1 location need, cast: <i>Tim</i></li>
+    <li><span class="tag t-warn">~ Scene 7</span> pages 2.0 → 3.25, +2 background → update strip + budget qty</li>
+    <li><span class="tag t-bad">－ Scene 22</span> deleted → its strip is <b>locked on Day 4</b> ⚠ confirm removal</li>
+    <li><span class="tag t-a">↻ Scene 3</span> moved INT→EXT → re-flag for sun/daylight conflict check</li>
+  </ul></div>
+  <div class="card"><h3>Protections (the "don't mess a thing" gate)</h3><ul class="clean small">
+    <li>Locked strips / published call sheets → <b>warn before change</b>, never auto-rewrite.</li>
+    <li>Manually-tagged elements (<code>source=MANUAL</code>) → preserved across re-sync.</li>
+    <li>Budget lines the user edited → flagged, not overwritten.</li>
+    <li>Every apply is written to <code>ScriptSyncLog</code> and is reversible.</li>
+  </ul></div>
+</div>
+
+<h2><span class="n">6</span> De-duplication — before → after</h2>
+<table>
+  <thead><tr><th>Today (scattered)</th><th>After (centralized)</th></tr></thead>
+  <tbody>
+    <tr><td>4 upload/parse paths, 2 parsers, 2 scene schemas</td><td><b>1</b> upload path · <b>1</b> parser · <b>1</b> scene schema (Script Hub)</td></tr>
+    <tr><td>AI runs on strip-side import only; re-runs every time (no guard)</td><td>AI runs <b>once per revision</b> on scenes; idempotent, diff-only on new revisions</td></tr>
+    <tr><td>"Full setup" &amp; "Import script" buttons in Schedule</td><td>Removed → a <b>"Sync from script"</b> chip that reads the master</td></tr>
+    <tr><td>Project-creation "break down" deep-link</td><td>Inline "Add script" → same hub pipeline</td></tr>
+    <tr><td>3 Breakdown→Budget generators</td><td><b>1</b> generator (mapping + rate card)</td></tr>
+    <tr><td>Casting "Generate from breakdown" (separate)</td><td>A projection step in the one sync; still one-click, same data</td></tr>
+    <tr><td>Captain "Sync from schedule", per-diem, call-sheet pulls</td><td>Kept as projection refreshers — all read the one master, none re-ingest</td></tr>
+  </tbody>
+</table>
+
+<h2><span class="n">7</span> The unified experience</h2>
+<div class="grid g2">
+  <div class="card"><h3>One Script workspace (the hub)</h3><ul class="clean small">
+    <li><b>Revisions</b> — colour wheel, lock the script, A-pages, revision marks, diff vs prior</li>
+    <li><b>Breakdown</b> — tag once (AI-assist + manual), element library, per-category</li>
+    <li><b>Scenes</b> — the parsed spine (the unit everything derives from)</li>
+    <li><b>Projections</b> — live "in sync / drift" badges for Schedule · Budget · Casting · Locations · Call sheets, with one <b>Sync</b> button + change-list</li>
+    <li><b>Annotations · Lining · Sides</b> — existing, unchanged</li>
+  </ul></div>
+  <div class="card"><h3>Everywhere else</h3><p class="small">Modules drop their own upload/import buttons and instead show a small status chip:</p>
+    <div class="pill" style="border-color:var(--ok)"><span class="swatch" style="background:#ffc0cb"></span> Script <b>vPink · locked</b> · in sync</div>
+    <div class="pill" style="border-color:var(--warn)">⚠ <b>3 scenes drifted</b> — Sync</div>
+    <p class="small" style="margin-top:8px">One mental model: "this view comes from the script." No more wondering which upload is the real one.</p>
+  </div>
+</div>
+<h2><span class="n">8</span> Phased, additive migration</h2>
+<p class="lede">Nothing is ripped out up front. Each phase ships value and is reversible; the old paths keep working until the new one is proven.</p>
+<div class="phase"><div class="p">P0</div><div><b>Bridge (no breakage).</b> Add the additive fields (<code>BreakdownElement.sceneId</code>, revision colour/lock, <code>ScriptSyncLog</code>). Make the M6 reconciler the canonical scene↔strip link by id. Ship a read-only <b>Projections status</b> panel in the Script hub showing drift. Nothing removed.</div></div>
+<div class="phase"><div class="p">P1</div><div><b>Unify ingest + tag-once.</b> Re-point the AI engine to run on a revision's scenes (elements on <code>sceneId</code>), with <code>brokenDownAt</code> + <code>source</code> idempotency. Route Schedule "Import/Full-setup" and Project-creation to call this shared pipeline. Old buttons become shortcuts.</div></div>
+<div class="phase"><div class="p">P2</div><div><b>Projection engine + change-list.</b> "Sync from script" orchestrator generates strips/budget/cast/per-diem/call-sheet from the master; new revisions produce the reviewed diff change-list with locked-item protection. Collapse the 3 budget generators to 1.</div></div>
+<div class="phase"><div class="p">P3</div><div><b>Revision standard + UX polish.</b> Colour-wheel automation, locked pages / A-pages / revision marks, the unified Script workspace tabs, retire the second parser, demote duplicate buttons to status chips.</div></div>
+
+<h2><span class="n">9</span> Decisions for you</h2>
+<p class="lede">A few genuine forks shape the build. My recommendation is marked; tell me where you'd steer differently.</p>
+<div class="fork"><b>A · Where does the hub live?</b><br><span class="small">Promote the existing <b>Script module</b> to the single source of truth <span class="rec">(recommended — it already owns PDF, revisions &amp; annotations)</span>, vs. build a new top-level workspace. </span></div>
+<div class="fork"><b>B · Propagation model.</b><br><span class="small">New-revision changes flow via a <b>reviewed change-list the producer approves</b> <span class="rec">(recommended — safe, industry-standard)</span>, vs. fully automatic propagation. </span></div>
+<div class="fork"><b>C · Duplicate entry points.</b><br><span class="small">Keep contextual shortcuts (Schedule, Casting) that <b>deep-link into the one engine</b> <span class="rec">(recommended — discoverability without duplication)</span>, vs. hard-remove them so the Script hub is the only door. </span></div>
+<div class="fork"><b>D · The strip ↔ scene relationship.</b><br><span class="small"><b>One scene → one strip, auto-generated &amp; linked by id</b> <span class="rec">(recommended)</span>, vs. let strips be split/merged independently of scenes (more flexible, looser sync). </span></div>
+
+<div class="callout ok"><b>Net effect.</b> One upload. One AI pass per revision. One tagged master. Five modules that render it and stay in sync through a reviewed change-list — with real colour-revision tracking underneath. Fewer steps, no divergence, production-grade.</div>
+
+<p class="small" style="margin-top:26px;border-top:1px solid var(--line);padding-top:14px">Sources — WGA revision colours &amp; mechanics: StudioBinder, Final Draft KB, FilmDaft, Scriptation, SetHero. Single-source sync model: StudioBinder Support (“sync a script to the project”, “stripboards”), Filmustage (features, budgeting). Audit: TFM-System codebase (<code>production/breakdown</code>, <code>production/script</code>, <code>production/scheduling</code>, <code>schema.prisma</code>).</p>
+
+</div></body></html>

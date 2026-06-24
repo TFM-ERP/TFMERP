@@ -1,0 +1,81 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ScripON — "Develop this" button options</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Fraunces:opsz,wght@9..144,600&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0C0D10;font-family:Inter,system-ui,sans-serif;color:#E8E6E0;min-height:100vh;padding:34px 20px 70px;display:flex;flex-direction:column;align-items:center}
+.glowA{position:fixed;top:-320px;left:50%;transform:translateX(-50%);width:1300px;height:900px;pointer-events:none;background:radial-gradient(circle at center,rgba(198,164,99,.16),transparent 70%)}
+.cap{position:relative;z-index:2;color:#6f654f;font-size:11px;letter-spacing:3px;font-weight:700;margin-bottom:6px}
+.ttl{position:relative;z-index:2;font-family:Fraunces,Georgia,serif;font-size:24px;color:#F3ECDD;margin-bottom:4px}
+.sub{position:relative;z-index:2;color:#9aa1ab;font-size:13px;margin-bottom:26px;text-align:center;max-width:620px}
+.grid{position:relative;z-index:2;width:1200px;max-width:calc(100vw - 36px);display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.dcard{background:rgba(21,24,29,.72);border:1px solid rgba(255,255,255,.09);border-radius:16px;padding:16px 18px;display:flex;flex-direction:column;gap:9px;backdrop-filter:blur(20px)}
+.optname{font-size:11px;font-weight:800;letter-spacing:.5px;color:#C6A463}
+.dlabel{font-size:12px;font-weight:800;letter-spacing:.6px;color:#E6D2A2;margin-top:2px}
+.dlog{font-size:13px;line-height:1.4;color:#F3ECDD;font-weight:600}
+.drow{font-size:11px;color:#9aa1ab}.drow b{color:#C6A463;margin-right:4px}
+.foot{margin-top:6px}
+
+/* shared base */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%;height:42px;border-radius:11px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid transparent;transition:.18s;font-family:inherit}
+.btn .ar{transition:transform .18s}
+.btn:hover .ar{transform:translateX(3px)}
+
+/* A — Outline gold (light, elegant) */
+.btn.a{background:transparent;border-color:rgba(198,164,99,.5);color:#E6D2A2}
+.btn.a:hover{background:rgba(198,164,99,.12);border-color:rgba(198,164,99,.8)}
+
+/* B — Soft filled tint */
+.btn.b{background:rgba(198,164,99,.14);border-color:rgba(198,164,99,.38);color:#E6D2A2}
+.btn.b:hover{background:rgba(198,164,99,.22)}
+
+/* C — Slim gradient (refined current) */
+.btn.c{height:40px;background:linear-gradient(180deg,#E6D2A2,#C6A463);color:#15120B;font-weight:800;letter-spacing:.2px;box-shadow:0 6px 16px -6px rgba(198,164,99,.5)}
+.btn.c:hover{filter:brightness(1.05)}
+
+/* D — Text link (minimal) */
+.btn.d{background:transparent;border:none;color:#E6D2A2;width:auto;height:auto;padding:6px 2px;justify-content:flex-start;font-weight:700;position:relative}
+.btn.d::after{content:"";position:absolute;left:2px;bottom:0;height:1px;width:0;background:#C6A463;transition:width .2s}
+.btn.d:hover::after{width:calc(100% - 26px)}
+
+/* E — Dark pill + gold arrow chip */
+.btn.e{background:#171a20;border-color:rgba(255,255,255,.1);color:#F3ECDD;padding-right:6px}
+.btn.e:hover{border-color:rgba(198,164,99,.4)}
+.btn.e .chip{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;background:linear-gradient(180deg,#E6D2A2,#C6A463);color:#15120B;font-weight:900;margin-left:auto}
+
+/* F — Ghost-to-gold (fills on hover) */
+.btn.f{background:transparent;border-color:rgba(198,164,99,.45);color:#E6D2A2;position:relative;overflow:hidden;z-index:0}
+.btn.f span,.btn.f .ar{position:relative;z-index:1}
+.btn.f::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,#E6D2A2,#C6A463);transform:translateY(101%);transition:transform .22s;z-index:0}
+.btn.f:hover{color:#15120B;border-color:transparent}
+.btn.f:hover::before{transform:translateY(0)}
+</style></head>
+<body>
+<div class="glowA"></div>
+<div class="cap">THE FILM MAKERS · DEVELOPMENT</div>
+<div class="ttl">"Develop this" — button options</div>
+<div class="sub">Same card, six button styles. Hover each to feel it. Tell me a letter (or mix — e.g. "A but gold text").</div>
+
+<div class="grid" id="grid"></div>
+
+<script>
+const OPTS = [
+  ['A','Outline gold — light & elegant','a','<span>Develop this</span><span class="ar">→</span>'],
+  ['B','Soft gold tint','b','<span>Develop this</span><span class="ar">→</span>'],
+  ['C','Slim gradient (refined)','c','<span>Develop this</span><span class="ar">→</span>'],
+  ['D','Text link — minimal','d','<span>Develop this</span><span class="ar" style="margin-left:6px">→</span>'],
+  ['E','Dark pill + gold arrow chip','e','<span>Develop this</span><span class="chip">→</span>'],
+  ['F','Ghost that fills on hover','f','<span>Develop this</span><span class="ar">→</span>'],
+];
+const grid = document.getElementById('grid');
+OPTS.forEach(([letter,name,cls,inner])=>{
+  const c=document.createElement('div');c.className='dcard';
+  c.innerHTML=`<div class="optname">OPTION ${letter} · ${name}</div>
+    <div class="dlabel">FAITHFUL</div>
+    <div class="dlog">A half-Abyssinian slave-warrior earns his freedom and his father’s name — then his blood claims him.</div>
+    <div class="drow"><b>Tone</b>Epic, grounded, mythic-real.</div>
+    <div class="foot"><button class="btn ${cls}">${inner}</button></div>`;
+  grid.appendChild(c);
+});
+</script>
+</body></html>

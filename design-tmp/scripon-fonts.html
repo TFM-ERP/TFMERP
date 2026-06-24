@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ScripON — Font specimen (Arabic + English)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Cairo:wght@400;600;700&family=Tajawal:wght@400;500;700&family=Almarai:wght@400;700&family=Rubik:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Amiri:ital,wght@0,400;0,700;1,400&family=Aref+Ruqaa:wght@400;700&family=Reem+Kufi:wght@400;600;700&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0b0c0f;--panel:#14161c;--panel2:#1a1d24;--hair:rgba(255,255,255,.08);--hair2:rgba(255,255,255,.14);--gold:#C6A463;--gold2:#E6D2A2;--cream:#F4EEE0;--text:#E8E6E0;--mute:#9aa1ab;--faint:#6b727d}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:radial-gradient(1200px 600px at 50% -8%,#15171d,#0b0c0f 60%);color:var(--text);font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased;padding:34px 22px 80px}
+  .wrap{max-width:1180px;margin:0 auto}
+  h1{font-family:Fraunces,Georgia,serif;font-weight:600;font-size:30px;color:var(--cream);letter-spacing:-.2px}
+  .sub{color:var(--mute);font-size:14px;margin-top:6px;line-height:1.6;max-width:760px}
+  .eyebrow{font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin:34px 0 12px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:880px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--hair);border-radius:16px;padding:18px 20px;position:relative}
+  .card.rec{border-color:rgba(198,164,99,.5);box-shadow:0 0 0 1px rgba(198,164,99,.15)}
+  .badge{position:absolute;top:14px;inset-inline-end:16px;font-size:10px;font-weight:800;letter-spacing:.5px;color:var(--goldink,#15120B);background:linear-gradient(180deg,var(--gold2),var(--gold));padding:3px 9px;border-radius:99px}
+  .pname{font-size:12px;font-weight:700;color:var(--gold2);letter-spacing:.3px}
+  .pmeta{font-size:11px;color:var(--faint);margin-top:2px}
+  .row{border-top:1px dashed var(--hair);margin-top:14px;padding-top:14px}
+  .lbl{font-size:9.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--faint);margin-bottom:8px}
+  .ar{direction:rtl;text-align:right}
+  .en{direction:ltr;text-align:left;margin-top:12px}
+  .title{font-size:30px;font-weight:600;color:var(--cream);line-height:1.2}
+  .head{font-size:18px;font-weight:700;color:var(--cream);margin-top:4px}
+  .body{font-size:14px;line-height:1.75;color:var(--text);margin-top:6px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .chip{font-size:11.5px;color:var(--gold2);background:rgba(198,164,99,.1);border:1px solid rgba(198,164,99,.28);border-radius:99px;padding:3px 10px}
+  .slug{font-size:12px;color:var(--mute);letter-spacing:.4px;margin-top:8px;font-weight:600}
+  .titlecard .ar .title,.titlecard .en .title{font-size:40px}
+  .note{color:var(--faint);font-size:12.5px;margin-top:10px;line-height:1.6}
+  /* pairing font stacks */
+  .f-plex .ar *{font-family:'IBM Plex Sans Arabic',sans-serif}.f-plex .en *{font-family:'IBM Plex Sans',sans-serif}
+  .f-rubik .ar *,.f-rubik .en *{font-family:'Rubik',sans-serif}
+  .f-tajawal .ar *{font-family:'Tajawal',sans-serif}.f-tajawal .en *{font-family:'Inter',sans-serif}
+  .f-cairo .ar *{font-family:'Cairo',sans-serif}.f-cairo .en *{font-family:'Inter',sans-serif}
+  .f-almarai .ar *{font-family:'Almarai',sans-serif}.f-almarai .en *{font-family:'Inter',sans-serif}
+  /* title/display options */
+  .t-amiri .ar .title{font-family:'Amiri',serif}.t-amiri .en .title{font-family:'Fraunces',serif}
+  .t-aref .ar .title{font-family:'Aref Ruqaa',serif}.t-aref .en .title{font-family:'Playfair Display',serif}
+  .t-reem .ar .title{font-family:'Reem Kufi',sans-serif}.t-reem .en .title{font-family:'Fraunces',serif}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>ScripON — choose a typeface</h1>
+  <div class="sub">Each card shows the same content in Arabic (RTL) and English so you can compare directly. <b>Body pairings</b> set the whole interface; <b>title styles</b> set the big work title (عنترة) and module headings. Tell me the body pairing # and the title style letter you like — I’ll apply it across all of ScripON (UI + the development package + reader chrome).</div>
+
+  <div class="eyebrow">Body pairings — the interface font</div>
+  <div class="grid">
+
+    <div class="card rec f-plex">
+      <div class="badge">RECOMMENDED</div>
+      <div class="pname">1 · IBM Plex Sans Arabic + IBM Plex Sans</div>
+      <div class="pmeta">Crisp, technical, excellent on screen. Distinct from generic UI sans; reads premium.</div>
+      <div class="row">
+        <div class="ar">
+          <div class="lbl">عربي</div>
+          <div class="title">عنترة</div>
+          <div class="head">حزمة التطوير · نظرة عامة</div>
+          <div class="body">عنترةُ العبدُ المحاربُ يسعى لحريةٍ اسمها عبلة، لكن أصلَه الملكيَّ الخفيَّ يهدد بتحويل انتصاراته إلى فخٍّ يسحق هويته وكلَّ من أحبهم.</div>
+          <div class="chips"><span class="chip">ملحمي</span><span class="chip">تاريخي</span><span class="chip">فانتازيا</span></div>
+          <div class="slug">داخلي · قصر النعمان · ليل</div>
+        </div>
+        <div class="en">
+          <div class="lbl">English</div>
+          <div class="title">ANTARAH</div>
+          <div class="head">Development Package · Overview</div>
+          <div class="body">Antarah, the warrior-slave, fights for a freedom named Abla — but his hidden royal blood threatens to turn his victories into a trap.</div>
+          <div class="chips"><span class="chip">Epic</span><span class="chip">Historical</span><span class="chip">Fantasy</span></div>
+          <div class="slug">INT · NU’MAN’S PALACE · NIGHT</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card f-rubik">
+      <div class="pname">2 · Rubik (one family, Arabic + Latin)</div>
+      <div class="pmeta">Single typeface for both scripts — maximum cohesion, friendly geometric tone.</div>
+      <div class="row">
+        <div class="ar">
+          <div class="lbl">عربي</div>
+          <div class="title">عنترة</div>
+          <div class="head">حزمة التطوير · نظرة عامة</div>
+          <div class="body">عنترةُ العبدُ المحاربُ يسعى لحريةٍ اسمها عبلة، لكن أصلَه الملكيَّ الخفيَّ يهدد بتحويل انتصاراته إلى فخٍّ يسحق هويته وكلَّ من أحبهم.</div>
+          <div class="chips"><span class="chip">ملحمي</span><span class="chip">تاريخي</span><span class="chip">فانتازيا</span></div>
+          <div class="slug">داخلي · قصر النعمان · ليل</div>
+        </div>
+        <div class="en">
+          <div class="lbl">English</div>
+          <div class="title">ANTARAH</div>
+          <div class="head">Development Package · Overview</div>
+          <div class="body">Antarah, the warrior-slave, fights for a freedom named Abla — but his hidden royal blood threatens to turn his victories into a trap.</div>
+          <div class="chips"><span class="chip">Epic</span><span class="chip">Historical</span><span class="chip">Fantasy</span></div>
+          <div class="slug">INT · NU’MAN’S PALACE · NIGHT</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card f-tajawal">
+      <div class="pname">3 · Tajawal + Inter</div>
+      <div class="pmeta">Refined, neutral, Gulf-friendly Arabic; Inter keeps the current English feel.</div>
+      <div class="row">
+        <div class="ar">
+          <div class="lbl">عربي</div>
+          <div class="title">عنترة</div>
+          <div class="head">حزمة التطوير · نظرة عامة</div>
+          <div class="body">عنترةُ العبدُ المحاربُ يسعى لحريةٍ اسمها عبلة، لكن أصلَه الملكيَّ الخفيَّ يهدد بتحويل انتصاراته إلى فخٍّ يسحق هويته وكلَّ من أحبهم.</div>
+          <div class="chips"><span class="chip">ملحمي</span><span class="chip">تاريخي</span><span class="chip">فانتازيا</span></div>
+          <div class="slug">داخلي · قصر النعمان · ليل</div>
+        </div>
+        <div class="en">
+          <div class="lbl">English</div>
+          <div class="title">ANTARAH</div>
+          <div class="head">Development Package · Overview</div>
+          <div class="body">Antarah, the warrior-slave, fights for a freedom named Abla — but his hidden royal blood threatens to turn his victories into a trap.</div>
+          <div class="chips"><span class="chip">Epic</span><span class="chip">Historical</span><span class="chip">Fantasy</span></div>
+          <div class="slug">INT · NU’MAN’S PALACE · NIGHT</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card f-cairo">
+      <div class="pname">4 · Cairo + Inter</div>
+      <div class="pmeta">Popular, slightly warmer geometric Arabic; very legible at small sizes.</div>
+      <div class="row">
+        <div class="ar">
+          <div class="lbl">عربي</div>
+          <div class="title">عنترة</div>
+          <div class="head">حزمة التطوير · نظرة عامة</div>
+          <div class="body">عنترةُ العبدُ المحاربُ يسعى لحريةٍ اسمها عبلة، لكن أصلَه الملكيَّ الخفيَّ يهدد بتحويل انتصاراته إلى فخٍّ يسحق هويته وكلَّ من أحبهم.</div>
+          <div class="chips"><span class="chip">ملحمي</span><span class="chip">تاريخي</span><span class="chip">فانتازيا</span></div>
+          <div class="slug">داخلي · قصر النعمان · ليل</div>
+        </div>
+        <div class="en">
+          <div class="lbl">English</div>
+          <div class="title">ANTARAH</div>
+          <div class="head">Development Package · Overview</div>
+          <div class="body">Antarah, the warrior-slave, fights for a freedom named Abla — but his hidden royal blood threatens to turn his victories into a trap.</div>
+          <div class="chips"><span class="chip">Epic</span><span class="chip">Historical</span><span class="chip">Fantasy</span></div>
+          <div class="slug">INT · NU’MAN’S PALACE · NIGHT</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card f-almarai">
+      <div class="pname">5 · Almarai + Inter</div>
+      <div class="pmeta">Clean, contemporary Arabic with calm rhythm; understated and modern.</div>
+      <div class="row">
+        <div class="ar">
+          <div class="lbl">عربي</div>
+          <div class="title">عنترة</div>
+          <div class="head">حزمة التطوير · نظرة عامة</div>
+          <div class="body">عنترةُ العبدُ المحاربُ يسعى لحريةٍ اسمها عبلة، لكن أصلَه الملكيَّ الخفيَّ يهدد بتحويل انتصاراته إلى فخٍّ يسحق هويته وكلَّ من أحبهم.</div>
+          <div class="chips"><span class="chip">ملحمي</span><span class="chip">تاريخي</span><span class="chip">فانتازيا</span></div>
+          <div class="slug">داخلي · قصر النعمان · ليل</div>
+        </div>
+        <div class="en">
+          <div class="lbl">English</div>
+          <div class="title">ANTARAH</div>
+          <div class="head">Development Package · Overview</div>
+          <div class="body">Antarah, the warrior-slave, fights for a freedom named Abla — but his hidden royal blood threatens to turn his victories into a trap.</div>
+          <div class="chips"><span class="chip">Epic</span><span class="chip">Historical</span><span class="chip">Fantasy</span></div>
+          <div class="slug">INT · NU’MAN’S PALACE · NIGHT</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="eyebrow">Title / display styles — the big work title &amp; module headings</div>
+  <div class="grid">
+    <div class="card titlecard t-amiri">
+      <div class="pname">A · Amiri (Arabic) + Fraunces (English) — RECOMMENDED</div>
+      <div class="pmeta">Literary naskh for Arabic + the elegant serif already used for English titles. Heritage / cinematic.</div>
+      <div class="row"><div class="ar"><div class="title">عنترة</div></div><div class="en"><div class="title">Antarah</div></div></div>
+    </div>
+    <div class="card titlecard t-aref">
+      <div class="pname">B · Aref Ruqaa (Arabic) + Playfair Display (English)</div>
+      <div class="pmeta">Calligraphic, dramatic, poster-like — strong personality for a heritage epic.</div>
+      <div class="row"><div class="ar"><div class="title">عنترة</div></div><div class="en"><div class="title">Antarah</div></div></div>
+    </div>
+    <div class="card titlecard t-reem">
+      <div class="pname">C · Reem Kufi (Arabic) + Fraunces (English)</div>
+      <div class="pmeta">Modern Kufi geometry — editorial and contemporary, less ornate than calligraphy.</div>
+      <div class="row"><div class="ar"><div class="title">عنترة</div></div><div class="en"><div class="title">Antarah</div></div></div>
+    </div>
+  </div>
+
+  <div class="note">My pick for a premium, legible, bilingual product: <b>Body 1 (IBM Plex Sans Arabic + IBM Plex Sans)</b> with <b>Title A (Amiri + Fraunces)</b>. If you want one font everywhere with zero contrast, <b>Body 2 (Rubik)</b> is the most cohesive. All are free Google Fonts — no licensing cost.</div>
+</div>
+</body>
+</html>
