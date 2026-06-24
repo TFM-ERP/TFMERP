@@ -5,6 +5,7 @@ import type { CanonConflict, CanonFactCore } from './canon.types';
 import { mapAiFactsToCore } from './canon-map.util';
 import { assessPass } from './canon-assess.util';
 import { orderChanges } from './change-order.util';
+import { canonDirective } from './canon-inject.util';
 
 @Injectable()
 export class CanonService {
@@ -143,6 +144,18 @@ export class CanonService {
     });
 
     return { versionId, continuityScore: score, conflicts };
+  }
+
+  /** Live ACTIVE canon for a script, as a CANON steering block at a story point. '' on error/empty. */
+  async directiveFor(scriptId: string, at: number, subjects?: string[]): Promise<string> {
+    try {
+      const rows: any[] = await (this.prisma as any).canonFact.findMany({
+        where: { scriptId, status: 'ACTIVE' },
+      });
+      return canonDirective(rows as CanonFactCore[], { at, subjects });
+    } catch {
+      return '';
+    }
   }
 
   /**
