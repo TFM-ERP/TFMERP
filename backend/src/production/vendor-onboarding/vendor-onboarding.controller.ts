@@ -12,6 +12,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../permissions/permissions.guard';
 import { RequirePermission } from '../../permissions/require-permission.decorator';
 import { VendorOnboardingService } from './vendor-onboarding.service';
+import { ThrottleGuard, Throttle } from '../../common/throttle/throttle.guard';
 
 const DOC_TYPES = /\.(pdf|jpg|jpeg|png|webp)$/i;
 const docUpload = {
@@ -49,6 +50,8 @@ export class VendorOnboardingController {
 
 // ── Public (no auth — gated by the JWT onboarding token) ────────────────────────────
 @ApiTags('Vendor Onboarding (public)')
+@UseGuards(ThrottleGuard)
+@Throttle(30, 60 * 1000) // 30 req/min per IP — abuse / enumeration / upload-flood guard
 @Controller('public/vendor-onboarding')
 export class VendorOnboardingPublicController {
   constructor(private service: VendorOnboardingService) {}

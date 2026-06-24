@@ -3,6 +3,7 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { LoginDto } from './dto/login.dto';
+import { ThrottleGuard, Throttle } from '../common/throttle/throttle.guard';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -10,6 +11,8 @@ export class AuthController {
   constructor(private authService: AuthService) {}
 
   @Post('login')
+  @UseGuards(ThrottleGuard)
+  @Throttle(5, 15 * 60 * 1000) // 5 attempts per 15 min per IP — brute-force guard
   @ApiOperation({ summary: 'Login with email + password (+ optional 2FA code)' })
   login(@Body() dto: LoginDto, @Request() req) {
     return this.authService.login(dto, req.ip, req.headers?.['user-agent']);

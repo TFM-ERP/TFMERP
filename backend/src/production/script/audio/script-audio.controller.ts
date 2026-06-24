@@ -13,6 +13,7 @@ import { PronunciationService } from './pronunciation.service';
 import { RenderService } from './render.service';
 import { LayersService } from './layers.service';
 import { AudioShareService } from './audio-share.service';
+import { ThrottleGuard, Throttle } from '../../../common/throttle/throttle.guard';
 
 const Auth = () => UseGuards(JwtAuthGuard, PermissionsGuard);
 
@@ -139,6 +140,8 @@ export class AudioShareController {
 
 // ── Public listen (token-gated, no auth) ───────────────────────────────────────────
 @ApiTags('Audio share (public)')
+@UseGuards(ThrottleGuard)
+@Throttle(20, 60 * 1000) // 20 req/min per IP — limits passcode brute-force on the share link
 @Controller('public/audio-share')
 export class AudioSharePublicController {
   constructor(private share: AudioShareService) {}

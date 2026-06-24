@@ -6,6 +6,9 @@ import * as QRCode from 'qrcode';
 import { createHash, randomBytes } from 'crypto';
 
 const BACKUP_CODE_COUNT = 10;
+// A real bcrypt hash compared against when no user is found, so login takes the same
+// time for unknown emails as for wrong passwords (defeats user-enumeration via timing).
+const DUMMY_HASH = bcrypt.hashSync('no-such-user-constant-time-guard', 12);
 const normalizeCode = (c: string) => (c || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 const hashCode = (c: string) => createHash('sha256').update(normalizeCode(c)).digest('hex');
 import { UsersService } from '../users/users.service';
@@ -22,11 +25,11 @@ export class AuthService {
 
   async validateUser(email: string, password: string) {
     const user = await this.usersService.findByEmail(email);
-    if (!user || !user.isActive) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-    const valid = await bcrypt.compare(password, user.passwordHash);
-    if (!valid) {
+    // Always run a bcrypt comparison (against a dummy hash when the user is missing/
+    // inactive) so the response time doesn't reveal whether the email exists.
+    const hash = user?.isActive ? user.passwordHash : DUMMY_HASH;
+    const valid = await bcrypt.compare(password, hash);
+    if (!user || !user.isActive || !valid) {
       throw new UnauthorizedException('Invalid credentials');
     }
     return user;

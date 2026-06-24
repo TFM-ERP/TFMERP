@@ -5,6 +5,7 @@ import { MailService } from '../mail/mail.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../permissions/permissions.guard';
 import { RequirePermission } from '../../permissions/require-permission.decorator';
+import { ThrottleGuard, Throttle } from '../../common/throttle/throttle.guard';
 
 // ── Authenticated — build / manage / share clearance packs ──────────────────────────
 @ApiTags('Production')
@@ -43,6 +44,8 @@ export class ClearancePacksController {
 
 // ── Public — venues open the time-limited link (gated by the unguessable token) ──────
 @ApiTags('Clearance (public)')
+@UseGuards(ThrottleGuard)
+@Throttle(30, 60 * 1000) // 30 req/min per IP — token-enumeration guard
 @Controller('public/clearance')
 export class ClearancePacksPublicController {
   constructor(private service: ClearancePacksService) {}
