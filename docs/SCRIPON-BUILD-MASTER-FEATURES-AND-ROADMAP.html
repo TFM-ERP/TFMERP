@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ScripON Build — Master Features &amp; Roadmap</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700&family=Tajawal:wght@400;500;700&family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Courier+Prime&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b0c0f;--panel:#14161c;--panel2:#191c23;--hair:rgba(255,255,255,.08);--hair2:rgba(255,255,255,.14);--gold:#C6A463;--gold2:#E6D2A2;--goldink:#15120B;--cream:#F4EEE0;--text:#E7E3D8;--mut:#9aa1ab;--faint:#6b727d;--blue:#5b8def;--green:#57b368;--amber:#e0a23b;--red:#e5635f;--violet:#8b7cf0;--teal:#48b6a0}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:radial-gradient(1200px 700px at 50% -10%,#15171d,#0b0c0f 60%);color:var(--text);font-family:'Rubik',system-ui,sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased;padding:0 0 90px}
+.wrap{max-width:1100px;margin:0 auto;padding:0 22px}
+header.top{padding:44px 0 18px;border-bottom:1px solid var(--hair);margin-bottom:8px}
+.eyebrow{font-size:11px;font-weight:700;letter-spacing:2px;color:var(--gold);text-transform:uppercase}
+h1{font-family:'Fraunces',serif;font-size:34px;font-weight:600;color:var(--cream);letter-spacing:-.4px;margin:10px 0 8px}
+.sub{font-size:15px;color:var(--mut);max-width:880px}
+h2{font-family:'Fraunces',serif;font-size:23px;font-weight:600;color:var(--cream);margin:42px 0 4px;scroll-margin-top:14px;padding-top:6px}
+.h2note{font-size:13px;color:var(--mut);margin-bottom:14px;max-width:900px}
+h3{font-size:12px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--gold);margin:18px 0 8px}
+h4{font-size:14px;font-weight:600;color:var(--cream);margin:6px 0}
+.ar{font-family:'Tajawal',sans-serif;direction:rtl}
+.card{background:var(--panel);border:1px solid var(--hair);border-radius:16px;padding:18px 20px;margin:14px 0}
+.card.lit{border-color:rgba(198,164,99,.4)}
+.card.warn{border-color:rgba(229,99,95,.4);background:rgba(229,99,95,.05)}
+.card.go{border-color:rgba(87,179,104,.35);background:rgba(87,179,104,.05)}
+.chips{display:flex;flex-wrap:wrap;gap:7px;margin:8px 0}
+.chip{font-size:12.5px;font-weight:500;color:var(--text);background:#171a21;border:1px solid var(--hair);border-radius:999px;padding:6px 12px}
+.chip.on{color:var(--goldink);background:linear-gradient(180deg,var(--gold2),var(--gold));border-color:transparent;font-weight:600}
+.chip.b{color:#a9c4f7;background:rgba(91,141,239,.12);border-color:rgba(91,141,239,.3)}
+.chip.g{color:#9fe3c0;background:rgba(87,179,104,.12);border-color:rgba(87,179,104,.3)}
+.chip.v{color:#c3b6f5;background:rgba(139,124,240,.12);border-color:rgba(139,124,240,.3)}
+.chip.t{color:#a7e4d8;background:rgba(72,182,160,.12);border-color:rgba(72,182,160,.3)}
+.chip .n{font-size:10px;color:var(--faint);margin-inline-end:6px}
+.pill{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.4px;padding:2px 8px;border-radius:999px;vertical-align:middle}
+.p-new{background:rgba(87,179,104,.16);color:var(--green)}
+.p-keep{background:rgba(91,141,239,.16);color:var(--blue)}
+.p-guard{background:rgba(229,99,95,.16);color:var(--red)}
+.p-plan{background:rgba(224,162,59,.16);color:var(--amber)}
+.p-res{background:rgba(139,124,240,.16);color:var(--violet)}
+table{width:100%;border-collapse:collapse;margin:10px 0;font-size:12.5px}
+th,td{text-align:left;padding:8px 11px;border-bottom:1px solid var(--hair);vertical-align:top}
+th{color:var(--gold);font-size:10px;letter-spacing:.5px;text-transform:uppercase}
+td.k{color:var(--cream);font-weight:600;white-space:nowrap}
+td.c{color:var(--mut)}
+tr.hi td{background:rgba(198,164,99,.06)}
+b{color:var(--cream);font-weight:600}
+.mono{font-family:'Courier Prime',ui-monospace,monospace;font-size:12px;color:var(--gold2);background:#0e1014;border:1px solid var(--hair);border-radius:5px;padding:1px 6px}
+.flowbox{background:#0c0d10;border:1px solid var(--hair2);border-radius:14px;padding:16px 18px;margin:12px 0;font-family:'Courier Prime',ui-monospace,monospace;font-size:12px;color:var(--mut);line-height:1.7;white-space:pre-wrap;overflow-x:auto}
+.flowbox b{color:var(--gold2)}
+.toc{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 0}
+.toc a{font-size:12.5px;color:var(--gold2);text-decoration:none;border:1px solid rgba(198,164,99,.3);border-radius:999px;padding:5px 12px}
+.toc a:hover{background:rgba(198,164,99,.12)}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px}
+.muted{color:var(--mut);font-size:13px}
+.cite{color:var(--faint);font-size:12px;margin-top:8px}
+ul{margin:6px 0 6px 2px;padding-inline-start:18px}
+li{margin:4px 0;font-size:13px}
+.foot{margin-top:46px;padding-top:16px;border-top:1px solid var(--hair);color:var(--faint);font-size:12px;line-height:1.8}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--mut);margin:6px 0 0}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-inline-end:6px;vertical-align:middle}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <div class="eyebrow">ScripON · Studio · Build — Master Features &amp; Roadmap · code-derived</div>
+  <h1>ScripON Build — every tool, lever &amp; option to build a script</h1>
+  <p class="sub">A complete, code-grounded map of the ScripON build system: the pipeline, every Brief variable, the nine knowledge layers, how each format re-wires the build, the fourteen tool screens, and a shipped-vs-roadmap split. Generated 2026-06-24 from the codebase; status cross-checked against <b>ScripON-Doctor-MASTER-STATUS</b> (19 Jun 2026). Source of truth is the code, not the older specs.</p>
+  <div class="toc">
+    <a href="#flow">1 · Build flow</a><a href="#brief">2 · The Brief (levers)</a><a href="#layers">3 · Knowledge layers</a><a href="#formats">4 · Formats</a><a href="#tools">5 · Tools</a><a href="#outputs">6 · Outputs</a><a href="#roadmap">7 · Roadmap</a><a href="#gaps">8 · Gaps</a>
+  </div>
+</header>
+
+<!-- 1 FLOW -->
+<h2 id="flow">1 · The build flow</h2>
+<div class="h2note">A build is brief-driven. The <b>Format Engine</b> reads the brief and re-wires the develop ladder; knowledge is injected as plain-text steering into each generation prompt (it guides the model, it is not hard-coded plot).</div>
+<div class="flowbox"><b>Brief</b> (IntakeProfile / DevelopmentBuild.brief)
+   │
+   ├─ stageLadderFor(brief) ─────────►  picks the develop ladder for the format
+   │
+   ▼
+<b>Per-stage generation</b>  (generateStage)
+   prompt = intakeSteer + langDirective + knowledgeDirective + prior-stage context
+   LOGLINE → SYNOPSIS → TREATMENT → BEATS → SCENES → STEP_OUTLINE → DRAFT → COVERAGE
+   │                                   (ladder swaps per format — see §4)
+   ▼
+<b>promoteToScript</b> → generateScriptAsync (dispatched by family)
+   Feature/Series → plan scene map (50–88) → write scene-by-scene → paginate
+   Vertical       → parse episode map → write first ≤15 episodes (free block)
+   Documentary    → assemble narration to the paper-edit
+   │
+   ├─ auto Character Bible (on SCENES)     ├─ Coverage + Analytics
+   ▼
+<b>Development Package</b>  (spine · characters · world · market · coverage)
+   │
+   ├─ Build Versions  V1 / V2 / V3  (frozen brief + ladder + script per run)
+   ▼
+Protected export (PDF) · revisions (WGA colour wheel) · promote → Project</div>
+<p class="cite">Default ladder <span class="mono">STAGE_ORDER</span> = Logline → Synopsis → Treatment → Beats → Scenes → Step&nbsp;Outline → Draft → Coverage. The Format Engine swaps it per format.</p>
+
+<!-- 2 BRIEF -->
+<h2 id="brief">2 · Options to build a script — the Brief</h2>
+<div class="h2note">Every lever below is a real input the engine reads (persisted on <span class="mono">IntakeProfile</span>, or carried through the <span class="mono">brief</span> / <span class="mono">briefSnapshot</span> JSON). Grouped by band.</div>
+
+<div class="card">
+<h3>2.1 · Source &amp; mode</h3>
+<table>
+<tr><th>Lever</th><th>Values</th><th>Field</th></tr>
+<tr><td class="k">Build mode</td><td class="c"><b>ORIGINAL</b> (from scratch) · <b>ADAPT</b> (existing material) · <b>SEED</b></td><td class="c"><span class="mono">mode</span></td></tr>
+<tr><td class="k">Source material</td><td class="c">pasted text · website URL · uploaded file (<b>PDF / FDX / Fountain / Word / EPUB / HTML</b>)</td><td class="c"><span class="mono">sourceText·sourceUrl·sourceFileUrl</span></td></tr>
+</table>
+
+<h3>2.2 · Format &amp; market — <span style="text-transform:none;letter-spacing:0;color:var(--mut);font-weight:500">re-wires the whole build</span></h3>
+<table>
+<tr><th>Lever</th><th>Values</th><th>Field</th></tr>
+<tr><td class="k">Project type</td><td class="c">Feature · Short · Series (TV/streaming/limited) · <b>Vertical micro-drama</b> · Documentary</td><td class="c"><span class="mono">projectType</span></td></tr>
+<tr><td class="k">Market</td><td class="c">US streaming · US network · UK · K-drama · Turkish dizi · Telenovela · Anime · <b>Ramadan musalsal</b> · Nordic noir · Vertical (global/MENA)</td><td class="c"><span class="mono">market·country·language</span></td></tr>
+<tr><td class="k">Series shape</td><td class="c">episode count · minutes per episode · seasons</td><td class="c"><span class="mono">episodes·minutesPerEp·seasons</span></td></tr>
+</table>
+
+<h3>2.3 · Creative DNA</h3>
+<table>
+<tr><th>Lever</th><th>Count / values</th><th>Field</th></tr>
+<tr><td class="k">Base genre</td><td class="c"><b>15</b> — action, adventure, comedy, crime, drama, fantasy, historical, horror, musical, mystery, romance, sci-fi, thriller, war, western <span class="muted">(+ 4–7 subgenres each)</span></td><td class="c"><span class="mono">genres·subgenre</span></td></tr>
+<tr><td class="k">Blend layers</td><td class="c"><b>10</b> — war, romance, fantasy, noir, satire, mystery, coming-of-age, political, supernatural, survival</td><td class="c"><span class="mono">blendLayers</span></td></tr>
+<tr><td class="k">Tone</td><td class="c"><b>9</b> — epic, grounded, tragic, ironic, comic, romantic, satirical, pulpy, lyrical</td><td class="c"><span class="mono">tone</span></td></tr>
+<tr><td class="k">Mood</td><td class="c"><b>8</b> — foreboding, bittersweet, hopeful, tense, melancholic, whimsical, dread, warm</td><td class="c"><span class="mono">mood</span></td></tr>
+<tr><td class="k">Treatment</td><td class="c"><b>8</b> — linear, non-linear, multi-POV, frame, anthology, real-time, epistolary, unreliable narrator</td><td class="c"><span class="mono">treatment</span></td></tr>
+<tr><td class="k">Fantasy / myth</td><td class="c">on/off · type · mythology culture · blend level (REALISTIC/BALANCED/MYTHIC)</td><td class="c"><span class="mono">fantasyOn·blendLevel</span></td></tr>
+</table>
+
+<h3>2.4 · Setting &amp; world <span style="text-transform:none;letter-spacing:0;color:var(--mut);font-weight:500">— drives language, naming, dress, sacred-sensitivity</span></h3>
+<table>
+<tr><th>Lever</th><th>Notes</th><th>Field</th></tr>
+<tr><td class="k">Country</td><td class="c"><b>26</b> country timelines (the 22 Arab League states + Greece, Britain, Mexico, Japan)</td><td class="c"><span class="mono">settingCountry·country</span></td></tr>
+<tr><td class="k">Era</td><td class="c">ordered civilisation timeline per country; defaults to modern</td><td class="c"><span class="mono">settingEra·cultureEra·eraKey</span></td></tr>
+<tr><td class="k">Place / world</td><td class="c">free setting + world-building notes</td><td class="c"><span class="mono">settingPlace·settingWorld</span></td></tr>
+</table>
+
+<h3>2.5 · Language &amp; dialect</h3>
+<table>
+<tr><th>Lever</th><th>Values</th><th>Field</th></tr>
+<tr><td class="k">Language</td><td class="c">any; <b>Arabic</b> gets the deep dialect engine</td><td class="c"><span class="mono">language</span></td></tr>
+<tr><td class="k">Arabic variety</td><td class="c"><b>22</b> — Egyptian (Cairene/Saidi), Levantine (Damascene/Lebanese/Palestinian/Jordanian), Gulf (Emirati/Kuwaiti/Qatari/Bahraini), Saudi (Najdi/Hejazi), Omani, Iraqi (Gelet/Qeltu), Maghrebi (Moroccan/Algerian/Tunisian/Libyan), Sudanese, Yemeni</td><td class="c"><span class="mono">scriptVariety</span></td></tr>
+<tr><td class="k">Register</td><td class="c"><b>formal</b> (MSA only) vs <b>colloquial</b> (diglossia: action in فصحى, dialogue in dialect)</td><td class="c"><span class="mono">dialogueRegister</span></td></tr>
+<tr><td class="k">Accents (beyond Arabic)</td><td class="c"><b>10</b> — RP, Cockney, Glaswegian, Hiberno-Irish, US Southern, AAVE, Castilian, Rioplatense, Mexican, Kansai-ben</td><td class="c"><span class="mono">accents·voice·dialect</span></td></tr>
+</table>
+
+<h3>2.6 · Based on reality</h3>
+<table>
+<tr><th>Lever</th><th>Values</th><th>Field</th></tr>
+<tr><td class="k">Real-based</td><td class="c">on/off</td><td class="c"><span class="mono">realBased</span></td></tr>
+<tr><td class="k">Fidelity</td><td class="c"><b>FAITHFUL · INSPIRED · LOOSE</b></td><td class="c"><span class="mono">realityLevel</span></td></tr>
+<tr><td class="k">Detail dial</td><td class="c">0–100 (essence → documented)</td><td class="c"><span class="mono">researchAmount</span></td></tr>
+<tr><td class="k">Subject research</td><td class="c">research the real person/story; honour specifics</td><td class="c"><span class="mono">researchSubject·realPersonNote</span></td></tr>
+</table>
+
+<h3>2.7 · Lore Atlas <span class="pill p-res">folklore / myth</span></h3>
+<table>
+<tr><th>Lever</th><th>Values</th><th>Field</th></tr>
+<tr><td class="k">Elements</td><td class="c">~130 researched elements across ~20 cultures</td><td class="c"><span class="mono">loreSelections</span></td></tr>
+<tr><td class="k">Density</td><td class="c">OFF → ACCENT → SUBPLOT → WOVEN → DRIVER → SATURATED</td><td class="c"><span class="mono">loreDensity</span></td></tr>
+<tr><td class="k">Policy</td><td class="c">tiers FOLKLORE / SACRED_AWARE / HISTORICAL_PANTHEON / CARE; living-religion deities never seeded; pantheon opt-in</td><td class="c"><span class="mono">lorePolicy</span></td></tr>
+</table>
+
+<h3>2.8 · Conflict &amp; colonization <span class="pill p-guard">opt-in · sensitivity-gated</span></h3>
+<table>
+<tr><th>Lever</th><th>Values</th><th>Field</th></tr>
+<tr><td class="k">Conflict story</td><td class="c">explicit opt-in, else auto-detected from war/political genres</td><td class="c"><span class="mono">conflict·conflictId·politicalArc</span></td></tr>
+<tr><td class="k">Coverage</td><td class="c"><b>22</b> Arab League states — era-linked conflicts (sides, stakes, theatres, hero archetypes, sensitivity: standard/contested/high)</td><td class="c"><span class="muted">resolved from setting</span></td></tr>
+</table>
+
+<h3>2.9 · Style &amp; Voice <span class="pill p-keep">how it's written</span></h3>
+<table>
+<tr><th>Lever</th><th>Values</th><th>Field</th></tr>
+<tr><td class="k">Style packs</td><td class="c"><b>14</b> — fast-ensemble, slow-burn, mythic-quest, hyperlink-mosaic, noir-voice, genre-pastiche, maximalist-spectacle, deadpan-absurd, vérité-handheld, lyrical-memory, chamber-intimate, bingeable-cliff, punchy-spot, investigative-build <span class="muted">(IP-safe, technique-only)</span></td><td class="c"><span class="mono">styles</span></td></tr>
+<tr><td class="k">Strength</td><td class="c">per-pack 0–4 (subtle → defining); max 2 blend</td><td class="c"><span class="mono">styleMix</span></td></tr>
+</table>
+
+<h3>2.10 · Targets, intent &amp; framework</h3>
+<table>
+<tr><th>Lever</th><th>Values</th><th>Field</th></tr>
+<tr><td class="k">Intent</td><td class="c">the project's purpose</td><td class="c"><span class="mono">projectIntent</span></td></tr>
+<tr><td class="k">Budget tier</td><td class="c">drives location/scale guardrails</td><td class="c"><span class="mono">budgetTier</span></td></tr>
+<tr><td class="k">Rating</td><td class="c">MPA / BBFC / GCAM / UAE etc.</td><td class="c"><span class="mono">rating</span></td></tr>
+<tr><td class="k">Comps / constraints</td><td class="c">comparable titles, hard constraints, sensitivity tier, guardrails</td><td class="c"><span class="mono">comps·constraints·guardrails</span></td></tr>
+<tr><td class="k">Story framework</td><td class="c"><b>14</b> — Save the Cat, Hero's Journey, Story Circle, Field paradigm, 8-Sequence, TV-network, Limited, 3-act, Hauge, Freytag, Kishōtenketsu, Truby 22, Story Spine</td><td class="c"><span class="muted">per-stage (BEATS)</span></td></tr>
+</table>
+</div>
+
+<!-- 3 LAYERS -->
+<h2 id="layers">3 · Knowledge layers — the substrate the generator consumes</h2>
+<div class="h2note">Each module is a pure, fail-safe function of the brief, paired with a human-readable guideline doc. Composed into one steering block by <span class="mono">knowledgeDirective(brief)</span>.</div>
+<div class="card">
+<table>
+<tr><th>Layer (knowledge/…)</th><th>What it provides</th><th>Guide</th></tr>
+<tr><td class="k">formats.ts</td><td class="c">Format families + <b>9 market presets</b> (episodes/length/act/arc/terminology) + the 4 stage ladders</td><td class="c">00·02</td></tr>
+<tr><td class="k">vertical.ts</td><td class="c">Beat Engine (Hook·Friction·Spike·Button), Addiction Loop, paywall economics, 9:16 rules, <b>8 MENA engines + 8 templates</b></td><td class="c">01</td></tr>
+<tr><td class="k">documentary.ts</td><td class="c"><b>8 subgenres × 6 Nichols modes</b>, ladder swap, rights-as-tracked-items</td><td class="c">03</td></tr>
+<tr><td class="k">eras.ts</td><td class="c"><b>26 country → era timelines</b> (register, diglossia, script, naming, dress, sacred flag)</td><td class="c">04</td></tr>
+<tr><td class="k">accents.ts</td><td class="c"><b>10</b> beyond-Arabic accents, two-knob model (dialect × register), no eye-dialect rule</td><td class="c">04</td></tr>
+<tr><td class="k">genres.ts</td><td class="c">15 genres + subgenres, 10 blends, 9 tones, 8 moods, 8 treatments (bilingual)</td><td class="c">—</td></tr>
+<tr><td class="k">conflicts.ts</td><td class="c"><b>22-country</b> conflict/colonization substrate, opt-in, sensitivity policy</td><td class="c">07</td></tr>
+<tr><td class="k">styles.ts</td><td class="c"><b>14</b> IP-safe style/voice packs</td><td class="c">08</td></tr>
+<tr><td class="k">index.ts + realPerson</td><td class="c">Composer (knowledgeDirective · stageLadderFor) + real-person fidelity</td><td class="c">05·06</td></tr>
+<tr><td class="k">lore-seed.data.ts</td><td class="c">Lore Atlas — ~130 elements / ~20 cultures, 4 tiers</td><td class="c">atlas</td></tr>
+</table>
+</div>
+
+<!-- 4 FORMATS -->
+<h2 id="formats">4 · Formats — how each build differs</h2>
+<div class="card">
+<table>
+<tr><th>Format</th><th>Develop ladder</th><th>Presets</th></tr>
+<tr class="hi"><td class="k">Feature / Short</td><td class="c">Logline → Synopsis → Treatment → Beats → Scenes → Step Outline → Draft → Coverage</td><td class="c">1 ep · ~90–120 min · 3-act</td></tr>
+<tr><td class="k">Series</td><td class="c">… → <b>Season Arc → Episode Map</b> → Treatment → Beats → Scenes → …</td><td class="c">9 markets: US streaming 6–13 · US network 22 · UK 3–8 · K-drama 12–16 · Turkish dizi 36 · telenovela 80–200 · anime 12–26 · <b>Ramadan musalsal 30</b> · Nordic noir 8–10</td></tr>
+<tr><td class="k">Vertical micro-drama</td><td class="c"><b>Premise → Story Engine → Episode Map → Beat Engine</b> → Scenes → Draft → Coverage</td><td class="c">Global 60–100 eps / 60–90s; MENA 40–80 eps, Arabic-first, Addiction Loop; deliverable = bible + first ≤15 episodes</td></tr>
+<tr><td class="k">Documentary</td><td class="c"><b>Thesis → Treatment → Research Plan → Rights Plan → Interview Outline → Paper Edit → Narration</b> → Coverage</td><td class="c">no dialogue beats; narration last; 8 subgenres × 6 modes</td></tr>
+</table>
+<p class="cite">Two flags always carried: <b>terminology</b> (UK = "Series" not "Season") and <b>K-drama production model</b> (live-shoot vs pre-produced).</p>
+</div>
+
+<!-- 5 TOOLS -->
+<h2 id="tools">5 · The build tools — 14 live screens</h2>
+<div class="h2note">All under <span class="mono">/scripon</span>, responsive across desktop / tablet / mobile.</div>
+<div class="card">
+<div class="cols">
+<div><h4>Studio</h4><div class="muted">Unified host: Intake (brief wizard, Adapt vs From-scratch), Builds, Develop (the stage ladder), Format panel.</div></div>
+<div><h4>Reader</h4><div class="muted">Three-pane script workspace + live scene diagnostics (KEEP/CUT/CONSIDER, objective, obstacle, subtext, power-shift).</div></div>
+<div><h4>Breakdown</h4><div class="muted">6 production lenses (Cast, Props, Locations, Wardrobe, Vehicles, VFX) → strips / schedule / cost.</div></div>
+<div><h4>Doctor</h4><div class="muted">Coverage scoring (A–D · RECOMMEND/CONSIDER/PASS), diagnostics, budget-fit, rewrite slate, compare, comps.</div></div>
+<div><h4>Dialect</h4><div class="muted">Arabic fidelity scorer (0–100) + auto-repair + native exemplar bank.</div></div>
+<div><h4>Greenlight</h4><div class="muted">Market forecast, audience quadrants, cost, P(greenlight) decision memo.</div></div>
+<div><h4>Package</h4><div class="muted">Investor dossier (10 sections) + character-bible generator + promote to production.</div></div>
+<div><h4>Library · Notes · Revisions</h4><div class="muted">Script slate; scene-anchored note threads; WGA colour-wheel revision diff.</div></div>
+<div><h4>Approvals · Reports · Schedule&amp;Budget · ⌘K</h4><div class="muted">Sign-off chain + compliance gate; PDF/XLSX/FDX reports; stripboard⇄budget; command palette.</div></div>
+</div>
+<h3 style="margin-top:16px">Doctor AI engine — P0–P7 <span class="pill p-new">all shipped</span></h3>
+<div class="muted"><b>P0</b> coverage + scene diagnostics + version compare + import/OCR · <b>P1</b> budget/location-fit rewrite → non-destructive GREEN branch · <b>P2</b> creative transforms (tighten, punch-up, genre transpose, ending re-engineer, humour, intensity) · <b>P3</b> culture/compliance/rating (MPA/BBFC/GCAM/UAE + MENA culture screen) · <b>P4</b> format conversion (film ↔ series ↔ vertical) · <b>P5</b> market &amp; greenlight intelligence · <b>P6</b> adaptation &amp; development studios · <b>P7</b> greenlight decision layer (scorecard, quadrants, ROI, memo).</div>
+</div>
+
+<!-- 6 OUTPUTS -->
+<h2 id="outputs">6 · Outputs &amp; protection</h2>
+<div class="card">
+<ul>
+<li><b>Per-stage outputs</b> persisted (survive reload); <b>full script</b> with deterministic numbered INT/EXT sluglines (Arabic-native داخلي/خارجي when Arabic).</li>
+<li><b>Auto character bible</b> (6–9 principals) generated on Scenes — no manual step.</li>
+<li><b>Coverage + analytics</b> — pacing, structure (TRIPOD turning-points as reference), dialogue/Gini, character co-occurrence network.</li>
+<li><b>Development Package</b> read-model + <b>Build Versions</b> (V1/V2/V3 — each a frozen brief + ladder + script).</li>
+<li><b>Protected PDF export</b> — <b>standard</b> (selectable) vs <b>enhanced</b> (rasterised); per-recipient watermark + trace footer; qpdf permission flags; metadata sanitised; non-guessable copy-id + audit record; <span style="color:var(--red)">hard rule: no unprotected fallback</span>.</li>
+</ul>
+</div>
+
+<!-- 7 ROADMAP -->
+<h2 id="roadmap">7 · Roadmap</h2>
+<div class="legend"><span><span class="dot" style="background:var(--green)"></span>Shipped</span><span><span class="dot" style="background:var(--red)"></span>Blocker</span><span><span class="dot" style="background:var(--amber)"></span>Planned</span></div>
+
+<div class="card go">
+<h4><span class="pill p-new">shipped</span> &nbsp;Per MASTER-STATUS (19 Jun)</h4>
+<div class="muted" style="margin-top:6px">Doctor P0–P7 engine · the Adapt/Build <b>Format Engine</b> knowledge layer (all 9 modules) · <b>14 live screens</b> (desktop/tablet/mobile) · run-level <b>Build Versions</b> in the backend · unified <span class="mono">AiService</span> + <span class="mono">AiRun</span> governance/audit · Prisma migration baseline (<span class="mono">0_init</span>) reconciled · automated tests (41 / 9 suites) · import + OCR (FDX/Fountain/Celtx/Word/PDF + scanned).</div>
+</div>
+
+<div class="card warn">
+<h4><span class="pill p-guard">blocker</span> &nbsp;The one release blocker</h4>
+<div class="muted" style="margin-top:6px"><b>Multi-tenancy</b> — none today (single-studio). Needs a <span class="mono">Tenant</span> model + query-scoping middleware. Highest blast radius — do it last, behind the test net + clean migration baseline.</div>
+</div>
+
+<div class="card">
+<h4><span class="pill p-plan">planned</span> &nbsp;Next (grounded in the specs)</h4>
+<ul>
+<li><b>Develop-pipeline depth:</b> forward-only stage progression; per-stage <span class="mono">DevelopmentStage</span>/<span class="mono">StageVersion</span> rows with WGA colour tags; <b>approval gates</b> (Draft→Review→Approved→Locked); deeper <b>scene cards</b> with a McKee "flat-scene" warning; a new <b>Step Outline</b> stage; more real frameworks; <b>Adapt as a first-class mode</b> with a per-stage coverage gate.</li>
+<li><b>Development Package guarantees:</b> always-filled Period·Locale + Budget tier; format-adaptive spine; <b>editable Word (.docx) export</b> <span class="muted">(today: PDF only — see §8)</span>.</li>
+<li><b>Dedicated Cost-Optimisation and Audience screens</b> (currently folded into Greenlight).</li>
+<li><b>Backend APIs:</b> CRUD for new entities, cross-entity search, bulk actions, async AI endpoints with progress, webhooks/notifications.</li>
+<li><b>Vertical cliffhanger lint</b> (fail any episode that resolves instead of cutting on a question).</li>
+<li><b>Consolidation:</b> retire/redirect the two older script entry points (<span class="mono">/scripts</span>, <span class="mono">/script-workspace</span>) in favour of <span class="mono">/scripon</span>.</li>
+<li><b>Live pixel pass</b> against the <span class="mono">design/</span> frames; grow integration-test coverage; full <span class="mono">npm run build</span> validation.</li>
+<li><b>i18n:</b> Arabic for the ScripON audio panel + Script Hub surfaces (part of 254 files / ~3,877 strings still English).</li>
+<li><b>Adjacent (same roadmap):</b> Comms backbone, Meetings module, Transport GPS telemetry + WebRTC walkie-radio, Transport-Captain dispatch board + driver-app rebuild.</li>
+</ul>
+</div>
+
+<!-- 8 GAPS -->
+<h2 id="gaps">8 · Known gaps &amp; caveats <span style="font-size:13px;color:var(--mut)">(design vs. ground reality)</span></h2>
+<div class="card warn">
+<ul>
+<li><b>Word / DOCX export is not implemented</b> — the package UI and design docs say "PDF + Word," but the export service produces <b>PDF only</b>.</li>
+<li><b>"Research-online live era deepening"</b> (from the redesign) is <b>not live</b> for the era path; only the real-person research fields exist.</li>
+<li>Several brief levers (<span class="mono">scriptVariety, dialogueRegister, accents, styleMix, conflict/politicalArc</span>) flow through the <b>JSON brief</b>, not typed <span class="mono">IntakeProfile</span> columns — fine for the engine, but no typed round-trip guarantee yet.</li>
+<li><b>Analytics → representation</b> = speaking-character count only (demographic/Bechdel tallies deferred); <b>look-board image binding</b> deferred (descriptors + queries only, no faces by design).</li>
+<li>The intake wizard currently presents as <b>~2 steps with internal bands</b> (the redesign proposed a 6-step rail) — confirm against <span class="mono">ScripOnIntake.tsx</span> if exact layout matters.</li>
+<li>Tolerant persistence (<span class="mono">this.prisma as any</span>, <span class="mono">.catch(()=&gt;…)</span>) means coverage/analytics can silently fall back to in-memory if a table is missing pre-<span class="mono">db:push</span>.</li>
+</ul>
+</div>
+
+<div class="foot">
+<b>Generated:</b> 2026-06-24, from the codebase (engine <span class="mono">backend/src/production/scripton/</span>, schema <span class="mono">IntakeProfile/DevelopmentBuild/BuildVersion</span>, frontend <span class="mono">/scripon</span>) and the ScripON spec set. Status authority: <b>ScripON-Doctor-MASTER-STATUS.html</b> (19 Jun 2026).<br>
+<b>Cross-references:</b> docs/knowledge-base/scripon/ (00–08 + README) · docs/scripon-country-era-reality-check.md · ScripON-Studio-Development-Pipeline-Spec.html · docs/system/18-feature-gap-analysis.md. Source of truth is the code; treat older specs' roadmaps as historical where they conflict.
+</div>
+
+</div>
+</body>
+</html>

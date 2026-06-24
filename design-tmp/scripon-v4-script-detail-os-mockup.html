@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ScripON v4 — Script Detail OS (interactive mockup)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700&family=Tajawal:wght@400;500;700&family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Courier+Prime&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b0c0f;--panel:#14161c;--panel2:#191c23;--hair:rgba(255,255,255,.08);--hair2:rgba(255,255,255,.14);--gold:#C6A463;--gold2:#E6D2A2;--goldink:#15120B;--cream:#F4EEE0;--text:#E7E3D8;--mut:#9aa1ab;--faint:#6b727d;--blue:#5b8def;--green:#57b368;--amber:#e0a23b;--red:#e5635f;--violet:#8b7cf0;--teal:#48b6a0}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:radial-gradient(1200px 700px at 50% -10%,#15171d,#0b0c0f 60%);color:var(--text);font-family:'Rubik',system-ui,sans-serif;-webkit-font-smoothing:antialiased;padding:18px}
+.note{max-width:1180px;margin:0 auto 14px;font-size:12px;color:var(--faint);text-align:center}
+.note b{color:var(--gold2)}
+.os{max-width:1180px;margin:0 auto;background:#0c0d10;border:1px solid var(--hair2);border-radius:20px;overflow:hidden;box-shadow:0 50px 120px -40px rgba(0,0,0,.9)}
+/* top bar */
+.top{height:58px;display:flex;align-items:center;gap:12px;padding:0 16px;background:linear-gradient(180deg,#15181e,#121419);border-bottom:1px solid var(--hair)}
+.logo{width:30px;height:30px;border-radius:8px;background:linear-gradient(160deg,var(--gold2),var(--gold));color:var(--goldink);display:grid;place-items:center;font-weight:800;font-size:12px}
+.ttl{font-family:'Fraunces',serif;font-size:18px;color:var(--cream)}
+.ttl .ar{font-family:'Tajawal',sans-serif;font-size:15px;color:var(--gold2);margin-inline-start:6px}
+.fchip{font-size:11px;color:var(--mut);border:1px solid var(--hair);border-radius:999px;padding:4px 10px}
+.spacer{margin-inline-start:auto}
+.vsw{display:flex;gap:4px;background:#0e1015;border:1px solid var(--hair);border-radius:9px;padding:3px}
+.vsw span{font-size:11.5px;font-weight:700;color:var(--mut);padding:4px 9px;border-radius:7px;cursor:pointer}
+.vsw span.on{background:rgba(198,164,99,.16);color:var(--gold2)}
+.tbtn{font-size:11.5px;font-weight:600;color:var(--mut);border:1px solid var(--hair);border-radius:8px;padding:5px 10px;cursor:pointer}
+.tbtn.gold{color:var(--gold2);border-color:rgba(198,164,99,.4)}
+.tbtn.green{color:var(--green);border-color:rgba(87,179,104,.4)}
+/* body */
+.body{display:flex;min-height:620px}
+.rail{width:208px;flex:none;border-inline-end:1px solid var(--hair);background:#0e1015;padding:12px 10px;display:flex;flex-direction:column;gap:2px}
+.sn{display:flex;align-items:center;gap:10px;font-size:12.5px;font-weight:600;color:var(--mut);padding:9px 11px;border-radius:9px;cursor:pointer;border:1px solid transparent}
+.sn:hover{background:rgba(255,255,255,.03)}
+.sn.on{background:rgba(198,164,99,.13);color:var(--gold2);border-color:rgba(198,164,99,.25)}
+.sn .ic{width:15px;text-align:center;color:var(--faint);font-size:13px}
+.sn.on .ic{color:var(--gold)}
+.sn .nw{margin-inline-start:auto;font-size:9px;font-weight:700;letter-spacing:.3px;color:var(--green);background:rgba(87,179,104,.14);border-radius:999px;padding:2px 6px}
+.canon{margin-top:auto;border-top:1px solid var(--hair);padding-top:10px;font-size:10.5px;color:var(--green)}
+.dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-inline-end:6px}
+.main{flex:1;min-width:0;padding:20px 24px;overflow:auto;max-height:660px}
+.panel{display:none}.panel.on{display:block}
+.eye{font-size:10px;font-weight:700;letter-spacing:1.4px;color:var(--gold);text-transform:uppercase}
+h2{font-family:'Fraunces',serif;font-size:21px;color:var(--cream);font-weight:600;margin:4px 0 12px}
+h3{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--gold);margin:16px 0 8px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.cell{background:#10131a;border:1px solid var(--hair);border-radius:12px;padding:12px 13px}
+.cell .lbl{font-size:9.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--faint)}
+.cell .val{color:var(--cream);font-weight:600;font-size:14px;margin-top:3px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
+.chip{font-size:11.5px;color:var(--text);background:#171a21;border:1px solid var(--hair);border-radius:999px;padding:5px 11px;cursor:pointer}
+.chip.on{color:var(--goldink);background:linear-gradient(180deg,var(--gold2),var(--gold));border-color:transparent;font-weight:600}
+.chip.b{color:#a9c4f7;background:rgba(91,141,239,.12);border-color:rgba(91,141,239,.3)}
+.muted{color:var(--mut);font-size:12.5px;line-height:1.6}
+.card{background:var(--panel);border:1px solid var(--hair);border-radius:13px;padding:14px 15px;margin:10px 0}
+.card.lit{border-color:rgba(198,164,99,.35)}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.scene{font-family:'Courier Prime',monospace;font-size:12px;color:var(--text);line-height:1.7;white-space:pre-wrap}
+.del{background:rgba(229,99,95,.12);color:#f0a8a5;text-decoration:line-through;border-radius:3px}
+.add{background:rgba(87,179,104,.14);color:#a6e6bb;border-radius:3px}
+.warnrow{display:flex;gap:9px;align-items:flex-start;font-size:12px;color:var(--mut);margin:7px 0}
+.wico{width:16px;height:16px;flex:none;border-radius:50%;display:grid;place-items:center;font-size:10px;font-weight:800;margin-top:1px}
+.wA{background:rgba(224,162,59,.18);color:var(--amber)}.wG{background:rgba(87,179,104,.18);color:var(--green)}.wR{background:rgba(229,99,95,.18);color:var(--red)}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.btn{font-size:12px;font-weight:600;border-radius:9px;padding:8px 13px;cursor:pointer;border:1px solid var(--hair);color:var(--text)}
+.btn.go{background:linear-gradient(180deg,var(--gold2),var(--gold));color:var(--goldink);border-color:transparent}
+.btn.green{color:var(--green);border-color:rgba(87,179,104,.4)}
+.btn.red{color:var(--red);border-color:rgba(229,99,95,.4)}
+.rel{display:flex;align-items:center;gap:9px;font-size:12px;color:var(--mut);padding:7px 0;border-bottom:1px solid var(--hair)}
+.tag{font-size:9px;font-weight:700;letter-spacing:.3px;border-radius:999px;padding:2px 7px}
+.tg-setup{background:rgba(139,124,240,.16);color:var(--violet)}.tg-rel{background:rgba(72,182,160,.16);color:var(--teal)}.tg-loc{background:rgba(91,141,239,.16);color:var(--blue)}.tg-lore{background:rgba(224,162,59,.16);color:var(--amber)}
+.reuse{font-size:10px;font-weight:700;color:var(--blue);background:rgba(91,141,239,.12);border:1px solid rgba(91,141,239,.3);border-radius:999px;padding:3px 9px;display:inline-block}
+.search{display:flex;align-items:center;gap:8px;background:#0f1218;border:1px solid var(--hair);border-radius:10px;padding:9px 12px;color:var(--mut);font-size:12.5px}
+.grade{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;font-family:'Fraunces',serif;font-size:18px;font-weight:600}
+.relmap{width:100%;height:170px;background:#0e1014;border:1px solid var(--hair);border-radius:12px}
+.flat{font-size:12.5px;color:var(--mut);background:#10131a;border:1px solid var(--hair);border-radius:12px;padding:16px;text-align:center}
+</style>
+</head>
+<body>
+<div class="note">Interactive design reference — <b>ScripON v4 · Script Detail OS</b>. Click the left rail to switch sections. Cinematic V.4 language. Built to feed the Figma design pass. <b>Reuse</b> = existing component relocated · <b>New</b> = built in v4.</div>
+
+<div class="os">
+  <!-- TOP BAR -->
+  <div class="top">
+    <div class="logo">Sx</div>
+    <div class="ttl">Antarah <span class="ar">عنترة</span></div>
+    <div class="fchip">Feature · Historical + War + Fantasy</div>
+    <div class="spacer"></div>
+    <div class="vsw"><span>V1</span><span class="on">V2</span><span>V3</span><span style="color:var(--green)">+ New</span></div>
+    <div class="tbtn gold">↓ PDF</div>
+    <div class="tbtn">↓ Word</div>
+    <div class="tbtn green">⤴ Promote</div>
+  </div>
+
+  <div class="body">
+    <!-- LEFT RAIL -->
+    <div class="rail" id="rail">
+      <div class="sn on" data-p="overview"><span class="ic">◰</span> Overview</div>
+      <div class="sn" data-p="reader"><span class="ic">▤</span> Script Reader</div>
+      <div class="sn" data-p="scene"><span class="ic">✎</span> Scene Workspace <span class="nw">NEW</span></div>
+      <div class="sn" data-p="bible"><span class="ic">◈</span> Story Bible <span class="nw">NEW</span></div>
+      <div class="sn" data-p="doctor"><span class="ic">✚</span> Coverage &amp; Doctor</div>
+      <div class="sn" data-p="breakdown"><span class="ic">▦</span> Breakdown</div>
+      <div class="sn" data-p="budget"><span class="ic">▣</span> Schedule &amp; Budget</div>
+      <div class="sn" data-p="lang"><span class="ic">⇄</span> Language Studio <span class="nw">NEW</span></div>
+      <div class="sn" data-p="versions"><span class="ic">⑂</span> Versions</div>
+      <div class="canon"><span class="dot"></span>Canon synced · 142 facts · 3 pending review</div>
+    </div>
+
+    <!-- MAIN -->
+    <div class="main">
+
+      <!-- OVERVIEW -->
+      <div class="panel on" data-p="overview">
+        <div class="eye">Overview · the screenplay at a glance</div>
+        <h2>Antarah — Development &amp; status</h2>
+        <div class="grid">
+          <div class="cell"><div class="lbl">Period · Locale</div><div class="val">Jahiliyya · Arabia</div></div>
+          <div class="cell"><div class="lbl">Budget tier</div><div class="val">Mid $5–20M</div></div>
+          <div class="cell"><div class="lbl">Language · Market</div><div class="val">Arabic (MSA) · GCC</div></div>
+          <div class="cell"><div class="lbl">Coverage</div><div class="val" style="color:var(--green)">B+ · Consider</div></div>
+        </div>
+        <div class="grid" style="margin-top:10px">
+          <div class="cell"><div class="lbl">Scenes</div><div class="val">74</div></div>
+          <div class="cell"><div class="lbl">Pages</div><div class="val">108</div></div>
+          <div class="cell"><div class="lbl">Active version</div><div class="val">V2</div></div>
+          <div class="cell"><div class="lbl">Canon facts</div><div class="val">142</div></div>
+        </div>
+        <h3>Development spine <span class="reuse">reuse · PackagePanel</span></h3>
+        <div class="card"><div class="muted">Brief → DNA &amp; world &nbsp;›&nbsp; Logline → Synopsis → Treatment &nbsp;›&nbsp; Beats (Hero's Journey) → Scenes &nbsp;›&nbsp; Character breakdown (auto) &nbsp;›&nbsp; Draft → Script · Coverage. <span style="color:var(--gold2)">Each rung inherits the one above; scoped to V2.</span></div></div>
+        <div class="muted" style="margin-top:6px">Origin: <b>ScripON Build</b> · imported scripts reach this same depth via auto-generated coverage, analytics, Character &amp; World bibles. <span class="reuse">import parity · new</span></div>
+      </div>
+
+      <!-- READER -->
+      <div class="panel" data-p="reader">
+        <div class="eye">Script Reader <span class="reuse">reuse · ScripOnReader</span></div>
+        <h2>Full screenplay · scene / character / location navigation</h2>
+        <div class="split">
+          <div class="card"><h3 style="margin-top:0">Scene rail</h3><div class="muted">1 · INT. CAMP — NIGHT<br>2 · EXT. DUNES — DAY<br>3 · INT. TENT OF ZUHAYR — DAY<br>…<br>65 · EXT. CLIFFS — DAY</div></div>
+          <div class="card"><div class="scene">3   INT. TENT OF ZUHAYR — DAY
+
+ABLA (17) pours water, eyes lowered. ANTARAH
+watches from the threshold — a slave, and yet.
+
+                ANTARAH
+        They say a man is what his sword
+        remembers. Mine remembers everything.</div></div>
+        </div>
+        <div class="muted" style="margin-top:8px">This section is the existing Reader, relocated into Script Detail — diagnostics, compare, notes, distribute, budget-fit, rewrite all carry over.</div>
+      </div>
+
+      <!-- SCENE WORKSPACE (FLAGSHIP) -->
+      <div class="panel" data-p="scene">
+        <div class="eye">Scene Workspace · Scene Revision Engine <span class="nw" style="background:rgba(198,164,99,.18);color:var(--gold2)">NEW</span></div>
+        <h2>Change one scene — safely, without breaking the story</h2>
+        <div class="search">🔎&nbsp; Locate by scene № · character · location · dialogue · event · emotional beat…</div>
+
+        <div class="split" style="margin-top:12px">
+          <div>
+            <h3>Target · Scene 65 <span class="muted" style="text-transform:none;font-weight:400">(prev 64 · next 66 shown for context)</span></h3>
+            <div class="card lit" style="margin-top:6px">
+              <div class="muted" style="font-size:10px;letter-spacing:.4px;text-transform:uppercase;color:var(--faint)">Revision mode</div>
+              <div class="chips"><span class="chip on">Continuity-safe</span><span class="chip">Cinematic</span><span class="chip">Stronger action</span><span class="chip">Same-voice</span><span class="chip">Dialogue-only</span><span class="chip">Emotion-only</span></div>
+              <div class="muted" style="margin-top:8px"><b>Instruction:</b> “Antarah hesitates at the cliff edge — his old fear of heights surfaces before he forces himself to climb.”</div>
+            </div>
+            <h3>Related scenes detected <span class="reuse">scene graph · new</span></h3>
+            <div class="card">
+              <div class="rel"><span class="tag tg-setup">SETUP/PAYOFF</span> S12 — Antarah's fear of heights established <span style="margin-inline-start:auto;color:var(--green)">aligns ✓</span></div>
+              <div class="rel"><span class="tag tg-rel">RELATIONSHIP</span> S58 — Abla watches from the ridge</div>
+              <div class="rel" style="border:none"><span class="tag tg-loc">LOCATION</span> S66 — descent continues (next)</div>
+              <div class="chips" style="margin-top:8px"><span class="chip b">Apply to S65 only</span><span class="chip b">Auto-update related</span><span class="chip b">Review manually</span></div>
+            </div>
+          </div>
+
+          <div>
+            <h3>Integrity check <span class="reuse">canon + graph · new</span></h3>
+            <div class="card">
+              <div class="warnrow"><div class="wico wG">✓</div><div><b style="color:var(--cream)">Setup honored</b> — resolves the S12 fear-of-heights setup. Strengthens the arc.</div></div>
+              <div class="warnrow"><div class="wico wA">!</div><div><b style="color:var(--cream)">Timeline</b> — S65 is dawn; S64 ends at night. Add a time cue or bridge.</div></div>
+              <div class="warnrow"><div class="wico wG">✓</div><div><b style="color:var(--cream)">Character voice</b> — consistent with Antarah's canon register.</div></div>
+            </div>
+            <h3>Before / After</h3>
+            <div class="card"><div class="scene"><span class="del">Antarah scales the cliff in three easy pulls, barely looking down.</span>
+<span class="add">Antarah's hand freezes on the rock. The drop yawns. He breathes — once — and climbs, knuckles white, jaw set.</span></div></div>
+            <div class="btnrow">
+              <span class="btn go">Approve → canon</span>
+              <span class="btn green">Save as alternate</span>
+              <span class="btn">Edit</span>
+              <span class="btn red">Reject</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STORY BIBLE -->
+      <div class="panel" data-p="bible">
+        <div class="eye">Story Bible <span class="nw" style="background:rgba(198,164,99,.18);color:var(--gold2)">NEW</span> · synced from canon</div>
+        <h2>Character · World · Lore · Timeline · Relationships</h2>
+        <div class="chips"><span class="chip on">Relationships</span><span class="chip">Characters</span><span class="chip">World</span><span class="chip">Lore</span><span class="chip">Timeline</span></div>
+        <div class="card" style="padding:8px"><svg class="relmap" viewBox="0 0 560 170">
+          <line x1="120" y1="90" x2="300" y2="50" stroke="rgba(72,182,160,.5)" stroke-width="1.5"/>
+          <line x1="120" y1="90" x2="300" y2="130" stroke="rgba(229,99,95,.5)" stroke-width="1.5"/>
+          <line x1="300" y1="50" x2="460" y2="90" stroke="rgba(91,141,239,.5)" stroke-width="1.5"/>
+          <line x1="300" y1="130" x2="460" y2="90" stroke="rgba(224,162,59,.55)" stroke-width="1.5" stroke-dasharray="4 3"/>
+          <g font-family="Rubik" font-size="11" fill="#E7E3D8" text-anchor="middle">
+            <circle cx="120" cy="90" r="26" fill="#191c23" stroke="var(--gold)" stroke-width="1.5"/><text x="120" y="94">Antarah</text>
+            <circle cx="300" cy="50" r="24" fill="#191c23" stroke="var(--teal)" stroke-width="1.5"/><text x="300" y="54">Abla</text>
+            <circle cx="300" cy="130" r="24" fill="#191c23" stroke="var(--red)" stroke-width="1.5"/><text x="300" y="134">Zuhayr</text>
+            <circle cx="460" cy="90" r="26" fill="#191c23" stroke="var(--amber)" stroke-width="1.5"/><text x="460" y="86">Amalek-</text><text x="460" y="98">ites</text>
+          </g>
+          <text x="200" y="58" font-family="Rubik" font-size="9" fill="var(--teal)">loves</text>
+          <text x="195" y="120" font-family="Rubik" font-size="9" fill="var(--red)">enslaved by</text>
+          <text x="388" y="118" font-family="Rubik" font-size="9" fill="var(--amber)">allies (canon V2)</text>
+        </svg></div>
+        <div class="warnrow"><div class="wico wA">⟳</div><div class="muted">An approved S40 revision turned the <b>Amalekites</b> from enemies to allies — World Bible, Timeline and this graph updated automatically. <span class="reuse">canon sync · new</span></div></div>
+      </div>
+
+      <!-- DOCTOR -->
+      <div class="panel" data-p="doctor">
+        <div class="eye">Coverage &amp; Doctor <span class="reuse">reuse · ScripOnDoctor (P0–P7)</span></div>
+        <h2>Coverage · diagnostics · notes · recommendations</h2>
+        <div class="grid">
+          <div class="cell" style="display:flex;align-items:center;gap:10px"><div class="grade" style="background:rgba(87,179,104,.16);color:var(--green)">B+</div><div><div class="lbl">Plot</div><div class="muted">strong spine</div></div></div>
+          <div class="cell" style="display:flex;align-items:center;gap:10px"><div class="grade" style="background:rgba(87,179,104,.16);color:var(--green)">A−</div><div><div class="lbl">Characters</div><div class="muted">vivid leads</div></div></div>
+          <div class="cell" style="display:flex;align-items:center;gap:10px"><div class="grade" style="background:rgba(224,162,59,.16);color:var(--amber)">B</div><div><div class="lbl">Dialogue</div><div class="muted">tighten act 2</div></div></div>
+          <div class="cell" style="display:flex;align-items:center;gap:10px"><div class="grade" style="background:rgba(224,162,59,.16);color:var(--amber)">B−</div><div><div class="lbl">Market</div><div class="muted">GCC strong</div></div></div>
+        </div>
+        <h3>Conflict Detector <span class="nw" style="background:rgba(198,164,99,.18);color:var(--gold2)">NEW</span></h3>
+        <div class="card"><div class="warnrow"><div class="wico wR">!</div><div><b style="color:var(--cream)">Possible contradiction</b> — S12 Antarah fears heights; S65 (pre-revision) climbs casually. <span style="color:var(--green)">Resolved by the pending S65 revision.</span></div></div></div>
+        <div class="muted">All Story-Engineering tools — Budget-fit, Cost scan, Audience, Genre transpose, Emotion re-key, Ending re-engineer, Humour, Format/Country conversion — surface here and in the Scene Workspace. <span class="reuse">reuse · RewriteSlate + Greenlight + BudgetFit</span></div>
+      </div>
+
+      <!-- BREAKDOWN -->
+      <div class="panel" data-p="breakdown">
+        <div class="eye">Breakdown <span class="reuse">reuse · ScripOnBreakdown</span></div>
+        <h2>Cast · Props · Locations · Wardrobe · Vehicles · VFX</h2>
+        <div class="chips"><span class="chip on">Cast</span><span class="chip">Props</span><span class="chip">Locations</span><span class="chip">Wardrobe</span><span class="chip">Vehicles</span><span class="chip">VFX</span></div>
+        <div class="card muted">6-lens production breakdown → strips → schedule → hot cost. Relocated unchanged into Script Detail.</div>
+      </div>
+
+      <!-- BUDGET -->
+      <div class="panel" data-p="budget">
+        <div class="eye">Schedule &amp; Budget <span class="reuse">reuse · Schedule + BudgetFit</span></div>
+        <h2>Schedule impact · cost impact · production feasibility</h2>
+        <div class="grid">
+          <div class="cell"><div class="lbl">Shoot days</div><div class="val">48</div></div>
+          <div class="cell"><div class="lbl">Locations</div><div class="val">12</div></div>
+          <div class="cell"><div class="lbl">Est. budget</div><div class="val">$14.2M</div></div>
+          <div class="cell"><div class="lbl">Budget-fit target</div><div class="val" style="color:var(--gold2)">$10M</div></div>
+        </div>
+        <div class="card muted" style="margin-top:10px">“Bring budget to $10M” → multi-strategy variants with budget · schedule · stripboard impact, applied as a non-destructive GREEN branch.</div>
+      </div>
+
+      <!-- LANGUAGE -->
+      <div class="panel" data-p="lang">
+        <div class="eye">Language Adaptation Studio <span class="nw" style="background:rgba(198,164,99,.18);color:var(--gold2)">NEW</span> · adaptation, not translation</div>
+        <h2>Generate canon-true versions in any language or market</h2>
+        <div class="chips"><span class="chip on">Arabic (MSA)</span><span class="chip">International English</span><span class="chip">Festival</span><span class="chip">Hollywood dev</span><span class="chip">Subtitle</span><span class="chip">Dubbing</span></div>
+        <div class="split" style="margin-top:8px">
+          <div class="card"><div class="lbl" style="font-size:9.5px;color:var(--faint)">ORIGINAL · فصحى</div><div class="scene" style="direction:rtl">عنترة: يقولون إنّ المرء ما يذكره سيفه. وسيفي يذكر كلّ شيء.</div></div>
+          <div class="card"><div class="lbl" style="font-size:9.5px;color:var(--faint)">CREATIVE ADAPTATION · INTL ENGLISH</div><div class="scene">ANTARAH: They say a man is only what his sword remembers. Mine forgets nothing.</div></div>
+        </div>
+        <div class="warnrow"><div class="wico wG">✓</div><div class="muted">Canon, character voices, lore and continuity preserved. Adaptation notes log every cultural &amp; emotional choice.</div></div>
+      </div>
+
+      <!-- VERSIONS -->
+      <div class="panel" data-p="versions">
+        <div class="eye">Versions <span class="reuse">reuse · ScripOnRevisions + canon</span></div>
+        <h2>Change history · branches · comparisons · rollbacks</h2>
+        <div class="card">
+          <div class="rel"><span class="tag" style="background:rgba(198,164,99,.16);color:var(--gold2)">V2 · ACTIVE</span> Amalekites → allies; act-2 tightened <span style="margin-inline-start:auto;color:var(--faint)">today</span></div>
+          <div class="rel"><span class="tag tg-loc">V1</span> First full draft from Build <span style="margin-inline-start:auto;color:var(--faint)">Jun 22</span></div>
+          <div class="rel" style="border:none"><span class="tag tg-setup">SCENE</span> S65 continuity-safe revision <span style="margin-inline-start:auto;color:var(--amber)">pending review</span></div>
+        </div>
+        <div class="muted">Run-level versions (frozen brief + ladder + script) already exist; v4 adds scene-level branches + canon-aware rollback and "return to original generated draft."</div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var rail=document.getElementById('rail');
+  rail.addEventListener('click',function(e){
+    var t=e.target.closest('.sn'); if(!t)return;
+    var p=t.getAttribute('data-p');
+    rail.querySelectorAll('.sn').forEach(function(s){s.classList.toggle('on',s===t)});
+    document.querySelectorAll('.panel').forEach(function(pl){pl.classList.toggle('on',pl.getAttribute('data-p')===p)});
+    document.querySelector('.main').scrollTop=0;
+  });
+  // chip toggles within a chip group (visual only)
+  document.querySelectorAll('.chips').forEach(function(g){
+    g.addEventListener('click',function(e){var c=e.target.closest('.chip');if(!c||c.classList.contains('b'))return;
+      g.querySelectorAll('.chip').forEach(function(x){x.classList.toggle('on',x===c)});});
+  });
+})();
+</script>
+</body>
+</html>

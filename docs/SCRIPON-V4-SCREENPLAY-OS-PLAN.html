@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ScripON v4 — Screenplay OS · Architecture &amp; Build Plan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700&family=Tajawal:wght@400;500;700&family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Courier+Prime&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b0c0f;--panel:#14161c;--panel2:#191c23;--hair:rgba(255,255,255,.08);--hair2:rgba(255,255,255,.14);--gold:#C6A463;--gold2:#E6D2A2;--goldink:#15120B;--cream:#F4EEE0;--text:#E7E3D8;--mut:#9aa1ab;--faint:#6b727d;--blue:#5b8def;--green:#57b368;--amber:#e0a23b;--red:#e5635f;--violet:#8b7cf0;--teal:#48b6a0}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:radial-gradient(1200px 700px at 50% -10%,#15171d,#0b0c0f 60%);color:var(--text);font-family:'Rubik',system-ui,sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased;padding:0 0 90px}
+.wrap{max-width:1120px;margin:0 auto;padding:0 22px}
+header.top{padding:46px 0 18px;border-bottom:1px solid var(--hair);margin-bottom:8px}
+.eyebrow{font-size:11px;font-weight:700;letter-spacing:2px;color:var(--gold);text-transform:uppercase}
+h1{font-family:'Fraunces',serif;font-size:34px;font-weight:600;color:var(--cream);letter-spacing:-.4px;margin:10px 0 8px;max-width:900px}
+.sub{font-size:15px;color:var(--mut);max-width:900px}
+h2{font-family:'Fraunces',serif;font-size:23px;font-weight:600;color:var(--cream);margin:42px 0 4px;scroll-margin-top:14px;padding-top:6px}
+.h2note{font-size:13px;color:var(--mut);margin-bottom:14px;max-width:920px}
+h3{font-size:12px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--gold);margin:18px 0 8px}
+h4{font-size:14px;font-weight:600;color:var(--gold2);margin:6px 0}
+.card{background:var(--panel);border:1px solid var(--hair);border-radius:16px;padding:18px 20px;margin:14px 0}
+.card.lit{border-color:rgba(198,164,99,.4)}
+.card.warn{border-color:rgba(229,99,95,.4);background:rgba(229,99,95,.05)}
+.chips{display:flex;flex-wrap:wrap;gap:7px;margin:8px 0}
+.chip{font-size:12.5px;font-weight:500;color:var(--text);background:#171a21;border:1px solid var(--hair);border-radius:999px;padding:6px 12px}
+.chip.on{color:var(--goldink);background:linear-gradient(180deg,var(--gold2),var(--gold));border-color:transparent;font-weight:600}
+.pill{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.3px;padding:2px 8px;border-radius:999px;vertical-align:middle}
+.p-reuse{background:rgba(91,141,239,.16);color:var(--blue)}
+.p-build{background:rgba(87,179,104,.16);color:var(--green)}
+.p-found{background:rgba(139,124,240,.16);color:var(--violet)}
+.p-new{background:rgba(198,164,99,.18);color:var(--gold2)}
+table{width:100%;border-collapse:collapse;margin:10px 0;font-size:12.5px}
+th,td{text-align:left;padding:8px 11px;border-bottom:1px solid var(--hair);vertical-align:top}
+th{color:var(--gold);font-size:10px;letter-spacing:.5px;text-transform:uppercase}
+td.k{color:var(--cream);font-weight:600}
+td.c{color:var(--mut)}
+tr.hi td{background:rgba(198,164,99,.06)}
+b{color:var(--cream);font-weight:600}
+.mono{font-family:'Courier Prime',ui-monospace,monospace;font-size:12px;color:var(--gold2);background:#0e1014;border:1px solid var(--hair);border-radius:5px;padding:1px 6px}
+.codeblock{background:#0c0d10;border:1px solid var(--hair2);border-radius:12px;padding:14px 16px;margin:10px 0;font-family:'Courier Prime',ui-monospace,monospace;font-size:12px;color:var(--mut);line-height:1.7;white-space:pre-wrap;overflow-x:auto}
+.codeblock b{color:var(--gold2)}
+.toc{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 0}
+.toc a{font-size:12.5px;color:var(--gold2);text-decoration:none;border:1px solid rgba(198,164,99,.3);border-radius:999px;padding:5px 12px}
+.toc a:hover{background:rgba(198,164,99,.12)}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px}
+.muted{color:var(--mut);font-size:13px}
+.cite{color:var(--faint);font-size:12px;margin-top:8px}
+ul{margin:6px 0 6px 2px;padding-inline-start:18px}li{margin:4px 0;font-size:13px}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--mut);margin:6px 0 10px}
+.foot{margin-top:46px;padding-top:16px;border-top:1px solid var(--hair);color:var(--faint);font-size:12px;line-height:1.8}
+.num{font-family:'Fraunces',serif;color:var(--gold);font-weight:600}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <div class="eyebrow">ScripON · v4 · Screenplay OS — architecture &amp; build plan · Cinematic V.4 · Figma + Superpowers</div>
+  <h1>From script generator to a Screenplay Management, Story Engineering &amp; Script Intelligence System</h1>
+  <p class="sub">A deep-think plan that turns the v4 brief into a buildable roadmap grounded in the current code. The finding that shapes everything: ScripON already contains <b>~70%</b> of this — scattered across standalone screens. v4 is mostly <b>re-organization + a thin intelligence spine</b>, not a rebuild. Design authority: <b>Figma, Cinematic V.4</b>. Build authority: <b>Claude Code + Superpowers</b> — design-first, reuse-first, phase-gated.</p>
+  <div class="toc">
+    <a href="#thesis">0 · Thesis</a><a href="#ia">1 · Architecture</a><a href="#map">2 · Capability map</a><a href="#spine">3 · Intelligence spine</a><a href="#engines">4 · New engines</a><a href="#data">5 · Data model</a><a href="#design">6 · Design</a><a href="#phases">7 · Phases</a><a href="#guards">8 · Guardrails</a>
+  </div>
+</header>
+
+<!-- 0 -->
+<h2 id="thesis">0 · Thesis &amp; principles</h2>
+<div class="card">
+<div class="muted" style="margin-bottom:8px">ScripON already has the engines — they live on separate screens (<span class="mono">/reader · /doctor · /breakdown · /schedule · /greenlight · /revisions · /package</span>). v4 unifies them under a screenplay workspace and adds the connective intelligence that makes "story management" real.</div>
+<div class="cols">
+<div><h4>1 · Reuse before build</h4><div class="muted">Relocate existing engines/components; write new code only for the canon spine + the 7 missing engines.</div></div>
+<div><h4>2 · Library = front door, Script Detail = OS</h4><div class="muted">Opening a script enters a full workspace, not a viewer.</div></div>
+<div><h4>3 · Canon is the spine</h4><div class="muted">One append-only canon ledger every tool reads and approved revisions write.</div></div>
+<div><h4>4 · Additive &amp; non-destructive</h4><div class="muted">Nothing breaks; revisions branch; schema via backup-DB migration.</div></div>
+<div><h4>5 · Design-first, Cinematic V.4</h4><div class="muted">Each phase designed in Figma before build; desktop/tablet/mobile parity.</div></div>
+</div>
+</div>
+
+<!-- 1 -->
+<h2 id="ia">1 · Information architecture</h2>
+<div class="h2note">Script-specific tools leave the global nav and live inside the script.</div>
+<div class="card">
+<h3>Left navigation — system-level only</h3>
+<div class="chips"><span class="chip on">Home</span><span class="chip on">Library</span><span class="chip on">Studio</span><span class="chip on">Greenlight</span><span class="chip on">Settings</span><span class="chip on">Language</span></div>
+<div class="muted" style="margin-top:4px">Studio keeps <b>Build · Brief · Develop</b> standalone. <b>Reader / Doctor / Breakdown / Schedule / Revisions / Notes / Package</b> become <b>sections inside Script Detail</b> (routes redirect once parity is proven).</div>
+
+<h3 style="margin-top:16px">The Library is the central workspace</h3>
+<div class="muted">One home for every screenplay — Build-generated · promoted project · imported (FDX/Fountain/PDF/Word) · adapted/translated. A row resolves to a <span class="mono">ScriptWorkspace</span> preserving original · working · revisions · Package · coverage · Character Bible · World Bible · analytics · comparisons. <span class="pill p-build">new</span> <b>Import parity:</b> imported scripts auto-run the existing coverage/analytics/Character-Bible generators + the new World Bible / Timeline so they match generated scripts.</div>
+
+<h3 style="margin-top:16px">Script Detail OS — sections &amp; what powers them</h3>
+<table>
+<tr><th>Section</th><th>Powered by (reuse)</th><th>New work</th></tr>
+<tr><td class="k">Overview</td><td class="c">PackagePanel + analytics</td><td class="c">metadata · format · versions · dev-status</td></tr>
+<tr><td class="k">Script Reader</td><td class="c"><span class="pill p-reuse">reuse</span> ScripOnReader</td><td class="c">scene/character/location nav rails</td></tr>
+<tr class="hi"><td class="k">Scene Workspace</td><td class="c">Reader diagnostics (partial)</td><td class="c"><span class="pill p-build">build</span> Scene Revision + Regenerate engines</td></tr>
+<tr class="hi"><td class="k">Story Bible</td><td class="c">Character Bible</td><td class="c"><span class="pill p-build">build</span> World · Lore · Timeline · Relationships</td></tr>
+<tr><td class="k">Coverage &amp; Doctor</td><td class="c"><span class="pill p-reuse">reuse</span> ScripOnDoctor</td><td class="c">relocate only</td></tr>
+<tr><td class="k">Breakdown</td><td class="c"><span class="pill p-reuse">reuse</span> ScripOnBreakdown</td><td class="c">relocate only</td></tr>
+<tr><td class="k">Schedule &amp; Budget</td><td class="c"><span class="pill p-reuse">reuse</span> Schedule + BudgetFit</td><td class="c">relocate only</td></tr>
+<tr class="hi"><td class="k">Language Studio</td><td class="c">dialect engine + P6 adapt</td><td class="c"><span class="pill p-build">build</span> Language Adaptation Studio</td></tr>
+<tr><td class="k">Versions</td><td class="c"><span class="pill p-reuse">reuse</span> ScripOnRevisions</td><td class="c">branches + canon-aware rollback</td></tr>
+</table>
+</div>
+
+<!-- 2 -->
+<h2 id="map">2 · Capability map — reuse / relocate / build</h2>
+<div class="legend"><span><span class="pill p-reuse">reuse</span> already shipped</span><span><span class="pill p-build">build</span> net-new</span><span><span class="pill p-found">spine</span> foundational</span></div>
+<div class="h2note">The brief's "Story Engineering Tools" are already the Doctor <b>P0–P7</b> engine — v4 surfaces them inside Script Detail rather than rebuilding.</div>
+<div class="card">
+<table>
+<tr><th>Brief capability</th><th>Verdict</th><th>Already lives in</th></tr>
+<tr><td class="k">Budget / Location Fit</td><td><span class="pill p-reuse">relocate</span></td><td class="c">ScripOnBudgetFit → scripton.budgetFit</td></tr>
+<tr><td class="k">Cost Optimization · Audience Fit</td><td><span class="pill p-reuse">relocate</span></td><td class="c">Greenlight (P5/P7)</td></tr>
+<tr><td class="k">Genre transpose · Humour · Ending · Emotion re-key</td><td><span class="pill p-reuse">relocate</span></td><td class="c">RewriteSlate (P2) + endingTypes.ts</td></tr>
+<tr><td class="k">Format conversion · Country/Market transposition</td><td><span class="pill p-reuse">relocate</span></td><td class="c">P4 format engine + market presets + dialect</td></tr>
+<tr><td class="k">Coverage · Diagnostics · Notes · Character Bible · Analytics · Revisions · Package</td><td><span class="pill p-reuse">relocate</span></td><td class="c">existing models + components</td></tr>
+<tr><td class="k">Add / Remove character · Emotion graph viz</td><td><span class="pill p-build">build (small)</span></td><td class="c">new transform + viz over analytics.charge</td></tr>
+<tr class="hi"><td class="k">Scene Revision Engine</td><td><span class="pill p-build">build</span></td><td class="c">—</td></tr>
+<tr class="hi"><td class="k">Scene Regenerate Engine</td><td><span class="pill p-build">build</span></td><td class="c">—</td></tr>
+<tr class="hi"><td class="k">World / Lore / Timeline / Relationship bibles + Sync</td><td><span class="pill p-build">build</span></td><td class="c">lore seed exists; per-script bibles new</td></tr>
+<tr class="hi"><td class="k">Conflict Detector · Emotional Journey Tracker</td><td><span class="pill p-build">build</span></td><td class="c">—</td></tr>
+<tr class="hi"><td class="k">Language Adaptation Studio</td><td><span class="pill p-build">build</span></td><td class="c">on dialect + P6</td></tr>
+<tr class="hi"><td class="k">Canon Memory + Integrity Protection</td><td><span class="pill p-found">spine</span></td><td class="c">— foundational, cross-cutting</td></tr>
+</table>
+<p class="cite"><b>Net-new engines: 7 + the canon spine.</b> Everything else is composition.</p>
+</div>
+
+<!-- 3 -->
+<h2 id="spine">3 · The intelligence spine <span class="pill p-found">new · foundational</span></h2>
+<div class="cols">
+<div class="card"><h4>Canon Memory</h4><div class="muted">An append-only canon ledger per script. Approved revisions write canon; every tool (rewrites, summaries, bibles, pitch, sequels, adaptations, translations) reads <b>canon, not raw text</b> — so continuity holds across the lifecycle.</div>
+<div class="codeblock"><b>CanonFact</b> { id, scriptId, kind, subject,
+  statement, sourceSceneId, supersedesId?,
+  status, createdByRevisionId?, createdAt }</div></div>
+<div class="card"><h4>Scene dependency graph</h4><div class="muted">Powers related-scene detection &amp; the Conflict Detector. Built per revision, cached, recomputed on approved change.</div>
+<div class="codeblock"><b>SceneRelation</b> { fromSceneId, toSceneId,
+  type(REFERENCE|SETUP_PAYOFF|RELATIONSHIP|
+  LOCATION|LORE|CALLBACK|CAUSE_EFFECT),
+  strength, note }</div></div>
+<div class="card"><h4>Integrity Protection</h4><div class="muted">A pre-apply check both scene engines run. Reads canon + the graph; validates arcs · timeline · location · cause/effect · dialogue · tone/genre · setup-payoff. Returns <span class="mono">{ ok, warnings[], suggestedFixes[] }</span> — never blocks, always explains.</div></div>
+</div>
+
+<!-- 4 -->
+<h2 id="engines">4 · New engine specs</h2>
+<div class="card lit">
+<h4>Tool #1 — Scene Revision Engine <span class="muted" style="font-weight:400">· targeted, continuity-safe edits</span></h4>
+<div class="muted"><b>Locate</b> by scene № · character · location · keyword · dialogue · event · emotional beat · plot point (shows target + prev + next + related). <b>Related-scene detection</b> via the graph → apply-only / auto-update / review / ignore. <b>Modes:</b> replace · enhance · cinematic · stronger-emotion · stronger-action · same-voice · continuity-safe · dialogue-only · description-only · emotion-only · notes-only. <b>Integrity → Before/After</b> (diff + explanations → approve/reject/edit/save-as-alternate). <b>History &amp; canon:</b> what/who/when/why + related affected + AI recs accepted; revert/restore/return-to-original; <b>approved → canon</b>.</div>
+</div>
+<div class="cols">
+<div class="card"><h4>Tool #2 — Scene Regenerate Engine</h4><div class="muted">Safe single-scene regeneration (never the whole script). Smart-regenerate off full script + arcs + tone + timeline + canon. <b>Three directions</b> (emotional / action / cinematic — choose / combine / more). <b>Hint mode</b> (e.g. "Antara fights the Amalekite leader before earning his respect"). <b>Impact analysis</b> before save → what changed · scenes affected · continuity risks · fixes. Apply: replace · replace+related · review · alternate · keep · reject.</div></div>
+<div class="card"><h4>Story Bible + Synchronization</h4><div class="muted">Per-script Character · World · Lore · Timeline · Relationship-map. On an approved change, a <b>sync pass</b> updates affected entries from canon (Amalekites become allies → World Bible + Timeline + relationship graph update; future analysis uses the new canon). Previewed before commit.</div></div>
+<div class="card"><h4>Conflict Detector</h4><div class="muted">Scans canon + scenes for contradictions (S12 fears heights / S65 climbs casually). Emits <span class="mono">ConflictFlag</span> with explanation + related scenes + suggested fix, surfaced in Scene Workspace &amp; Coverage.</div></div>
+<div class="card"><h4>Emotional Journey Tracker</h4><div class="muted">Per-character emotion beats → a scene-by-scene arc (Fear → Hope → Anger → Triumph → Loss). Revisions that create discontinuity warn + show the graph + suggest corrections. Feeds the Emotion re-key before/after viz.</div></div>
+<div class="card"><h4>Tool #3 — Language Adaptation Studio</h4><div class="muted"><b>Adaptation, not translation.</b> Preserves canon · approved revisions · voices · lore · world · continuity while producing EN/AR/FR/ES · festival · Hollywood-dev · subtitle · dubbing. 10 modes; <b>comparison view</b> (original · literal · creative · adaptation notes).</div></div>
+</div>
+
+<!-- 5 -->
+<h2 id="data">5 · Data model additions</h2>
+<div class="card">
+<div class="muted">Additive Prisma models (reuse DevelopmentBuild/BuildVersion/ScriptRevision/RoleProfile/CoverageNote/ScriptAnalytics/LoreElement):</div>
+<div class="chips" style="margin-top:8px"><span class="chip">ScriptWorkspace</span><span class="chip">CanonFact</span><span class="chip">SceneRelation</span><span class="chip">SceneRevision</span><span class="chip">WorldBibleEntry</span><span class="chip">TimelineEvent</span><span class="chip">RelationshipEdge</span><span class="chip">ConflictFlag</span><span class="chip">EmotionBeat</span><span class="chip">Adaptation</span></div>
+<p class="cite"><span class="pill p-guard" style="background:rgba(229,99,95,.16);color:var(--red)">migration discipline</span> &nbsp;Land behind the test net, on a <b>backup/staging DB</b>, via the reconcile flow (<span class="mono">FOUNDATIONS.md</span> + <span class="mono">scripts/db-reconcile.sh</span>) — never bare <span class="mono">db push</span>, never prod. Multi-tenancy stays separate.</p>
+</div>
+
+<!-- 6 -->
+<h2 id="design">6 · Design authority — Figma, Cinematic V.4</h2>
+<div class="card">
+<ul>
+<li><b>Source of truth = Figma.</b> No features in three-dot menus; redesign the Script Detail experience around these capabilities.</li>
+<li><b>Cinematic V.4 language</b> — reuse the existing tokens (<span class="mono">globals.css</span>: gold/cream/panel/hair/blue/green…) + the <span class="mono">CinematicHeader</span> system; extend, don't replace. <span class="muted">(Found the Cinematic language in code but no file explicitly tagged "V.4" — point me to the V.4 Figma frame and I'll anchor exactly.)</span></li>
+<li><b>Responsive:</b> desktop = planning · tablet = review · mobile = on-set, following the existing <span class="mono">*Tablet/*Mobile</span> variant pattern.</li>
+<li><b>Bilingual:</b> every new surface ships EN + AR (RTL).</li>
+<li><b>Flow:</b> design a phase in Figma → review → build.</li>
+</ul>
+</div>
+
+<!-- 7 -->
+<h2 id="phases">7 · Phased roadmap <span class="muted" style="font-size:13px">· risk-ascending · design-first · reuse-first</span></h2>
+<div class="card">
+<table>
+<tr><th>Phase</th><th>Goal</th><th>Risk</th></tr>
+<tr><td class="k"><span class="num">P0</span> Foundations &amp; IA</td><td class="c">Figma: Script Detail OS shell. Code: the ScriptDetail shell hosting existing components as sections; left-nav restructure; import-parity wiring; the Canon + SceneRelation models.</td><td class="c">Med <span class="muted">(schema)</span></td></tr>
+<tr><td class="k"><span class="num">P1</span> Reuse / Relocate</td><td class="c">Move Reader, Doctor, Breakdown, Schedule&amp;Budget, Revisions, Notes, Package, Greenlight, BudgetFit, RewriteSlate into Script Detail. Old routes redirect.</td><td class="c">Low</td></tr>
+<tr class="hi"><td class="k"><span class="num">P2</span> Scene Engines</td><td class="c">Scene Revision + Regenerate + Integrity layer + scene-graph + before/after + canon write. The flagship new value.</td><td class="c">Med–High</td></tr>
+<tr><td class="k"><span class="num">P3</span> Intelligence</td><td class="c">Story Bible (World/Lore/Timeline/Relationships) + Sync + Conflict Detector + Emotional Journey — canon-driven.</td><td class="c">Med</td></tr>
+<tr><td class="k"><span class="num">P4</span> Language Adaptation</td><td class="c">Multi-language screenplay adaptation + comparison view, canon-preserving.</td><td class="c">Med</td></tr>
+<tr><td class="k"><span class="num">P5</span> Polish</td><td class="c">Pixel-pass vs Figma; tablet/mobile parity; Arabic/RTL; discoverability; perf.</td><td class="c">Low</td></tr>
+</table>
+<p class="cite">Every phase runs the Superpowers loop: <b>brainstorm → plan → approve → TDD → review → commit</b>, design locked in Figma first.</p>
+</div>
+
+<!-- 8 -->
+<h2 id="guards">8 · Guardrails</h2>
+<div class="card warn">
+<ul>
+<li><b>Don't break the running app</b> — additive composition; routes redirect, not deleted, until parity is proven.</li>
+<li><b>Canon is append-only</b>; sync and revisions write through approval, never silently.</li>
+<li><b>Schema work is gated</b> behind drift-reconcile + a backup DB; one migration per change.</li>
+<li><b>Multi-tenancy stays separate</b> (the release blocker) — don't couple v4 to it.</li>
+<li><b>Respect intentional safety designs</b> — no-faces look-board · no living-religion deities · representation-as-speaking-count.</li>
+<li><b>Reuse audit before each build step</b> — if a capability exists, relocate it; only build the connective tissue + the 7 new engines.</li>
+</ul>
+</div>
+
+<div class="foot">
+<b>Companion docs:</b> SCRIPON-BUILD-MASTER-FEATURES-AND-ROADMAP (current state) · scripon-country-era-reality-check · ScripON-Doctor-MASTER-STATUS (status authority). <b>Execution:</b> SUPERPOWERS-SCREENPLAY-OS-KICKOFF.md drives Claude Code + Superpowers + Figma through this plan. <b>Design authority:</b> Figma · Cinematic V.4. <b>Generated:</b> 2026-06-24.
+</div>
+
+</div>
+</body>
+</html>
