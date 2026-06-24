@@ -9045,3 +9045,46 @@ model ProtectedExportRecord {
   @@index([copyId])
   @@map("protected_export_records")
 }
+
+// ─── ScripON Script OS · Canon graph (P0) ─────────────────────────────────────
+enum CanonKind {
+  CHARACTER
+  WORLD
+  LORE
+  TIMELINE
+  RELATIONSHIP
+  PLOT
+}
+
+model CanonFact {
+  id            String    @id @default(cuid())
+  scriptId      String
+  kind          CanonKind
+  subject       String
+  predicate     String
+  object        String
+  statement     String
+  validFrom     Int
+  validTo       Int?
+  recordedAt    Int       @default(0)
+  status        String    @default("ACTIVE")
+  sourceSceneId String?
+  supersedesId  String?
+  createdAt     DateTime  @default(now())
+
+  @@index([scriptId, subject, predicate])
+  @@index([scriptId, validFrom])
+}
+
+model SceneRelation {
+  id          String   @id @default(cuid())
+  scriptId    String
+  fromSceneId String
+  toSceneId   String
+  type        String
+  strength    Float    @default(1)
+  createdAt   DateTime @default(now())
+
+  @@index([scriptId, fromSceneId])
+  @@index([scriptId, toSceneId])
+}
