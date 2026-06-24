@@ -17,13 +17,17 @@ export class VatController {
   @ApiOperation({ summary: 'List all VAT / tax rates' })
   findAll() { return this.service.findAll(); }
 
+  // Editing tax rates changes VAT on every invoice → require finance 'edit'.
   @Post('seed')
+  @RequirePermission('finance', 2)
   @ApiOperation({ summary: 'Seed default UAE VAT rates (run once on setup)' })
   seed() { return this.service.seedDefaults(); }
 
   @Post()
+  @RequirePermission('finance', 2)
   create(@Body() body: any) { return this.service.create(body); }
 
   @Put(':id')
+  @RequirePermission('finance', 2)
   update(@Param('id') id: string, @Body() body: any) { return this.service.update(id, body); }
 }
