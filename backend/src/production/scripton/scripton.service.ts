@@ -6,6 +6,7 @@ import { LORE_SEED } from './lore-seed.data';
 import { knowledgeDirective, stageLadderFor, normalizeFamily } from './knowledge';
 import { buildPackageDocModel } from './package-docx.util';
 import { packDocx } from './package-docx.renderer';
+import { LEVER_KEYS, resolveLever } from './intake-levers.util';
 
 /**
  * ScripON Doctor P0 — data-grounded coverage + scene diagnostics.
@@ -479,10 +480,11 @@ export class ScripOnService {
     return (this.prisma as any).dialectExemplar.create({ data: { variety, dialect, msa: data.msa || null, note: data.note || null, createdById: userId || null } });
   }
   async deleteExemplar(id: string) { return (this.prisma as any).dialectExemplar.delete({ where: { id: String(id) } }).catch(() => null); }
-  // Which dialect a Library doc was developed in (from its build brief).
+  // Which dialect a Library doc was developed in (typed IntakeProfile column first, build brief as fallback).
   private async varietyForDoc(docId: string): Promise<string> {
     const b: any = await (this.prisma as any).developmentBuild.findFirst({ where: { linkedScriptId: docId } }).catch(() => null);
-    return String((b && b.brief && b.brief.scriptVariety) || '');
+    const prof: any = b && b.projectId ? await (this.prisma as any).intakeProfile.findUnique({ where: { projectId: b.projectId } }).catch(() => null) : null;
+    return String(resolveLever(prof, b && b.brief, 'scriptVariety') || '');
   }
   private async docText(docId: string): Promise<string> {
     const doc: any = await (this.prisma as any).scriptDocument.findUnique({ where: { id: docId } }).catch(() => null);
@@ -740,8 +742,10 @@ export class ScripOnService {
   }
 
   // Allowlist the IntakeProfile columns. Extra Brief fields (baseGenre, subgenre, tones, moods, settingCountry,
-  // accents, market, name, …) live only in DevelopmentBuild.brief and must NOT reach this fixed-column upsert.
-  private static readonly INTAKE_COLS = ['mode', 'sourceText', 'sourceUrl', 'sourceFileUrl', 'realBased', 'realityLevel', 'researchSubject', 'researchAmount', 'genres', 'tone', 'fantasyOn', 'fantasyType', 'mythicalElements', 'mythologyCulture', 'blendLevel', 'format', 'language', 'country', 'rating', 'length', 'comps', 'spine', 'constraints', 'researchScope', 'researchDepth', 'blendLayers', 'treatment', 'settingPlace', 'settingEra', 'settingWorld', 'cultureEra', 'sensitivityTier', 'guardrails', 'projectIntent', 'budgetTier', 'sourceKind', 'buildId', 'sources', 'projectType', 'episodes', 'minutesPerEp', 'seasons', 'loreSelections', 'loreDensity', 'lorePolicy', 'researchNotes', 'characterBible'];
+  // market, name, …) live only in DevelopmentBuild.brief and must NOT reach this fixed-column upsert.
+  // The promoted levers (LEVER_KEYS: scriptVariety/dialogueRegister/accents/styleMix/conflict/conflictId/
+  // politicalArc) now have typed columns, so they ARE persisted here; reads still fall back to brief.
+  private static readonly INTAKE_COLS = ['mode', 'sourceText', 'sourceUrl', 'sourceFileUrl', 'realBased', 'realityLevel', 'researchSubject', 'researchAmount', 'genres', 'tone', 'fantasyOn', 'fantasyType', 'mythicalElements', 'mythologyCulture', 'blendLevel', 'format', 'language', 'country', 'rating', 'length', 'comps', 'spine', 'constraints', 'researchScope', 'researchDepth', 'blendLayers', 'treatment', 'settingPlace', 'settingEra', 'settingWorld', 'cultureEra', 'sensitivityTier', 'guardrails', 'projectIntent', 'budgetTier', 'sourceKind', 'buildId', 'sources', 'projectType', 'episodes', 'minutesPerEp', 'seasons', 'loreSelections', 'loreDensity', 'lorePolicy', 'researchNotes', 'characterBible', ...LEVER_KEYS];
   async saveIntake(projectId: string, data: any) {
     const d: any = {}; for (const k of ScripOnService.INTAKE_COLS) { if (data && data[k] !== undefined) d[k] = data[k]; }
     return (this.prisma as any).intakeProfile.upsert({ where: { projectId }, create: { projectId, ...d }, update: d });

@@ -8783,6 +8783,15 @@ model IntakeProfile {
   lorePolicy       Json?
   researchNotes    String?  @db.Text
   characterBible   Json?
+  // intake v3 (additive) — typed brief levers promoted out of DevelopmentBuild.brief JSON.
+  // Reads still fall back to brief (see intake-levers.util) so existing builds keep working.
+  scriptVariety    String?
+  dialogueRegister String?
+  accents          Json?
+  styleMix         Json?
+  conflict         String?
+  conflictId       String?
+  politicalArc     String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
   @@map("intake_profiles")
