@@ -8,7 +8,8 @@ import {
   Search, Plus, Star, ChevronLeft, ChevronRight, ChevronDown, ChevronUp,
   LogOut, X, ArrowRight, Sun, Moon, SunMedium, MapPin, Plane, FileSignature, Clapperboard, BedDouble, Car, ScrollText, MessageSquare, Menu, Languages,
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import SetupGate from '@/components/SetupGate';
 import NotificationBell from '@/components/NotificationBell';
 import PwaRegister from '@/components/PwaRegister';
@@ -216,6 +217,13 @@ const lsGet = (k: string, fb: any) => {
 };
 const lsSet = (k: string, v: any) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
 
+function OsSearchSync({ onChange }: { onChange: (s: string) => void }) {
+  const sp = useSearchParams();
+  const s = sp?.toString() ?? '';
+  useEffect(() => { onChange(s); }, [s, onChange]);
+  return null;
+}
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -259,7 +267,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [perms, setPerms] = useState<Record<string, number> | null>(null);
 
   const [osSearch, setOsSearch] = useState('');
-  useEffect(() => { setOsSearch(typeof window !== 'undefined' ? window.location.search : ''); }, [pathname]);
   const isScripon = pathname.startsWith('/scripon');
   const osActiveKey = isScripon ? activeWorkspaceKey(pathname, osSearch) : null;
   const canSeeOs = (w: OsWorkspace) => !w.perm || !perms || (perms[w.perm] ?? 0) >= 1;
@@ -454,7 +461,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const on = w.key === osActiveKey;
     return (
       <button key={w.key} onClick={() => router.push(w.href)} title={t(w.label)} aria-label={t(w.label)}
-        className="relative flex items-center rounded-md mx-1.5 my-0.5 transition-colors focus-visible:outline-none focus-visible:ring-2"
+        className="relative flex items-center rounded-md mx-1.5 my-0.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C6A463]"
         style={{
           padding: expanded ? '7px 10px' : '10px 0',
           justifyContent: expanded ? 'flex-start' : 'center',
@@ -689,7 +696,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         aria-label="Back to FilmOS" title="Back to FilmOS"
         onMouseEnter={() => setBrandHover(true)} onMouseLeave={() => setBrandHover(false)}
         onFocus={() => setBrandHover(true)} onBlur={() => setBrandHover(false)}
-        className="flex items-center gap-2.5 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2"
+        className="flex items-center gap-2.5 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C6A463]"
         style={{ padding: '6px 8px',
           background: brandHover ? 'rgba(198,164,99,0.10)' : 'transparent',
           border: `1px solid ${brandHover ? 'rgba(198,164,99,0.30)' : 'transparent'}` }}>
@@ -722,6 +729,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (isScripon) {
     return (
       <div className="flex flex-col h-screen overflow-hidden" style={{ background: 'var(--page-bg)' }}>
+        <Suspense fallback={null}><OsSearchSync onChange={setOsSearch} /></Suspense>
         {osTopBar}
         <div className="flex flex-1 min-h-0">
           {scrimEl}
