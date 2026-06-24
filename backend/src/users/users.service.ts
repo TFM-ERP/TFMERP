@@ -118,7 +118,7 @@ export class UsersService {
     if (emailTaken) throw new ConflictException('That login email is already in use.');
 
     const fullName = employee.displayName || `${employee.firstName} ${employee.lastName || ''}`.trim();
-    const passwordHash = await bcrypt.hash(data.password, 12);
+    const passwordHash = await bcrypt.hash(data.password, 13);
 
     return this.prisma.user.create({
       data: {
@@ -151,7 +151,7 @@ export class UsersService {
     if (data.email) allowed.email = String(data.email).toLowerCase().trim();
     if (data.password) {
       if (data.password.length < 8) throw new BadRequestException('Password must be at least 8 characters.');
-      allowed.passwordHash = await bcrypt.hash(data.password, 12);
+      allowed.passwordHash = await bcrypt.hash(data.password, 13);
     }
     return this.prisma.user.update({
       where: { id },
@@ -165,7 +165,7 @@ export class UsersService {
     if (!newPassword || newPassword.length < 8) {
       throw new BadRequestException('Password must be at least 8 characters.');
     }
-    const passwordHash = await bcrypt.hash(newPassword, 12);
+    const passwordHash = await bcrypt.hash(newPassword, 13);
     return this.prisma.user.update({ where: { id }, data: { passwordHash } });
   }
 }

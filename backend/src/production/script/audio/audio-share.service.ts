@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException, GoneException } from '@nestjs/common';
 import { randomBytes } from 'crypto';
+import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { MailService } from '../../mail/mail.service';
 
@@ -32,7 +33,7 @@ export class AudioShareService {
       projectId: asset.projectId || null,
       title: b.title || asset.title || 'Audio',
       note: b.note || null,
-      passcode: b.passcode ? String(b.passcode) : null,
+      passcode: b.passcode ? await bcrypt.hash(String(b.passcode), 10) : null,
       allowDownload: !!b.allowDownload,
       expiresAt: b.expiresAt ? new Date(b.expiresAt) : null,
       maxViews: b.maxViews ? Number(b.maxViews) : null,
@@ -51,7 +52,11 @@ export class AudioShareService {
     if (link.maxViews != null && link.views >= link.maxViews) throw new GoneException('This link has reached its view limit.');
     if (link.passcode) {
       if (!passcode) return { needsPasscode: true, title: link.title };
-      if (passcode !== link.passcode) throw new ForbiddenException('Incorrect passcode.');
+      // Hashed (new) links verify via bcrypt; legacy plaintext links still compare directly.
+      const ok = link.passcode.startsWith('$2')
+        ? await bcrypt.compare(passcode, link.passcode)
+        : passcode === link.passcode;
+      if (!ok) throw new ForbiddenException('Incorrect passcode.');
     }
     const asset = await this.prisma.audioAsset.findUnique({ where: { id: link.assetId } });
     if (!asset || asset.status === 'DELETED') throw new NotFoundException('The audio is no longer available.');

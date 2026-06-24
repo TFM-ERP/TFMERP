@@ -28,6 +28,7 @@ export class PaymentsController {
   findOne(@Param('id') id: string) { return this.service.findOne(id); }
 
   @Patch(':id/status')
+  @RequirePermission('finance', 2) // clearing/bouncing a payment is a money-state change
   @ApiOperation({ summary: 'Mark payment as CLEARED, BOUNCED, or REFUNDED' })
   updateStatus(@Param('id') id: string, @Body('status') status: PaymentStatus) {
     return this.service.updateStatus(id, status);

@@ -41,6 +41,7 @@ export class InvoicesController {
   }
 
   @Patch(':id/status')
+  @RequirePermission('finance', 2)
   @ApiOperation({ summary: 'Update invoice status' })
   updateStatus(
     @Param('id') id: string,
@@ -52,6 +53,7 @@ export class InvoicesController {
   }
 
   @Post(':id/payments')
+  @RequirePermission('finance', 2)
   @ApiOperation({ summary: 'Record a payment against an invoice' })
   recordPayment(
     @Param('id') id: string,

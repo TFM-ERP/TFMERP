@@ -38,18 +38,23 @@ export class ExpensesController {
     return this.service.update(id, body);
   }
 
+  // Approving / rejecting / paying out are money decisions → require finance:2 (edit),
+  // so a finance-view role can't approve (e.g. its own) expense claims.
   @Patch(':id/approve')
+  @RequirePermission('finance', 2)
   @ApiOperation({ summary: 'Approve an expense (Finance Manager / System Admin)' })
   approve(@Param('id') id: string, @Req() req: any) {
     return this.service.approve(id, req.user.id);
   }
 
   @Patch(':id/reject')
+  @RequirePermission('finance', 2)
   reject(@Param('id') id: string, @Req() req: any) {
     return this.service.reject(id, req.user.id);
   }
 
   @Patch(':id/paid')
+  @RequirePermission('finance', 2)
   markPaid(@Param('id') id: string) {
     return this.service.markPaid(id);
   }

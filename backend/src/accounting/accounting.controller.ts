@@ -26,6 +26,7 @@ export class AccountingController {
   createAccount(@Body() body: CreateAccountDto) { return this.service.createAccount(body); }
 
   @Post('accounts/seed')
+  @RequirePermission('finance', 2)
   @ApiOperation({ summary: 'Seed the standard chart of accounts (only when empty)' })
   seed() { return this.service.seedChartOfAccounts(); }
 
@@ -35,10 +36,10 @@ export class AccountingController {
   @Delete('accounts/:id')
   deleteAccount(@Param('id') id: string) { return this.service.deleteAccount(id); }
 
-  // Auto-posting
+  // Auto-posting — bulk GL writes; require 'edit', not just view.
   @Get('posting-status') postingStatus() { return this.service.postingStatus(); }
-  @Post('post-all') postAll() { return this.service.postAll(); }
-  @Post('post-burden/:versionId') postBurden(@Param('versionId') versionId: string) { return this.service.postProjectBurden(versionId); }
+  @Post('post-all') @RequirePermission('finance', 2) postAll() { return this.service.postAll(); }
+  @Post('post-burden/:versionId') @RequirePermission('finance', 2) postBurden(@Param('versionId') versionId: string) { return this.service.postProjectBurden(versionId); }
 
   // Reports
   @Get('trial-balance')
