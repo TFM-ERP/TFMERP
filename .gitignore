@@ -74,3 +74,8 @@ backend/dist*/
 backend/backups/
 backend/uploads/
 **/.fuse_hidden*
+
+# Binaries — never commit (re-download tools locally; e.g. cloudflared tunnel)
+*.exe
+cloudflared.exe
+frontend/cloudflared.exe
