@@ -2,12 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { OS_WORKSPACES, activeWorkspaceKey, rememberFilmosRoute, lastFilmosRoute, type OsWorkspace } from './scripon/os-workspaces';
 import {
   Home, DollarSign, Truck, Building2, Film, Users, BarChart2, Settings, ShieldCheck, Target, Wrench,
   Search, Plus, Star, ChevronLeft, ChevronRight, ChevronDown, ChevronUp,
   LogOut, X, ArrowRight, Sun, Moon, SunMedium, MapPin, Plane, FileSignature, Clapperboard, BedDouble, Car, ScrollText, MessageSquare, Menu, Languages,
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import SetupGate from '@/components/SetupGate';
 import NotificationBell from '@/components/NotificationBell';
 import PwaRegister from '@/components/PwaRegister';
@@ -215,6 +217,13 @@ const lsGet = (k: string, fb: any) => {
 };
 const lsSet = (k: string, v: any) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
 
+function OsSearchSync({ onChange }: { onChange: (s: string) => void }) {
+  const sp = useSearchParams();
+  const s = sp?.toString() ?? '';
+  useEffect(() => { onChange(s); }, [s, onChange]);
+  return null;
+}
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -232,6 +241,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const [brandHover, setBrandHover] = useState(false);
   const [acctOpen, setAcctOpen] = useState(false);
   // Dark mode — class on <html>, persisted; applied in an effect so SSR markup never differs
   const [theme, setTheme] = useState<string>('light');
@@ -255,6 +265,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, []);
   const setThemeTo = (t: string) => { setTheme(t); applyTheme(t); lsSet('tfm_theme', t); setThemeMenuOpen(false); };
   const [perms, setPerms] = useState<Record<string, number> | null>(null);
+
+  const [osSearch, setOsSearch] = useState('');
+  const isScripon = pathname.startsWith('/scripon');
+  const osActiveKey = isScripon ? activeWorkspaceKey(pathname, osSearch) : null;
+  const canSeeOs = (w: OsWorkspace) => !w.perm || !perms || (perms[w.perm] ?? 0) >= 1;
+  const osVisible = OS_WORKSPACES.filter(canSeeOs);
 
   const active = matchActive(pathname);
   const activeMkey = active?.mkey || 'home';
@@ -347,6 +363,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const isMobile = bp === 'phone';
   const isPhone = bp === 'phone';
   useEffect(() => { setMobileOpen(false); }, [pathname]);
+  useEffect(() => { rememberFilmosRoute(pathname); }, [pathname]);
 
   const toggleExpanded = () => setExpanded(v => { lsSet('tfm_nav_expanded', !v); return !v; });
 
@@ -440,6 +457,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     );
   };
 
+  const osRailBtn = (w: OsWorkspace) => {
+    const on = w.key === osActiveKey;
+    return (
+      <button key={w.key} onClick={() => router.push(w.href)} title={t(w.label)} aria-label={t(w.label)}
+        className="relative flex items-center rounded-md mx-1.5 my-0.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C6A463]"
+        style={{
+          padding: expanded ? '7px 10px' : '10px 0',
+          justifyContent: expanded ? 'flex-start' : 'center',
+          gap: 10,
+          background: on ? pal.activeBg : 'transparent',
+          color: on ? pal.activeText : pal.item,
+          fontWeight: on ? 500 : 400,
+        }}
+        onMouseEnter={e => { if (!on) { (e.currentTarget as HTMLElement).style.background = pal.itemHover; (e.currentTarget as HTMLElement).style.color = pal.itemHoverText; } }}
+        onMouseLeave={e => { if (!on) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = pal.item; } }}
+      >
+        <w.icon size={18} style={{ flexShrink: 0 }} />
+        {expanded && <span className="text-[13px] truncate">{t(w.label)}</span>}
+      </button>
+    );
+  };
+
   // Overflow threshold counts real pages, not dividers.
   const realPageCount = activeModule.pages.filter(p => !p.divider).length;
   const visibleTabs = (showAll || realPageCount <= 7) ? activeModule.pages : activeModule.pages.slice(0, 7);
@@ -449,38 +488,45 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return k === 'home' || !perms || (perms[k] ?? 0) >= 1;
   };
   const bottomNav = GROUPS.flatMap(g => g.keys).filter(canSee).slice(0, 4).map(k => MODULES.find(m => m.key === k)!);
+  const osBottomNav = osVisible.slice(0, 4); // primary 4: Home, Write, Develop, Canon (or fewer if RBAC-hidden)
 
-  return (
-    <div className="flex h-screen overflow-hidden" style={{ background: 'var(--page-bg)' }}>
+  // ── Shared shell pieces (consts extracted so both the FilmOS and ScripON returns reuse them) ──
 
-      {/* Mobile drawer scrim */}
-      {isMobile && mobileOpen && <div onClick={() => setMobileOpen(false)} className="fixed inset-0 z-[55]" style={{ background: 'rgba(0,0,0,0.5)' }} aria-hidden />}
+  const scrimEl = isMobile && mobileOpen ? (
+    <div onClick={() => setMobileOpen(false)} className="fixed inset-0 z-[55]" style={{ background: 'rgba(0,0,0,0.5)' }} aria-hidden />
+  ) : null;
 
-      {/* ── Rail (Option A — grouped, theme-following) ── */}
-      <aside className="flex flex-col shrink-0 transition-all" style={{ width: RAIL_W, background: pal.bg, borderInlineEnd: `1px solid ${pal.border}`, ...(isMobile ? { position: 'fixed', top: 0, bottom: 0, insetInlineStart: 0, zIndex: 60, transform: mobileOpen ? 'translateX(0)' : (isRTL ? 'translateX(100%)' : 'translateX(-100%)'), transition: 'transform .25s ease', boxShadow: mobileOpen ? '0 10px 40px rgba(0,0,0,0.45)' : 'none' } : {}) }}>
-        {/* Brand header */}
-        <div className="flex items-center gap-2 px-2.5 py-3" style={{ borderBottom: `1px solid ${pal.border}`, justifyContent: expanded ? 'space-between' : 'center' }}>
-          {expanded ? (
-            logoSrc
-              ? (usingDarkLogo
-                ? <img src={logoSrc} alt={company?.name || 'Company'} className="h-9 w-auto max-w-[150px] object-contain ms-1" />
-                : <div className="bg-white rounded-md px-2 py-1.5 flex items-center justify-center flex-1 me-1"><img src={logoSrc} alt={company?.name || 'Company'} className="h-8 w-auto max-w-[140px] object-contain" /></div>)
-              : <img src={fallbackLogo} alt="Company" className="h-8 w-auto ms-1" style={{ opacity: 0.95 }} />
-          ) : (
-            logoSrc
-              ? (usingDarkLogo
-                ? <img src={logoSrc} alt="" className="h-6 w-auto object-contain" />
-                : <div className="bg-white rounded-md p-1 flex items-center justify-center"><img src={logoSrc} alt="" className="h-6 w-6 object-contain" /></div>)
-              : <img src={fallbackLogo} alt="" className="h-6 w-auto" style={{ opacity: 0.95 }} />
-          )}
-          <button onClick={isMobile ? () => setMobileOpen(false) : toggleExpanded} aria-label={isMobile ? 'Close menu' : 'Toggle navigation'} className="shrink-0" style={{ color: pal.searchText }}>
-            {isMobile ? <X size={18} /> : (expanded ? (isRTL ? <ChevronRight size={18} /> : <ChevronLeft size={18} />) : (isRTL ? <ChevronLeft size={18} /> : <ChevronRight size={18} />))}
-          </button>
-        </div>
+  const railAside = (
+    <aside className="flex flex-col shrink-0 transition-all" style={{ width: RAIL_W, background: pal.bg, borderInlineEnd: `1px solid ${pal.border}`, ...(isMobile ? { position: 'fixed', top: 0, bottom: 0, insetInlineStart: 0, zIndex: 60, transform: mobileOpen ? 'translateX(0)' : (isRTL ? 'translateX(100%)' : 'translateX(-100%)'), transition: 'transform .25s ease', boxShadow: mobileOpen ? '0 10px 40px rgba(0,0,0,0.45)' : 'none' } : {}) }}>
+      {/* Brand header */}
+      <div className="flex items-center gap-2 px-2.5 py-3" style={{ borderBottom: `1px solid ${pal.border}`, justifyContent: expanded ? 'space-between' : 'center' }}>
+        {!isScripon && (expanded ? (
+          logoSrc
+            ? (usingDarkLogo
+              ? <img src={logoSrc} alt={company?.name || 'Company'} className="h-9 w-auto max-w-[150px] object-contain ms-1" />
+              : <div className="bg-white rounded-md px-2 py-1.5 flex items-center justify-center flex-1 me-1"><img src={logoSrc} alt={company?.name || 'Company'} className="h-8 w-auto max-w-[140px] object-contain" /></div>)
+            : <img src={fallbackLogo} alt="Company" className="h-8 w-auto ms-1" style={{ opacity: 0.95 }} />
+        ) : (
+          logoSrc
+            ? (usingDarkLogo
+              ? <img src={logoSrc} alt="" className="h-6 w-auto object-contain" />
+              : <div className="bg-white rounded-md p-1 flex items-center justify-center"><img src={logoSrc} alt="" className="h-6 w-6 object-contain" /></div>)
+            : <img src={fallbackLogo} alt="" className="h-6 w-auto" style={{ opacity: 0.95 }} />
+        ))}
+        <button onClick={isMobile ? () => setMobileOpen(false) : toggleExpanded} aria-label={isMobile ? 'Close menu' : 'Toggle navigation'} className="shrink-0" style={{ color: pal.searchText }}>
+          {isMobile ? <X size={18} /> : (expanded ? (isRTL ? <ChevronRight size={18} /> : <ChevronLeft size={18} />) : (isRTL ? <ChevronLeft size={18} /> : <ChevronRight size={18} />))}
+        </button>
+      </div>
 
-        {/* Grouped modules (search lives in the top bar to avoid duplication) */}
-        <nav className="flex-1 overflow-y-auto py-1.5" style={{ scrollbarWidth: 'none' }}>
-          {GROUPS.map(g => {
+      {/* Grouped modules (search lives in the top bar to avoid duplication) */}
+      <nav className="flex-1 overflow-y-auto py-1.5" style={{ scrollbarWidth: 'none' }}>
+        {isScripon ? (
+          <div>
+            {expanded && <div className="px-3.5 pt-3 pb-1 text-[10.5px]" style={{ color: pal.cap, letterSpacing: '.04em' }}>{t('Script OS')}</div>}
+            {osVisible.map(osRailBtn)}
+          </div>
+        ) : (
+          GROUPS.map(g => {
             const keys = g.keys.filter(canSee);
             if (!keys.length) return null;
             return (
@@ -489,48 +535,219 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 {keys.map(k => railBtn(MODULES.find(m => m.key === k)!))}
               </div>
             );
-          })}
-        </nav>
+          })
+        )}
+      </nav>
 
-        {/* Account footer + menu */}
-        <div className="relative px-1.5 py-2" style={{ borderTop: `1px solid ${pal.border}` }}>
-          {acctOpen && expanded && (
+      {/* Account footer + menu */}
+      <div className="relative px-1.5 py-2" style={{ borderTop: `1px solid ${pal.border}` }}>
+        {acctOpen && expanded && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setAcctOpen(false)} />
+            <div className="absolute z-50 start-1.5 end-1.5 rounded-md overflow-hidden" style={{ bottom: 'calc(100% - 2px)', background: pal.menuBg, border: `1px solid ${pal.border}` }}>
+              <Link href="/account/security" onClick={() => setAcctOpen(false)} className="flex items-center gap-2.5 px-3 py-2 text-[12.5px]" style={{ color: pal.footerText }}
+                onMouseEnter={e => (e.currentTarget.style.background = pal.itemHover)} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                <ShieldCheck size={15} /> {t('Personal identity & security')}
+              </Link>
+              <div style={{ height: 1, background: pal.border }} />
+              <button onClick={handleLogout} className="flex items-center gap-2.5 w-full text-start px-3 py-2 text-[12.5px]" style={{ color: '#e24b4a' }}
+                onMouseEnter={e => (e.currentTarget.style.background = pal.itemHover)} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                <LogOut size={15} /> {t('Sign out')}
+              </button>
+            </div>
+          </>
+        )}
+        <button onClick={() => expanded ? setAcctOpen(o => !o) : router.push('/account/security')} aria-label="Account menu"
+          className="flex items-center w-full rounded-md transition-colors"
+          style={{ padding: expanded ? '7px 9px' : '9px 0', gap: 9, justifyContent: expanded ? 'flex-start' : 'center' }}
+          onMouseEnter={e => (e.currentTarget.style.background = pal.itemHover)} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+          <div className="w-7 h-7 rounded-full overflow-hidden flex items-center justify-center text-xs font-bold shrink-0" style={{ background: pal.avBg, color: pal.avText }}>
+            {user?.avatarUrl
+              ? <img src={assetUrl(user.avatarUrl)} alt="" className="w-full h-full object-cover" />
+              : (user?.preferredName || user?.fullName)?.[0]?.toUpperCase() || 'A'}
+          </div>
+          {expanded && (
             <>
-              <div className="fixed inset-0 z-40" onClick={() => setAcctOpen(false)} />
-              <div className="absolute z-50 start-1.5 end-1.5 rounded-md overflow-hidden" style={{ bottom: 'calc(100% - 2px)', background: pal.menuBg, border: `1px solid ${pal.border}` }}>
-                <Link href="/account/security" onClick={() => setAcctOpen(false)} className="flex items-center gap-2.5 px-3 py-2 text-[12.5px]" style={{ color: pal.footerText }}
-                  onMouseEnter={e => (e.currentTarget.style.background = pal.itemHover)} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                  <ShieldCheck size={15} /> {t('Personal identity & security')}
-                </Link>
-                <div style={{ height: 1, background: pal.border }} />
-                <button onClick={handleLogout} className="flex items-center gap-2.5 w-full text-start px-3 py-2 text-[12.5px]" style={{ color: '#e24b4a' }}
-                  onMouseEnter={e => (e.currentTarget.style.background = pal.itemHover)} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                  <LogOut size={15} /> {t('Sign out')}
-                </button>
+              <div className="text-start flex-1 min-w-0">
+                <p className="text-[12px] font-medium truncate" style={{ color: pal.footerText }}>{user?.preferredName || user?.fullName || t('Administrator')}</p>
+                <p className="text-[10px] truncate" style={{ color: pal.footerSub }}>{(user?.role || 'SYSTEM_ADMIN').replace(/_/g, ' ')}</p>
               </div>
+              <ChevronUp size={14} className="shrink-0" style={{ color: pal.footerSub, transform: acctOpen ? 'rotate(180deg)' : 'none' }} />
             </>
           )}
-          <button onClick={() => expanded ? setAcctOpen(o => !o) : router.push('/account/security')} aria-label="Account menu"
-            className="flex items-center w-full rounded-md transition-colors"
-            style={{ padding: expanded ? '7px 9px' : '9px 0', gap: 9, justifyContent: expanded ? 'flex-start' : 'center' }}
-            onMouseEnter={e => (e.currentTarget.style.background = pal.itemHover)} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-            <div className="w-7 h-7 rounded-full overflow-hidden flex items-center justify-center text-xs font-bold shrink-0" style={{ background: pal.avBg, color: pal.avText }}>
-              {user?.avatarUrl
-                ? <img src={assetUrl(user.avatarUrl)} alt="" className="w-full h-full object-cover" />
-                : (user?.preferredName || user?.fullName)?.[0]?.toUpperCase() || 'A'}
-            </div>
-            {expanded && (
-              <>
-                <div className="text-start flex-1 min-w-0">
-                  <p className="text-[12px] font-medium truncate" style={{ color: pal.footerText }}>{user?.preferredName || user?.fullName || t('Administrator')}</p>
-                  <p className="text-[10px] truncate" style={{ color: pal.footerSub }}>{(user?.role || 'SYSTEM_ADMIN').replace(/_/g, ' ')}</p>
-                </div>
-                <ChevronUp size={14} className="shrink-0" style={{ color: pal.footerSub, transform: acctOpen ? 'rotate(180deg)' : 'none' }} />
-              </>
-            )}
+        </button>
+      </div>
+    </aside>
+  );
+
+  const mainEl = (
+    <main className="flex-1 overflow-y-auto" style={{ paddingBottom: isPhone ? 60 : undefined }}>
+      <SetupGate>{children}</SetupGate>
+    </main>
+  );
+
+  const bottomNavEl = isPhone ? (
+    <nav className="fixed bottom-0 inset-x-0 z-40 flex" style={{ background: pal.bg, borderTop: `1px solid ${pal.border}`, paddingBottom: 'env(safe-area-inset-bottom)' }}>
+      {(isScripon ? osBottomNav.map(w => {
+        const on = w.key === osActiveKey;
+        return (
+          <button key={w.key} onClick={() => router.push(w.href)} className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2" style={{ color: on ? GOLD : pal.item }}>
+            <w.icon size={19} />
+            <span className="text-[9px] truncate max-w-[64px]">{t(w.label)}</span>
           </button>
+        );
+      }) : bottomNav.map(m => {
+        const on = m.key === activeMkey;
+        return (
+          <button key={m.key} onClick={() => goModule(m)} className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2" style={{ color: on ? GOLD : pal.item }}>
+            <m.icon size={19} />
+            <span className="text-[9px] truncate max-w-[64px]">{t(m.label)}</span>
+          </button>
+        );
+      }))}
+      {/* existing "More" button unchanged — opens the drawer with all 9 */}
+      <button onClick={() => setMobileOpen(true)} className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2" style={{ color: pal.item }}>
+        <Menu size={19} />
+        <span className="text-[9px]">{t('More')}</span>
+      </button>
+    </nav>
+  ) : null;
+
+  const paletteEl = paletteOpen ? (
+    <div className="fixed inset-0 z-50 flex items-start justify-center" style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(2px)', paddingTop: '12vh' }}
+      onClick={() => setPaletteOpen(false)}>
+      <div className="rounded-xl shadow-2xl w-[460px] max-w-[92%] overflow-hidden" style={{ background: 'var(--surface-1)', color: 'var(--text-1)', border: '1px solid var(--border-2)' }} onClick={e => e.stopPropagation()}>
+        <div className="flex items-center gap-2 px-4 py-3" style={{ borderBottom: '1px solid var(--border-1)' }}>
+          <Search size={16} style={{ color: 'var(--text-3)' }} />
+          <input autoFocus value={query} onChange={e => setQuery(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && paletteResults[0]) { router.push(paletteResults[0].href); setPaletteOpen(false); } }}
+            placeholder={t('Jump to page or action…')} className="flex-1 outline-none text-sm bg-transparent" style={{ color: 'var(--text-1)' }} />
+          <button onClick={() => setPaletteOpen(false)} aria-label="Close" style={{ color: 'var(--text-3)' }}><X size={16} /></button>
         </div>
-      </aside>
+        <div className="max-h-80 overflow-y-auto py-1.5">
+          {paletteResults.length === 0 && <div className="px-4 py-6 text-center text-sm" style={{ color: 'var(--text-3)' }}>{t('No matches')}</div>}
+          {paletteResults.map((r, i) => (
+            <button key={r.href + i} onClick={() => { router.push(r.href); setPaletteOpen(false); }}
+              className="flex items-center gap-2.5 w-full text-start px-4 py-2 text-[13px]" style={{ color: 'var(--text-1)' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+              {r.kind === 'action' ? <Plus size={15} style={{ color: 'var(--text-3)' }} /> : <ArrowRight size={15} style={{ color: 'var(--text-3)' }} />}
+              {r.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  ) : null;
+
+  const searchButton = (
+    <button onClick={() => { setPaletteOpen(true); setQuery(''); }}
+      className="flex items-center gap-2 text-sm rounded-lg px-3 h-8 transition-colors w-[230px] shrink-0"
+      style={{ color: 'var(--text-3)', background: 'var(--surface-2)', border: '1px solid var(--border-1)' }}>
+      <Search size={14} />
+      <span className="text-[12.5px] truncate">{t('Search or jump…')}</span>
+      <span className="ms-auto text-[11px] rounded px-1.5 py-0.5" style={{ color: 'var(--text-3)', border: '1px solid var(--border-1)' }}>⌘K</span>
+    </button>
+  );
+
+  const topbarRightControls = (
+    <>
+      <button onClick={() => setLocale(isRTL ? 'en' : 'ar')} title={isRTL ? 'التبديل إلى الإنجليزية' : 'Switch to Arabic (RTL)'} aria-label="Language"
+        className="p-1.5 rounded-lg flex items-center gap-1" style={{ color: 'var(--text-3)' }}>
+        <Languages size={16} />
+        <span className="text-[11px] font-bold">{isRTL ? 'ع' : 'EN'}</span>
+      </button>
+      <div style={{ position: 'relative' }}>
+        <button onClick={() => setThemeMenuOpen((o) => !o)} title="Theme" aria-label="Switch theme"
+          className="p-1.5 rounded-lg" style={{ color: 'var(--text-3)' }}>
+          {darkMode ? <Moon size={16} /> : theme === 'daylight' ? <SunMedium size={16} /> : <Sun size={16} />}
+        </button>
+        {themeMenuOpen && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setThemeMenuOpen(false)} />
+            <div className="absolute z-50 rounded-lg overflow-hidden" style={{ insetInlineEnd: 0, top: '110%', minWidth: 188, background: 'var(--surface-1)', border: '1px solid var(--border-2)', boxShadow: '0 12px 32px rgba(0,0,0,.28)' }}>
+              {THEME_MENU.map((o) => {
+                const on = theme === o.id || (o.id === 'graphite' && theme === 'dark');
+                return (
+                  <button key={o.id} onClick={() => setThemeTo(o.id)}
+                    className="flex items-center gap-2 w-full text-start px-3 py-2 text-[12.5px]"
+                    style={{ background: on ? 'var(--accent-soft)' : 'transparent', color: on ? 'var(--accent)' : 'var(--text-1)' }}
+                    onMouseEnter={(e) => { if (!on) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
+                    onMouseLeave={(e) => { if (!on) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+                    <span style={{ flex: 1 }}>{o.name}</span>
+                    <span style={{ fontSize: 10, color: on ? 'var(--accent)' : 'var(--text-3)' }}>{o.hint}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
+      </div>
+      <NotificationBell />
+    </>
+  );
+
+  // ── ScripON OS top bar + brand-home ──
+
+  const brandHome = (
+    <div style={{ position: 'relative' }}>
+      <button
+        onClick={() => router.push(lastFilmosRoute())}
+        aria-label="Back to FilmOS" title="Back to FilmOS"
+        onMouseEnter={() => setBrandHover(true)} onMouseLeave={() => setBrandHover(false)}
+        onFocus={() => setBrandHover(true)} onBlur={() => setBrandHover(false)}
+        className="flex items-center gap-2.5 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C6A463]"
+        style={{ padding: '6px 8px',
+          background: brandHover ? 'rgba(198,164,99,0.10)' : 'transparent',
+          border: `1px solid ${brandHover ? 'rgba(198,164,99,0.30)' : 'transparent'}` }}>
+        <span style={{ width: 30, height: 30, borderRadius: 8, flex: 'none', display: 'grid', placeItems: 'center',
+          background: 'linear-gradient(155deg,#E6D2A2,#C6A463)', color: '#15120B', fontWeight: 800, fontSize: 11, letterSpacing: '.3px' }}>TFM</span>
+        <span style={{ fontFamily: 'Fraunces, serif', fontSize: 16, fontWeight: 600, color: brandHover ? '#E6D2A2' : 'var(--text-1)' }}>ScripON</span>
+      </button>
+      {brandHover && (
+        <div role="tooltip" style={{ position: 'absolute', top: 'calc(100% + 6px)', insetInlineStart: 6, zIndex: 70,
+          background: 'var(--surface-1)', border: '1px solid var(--border-2)', borderRadius: 8, padding: '6px 11px',
+          fontSize: 11.5, color: 'var(--text-1)', whiteSpace: 'nowrap', boxShadow: '0 10px 24px -10px rgba(0,0,0,.5)' }}>
+          Back to <b style={{ color: '#C6A463' }}>FilmOS</b> ↩
+        </div>
+      )}
+    </div>
+  );
+
+  const osTopBar = (
+    <header className="flex items-center gap-2 px-4 h-12 shrink-0" style={{ background: 'var(--surface-1)', borderBottom: '1px solid var(--border-1)' }}>
+      {isMobile && <button onClick={() => setMobileOpen(true)} aria-label="Open menu" className="p-1 -ms-1 shrink-0" style={{ color: 'var(--text-2)' }}><Menu size={20} /></button>}
+      {brandHome}
+      <div className="flex-1" />
+      {searchButton}
+      <div className="flex-1" />
+      {topbarRightControls}
+    </header>
+  );
+
+  // ── ScripON early return ──
+  if (isScripon) {
+    return (
+      <div className="flex flex-col h-screen overflow-hidden" style={{ background: 'var(--page-bg)' }}>
+        <Suspense fallback={null}><OsSearchSync onChange={setOsSearch} /></Suspense>
+        {osTopBar}
+        <div className="flex flex-1 min-h-0">
+          {scrimEl}
+          {railAside}
+          <div className="flex-1 flex flex-col min-w-0">{mainEl}</div>
+        </div>
+        {bottomNavEl}
+        <PwaRegister />
+        {paletteEl}
+      </div>
+    );
+  }
+
+  // ── FilmOS return (behaviorally identical to pre-task) ──
+  return (
+    <div className="flex h-screen overflow-hidden" style={{ background: 'var(--page-bg)' }}>
+      {scrimEl}
+      {railAside}
 
       {/* ── Main column ── */}
       <div className="flex-1 flex flex-col min-w-0">
@@ -558,50 +775,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {isDetail && <>{isRTL ? <ChevronLeft size={13} className="shrink-0" style={{ color: 'var(--border-2)' }} /> : <ChevronRight size={13} className="shrink-0" style={{ color: 'var(--border-2)' }} />}<span className="text-[12px] px-1 whitespace-nowrap" style={{ color: 'var(--text-3)' }}>{t('record')}</span></>}
           </nav>
           <div className="flex-1" />
-          <button onClick={() => { setPaletteOpen(true); setQuery(''); }}
-            className="flex items-center gap-2 text-sm rounded-lg px-3 h-8 transition-colors w-[230px] shrink-0"
-            style={{ color: 'var(--text-3)', background: 'var(--surface-2)', border: '1px solid var(--border-1)' }}>
-            <Search size={14} />
-            <span className="text-[12.5px] truncate">{t('Search or jump…')}</span>
-            <span className="ms-auto text-[11px] rounded px-1.5 py-0.5" style={{ color: 'var(--text-3)', border: '1px solid var(--border-1)' }}>⌘K</span>
-          </button>
+          {searchButton}
           {newAction && (
             <Link href={newAction.href} className="hidden sm:flex items-center gap-1.5 text-[12.5px] font-bold rounded-lg px-3 h-8" style={{ background: GOLD, color: darkMode ? '#1a1206' : '#1a1206' }}>
               <Plus size={14} /> {newAction.label}
             </Link>
           )}
-          <button onClick={() => setLocale(isRTL ? 'en' : 'ar')} title={isRTL ? 'التبديل إلى الإنجليزية' : 'Switch to Arabic (RTL)'} aria-label="Language"
-            className="p-1.5 rounded-lg flex items-center gap-1" style={{ color: 'var(--text-3)' }}>
-            <Languages size={16} />
-            <span className="text-[11px] font-bold">{isRTL ? 'ع' : 'EN'}</span>
-          </button>
-          <div style={{ position: 'relative' }}>
-            <button onClick={() => setThemeMenuOpen((o) => !o)} title="Theme" aria-label="Switch theme"
-              className="p-1.5 rounded-lg" style={{ color: 'var(--text-3)' }}>
-              {darkMode ? <Moon size={16} /> : theme === 'daylight' ? <SunMedium size={16} /> : <Sun size={16} />}
-            </button>
-            {themeMenuOpen && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setThemeMenuOpen(false)} />
-                <div className="absolute z-50 rounded-lg overflow-hidden" style={{ insetInlineEnd: 0, top: '110%', minWidth: 188, background: 'var(--surface-1)', border: '1px solid var(--border-2)', boxShadow: '0 12px 32px rgba(0,0,0,.28)' }}>
-                  {THEME_MENU.map((o) => {
-                    const on = theme === o.id || (o.id === 'graphite' && theme === 'dark');
-                    return (
-                      <button key={o.id} onClick={() => setThemeTo(o.id)}
-                        className="flex items-center gap-2 w-full text-start px-3 py-2 text-[12.5px]"
-                        style={{ background: on ? 'var(--accent-soft)' : 'transparent', color: on ? 'var(--accent)' : 'var(--text-1)' }}
-                        onMouseEnter={(e) => { if (!on) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
-                        onMouseLeave={(e) => { if (!on) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
-                        <span style={{ flex: 1 }}>{o.name}</span>
-                        <span style={{ fontSize: 10, color: on ? 'var(--accent)' : 'var(--text-3)' }}>{o.hint}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </>
-            )}
-          </div>
-          <NotificationBell />
+          {topbarRightControls}
         </header>
 
         {/* Sub-tabs — hidden on record-detail screens (they bring their own header) */}
@@ -632,61 +812,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
         )}
 
-        {/* Page content */}
-        <main className="flex-1 overflow-y-auto" style={{ paddingBottom: isPhone ? 60 : undefined }}>
-          <SetupGate>{children}</SetupGate>
-        </main>
+        {mainEl}
       </div>
 
-      {/* Phone bottom navigation — adaptive shell: rail → tablet icons → phone bottom-nav */}
-      {isPhone && (
-        <nav className="fixed bottom-0 inset-x-0 z-40 flex" style={{ background: pal.bg, borderTop: `1px solid ${pal.border}`, paddingBottom: 'env(safe-area-inset-bottom)' }}>
-          {bottomNav.map(m => {
-            const on = m.key === activeMkey;
-            return (
-              <button key={m.key} onClick={() => goModule(m)} className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2" style={{ color: on ? GOLD : pal.item }}>
-                <m.icon size={19} />
-                <span className="text-[9px] truncate max-w-[64px]">{t(m.label)}</span>
-              </button>
-            );
-          })}
-          <button onClick={() => setMobileOpen(true)} className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2" style={{ color: pal.item }}>
-            <Menu size={19} />
-            <span className="text-[9px]">{t('More')}</span>
-          </button>
-        </nav>
-      )}
+      {bottomNavEl}
 
       {/* PWA: production manifest + service worker (offline petty cash & locations) */}
       <PwaRegister />
 
-      {/* ── Command palette ── */}
-      {paletteOpen && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center" style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(2px)', paddingTop: '12vh' }}
-          onClick={() => setPaletteOpen(false)}>
-          <div className="rounded-xl shadow-2xl w-[460px] max-w-[92%] overflow-hidden" style={{ background: 'var(--surface-1)', color: 'var(--text-1)', border: '1px solid var(--border-2)' }} onClick={e => e.stopPropagation()}>
-            <div className="flex items-center gap-2 px-4 py-3" style={{ borderBottom: '1px solid var(--border-1)' }}>
-              <Search size={16} style={{ color: 'var(--text-3)' }} />
-              <input autoFocus value={query} onChange={e => setQuery(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter' && paletteResults[0]) { router.push(paletteResults[0].href); setPaletteOpen(false); } }}
-                placeholder={t('Jump to page or action…')} className="flex-1 outline-none text-sm bg-transparent" style={{ color: 'var(--text-1)' }} />
-              <button onClick={() => setPaletteOpen(false)} aria-label="Close" style={{ color: 'var(--text-3)' }}><X size={16} /></button>
-            </div>
-            <div className="max-h-80 overflow-y-auto py-1.5">
-              {paletteResults.length === 0 && <div className="px-4 py-6 text-center text-sm" style={{ color: 'var(--text-3)' }}>{t('No matches')}</div>}
-              {paletteResults.map((r, i) => (
-                <button key={r.href + i} onClick={() => { router.push(r.href); setPaletteOpen(false); }}
-                  className="flex items-center gap-2.5 w-full text-start px-4 py-2 text-[13px]" style={{ color: 'var(--text-1)' }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
-                  {r.kind === 'action' ? <Plus size={15} style={{ color: 'var(--text-3)' }} /> : <ArrowRight size={15} style={{ color: 'var(--text-3)' }} />}
-                  {r.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+      {paletteEl}
     </div>
   );
 }
