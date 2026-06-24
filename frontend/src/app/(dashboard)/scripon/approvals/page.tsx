@@ -10,6 +10,7 @@ import ScripOnApprovalsMobile from '@/components/scripon/ScripOnApprovalsMobile'
 import { useViewport } from '@/components/scripon/useViewport';
 import ScripOnCompliancePanel from '@/components/scripon/ScripOnCompliancePanel';
 import { useLocale } from '@/lib/i18n';
+import { useScriponBack } from '@/components/scripon/useScriponBack';
 const initials = (s: string) => String(s || '?').split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase();
 const ago = (d?: string) => { if (!d) return ''; const ms = Date.now() - new Date(d).getTime(); const h = Math.floor(ms / 3.6e6); if (h < 1) return 'now'; if (h < 24) return h + 'h'; return Math.floor(h / 24) + 'd'; };
 const COLOR: Record<string, string> = { PENDING: '#5b8def', APPROVED: '#57b368', REJECTED: '#e0a23b' };
@@ -18,6 +19,7 @@ export default function ScripOnApprovalsPage() {
   const router = useRouter();
   const vp = useViewport();
   const { t } = useLocale();
+  const onBack = useScriponBack();
   const SAMPLE_STEPS: SxStep[] = [
     { name: 'S. Okonkwo', role: t('Writer · approved 2d'), state: 'done' },
     { name: 'Lena Park', role: t('Producer · approved 1d'), state: 'done' },
@@ -119,6 +121,6 @@ export default function ScripOnApprovalsPage() {
 
   const RC: any = vp === 'mobile' ? ScripOnApprovalsMobile : vp === 'tablet' ? ScripOnApprovalsTablet : ScripOnApprovals;
   const el = <RC title={title} meta={live ? `${t('Approvals')} · ${(reqs || []).filter((r: any) => r.status === 'PENDING').length} ${t('in review')}` : `${t('Approvals')} · ${t('demo')}`} columns={columns} chainRev={chainRev} chainColor={chainColor} steps={stepList} lockLabel={lockLabel}
-    onAction={onAction} onNav={onNav} onBack={() => router.push('/home')} toast={toast} />;
+    onAction={onAction} onNav={onNav} onBack={onBack} toast={toast} />;
   return (<>{el}{surface === 'compliance' && revId && (<ScripOnCompliancePanel projectId={projectId!} revisionId={revId} onClose={() => setSurface(null)} />)}</>);
 }

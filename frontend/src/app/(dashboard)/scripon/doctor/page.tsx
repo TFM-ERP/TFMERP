@@ -15,6 +15,7 @@ import ScripOnCoverageHistory from '@/components/scripon/ScripOnCoverageHistory'
 import ScripOnCompsDeck from '@/components/scripon/ScripOnCompsDeck';
 import ScripOnPackagePanel from '@/components/scripon/ScripOnPackagePanel';
 import ScripOnFormatPanel from '@/components/scripon/ScripOnFormatPanel';
+import { useScriponBack } from '@/components/scripon/useScriponBack';
 
 const GRADE: Record<string, { v: string; c: string; p: number }> = {
   EXCELLENT: { v: 'A', c: 'var(--green)', p: 92 }, GOOD: { v: 'B', c: 'var(--gold2)', p: 78 },
@@ -74,6 +75,7 @@ export default function ScripOnDoctorPage() {
   const router = useRouter();
   const { t } = useLocale();
   const vp = useViewport();
+  const onBack = useScriponBack();
   const [title, setTitle] = useState('Midnight Run');
   const [revLabel, setRevLabel] = useState('BLUE · v4');
   const [revColor, setRevColor] = useState('#5b8def');
@@ -201,7 +203,7 @@ export default function ScripOnDoctorPage() {
       </div></div>
     );
   }
-  const common = { title, revisionLabel: revLabel, revisionColor: revColor, meta: t('Doctor · grounded in your pages'), gauges, activeTab: tab, onTab: setTab, coverage: cov, covLoading, onGenerate: generate, diagnostics: diag, diagLoading, onRunDiag: runDiag, actHealth, onAction, onNav, onBack: () => router.push('/home'), analyticsNode, notesNode, toast };
+  const common = { title, revisionLabel: revLabel, revisionColor: revColor, meta: t('Doctor · grounded in your pages'), gauges, activeTab: tab, onTab: setTab, coverage: cov, covLoading, onGenerate: generate, diagnostics: diag, diagLoading, onRunDiag: runDiag, actHealth, onAction, onNav, onBack, analyticsNode, notesNode, toast };
   const body = vp === 'mobile' ? <ScripOnDoctorMobile {...common} /> : vp === 'tablet' ? <ScripOnDoctorTablet {...common} /> : <ScripOnDoctor {...common} />;
   return (<>{body}{surface === 'budgetfit' && activeRev?.id && (<ScripOnBudgetFit projectId={projectId!} revisionId={activeRev.id} onClose={() => setSurface(null)} />)}{surface === 'rewrite' && activeRev?.id && (<ScripOnRewriteSlate projectId={projectId!} revisionId={activeRev.id} initialKind={rwKind} onClose={() => setSurface(null)} />)}{surface === 'history' && projectId && (<ScripOnCoverageHistory projectId={projectId} onOpen={(r: any) => { setCov(buildCoverage(r)); setGauges(buildGauges(r)); setActHealth(MUTED_ACT); setTab('Coverage'); setSurface(null); }} onClose={() => setSurface(null)} />)}{surface === 'comps' && projectId && (<ScripOnCompsDeck projectId={projectId} onClose={() => setSurface(null)} />)}{surface === 'package' && projectId && (<ScripOnPackagePanel projectId={projectId} onClose={() => setSurface(null)} />)}{surface === 'format' && projectId && (<ScripOnFormatPanel projectId={projectId} onClose={() => setSurface(null)} />)}</>);
 }

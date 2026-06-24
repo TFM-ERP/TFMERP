@@ -9,6 +9,7 @@ import ScripOnBreakdownTablet from '@/components/scripon/ScripOnBreakdownTablet'
 import ScripOnBreakdownMobile from '@/components/scripon/ScripOnBreakdownMobile';
 import { useViewport } from '@/components/scripon/useViewport';
 import { useLocale } from '@/lib/i18n';
+import { useScriponBack } from '@/components/scripon/useScriponBack';
 
 type Item = { name: string; qty: number; estCost: number; scenes: string[]; days: number[]; costCenters: string[]; ids?: string[] };
 type Cat = { category: string; itemCount: number; items: Item[] };
@@ -43,6 +44,7 @@ export default function ScripOnBreakdownPage() {
   const router = useRouter();
   const vp = useViewport();
   const { dir, t } = useLocale();
+  const onBack = useScriponBack();
   const [cats, setCats] = useState<Cat[]>(SAMPLE);
   const [title, setTitle] = useState('Midnight Run');
   const [revLabel, setRevLabel] = useState('BLUE · v4');
@@ -185,8 +187,8 @@ export default function ScripOnBreakdownPage() {
     </div>
   ) : null;
 
-  if (vp === 'mobile') return (<>{overlay}<ScripOnBreakdownMobile title={title} lenses={lenses} activeLens={activeLens} onLens={(k) => { setActiveLens(k); setActiveName(undefined); }} elements={elements} activeName={active?.name} onSelect={setActiveName} detail={detail} onAction={onAction} onNav={onNav} onBack={() => router.push('/home')} /></>);
-  if (vp === 'tablet') return (<>{overlay}<ScripOnBreakdownTablet title={title} revisionLabel={revLabel} revisionColor={revColor} lenses={lenses} activeLens={activeLens} onLens={(k) => { setActiveLens(k); setActiveName(undefined); }} elements={elements} activeName={active?.name} onSelect={setActiveName} lensLabel={lensLabel} detail={detail} onAction={onAction} onNav={onNav} onBack={() => router.push('/home')} /></>);
+  if (vp === 'mobile') return (<>{overlay}<ScripOnBreakdownMobile title={title} lenses={lenses} activeLens={activeLens} onLens={(k) => { setActiveLens(k); setActiveName(undefined); }} elements={elements} activeName={active?.name} onSelect={setActiveName} detail={detail} onAction={onAction} onNav={onNav} onBack={onBack} /></>);
+  if (vp === 'tablet') return (<>{overlay}<ScripOnBreakdownTablet title={title} revisionLabel={revLabel} revisionColor={revColor} lenses={lenses} activeLens={activeLens} onLens={(k) => { setActiveLens(k); setActiveName(undefined); }} elements={elements} activeName={active?.name} onSelect={setActiveName} lensLabel={lensLabel} detail={detail} onAction={onAction} onNav={onNav} onBack={onBack} /></>);
   return (
     <>
       {overlay}
@@ -194,7 +196,7 @@ export default function ScripOnBreakdownPage() {
         title={title} revisionLabel={revLabel} revisionColor={revColor} meta={`${t('Breakdown')} · ${totalElements} ${t('elements')}`}
         lenses={lenses} activeLens={activeLens} onLens={(k) => { setActiveLens(k); setActiveName(undefined); }}
         elements={elements} activeName={active?.name} onSelect={setActiveName} lensLabel={lensLabel}
-        detail={detail} onAction={onAction} onNav={onNav} onBack={() => router.push('/home')} toast={toast}
+        detail={detail} onAction={onAction} onNav={onNav} onBack={onBack} toast={toast}
       />
     </>
   );

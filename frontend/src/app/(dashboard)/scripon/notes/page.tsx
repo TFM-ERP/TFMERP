@@ -9,6 +9,7 @@ import ScripOnNotes, { SxNote, SxThread, SxBubble } from '@/components/scripon/S
 import ScripOnNotesTablet from '@/components/scripon/ScripOnNotesTablet';
 import ScripOnNotesMobile from '@/components/scripon/ScripOnNotesMobile';
 import { useViewport } from '@/components/scripon/useViewport';
+import { useScriponBack } from '@/components/scripon/useScriponBack';
 
 const FILTERS = ['All', 'Open', 'Resolved', '@ me', 'Story', 'Production'];
 const SAMPLE_NOTES: SxNote[] = [
@@ -32,6 +33,7 @@ export default function ScripOnNotesPage() {
   const router = useRouter();
   const { t } = useLocale();
   const vp = useViewport();
+  const onBack = useScriponBack();
   const [title, setTitle] = useState('Midnight Run');
   const [notes, setNotes] = useState<SxNote[]>(SAMPLE_NOTES);
   const [activeId, setActiveId] = useState('n1');
@@ -103,5 +105,5 @@ export default function ScripOnNotesPage() {
   return <RC title={title} meta={`${t('Notes')} · ${notes.filter((n) => n.status === 'open').length} ${t('open')} · ${notes.length} ${t('total')}`}
     filters={FILTERS} activeFilter={activeFilter} onFilter={setActiveFilter}
     notes={shown} activeId={active?.id} onSelect={setActiveId} thread={thread}
-    onAction={onAction} onNav={onNav} onBack={() => router.push('/home')} toast={toast} />;
+    onAction={onAction} onNav={onNav} onBack={onBack} toast={toast} />;
 }

@@ -9,6 +9,7 @@ import { productionApi } from '@/lib/api';
 import { SxRail, SX_CSS } from '@/components/scripon/ScripOnStudio';
 import { AR_DIALECTS } from '@/components/scripon/dialects';
 import { useLocale } from '@/lib/i18n';
+import { useScriponBack } from '@/components/scripon/useScriponBack';
 
 type Fid = { score: number; present: string[]; missing: string[]; flags: string[]; variety?: string };
 type Ex = { id: string; variety: string; msa?: string; dialect: string; note?: string };
@@ -16,6 +17,7 @@ type Ex = { id: string; variety: string; msa?: string; dialect: string; note?: s
 export default function ScripOnDialectPage() {
   const router = useRouter();
   const { dir, t } = useLocale();
+  const onBack = useScriponBack();
   const [docId, setDocId] = useState('');
   const [variety, setVariety] = useState('ar-EG-cairene');
   const [fid, setFid] = useState<Fid | null>(null);
@@ -68,7 +70,7 @@ export default function ScripOnDialectPage() {
       <style dangerouslySetInnerHTML={{ __html: SX_CSS }} />
       <div className="top">
         <div className="tl">
-          <div className="logo" onClick={() => router.push('/home')} title={t('Back to TFM')}>TFM</div>
+          <div className="logo" onClick={onBack} title={t('Back to TFM')}>TFM</div>
           <div className="proj">{t('Dialect fidelity')}</div>
           <span className="meta">{t('Score · auto-repair · exemplar bank')}</span>
         </div>

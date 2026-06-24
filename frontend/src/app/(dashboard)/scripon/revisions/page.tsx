@@ -9,6 +9,7 @@ import ScripOnRevisions, { SxRev, SxCompare, SxLine } from '@/components/scripon
 import ScripOnRevisionsTablet from '@/components/scripon/ScripOnRevisionsTablet';
 import ScripOnRevisionsMobile from '@/components/scripon/ScripOnRevisionsMobile';
 import { useViewport } from '@/components/scripon/useViewport';
+import { useScriponBack } from '@/components/scripon/useScriponBack';
 
 const SAMPLE_REVS: SxRev[] = [
   { id: 'r1', label: 'Blue v4', color: '#5b8def', date: 'today', author: 'S. Okonkwo', summary: 'Tightened Act 2; cut 4 pp. Re-paginated Sc 14–28.', active: true },
@@ -42,6 +43,7 @@ export default function ScripOnRevisionsPage() {
   const router = useRouter();
   const { t } = useLocale();
   const vp = useViewport();
+  const onBack = useScriponBack();
   const [title, setTitle] = useState('Midnight Run');
   const [revs, setRevs] = useState<SxRev[]>(SAMPLE_REVS);
   const [rawRevs, setRawRevs] = useState<any[]>([]);
@@ -112,5 +114,5 @@ export default function ScripOnRevisionsPage() {
   const RC: any = vp === 'mobile' ? ScripOnRevisionsMobile : vp === 'tablet' ? ScripOnRevisionsTablet : ScripOnRevisions;
   return <RC title={title} meta={`${revs.length} ${t('revisions')}${compare ? ' · ' + t('comparing') + ' ' + compare.fromLabel + ' ↔ ' + compare.toLabel : ''}`}
     revisions={revs} activeToId={toId} onSelect={onSelect} compare={compare} loading={loading}
-    onAction={onAction} onNav={onNav} onBack={() => router.push('/home')} toast={toast} />;
+    onAction={onAction} onNav={onNav} onBack={onBack} toast={toast} />;
 }

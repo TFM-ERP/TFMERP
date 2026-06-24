@@ -9,6 +9,7 @@ import ScripOnGreenlightTablet from '@/components/scripon/ScripOnGreenlightTable
 import ScripOnGreenlightMobile from '@/components/scripon/ScripOnGreenlightMobile';
 import { useViewport } from '@/components/scripon/useViewport';
 import { useLocale } from '@/lib/i18n';
+import { useScriponBack } from '@/components/scripon/useScriponBack';
 
 const SAMPLE_COMPS: SxComp[] = [
   { name: 'Collateral', sim: 82, gross: '$220M' }, { name: 'Nightcrawler', sim: 76, gross: '$50M' },
@@ -55,6 +56,7 @@ export default function GreenlightPage() {
   const router = useRouter();
   const vp = useViewport();
   const { t } = useLocale();
+  const onBack = useScriponBack();
   const [title, setTitle] = useState('Midnight Run');
   const [projectId, setProjectId] = useState<string | null>(null);
   const [mode, setMode] = useState('market');
@@ -121,5 +123,5 @@ export default function GreenlightPage() {
   };
 
   const RC: any = vp === 'mobile' ? ScripOnGreenlightMobile : vp === 'tablet' ? ScripOnGreenlightTablet : ScripOnGreenlight;
-  return <RC title={title} meta={`${t('Greenlight')} · ${t('market & decision')}`} mode={mode} onTab={onTab} comps={comps} forecast={forecast} prob={prob} roi={roi} prescription={prescription} decision={decision} onNav={onNav} onBack={() => router.push('/home')} onAction={onAction} toast={toast} />;
+  return <RC title={title} meta={`${t('Greenlight')} · ${t('market & decision')}`} mode={mode} onTab={onTab} comps={comps} forecast={forecast} prob={prob} roi={roi} prescription={prescription} decision={decision} onNav={onNav} onBack={onBack} onAction={onAction} toast={toast} />;
 }

@@ -9,6 +9,7 @@ import ScripOnReports, { SxReport, SxPreview } from '@/components/scripon/ScripO
 import ScripOnReportsTablet from '@/components/scripon/ScripOnReportsTablet';
 import ScripOnReportsMobile from '@/components/scripon/ScripOnReportsMobile';
 import { useViewport } from '@/components/scripon/useViewport';
+import { useScriponBack } from '@/components/scripon/useScriponBack';
 
 const fmtClass = (f: string) => /xls|excel|csv/i.test(f) ? 'green' : /fdx|final/i.test(f) ? 'blue' : 'blue';
 const SAMPLE_REPORTS: (SxReport & { cat: string })[] = [
@@ -36,6 +37,7 @@ export default function ScripOnReportsPage() {
   const router = useRouter();
   const { t } = useLocale();
   const vp = useViewport();
+  const onBack = useScriponBack();
   const [title, setTitle] = useState('Midnight Run');
   const [meta, setMeta] = useState(`${t('Reports')} · 8 ${t('ready')}`);
   const [reports, setReports] = useState<(SxReport & { cat: string })[]>(SAMPLE_REPORTS);
@@ -128,5 +130,5 @@ export default function ScripOnReportsPage() {
   const RC: any = vp === 'mobile' ? ScripOnReportsMobile : vp === 'tablet' ? ScripOnReportsTablet : ScripOnReports;
   return <RC title={title} meta={meta} filters={filters} activeFilter={activeFilter} onFilter={setActiveFilter}
     reports={shown} activeKey={active?.key} onSelect={setActiveKey} preview={preview}
-    onExport={onExport} onAction={onAction} onNav={onNav} onBack={() => router.push('/home')} toast={toast} />;
+    onExport={onExport} onAction={onAction} onNav={onNav} onBack={onBack} toast={toast} />;
 }

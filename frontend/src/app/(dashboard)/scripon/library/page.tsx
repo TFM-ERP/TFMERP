@@ -9,6 +9,7 @@ import ScripOnLibraryTablet from '@/components/scripon/ScripOnLibraryTablet';
 import ScripOnLibraryMobile from '@/components/scripon/ScripOnLibraryMobile';
 import { useViewport } from '@/components/scripon/useViewport';
 import { useLocale } from '@/lib/i18n';
+import { useScriponBack } from '@/components/scripon/useScriponBack';
 
 const COVERS = ['linear-gradient(150deg,#243046,#141821)', 'linear-gradient(150deg,#3a2730,#151016)', 'linear-gradient(150deg,#2a1f2e,#120f15)', 'linear-gradient(150deg,#3a2336,#15101a)', 'linear-gradient(150deg,#262046,#131020)', 'linear-gradient(150deg,#332c1c,#151209)', 'linear-gradient(150deg,#1f3329,#101713)'];
 const typeColor = (t: string) => { const u = t.toUpperCase(); return /SERIES|PILOT/.test(u) ? '#c3b6f5' : /TVC|COMMERCIAL/.test(u) ? 'var(--gold2)' : /VERTICAL|MICRO/.test(u) ? '#e7a6c6' : /HORROR/.test(u) ? '#f0a3a0' : /ADAPT/.test(u) ? '#9fe3c0' : '#a9c4f7'; };
@@ -31,6 +32,7 @@ export default function ScripOnLibraryPage() {
   const router = useRouter();
   const vp = useViewport();
   const { dir, t } = useLocale();
+  const onBack = useScriponBack();
   const [cards, setCards] = useState<SxCard[]>(SAMPLE);
   const [activeFilter, setActiveFilter] = useState('All');
   const [search, setSearch] = useState('');
@@ -137,7 +139,7 @@ export default function ScripOnLibraryPage() {
   const openBin = () => { setBinOpen(true); loadBin(); };
   const doRestore = async (id: string) => { try { await productionApi.script.restore(id); setBinItems((b) => b.filter((x) => x.id !== id)); flash(t('Restored - reload to see it in the library.')); } catch { flash(t('Could not restore.')); } };
   const doConf = async () => { const c = conf; setConf(null); if (!c) return; try { if (c.kind === 'purge') { await productionApi.script.remove(c.id); setBinItems((b) => b.filter((x) => x.id !== c.id)); flash(t('Deleted forever.')); } else { await productionApi.script.trash(c.id); setCards((cc) => cc.filter((x) => x.id !== c.id)); setDocIds((sset) => { const n = new Set(sset); n.delete(c.id); return n; }); flash(t('Moved to bin.')); } } catch { flash(t('Action failed.')); } };
-  const common = { meta: `${cards.length} ${t('scripts across the slate')}`, filters: FILTERS, activeFilter, onFilter: setActiveFilter, search, onSearch: setSearch, cards: shown, onOpen: (id: string) => router.push(docIds.has(id) ? ('/scripon/package?doc=' + id) : '/scripon/reader'), onNew: () => setAdding(true), onNav, onBack: () => router.push('/home'), toast, onDelete: onCardDelete, canDelete: (id: string) => docIds.has(id), onBin: openBin };
+  const common = { meta: `${cards.length} ${t('scripts across the slate')}`, filters: FILTERS, activeFilter, onFilter: setActiveFilter, search, onSearch: setSearch, cards: shown, onOpen: (id: string) => router.push(docIds.has(id) ? ('/scripon/package?doc=' + id) : '/scripon/reader'), onNew: () => setAdding(true), onNav, onBack, toast, onDelete: onCardDelete, canDelete: (id: string) => docIds.has(id), onBin: openBin };
   const body = vp === 'mobile' ? <ScripOnLibraryMobile {...common} /> : vp === 'tablet' ? <ScripOnLibraryTablet {...common} /> : <ScripOnLibrary {...common} />;
 
   const aBtn: React.CSSProperties = { width: '100%', textAlign: 'start', background: 'rgba(198,164,99,0.14)', color: '#C6A463', border: '1px solid rgba(198,164,99,0.30)', borderRadius: 10, padding: '10px 12px', fontSize: 12.5, cursor: 'pointer', marginTop: 8 };

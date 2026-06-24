@@ -12,6 +12,7 @@ import ScripOnDashboardTablet from '@/components/scripon/ScripOnDashboardTablet'
 import ScripOnDashboardMobile from '@/components/scripon/ScripOnDashboardMobile';
 import { useViewport } from '@/components/scripon/useViewport';
 import { useLocale } from '@/lib/i18n';
+import { useScriponBack } from '@/components/scripon/useScriponBack';
 
 const SAMPLE: SxDash = {
   title: 'Midnight Run', meta: 'Feature · prep · 18 days to camera', revisionLabel: 'BLUE · v4', revisionColor: '#5b8def',
@@ -50,6 +51,7 @@ export default function ScripOnHome() {
   const router = useRouter();
   const vp = useViewport();
   const { t } = useLocale();
+  const onBack = useScriponBack();
   const [data, setData] = useState<SxDash>(SAMPLE);
   const [toast, setToast] = useState<string | null>(null);
   const toastT = useRef<any>(null);
@@ -123,7 +125,7 @@ export default function ScripOnHome() {
   const onQuick = (_k: string) => router.push('/scripon/reader');
 
   const v2nav = null;
-  if (vp === 'mobile') return (<><ScripOnDashboardMobile data={data} onNav={onNav} onBack={() => router.push('/home')} onQuick={onQuick} />{v2nav}</>);
-  if (vp === 'tablet') return (<><ScripOnDashboardTablet data={data} onNav={onNav} onBack={() => router.push('/home')} onQuick={onQuick} />{v2nav}</>);
-  return (<><ScripOnDashboard data={data} onNav={onNav} onBack={() => router.push('/home')} onQuick={onQuick} toast={toast} />{v2nav}</>);
+  if (vp === 'mobile') return (<><ScripOnDashboardMobile data={data} onNav={onNav} onBack={onBack} onQuick={onQuick} />{v2nav}</>);
+  if (vp === 'tablet') return (<><ScripOnDashboardTablet data={data} onNav={onNav} onBack={onBack} onQuick={onQuick} />{v2nav}</>);
+  return (<><ScripOnDashboard data={data} onNav={onNav} onBack={onBack} onQuick={onQuick} toast={toast} />{v2nav}</>);
 }

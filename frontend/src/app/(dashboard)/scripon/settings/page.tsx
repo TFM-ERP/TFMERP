@@ -7,6 +7,7 @@ import ScripOnSettingsTablet from '@/components/scripon/ScripOnSettingsTablet';
 import ScripOnSettingsMobile from '@/components/scripon/ScripOnSettingsMobile';
 import { useViewport } from '@/components/scripon/useViewport';
 import { useLocale } from '@/lib/i18n';
+import { useScriponBack } from '@/components/scripon/useScriponBack';
 
 const RUNS: SxRun[] = [
   { surface: 'Coverage report', model: 'claude-opus-4', tokens: '18.4k', conf: 0.84, status: 'APPROVED', statusClass: 'green', when: '2h' },
@@ -21,6 +22,7 @@ export default function ScripOnSettingsPage() {
   const router = useRouter();
   const vp = useViewport();
   const { t } = useLocale();
+  const onBack = useScriponBack();
   const [toast, setToast] = useState<string | null>(null);
   const toastT = useRef<any>(null);
   const flash = (m: string) => { setToast(m); clearTimeout(toastT.current); toastT.current = setTimeout(() => setToast(null), 3200); };
@@ -44,5 +46,5 @@ export default function ScripOnSettingsPage() {
   };
   const RC: any = vp === 'mobile' ? ScripOnSettingsMobile : vp === 'tablet' ? ScripOnSettingsTablet : ScripOnSettings;
   return <RC companyName="The Film Makers" model="claude-opus-4" promptSet={t('Prompt set v3')} confidence={0.75} humanApproval={true}
-    runs={RUNS} runsMeta={t('All AI flows through one service · 142 runs today')} onAction={onAction} onNav={onNav} onBack={() => router.push('/home')} toast={toast} />;
+    runs={RUNS} runsMeta={t('All AI flows through one service · 142 runs today')} onAction={onAction} onNav={onNav} onBack={onBack} toast={toast} />;
 }

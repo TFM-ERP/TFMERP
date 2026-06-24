@@ -10,6 +10,7 @@ import ScripOnScheduleMobile from '@/components/scripon/ScripOnScheduleMobile';
 import { useViewport } from '@/components/scripon/useViewport';
 import ScripOnBudgetFit from '@/components/scripon/ScripOnBudgetFit';
 import { useLocale } from '@/lib/i18n';
+import { useScriponBack } from '@/components/scripon/useScriponBack';
 
 const STRIP_COLOR: Record<string, { bg: string; fg: string }> = {
   'INT/DAY': { bg: '#f2ecd6', fg: '#2a2410' }, 'EXT/DAY': { bg: '#f4d79a', fg: '#2e2208' },
@@ -56,6 +57,7 @@ export default function ScripOnSchedulePage() {
   const router = useRouter();
   const vp = useViewport();
   const { t } = useLocale();
+  const onBack = useScriponBack();
   const [title, setTitle] = useState('Midnight Run');
   const [meta, setMeta] = useState(() => `${t('Schedule')} · 18 ${t('shoot days')} · EFC $1.24M`);
   const [kpis, setKpis] = useState<SxKpi[]>(SAMPLE_KPIS);
@@ -156,7 +158,7 @@ export default function ScripOnSchedulePage() {
     flash(`${k[0].toUpperCase() + k.slice(1)} ${t('is a later screen in the build order.')}`);
   };
 
-  const common = { title, meta, kpis, days, budget, suggestion, onAction, onNav, onBack: () => router.push('/home'), toast };
+  const common = { title, meta, kpis, days, budget, suggestion, onAction, onNav, onBack, toast };
   const body = vp === 'mobile' ? <ScripOnScheduleMobile {...common} /> : vp === 'tablet' ? <ScripOnScheduleTablet {...common} /> : <ScripOnSchedule {...common} />;
   return (<>{body}{surface === 'budgetfit' && activeRev?.id && (<ScripOnBudgetFit projectId={projectId!} revisionId={activeRev.id} onClose={() => setSurface(null)} />)}</>);
 }
