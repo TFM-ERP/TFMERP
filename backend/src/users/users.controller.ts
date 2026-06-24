@@ -2,10 +2,12 @@ import { Controller, Get, Post, Put, Param, Body, Query, UseGuards } from '@nest
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../permissions/permissions.guard';
+import { RequirePermission } from '../permissions/require-permission.decorator';
 
 @ApiTags('Users')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('users')
 export class UsersController {
   constructor(private service: UsersService) {}
@@ -22,14 +24,19 @@ export class UsersController {
   @Get(':id')
   findOne(@Param('id') id: string) { return this.service.findOne(id); }
 
+  // Account management is admin-only — creating users, editing roles, and resetting
+  // passwords are privilege-escalation / account-takeover vectors.
   @Post()
+  @RequirePermission('setup', 3)
   @ApiOperation({ summary: 'Create a user account linked to an existing employee' })
   create(@Body() body: any) { return this.service.create(body); }
 
   @Put(':id')
+  @RequirePermission('setup', 3)
   update(@Param('id') id: string, @Body() body: any) { return this.service.update(id, body); }
 
   @Post(':id/reset-password')
+  @RequirePermission('setup', 3)
   resetPassword(@Param('id') id: string, @Body('password') password: string) {
     return this.service.resetPassword(id, password);
   }
