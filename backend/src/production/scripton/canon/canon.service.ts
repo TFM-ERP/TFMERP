@@ -160,6 +160,20 @@ export class CanonService {
     }
   }
 
+  /** The open (or rendering) RevisionPass for a script + its staged changes. Read model for Write. */
+  async openPass(scriptId: string): Promise<any> {
+    if (!scriptId) return null;
+    try {
+      return await (this.prisma as any).revisionPass.findFirst({
+        where: { scriptId, status: { in: ['OPEN', 'RENDERING'] } },
+        include: { changes: { orderBy: { createdAt: 'asc' } } },
+        orderBy: { createdAt: 'desc' },
+      });
+    } catch {
+      return null;
+    }
+  }
+
   /** Live ACTIVE canon for a script, as a CANON steering block at a story point. '' on error/empty. */
   async directiveFor(scriptId: string, at: number, subjects?: string[]): Promise<string> {
     try {

@@ -80,6 +80,9 @@ const writeExpect = async (page, r) => {
   r.spineDots = await page.locator('.sx.write .spdot').count();
   r.assert('spine has scene dots', r.spineDots > 0);
   r.assert('canvas uses shared ScriptPaper (slug headings)', (await page.locator('.sx.write .canvas .uvp-slug').count()) >= 1);
+  // Revision Pass panel (desktop/tablet; mobile leads with the paper).
+  r.passRows = await page.locator('.sx.write .pass .passrow').count();
+  if (r.passRows > 0) r.assert('revision pass: staged changes + continuity meter', r.passRows >= 1 && (await page.locator('.sx.write .pass .meter .track').count()) >= 1);
 };
 
 // Canon (kernel-backed): the bi-temporal graph from real CanonFact data —

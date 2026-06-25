@@ -448,6 +448,7 @@ export const productionApi = {
   scripton: {
     latestCoverage: (projectId: string) => api.get(`/production/scripton/coverage/${projectId}`),
     canon: (scriptId: string) => api.get('/production/scripton/canon?scriptId=' + encodeURIComponent(scriptId)),
+    revisionPass: (scriptId: string) => api.get('/production/scripton/revision-pass?scriptId=' + encodeURIComponent(scriptId)),
     coverageHistory: (projectId: string) => api.get(`/production/scripton/coverage-history/${projectId}`),
     coverage: (projectId: string, body: any = {}) => api.post(`/production/scripton/coverage/${projectId}`, body),
     diagnostics: (projectId: string, body: any = {}) => api.post(`/production/scripton/diagnostics/${projectId}`, body),

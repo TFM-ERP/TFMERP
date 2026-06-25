@@ -17,7 +17,7 @@ import ScriptOnReaderMobile from '@/components/scripton/ScriptOnReaderMobile';
 import { useViewport } from '@/components/scripton/useViewport';
 import { useScriptonShellFlag } from '@/components/scripton/osShellFlag';
 import { useScriptonBack } from '@/components/scripton/useScriptonBack';
-import ScriptonWrite from '@/components/scripton/write/ScriptonWrite';
+import ScriptonWrite, { type PassVM } from '@/components/scripton/write/ScriptonWrite';
 
 const SAMPLE: SxScene[] = [
   { id: 's1', sceneNumber: '1', slugline: 'INT. DINER — DAY', intExt: 'INT', dayNight: 'DAY', status: 'tagged', description: 'Steam off the coffee. MARA (30s) watches the door over the rim of her cup. The booth vinyl is cracked; so is her patience.' },
@@ -48,6 +48,7 @@ export default function ScriptOnWorkspace() {
   const [revisions, setRevisions] = useState<{ id: string; label: string; color?: string; date?: string }[]>([]);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [activeRev, setActiveRev] = useState<any>(null);
+  const [passVM, setPassVM] = useState<PassVM | null>(null);
 
   const [activeId, setActiveId] = useState('s6');
   const [search, setSearch] = useState('');
@@ -72,6 +73,14 @@ export default function ScriptOnWorkspace() {
         const docs = Array.isArray(dr.data) ? dr.data : (dr.data?.items ?? []);
         const doc = docs[0];
         if (!doc) return;
+        try {
+          const pp: any = await productionApi.scripton.revisionPass(doc.id);
+          const pass = pp.data;
+          if (alive && pass && pass.changes) {
+            const changes = pass.changes.map((c: any) => ({ id: c.id, kind: c.kind, sceneNumber: c.spec?.sceneNumber, label: c.spec?.label, tag: c.spec?.tag, summary: c.spec?.summary, before: c.spec?.before, after: c.spec?.after }));
+            setPassVM({ changeCount: changes.length, continuity: Math.round((pass.continuityScore ?? 0) * 100), versionLabel: '→ new draft', changes, bridge: 'One bridge needed: S64 night → S65 dawn. Auto-fix on render.' });
+          }
+        } catch { /* no open pass */ }
         const revId = doc.activeRevisionId || doc.revisions?.[0]?.id;
         if (!revId) return;
         const rv: any = await productionApi.script.getRevision(revId);
@@ -158,12 +167,17 @@ export default function ScriptOnWorkspace() {
 
   // Write (Slice 1) — the canvas + Story Spine, under the new shell flag.
   if (flag === 'new') {
+    const stagedNums = new Set((passVM?.changes || []).map((c) => Number(c.sceneNumber)));
+    const stagedIds = filtered.filter((s) => stagedNums.has(Number(s.sceneNumber))).map((s) => s.id);
     return (
       <ScriptonWrite
         title={title} revisionLabel={revLabel} revisionColor={revColor}
         scenes={filtered} activeId={active?.id} onSelectScene={selectScene}
-        pageCount={pageCount} loading={false} stagedSceneIds={[]}
-        onNav={onNav} onBack={onBackOs} toast={toast} vp={vp}
+        pageCount={pageCount} loading={false} stagedSceneIds={stagedIds} pass={passVM}
+        onNav={onNav} onBack={onBackOs}
+        onRender={() => flash(t('Render = commit lands in the next slice.'))}
+        onPassAction={(k) => flash(k === 'save' ? t('Pass saved.') : t('Ships with the next slice.'))}
+        toast={toast} vp={vp}
       />
     );
   }

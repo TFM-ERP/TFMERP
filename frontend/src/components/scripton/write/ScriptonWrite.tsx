@@ -55,6 +55,34 @@ const CSS = `
 /* Canvas (paper) */
 .sx.write .canvas{flex:1;min-width:0;overflow:auto;background:linear-gradient(180deg,#0b0c0f,#090a0c);display:flex;justify-content:center;padding:26px 0 60px}
 .sx.write .empty{color:var(--faint);font-size:13px;text-align:center;padding:40px;align-self:flex-start}
+
+/* Revision Pass panel */
+.sx.write .pass{width:344px;flex:none;border-inline-start:1px solid var(--hair);background:#0c0d11;display:flex;flex-direction:column;min-height:0}
+.sx.write .passh{padding:15px 16px 12px;border-bottom:1px solid var(--hair);flex:0 0 auto}
+.sx.write .passh .eye{font-size:9.5px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--gold)}
+.sx.write .passh .pt{font-family:var(--sx-title);font-size:18px;color:var(--cream);margin-top:3px}
+.sx.write .meter{margin-top:11px}
+.sx.write .meter .mt{display:flex;justify-content:space-between;font-size:11px;color:var(--mut);margin-bottom:5px}
+.sx.write .meter .mt b{color:var(--green)}
+.sx.write .track{height:6px;border-radius:4px;background:#23262e;overflow:hidden}
+.sx.write .track i{display:block;height:100%;background:linear-gradient(90deg,var(--green),#7ed99a)}
+.sx.write .passlist{flex:1;min-height:0;overflow:auto;padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.sx.write .passrow{background:var(--panel);border:1px solid var(--hair);border-radius:12px;padding:11px 12px}
+.sx.write .prh{display:flex;align-items:center;gap:9px}
+.sx.write .pic{width:24px;height:24px;border-radius:7px;display:grid;place-items:center;font-size:12px;flex:none;background:rgba(255,255,255,.05)}
+.sx.write .pn{font-size:12.5px;font-weight:600;color:var(--cream)}
+.sx.write .ptag{font-size:10px;color:var(--faint);margin-top:1px}
+.sx.write .psum{font-size:11.5px;color:var(--mut);margin-top:7px;line-height:1.4}
+.sx.write .diff{margin-top:7px;font-size:11px;font-family:"Courier Prime",monospace;line-height:1.55}
+.sx.write .diff .del{color:#e08585;text-decoration:line-through}
+.sx.write .diff .add{color:#7ed99a}
+.sx.write .bridge{margin:0 14px 4px;background:rgba(198,164,99,.07);border:1px solid rgba(198,164,99,.25);border-radius:11px;padding:11px 12px;font-size:11.5px;color:var(--gold2);line-height:1.4;flex:0 0 auto}
+.sx.write .passfoot{padding:12px 14px;border-top:1px solid var(--hair);display:flex;flex-direction:column;gap:8px;flex:0 0 auto}
+.sx.write .renderbtn{width:100%;text-align:center;background:linear-gradient(180deg,var(--gold2),var(--gold));color:var(--goldink);font-weight:700;font-size:13px;border:none;border-radius:10px;padding:11px;cursor:pointer}
+.sx.write .footrow{display:flex;gap:8px}
+.sx.write .footrow span{flex:1;text-align:center;border:1px solid var(--hair);border-radius:9px;padding:8px;color:var(--mut);font-size:11.5px;cursor:pointer}
+.sx.write .passempty{flex:1;display:grid;place-items:center;text-align:center;color:var(--faint);font-size:12.5px;padding:24px}
+.sx.write[data-vp="tablet"] .pass{width:300px}
 .sx.write .sk{background:linear-gradient(90deg,#16181e,#1c1f27,#16181e);background-size:200% 100%;animation:wkp 1.3s ease-in-out infinite;border-radius:8px}
 @keyframes wkp{0%{background-position:200% 0}100%{background-position:-200% 0}}
 .sx.write .toast{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);z-index:9;background:#1b1e25;border:1px solid var(--hair2);color:var(--cream);font-size:12.5px;padding:10px 16px;border-radius:10px}
@@ -68,14 +96,20 @@ const CSS = `
 
 const fmtSlug = (s: SxScene) => s.slugline || [s.intExt, s.dayNight].filter(Boolean).join('. ').toUpperCase() || 'SCENE';
 
+export type PassChange = { id: string; kind: string; sceneNumber?: number | string; label?: string; tag?: string; summary?: string; before?: string; after?: string };
+export type PassVM = { changeCount: number; continuity: number; versionLabel: string; changes: PassChange[]; bridge?: string };
+
 export type WriteProps = {
   title: string; revisionLabel: string; revisionColor: string;
   scenes: SxScene[]; activeId?: string; onSelectScene: (id: string) => void;
   pageCount?: number | string; loading?: boolean;
-  stagedSceneIds?: string[];
-  onNav: (k: string) => void; onBack: () => void; toast?: string | null;
-  vp: 'mobile' | 'tablet' | 'desktop';
+  stagedSceneIds?: string[]; pass?: PassVM | null;
+  onNav: (k: string) => void; onBack: () => void; onRender?: () => void; onPassAction?: (k: string) => void;
+  toast?: string | null; vp: 'mobile' | 'tablet' | 'desktop';
 };
+
+const KIND_ICON: Record<string, string> = { revise: '✎', 'canon-shift': '◆', 're-ending': '↺' };
+const KIND_COLOR: Record<string, string> = { revise: 'var(--gold2)', 'canon-shift': 'var(--blue)', 're-ending': 'var(--green)' };
 
 export default function ScriptonWrite(props: WriteProps) {
   const { dir, t } = useLocale();
@@ -148,6 +182,43 @@ export default function ScriptonWrite(props: WriteProps) {
                 <ScriptPaper text={scriptText} />
               )}
             </div>
+            {/* Revision Pass panel (read) — desktop/tablet; mobile leads with the paper */}
+            {props.vp !== 'mobile' && (
+              <div className="pass">
+                {props.pass ? (
+                  <>
+                    <div className="passh">
+                      <div className="eye">{t('Revision Pass')} {props.pass.versionLabel}</div>
+                      <div className="pt">{props.pass.changeCount} {t('changes staged')}</div>
+                      <div className="meter">
+                        <div className="mt"><span>{t('Continuity across the pass')}</span><b>{props.pass.continuity}%</b></div>
+                        <div className="track"><i style={{ width: props.pass.continuity + '%' }} /></div>
+                      </div>
+                    </div>
+                    <div className="passlist">
+                      {props.pass.changes.map((c) => (
+                        <div className="passrow" key={c.id}>
+                          <div className="prh">
+                            <span className="pic" style={{ color: KIND_COLOR[c.kind] || 'var(--gold2)' }}>{KIND_ICON[c.kind] || '✎'}</span>
+                            <div><div className="pn">{t('Scene')} {c.sceneNumber ?? '—'} · {c.label}</div><div className="ptag">{c.tag}</div></div>
+                          </div>
+                          {c.before || c.after ? (
+                            <div className="diff"><div className="del">− {c.before}</div><div className="add">+ {c.after}</div></div>
+                          ) : c.summary ? <div className="psum">{c.summary}</div> : null}
+                        </div>
+                      ))}
+                    </div>
+                    {props.pass.bridge ? <div className="bridge">↳ {props.pass.bridge}</div> : null}
+                    <div className="passfoot">
+                      <button className="renderbtn" onClick={props.onRender}>{t('Render new draft')} {props.pass.versionLabel} →</button>
+                      <div className="footrow"><span onClick={() => props.onPassAction?.('save')}>{t('Save pass')}</span><span onClick={() => props.onPassAction?.('preview')}>{t('Preview all')}</span><span onClick={() => props.onPassAction?.('discard')}>{t('Discard')}</span></div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="passempty">{t('No changes staged — stage one to start a Revision Pass.')}</div>
+                )}
+              </div>
+            )}
           </div>
         </div>
         {props.toast && <div className="toast">{props.toast}</div>}
