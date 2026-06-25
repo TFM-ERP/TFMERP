@@ -12,6 +12,7 @@ import { useViewport } from '@/components/scripton/useViewport';
 import { useScriptonBack } from '@/components/scripton/useScriptonBack';
 import { useScriptonShellFlag } from '@/components/scripton/osShellFlag';
 import ScriptonCompare, { type CompareResult } from '@/components/scripton/compare/ScriptonCompare';
+import ScriptonVersions, { type VersionsData, type VersionNode } from '@/components/scripton/versions/ScriptonVersions';
 
 const SAMPLE_REVS: SxRev[] = [
   { id: 'r1', label: 'Blue v4', color: '#5b8def', date: 'today', author: 'S. Okonkwo', summary: 'Tightened Act 2; cut 4 pp. Re-paginated Sc 14–28.', active: true },
@@ -51,6 +52,13 @@ export default function ScriptOnRevisionsPage() {
   const [passId, setPassId] = useState('');
   const [cmp, setCmp] = useState<CompareResult | null>(null);
   const [cmpBusy, setCmpBusy] = useState<string | null>(null);
+  // Versions (cold view): the BuildVersion timeline + decision log + the selected
+  // node's semantic diff (reuses the Render→Compare render-result).
+  const [docId, setDocId] = useState('');
+  const [versData, setVersData] = useState<VersionsData | null>(null);
+  const [selVerId, setSelVerId] = useState('');
+  const [verDiff, setVerDiff] = useState<CompareResult | null>(null);
+  const [verLoading, setVerLoading] = useState(false);
   const [title, setTitle] = useState('Midnight Run');
   const [revs, setRevs] = useState<SxRev[]>(SAMPLE_REVS);
   const [rawRevs, setRawRevs] = useState<any[]>([]);
@@ -84,7 +92,9 @@ export default function ScriptOnRevisionsPage() {
         const proj = pickScriptonProject(projects); if (!proj?.id) return;
         const dr: any = await productionApi.script.list(proj.id);
         const docs = Array.isArray(dr.data) ? dr.data : (dr.data?.items ?? []);
-        const doc = docs[0]; const list: any[] = (doc?.revisions ?? []).slice().sort(sortRevs);
+        const doc = docs[0];
+        if (alive && doc?.id) { setDocId(doc.id); setTitle(proj.name || proj.title || doc.title || 'Project'); }
+        const list: any[] = (doc?.revisions ?? []).slice().sort(sortRevs);
         if (!alive || !list.length) return;
         const mapped: SxRev[] = list.map((r) => ({ id: r.id, label: r.revisionLabel || 'Revision', color: r.colorCode || '#9aa1ab', date: r.createdAt ? new Date(r.createdAt).toLocaleDateString() : '', author: r.createdBy || '', summary: r.pageCount ? `${r.pageCount} pp` : '', active: r.id === doc.activeRevisionId }));
         setTitle(proj.name || proj.title || 'Project'); setRevs(mapped); setRawRevs(list);
@@ -105,6 +115,34 @@ export default function ScriptOnRevisionsPage() {
     (async () => { try { const rr: any = await productionApi.scripton.renderResult(passId); if (alive) setCmp(rr.data || null); } catch { /* keep loading */ } })();
     return () => { alive = false; };
   }, [flag, passId]);
+
+  // Versions (cold) — load the timeline + decision log, default-select the latest
+  // rendered node, and fetch its diff. Reuses renderResult for the per-node diff.
+  const loadVerDiff = async (node: VersionNode | null) => {
+    if (!node?.passId) { setVerDiff(null); return; }
+    setVerLoading(true);
+    try { const rr: any = await productionApi.scripton.renderResult(node.passId); setVerDiff(rr.data || null); }
+    catch { setVerDiff(null); }
+    finally { setVerLoading(false); }
+  };
+  useEffect(() => {
+    if (flag !== 'new' || passId || !docId) return;
+    let alive = true;
+    (async () => {
+      try {
+        const r: any = await productionApi.scripton.versions(docId);
+        const data: VersionsData = r.data || { versions: [], pending: null, decisions: [] };
+        if (!alive) return;
+        setVersData(data);
+        const rendered = data.versions.filter((v) => v.passId);
+        const def = data.versions.find((v) => v.active && v.passId) || rendered[rendered.length - 1] || null;
+        if (def) { setSelVerId(def.id); loadVerDiff(def); }
+      } catch { /* keep empty */ }
+    })();
+    return () => { alive = false; };
+  }, [flag, passId, docId]);
+  const selectVer = (node: VersionNode) => { setSelVerId(node.id); loadVerDiff(node); };
+  const openCompare = (pid: string) => router.push('/scripton/revisions?pass=' + encodeURIComponent(pid));
 
   const newLbl = cmp?.version?.label || (cmp?.version ? 'V' + cmp.version.n : t('rendered'));
   const prevLbl = cmp?.prevVersion?.label || t('previous');
@@ -154,6 +192,13 @@ export default function ScriptOnRevisionsPage() {
     if (!cmp) return <div style={{ position: 'fixed', inset: 0, background: '#0a0b0e', color: '#9aa1ab', display: 'grid', placeItems: 'center', fontSize: 13, zIndex: 50 }}>{t('Loading the render…')}</div>;
     return <ScriptonCompare title={title} result={cmp} vp={vp} onNav={onNav} onBack={onBack}
       onSetActive={setActive} onKeep={keepPrev} onDiscard={discardNew} busy={cmpBusy} toast={toast} />;
+  }
+
+  // Versions (cold) — the default view of the Versions workspace (new shell, no ?pass).
+  if (flag === 'new') {
+    return <ScriptonVersions title={title} data={versData || { versions: [], pending: null, decisions: [] }} vp={vp}
+      selectedId={selVerId} onSelect={selectVer} diff={verDiff} diffLoading={verLoading}
+      onOpenCompare={openCompare} onNav={onNav} onBack={onBack} toast={toast} />;
   }
 
   const RC: any = vp === 'mobile' ? ScriptOnRevisionsMobile : vp === 'tablet' ? ScriptOnRevisionsTablet : ScriptOnRevisions;

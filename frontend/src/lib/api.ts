@@ -452,6 +452,7 @@ export const productionApi = {
     stageChange: (body: any) => api.post('/production/scripton/revision-pass/stage', body),
     renderPass: (passId: string, body: any = {}) => api.post('/production/scripton/revision-pass/' + encodeURIComponent(passId) + '/render', body),
     renderResult: (passId: string) => api.get('/production/scripton/revision-pass/render-result?passId=' + encodeURIComponent(passId)),
+    versions: (scriptId: string) => api.get('/production/scripton/versions?scriptId=' + encodeURIComponent(scriptId)),
     coverageHistory: (projectId: string) => api.get(`/production/scripton/coverage-history/${projectId}`),
     coverage: (projectId: string, body: any = {}) => api.post(`/production/scripton/coverage/${projectId}`, body),
     diagnostics: (projectId: string, body: any = {}) => api.post(`/production/scripton/diagnostics/${projectId}`, body),

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { lineDiff, isSlugLine, toSceneDiffs, detectBridge } from './scripton-compare.logic.ts';
+import { lineDiff, unifiedDiff, isSlugLine, toSceneDiffs, detectBridge } from './scripton-compare.logic.ts';
 
 test('identical text → every line plain on both sides', () => {
   const { prev, next } = lineDiff('A\nB\nC', 'A\nB\nC');
@@ -31,6 +31,17 @@ test('mixed change keeps the common lines and marks the swap (del before / add a
   assert.deepEqual(prev.filter((l) => l.cls === 'del').map((l) => l.t), ['Antarah scales the cliff in three easy pulls.']);
   assert.deepEqual(next.filter((l) => l.cls === 'add').map((l) => l.t), ['He freezes — breathes — then climbs, knuckles white.']);
   assert.ok(prev.some((l) => l.t === 'He reaches the cave mouth.' && l.cls === ''));
+});
+
+test('unifiedDiff: one ordered sequence — common, del, add interleaved in reading order', () => {
+  const u = unifiedDiff('65  EXT. CLIFFS — DAY\nold line.\nkeep me.', '65  EXT. CLIFFS — DAY\nnew line.\nkeep me.');
+  assert.equal(u[0].cls, ''); // slug common
+  assert.equal(u[0].t, '65  EXT. CLIFFS — DAY');
+  assert.deepEqual(u.filter((l) => l.cls === 'del').map((l) => l.t), ['old line.']);
+  assert.deepEqual(u.filter((l) => l.cls === 'add').map((l) => l.t), ['new line.']);
+  assert.ok(u.some((l) => l.t === 'keep me.' && l.cls === '')); // common kept once
+  // del comes before add for the swapped line
+  assert.ok(u.findIndex((l) => l.t === 'old line.') < u.findIndex((l) => l.t === 'new line.'));
 });
 
 test('empty sides degrade cleanly (all add / all del)', () => {

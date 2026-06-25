@@ -153,6 +153,37 @@ const compareExpect = async (page, r) => {
   }
 };
 
+// Versions (cold view): the real BuildVersion timeline + semantic-diff preview +
+// the append-only decision log. Drives node-select + open-full-compare.
+const versionsExpect = async (page, r) => {
+  await page.waitForSelector('.sx.vers .tl .node', { timeout: 25000 });
+  r.assert('single shell — no FilmOS <aside>', (await page.locator('aside').count()) === 0);
+  r.assert('workspace rail present', (await page.locator('.rail').count()) >= 1);
+  r.assert('Versions title', (await page.locator('.sx.vers .phead h1').count()) >= 1);
+  r.nodes = await page.locator('.sx.vers .tl .node').count();
+  r.assert('timeline has version nodes', r.nodes >= 2);
+  r.assert('active node is gold-ringed', (await page.locator('.sx.vers .node.active').count()) >= 1);
+  r.assert('pending (rendering) node from the open pass', (await page.locator('.sx.vers .node.pending').count()) >= 1);
+  r.assert('semantic-diff: change tags + diff lines', (await page.locator('.sx.vers .card.diff .tag').count()) >= 1 && (await page.locator('.sx.vers .card.diff .dblock .ln').count()) >= 1);
+  r.assert('decision log: real records + a status badge', (await page.locator('.sx.vers .dec').count()) >= 1 && (await page.locator('.sx.vers .dec .badge').count()) >= 1);
+  // DRIVE node-select → the semantic-diff header (the V{a}→V{b} pair) must change.
+  const head0 = await page.locator('.sx.vers .card.diff .ch').first().innerText();
+  const nodes = page.locator('.sx.vers .node:not(.pending) .vcard');
+  await nodes.first().click();
+  await page.waitForTimeout(1200);
+  const head1 = await page.locator('.sx.vers .card.diff .ch').first().innerText();
+  r.assert('selecting a node updates the semantic-diff pair', head1 !== head0);
+  // DRIVE open-full-compare → deep-links to the compare mode (?pass=).
+  if (await page.locator('.sx.vers .full').count()) {
+    await Promise.all([
+      page.waitForURL(/\/scripton\/revisions\?pass=/, { timeout: 12000 }).catch(() => {}),
+      page.locator('.sx.vers .full').click(),
+    ]);
+    await page.waitForTimeout(700);
+    r.assert('open full compare → Render→Compare (?pass=)', /\/scripton\/revisions\?pass=/.test(page.url()));
+  }
+};
+
 // Canon (kernel-backed): the bi-temporal graph from real CanonFact data —
 // 5 tabs, graph or facts, entity panel, no console errors.
 const canonExpect = async (page, r) => {
@@ -329,6 +360,9 @@ const SCENARIOS = [
     { name: 'compare-tablet', route: '/scripton/revisions?pass=' + process.env.COMPARE_PASS, storage: {}, viewport: TABLET, expect: compareExpect },
     { name: 'compare-mobile', route: '/scripton/revisions?pass=' + process.env.COMPARE_PASS, storage: {}, viewport: MOBILE, expect: compareExpect },
   ] : []),
+  { name: 'versions-desktop', route: '/scripton/revisions', storage: {}, viewport: DESKTOP, expect: versionsExpect },
+  { name: 'versions-tablet', route: '/scripton/revisions', storage: {}, viewport: TABLET, expect: versionsExpect },
+  { name: 'versions-mobile', route: '/scripton/revisions', storage: {}, viewport: MOBILE, expect: versionsExpect },
   { name: 'canon-desktop', route: '/scripton/canon', storage: {}, viewport: DESKTOP, expect: canonExpect },
   { name: 'canon-tablet', route: '/scripton/canon', storage: {}, viewport: TABLET, expect: canonExpect },
   { name: 'canon-mobile', route: '/scripton/canon', storage: {}, viewport: MOBILE, expect: canonExpect },

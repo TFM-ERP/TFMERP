@@ -41,6 +41,36 @@ export function lineDiff(before: string, after: string): { prev: DiffLine[]; nex
   return { prev, next };
 }
 
+/**
+ * A single ordered (unified) diff — common lines once, removed lines `del`, added
+ * lines `add`, in reading order. Used by the Versions semantic preview, where the
+ * struck-red removed line and the added line sit together in one column (vs the
+ * Render→Compare two-column split that uses {prev, next}).
+ */
+export function unifiedDiff(before: string, after: string): DiffLine[] {
+  const a = splitLines(before);
+  const b = splitLines(after);
+  const m = a.length;
+  const n = b.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = m - 1; i >= 0; i--) {
+    for (let j = n - 1; j >= 0; j--) {
+      dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+    }
+  }
+  const out: DiffLine[] = [];
+  let i = 0;
+  let j = 0;
+  while (i < m && j < n) {
+    if (a[i] === b[j]) { out.push({ t: a[i], cls: '' }); i++; j++; }
+    else if (dp[i + 1][j] >= dp[i][j + 1]) { out.push({ t: a[i], cls: 'del' }); i++; }
+    else { out.push({ t: b[j], cls: 'add' }); j++; }
+  }
+  while (i < m) { out.push({ t: a[i], cls: 'del' }); i++; }
+  while (j < n) { out.push({ t: b[j], cls: 'add' }); j++; }
+  return out;
+}
+
 const SLUG_RE = /^\s*\d+[A-Za-z]?[.)]?\s+(INT|EXT|INT\.?\/EXT|I\/E|EST)\b/i;
 export const isSlugLine = (line: string): boolean => SLUG_RE.test(String(line || ''));
 

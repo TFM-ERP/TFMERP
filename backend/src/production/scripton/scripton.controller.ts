@@ -120,4 +120,8 @@ export class ScripOnController {
   async renderResult(@Query('passId') passId: string) {
     return this.canon.renderResult(passId);
   }
+  @Get('versions') @RequirePermission('production', 1)
+  async versionsView(@Query('scriptId') scriptId: string) {
+    return this.canon.versionsView(scriptId);
+  }
 }

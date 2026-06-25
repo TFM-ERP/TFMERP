@@ -284,6 +284,53 @@ export class CanonService {
     };
   }
 
+  /**
+   * The Versions screen read model (cold view of the Versions workspace): the real
+   * BuildVersion timeline (each linked to the RevisionPass that rendered it, for
+   * scenes-changed + the per-node diff deep-link), the open/pending pass (the dashed
+   * "Rendering…" node), and the append-only DecisionRecord log. Latest `limit` of each.
+   */
+  async versionsView(scriptId: string, limit = 12): Promise<any> {
+    if (!scriptId) return { versions: [], pending: null, decisions: [] };
+    const build: any = await (this.prisma as any).developmentBuild
+      .findFirst({ where: { linkedScriptId: scriptId } })
+      .catch(() => null);
+    let versions: any[] = [];
+    if (build) {
+      const all: any[] = await (this.prisma as any).buildVersion
+        .findMany({ where: { buildId: build.id, NOT: { status: 'DISCARDED' } }, orderBy: { n: 'asc' }, select: { id: true, n: true, label: true, createdAt: true } })
+        .catch(() => []);
+      const recent = all.slice(-limit);
+      const ids = recent.map((v) => v.id);
+      // Batch the version→pass lookup (no N+1): one query for all backing passes.
+      const passes: any[] = ids.length
+        ? await (this.prisma as any).revisionPass
+            .findMany({ where: { scriptId, renderedVersionId: { in: ids } }, select: { id: true, renderedVersionId: true, continuityScore: true, changes: { select: { status: true } } } })
+            .catch(() => [])
+        : [];
+      const byVer = new Map(passes.map((pp) => [pp.renderedVersionId, pp]));
+      versions = recent.map((v) => {
+        const pp: any = byVer.get(v.id);
+        return {
+          id: v.id, n: v.n, label: v.label || 'V' + v.n, active: build.activeVersionId === v.id,
+          date: v.createdAt, passId: pp?.id ?? null,
+          changeCount: pp ? (pp.changes || []).filter((c: any) => c.status === 'APPLIED').length : 0,
+          continuity: pp && typeof pp.continuityScore === 'number' ? Math.round(pp.continuityScore * 100) : null,
+        };
+      });
+    }
+    const open: any = await (this.prisma as any).revisionPass
+      .findFirst({ where: { scriptId, status: { in: ['OPEN', 'RENDERING'] } }, orderBy: { createdAt: 'desc' }, include: { changes: true } })
+      .catch(() => null);
+    const pending = open
+      ? { passId: open.id, changeCount: (open.changes || []).filter((c: any) => c.status === 'STAGED').length, rendering: open.status === 'RENDERING' }
+      : null;
+    const decisions: any[] = await (this.prisma as any).decisionRecord
+      .findMany({ where: { scriptId }, orderBy: { createdAt: 'desc' }, take: limit, select: { id: true, title: true, status: true, context: true, decision: true, consequences: true, supersedesId: true, createdAt: true } })
+      .catch(() => []);
+    return { versions, pending, decisions };
+  }
+
   /** Live ACTIVE canon for a script, as a CANON steering block at a story point. '' on error/empty. */
   async directiveFor(scriptId: string, at: number, subjects?: string[]): Promise<string> {
     try {
