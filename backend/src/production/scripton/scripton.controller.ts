@@ -115,4 +115,8 @@ export class ScripOnController {
   async renderRevisionPass(@Param('passId') passId: string, @Body() body: any, @Req() req: any) {
     return this.canon.renderPass(passId, body?.projectId, req?.user?.id);
   }
+  @Get('revision-pass/render-result') @RequirePermission('production', 1)
+  async renderResult(@Query('passId') passId: string) {
+    return this.canon.renderResult(passId);
+  }
 }

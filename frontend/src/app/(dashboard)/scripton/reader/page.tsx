@@ -184,10 +184,9 @@ export default function ScriptOnWorkspace() {
             // verifies canon (writes CanonFacts, supersedes the changed scenes' own
             // prior facts), writes a DecisionRecord. Non-destructive — the base draft
             // stays immutable. On success the pass closes, so it clears from the panel.
-            const r: any = await productionApi.scripton.renderPass(passId, { projectId });
-            const score = typeof r.data?.continuityScore === 'number' ? Math.round(r.data.continuityScore * 100) : null;
-            try { const pp: any = await productionApi.scripton.revisionPass(docId); setPassVM(toPassVM(pp.data)); } catch { setPassVM(null); }
-            flash(score != null ? `${t('Rendered → new draft committed. Continuity')} ${score}%.` : t('Rendered → new draft committed.'));
+            await productionApi.scripton.renderPass(passId, { projectId });
+            // Land on the Render→Compare view (Versions workspace) — what the commit did.
+            router.push('/scripton/revisions?pass=' + encodeURIComponent(passId));
           } catch (e: any) {
             flash(e?.response?.data?.message || t('Render failed — backend on :3001?'));
           }

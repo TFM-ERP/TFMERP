@@ -71,26 +71,16 @@ export class CanonService {
       await (this.prisma as any).canonFact.findMany({ where: { scriptId: pass.scriptId, status: 'ACTIVE' } }).catch(() => [])
     ).map((r: any) => r as CanonFactCore);
 
+    // Canon written by a render = the curated facts already continuity-checked at
+    // stage time (spec.facts), anchored to each change's own scene. We do NOT
+    // AI-extract from a change's prose here: that would bypass the stage-time gate
+    // and let unvetted, contradicting facts into canon. A prose-only change (no
+    // staged facts) writes a new version but no canon — non-destructive by design.
     const allCandidates: CanonFactCore[] = [];
     for (const o of ordered) {
       const ch = staged.find((c: any) => c.id === o.id);
       if (!ch) continue;
-      // Prefer the facts already extracted + continuity-checked at stage time — they
-      // carry the scene anchor so a re-render supersedes its own prior facts. Only
-      // fall back to AI extraction from the change's resulting prose when none exist.
-      const fromStage = stagedCandidates(ch);
-      if (fromStage.length) {
-        allCandidates.push(...fromStage);
-        continue;
-      }
-      const text = String(ch?.previewAfter ?? ch?.spec?.after ?? ch?.spec?.body ?? ch?.spec?.note ?? '');
-      if (!text) continue;
-      const facts = await this.extractFactsAI(
-        pass.scriptId,
-        { id: ch.sceneId, order: Number(ch?.spec?.sceneOrder ?? 0), text },
-        projectId,
-      );
-      allCandidates.push(...facts);
+      allCandidates.push(...stagedCandidates(ch));
     }
 
     // The render loop's decision core — the exact logic proven in canon-assess.util.spec.ts.
@@ -210,6 +200,10 @@ export class CanonService {
       const change = await (this.prisma as any).sceneChange.create({
         data: {
           passId: pass.id, sceneId: String(body.sceneId), kind: body.kind || 'revise', status: 'STAGED',
+          // previewBefore/After carry the scene's prose delta for the Render→Compare diff
+          // columns (display only — the render commit reads spec.facts for canon).
+          previewBefore: body.before ?? null,
+          previewAfter: body.after ?? null,
           spec: {
             sceneNumber: body.sceneNumber ?? null, label: body.label ?? '', tag: body.tag ?? '',
             summary: body.summary ?? null, before: body.before ?? null, after: body.after ?? null,
@@ -221,6 +215,73 @@ export class CanonService {
     } catch (e: any) {
       return { conflict: 'Could not stage — ' + (e?.message || 'kernel error') };
     }
+  }
+
+  /**
+   * The Render→Compare read model — the single data source for the post-render
+   * compare view, re-derived from a pass so it's refresh-safe (no in-memory state).
+   * `canonWritten` comes from the applied changes' own `spec.facts` (what the commit
+   * wrote) — NOT a re-query of CanonFact (rows carry no pass link), so it stays true
+   * on refetch and matches the Canon screen by construction.
+   */
+  async renderResult(passId: string): Promise<any> {
+    if (!passId) return null;
+    let pass: any;
+    try {
+      pass = await (this.prisma as any).revisionPass.findUnique({
+        where: { id: passId },
+        include: { changes: { orderBy: { createdAt: 'asc' } } },
+      });
+    } catch {
+      return null;
+    }
+    if (!pass) return null;
+    const all = pass.changes || [];
+    const applied = all.filter((c: any) => c.status === 'APPLIED');
+    const changes = applied.length ? applied : all; // pre-render preview falls back to staged
+    const build: any = await (this.prisma as any).developmentBuild
+      .findFirst({ where: { linkedScriptId: pass.scriptId } })
+      .catch(() => null);
+    let version: any = null;
+    let prevVersion: any = null;
+    if (pass.renderedVersionId) {
+      version = await (this.prisma as any).buildVersion
+        .findUnique({ where: { id: pass.renderedVersionId }, select: { id: true, n: true, label: true } })
+        .catch(() => null);
+      if (version && build) {
+        prevVersion = await (this.prisma as any).buildVersion
+          .findFirst({ where: { buildId: build.id, n: version.n - 1 }, select: { id: true, n: true, label: true } })
+          .catch(() => null);
+      }
+    }
+    const lbl = (v: any) => (v ? { id: v.id, n: v.n, label: v.label || 'V' + v.n } : null);
+    const appliedChanges = changes.map((c: any) => ({
+      sceneId: c.sceneId,
+      sceneNumber: c?.spec?.sceneNumber ?? null,
+      label: c?.spec?.label ?? '',
+      tag: c?.spec?.tag ?? '',
+      kind: c.kind,
+      before: c.previewBefore ?? c?.spec?.before ?? '',
+      after: c.previewAfter ?? c?.spec?.after ?? '',
+    }));
+    const canonWritten = changes
+      .flatMap((c: any) => (Array.isArray(c?.spec?.facts) ? c.spec.facts : []))
+      .map((f: any) => ({
+        kind: f.kind, subject: f.subject, predicate: f.predicate, object: f.object,
+        statement: f.statement || '', validFrom: f.validFrom ?? null,
+      }));
+    // This pass's own decision (renderPass titles it 'Render pass <passId[:8]>'), not
+    // merely the latest for the script — so a re-rendered script shows the right one.
+    const decision = await (this.prisma as any).decisionRecord
+      .findFirst({ where: { scriptId: pass.scriptId, title: { contains: passId.slice(0, 8) } }, orderBy: { createdAt: 'desc' }, select: { title: true, status: true, context: true } })
+      .catch(() => null);
+    return {
+      passId, status: pass.status, scriptId: pass.scriptId, buildId: build?.id ?? null,
+      version: lbl(version), prevVersion: lbl(prevVersion),
+      continuity: typeof pass.continuityScore === 'number' ? Math.round(pass.continuityScore * 100) : null,
+      changeCount: appliedChanges.length,
+      applied: appliedChanges, canonWritten, decision,
+    };
   }
 
   /** Live ACTIVE canon for a script, as a CANON steering block at a story point. '' on error/empty. */

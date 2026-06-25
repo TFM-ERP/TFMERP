@@ -10,6 +10,8 @@ import ScriptOnRevisionsTablet from '@/components/scripton/ScriptOnRevisionsTabl
 import ScriptOnRevisionsMobile from '@/components/scripton/ScriptOnRevisionsMobile';
 import { useViewport } from '@/components/scripton/useViewport';
 import { useScriptonBack } from '@/components/scripton/useScriptonBack';
+import { useScriptonShellFlag } from '@/components/scripton/osShellFlag';
+import ScriptonCompare, { type CompareResult } from '@/components/scripton/compare/ScriptonCompare';
 
 const SAMPLE_REVS: SxRev[] = [
   { id: 'r1', label: 'Blue v4', color: '#5b8def', date: 'today', author: 'S. Okonkwo', summary: 'Tightened Act 2; cut 4 pp. Re-paginated Sc 14–28.', active: true },
@@ -44,6 +46,11 @@ export default function ScriptOnRevisionsPage() {
   const { t } = useLocale();
   const vp = useViewport();
   const onBack = useScriptonBack();
+  const flag = useScriptonShellFlag();
+  // Render→Compare mode: landed here from Write's Render with ?pass=<id>.
+  const [passId, setPassId] = useState('');
+  const [cmp, setCmp] = useState<CompareResult | null>(null);
+  const [cmpBusy, setCmpBusy] = useState<string | null>(null);
   const [title, setTitle] = useState('Midnight Run');
   const [revs, setRevs] = useState<SxRev[]>(SAMPLE_REVS);
   const [rawRevs, setRawRevs] = useState<any[]>([]);
@@ -89,6 +96,35 @@ export default function ScriptOnRevisionsPage() {
     return () => { alive = false; };
   }, []);
 
+  // Read the ?pass= param post-mount (avoids useSearchParams Suspense), then fetch the
+  // render result — the single, refresh-safe source for the compare view.
+  useEffect(() => { if (typeof window !== 'undefined') setPassId(new URLSearchParams(window.location.search).get('pass') || ''); }, []);
+  useEffect(() => {
+    if (flag !== 'new' || !passId) return;
+    let alive = true;
+    (async () => { try { const rr: any = await productionApi.scripton.renderResult(passId); if (alive) setCmp(rr.data || null); } catch { /* keep loading */ } })();
+    return () => { alive = false; };
+  }, [flag, passId]);
+
+  const newLbl = cmp?.version?.label || (cmp?.version ? 'V' + cmp.version.n : t('rendered'));
+  const prevLbl = cmp?.prevVersion?.label || t('previous');
+  const setActive = async () => {
+    if (!cmp?.buildId || !cmp?.version?.id) { flash(t('No version to activate.')); return; }
+    setCmpBusy('act');
+    try { await productionApi.scripton.development.switchVersion(cmp.buildId, cmp.version.id); flash(`${newLbl} ${t('is now the active version.')}`); }
+    catch (e: any) { flash(e?.response?.data?.message || t('Could not set the active version.')); }
+    finally { setCmpBusy(null); }
+  };
+  const keepPrev = () => flash(`${prevLbl} ${t('stays active — nothing was overwritten.')}`);
+  const discardNew = async () => {
+    if (!cmp?.version?.id) return;
+    if (typeof window !== 'undefined' && !window.confirm(`${t('Discard')} ${newLbl}? ${prevLbl} ${t('stays active and the change pass is preserved.')}`)) return;
+    setCmpBusy('discard');
+    try { await productionApi.scripton.development.setStatus(cmp.version.id, 'DISCARDED'); flash(`${newLbl} ${t('discarded —')} ${prevLbl} ${t('is active.')}`); }
+    catch (e: any) { flash(e?.response?.data?.message || t('Could not discard the version.')); }
+    finally { setCmpBusy(null); }
+  };
+
   const onSelect = (id: string) => {
     setToId(id);
     if (!rawRevs.length) return; // sample mode
@@ -110,6 +146,15 @@ export default function ScriptOnRevisionsPage() {
     if (k === 'settings') return router.push('/scripton/settings');
     flash(`${k[0].toUpperCase() + k.slice(1)} ${t('is a later screen in the build order.')}`);
   };
+
+  // Render→Compare mode (new shell + a ?pass= from Render). Cold (no pass) falls
+  // through to the revision picker below, which under the new flag already wears the
+  // Versions rail — a live bridge, not a dead-end.
+  if (flag === 'new' && passId) {
+    if (!cmp) return <div style={{ position: 'fixed', inset: 0, background: '#0a0b0e', color: '#9aa1ab', display: 'grid', placeItems: 'center', fontSize: 13, zIndex: 50 }}>{t('Loading the render…')}</div>;
+    return <ScriptonCompare title={title} result={cmp} vp={vp} onNav={onNav} onBack={onBack}
+      onSetActive={setActive} onKeep={keepPrev} onDiscard={discardNew} busy={cmpBusy} toast={toast} />;
+  }
 
   const RC: any = vp === 'mobile' ? ScriptOnRevisionsMobile : vp === 'tablet' ? ScriptOnRevisionsTablet : ScriptOnRevisions;
   return <RC title={title} meta={`${revs.length} ${t('revisions')}${compare ? ' · ' + t('comparing') + ' ' + compare.fromLabel + ' ↔ ' + compare.toLabel : ''}`}

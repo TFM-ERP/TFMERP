@@ -101,9 +101,9 @@ const writeExpect = async (page, r) => {
     r.passAfter = await page.locator('.sx.write .pass .passrow').count();
     r.assert('clean change stages + grows the pass', r.passAfter > before);
   }
-  // Slice 4: Render = commit. Stage the fact-bearing option (r3 — CLIMAX_SITE),
-  // then Render → the kernel applies the pass (new BuildVersion + extracted canon +
-  // DecisionRecord) and the pass clears from the panel. Desktop/tablet only.
+  // Slice 4: Render = commit. Stage the fact-bearing option (r3 — CLIMAX_SITE), then
+  // Render → the kernel applies the pass (new BuildVersion + extracted canon +
+  // DecisionRecord) and the app lands on the Render→Compare view. Desktop/tablet only.
   if (await page.locator('.sx.write .renderbtn').count()) {
     await page.locator('.sx.write .stagebtn').click();
     await page.waitForSelector('.sx.write .composer .opt', { timeout: 10000 });
@@ -111,14 +111,40 @@ const writeExpect = async (page, r) => {
     await page.locator('.sx.write .cstage').click();
     await page.waitForTimeout(1800);
     r.assert('fact-bearing change staged before render', (await page.locator('.sx.write .pass .passrow').count()) >= 1);
-    await page.locator('.sx.write .renderbtn').click();
-    await page.waitForTimeout(700); // the "Rendering…" toast shows immediately on click
-    r.assert('Render shows a commit toast', (await page.locator('.sx.write .toast').count()) >= 1);
-    await page.waitForTimeout(3600); // let the commit land + the pass refetch clear it
-    const afterRender = await page.locator('.sx.write .pass .passrow').count();
-    const cleared = afterRender === 0 || (await page.locator('.sx.write .passempty').count()) >= 1;
-    r.assert('Render = commit → pass clears from the panel', cleared);
+    await Promise.all([
+      page.waitForURL(/\/scripton\/revisions\?pass=/, { timeout: 12000 }).catch(() => {}),
+      page.locator('.sx.write .renderbtn').click(),
+    ]);
+    await page.waitForTimeout(800);
+    r.assert('Render = commit → lands on Render→Compare (?pass=)', /\/scripton\/revisions\?pass=/.test(page.url()));
   }
+};
+
+// Render→Compare: the post-render V{prev}↔V{new} diff + THIS RENDER panel, driven
+// by a real rendered pass (?pass=COMPARE_PASS). Asserts the banner, both diff
+// columns with red/green lines, and the render summary.
+const compareExpect = async (page, r) => {
+  await page.waitForSelector('.sx.cmp .scol', { timeout: 25000 });
+  r.rails = await page.locator('.rail').count();
+  r.filmosAside = await page.locator('aside').count();
+  r.assert('single shell — no FilmOS <aside>', r.filmosAside === 0);
+  r.assert('workspace rail present', r.rails >= 1);
+  r.assert('Rendered banner present', (await page.locator('.sx.cmp .banner .bttl').count()) >= 1);
+  r.cols = await page.locator('.sx.cmp .colhead').count();
+  r.assert('two version column headers', r.cols >= 2);
+  r.dels = await page.locator('.sx.cmp .scol .ln.del').count();
+  r.adds = await page.locator('.sx.cmp .scol .ln.add').count();
+  r.assert('diff: removed (red) + added (green) lines on changed scenes', r.dels >= 1 && r.adds >= 1);
+  // THIS RENDER summary — desktop shows the full panel; tablet+mobile stack & condense
+  // to chips (per Figma 51:3, where the columns stack on anything below desktop).
+  const vp = (await page.viewportSize())?.width || 1440;
+  if (vp >= 1280) {
+    r.assert('THIS RENDER: applied changes + canon written', (await page.locator('.sx.cmp .render .sect').count()) >= 3 && (await page.locator('.sx.cmp .render .row .ic.ok').count()) >= 1);
+  } else {
+    r.assert('THIS RENDER condenses to chips', (await page.locator('.sx.cmp .render .chip').count()) >= 1);
+  }
+  r.assert('preserved note present', (await page.locator('.sx.cmp .render .note').count()) >= 1);
+  r.assert('Set-active control present', (await page.locator('.sx.cmp .btn.gold').count()) >= 1);
 };
 
 // Canon (kernel-backed): the bi-temporal graph from real CanonFact data —
@@ -291,6 +317,12 @@ const SCENARIOS = [
   { name: 'write-desktop', route: '/scripton/reader', storage: {}, viewport: DESKTOP, expect: writeExpect },
   { name: 'write-tablet', route: '/scripton/reader', storage: {}, viewport: TABLET, expect: writeExpect },
   { name: 'write-mobile', route: '/scripton/reader', storage: {}, viewport: MOBILE, expect: writeExpect },
+  // Render→Compare — only when a rendered pass id is supplied (COMPARE_PASS env).
+  ...(process.env.COMPARE_PASS ? [
+    { name: 'compare-desktop', route: '/scripton/revisions?pass=' + process.env.COMPARE_PASS, storage: {}, viewport: DESKTOP, expect: compareExpect },
+    { name: 'compare-tablet', route: '/scripton/revisions?pass=' + process.env.COMPARE_PASS, storage: {}, viewport: TABLET, expect: compareExpect },
+    { name: 'compare-mobile', route: '/scripton/revisions?pass=' + process.env.COMPARE_PASS, storage: {}, viewport: MOBILE, expect: compareExpect },
+  ] : []),
   { name: 'canon-desktop', route: '/scripton/canon', storage: {}, viewport: DESKTOP, expect: canonExpect },
   { name: 'canon-tablet', route: '/scripton/canon', storage: {}, viewport: TABLET, expect: canonExpect },
   { name: 'canon-mobile', route: '/scripton/canon', storage: {}, viewport: MOBILE, expect: canonExpect },

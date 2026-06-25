@@ -142,12 +142,15 @@ const KIND_COLOR: Record<string, string> = { revise: 'var(--gold2)', 'canon-shif
 // path; quality is out of scope per the handoff). Some carry candidate facts so
 // the kernel's detectConflicts can warn/block before a change joins the pass.
 const KIND_TABS: [string, string][] = [['re-ending', 'Re-ending'], ['revise', 'Rewrite'], ['emotion', 'Stronger emotion'], ['budgetfit', 'Budget-fit'], ['regenerate', 'Regenerate']];
-type Opt = { id: string; label: string; tag: string; impact: 'up' | 'down' | 'neutral'; facts?: any[] };
+type Opt = { id: string; label: string; tag: string; impact: 'up' | 'down' | 'neutral'; facts?: any[]; before?: string; after?: string };
+// The cliff re-ending's before/after prose (carried so the Render→Compare diff is real).
+const CLIFF_BEFORE = '65  EXT. CLIFFS — DAY\nDawn. A wall of red rock. ANTARAH sets his hands to the stone.\nAntarah scales the cliff in three easy pulls, barely looking down.\n\n          ANTARAH\nA man is what his sword remembers.\n\nHe reaches the cave mouth.';
+const CLIFF_AFTER = '65  EXT. CLIFFS — DAY\nDAWN. A wall of red rock. ANTARAH sets his hands to the stone —\nand stops. The drop falls away. The old fear he never names.\nHe freezes — breathes — then climbs, knuckles white.\n\n          ANTARAH\nA man is what his sword remembers. Today it remembers this too.\n\nHe reaches the cave mouth, and does not look down.';
 const OPTIONS: Record<string, Opt[]> = {
   're-ending': [
-    { id: 'r1', label: 'Redemptive climb — earns the cave', tag: '+arc', impact: 'up' },
+    { id: 'r1', label: 'Redemptive climb — earns the cave', tag: '+arc', impact: 'up', before: CLIFF_BEFORE, after: CLIFF_AFTER },
     { id: 'r2', label: 'Tragic slip — Antarah falls to his death', tag: 'alt', impact: 'neutral', facts: [{ kind: 'CHARACTER', subject: 'ANTARAH', predicate: 'status', object: 'dead', validFrom: 65, validTo: null }] },
-    { id: 'r3', label: 'Swap cliff → gorge ledge (reuse S58)', tag: '−$140k', impact: 'down', facts: [{ kind: 'WORLD', subject: 'CLIMAX_SITE', predicate: 'location', object: 'gorge ledge', validFrom: 65, validTo: null }] },
+    { id: 'r3', label: 'Swap cliff → gorge ledge (reuse S58)', tag: '−$140k', impact: 'down', facts: [{ kind: 'WORLD', subject: 'CLIMAX_SITE', predicate: 'location', object: 'gorge ledge', validFrom: 65, validTo: null }], before: CLIFF_BEFORE, after: CLIFF_AFTER },
   ],
   revise: [
     { id: 'w1', label: 'Tighten the approach to two beats', tag: '−1pp', impact: 'down' },
@@ -202,7 +205,7 @@ export default function ScriptonWrite(props: WriteProps) {
   const doStage = async () => {
     if (!chosen || !active || !props.onStage) return;
     setStaging(true); setConflict(null);
-    const res = await props.onStage({ sceneId: active.id, sceneNumber: active.sceneNumber, kind: kindTab, label: chosen.label, tag: chosen.tag, summary: chosen.label, facts: chosen.facts || [] });
+    const res = await props.onStage({ sceneId: active.id, sceneNumber: active.sceneNumber, kind: kindTab, label: chosen.label, tag: chosen.tag, summary: chosen.label, facts: chosen.facts || [], before: chosen.before, after: chosen.after });
     setStaging(false);
     if (res.ok) { setComposerOpen(false); setSelOpt(''); setPreview(null); }
     else setConflict(res.conflict || 'Staging was blocked.');
