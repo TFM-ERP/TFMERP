@@ -71,7 +71,7 @@ const MOBILE = { width: 390, height: 844 };
 
 // Write Slice 1: the Story Spine + the reused Courier paper canvas (read-only).
 const writeExpect = async (page, r) => {
-  await page.waitForSelector('.sx.write .page', { timeout: 25000 });
+  await page.waitForSelector('.sx.write .canvas .uvp-a4', { timeout: 25000 });
   r.rails = await page.locator('.rail').count();
   r.filmosAside = await page.locator('aside').count();
   r.assert('single shell — no FilmOS <aside>', r.filmosAside === 0);
@@ -79,7 +79,7 @@ const writeExpect = async (page, r) => {
   r.assert('Story Spine present', (await page.locator('.sx.write .spine').count()) >= 1);
   r.spineDots = await page.locator('.sx.write .spdot').count();
   r.assert('spine has scene dots', r.spineDots > 0);
-  r.assert('canvas paper (Courier slugline) present', (await page.locator('.sx.write .page .sch').count()) >= 1);
+  r.assert('canvas uses shared ScriptPaper (slug headings)', (await page.locator('.sx.write .canvas .uvp-slug').count()) >= 1);
 };
 
 // Canon (kernel-backed): the bi-temporal graph from real CanonFact data —

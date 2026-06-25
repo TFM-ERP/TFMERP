@@ -6,7 +6,9 @@
  * and the Revision Pass panel (slice 2) replaces the doctor dock, per the loved
  * mockup (scripon-v4-revision-pass.html) + Figma 1:2.
  */
+import { useMemo, useRef } from 'react';
 import { SxRail } from '@/components/scripton/ScriptOnStudio';
+import { ScriptPaper } from '@/components/scripton/scriptPaper';
 import { useLocale } from '@/lib/i18n';
 import type { SxScene } from '@/components/scripton/ScriptOnReader';
 
@@ -52,14 +54,7 @@ const CSS = `
 
 /* Canvas (paper) */
 .sx.write .canvas{flex:1;min-width:0;overflow:auto;background:linear-gradient(180deg,#0b0c0f,#090a0c);display:flex;justify-content:center;padding:26px 0 60px}
-.sx.write .page{width:600px;max-width:94%;background:var(--paper);border:1px solid var(--hair2);border-radius:6px;box-shadow:0 40px 80px -40px #000,0 0 0 1px rgba(255,255,255,.02);padding:46px 56px 40px;position:relative;align-self:flex-start}
-.sx.write .pagetag{position:absolute;top:14px;right:18px;font-family:"Courier Prime",monospace;font-size:11px;color:var(--faint)}
-.sx.write .scene{position:relative;border-radius:8px;padding:10px 12px;margin:6px -12px}
-.sx.write .scene.on{background:rgba(198,164,99,.06);box-shadow:inset 2px 0 0 var(--gold2)}
-.sx.write .badge-staged{position:absolute;top:8px;right:8px;font-size:9px;font-weight:800;letter-spacing:.4px;color:var(--goldink);background:linear-gradient(180deg,var(--gold2),var(--gold));border-radius:5px;padding:3px 7px}
-.sx.write .sch{font-family:"Courier Prime",monospace;font-weight:700;font-size:13px;color:var(--gold2);letter-spacing:.4px;margin-bottom:7px}
-.sx.write .ac{font-family:"Courier Prime",monospace;font-size:13px;color:var(--text);line-height:1.62;margin:6px 0;white-space:pre-wrap}
-.sx.write .empty{color:var(--faint);font-size:13px;text-align:center;padding:40px}
+.sx.write .empty{color:var(--faint);font-size:13px;text-align:center;padding:40px;align-self:flex-start}
 .sx.write .sk{background:linear-gradient(90deg,#16181e,#1c1f27,#16181e);background-size:200% 100%;animation:wkp 1.3s ease-in-out infinite;border-radius:8px}
 @keyframes wkp{0%{background-position:200% 0}100%{background-position:-200% 0}}
 .sx.write .toast{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);z-index:9;background:#1b1e25;border:1px solid var(--hair2);color:var(--cream);font-size:12.5px;padding:10px 16px;border-radius:10px}
@@ -69,7 +64,6 @@ const CSS = `
 /* Mobile: paper leads, spine becomes a slim top scrubber is overkill for slice 1 — keep a slim spine */
 .sx.write[data-vp="mobile"] .spine{width:30px}
 .sx.write[data-vp="mobile"] .spact .spactlbl{display:none}
-.sx.write[data-vp="mobile"] .page{padding:28px 18px 30px}
 `;
 
 const fmtSlug = (s: SxScene) => s.slugline || [s.intExt, s.dayNight].filter(Boolean).join('. ').toUpperCase() || 'SCENE';
@@ -90,7 +84,21 @@ export default function ScriptonWrite(props: WriteProps) {
   const active = scenes.find((s) => s.id === props.activeId) || scenes[0];
   const activeIdx = Math.max(0, scenes.findIndex((s) => s.id === active?.id));
   const staged = new Set(props.stagedSceneIds || []);
-  const paras = (active?.description || '').split(/\n{1,}/).map((p) => p.trim()).filter(Boolean);
+  const canvasRef = useRef<HTMLDivElement>(null);
+  // Build the screenplay text from scenes for the shared ScriptPaper renderer
+  // (the same component the Reader/print use — not a forked paper).
+  const scriptText = useMemo(() => scenes.map((s) => {
+    const slug = fmtSlug(s); const action = (s.description || '').trim();
+    return slug + (action ? '\n\n' + action : '');
+  }).join('\n\n'), [scenes]);
+  // Spine click → select the scene + scroll the canvas to its heading (Nth .uvp-slug).
+  const goScene = (i: number) => {
+    if (i < 0 || i >= scenes.length) return;
+    props.onSelectScene(scenes[i].id);
+    const host = canvasRef.current; if (!host) return;
+    const slug = host.querySelectorAll('.uvp-slug')[i] as HTMLElement | undefined;
+    if (slug) slug.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   // group scene indices by act for the spine
   const byAct: number[][] = [[], [], []];
@@ -107,9 +115,9 @@ export default function ScriptonWrite(props: WriteProps) {
             <span className="d" style={{ background: props.revisionColor }} />{props.revisionLabel.toUpperCase()}
           </span>
           <div className="pageind">
-            <span className="nudge" onClick={() => active && activeIdx > 0 && props.onSelectScene(scenes[activeIdx - 1].id)}>‹</span>
-            <b>{t('Scene')} {active?.sceneNumber || activeIdx + 1}</b> / {n || '—'}
-            <span className="nudge" onClick={() => active && activeIdx < n - 1 && props.onSelectScene(scenes[activeIdx + 1].id)}>›</span>
+            <span className="nudge" onClick={() => goScene(activeIdx - 1)}>‹</span>
+            <b>{t('Scene')} {n ? activeIdx + 1 : '—'}</b> / {n || '—'}
+            <span className="nudge" onClick={() => goScene(activeIdx + 1)}>›</span>
           </div>
         </div>
         <div className="body">
@@ -124,27 +132,20 @@ export default function ScriptonWrite(props: WriteProps) {
                     <div className="spactlbl" style={{ color: act.color }}>{act.name}</div>
                     {byAct[ai].map((i) => (
                       <button key={scenes[i].id} className={'spdot' + (i === activeIdx ? ' on' : '') + (staged.has(scenes[i].id) ? ' staged' : '')}
-                        title={`${t('Scene')} ${scenes[i].sceneNumber || i + 1}`} onClick={() => props.onSelectScene(scenes[i].id)} />
+                        title={`${t('Scene')} ${i + 1}`} onClick={() => goScene(i)} />
                     ))}
                   </div>
                 ))}
               </div>
             </div>
-            {/* Canvas — the Reader's Courier paper */}
-            <div className="canvas">
+            {/* Canvas — the shared ScriptPaper renderer (continuous Courier A4) */}
+            <div className="canvas" ref={canvasRef}>
               {props.loading ? (
-                <div className="page"><div className="sk" style={{ height: 18, width: 220, marginBottom: 16 }} />{[0, 1, 2, 3].map((i) => <div className="sk" key={i} style={{ height: 13, width: i % 2 ? '78%' : '92%', margin: '8px 0' }} />)}</div>
-              ) : !active ? (
-                <div className="page"><div className="empty">{t('No scenes in this revision yet.')}</div></div>
+                <div className="sk" style={{ height: 760, width: 600, maxWidth: '94%', borderRadius: 6 }} />
+              ) : !scenes.length ? (
+                <div className="empty">{t('No scenes in this revision yet.')}</div>
               ) : (
-                <div className="page">
-                  <div className="pagetag">{active.sceneNumber ? active.sceneNumber + '.' : ''}</div>
-                  <div className={'scene on'}>
-                    {staged.has(active.id) ? <span className="badge-staged">{t('STAGED')}</span> : null}
-                    <div className="sch">{fmtSlug(active)}</div>
-                    {paras.length ? paras.map((p, i) => <div className="ac" key={i}>{p}</div>) : <div className="ac" style={{ color: '#6f6b60' }}>{t('No action text captured for this scene.')}</div>}
-                  </div>
-                </div>
+                <ScriptPaper text={scriptText} />
               )}
             </div>
           </div>
