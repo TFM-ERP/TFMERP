@@ -83,6 +83,24 @@ const writeExpect = async (page, r) => {
   // Revision Pass panel (desktop/tablet; mobile leads with the paper).
   r.passRows = await page.locator('.sx.write .pass .passrow').count();
   if (r.passRows > 0) r.assert('revision pass: staged changes + continuity meter', r.passRows >= 1 && (await page.locator('.sx.write .pass .meter .track').count()) >= 1);
+  // Slice 3: the composer — conflict blocks, a clean change stages and grows the pass.
+  if (await page.locator('.sx.write .stagebtn').count()) {
+    const before = await page.locator('.sx.write .pass .passrow').count();
+    await page.locator('.sx.write .stagebtn').click();
+    await page.waitForSelector('.sx.write .composer .opt', { timeout: 10000 });
+    r.assert('composer: kind tabs + composed options', (await page.locator('.sx.write .composer .chip').count()) >= 5 && (await page.locator('.sx.write .composer .opt').count()) >= 2);
+    // conflicting option (2nd in Re-ending) → blocked by the continuity gate
+    await page.locator('.sx.write .composer .opt').nth(1).click();
+    await page.locator('.sx.write .cstage').click();
+    await page.waitForTimeout(1400);
+    r.assert('conflicting change blocked (continuity gate)', (await page.locator('.sx.write .composer .cflict').count()) >= 1 && (await page.locator('.sx.write .pass .passrow').count()) === before);
+    // clean option (1st) → stages, pass grows
+    await page.locator('.sx.write .composer .opt').first().click();
+    await page.locator('.sx.write .cstage').click();
+    await page.waitForTimeout(1800);
+    r.passAfter = await page.locator('.sx.write .pass .passrow').count();
+    r.assert('clean change stages + grows the pass', r.passAfter > before);
+  }
 };
 
 // Canon (kernel-backed): the bi-temporal graph from real CanonFact data —

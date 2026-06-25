@@ -107,6 +107,10 @@ export class ScripOnController {
   async openPass(@Query('scriptId') scriptId: string) {
     return this.canon.openPass(scriptId);
   }
+  @Post('revision-pass/stage') @RequirePermission('production', 2)
+  async stageChange(@Body() body: any) {
+    return this.canon.stageChange(body);
+  }
   @Post('revision-pass/:passId/render') @RequirePermission('production', 2)
   async renderRevisionPass(@Param('passId') passId: string, @Body() body: any, @Req() req: any) {
     return this.canon.renderPass(passId, body?.projectId, req?.user?.id);

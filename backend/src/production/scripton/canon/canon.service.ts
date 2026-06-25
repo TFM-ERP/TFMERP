@@ -6,6 +6,7 @@ import { mapAiFactsToCore } from './canon-map.util';
 import { assessPass } from './canon-assess.util';
 import { orderChanges } from './change-order.util';
 import { canonDirective } from './canon-inject.util';
+import { detectConflicts, factsExcludingScenes } from './canon-verify.util';
 
 @Injectable()
 export class CanonService {
@@ -171,6 +172,44 @@ export class CanonService {
       });
     } catch {
       return null;
+    }
+  }
+
+  /**
+   * Stage a SceneChange into the open RevisionPass — NON-DESTRUCTIVE. The change's
+   * candidate facts are continuity-checked against live canon (excluding this
+   * scene's own facts) BEFORE it can join: a conflict blocks the stage and is
+   * returned for the composer to surface. Creates the open pass if none exists.
+   */
+  async stageChange(body: any): Promise<{ staged?: any; conflict?: string; passId?: string }> {
+    const scriptId = body?.scriptId;
+    if (!scriptId || !body?.sceneId) return { conflict: 'Missing script or scene.' };
+    const candidates: CanonFactCore[] = (Array.isArray(body.facts) ? body.facts : []).map((f: any) => ({ ...f, status: 'ACTIVE' }));
+    // Continuity gate — never stage a change that contradicts established canon.
+    if (candidates.length) {
+      const all = await this.listFacts(scriptId);
+      const established = factsExcludingScenes(all, [String(body.sceneId)]);
+      const conflicts = detectConflicts(established, candidates);
+      if (conflicts.length) return { conflict: conflicts[0].reason };
+    }
+    try {
+      let pass: any = await (this.prisma as any).revisionPass.findFirst({
+        where: { scriptId, status: { in: ['OPEN', 'RENDERING'] } }, orderBy: { createdAt: 'desc' },
+      });
+      if (!pass) pass = await (this.prisma as any).revisionPass.create({ data: { scriptId, baseVersionId: body.baseVersionId || 'V-base', status: 'OPEN', continuityScore: 1 } });
+      const change = await (this.prisma as any).sceneChange.create({
+        data: {
+          passId: pass.id, sceneId: String(body.sceneId), kind: body.kind || 'revise', status: 'STAGED',
+          spec: {
+            sceneNumber: body.sceneNumber ?? null, label: body.label ?? '', tag: body.tag ?? '',
+            summary: body.summary ?? null, before: body.before ?? null, after: body.after ?? null,
+            sceneOrder: Number(body.sceneNumber) || 0, facts: candidates,
+          },
+        },
+      });
+      return { staged: change, passId: pass.id };
+    } catch (e: any) {
+      return { conflict: 'Could not stage — ' + (e?.message || 'kernel error') };
     }
   }
 

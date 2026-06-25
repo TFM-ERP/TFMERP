@@ -49,6 +49,12 @@ export default function ScriptOnWorkspace() {
   const [projectId, setProjectId] = useState<string | null>(null);
   const [activeRev, setActiveRev] = useState<any>(null);
   const [passVM, setPassVM] = useState<PassVM | null>(null);
+  const [docId, setDocId] = useState('');
+  const toPassVM = (pass: any): PassVM | null => {
+    if (!pass) return null;
+    const changes = (pass.changes || []).map((c: any) => ({ id: c.id, kind: c.kind, sceneNumber: c.spec?.sceneNumber, label: c.spec?.label, tag: c.spec?.tag, summary: c.spec?.summary, before: c.spec?.before, after: c.spec?.after }));
+    return { changeCount: changes.length, continuity: Math.round((pass.continuityScore ?? 0) * 100), versionLabel: '→ new draft', changes, bridge: changes.length ? 'One bridge needed: S64 night → S65 dawn. Auto-fix on render.' : '' };
+  };
 
   const [activeId, setActiveId] = useState('s6');
   const [search, setSearch] = useState('');
@@ -73,14 +79,8 @@ export default function ScriptOnWorkspace() {
         const docs = Array.isArray(dr.data) ? dr.data : (dr.data?.items ?? []);
         const doc = docs[0];
         if (!doc) return;
-        try {
-          const pp: any = await productionApi.scripton.revisionPass(doc.id);
-          const pass = pp.data;
-          if (alive && pass && pass.changes) {
-            const changes = pass.changes.map((c: any) => ({ id: c.id, kind: c.kind, sceneNumber: c.spec?.sceneNumber, label: c.spec?.label, tag: c.spec?.tag, summary: c.spec?.summary, before: c.spec?.before, after: c.spec?.after }));
-            setPassVM({ changeCount: changes.length, continuity: Math.round((pass.continuityScore ?? 0) * 100), versionLabel: '→ new draft', changes, bridge: 'One bridge needed: S64 night → S65 dawn. Auto-fix on render.' });
-          }
-        } catch { /* no open pass */ }
+        if (alive) setDocId(doc.id);
+        try { const pp: any = await productionApi.scripton.revisionPass(doc.id); if (alive) setPassVM(toPassVM(pp.data)); } catch { /* no open pass */ }
         const revId = doc.activeRevisionId || doc.revisions?.[0]?.id;
         if (!revId) return;
         const rv: any = await productionApi.script.getRevision(revId);
@@ -177,6 +177,16 @@ export default function ScriptOnWorkspace() {
         onNav={onNav} onBack={onBackOs}
         onRender={() => flash(t('Render = commit lands in the next slice.'))}
         onPassAction={(k) => flash(k === 'save' ? t('Pass saved.') : t('Ships with the next slice.'))}
+        onStage={async (change) => {
+          if (!docId) return { ok: false, conflict: t('No script bound.') };
+          try {
+            const r: any = await productionApi.scripton.stageChange({ scriptId: docId, ...change });
+            if (r.data?.conflict) return { ok: false, conflict: r.data.conflict };
+            try { const pp: any = await productionApi.scripton.revisionPass(docId); setPassVM(toPassVM(pp.data)); } catch { /* */ }
+            flash(t('Change staged — continuity held.'));
+            return { ok: true };
+          } catch (e: any) { return { ok: false, conflict: e?.response?.data?.message || t('Stage failed — backend on :3001?') }; }
+        }}
         toast={toast} vp={vp}
       />
     );
