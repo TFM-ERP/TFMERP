@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { AiService } from '../../ai/ai.service';
+import { CanonService } from './canon/canon.service';
 import { computeFacts, parseJsonArray } from './scripton.util';
 import { LORE_SEED } from './lore-seed.data';
 import { knowledgeDirective, stageLadderFor, normalizeFamily } from './knowledge';
@@ -15,7 +16,7 @@ import { LEVER_KEYS, resolveLever } from './intake-levers.util';
  */
 @Injectable()
 export class ScripOnService {
-  constructor(private prisma: PrismaService, private ai: AiService) {}
+  constructor(private prisma: PrismaService, private ai: AiService, private canon: CanonService) {}
 
   private async resolveRevision(opts: any): Promise<{ revisionId: string; projectId: string; documentId?: string; title?: string }> {
     if (opts?.revisionId) {
@@ -1134,7 +1135,8 @@ export class ScripOnService {
   // Vertical micro-drama: write the first ~10-15 episodes (60-90s each) on the Beat Engine, each cutting on a cliffhanger.
   private async generateVerticalAsync(docId: string, revId: string, projectId: string, stages: any[], brief: any): Promise<void> {
     try {
-      const dir = [await this.langDirective(brief), knowledgeDirective(brief)].filter(Boolean).join('\n');
+      const canonDir = docId ? await this.canon.directiveFor(docId, Number.MAX_SAFE_INTEGER) : '';
+      const dir = [await this.langDirective(brief), knowledgeDirective(brief), canonDir].filter(Boolean).join('\n');
       const bodyOf = (k: string) => { const x: any = stages.find((y: any) => y.kind === k); return String((x && x.current && x.current.body) || ''); };
       const ctx = dir + '\n\nPREMISE:\n' + bodyOf('PREMISE').slice(0, 1800) + '\n\nSTORY ENGINE:\n' + bodyOf('STORY_ENGINE').slice(0, 1800) + '\n\nEPISODE MAP:\n' + bodyOf('EPISODE_MAP').slice(0, 4000) + '\n\nBEAT ENGINE:\n' + bodyOf('BEAT_ENGINE').slice(0, 4000);
       let eps = this.parseEpisodes(bodyOf('EPISODE_MAP'));
