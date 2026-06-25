@@ -15,6 +15,9 @@ import ScriptOnRewriteSlate from '@/components/scripton/ScriptOnRewriteSlate';
 import ScriptOnReaderTablet from '@/components/scripton/ScriptOnReaderTablet';
 import ScriptOnReaderMobile from '@/components/scripton/ScriptOnReaderMobile';
 import { useViewport } from '@/components/scripton/useViewport';
+import { useScriptonShellFlag } from '@/components/scripton/osShellFlag';
+import { useScriptonBack } from '@/components/scripton/useScriptonBack';
+import ScriptonWrite from '@/components/scripton/write/ScriptonWrite';
 
 const SAMPLE: SxScene[] = [
   { id: 's1', sceneNumber: '1', slugline: 'INT. DINER — DAY', intExt: 'INT', dayNight: 'DAY', status: 'tagged', description: 'Steam off the coffee. MARA (30s) watches the door over the rim of her cup. The booth vinyl is cracked; so is her patience.' },
@@ -32,6 +35,8 @@ export default function ScriptOnWorkspace() {
   const router = useRouter();
   const { t } = useLocale();
   const vp = useViewport();
+  const flag = useScriptonShellFlag();
+  const onBackOs = useScriptonBack();
   const onNav = (k: string) => { if (k === 'home') return router.push('/scripton'); if (k === 'library') return router.push('/scripton/library'); if (k === 'coverage') return router.push('/scripton/coverage'); if (k !== 'reader') return onAction(k); };
   const [scenes, setScenes] = useState<SxScene[]>(SAMPLE);
   const [title, setTitle] = useState('Midnight Run');
@@ -150,6 +155,18 @@ export default function ScriptOnWorkspace() {
     };
     flash(msgs[a] || t('Coming soon.'));
   };
+
+  // Write (Slice 1) — the canvas + Story Spine, under the new shell flag.
+  if (flag === 'new') {
+    return (
+      <ScriptonWrite
+        title={title} revisionLabel={revLabel} revisionColor={revColor}
+        scenes={filtered} activeId={active?.id} onSelectScene={selectScene}
+        pageCount={pageCount} loading={false} stagedSceneIds={[]}
+        onNav={onNav} onBack={onBackOs} toast={toast} vp={vp}
+      />
+    );
+  }
 
   return (
     <>

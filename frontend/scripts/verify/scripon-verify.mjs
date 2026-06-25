@@ -69,6 +69,19 @@ const DESKTOP = { width: 1440, height: 900 };
 const TABLET = { width: 1000, height: 1200 };
 const MOBILE = { width: 390, height: 844 };
 
+// Write Slice 1: the Story Spine + the reused Courier paper canvas (read-only).
+const writeExpect = async (page, r) => {
+  await page.waitForSelector('.sx.write .page', { timeout: 25000 });
+  r.rails = await page.locator('.rail').count();
+  r.filmosAside = await page.locator('aside').count();
+  r.assert('single shell — no FilmOS <aside>', r.filmosAside === 0);
+  r.assert('workspace rail present', r.rails >= 1);
+  r.assert('Story Spine present', (await page.locator('.sx.write .spine').count()) >= 1);
+  r.spineDots = await page.locator('.sx.write .spdot').count();
+  r.assert('spine has scene dots', r.spineDots > 0);
+  r.assert('canvas paper (Courier slugline) present', (await page.locator('.sx.write .page .sch').count()) >= 1);
+};
+
 // Canon (kernel-backed): the bi-temporal graph from real CanonFact data —
 // 5 tabs, graph or facts, entity panel, no console errors.
 const canonExpect = async (page, r) => {
@@ -236,6 +249,9 @@ const SCENARIOS = [
       r.assert('Builds panel NOT OS-reskinned under old flag', (await page.locator('.bld.osnew').count()) === 0);
     },
   },
+  { name: 'write-desktop', route: '/scripton/reader', storage: {}, viewport: DESKTOP, expect: writeExpect },
+  { name: 'write-tablet', route: '/scripton/reader', storage: {}, viewport: TABLET, expect: writeExpect },
+  { name: 'write-mobile', route: '/scripton/reader', storage: {}, viewport: MOBILE, expect: writeExpect },
   { name: 'canon-desktop', route: '/scripton/canon', storage: {}, viewport: DESKTOP, expect: canonExpect },
   { name: 'canon-tablet', route: '/scripton/canon', storage: {}, viewport: TABLET, expect: canonExpect },
   { name: 'canon-mobile', route: '/scripton/canon', storage: {}, viewport: MOBILE, expect: canonExpect },
