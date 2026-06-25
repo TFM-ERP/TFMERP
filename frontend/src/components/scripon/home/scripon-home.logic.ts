@@ -88,7 +88,7 @@ function mapMaster(m: any, i: number, now: number): SxCard {
   return {
     id: m.id || ('m' + i), title: m.title || m.name || 'Untitled',
     type: type.toUpperCase().slice(0, 12), typeColor: typeColor(type),
-    rev: (latest.revisionLabel || m.status || 'DRAFT').toString().toUpperCase().slice(0, 10),
+    rev: (latest.revisionLabel || m.status || 'DRAFT').toString().toUpperCase(),
     revColor: latest.colorCode || '#9aa1ab',
     pages: (m.pageCount || latest.pageCount) ? `${m.pageCount || latest.pageCount} pp` : '—',
     grade: rec || '—', gradeColor: gradeColor(rec),
@@ -103,7 +103,7 @@ function mapDev(m: any, i: number, now: number): SxCard {
   return {
     id: m.id || ('d' + i), title: m.title || 'Untitled',
     type: (type === 'SCRIPT' ? 'FEATURE' : type).toUpperCase().slice(0, 12), typeColor: typeColor(type),
-    rev: String(m.activeRevisionLabel || latest.revisionLabel || 'WHITE').toUpperCase().slice(0, 10),
+    rev: String(m.activeRevisionLabel || latest.revisionLabel || 'WHITE').toUpperCase(),
     revColor: latest.colorCode || '#cfd3da',
     pages: (m.pageCount || latest.pageCount) ? `${m.pageCount || latest.pageCount} pp` : '—',
     grade: '—', gradeColor: 'var(--faint)',

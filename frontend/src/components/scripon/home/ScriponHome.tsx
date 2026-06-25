@@ -54,7 +54,7 @@ const CSS = `
 .sx.home .hero:before{content:"";position:absolute;top:-40%;right:-10%;width:340px;height:340px;background:radial-gradient(circle,rgba(201,169,106,.16),transparent 70%);pointer-events:none}
 .sx.home .heroposter{height:208px;border-radius:13px;position:relative;display:flex;align-items:flex-end;padding:11px;overflow:hidden}
 .sx.home .heroposter .badge{position:absolute;top:11px;left:11px}
-.sx.home .heroposter .pill{position:absolute;top:11px;right:11px}
+.sx.home .heroposter .pill{position:absolute;bottom:11px;inset-inline-start:11px;max-width:calc(100% - 22px)}
 .sx.home .herobody{display:flex;flex-direction:column;justify-content:center;gap:9px;min-width:0;position:relative;z-index:1}
 .sx.home .eyebrow{font-size:10.5px;font-weight:800;letter-spacing:.7px;color:var(--gold2);text-transform:uppercase}
 .sx.home .herotitle{font-family:var(--sx-title);font-size:25px;font-weight:500;color:var(--cream);letter-spacing:-.3px}
@@ -63,7 +63,7 @@ const CSS = `
 .sx.home .ring{--p:0;width:34px;height:34px;border-radius:50%;background:conic-gradient(var(--green) calc(var(--p)*1%),#2a2d34 0);display:grid;place-items:center}
 .sx.home .ring i{width:26px;height:26px;border-radius:50%;background:#101218;display:grid;place-items:center;font-size:9.5px;font-weight:800;color:var(--cream);font-style:normal}
 .sx.home .badge{font-size:10px;font-weight:800;letter-spacing:.4px;padding:4px 9px;border-radius:999px}
-.sx.home .pill{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:999px;font-size:10px;font-weight:700}
+.sx.home .pill{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:999px;font-size:10px;font-weight:700;max-width:64%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sx.home .pill .d{width:6px;height:6px;border-radius:50%}
 .sx.home .btn{display:inline-flex;align-items:center;gap:7px;height:38px;padding:0 16px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid transparent;color:var(--text);white-space:nowrap;background:transparent;width:max-content}
 .sx.home .btn .ico{width:15px;height:15px}

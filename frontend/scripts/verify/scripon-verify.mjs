@@ -22,7 +22,7 @@
 // Add a scenario to SCENARIOS to gate a new screen. Exit code 0 = all pass.
 
 import { chromium } from 'playwright';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -88,7 +88,15 @@ const SCENARIOS = [
   },
 ];
 
+// Cache the token between runs so repeated verifications don't trip the
+// backend's auth rate limiter (429). Reused if < 10 min old.
+const TOKEN_CACHE = join(__dir, '.token.json');
 async function login() {
+  try {
+    const raw = readFileSync(TOKEN_CACHE, 'utf8');
+    const c = JSON.parse(raw);
+    if (c.access_token && Date.now() - c.ts < 10 * 60 * 1000) return { access_token: c.access_token, user: c.user, cached: true };
+  } catch { /* no/stale cache */ }
   const res = await fetch(`${BACKEND}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -97,6 +105,7 @@ async function login() {
   if (!res.ok) throw new Error(`login failed: HTTP ${res.status} ${await res.text()}`);
   const { access_token, user } = await res.json();
   if (!access_token) throw new Error('login response had no access_token');
+  try { writeFileSync(TOKEN_CACHE, JSON.stringify({ access_token, user, ts: Date.now() })); } catch { /* ignore */ }
   return { access_token, user };
 }
 

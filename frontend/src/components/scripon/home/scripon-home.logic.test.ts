@@ -72,6 +72,18 @@ test('buildSlate maps + dedups dev over master and sorts by recency', () => {
   assert.equal(pulpit.pages, '119 pp');
 });
 
+test('buildSlate keeps the full revision label (no 10-char truncation)', () => {
+  const now = new Date('2026-06-25T12:00:00Z').getTime();
+  const { cards } = buildSlate({
+    master: [{ id: 'm1', title: 'The Pulpit', genre: 'Feature', updatedAt: '2026-06-20T00:00:00Z', revisions: [{ revisionLabel: 'White Draft', colorCode: '#cfd3da' }] }],
+    dev: [{ id: 'd1', title: 'Antarah', kind: 'SCRIPT', activeRevisionLabel: 'White Draft', updatedAt: '2026-06-25T09:00:00Z' }],
+    now,
+  });
+  // "WHITE DRAFT" (11 chars) must not be cut to "WHITE DRAF"
+  assert.equal(cards.find((c) => c.id === 'm1')!.rev, 'WHITE DRAFT');
+  assert.equal(cards.find((c) => c.id === 'd1')!.rev, 'WHITE DRAFT');
+});
+
 test('pickContinue returns the most-recent script or null', () => {
   const now = new Date('2026-06-25T12:00:00Z').getTime();
   const empty = buildSlate({ master: [], dev: [], now });
