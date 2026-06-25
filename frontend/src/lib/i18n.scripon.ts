@@ -1,4 +1,4 @@
-/* AUTO-MERGED ScripON Arabic dictionary (screen sweep). Keys = English source strings used in t().
+/* AUTO-MERGED ScriptON Arabic dictionary (screen sweep). Keys = English source strings used in t().
    English/LTR is the default; these only apply when the user toggles العربية. Merged into i18n.ts. */
 export const AR_SCRIPON: Record<string, string> = {
   // ── Format Engine stage labels (series · vertical · documentary) ──
@@ -126,7 +126,7 @@ export const AR_SCRIPON: Record<string, string> = {
   "STEP_OUTLINE": "المخطط التفصيلي",
   "Scene cards appear once the Scenes stage is generated.": "تظهر بطاقات المشاهد بمجرد توليد مرحلة المشاهد.",
   "Showing basic coverage characters. Generate the bible for taglines, function & arcs.": "تُعرض شخصيات التغطية الأساسية. ولّد الدليل للحصول على الشعارات والوظائف والأقواس.",
-  "Snapshot the chosen draft into a production project. The build keeps living in ScripON; this takes a frozen copy.": "التقاط لقطة من المسودة المختارة إلى مشروع إنتاج. يبقى البناء حيًّا في ScripON؛ وهذه نسخة مجمّدة.",
+  "Snapshot the chosen draft into a production project. The build keeps living in ScriptON; this takes a frozen copy.": "التقاط لقطة من المسودة المختارة إلى مشروع إنتاج. يبقى البناء حيًّا في ScriptON؛ وهذه نسخة مجمّدة.",
   "Snapshot this build into a production project": "التقاط لقطة من هذا البناء إلى مشروع إنتاج",
   "Snapshot, not live sync - push an updated draft later as an explicit action.": "لقطة وليست مزامنة حيّة - ادفع مسودة محدّثة لاحقًا كإجراء صريح.",
   "Status": "الحالة",
@@ -621,9 +621,9 @@ export const AR_SCRIPON: Record<string, string> = {
   "Schedule & Budget": "الجدول والميزانية",
   "Schedule a report": "جدولة تقرير",
   "Scorecard": "بطاقة التقييم",
-  "ScripON - New Build": "سكربت أون - بناء جديد",
-  "ScripON Doctor": "طبيب سكربت أون",
-  "ScripON · Doctor": "سكربت أون · الطبيب",
+  "ScriptON - New Build": "سكربت أون - بناء جديد",
+  "ScriptON Doctor": "طبيب سكربت أون",
+  "ScriptON · Doctor": "سكربت أون · الطبيب",
   "Script Library": "مكتبة السيناريوهات",
   "Script Reader": "قارئ السيناريو",
   "Script status": "حالة السيناريو",

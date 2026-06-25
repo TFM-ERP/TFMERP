@@ -1,6 +1,6 @@
 'use client';
 /**
- * ScripON Doctor workspace — flagged parallel route /scripon (existing /scripts + /script-workspace untouched).
+ * ScriptON Doctor workspace — flagged parallel route /scripon (existing /scripts + /script-workspace untouched).
  * First screen: the Script Reader, a carbon-copy of design/ScriptHub-Reader-Desktop-HiFi.html,
  * wired to the live script SSOT (productionApi.script) and Doctor actions (productionApi.scripton).
  */
@@ -8,13 +8,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { productionApi , approvalsApi } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
-import { pickScriponProject } from '@/components/scripon/useScriponProject';
-import ScripOnReader, { SxScene, SxSceneRead, SxTab } from '@/components/scripon/ScripOnReader';
-import ScripOnBudgetFit from '@/components/scripon/ScripOnBudgetFit';
-import ScripOnRewriteSlate from '@/components/scripon/ScripOnRewriteSlate';
-import ScripOnReaderTablet from '@/components/scripon/ScripOnReaderTablet';
-import ScripOnReaderMobile from '@/components/scripon/ScripOnReaderMobile';
-import { useViewport } from '@/components/scripon/useViewport';
+import { pickScriptonProject } from '@/components/scripton/useScriptonProject';
+import ScriptOnReader, { SxScene, SxSceneRead, SxTab } from '@/components/scripton/ScriptOnReader';
+import ScriptOnBudgetFit from '@/components/scripton/ScriptOnBudgetFit';
+import ScriptOnRewriteSlate from '@/components/scripton/ScriptOnRewriteSlate';
+import ScriptOnReaderTablet from '@/components/scripton/ScriptOnReaderTablet';
+import ScriptOnReaderMobile from '@/components/scripton/ScriptOnReaderMobile';
+import { useViewport } from '@/components/scripton/useViewport';
 
 const SAMPLE: SxScene[] = [
   { id: 's1', sceneNumber: '1', slugline: 'INT. DINER — DAY', intExt: 'INT', dayNight: 'DAY', status: 'tagged', description: 'Steam off the coffee. MARA (30s) watches the door over the rim of her cup. The booth vinyl is cracked; so is her patience.' },
@@ -28,7 +28,7 @@ const SAMPLE: SxScene[] = [
   { id: 's9', sceneNumber: '22', slugline: 'INT. HOSPITAL — DAY', intExt: 'INT', dayNight: 'DAY', status: 'todo', description: 'Fluorescent calm. Mara sits in a plastic chair, a stranger’s blood dried on her sleeve.' },
 ];
 
-export default function ScripOnWorkspace() {
+export default function ScriptOnWorkspace() {
   const router = useRouter();
   const { t } = useLocale();
   const vp = useViewport();
@@ -61,7 +61,7 @@ export default function ScripOnWorkspace() {
       try {
         const pr: any = await productionApi.projects.list();
         const projects = pr.data?.items ?? (Array.isArray(pr.data) ? pr.data : []);
-        const pid = pickScriponProject(projects)?.id;
+        const pid = pickScriptonProject(projects)?.id;
         if (!pid) return;
         const dr: any = await productionApi.script.list(pid);
         const docs = Array.isArray(dr.data) ? dr.data : (dr.data?.items ?? []);
@@ -154,11 +154,11 @@ export default function ScripOnWorkspace() {
   return (
     <>
       {vp === 'mobile' ? (
-        <ScripOnReaderMobile projectTitle={title} revisionLabel={revLabel} sceneCount={totalScenes} scenes={filtered} activeId={active?.id} sceneRead={sceneRead} onAction={onAction} onRun={runDiagnostics} onNav={onNav} onBack={() => router.push('/scripon')} />
+        <ScriptOnReaderMobile projectTitle={title} revisionLabel={revLabel} sceneCount={totalScenes} scenes={filtered} activeId={active?.id} sceneRead={sceneRead} onAction={onAction} onRun={runDiagnostics} onNav={onNav} onBack={() => router.push('/scripon')} />
       ) : vp === 'tablet' ? (
-        <ScripOnReaderTablet projectTitle={title} revisionLabel={revLabel} revisionColor={revColor} sceneCount={totalScenes} scenes={filtered} activeId={active?.id} onSelectScene={selectScene} sceneRead={sceneRead} reading={reading} onAction={onAction} onRun={runDiagnostics} onNav={onNav} onBack={() => router.push('/scripon')} />
+        <ScriptOnReaderTablet projectTitle={title} revisionLabel={revLabel} revisionColor={revColor} sceneCount={totalScenes} scenes={filtered} activeId={active?.id} onSelectScene={selectScene} sceneRead={sceneRead} reading={reading} onAction={onAction} onRun={runDiagnostics} onNav={onNav} onBack={() => router.push('/scripon')} />
       ) : (
-      <ScripOnReader
+      <ScriptOnReader
         projectTitle={title} revisionLabel={revLabel} revisionColor={revColor}
         pageCount={pageCount} sceneCount={totalScenes} updated={updated}
         scenes={filtered} activeId={active?.id} onSelectScene={selectScene} search={search} onSearch={setSearch}
@@ -169,10 +169,10 @@ export default function ScripOnWorkspace() {
       />
       )}
       {surface === 'budgetfit' && activeRev?.id && (
-        <ScripOnBudgetFit projectId={projectId!} revisionId={activeRev.id} onClose={() => setSurface(null)} />
+        <ScriptOnBudgetFit projectId={projectId!} revisionId={activeRev.id} onClose={() => setSurface(null)} />
       )}
       {surface === 'rewrite' && activeRev?.id && (
-        <ScripOnRewriteSlate projectId={projectId!} revisionId={activeRev.id} onClose={() => setSurface(null)} />
+        <ScriptOnRewriteSlate projectId={projectId!} revisionId={activeRev.id} onClose={() => setSurface(null)} />
       )}
     </>
   );

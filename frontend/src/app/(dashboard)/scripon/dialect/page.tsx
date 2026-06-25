@@ -1,23 +1,23 @@
 'use client';
-/** ScripON — Dialect studio. Scores a script's dialect fidelity (markers present / MSA tells leaking),
+/** ScriptON — Dialect studio. Scores a script's dialect fidelity (markers present / MSA tells leaking),
  *  auto-repairs the dialogue into the chosen dialect, and hosts the native-editable exemplar bank
  *  (few-shot lines that lock generation). Opened by ?doc=<scriptDocumentId>.
- *  Uses the shared `.sx` cinematic shell + SxRail so it stays docked like every other ScripON screen. */
+ *  Uses the shared `.sx` cinematic shell + SxRail so it stays docked like every other ScriptON screen. */
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { productionApi } from '@/lib/api';
-import { SxRail, SX_CSS } from '@/components/scripon/ScripOnStudio';
-import { AR_DIALECTS } from '@/components/scripon/dialects';
+import { SxRail, SX_CSS } from '@/components/scripton/ScriptOnStudio';
+import { AR_DIALECTS } from '@/components/scripton/dialects';
 import { useLocale } from '@/lib/i18n';
-import { useScriponBack } from '@/components/scripon/useScriponBack';
+import { useScriptonBack } from '@/components/scripton/useScriptonBack';
 
 type Fid = { score: number; present: string[]; missing: string[]; flags: string[]; variety?: string };
 type Ex = { id: string; variety: string; msa?: string; dialect: string; note?: string };
 
-export default function ScripOnDialectPage() {
+export default function ScriptOnDialectPage() {
   const router = useRouter();
   const { dir, t } = useLocale();
-  const onBack = useScriponBack();
+  const onBack = useScriptonBack();
   const [docId, setDocId] = useState('');
   const [variety, setVariety] = useState('ar-EG-cairene');
   const [fid, setFid] = useState<Fid | null>(null);

@@ -173,7 +173,7 @@ export default function ProductionProjectsPage() {
   const scriptRef = useRef<HTMLInputElement>(null);
   const [scriptFile, setScriptFile] = useState<File | null>(null);
   const [scriptMode, setScriptMode] = useState<'full' | 'import'>('full');
-  // Promote-from-ScripON: opened with ?promoteBuild=<id> — the developed script binds as the WHITE draft
+  // Promote-from-ScriptON: opened with ?promoteBuild=<id> — the developed script binds as the WHITE draft
   const [promoteBuildId, setPromoteBuildId] = useState('');
   const [promoteTitle, setPromoteTitle] = useState('');
   // Optional Movie Magic import on create
@@ -247,12 +247,12 @@ export default function ProductionProjectsPage() {
       });
       const created = res.data;
 
-      // Promote-from-ScripON: snapshot the developed build into this new project as the WHITE draft
+      // Promote-from-ScriptON: snapshot the developed build into this new project as the WHITE draft
       if (promoteBuildId && created?.id) {
         try {
           setProgress('Attaching the developed script…');
           await productionApi.scripton.development.promoteFromBuild(promoteBuildId, { target: 'existing', projectId: created.id });
-        } catch (pe: any) { alert('Project created, but attaching the developed script failed: ' + (pe.response?.data?.message || 'error') + '. You can promote again from the ScripON Library.'); }
+        } catch (pe: any) { alert('Project created, but attaching the developed script failed: ' + (pe.response?.data?.message || 'error') + '. You can promote again from the ScriptON Library.'); }
         resetForm();
         router.push(`/production/projects/${created.id}`);
         return;
@@ -413,11 +413,11 @@ export default function ProductionProjectsPage() {
               <textarea className="input w-full" rows={2} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
             </div>
 
-            {/* Optional script breakdown on create — or the bound ScripON developed script */}
+            {/* Optional script breakdown on create — or the bound ScriptON developed script */}
             <div className="col-span-2 border-t border-gray-100 pt-3 mt-1">
               {promoteBuildId ? (
                 <>
-                  <label className="label flex items-center gap-1.5"><Wand2 size={13} className="text-brand-600" /> Script — from your ScripON build</label>
+                  <label className="label flex items-center gap-1.5"><Wand2 size={13} className="text-brand-600" /> Script — from your ScriptON build</label>
                   <div className="mt-1 inline-flex items-center gap-2 text-sm text-gray-700 bg-amber-50 border border-amber-200 rounded px-2.5 py-1.5">
                     <FileUp size={13} /> {promoteTitle || form.title || 'Developed draft'} <span className="text-gray-400">— WHITE master draft (already broken down)</span>
                   </div>

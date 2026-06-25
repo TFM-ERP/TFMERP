@@ -1,22 +1,22 @@
 'use client';
-/** ScripON — Settings/Governance route /scripon/settings. Under the `new` shell
+/** ScriptON — Settings/Governance route /scripon/settings. Under the `new` shell
  *  flag it renders the consolidated Studio (export · security · access · AI gov);
  *  `old` keeps the existing tabbed settings. AI-gov runs are illustrative defaults
  *  (no runs API yet); Review Protection + the export flows are live. */
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import ScripOnSettings, { SxRun } from '@/components/scripon/ScripOnSettings';
-import ScripOnSettingsTablet from '@/components/scripon/ScripOnSettingsTablet';
-import ScripOnSettingsMobile from '@/components/scripon/ScripOnSettingsMobile';
-import { useViewport } from '@/components/scripon/useViewport';
+import ScriptOnSettings, { SxRun } from '@/components/scripton/ScriptOnSettings';
+import ScriptOnSettingsTablet from '@/components/scripton/ScriptOnSettingsTablet';
+import ScriptOnSettingsMobile from '@/components/scripton/ScriptOnSettingsMobile';
+import { useViewport } from '@/components/scripton/useViewport';
 import { useLocale, getLocale } from '@/lib/i18n';
-import { useScriponBack } from '@/components/scripon/useScriponBack';
-import { useScriponShellFlag } from '@/components/scripon/osShellFlag';
-import { pickScriponProject, resolveScriponProjectId } from '@/components/scripon/useScriponProject';
+import { useScriptonBack } from '@/components/scripton/useScriptonBack';
+import { useScriptonShellFlag } from '@/components/scripton/osShellFlag';
+import { pickScriptonProject, resolveScriptonProjectId } from '@/components/scripton/useScriptonProject';
 import { productionApi } from '@/lib/api';
-import { buildScriptPrintHtml } from '@/components/scripon/scriptPaper';
-import ProtectedExportDialog, { ProtectedExportTarget } from '@/components/scripon/ProtectedExportDialog';
-import ScriponStudio from '@/components/scripon/studio/ScriponStudio';
+import { buildScriptPrintHtml } from '@/components/scripton/scriptPaper';
+import ProtectedExportDialog, { ProtectedExportTarget } from '@/components/scripton/ProtectedExportDialog';
+import ScriptonStudio from '@/components/scripton/studio/ScriptonStudio';
 
 const RUNS: SxRun[] = [
   { surface: 'Coverage report', model: 'claude-opus-4', tokens: '18.4k', conf: 0.84, status: 'APPROVED', statusClass: 'green', when: '2h' },
@@ -34,12 +34,12 @@ function downloadBlob(data: any, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export default function ScripOnSettingsPage() {
+export default function ScriptOnSettingsPage() {
   const router = useRouter();
   const vp = useViewport();
   const { t } = useLocale();
-  const onBack = useScriponBack();
-  const flag = useScriponShellFlag();
+  const onBack = useScriptonBack();
+  const flag = useScriptonShellFlag();
   const [toast, setToast] = useState<string | null>(null);
   const toastT = useRef<any>(null);
   const flash = (m: string) => { setToast(m); clearTimeout(toastT.current); toastT.current = setTimeout(() => setToast(null), 3200); };
@@ -59,17 +59,17 @@ export default function ScripOnSettingsPage() {
     let alive = true;
     (async () => {
       try {
-        const wsId = await resolveScriponProjectId();
+        const wsId = await resolveScriptonProjectId();
         const pr: any = await productionApi.projects.list();
         const projects = pr.data?.items ?? (Array.isArray(pr.data) ? pr.data : []);
-        const proj = (wsId && projects.find((p: any) => p.id === wsId)) || pickScriponProject(projects) || (wsId ? { id: wsId, name: 'ScripON Library' } : null);
+        const proj = (wsId && projects.find((p: any) => p.id === wsId)) || pickScriptonProject(projects) || (wsId ? { id: wsId, name: 'ScriptON Library' } : null);
         if (!proj?.id || !alive) return;
-        setProjectId(proj.id); setTitle(proj.name || proj.title || 'ScripON');
+        setProjectId(proj.id); setTitle(proj.name || proj.title || 'ScriptON');
         const dr: any = await productionApi.script.list(proj.id);
         const docs = Array.isArray(dr.data) ? dr.data : (dr.data?.items ?? []);
         const doc = docs[0]; if (!doc) return;
         const rid = doc.activeRevisionId || doc.revisions?.[0]?.id;
-        if (alive) { setDocId(doc.id || ''); setRevId(rid || ''); setTitle(doc.title || proj.name || 'ScripON'); }
+        if (alive) { setDocId(doc.id || ''); setRevId(rid || ''); setTitle(doc.title || proj.name || 'ScriptON'); }
         if (rid) {
           try {
             const rv: any = await productionApi.script.getRevision(rid);
@@ -122,8 +122,8 @@ export default function ScripOnSettingsPage() {
     };
     return (
       <>
-        <ScriponStudio
-          title={title || 'ScripON'} revisionLabel={revLabel} revisionColor={revColor}
+        <ScriptonStudio
+          title={title || 'ScriptON'} revisionLabel={revLabel} revisionColor={revColor}
           companyName="The Film Makers" model="claude-opus-4" promptSet={t('Prompt set v3')} confidence={0.75} humanApproval
           runs={RUNS} runsMeta={t('All AI flows through one service · 142 runs today')} projectId={projectId}
           onExport={onExport} onAction={onAction} onNav={onNav} onBack={onBack} toast={toast} vp={vp}
@@ -133,7 +133,7 @@ export default function ScripOnSettingsPage() {
     );
   }
 
-  const RC: any = vp === 'mobile' ? ScripOnSettingsMobile : vp === 'tablet' ? ScripOnSettingsTablet : ScripOnSettings;
+  const RC: any = vp === 'mobile' ? ScriptOnSettingsMobile : vp === 'tablet' ? ScriptOnSettingsTablet : ScriptOnSettings;
   return <RC companyName="The Film Makers" model="claude-opus-4" promptSet={t('Prompt set v3')} confidence={0.75} humanApproval={true}
     runs={RUNS} runsMeta={t('All AI flows through one service · 142 runs today')} onAction={onAction} onNav={onNav} onBack={onBack} toast={toast} />;
 }

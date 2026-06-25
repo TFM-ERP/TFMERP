@@ -1,15 +1,15 @@
 'use client';
-/** ScripON Greenlight route. P5 Market + P7 Decision — live engines; tabs render Market/Audience/Cost/Decision panels. */
+/** ScriptON Greenlight route. P5 Market + P7 Decision — live engines; tabs render Market/Audience/Cost/Decision panels. */
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { productionApi } from '@/lib/api';
-import { pickScriponProject } from '@/components/scripon/useScriponProject';
-import ScripOnGreenlight, { SxComp, SxFcast, SxRoi, SxDecision } from '@/components/scripon/ScripOnGreenlight';
-import ScripOnGreenlightTablet from '@/components/scripon/ScripOnGreenlightTablet';
-import ScripOnGreenlightMobile from '@/components/scripon/ScripOnGreenlightMobile';
-import { useViewport } from '@/components/scripon/useViewport';
+import { pickScriptonProject } from '@/components/scripton/useScriptonProject';
+import ScriptOnGreenlight, { SxComp, SxFcast, SxRoi, SxDecision } from '@/components/scripton/ScriptOnGreenlight';
+import ScriptOnGreenlightTablet from '@/components/scripton/ScriptOnGreenlightTablet';
+import ScriptOnGreenlightMobile from '@/components/scripton/ScriptOnGreenlightMobile';
+import { useViewport } from '@/components/scripton/useViewport';
 import { useLocale } from '@/lib/i18n';
-import { useScriponBack } from '@/components/scripon/useScriponBack';
+import { useScriptonBack } from '@/components/scripton/useScriptonBack';
 
 const SAMPLE_COMPS: SxComp[] = [
   { name: 'Collateral', sim: 82, gross: '$220M' }, { name: 'Nightcrawler', sim: 76, gross: '$50M' },
@@ -56,7 +56,7 @@ export default function GreenlightPage() {
   const router = useRouter();
   const vp = useViewport();
   const { t } = useLocale();
-  const onBack = useScriponBack();
+  const onBack = useScriptonBack();
   const [title, setTitle] = useState('Midnight Run');
   const [projectId, setProjectId] = useState<string | null>(null);
   const [mode, setMode] = useState('market');
@@ -69,7 +69,7 @@ export default function GreenlightPage() {
   const [toast, setToast] = useState<string | null>(null);
   const tT = useRef<any>(null);
   const flash = (m: string) => { setToast(m); clearTimeout(tT.current); tT.current = setTimeout(() => setToast(null), 3600); };
-  useEffect(() => { let alive = true; (async () => { try { const pr: any = await productionApi.projects.list(); const ps = pr.data?.items ?? (Array.isArray(pr.data) ? pr.data : []); const p = pickScriponProject(ps); if (alive && p?.id) { setProjectId(p.id); if (p.name || p.title) setTitle(p.name || p.title); } } catch { /* sample */ } })(); return () => { alive = false; }; }, []);
+  useEffect(() => { let alive = true; (async () => { try { const pr: any = await productionApi.projects.list(); const ps = pr.data?.items ?? (Array.isArray(pr.data) ? pr.data : []); const p = pickScriptonProject(ps); if (alive && p?.id) { setProjectId(p.id); if (p.name || p.title) setTitle(p.name || p.title); } } catch { /* sample */ } })(); return () => { alive = false; }; }, []);
 
   const mapForecast = (arr: any[]): SxFcast[] => { const max = Math.max(1, ...arr.map((f) => money(f.p50))); return arr.map((f, i) => ({ label: String(f.window || f.label || ('Window ' + (i + 1))), pct: Math.max(8, Math.round(money(f.p50) / max * 100)), color: fcColor(String(f.window || '')), value: String(f.p50 || ''), gold: /total/i.test(String(f.window || '')) })); };
 
@@ -122,6 +122,6 @@ export default function GreenlightPage() {
     flash(t('Coming soon.'));
   };
 
-  const RC: any = vp === 'mobile' ? ScripOnGreenlightMobile : vp === 'tablet' ? ScripOnGreenlightTablet : ScripOnGreenlight;
+  const RC: any = vp === 'mobile' ? ScriptOnGreenlightMobile : vp === 'tablet' ? ScriptOnGreenlightTablet : ScriptOnGreenlight;
   return <RC title={title} meta={`${t('Greenlight')} · ${t('market & decision')}`} mode={mode} onTab={onTab} comps={comps} forecast={forecast} prob={prob} roi={roi} prescription={prescription} decision={decision} onNav={onNav} onBack={onBack} onAction={onAction} toast={toast} />;
 }

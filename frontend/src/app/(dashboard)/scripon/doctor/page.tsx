@@ -1,23 +1,23 @@
 'use client';
-/** ScripON Doctor — Doctor workspace route /scripon/doctor. Coverage + diagnostics from productionApi.scripton. */
+/** ScriptON Doctor — Doctor workspace route /scripon/doctor. Coverage + diagnostics from productionApi.scripton. */
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { productionApi } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
-import { pickScriponProject } from '@/components/scripon/useScriponProject';
-import ScripOnDoctor, { SxGauge, SxCoverage, SxDiag, SxPt, SxTab } from '@/components/scripon/ScripOnDoctor';
-import ScripOnDoctorTablet from '@/components/scripon/ScripOnDoctorTablet';
-import ScripOnDoctorMobile from '@/components/scripon/ScripOnDoctorMobile';
-import { useViewport } from '@/components/scripon/useViewport';
-import ScripOnBudgetFit from '@/components/scripon/ScripOnBudgetFit';
-import ScripOnRewriteSlate from '@/components/scripon/ScripOnRewriteSlate';
-import ScripOnCoverageHistory from '@/components/scripon/ScripOnCoverageHistory';
-import ScripOnCompsDeck from '@/components/scripon/ScripOnCompsDeck';
-import ScripOnPackagePanel from '@/components/scripon/ScripOnPackagePanel';
-import ScripOnFormatPanel from '@/components/scripon/ScripOnFormatPanel';
-import { useScriponBack } from '@/components/scripon/useScriponBack';
-import { useScriponShellFlag } from '@/components/scripon/osShellFlag';
-import ScriponDoctor from '@/components/scripon/doctor/ScriponDoctor';
+import { pickScriptonProject } from '@/components/scripton/useScriptonProject';
+import ScriptOnDoctor, { SxGauge, SxCoverage, SxDiag, SxPt, SxTab } from '@/components/scripton/ScriptOnDoctor';
+import ScriptOnDoctorTablet from '@/components/scripton/ScriptOnDoctorTablet';
+import ScriptOnDoctorMobile from '@/components/scripton/ScriptOnDoctorMobile';
+import { useViewport } from '@/components/scripton/useViewport';
+import ScriptOnBudgetFit from '@/components/scripton/ScriptOnBudgetFit';
+import ScriptOnRewriteSlate from '@/components/scripton/ScriptOnRewriteSlate';
+import ScriptOnCoverageHistory from '@/components/scripton/ScriptOnCoverageHistory';
+import ScriptOnCompsDeck from '@/components/scripton/ScriptOnCompsDeck';
+import ScriptOnPackagePanel from '@/components/scripton/ScriptOnPackagePanel';
+import ScriptOnFormatPanel from '@/components/scripton/ScriptOnFormatPanel';
+import { useScriptonBack } from '@/components/scripton/useScriptonBack';
+import { useScriptonShellFlag } from '@/components/scripton/osShellFlag';
+import ScriptonDoctor from '@/components/scripton/doctor/ScriptonDoctor';
 
 const GRADE: Record<string, { v: string; c: string; p: number }> = {
   EXCELLENT: { v: 'A', c: 'var(--green)', p: 92 }, GOOD: { v: 'B', c: 'var(--gold2)', p: 78 },
@@ -73,18 +73,18 @@ function buildGauges(c: any): SxGauge[] {
   return [overall, dim('PREMISE', sc.premise, gr.structure), dim('PLOT', sc.plot, gr.structure), dim('CHARACTER', sc.characters, gr.characters), dim('DIALOGUE', sc.dialogue, gr.dialogue), dim('MARKET', sc.marketability, gr.marketability)];
 }
 
-export default function ScripOnDoctorPage() {
+export default function ScriptOnDoctorPage() {
   const router = useRouter();
   const { t } = useLocale();
   const vp = useViewport();
-  const onBack = useScriponBack();
+  const onBack = useScriptonBack();
   const [title, setTitle] = useState('Midnight Run');
   const [revLabel, setRevLabel] = useState('BLUE · v4');
   const [revColor, setRevColor] = useState('#5b8def');
   const [gauges, setGauges] = useState<SxGauge[]>(SAMPLE_GAUGES);
   const [cov, setCov] = useState<SxCoverage>(SAMPLE_COV);
   const [covRaw, setCovRaw] = useState<any | null>(null); // raw latestCoverage for the new single-canvas
-  const flag = useScriponShellFlag();
+  const flag = useScriptonShellFlag();
   const [actHealth, setActHealth] = useState(SAMPLE_ACT);
   const [tab, setTab] = useState<SxTab>('Coverage');
   const [covLoading, setCovLoading] = useState(false);
@@ -106,7 +106,7 @@ export default function ScripOnDoctorPage() {
       try {
         const pr: any = await productionApi.projects.list();
         const projects = pr.data?.items ?? (Array.isArray(pr.data) ? pr.data : []);
-        const proj = pickScriponProject(projects); if (!proj?.id) return;
+        const proj = pickScriptonProject(projects); if (!proj?.id) return;
         const dr: any = await productionApi.script.list(proj.id);
         const docs = Array.isArray(dr.data) ? dr.data : (dr.data?.items ?? []);
         const doc = docs[0];
@@ -210,10 +210,10 @@ export default function ScripOnDoctorPage() {
     );
   }
   const common = { title, revisionLabel: revLabel, revisionColor: revColor, meta: t('Doctor · grounded in your pages'), gauges, activeTab: tab, onTab: setTab, coverage: cov, covLoading, onGenerate: generate, diagnostics: diag, diagLoading, onRunDiag: runDiag, actHealth, onAction, onNav, onBack, analyticsNode, notesNode, toast };
-  const oldBody = vp === 'mobile' ? <ScripOnDoctorMobile {...common} /> : vp === 'tablet' ? <ScripOnDoctorTablet {...common} /> : <ScripOnDoctor {...common} />;
+  const oldBody = vp === 'mobile' ? <ScriptOnDoctorMobile {...common} /> : vp === 'tablet' ? <ScriptOnDoctorTablet {...common} /> : <ScriptOnDoctor {...common} />;
   // New single-canvas Doctor (Figma 38:2) under the shell flag; `old` keeps the tabbed Doctor.
   const newBody = (
-    <ScriponDoctor
+    <ScriptonDoctor
       title={title} revisionLabel={revLabel} revisionColor={revColor}
       meta={t('Coverage · diagnostics · continuity · fixes — grounded in your pages')}
       coverageRaw={covRaw} analytics={an} diagnostics={diag}
@@ -224,5 +224,5 @@ export default function ScripOnDoctorPage() {
     />
   );
   const body = flag === 'new' ? newBody : oldBody;
-  return (<>{body}{surface === 'budgetfit' && activeRev?.id && (<ScripOnBudgetFit projectId={projectId!} revisionId={activeRev.id} onClose={() => setSurface(null)} />)}{surface === 'rewrite' && activeRev?.id && (<ScripOnRewriteSlate projectId={projectId!} revisionId={activeRev.id} initialKind={rwKind} onClose={() => setSurface(null)} />)}{surface === 'history' && projectId && (<ScripOnCoverageHistory projectId={projectId} onOpen={(r: any) => { setCovRaw(r || null); setCov(buildCoverage(r)); setGauges(buildGauges(r)); setActHealth(MUTED_ACT); setTab('Coverage'); setSurface(null); }} onClose={() => setSurface(null)} />)}{surface === 'comps' && projectId && (<ScripOnCompsDeck projectId={projectId} onClose={() => setSurface(null)} />)}{surface === 'package' && projectId && (<ScripOnPackagePanel projectId={projectId} onClose={() => setSurface(null)} />)}{surface === 'format' && projectId && (<ScripOnFormatPanel projectId={projectId} onClose={() => setSurface(null)} />)}</>);
+  return (<>{body}{surface === 'budgetfit' && activeRev?.id && (<ScriptOnBudgetFit projectId={projectId!} revisionId={activeRev.id} onClose={() => setSurface(null)} />)}{surface === 'rewrite' && activeRev?.id && (<ScriptOnRewriteSlate projectId={projectId!} revisionId={activeRev.id} initialKind={rwKind} onClose={() => setSurface(null)} />)}{surface === 'history' && projectId && (<ScriptOnCoverageHistory projectId={projectId} onOpen={(r: any) => { setCovRaw(r || null); setCov(buildCoverage(r)); setGauges(buildGauges(r)); setActHealth(MUTED_ACT); setTab('Coverage'); setSurface(null); }} onClose={() => setSurface(null)} />)}{surface === 'comps' && projectId && (<ScriptOnCompsDeck projectId={projectId} onClose={() => setSurface(null)} />)}{surface === 'package' && projectId && (<ScriptOnPackagePanel projectId={projectId} onClose={() => setSurface(null)} />)}{surface === 'format' && projectId && (<ScriptOnFormatPanel projectId={projectId} onClose={() => setSurface(null)} />)}</>);
 }

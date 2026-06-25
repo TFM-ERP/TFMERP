@@ -1,15 +1,15 @@
 'use client';
-/** ScripON Doctor — Reports & Exports route /scripon/reports. Gallery ⇄ reports.catalog, preview ⇄ scripton.latestCoverage. */
+/** ScriptON Doctor — Reports & Exports route /scripon/reports. Gallery ⇄ reports.catalog, preview ⇄ scripton.latestCoverage. */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { productionApi } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
-import { pickScriponProject } from '@/components/scripon/useScriponProject';
-import ScripOnReports, { SxReport, SxPreview } from '@/components/scripon/ScripOnReports';
-import ScripOnReportsTablet from '@/components/scripon/ScripOnReportsTablet';
-import ScripOnReportsMobile from '@/components/scripon/ScripOnReportsMobile';
-import { useViewport } from '@/components/scripon/useViewport';
-import { useScriponBack } from '@/components/scripon/useScriponBack';
+import { pickScriptonProject } from '@/components/scripton/useScriptonProject';
+import ScriptOnReports, { SxReport, SxPreview } from '@/components/scripton/ScriptOnReports';
+import ScriptOnReportsTablet from '@/components/scripton/ScriptOnReportsTablet';
+import ScriptOnReportsMobile from '@/components/scripton/ScriptOnReportsMobile';
+import { useViewport } from '@/components/scripton/useViewport';
+import { useScriptonBack } from '@/components/scripton/useScriptonBack';
 
 const fmtClass = (f: string) => /xls|excel|csv/i.test(f) ? 'green' : /fdx|final/i.test(f) ? 'blue' : 'blue';
 const SAMPLE_REPORTS: (SxReport & { cat: string })[] = [
@@ -33,11 +33,11 @@ const SAMPLE_PREVIEW: SxPreview = {
   ],
 };
 
-export default function ScripOnReportsPage() {
+export default function ScriptOnReportsPage() {
   const router = useRouter();
   const { t } = useLocale();
   const vp = useViewport();
-  const onBack = useScriponBack();
+  const onBack = useScriptonBack();
   const [title, setTitle] = useState('Midnight Run');
   const [meta, setMeta] = useState(`${t('Reports')} · 8 ${t('ready')}`);
   const [reports, setReports] = useState<(SxReport & { cat: string })[]>(SAMPLE_REPORTS);
@@ -54,7 +54,7 @@ export default function ScripOnReportsPage() {
       try {
         const pr: any = await productionApi.projects.list();
         const projects = pr.data?.items ?? (Array.isArray(pr.data) ? pr.data : []);
-        const proj = pickScriponProject(projects); if (!proj?.id) return;
+        const proj = pickScriptonProject(projects); if (!proj?.id) return;
         let c: any = null; try { const cr: any = await productionApi.scripton.latestCoverage(proj.id); c = cr.data || null; } catch { /* */ }
         let cat: any[] = []; try { const ct: any = await productionApi.reports.catalog(); const d = ct?.data; cat = Array.isArray(d) ? d : (d?.reports ?? d?.catalog ?? d?.items ?? (Array.isArray(d?.categories) ? d.categories.flatMap((g: any) => (g.reports || []).map((r: any) => ({ ...r, category: r.category || g.name }))) : [])); } catch { /* */ }
         if (!alive) return;
@@ -127,7 +127,7 @@ export default function ScripOnReportsPage() {
     flash(`${k[0].toUpperCase() + k.slice(1)} ${t('is a later screen in the build order.')}`);
   };
 
-  const RC: any = vp === 'mobile' ? ScripOnReportsMobile : vp === 'tablet' ? ScripOnReportsTablet : ScripOnReports;
+  const RC: any = vp === 'mobile' ? ScriptOnReportsMobile : vp === 'tablet' ? ScriptOnReportsTablet : ScriptOnReports;
   return <RC title={title} meta={meta} filters={filters} activeFilter={activeFilter} onFilter={setActiveFilter}
     reports={shown} activeKey={active?.key} onSelect={setActiveKey} preview={preview}
     onExport={onExport} onAction={onAction} onNav={onNav} onBack={onBack} toast={toast} />;

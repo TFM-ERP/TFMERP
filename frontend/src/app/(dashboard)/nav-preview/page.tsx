@@ -5,7 +5,7 @@
  * Renders GroupedRail with a model mirroring the real dashboard nav (parity), plus
  * collapse + theme toggles. Standalone — does NOT touch the live layout/sidebar.
  *
- * Also includes a second section previewing the ScripON Script OS 9-workspace rail.
+ * Also includes a second section previewing the ScriptON Script OS 9-workspace rail.
  */
 import { useState } from 'react';
 import GroupedRail, { type RailGroup } from '@/components/workspace/GroupedRail';
@@ -99,9 +99,9 @@ export default function NavPreviewPage() {
         </div>
       </div>
 
-      {/* ── ScripON Script OS rail preview ─────────────────────────────────── */}
+      {/* ── ScriptON Script OS rail preview ─────────────────────────────────── */}
       <div style={{ marginTop: 40 }}>
-        <h2 style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-.02em', marginBottom: 4 }}>ScripON Script OS — 9-workspace rail</h2>
+        <h2 style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-.02em', marginBottom: 4 }}>ScriptON Script OS — 9-workspace rail</h2>
         <p style={{ color: '#667', fontSize: 13, margin: '0 0 14px' }}>
           The OS navigation kernel: Home · Write · Develop · Canon · Doctor · Versions · Room · Slate · Studio.
           Powered by the same GroupedRail component; config lives in <code>os-rail.config.ts</code>.
@@ -110,7 +110,7 @@ export default function NavPreviewPage() {
         <div data-theme={theme} style={{ display: 'flex', height: 480, border: '1px solid var(--border-1)', borderRadius: 14, overflow: 'hidden', background: 'var(--surface-0)', boxShadow: '0 16px 40px rgba(0,0,0,.25)' }}>
           <GroupedRail groups={OS_WORKSPACES} collapsed={collapsed} onToggleCollapse={() => setCollapsed((v) => !v)} />
           <div style={{ flex: 1, padding: 24, color: 'var(--text-1)', overflow: 'auto' }}>
-            <div style={{ fontSize: 12, color: 'var(--text-3)' }}>ScripON / Script OS</div>
+            <div style={{ fontSize: 12, color: 'var(--text-3)' }}>ScriptON / Script OS</div>
             <h3 style={{ fontFamily: 'var(--font-serif, Inter)', fontSize: 20, fontWeight: 700, margin: '4px 0 12px' }}>Script Workspace</h3>
             <div style={{ border: '1px solid var(--border-1)', borderRadius: 12, padding: 16, color: 'var(--text-2)', fontSize: 13 }}>
               Select a workspace from the OS rail to begin. Each workspace — Write, Develop, Canon, Doctor,

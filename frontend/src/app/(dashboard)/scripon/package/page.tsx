@@ -1,12 +1,12 @@
 'use client';
-/** ScripON — Development Package: the promoted project as a pitch/financing dossier.
+/** ScriptON — Development Package: the promoted project as a pitch/financing dossier.
  *  Opens by ?doc=<scriptDocumentId>. Aggregates develop stages + coverage + brief via one call.
- *  Shell = the ScripON module rail (SxRail) over a full-bleed frame, matching the approved
- *  design/ScripON-Development-Package.html sample (tabs + header + section nav + sections). */
+ *  Shell = the ScriptON module rail (SxRail) over a full-bleed frame, matching the approved
+ *  design/ScriptON-Development-Package.html sample (tabs + header + section nav + sections). */
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { productionApi } from '@/lib/api';
-import { SxRail } from '@/components/scripon/ScripOnStudio';
+import { SxRail } from '@/components/scripton/ScriptOnStudio';
 import { useLocale } from '@/lib/i18n';
 
 type Pkg = any;
@@ -23,7 +23,7 @@ const FMT_LABEL: any = { MOVIE: 'Feature', FEATURE: 'Feature', FILM: 'Feature', 
 const FW_LABEL: any = { vogler: "The Hero's Journey", hero: "The Hero's Journey", heros_journey: "The Hero's Journey", save_the_cat: 'Save the Cat', stc: 'Save the Cat', three_act: '3-Act', dan_harmon: 'Story Circle', story_circle: 'Story Circle', sequence: 'Sequence Method', truby: 'Truby 22 Steps', kishotenketsu: 'Kishōtenketsu', sequence_method: 'Sequence Method' };
 const fwName = (v: any) => { const k = String(v || '').toLowerCase().replace(/[\s-]+/g, '_'); return v ? (FW_LABEL[k] || v) : ''; };
 
-export default function ScripOnPackagePage() {
+export default function ScriptOnPackagePage() {
   const router = useRouter();
   const { dir, t } = useLocale();
   const [pkg, setPkg] = useState<Pkg | null>(null);
@@ -189,7 +189,7 @@ export default function ScripOnPackagePage() {
           <div className="ptabs">
             <span className="ptab" onClick={() => router.push('/scripon/library')}>{t('Library')}</span>
             <span className="ptab on">{t('Development Package')}</span>
-            <span className="crumb">ScripON › {t('Library')} › {(pkg.build && pkg.build.name) || (pkg.project && pkg.project.title) || t('Project')}</span>
+            <span className="crumb">ScriptON › {t('Library')} › {(pkg.build && pkg.build.name) || (pkg.project && pkg.project.title) || t('Project')}</span>
           </div>
 
           <div className="head">
@@ -297,7 +297,7 @@ export default function ScripOnPackagePage() {
         <div className="pmscrim" dir={dir} onClick={() => setPromoteOpen(false)}>
           <div className="pmodal" onClick={(e) => e.stopPropagation()}>
             <div className="pmh"><span className="pmt">{t('Promote')} &ldquo;{(pkg.build && pkg.build.name) || 'build'}&rdquo;</span><span className="pmx" onClick={() => setPromoteOpen(false)}>&times;</span></div>
-            <div className="pmsub">{t('Snapshot the chosen draft into a production project. The build keeps living in ScripON; this takes a frozen copy.')}</div>
+            <div className="pmsub">{t('Snapshot the chosen draft into a production project. The build keeps living in ScriptON; this takes a frozen copy.')}</div>
             <div className="pmopt">
               <div className={'pmocard' + (promoteMode === 'existing' ? ' on' : '')} onClick={() => setPromoteMode('existing')}><div className="pmoi">▤</div><div className="pmot">{t('Add to existing')}</div><div className="pmos">{t('Land in a project’s Script Library')}</div></div>
               <div className={'pmocard' + (promoteMode === 'new' ? ' on' : '')} onClick={() => setPromoteMode('new')}><div className="pmoi">+</div><div className="pmot">{t('Start new project')}</div><div className="pmos">{t('Open the New Project wizard, script attached')}</div></div>

@@ -1,7 +1,7 @@
 'use client';
 import React from 'react';
-import ScripOnCmdK from '@/components/scripon/ScripOnCmdK';
-import ScriponBindBar from '@/components/scripon/ScriponBindBar';
-export default function ScriponLayout({ children }: { children: React.ReactNode }) {
-  return (<>{children}<ScripOnCmdK /><ScriponBindBar /></>);
+import ScriptOnCmdK from '@/components/scripton/ScriptOnCmdK';
+import ScriptonBindBar from '@/components/scripton/ScriptonBindBar';
+export default function ScriptonLayout({ children }: { children: React.ReactNode }) {
+  return (<>{children}<ScriptOnCmdK /><ScriptonBindBar /></>);
 }

@@ -1,15 +1,15 @@
 'use client';
-/** ScripON Doctor — Breakdown route /scripon/breakdown. Six lenses + gated element edit (routes through approval). */
+/** ScriptON Doctor — Breakdown route /scripon/breakdown. Six lenses + gated element edit (routes through approval). */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { productionApi, approvalsApi } from '@/lib/api';
-import { pickScriponProject } from '@/components/scripon/useScriponProject';
-import ScripOnBreakdown, { SxEl, SxLens, SxDetail } from '@/components/scripon/ScripOnBreakdown';
-import ScripOnBreakdownTablet from '@/components/scripon/ScripOnBreakdownTablet';
-import ScripOnBreakdownMobile from '@/components/scripon/ScripOnBreakdownMobile';
-import { useViewport } from '@/components/scripon/useViewport';
+import { pickScriptonProject } from '@/components/scripton/useScriptonProject';
+import ScriptOnBreakdown, { SxEl, SxLens, SxDetail } from '@/components/scripton/ScriptOnBreakdown';
+import ScriptOnBreakdownTablet from '@/components/scripton/ScriptOnBreakdownTablet';
+import ScriptOnBreakdownMobile from '@/components/scripton/ScriptOnBreakdownMobile';
+import { useViewport } from '@/components/scripton/useViewport';
 import { useLocale } from '@/lib/i18n';
-import { useScriponBack } from '@/components/scripon/useScriponBack';
+import { useScriptonBack } from '@/components/scripton/useScriptonBack';
 
 type Item = { name: string; qty: number; estCost: number; scenes: string[]; days: number[]; costCenters: string[]; ids?: string[] };
 type Cat = { category: string; itemCount: number; items: Item[] };
@@ -40,11 +40,11 @@ const lensOf = (catName: string) => LENSES.find((l) => l.match.some((m) => catNa
 const lbl: React.CSSProperties = { display: 'block', fontSize: 11, color: '#8b8f98', margin: '8px 0 3px' };
 const inp: React.CSSProperties = { width: '100%', background: '#0b0c0f', color: '#E7E3D8', border: '1px solid rgba(255,255,255,.1)', borderRadius: 8, padding: '8px 10px', fontSize: 13 };
 
-export default function ScripOnBreakdownPage() {
+export default function ScriptOnBreakdownPage() {
   const router = useRouter();
   const vp = useViewport();
   const { dir, t } = useLocale();
-  const onBack = useScriponBack();
+  const onBack = useScriptonBack();
   const [cats, setCats] = useState<Cat[]>(SAMPLE);
   const [title, setTitle] = useState('Midnight Run');
   const [revLabel, setRevLabel] = useState('BLUE · v4');
@@ -65,7 +65,7 @@ export default function ScripOnBreakdownPage() {
       try {
         const pr: any = await productionApi.projects.list();
         const projects = pr.data?.items ?? (Array.isArray(pr.data) ? pr.data : []);
-        const proj = pickScriponProject(projects);
+        const proj = pickScriptonProject(projects);
         if (!proj?.id) return;
         if (alive) setProjectId(proj.id);
         const cb: any = await productionApi.breakdown.categoryBreakdown(proj.id);
@@ -187,12 +187,12 @@ export default function ScripOnBreakdownPage() {
     </div>
   ) : null;
 
-  if (vp === 'mobile') return (<>{overlay}<ScripOnBreakdownMobile title={title} lenses={lenses} activeLens={activeLens} onLens={(k) => { setActiveLens(k); setActiveName(undefined); }} elements={elements} activeName={active?.name} onSelect={setActiveName} detail={detail} onAction={onAction} onNav={onNav} onBack={onBack} /></>);
-  if (vp === 'tablet') return (<>{overlay}<ScripOnBreakdownTablet title={title} revisionLabel={revLabel} revisionColor={revColor} lenses={lenses} activeLens={activeLens} onLens={(k) => { setActiveLens(k); setActiveName(undefined); }} elements={elements} activeName={active?.name} onSelect={setActiveName} lensLabel={lensLabel} detail={detail} onAction={onAction} onNav={onNav} onBack={onBack} /></>);
+  if (vp === 'mobile') return (<>{overlay}<ScriptOnBreakdownMobile title={title} lenses={lenses} activeLens={activeLens} onLens={(k) => { setActiveLens(k); setActiveName(undefined); }} elements={elements} activeName={active?.name} onSelect={setActiveName} detail={detail} onAction={onAction} onNav={onNav} onBack={onBack} /></>);
+  if (vp === 'tablet') return (<>{overlay}<ScriptOnBreakdownTablet title={title} revisionLabel={revLabel} revisionColor={revColor} lenses={lenses} activeLens={activeLens} onLens={(k) => { setActiveLens(k); setActiveName(undefined); }} elements={elements} activeName={active?.name} onSelect={setActiveName} lensLabel={lensLabel} detail={detail} onAction={onAction} onNav={onNav} onBack={onBack} /></>);
   return (
     <>
       {overlay}
-      <ScripOnBreakdown
+      <ScriptOnBreakdown
         title={title} revisionLabel={revLabel} revisionColor={revColor} meta={`${t('Breakdown')} · ${totalElements} ${t('elements')}`}
         lenses={lenses} activeLens={activeLens} onLens={(k) => { setActiveLens(k); setActiveName(undefined); }}
         elements={elements} activeName={active?.name} onSelect={setActiveName} lensLabel={lensLabel}

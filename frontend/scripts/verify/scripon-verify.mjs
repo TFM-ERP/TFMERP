@@ -1,4 +1,4 @@
-// Headless ScripON screen verifier (Playwright, dev mode).
+// Headless ScriptON screen verifier (Playwright, dev mode).
 //
 // The per-screen browser gate for the OS rebuild: log in with seed creds,
 // render a /scripon route in a real browser, assert there are NO console /

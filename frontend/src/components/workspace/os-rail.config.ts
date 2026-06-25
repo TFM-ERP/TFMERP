@@ -1,7 +1,7 @@
 /**
- * ScripON Script OS — 9-workspace navigation rail config.
+ * ScriptON Script OS — 9-workspace navigation rail config.
  * Rendered in /nav-preview for demo; intended for future wiring into the
- * Scripon-specific layout (NOT the global dashboard layout.tsx).
+ * Scripton-specific layout (NOT the global dashboard layout.tsx).
  *
  * Order matches Figma design authority:
  *   Home · Write · Develop · Canon · Doctor · Versions · Room · Slate · Studio

@@ -1,16 +1,16 @@
 'use client';
-/** ScripON Doctor — Schedule & Budget route /scripon/schedule. Board ⇄ scheduling.board, budget ⇄ breakdown.budgetPreview. */
+/** ScriptON Doctor — Schedule & Budget route /scripon/schedule. Board ⇄ scheduling.board, budget ⇄ breakdown.budgetPreview. */
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { productionApi } from '@/lib/api';
-import { pickScriponProject } from '@/components/scripon/useScriponProject';
-import ScripOnSchedule, { SxDay, SxBudRow, SxKpi } from '@/components/scripon/ScripOnSchedule';
-import ScripOnScheduleTablet from '@/components/scripon/ScripOnScheduleTablet';
-import ScripOnScheduleMobile from '@/components/scripon/ScripOnScheduleMobile';
-import { useViewport } from '@/components/scripon/useViewport';
-import ScripOnBudgetFit from '@/components/scripon/ScripOnBudgetFit';
+import { pickScriptonProject } from '@/components/scripton/useScriptonProject';
+import ScriptOnSchedule, { SxDay, SxBudRow, SxKpi } from '@/components/scripton/ScriptOnSchedule';
+import ScriptOnScheduleTablet from '@/components/scripton/ScriptOnScheduleTablet';
+import ScriptOnScheduleMobile from '@/components/scripton/ScriptOnScheduleMobile';
+import { useViewport } from '@/components/scripton/useViewport';
+import ScriptOnBudgetFit from '@/components/scripton/ScriptOnBudgetFit';
 import { useLocale } from '@/lib/i18n';
-import { useScriponBack } from '@/components/scripon/useScriponBack';
+import { useScriptonBack } from '@/components/scripton/useScriptonBack';
 
 const STRIP_COLOR: Record<string, { bg: string; fg: string }> = {
   'INT/DAY': { bg: '#f2ecd6', fg: '#2a2410' }, 'EXT/DAY': { bg: '#f4d79a', fg: '#2e2208' },
@@ -53,11 +53,11 @@ const SAMPLE_SUGGEST = { text: 'Merge the diner (Sc 22-23) and bar (Sc 31-34) in
 
 const asArray = (x: any): any[] => Array.isArray(x) ? x : [];
 
-export default function ScripOnSchedulePage() {
+export default function ScriptOnSchedulePage() {
   const router = useRouter();
   const vp = useViewport();
   const { t } = useLocale();
-  const onBack = useScriponBack();
+  const onBack = useScriptonBack();
   const [title, setTitle] = useState('Midnight Run');
   const [meta, setMeta] = useState(() => `${t('Schedule')} · 18 ${t('shoot days')} · EFC $1.24M`);
   const [kpis, setKpis] = useState<SxKpi[]>(SAMPLE_KPIS);
@@ -77,7 +77,7 @@ export default function ScripOnSchedulePage() {
       try {
         const pr: any = await productionApi.projects.list();
         const projects = pr.data?.items ?? (Array.isArray(pr.data) ? pr.data : []);
-        const proj = pickScriponProject(projects); if (!proj?.id) return;
+        const proj = pickScriptonProject(projects); if (!proj?.id) return;
         const bd: any = await productionApi.scheduling.board(proj.id).catch(() => null);
         const raw = bd?.data || {};
         let strips: any[] = asArray(raw.strips).length ? raw.strips : asArray(raw.items).length ? raw.items : Array.isArray(raw) ? raw : [];
@@ -159,6 +159,6 @@ export default function ScripOnSchedulePage() {
   };
 
   const common = { title, meta, kpis, days, budget, suggestion, onAction, onNav, onBack, toast };
-  const body = vp === 'mobile' ? <ScripOnScheduleMobile {...common} /> : vp === 'tablet' ? <ScripOnScheduleTablet {...common} /> : <ScripOnSchedule {...common} />;
-  return (<>{body}{surface === 'budgetfit' && activeRev?.id && (<ScripOnBudgetFit projectId={projectId!} revisionId={activeRev.id} onClose={() => setSurface(null)} />)}</>);
+  const body = vp === 'mobile' ? <ScriptOnScheduleMobile {...common} /> : vp === 'tablet' ? <ScriptOnScheduleTablet {...common} /> : <ScriptOnSchedule {...common} />;
+  return (<>{body}{surface === 'budgetfit' && activeRev?.id && (<ScriptOnBudgetFit projectId={projectId!} revisionId={activeRev.id} onClose={() => setSurface(null)} />)}</>);
 }

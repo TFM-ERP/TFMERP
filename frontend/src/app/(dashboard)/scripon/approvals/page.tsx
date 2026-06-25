@@ -1,25 +1,25 @@
 'use client';
-/** ScripON Doctor — Approval Workflow route /scripon/approvals. Live ApprovalRequest engine, project-scoped. */
+/** ScriptON Doctor — Approval Workflow route /scripon/approvals. Live ApprovalRequest engine, project-scoped. */
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { productionApi , approvalsApi } from '@/lib/api';
-import { pickScriponProject } from '@/components/scripon/useScriponProject';
-import ScripOnApprovals, { SxKCol, SxStep } from '@/components/scripon/ScripOnApprovals';
-import ScripOnApprovalsTablet from '@/components/scripon/ScripOnApprovalsTablet';
-import ScripOnApprovalsMobile from '@/components/scripon/ScripOnApprovalsMobile';
-import { useViewport } from '@/components/scripon/useViewport';
-import ScripOnCompliancePanel from '@/components/scripon/ScripOnCompliancePanel';
+import { pickScriptonProject } from '@/components/scripton/useScriptonProject';
+import ScriptOnApprovals, { SxKCol, SxStep } from '@/components/scripton/ScriptOnApprovals';
+import ScriptOnApprovalsTablet from '@/components/scripton/ScriptOnApprovalsTablet';
+import ScriptOnApprovalsMobile from '@/components/scripton/ScriptOnApprovalsMobile';
+import { useViewport } from '@/components/scripton/useViewport';
+import ScriptOnCompliancePanel from '@/components/scripton/ScriptOnCompliancePanel';
 import { useLocale } from '@/lib/i18n';
-import { useScriponBack } from '@/components/scripon/useScriponBack';
+import { useScriptonBack } from '@/components/scripton/useScriptonBack';
 const initials = (s: string) => String(s || '?').split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase();
 const ago = (d?: string) => { if (!d) return ''; const ms = Date.now() - new Date(d).getTime(); const h = Math.floor(ms / 3.6e6); if (h < 1) return 'now'; if (h < 24) return h + 'h'; return Math.floor(h / 24) + 'd'; };
 const COLOR: Record<string, string> = { PENDING: '#5b8def', APPROVED: '#57b368', REJECTED: '#e0a23b' };
 
-export default function ScripOnApprovalsPage() {
+export default function ScriptOnApprovalsPage() {
   const router = useRouter();
   const vp = useViewport();
   const { t } = useLocale();
-  const onBack = useScriponBack();
+  const onBack = useScriptonBack();
   const SAMPLE_STEPS: SxStep[] = [
     { name: 'S. Okonkwo', role: t('Writer · approved 2d'), state: 'done' },
     { name: 'Lena Park', role: t('Producer · approved 1d'), state: 'done' },
@@ -49,7 +49,7 @@ export default function ScripOnApprovalsPage() {
       try {
         const pr: any = await productionApi.projects.list();
         const projects = pr.data?.items ?? (Array.isArray(pr.data) ? pr.data : []);
-        const proj = pickScriponProject(projects); if (!proj?.id) return;
+        const proj = pickScriptonProject(projects); if (!proj?.id) return;
         const dr: any = await productionApi.script.list(proj.id);
         const docs = Array.isArray(dr.data) ? dr.data : (dr.data?.items ?? []);
         const doc = docs[0]; const rev = doc?.revisions?.find((r: any) => r.id === doc.activeRevisionId) || doc?.revisions?.[0];
@@ -119,8 +119,8 @@ export default function ScripOnApprovalsPage() {
     flash(`${k[0].toUpperCase() + k.slice(1)} ${t('is a later screen in the build order.')}`);
   };
 
-  const RC: any = vp === 'mobile' ? ScripOnApprovalsMobile : vp === 'tablet' ? ScripOnApprovalsTablet : ScripOnApprovals;
+  const RC: any = vp === 'mobile' ? ScriptOnApprovalsMobile : vp === 'tablet' ? ScriptOnApprovalsTablet : ScriptOnApprovals;
   const el = <RC title={title} meta={live ? `${t('Approvals')} · ${(reqs || []).filter((r: any) => r.status === 'PENDING').length} ${t('in review')}` : `${t('Approvals')} · ${t('demo')}`} columns={columns} chainRev={chainRev} chainColor={chainColor} steps={stepList} lockLabel={lockLabel}
     onAction={onAction} onNav={onNav} onBack={onBack} toast={toast} />;
-  return (<>{el}{surface === 'compliance' && revId && (<ScripOnCompliancePanel projectId={projectId!} revisionId={revId} onClose={() => setSurface(null)} />)}</>);
+  return (<>{el}{surface === 'compliance' && revId && (<ScriptOnCompliancePanel projectId={projectId!} revisionId={revId} onClose={() => setSurface(null)} />)}</>);
 }

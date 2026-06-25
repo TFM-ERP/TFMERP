@@ -3,7 +3,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── ScripON typography ─────────────────────────────────────────────────────
+/* ── ScriptON typography ─────────────────────────────────────────────────────
    Body: Rubik (Latin) / Tajawal (Arabic) — switched by dir (Rubik also covers
    Arabic, so a plain fallback stack won't pick Tajawal; the [dir=rtl] var does).
    Titles: Fraunces (Latin) / Aref Ruqaa (Arabic) — auto: Fraunces has no Arabic

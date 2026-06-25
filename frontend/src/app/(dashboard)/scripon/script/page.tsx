@@ -1,14 +1,14 @@
 'use client';
-/** ScripON — Library "Read script". Renders a developed/promoted script's pageText with the unified
- *  A4 script-paper view (see components/scripon/scriptPaper). ?print=1 opens the A4 Print/Download
- *  document (Save as PDF). Wrapped in the ScripON rail shell so it keeps ScripON context. */
+/** ScriptON — Library "Read script". Renders a developed/promoted script's pageText with the unified
+ *  A4 script-paper view (see components/scripton/scriptPaper). ?print=1 opens the A4 Print/Download
+ *  document (Save as PDF). Wrapped in the ScriptON rail shell so it keeps ScriptON context. */
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { productionApi } from '@/lib/api';
-import { SxRail } from '@/components/scripon/ScripOnStudio';
-import { ScriptPaper, buildScriptPrintHtml } from '@/components/scripon/scriptPaper';
-import { downloadScriptPdf } from '@/components/scripon/scriptPdf';
-import ProtectedExportDialog, { ProtectedExportTarget } from '@/components/scripon/ProtectedExportDialog';
+import { SxRail } from '@/components/scripton/ScriptOnStudio';
+import { ScriptPaper, buildScriptPrintHtml } from '@/components/scripton/scriptPaper';
+import { downloadScriptPdf } from '@/components/scripton/scriptPdf';
+import ProtectedExportDialog, { ProtectedExportTarget } from '@/components/scripton/ProtectedExportDialog';
 import { useLocale, getLocale } from '@/lib/i18n';
 
 type Pg = { page: number; text: string };
@@ -34,7 +34,7 @@ function printScript(text: string, title: string, info?: any): void {
   setTimeout(go, 1000);
 }
 
-export default function ScripOnScriptPage() {
+export default function ScriptOnScriptPage() {
   const router = useRouter();
   const { locale, dir, t } = useLocale();
   const [title, setTitle] = useState('Script');
@@ -74,7 +74,7 @@ export default function ScripOnScriptPage() {
           const revs: any[] = Array.isArray(doc.revisions) ? doc.revisions : [];
           revId = doc.activeRevisionId || (revs[0] && revs[0].id) || '';
         }
-        if (!revId) { if (alive) { setErr('Script not found — generate it from the build in ScripON Studio first.'); setLoading(false); } return; }
+        if (!revId) { if (alive) { setErr('Script not found — generate it from the build in ScriptON Studio first.'); setLoading(false); } return; }
         const rv: any = await productionApi.script.getRevision(revId);
         const d: any = rv.data || {};
         const pt: any[] = Array.isArray(d.pageText) ? d.pageText : [];

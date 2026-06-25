@@ -1,26 +1,26 @@
 'use client';
 /**
- * ScripON Doctor workspace HOME — command-centre Dashboard (carbon-copy of design/dashboard.html).
+ * ScriptON Doctor workspace HOME — command-centre Dashboard (carbon-copy of design/dashboard.html).
  * Flagged route /scripon. Reader lives at /scripon/reader. Existing /scripts + /script-workspace untouched.
  */
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { productionApi } from '@/lib/api';
-import { pickScriponProject } from '@/components/scripon/useScriponProject';
-import ScripOnDashboard, { SxDash } from '@/components/scripon/ScripOnDashboard';
-import ScripOnDashboardTablet from '@/components/scripon/ScripOnDashboardTablet';
-import ScripOnDashboardMobile from '@/components/scripon/ScripOnDashboardMobile';
-import { useViewport } from '@/components/scripon/useViewport';
+import { pickScriptonProject } from '@/components/scripton/useScriptonProject';
+import ScriptOnDashboard, { SxDash } from '@/components/scripton/ScriptOnDashboard';
+import ScriptOnDashboardTablet from '@/components/scripton/ScriptOnDashboardTablet';
+import ScriptOnDashboardMobile from '@/components/scripton/ScriptOnDashboardMobile';
+import { useViewport } from '@/components/scripton/useViewport';
 import { useLocale } from '@/lib/i18n';
-import { useScriponBack } from '@/components/scripon/useScriponBack';
-import { useScriponShellFlag } from '@/components/scripon/osShellFlag';
-import ScriponHome from '@/components/scripon/home/ScriponHome';
+import { useScriptonBack } from '@/components/scripton/useScriptonBack';
+import { useScriptonShellFlag } from '@/components/scripton/osShellFlag';
+import ScriptonHome from '@/components/scripton/home/ScriptonHome';
 
 /** /scripon — the OS Home. Under the `new` shell it's the rebuilt Home/Slate;
  *  `old` keeps the previous command-centre dashboard as an instant fallback. */
-export default function ScripOnHomePage() {
-  const flag = useScriponShellFlag();
-  if (flag === 'new') return <ScriponHome />;
+export default function ScriptOnHomePage() {
+  const flag = useScriptonShellFlag();
+  if (flag === 'new') return <ScriptonHome />;
   return <LegacyHome />;
 }
 
@@ -61,7 +61,7 @@ function LegacyHome() {
   const router = useRouter();
   const vp = useViewport();
   const { t } = useLocale();
-  const onBack = useScriponBack();
+  const onBack = useScriptonBack();
   const [data, setData] = useState<SxDash>(SAMPLE);
   const [toast, setToast] = useState<string | null>(null);
   const toastT = useRef<any>(null);
@@ -73,7 +73,7 @@ function LegacyHome() {
       try {
         const pr: any = await productionApi.projects.list();
         const projects = pr.data?.items ?? (Array.isArray(pr.data) ? pr.data : []);
-        const proj = pickScriponProject(projects);
+        const proj = pickScriptonProject(projects);
         if (!proj?.id) return;
         const dr: any = await productionApi.script.list(proj.id);
         const docs = Array.isArray(dr.data) ? dr.data : (dr.data?.items ?? []);
@@ -135,7 +135,7 @@ function LegacyHome() {
   const onQuick = (_k: string) => router.push('/scripon/reader');
 
   const v2nav = null;
-  if (vp === 'mobile') return (<><ScripOnDashboardMobile data={data} onNav={onNav} onBack={onBack} onQuick={onQuick} />{v2nav}</>);
-  if (vp === 'tablet') return (<><ScripOnDashboardTablet data={data} onNav={onNav} onBack={onBack} onQuick={onQuick} />{v2nav}</>);
-  return (<><ScripOnDashboard data={data} onNav={onNav} onBack={onBack} onQuick={onQuick} toast={toast} />{v2nav}</>);
+  if (vp === 'mobile') return (<><ScriptOnDashboardMobile data={data} onNav={onNav} onBack={onBack} onQuick={onQuick} />{v2nav}</>);
+  if (vp === 'tablet') return (<><ScriptOnDashboardTablet data={data} onNav={onNav} onBack={onBack} onQuick={onQuick} />{v2nav}</>);
+  return (<><ScriptOnDashboard data={data} onNav={onNav} onBack={onBack} onQuick={onQuick} toast={toast} />{v2nav}</>);
 }

@@ -13,8 +13,8 @@ import NotificationBell from '@/components/NotificationBell';
 import PwaRegister from '@/components/PwaRegister';
 import { settingsApi, statusApi, permissionsApi, accountApi, assetUrl } from '@/lib/api';
 import { useLocale, applyLocale } from '@/lib/i18n';
-import { useScriponShellFlag } from '@/components/scripon/osShellFlag';
-import { rememberFilmosRoute } from '@/components/scripon/os-workspaces';
+import { useScriptonShellFlag } from '@/components/scripton/osShellFlag';
+import { rememberFilmosRoute } from '@/components/scripton/os-workspaces';
 
 type Page = { label: string; href: string; divider?: boolean };
 type Module = { key: string; label: string; icon: any; pages: Page[] };
@@ -219,8 +219,8 @@ const lsSet = (k: string, v: any) => { try { localStorage.setItem(k, JSON.string
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const shellFlag = useScriponShellFlag();
-  const isScripon = pathname.startsWith('/scripon');
+  const shellFlag = useScriptonShellFlag();
+  const isScripton = pathname.startsWith('/scripon');
   useEffect(() => { rememberFilmosRoute(pathname); }, [pathname]);
   const router = useRouter();
   const { locale, t, isRTL, setLocale } = useLocale();
@@ -455,7 +455,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   };
   const bottomNav = GROUPS.flatMap(g => g.keys).filter(canSee).slice(0, 4).map(k => MODULES.find(m => m.key === k)!);
 
-  if (isScripon && shellFlag === 'new') {
+  if (isScripton && shellFlag === 'new') {
     return (
       <div style={{ height: '100vh', overflow: 'hidden', background: 'var(--page-bg)' }}>
         <SetupGate>{children}</SetupGate>

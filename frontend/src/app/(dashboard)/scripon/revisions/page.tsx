@@ -1,15 +1,15 @@
 'use client';
-/** ScripON Doctor — Revisions & Compare route /scripon/revisions. Timeline ⇄ doc.revisions; diff ⇄ two revisions' scenes. */
+/** ScriptON Doctor — Revisions & Compare route /scripon/revisions. Timeline ⇄ doc.revisions; diff ⇄ two revisions' scenes. */
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { productionApi } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
-import { pickScriponProject } from '@/components/scripon/useScriponProject';
-import ScripOnRevisions, { SxRev, SxCompare, SxLine } from '@/components/scripon/ScripOnRevisions';
-import ScripOnRevisionsTablet from '@/components/scripon/ScripOnRevisionsTablet';
-import ScripOnRevisionsMobile from '@/components/scripon/ScripOnRevisionsMobile';
-import { useViewport } from '@/components/scripon/useViewport';
-import { useScriponBack } from '@/components/scripon/useScriponBack';
+import { pickScriptonProject } from '@/components/scripton/useScriptonProject';
+import ScriptOnRevisions, { SxRev, SxCompare, SxLine } from '@/components/scripton/ScriptOnRevisions';
+import ScriptOnRevisionsTablet from '@/components/scripton/ScriptOnRevisionsTablet';
+import ScriptOnRevisionsMobile from '@/components/scripton/ScriptOnRevisionsMobile';
+import { useViewport } from '@/components/scripton/useViewport';
+import { useScriptonBack } from '@/components/scripton/useScriptonBack';
 
 const SAMPLE_REVS: SxRev[] = [
   { id: 'r1', label: 'Blue v4', color: '#5b8def', date: 'today', author: 'S. Okonkwo', summary: 'Tightened Act 2; cut 4 pp. Re-paginated Sc 14–28.', active: true },
@@ -39,11 +39,11 @@ const SAMPLE_COMPARE: SxCompare = {
 const sortRevs = (a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
 const sceneText = (s: any, i: number) => `${s.sceneNumber || i + 1}. ${(s.slugline || s.description || 'SCENE').toString().slice(0, 60)}`;
 
-export default function ScripOnRevisionsPage() {
+export default function ScriptOnRevisionsPage() {
   const router = useRouter();
   const { t } = useLocale();
   const vp = useViewport();
-  const onBack = useScriponBack();
+  const onBack = useScriptonBack();
   const [title, setTitle] = useState('Midnight Run');
   const [revs, setRevs] = useState<SxRev[]>(SAMPLE_REVS);
   const [rawRevs, setRawRevs] = useState<any[]>([]);
@@ -74,7 +74,7 @@ export default function ScripOnRevisionsPage() {
       try {
         const pr: any = await productionApi.projects.list();
         const projects = pr.data?.items ?? (Array.isArray(pr.data) ? pr.data : []);
-        const proj = pickScriponProject(projects); if (!proj?.id) return;
+        const proj = pickScriptonProject(projects); if (!proj?.id) return;
         const dr: any = await productionApi.script.list(proj.id);
         const docs = Array.isArray(dr.data) ? dr.data : (dr.data?.items ?? []);
         const doc = docs[0]; const list: any[] = (doc?.revisions ?? []).slice().sort(sortRevs);
@@ -111,7 +111,7 @@ export default function ScripOnRevisionsPage() {
     flash(`${k[0].toUpperCase() + k.slice(1)} ${t('is a later screen in the build order.')}`);
   };
 
-  const RC: any = vp === 'mobile' ? ScripOnRevisionsMobile : vp === 'tablet' ? ScripOnRevisionsTablet : ScripOnRevisions;
+  const RC: any = vp === 'mobile' ? ScriptOnRevisionsMobile : vp === 'tablet' ? ScriptOnRevisionsTablet : ScriptOnRevisions;
   return <RC title={title} meta={`${revs.length} ${t('revisions')}${compare ? ' · ' + t('comparing') + ' ' + compare.fromLabel + ' ↔ ' + compare.toLabel : ''}`}
     revisions={revs} activeToId={toId} onSelect={onSelect} compare={compare} loading={loading}
     onAction={onAction} onNav={onNav} onBack={onBack} toast={toast} />;
