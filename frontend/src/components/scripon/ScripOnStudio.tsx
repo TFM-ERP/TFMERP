@@ -315,6 +315,9 @@ export default function ScripOnStudio(props: {
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       <div className={'sx' + (props.osNew ? ' osnew' : '')} dir={dir} style={{ position: 'fixed', inset: 0, zIndex: 50 }}>
+        {/* Builds renders the BuildsPanel overlay (which has its own top bar); hide this one
+            under the OS shell so it doesn't peek in the rail-width strip behind the overlay. */}
+        {!(props.osNew && m === 'builds') && (
         <div className="top">
           <div className="tl">
             <div className="logo" onClick={props.onBack} title={t('Back to FilmOS')}>TFM</div>
@@ -328,6 +331,7 @@ export default function ScripOnStudio(props: {
             {m === 'format' && <button className="btn gold" onClick={() => props.onFormat(props.formatTarget)}><svg className="ico" viewBox="0 0 24 24" style={{ stroke: '#1a1509' }}><path d="M16 3l5 5-5 5M21 8H9M8 21l-5-5 5-5M3 16h12" /></svg>{props.busy === 'format' ? t('Converting…') : t('Convert')}</button>}
           </div>
         </div>
+        )}
         <div className="body">
           <SxRail active="studio" onNav={props.onNav} />
           <div className="main"><div className="content">
