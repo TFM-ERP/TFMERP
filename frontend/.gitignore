@@ -1,1 +1,4 @@
 scripts/verify/shots/
+
+# verification-only production build (never the dev .next)
+.next-verify/

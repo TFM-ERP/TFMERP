@@ -5,7 +5,15 @@
 // hydration errors, assert the expected shell, and capture a screenshot.
 //
 // Run dev mode (next dev) so React surfaces hydration mismatches as console
-// errors — that is the class of bug `next build` cannot catch.
+// errors — that is the class of bug `next build` cannot catch. This harness
+// only drives `next dev`; it never builds.
+//
+// ⚠️ If you ALSO want a production-build sanity check, NEVER run a bare
+// `next build` while `next dev` is serving — it writes a BUILD_ID +
+// prerender-manifest into the shared `.next` and corrupts the live dev state
+// (Tailwind/HMR break). Build into a separate dir instead:
+//     NEXT_DISTDIR=.next-verify npx next build
+// (next.config.js honours NEXT_DISTDIR; dev keeps the default `.next`).
 //
 // Usage:
 //   FRONTEND=http://localhost:3210 BACKEND=http://localhost:3001/api/v1 \
