@@ -13,6 +13,16 @@ import ScripOnDashboardMobile from '@/components/scripon/ScripOnDashboardMobile'
 import { useViewport } from '@/components/scripon/useViewport';
 import { useLocale } from '@/lib/i18n';
 import { useScriponBack } from '@/components/scripon/useScriponBack';
+import { useScriponShellFlag } from '@/components/scripon/osShellFlag';
+import ScriponHome from '@/components/scripon/home/ScriponHome';
+
+/** /scripon — the OS Home. Under the `new` shell it's the rebuilt Home/Slate;
+ *  `old` keeps the previous command-centre dashboard as an instant fallback. */
+export default function ScripOnHomePage() {
+  const flag = useScriponShellFlag();
+  if (flag === 'new') return <ScriponHome />;
+  return <LegacyHome />;
+}
 
 const SAMPLE: SxDash = {
   title: 'Midnight Run', meta: 'Feature · prep · 18 days to camera', revisionLabel: 'BLUE · v4', revisionColor: '#5b8def',
@@ -47,7 +57,7 @@ const SAMPLE: SxDash = {
 
 const REC_TONE: Record<string, string> = { RECOMMEND: 'green', CONSIDER: 'amber', PASS: 'red' };
 
-export default function ScripOnHome() {
+function LegacyHome() {
   const router = useRouter();
   const vp = useViewport();
   const { t } = useLocale();

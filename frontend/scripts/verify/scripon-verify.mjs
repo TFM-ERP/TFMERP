@@ -37,34 +37,45 @@ const IGNORE = [
   /Failed to load resource.*404.*(favicon|\.map)/i,
 ];
 
+// The rebuilt Home, verified at each breakpoint: single shell + the new rail,
+// real data (greeting, Continue hero, slate cards), no console/hydration errors.
+const homeExpect = async (page, r) => {
+  // Home rendered past its loading skeleton (greeting is the tell).
+  await page.waitForSelector('.sx.home .greet h1', { timeout: 25000 });
+  r.greeting = (await page.locator('.sx.home .greet h1').first().innerText()).trim();
+  r.assert('greeting renders (Good morning/afternoon/evening)', /Good (morning|afternoon|evening)/.test(r.greeting));
+  // Single shell: the workspace rail present, no FilmOS <aside>.
+  r.rails = await page.locator('.rail').count();
+  r.filmosAside = await page.locator('aside').count();
+  r.assert('single shell — no FilmOS <aside>', r.filmosAside === 0);
+  r.assert('workspace rail present', r.rails >= 1);
+  // Continue hero present.
+  r.assert('Continue hero present', (await page.locator('.sx.home .hero').count()) >= 1);
+  // Real slate data — at least one card with a title (2 master-scripts seeded).
+  r.slateCards = await page.locator('.sx.home .cardgrid .scard').count();
+  r.cardTitles = await page.locator('.sx.home .cardgrid .scard .ti2').allInnerTexts();
+  r.assert('slate shows real script cards (>=1)', r.slateCards >= 1);
+};
+
+const DESKTOP = { width: 1440, height: 900 };
+const TABLET = { width: 1000, height: 1200 };
+const MOBILE = { width: 390, height: 844 };
+
 const SCENARIOS = [
+  { name: 'home-desktop', route: '/scripon', storage: {}, viewport: DESKTOP, expect: homeExpect },
+  { name: 'home-tablet', route: '/scripon', storage: {}, viewport: TABLET, expect: homeExpect },
+  { name: 'home-mobile', route: '/scripon', storage: {}, viewport: MOBILE, expect: homeExpect },
   {
-    name: 'scripon-home-new-shell',
+    name: 'home-old-fallback',
     route: '/scripon',
-    storage: {}, // flag default = 'new'
+    storage: { 'scripon.osShell': 'old' },
+    viewport: DESKTOP,
     expect: async (page, r) => {
-      // Single shell: the new rail container present, NO FilmOS <aside> rail.
-      await page.waitForSelector('.rail .ritem', { timeout: 20000 });
-      r.rails = await page.locator('.rail').count();
-      r.filmosAside = await page.locator('aside').count();
-      r.labels = await page.locator('.rail .lbl').allInnerTexts();
-      r.assert('new rail renders (>=1 .rail)', r.rails >= 1);
-      r.assert('single shell — no FilmOS <aside>', r.filmosAside === 0);
-      // The 9 workspaces (English locale). Distinctive new-rail labels.
-      for (const w of ['Home', 'Write', 'Develop', 'Canon', 'Doctor', 'Versions', 'Room', 'Slate', 'Studio']) {
-        r.assert(`rail has "${w}"`, r.labels.some((l) => l.trim() === w));
-      }
-    },
-  },
-  {
-    name: 'scripon-home-old-fallback',
-    route: '/scripon',
-    storage: { 'scripon.osShell': 'old' }, // instant fallback
-    expect: async (page, r) => {
-      // Fallback: FilmOS chrome restored (the <aside> grouped rail is back).
+      // Fallback: the legacy command-centre dashboard + FilmOS chrome restored.
       await page.waitForSelector('aside', { timeout: 20000 });
       r.filmosAside = await page.locator('aside').count();
       r.assert('old flag restores FilmOS chrome (<aside> present)', r.filmosAside >= 1);
+      r.assert('new Home NOT mounted under old flag', (await page.locator('.sx.home').count()) === 0);
     },
   },
 ];
@@ -101,7 +112,7 @@ async function run() {
 
   for (const sc of SCENARIOS) {
     const r = makeResult(sc.name);
-    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    const context = await browser.newContext({ viewport: sc.viewport || { width: 1440, height: 900 } });
     const page = await context.newPage();
 
     // Seed auth + flag overrides into localStorage before any app code runs.
@@ -149,6 +160,8 @@ async function run() {
   for (const r of results) {
     console.log(`\n── ${r.name} ${r.passed ? '✅ PASS' : '❌ FAIL'} ──`);
     console.log(`   url: ${r.finalUrl}`);
+    if (r.greeting) console.log(`   greeting: "${r.greeting}"`);
+    if (r.slateCards !== undefined) console.log(`   slate cards: ${r.slateCards}   titles: [${(r.cardTitles || []).map((x) => x.trim()).join(', ')}]`);
     if (r.labels) console.log(`   rail labels: [${r.labels.map((l) => l.trim()).filter(Boolean).join(', ')}]`);
     if (r.rails !== undefined) console.log(`   .rail count: ${r.rails}   <aside> count: ${r.filmosAside}`);
     for (const c of r.checks) console.log(`   ${c.ok ? '✓' : '✗'} ${c.label}`);
