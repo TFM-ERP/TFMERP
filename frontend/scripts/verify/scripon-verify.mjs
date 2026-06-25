@@ -69,6 +69,22 @@ const DESKTOP = { width: 1440, height: 900 };
 const TABLET = { width: 1000, height: 1200 };
 const MOBILE = { width: 390, height: 844 };
 
+// The single-canvas Doctor: no tabs, verdict banner, 5-tile scorecard, 2×4
+// transforms — at every breakpoint, with no console/hydration errors.
+const doctorExpect = async (page, r) => {
+  await page.waitForSelector('.sx.doctor .phead h1', { timeout: 25000 });
+  r.rails = await page.locator('.rail').count();
+  r.filmosAside = await page.locator('aside').count();
+  r.assert('single shell — no FilmOS <aside>', r.filmosAside === 0);
+  r.assert('workspace rail present', r.rails >= 1);
+  r.assert('NO tabs (single canvas)', (await page.locator('.sx.doctor .tabs').count()) === 0);
+  r.assert('verdict banner present', (await page.locator('.sx.doctor .verdict').count()) >= 1);
+  r.scoreTiles = await page.locator('.sx.doctor .score .stile').count();
+  r.transformTiles = await page.locator('.sx.doctor .tgrid .ttile').count();
+  r.assert('coverage scorecard = 5 tiles', r.scoreTiles === 5);
+  r.assert('transforms grid = 8 tiles', r.transformTiles === 8);
+};
+
 const SCENARIOS = [
   { name: 'home-desktop', route: '/scripon', storage: {}, viewport: DESKTOP, expect: homeExpect },
   { name: 'home-tablet', route: '/scripon', storage: {}, viewport: TABLET, expect: homeExpect },
@@ -84,6 +100,21 @@ const SCENARIOS = [
       r.filmosAside = await page.locator('aside').count();
       r.assert('old flag restores FilmOS chrome (<aside> present)', r.filmosAside >= 1);
       r.assert('new Home NOT mounted under old flag', (await page.locator('.sx.home').count()) === 0);
+    },
+  },
+  { name: 'doctor-desktop', route: '/scripon/doctor', storage: {}, viewport: DESKTOP, expect: doctorExpect },
+  { name: 'doctor-tablet', route: '/scripon/doctor', storage: {}, viewport: TABLET, expect: doctorExpect },
+  { name: 'doctor-mobile', route: '/scripon/doctor', storage: {}, viewport: MOBILE, expect: doctorExpect },
+  {
+    name: 'doctor-old-fallback',
+    route: '/scripon/doctor',
+    storage: { 'scripon.osShell': 'old' },
+    viewport: DESKTOP,
+    expect: async (page, r) => {
+      await page.waitForSelector('aside', { timeout: 20000 });
+      r.filmosAside = await page.locator('aside').count();
+      r.assert('old flag restores FilmOS chrome (<aside> present)', r.filmosAside >= 1);
+      r.assert('new Doctor canvas NOT mounted under old flag', (await page.locator('.sx.doctor').count()) === 0);
     },
   },
 ];
@@ -179,6 +210,7 @@ async function run() {
     console.log(`   url: ${r.finalUrl}`);
     if (r.greeting) console.log(`   greeting: "${r.greeting}"`);
     if (r.slateCards !== undefined) console.log(`   slate cards: ${r.slateCards}   titles: [${(r.cardTitles || []).map((x) => x.trim()).join(', ')}]`);
+    if (r.scoreTiles !== undefined) console.log(`   scorecard tiles: ${r.scoreTiles}   transform tiles: ${r.transformTiles}`);
     if (r.labels) console.log(`   rail labels: [${r.labels.map((l) => l.trim()).filter(Boolean).join(', ')}]`);
     if (r.rails !== undefined) console.log(`   .rail count: ${r.rails}   <aside> count: ${r.filmosAside}`);
     for (const c of r.checks) console.log(`   ${c.ok ? '✓' : '✗'} ${c.label}`);

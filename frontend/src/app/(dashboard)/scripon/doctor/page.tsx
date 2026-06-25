@@ -16,6 +16,8 @@ import ScripOnCompsDeck from '@/components/scripon/ScripOnCompsDeck';
 import ScripOnPackagePanel from '@/components/scripon/ScripOnPackagePanel';
 import ScripOnFormatPanel from '@/components/scripon/ScripOnFormatPanel';
 import { useScriponBack } from '@/components/scripon/useScriponBack';
+import { useScriponShellFlag } from '@/components/scripon/osShellFlag';
+import ScriponDoctor from '@/components/scripon/doctor/ScriponDoctor';
 
 const GRADE: Record<string, { v: string; c: string; p: number }> = {
   EXCELLENT: { v: 'A', c: 'var(--green)', p: 92 }, GOOD: { v: 'B', c: 'var(--gold2)', p: 78 },
@@ -81,6 +83,8 @@ export default function ScripOnDoctorPage() {
   const [revColor, setRevColor] = useState('#5b8def');
   const [gauges, setGauges] = useState<SxGauge[]>(SAMPLE_GAUGES);
   const [cov, setCov] = useState<SxCoverage>(SAMPLE_COV);
+  const [covRaw, setCovRaw] = useState<any | null>(null); // raw latestCoverage for the new single-canvas
+  const flag = useScriponShellFlag();
   const [actHealth, setActHealth] = useState(SAMPLE_ACT);
   const [tab, setTab] = useState<SxTab>('Coverage');
   const [covLoading, setCovLoading] = useState(false);
@@ -116,6 +120,7 @@ export default function ScripOnDoctorPage() {
         setProjectId(proj.id); setTitle(proj.name || proj.title || 'Project');
         if (rev) { setRevLabel(rev.revisionLabel || 'CURRENT'); setRevColor(rev.colorCode || '#5b8def'); }
         setActHealth(MUTED_ACT);
+        setCovRaw(c || null);
         if (c) { setCov(buildCoverage(c)); setGauges(buildGauges(c)); } else { setCov(null); setGauges(NEUTRAL_GAUGES); }
         setAn(aData); setNotesV2(nData);
       } catch { /* keep sample */ }
@@ -126,7 +131,7 @@ export default function ScripOnDoctorPage() {
   const generate = async () => {
     if (!projectId || !activeRev?.id) { flash(t('Connect a project with a parsed script to generate coverage.')); return; }
     setCovLoading(true);
-    try { const r: any = await productionApi.scripton.coverage(projectId, { revisionId: activeRev.id }); setCov(buildCoverage(r.data)); setGauges(buildGauges(r.data)); try { const a: any = await productionApi.scripton.analytics(projectId); setAn(a.data); } catch { /* */ } }
+    try { const r: any = await productionApi.scripton.coverage(projectId, { revisionId: activeRev.id }); setCovRaw(r.data || null); setCov(buildCoverage(r.data)); setGauges(buildGauges(r.data)); try { const a: any = await productionApi.scripton.analytics(projectId); setAn(a.data); } catch { /* */ } }
     catch (e: any) { flash(e?.response?.status ? `${t('Coverage failed (HTTP')} ${e.response.status}).` : t('Coverage failed — backend not reachable on :3001.')); }
     finally { setCovLoading(false); }
   };
@@ -144,6 +149,7 @@ export default function ScripOnDoctorPage() {
     if (k === 'budgetfit') { if (!projectId || !activeRev?.id) { flash(t('Connect a project with a script to run this.')); return; } return setSurface('budgetfit'); }
     if (k === 'rewrite') { if (!projectId || !activeRev?.id) { flash(t('Connect a project with a script to rewrite.')); return; } setRwKind('tighten'); return setSurface('rewrite'); }
     if (k === 'punchup') { if (!projectId || !activeRev?.id) { flash(t('Connect a project with a script to rewrite.')); return; } setRwKind('punchup'); return setSurface('rewrite'); }
+    if (k === 'ending' || k === 'humour') { if (!projectId || !activeRev?.id) { flash(t('Connect a project with a script to rewrite.')); return; } setRwKind(k); return setSurface('rewrite'); }
     if (k === 'history') { if (!projectId) { flash(t('Connect a project to see coverage history.')); return; } return setSurface('history'); }
     if (k === 'exportpdf') { if (!projectId) { flash(t('Connect a project to export coverage.')); return; } window.open('/print/coverage?projectId=' + projectId, '_blank'); return; }
     if (k === 'comps') { if (!projectId) { flash(t('Connect a project to generate market comps.')); return; } return setSurface('comps'); }
@@ -204,6 +210,19 @@ export default function ScripOnDoctorPage() {
     );
   }
   const common = { title, revisionLabel: revLabel, revisionColor: revColor, meta: t('Doctor · grounded in your pages'), gauges, activeTab: tab, onTab: setTab, coverage: cov, covLoading, onGenerate: generate, diagnostics: diag, diagLoading, onRunDiag: runDiag, actHealth, onAction, onNav, onBack, analyticsNode, notesNode, toast };
-  const body = vp === 'mobile' ? <ScripOnDoctorMobile {...common} /> : vp === 'tablet' ? <ScripOnDoctorTablet {...common} /> : <ScripOnDoctor {...common} />;
-  return (<>{body}{surface === 'budgetfit' && activeRev?.id && (<ScripOnBudgetFit projectId={projectId!} revisionId={activeRev.id} onClose={() => setSurface(null)} />)}{surface === 'rewrite' && activeRev?.id && (<ScripOnRewriteSlate projectId={projectId!} revisionId={activeRev.id} initialKind={rwKind} onClose={() => setSurface(null)} />)}{surface === 'history' && projectId && (<ScripOnCoverageHistory projectId={projectId} onOpen={(r: any) => { setCov(buildCoverage(r)); setGauges(buildGauges(r)); setActHealth(MUTED_ACT); setTab('Coverage'); setSurface(null); }} onClose={() => setSurface(null)} />)}{surface === 'comps' && projectId && (<ScripOnCompsDeck projectId={projectId} onClose={() => setSurface(null)} />)}{surface === 'package' && projectId && (<ScripOnPackagePanel projectId={projectId} onClose={() => setSurface(null)} />)}{surface === 'format' && projectId && (<ScripOnFormatPanel projectId={projectId} onClose={() => setSurface(null)} />)}</>);
+  const oldBody = vp === 'mobile' ? <ScripOnDoctorMobile {...common} /> : vp === 'tablet' ? <ScripOnDoctorTablet {...common} /> : <ScripOnDoctor {...common} />;
+  // New single-canvas Doctor (Figma 38:2) under the shell flag; `old` keeps the tabbed Doctor.
+  const newBody = (
+    <ScriponDoctor
+      title={title} revisionLabel={revLabel} revisionColor={revColor}
+      meta={t('Coverage · diagnostics · continuity · fixes — grounded in your pages')}
+      coverageRaw={covRaw} analytics={an} diagnostics={diag}
+      covLoading={covLoading} diagLoading={diagLoading} kernelInert
+      onGenerate={generate} onRunDiag={runDiag} onAction={onAction}
+      onNav={onNav} onBack={onBack} onFullReport={() => onAction('package')}
+      toast={toast} vp={vp}
+    />
+  );
+  const body = flag === 'new' ? newBody : oldBody;
+  return (<>{body}{surface === 'budgetfit' && activeRev?.id && (<ScripOnBudgetFit projectId={projectId!} revisionId={activeRev.id} onClose={() => setSurface(null)} />)}{surface === 'rewrite' && activeRev?.id && (<ScripOnRewriteSlate projectId={projectId!} revisionId={activeRev.id} initialKind={rwKind} onClose={() => setSurface(null)} />)}{surface === 'history' && projectId && (<ScripOnCoverageHistory projectId={projectId} onOpen={(r: any) => { setCovRaw(r || null); setCov(buildCoverage(r)); setGauges(buildGauges(r)); setActHealth(MUTED_ACT); setTab('Coverage'); setSurface(null); }} onClose={() => setSurface(null)} />)}{surface === 'comps' && projectId && (<ScripOnCompsDeck projectId={projectId} onClose={() => setSurface(null)} />)}{surface === 'package' && projectId && (<ScripOnPackagePanel projectId={projectId} onClose={() => setSurface(null)} />)}{surface === 'format' && projectId && (<ScripOnFormatPanel projectId={projectId} onClose={() => setSurface(null)} />)}</>);
 }
