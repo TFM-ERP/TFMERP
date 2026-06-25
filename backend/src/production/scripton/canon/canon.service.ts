@@ -146,6 +146,20 @@ export class CanonService {
     return { versionId, continuityScore: score, conflicts };
   }
 
+  /** All canon facts for a script (read model for the Canon screen). Fail-safe → []. */
+  async listFacts(scriptId: string): Promise<CanonFactCore[]> {
+    if (!scriptId) return [];
+    try {
+      const rows: any[] = await (this.prisma as any).canonFact.findMany({
+        where: { scriptId },
+        orderBy: [{ subject: 'asc' }, { validFrom: 'asc' }, { recordedAt: 'asc' }],
+      });
+      return rows as CanonFactCore[];
+    } catch {
+      return [];
+    }
+  }
+
   /** Live ACTIVE canon for a script, as a CANON steering block at a story point. '' on error/empty. */
   async directiveFor(scriptId: string, at: number, subjects?: string[]): Promise<string> {
     try {

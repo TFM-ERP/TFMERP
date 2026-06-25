@@ -99,6 +99,10 @@ export class ScripOnController {
   @Post('note/:id/delete') @RequirePermission('production', 2) noteDelete(@Param('id') id: string) { return this.service.deleteNote(id); }
   @Post('notes-stale/:projectId') @RequirePermission('production', 2) notesStale(@Param('projectId') projectId: string, @Body() body: any) { return this.service.notesStale({ projectId, ...(body || {}) }); }
   @Get('lookbook/:projectId') lookbookGet(@Param('projectId') projectId: string) { return this.service.lookbook({ projectId }); }
+  @Get('canon') @RequirePermission('production', 1)
+  async listCanon(@Query('scriptId') scriptId: string) {
+    return this.canon.listFacts(scriptId);
+  }
   @Post('revision-pass/:passId/render') @RequirePermission('production', 2)
   async renderRevisionPass(@Param('passId') passId: string, @Body() body: any, @Req() req: any) {
     return this.canon.renderPass(passId, body?.projectId, req?.user?.id);

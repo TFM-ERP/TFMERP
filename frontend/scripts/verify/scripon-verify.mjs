@@ -69,6 +69,22 @@ const DESKTOP = { width: 1440, height: 900 };
 const TABLET = { width: 1000, height: 1200 };
 const MOBILE = { width: 390, height: 844 };
 
+// Canon (kernel-backed): the bi-temporal graph from real CanonFact data —
+// 5 tabs, graph or facts, entity panel, no console errors.
+const canonExpect = async (page, r) => {
+  await page.waitForSelector('.sx.canon .phead h1', { timeout: 25000 });
+  await page.waitForSelector('.sx.canon .tab', { timeout: 25000 });
+  r.rails = await page.locator('.rail').count();
+  r.filmosAside = await page.locator('aside').count();
+  r.assert('single shell — no FilmOS <aside>', r.filmosAside === 0);
+  r.assert('workspace rail present', r.rails >= 1);
+  r.tabs = await page.locator('.sx.canon .tab').count();
+  r.assert('5 canon tabs', r.tabs === 5);
+  r.graphNodes = await page.locator('.sx.canon .gpanel svg circle').count();
+  r.factRows = await page.locator('.sx.canon .panelbox .fact').count();
+  r.assert('real kernel facts rendered (graph nodes or panel facts)', r.graphNodes > 0 || r.factRows > 0);
+};
+
 // Develop (light re-skin): the Builder's Builds panel in one OS shell, Develop
 // highlighted, the vestigial Close dropped, + New build kept, no console errors.
 const developExpect = async (page, r) => {
@@ -218,6 +234,20 @@ const SCENARIOS = [
       await page.waitForSelector('.bld', { timeout: 25000 });
       r.assert('old flag keeps the Close button', (await page.locator('.bld .top .btn.ghost').count()) >= 1);
       r.assert('Builds panel NOT OS-reskinned under old flag', (await page.locator('.bld.osnew').count()) === 0);
+    },
+  },
+  { name: 'canon-desktop', route: '/scripon/canon', storage: {}, viewport: DESKTOP, expect: canonExpect },
+  { name: 'canon-tablet', route: '/scripon/canon', storage: {}, viewport: TABLET, expect: canonExpect },
+  { name: 'canon-mobile', route: '/scripon/canon', storage: {}, viewport: MOBILE, expect: canonExpect },
+  {
+    name: 'canon-old-fallback',
+    route: '/scripon/canon',
+    storage: { 'scripon.osShell': 'old' },
+    viewport: DESKTOP,
+    expect: async (page, r) => {
+      await page.waitForSelector('aside', { timeout: 20000 });
+      r.assert('old flag restores FilmOS chrome (<aside> present)', (await page.locator('aside').count()) >= 1);
+      r.assert('new Canon NOT mounted under old flag', (await page.locator('.sx.canon').count()) === 0);
     },
   },
 ];
