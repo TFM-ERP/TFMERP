@@ -7,6 +7,7 @@ import { assessPass } from './canon-assess.util';
 import { orderChanges } from './change-order.util';
 import { canonDirective } from './canon-inject.util';
 import { detectConflicts, factsExcludingScenes } from './canon-verify.util';
+import { stagedCandidates } from './render-extract.util';
 
 @Injectable()
 export class CanonService {
@@ -73,7 +74,16 @@ export class CanonService {
     const allCandidates: CanonFactCore[] = [];
     for (const o of ordered) {
       const ch = staged.find((c: any) => c.id === o.id);
-      const text = String(ch?.previewAfter ?? ch?.spec?.body ?? ch?.spec?.note ?? '');
+      if (!ch) continue;
+      // Prefer the facts already extracted + continuity-checked at stage time — they
+      // carry the scene anchor so a re-render supersedes its own prior facts. Only
+      // fall back to AI extraction from the change's resulting prose when none exist.
+      const fromStage = stagedCandidates(ch);
+      if (fromStage.length) {
+        allCandidates.push(...fromStage);
+        continue;
+      }
+      const text = String(ch?.previewAfter ?? ch?.spec?.after ?? ch?.spec?.body ?? ch?.spec?.note ?? '');
       if (!text) continue;
       const facts = await this.extractFactsAI(
         pass.scriptId,

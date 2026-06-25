@@ -123,7 +123,7 @@ const CSS = `
 const fmtSlug = (s: SxScene) => s.slugline || [s.intExt, s.dayNight].filter(Boolean).join('. ').toUpperCase() || 'SCENE';
 
 export type PassChange = { id: string; kind: string; sceneNumber?: number | string; label?: string; tag?: string; summary?: string; before?: string; after?: string };
-export type PassVM = { changeCount: number; continuity: number; versionLabel: string; changes: PassChange[]; bridge?: string };
+export type PassVM = { passId?: string; changeCount: number; continuity: number; versionLabel: string; changes: PassChange[]; bridge?: string };
 
 export type WriteProps = {
   title: string; revisionLabel: string; revisionColor: string;
@@ -147,7 +147,7 @@ const OPTIONS: Record<string, Opt[]> = {
   're-ending': [
     { id: 'r1', label: 'Redemptive climb — earns the cave', tag: '+arc', impact: 'up' },
     { id: 'r2', label: 'Tragic slip — Antarah falls to his death', tag: 'alt', impact: 'neutral', facts: [{ kind: 'CHARACTER', subject: 'ANTARAH', predicate: 'status', object: 'dead', validFrom: 65, validTo: null }] },
-    { id: 'r3', label: 'Swap cliff → gorge ledge (reuse S58)', tag: '−$140k', impact: 'down' },
+    { id: 'r3', label: 'Swap cliff → gorge ledge (reuse S58)', tag: '−$140k', impact: 'down', facts: [{ kind: 'WORLD', subject: 'CLIMAX_SITE', predicate: 'location', object: 'gorge ledge', validFrom: 65, validTo: null }] },
   ],
   revise: [
     { id: 'w1', label: 'Tighten the approach to two beats', tag: '−1pp', impact: 'down' },

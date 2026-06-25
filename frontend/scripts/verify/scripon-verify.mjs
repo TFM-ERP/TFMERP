@@ -101,6 +101,24 @@ const writeExpect = async (page, r) => {
     r.passAfter = await page.locator('.sx.write .pass .passrow').count();
     r.assert('clean change stages + grows the pass', r.passAfter > before);
   }
+  // Slice 4: Render = commit. Stage the fact-bearing option (r3 — CLIMAX_SITE),
+  // then Render → the kernel applies the pass (new BuildVersion + extracted canon +
+  // DecisionRecord) and the pass clears from the panel. Desktop/tablet only.
+  if (await page.locator('.sx.write .renderbtn').count()) {
+    await page.locator('.sx.write .stagebtn').click();
+    await page.waitForSelector('.sx.write .composer .opt', { timeout: 10000 });
+    await page.locator('.sx.write .composer .opt').nth(2).click(); // r3: carries a CLIMAX_SITE fact
+    await page.locator('.sx.write .cstage').click();
+    await page.waitForTimeout(1800);
+    r.assert('fact-bearing change staged before render', (await page.locator('.sx.write .pass .passrow').count()) >= 1);
+    await page.locator('.sx.write .renderbtn').click();
+    await page.waitForTimeout(700); // the "Rendering…" toast shows immediately on click
+    r.assert('Render shows a commit toast', (await page.locator('.sx.write .toast').count()) >= 1);
+    await page.waitForTimeout(3600); // let the commit land + the pass refetch clear it
+    const afterRender = await page.locator('.sx.write .pass .passrow').count();
+    const cleared = afterRender === 0 || (await page.locator('.sx.write .passempty').count()) >= 1;
+    r.assert('Render = commit → pass clears from the panel', cleared);
+  }
 };
 
 // Canon (kernel-backed): the bi-temporal graph from real CanonFact data —
@@ -328,7 +346,11 @@ async function run() {
   const browser = await chromium.launch({ headless: true });
   const results = [];
 
-  for (const sc of SCENARIOS) {
+  // Optional CLI filter: `node scripon-verify.mjs write` runs only matching screens.
+  const ONLY = process.argv.slice(2).filter((a) => !a.startsWith('-'));
+  const SELECTED = ONLY.length ? SCENARIOS.filter((s) => ONLY.some((o) => s.name.includes(o))) : SCENARIOS;
+
+  for (const sc of SELECTED) {
     const r = makeResult(sc.name);
     const context = await browser.newContext({ viewport: sc.viewport || { width: 1440, height: 900 } });
     const page = await context.newPage();

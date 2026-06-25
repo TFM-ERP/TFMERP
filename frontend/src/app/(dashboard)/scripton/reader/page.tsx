@@ -53,7 +53,7 @@ export default function ScriptOnWorkspace() {
   const toPassVM = (pass: any): PassVM | null => {
     if (!pass) return null;
     const changes = (pass.changes || []).map((c: any) => ({ id: c.id, kind: c.kind, sceneNumber: c.spec?.sceneNumber, label: c.spec?.label, tag: c.spec?.tag, summary: c.spec?.summary, before: c.spec?.before, after: c.spec?.after }));
-    return { changeCount: changes.length, continuity: Math.round((pass.continuityScore ?? 0) * 100), versionLabel: '→ new draft', changes, bridge: changes.length ? 'One bridge needed: S64 night → S65 dawn. Auto-fix on render.' : '' };
+    return { passId: pass.id, changeCount: changes.length, continuity: Math.round((pass.continuityScore ?? 0) * 100), versionLabel: '→ new draft', changes, bridge: changes.length ? 'One bridge needed: S64 night → S65 dawn. Auto-fix on render.' : '' };
   };
 
   const [activeId, setActiveId] = useState('s6');
@@ -175,7 +175,23 @@ export default function ScriptOnWorkspace() {
         scenes={filtered} activeId={active?.id} onSelectScene={selectScene}
         pageCount={pageCount} loading={false} stagedSceneIds={stagedIds} pass={passVM}
         onNav={onNav} onBack={onBackOs}
-        onRender={() => flash(t('Render = commit lands in the next slice.'))}
+        onRender={async () => {
+          const passId = passVM?.passId;
+          if (!passId) { flash(t('Stage a change to start a Revision Pass first.')); return; }
+          flash(t('Rendering the new draft…'));
+          try {
+            // Render = commit: applies the pass → new BuildVersion (V+1), extracts→
+            // verifies canon (writes CanonFacts, supersedes the changed scenes' own
+            // prior facts), writes a DecisionRecord. Non-destructive — the base draft
+            // stays immutable. On success the pass closes, so it clears from the panel.
+            const r: any = await productionApi.scripton.renderPass(passId, { projectId });
+            const score = typeof r.data?.continuityScore === 'number' ? Math.round(r.data.continuityScore * 100) : null;
+            try { const pp: any = await productionApi.scripton.revisionPass(docId); setPassVM(toPassVM(pp.data)); } catch { setPassVM(null); }
+            flash(score != null ? `${t('Rendered → new draft committed. Continuity')} ${score}%.` : t('Rendered → new draft committed.'));
+          } catch (e: any) {
+            flash(e?.response?.data?.message || t('Render failed — backend on :3001?'));
+          }
+        }}
         onPassAction={(k) => flash(k === 'save' ? t('Pass saved.') : t('Ships with the next slice.'))}
         onStage={async (change) => {
           if (!docId) return { ok: false, conflict: t('No script bound.') };
