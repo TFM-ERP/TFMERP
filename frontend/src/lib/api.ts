@@ -516,6 +516,7 @@ export const productionApi = {
       listVersions: (buildId: string) => api.get('/production/scripton/development/versions/' + buildId),
       newVersion: (buildId: string, label?: string) => api.post('/production/scripton/development/versions/' + buildId + '/new', label ? { label } : {}),
       switchVersion: (buildId: string, versionId: string) => api.post('/production/scripton/development/versions/' + buildId + '/switch', { versionId }),
+      discardVersion: (versionId: string) => api.post('/production/scripton/development/version/' + versionId + '/discard'),
       versionBrief: (buildId: string, versionId?: string) => api.get('/production/scripton/development/versions/' + buildId + '/brief' + (versionId ? ('?versionId=' + encodeURIComponent(versionId)) : '')),
       saveIntake: (projectId: string, data: any) => api.post(`/production/scripton/intake/${projectId}`, data),
       listBuilds: (projectId?: string, bin?: boolean) => api.get('/production/scripton/builds?' + (projectId ? ('projectId=' + projectId) : '') + (bin ? '&bin=1' : '')),

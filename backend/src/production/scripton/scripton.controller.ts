@@ -65,6 +65,7 @@ export class ScripOnController {
   @Get('development/versions/:buildId') devVersions(@Param('buildId') buildId: string) { return this.service.listBuildVersions(buildId); }
   @Post('development/versions/:buildId/new') @RequirePermission('production', 2) devNewVersion(@Param('buildId') buildId: string, @Body() body: any) { return this.service.newBuildVersion(buildId, body?.label); }
   @Post('development/versions/:buildId/switch') @RequirePermission('production', 2) devSwitchVersion(@Param('buildId') buildId: string, @Body() body: any) { return this.service.switchBuildVersion(buildId, body?.versionId); }
+  @Post('development/version/:versionId/discard') @RequirePermission('production', 2) devDiscardVersion(@Param('versionId') versionId: string) { return this.service.discardBuildVersion(versionId); }
   @Get('development/versions/:buildId/brief') devVersionBrief(@Param('buildId') buildId: string, @Query('versionId') versionId?: string) { return this.service.buildVersionBrief(buildId, versionId); }
   @Get('dialect/exemplars') dialectExemplars(@Query('variety') variety?: string) { return this.service.listExemplars(variety); }
   @Post('dialect/exemplars') @RequirePermission('production', 2) dialectExemplarSave(@Body() body: any, @Req() req: any) { return this.service.saveExemplar(body || {}, req?.user?.id); }

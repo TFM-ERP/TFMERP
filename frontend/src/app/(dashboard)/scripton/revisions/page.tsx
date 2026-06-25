@@ -120,7 +120,7 @@ export default function ScriptOnRevisionsPage() {
     if (!cmp?.version?.id) return;
     if (typeof window !== 'undefined' && !window.confirm(`${t('Discard')} ${newLbl}? ${prevLbl} ${t('stays active and the change pass is preserved.')}`)) return;
     setCmpBusy('discard');
-    try { await productionApi.scripton.development.setStatus(cmp.version.id, 'DISCARDED'); flash(`${newLbl} ${t('discarded —')} ${prevLbl} ${t('is active.')}`); }
+    try { await productionApi.scripton.development.discardVersion(cmp.version.id); flash(`${newLbl} ${t('discarded —')} ${prevLbl} ${t('is active.')}`); }
     catch (e: any) { flash(e?.response?.data?.message || t('Could not discard the version.')); }
     finally { setCmpBusy(null); }
   };

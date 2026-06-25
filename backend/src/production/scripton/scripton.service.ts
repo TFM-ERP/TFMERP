@@ -575,8 +575,20 @@ export class ScripOnService {
   async listBuildVersions(buildId: string) {
     const build: any = await (this.prisma as any).developmentBuild.findUnique({ where: { id: buildId } }).catch(() => null);
     if (!build) return { versions: [], activeVersionId: null };
-    const versions: any[] = await (this.prisma as any).buildVersion.findMany({ where: { buildId }, orderBy: { n: 'asc' } }).catch(() => []);
+    const versions: any[] = await (this.prisma as any).buildVersion.findMany({ where: { buildId, NOT: { status: 'DISCARDED' } }, orderBy: { n: 'asc' } }).catch(() => []);
     return { versions, activeVersionId: build.activeVersionId || null };
+  }
+
+  // Discard a build version (non-destructive: the row is kept but hidden from the
+  // version list; the active version is never touched). Used by Render→Compare's
+  // "Discard V{new}" — refuses if the version is currently active.
+  async discardBuildVersion(versionId: string) {
+    const v: any = await (this.prisma as any).buildVersion.findUnique({ where: { id: versionId } }).catch(() => null);
+    if (!v) throw new BadRequestException('Version not found.');
+    const build: any = await (this.prisma as any).developmentBuild.findUnique({ where: { id: v.buildId } }).catch(() => null);
+    if (build && build.activeVersionId === versionId) throw new BadRequestException('Cannot discard the active version — switch to another version first.');
+    await (this.prisma as any).buildVersion.update({ where: { id: versionId }, data: { status: 'DISCARDED' } }).catch(() => {});
+    return this.listBuildVersions(v.buildId);
   }
 
   // Snapshot the current work and start a FRESH re-run (the prior version stays intact). First call also retro-files V1.

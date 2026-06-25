@@ -145,6 +145,12 @@ const compareExpect = async (page, r) => {
   }
   r.assert('preserved note present', (await page.locator('.sx.cmp .render .note').count()) >= 1);
   r.assert('Set-active control present', (await page.locator('.sx.cmp .btn.gold').count()) >= 1);
+  // Drive activation on desktop — the button must reach the switch endpoint (toast).
+  if (vp >= 1280) {
+    await page.locator('.sx.cmp .btn.gold').click();
+    await page.waitForTimeout(1100);
+    r.assert('Set-active fires → confirmation toast', (await page.locator('.sx.cmp .toast').count()) >= 1);
+  }
 };
 
 // Canon (kernel-backed): the bi-temporal graph from real CanonFact data —
