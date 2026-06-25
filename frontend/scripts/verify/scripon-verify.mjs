@@ -69,6 +69,21 @@ const DESKTOP = { width: 1440, height: 900 };
 const TABLET = { width: 1000, height: 1200 };
 const MOBILE = { width: 390, height: 844 };
 
+// The 3-column Room: title, Notes + Thread + (Approval chain + Distribution),
+// single shell, no console errors. Mobile carries the 3-tab review-first control.
+const roomExpect = async (page, r) => {
+  await page.waitForSelector('.sx.room .phead h1', { timeout: 25000 });
+  r.rails = await page.locator('.rail').count();
+  r.filmosAside = await page.locator('aside').count();
+  r.assert('single shell — no FilmOS <aside>', r.filmosAside === 0);
+  r.assert('workspace rail present', r.rails >= 1);
+  r.cols = await page.locator('.sx.room .rcols .rcol').count();
+  r.assert('3 Room columns (notes · thread · side)', r.cols === 3);
+  r.assert('approval chain + distribution panels present', (await page.locator('.sx.room .rcol.side .panel').count()) >= 2);
+  r.assert('thread column present', (await page.locator('.sx.room .thread').count()) >= 1);
+  r.assert('mobile review-first 3-tab control present', (await page.locator('.sx.room .mtab').count()) === 3);
+};
+
 // The consolidated Studio: title, 7-item sub-nav, 4 export cards, single rail
 // (old embedded 74px rail dropped), Studio highlighted, no console errors.
 const studioExpect = async (page, r) => {
@@ -157,6 +172,20 @@ const SCENARIOS = [
       await page.waitForSelector('aside', { timeout: 20000 });
       r.assert('old flag restores FilmOS chrome (<aside> present)', (await page.locator('aside').count()) >= 1);
       r.assert('new Studio NOT mounted under old flag', (await page.locator('.sx.studio').count()) === 0);
+    },
+  },
+  { name: 'room-desktop', route: '/scripon/notes', storage: {}, viewport: DESKTOP, expect: roomExpect },
+  { name: 'room-tablet', route: '/scripon/notes', storage: {}, viewport: TABLET, expect: roomExpect },
+  { name: 'room-mobile', route: '/scripon/notes', storage: {}, viewport: MOBILE, expect: roomExpect },
+  {
+    name: 'room-old-fallback',
+    route: '/scripon/notes',
+    storage: { 'scripon.osShell': 'old' },
+    viewport: DESKTOP,
+    expect: async (page, r) => {
+      await page.waitForSelector('aside', { timeout: 20000 });
+      r.assert('old flag restores FilmOS chrome (<aside> present)', (await page.locator('aside').count()) >= 1);
+      r.assert('new Room NOT mounted under old flag', (await page.locator('.sx.room').count()) === 0);
     },
   },
 ];
