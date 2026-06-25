@@ -69,6 +69,22 @@ const DESKTOP = { width: 1440, height: 900 };
 const TABLET = { width: 1000, height: 1200 };
 const MOBILE = { width: 390, height: 844 };
 
+// The consolidated Studio: title, 7-item sub-nav, 4 export cards, single rail
+// (old embedded 74px rail dropped), Studio highlighted, no console errors.
+const studioExpect = async (page, r) => {
+  await page.waitForSelector('.sx.studio .phead h1', { timeout: 25000 });
+  r.rails = await page.locator('.rail').count();
+  r.filmosAside = await page.locator('aside').count();
+  r.assert('single shell — no FilmOS <aside>', r.filmosAside === 0);
+  r.assert('exactly one rail (old embedded rail dropped)', r.rails === 1);
+  r.subnav = await page.locator('.sx.studio .subnav .sni').count();
+  r.exportCards = await page.locator('.sx.studio .fmts .fcard').count();
+  r.assert('7-item sub-nav', r.subnav === 7);
+  r.assert('4 export cards', r.exportCards === 4);
+  r.activeRail = (await page.locator('.rail .ritem.on .lbl').first().innerText().catch(() => '')).trim();
+  r.assert('Studio rail item highlighted on /scripon/settings', r.activeRail === 'Studio');
+};
+
 // The single-canvas Doctor: no tabs, verdict banner, 5-tile scorecard, 2×4
 // transforms — at every breakpoint, with no console/hydration errors.
 const doctorExpect = async (page, r) => {
@@ -115,6 +131,32 @@ const SCENARIOS = [
       r.filmosAside = await page.locator('aside').count();
       r.assert('old flag restores FilmOS chrome (<aside> present)', r.filmosAside >= 1);
       r.assert('new Doctor canvas NOT mounted under old flag', (await page.locator('.sx.doctor').count()) === 0);
+    },
+  },
+  { name: 'studio-desktop', route: '/scripon/settings', storage: {}, viewport: DESKTOP, expect: studioExpect },
+  { name: 'studio-tablet', route: '/scripon/settings', storage: {}, viewport: TABLET, expect: studioExpect },
+  { name: 'studio-mobile', route: '/scripon/settings', storage: {}, viewport: MOBILE, expect: studioExpect },
+  {
+    // The route fix: Develop solely owns /scripon/studio and must highlight there.
+    name: 'route-develop-highlight',
+    route: '/scripon/studio',
+    storage: {},
+    viewport: DESKTOP,
+    expect: async (page, r) => {
+      await page.waitForSelector('.rail .ritem.on .lbl', { timeout: 25000 });
+      r.activeRail = (await page.locator('.rail .ritem.on .lbl').first().innerText()).trim();
+      r.assert('Develop rail item highlighted on /scripon/studio', r.activeRail === 'Develop');
+    },
+  },
+  {
+    name: 'studio-old-fallback',
+    route: '/scripon/settings',
+    storage: { 'scripon.osShell': 'old' },
+    viewport: DESKTOP,
+    expect: async (page, r) => {
+      await page.waitForSelector('aside', { timeout: 20000 });
+      r.assert('old flag restores FilmOS chrome (<aside> present)', (await page.locator('aside').count()) >= 1);
+      r.assert('new Studio NOT mounted under old flag', (await page.locator('.sx.studio').count()) === 0);
     },
   },
 ];
@@ -211,6 +253,8 @@ async function run() {
     if (r.greeting) console.log(`   greeting: "${r.greeting}"`);
     if (r.slateCards !== undefined) console.log(`   slate cards: ${r.slateCards}   titles: [${(r.cardTitles || []).map((x) => x.trim()).join(', ')}]`);
     if (r.scoreTiles !== undefined) console.log(`   scorecard tiles: ${r.scoreTiles}   transform tiles: ${r.transformTiles}`);
+    if (r.subnav !== undefined) console.log(`   sub-nav items: ${r.subnav}   export cards: ${r.exportCards}`);
+    if (r.activeRail !== undefined) console.log(`   active rail item: "${r.activeRail}"`);
     if (r.labels) console.log(`   rail labels: [${r.labels.map((l) => l.trim()).filter(Boolean).join(', ')}]`);
     if (r.rails !== undefined) console.log(`   .rail count: ${r.rails}   <aside> count: ${r.filmosAside}`);
     for (const c of r.checks) console.log(`   ${c.ok ? '✓' : '✗'} ${c.label}`);

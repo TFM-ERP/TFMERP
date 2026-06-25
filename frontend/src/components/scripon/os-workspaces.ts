@@ -13,21 +13,20 @@ export const OS_WORKSPACES: OsWorkspace[] = [
   { key: 'versions', label: 'Versions', href: '/scripon/revisions',          icon: GitBranch },
   { key: 'room',     label: 'Room',     href: '/scripon/notes',              icon: MessagesSquare },
   { key: 'slate',    label: 'Slate',    href: '/scripon/library',            icon: FolderKanban },
-  { key: 'studio',   label: 'Studio',   href: '/scripon/studio',             icon: Settings, perm: 'setup' },
+  { key: 'studio',   label: 'Studio',   href: '/scripon/settings',           icon: Settings, perm: 'setup' },
 ];
 
 const pathOf = (href: string) => href.split('?')[0];
 
-export function activeWorkspaceKey(pathname: string, search: string): string | null {
-  const isBuildsTab = /(^|[?&])tab=builds(&|$)/.test(search || '');
-  if (pathname === '/scripon/studio' || pathname.startsWith('/scripon/studio/')) {
-    return isBuildsTab ? 'develop' : 'studio';
-  }
+export function activeWorkspaceKey(pathname: string, _search?: string): string | null {
+  // Develop solely owns /scripon/studio (incl. ?tab=builds and sub-routes).
+  if (pathname === '/scripon/studio' || pathname.startsWith('/scripon/studio/')) return 'develop';
+  // Everything else (including Studio → /scripon/settings) by longest path match.
   let bestKey: string | null = null;
   let bestLen = -1;
   for (const w of OS_WORKSPACES) {
     const p = pathOf(w.href);
-    if (p === '/scripon/studio') continue;
+    if (p === '/scripon/studio') continue; // Develop's path, handled above
     if (pathname === p || (p !== '/scripon' && pathname.startsWith(p + '/')) || (p === '/scripon' && pathname === '/scripon')) {
       if (p.length > bestLen) { bestKey = w.key; bestLen = p.length; }
     }
