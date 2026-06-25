@@ -20,7 +20,7 @@ const ACTS = [
 const actOf = (i: number, n: number) => (n <= 1 ? 0 : Math.min(2, Math.floor((i / n) * 3)));
 
 const CSS = `
-.sx.write{--bg:#0a0b0e;--panel:#14161c;--ink:#0e1014;--paper:#16181e;--hair:rgba(255,255,255,.07);--hair2:rgba(255,255,255,.13);--gold:#C6A463;--gold2:#E6D2A2;--goldink:#15120B;--cream:#F4EEE0;--text:#E7E3D8;--mut:#9aa1ab;--faint:#6b727d;--green:#57b368;--blue:#5b8def;position:relative;display:flex;flex-direction:column;height:100%;background:var(--bg);color:var(--text);font-family:var(--sx-body);-webkit-font-smoothing:antialiased;overflow:hidden}
+.sx.write{--bg:#0a0b0e;--panel:#14161c;--ink:#23231f;--paper:#F7F4EC;--hair:rgba(255,255,255,.07);--hair2:rgba(255,255,255,.13);--gold:#C6A463;--gold2:#E6D2A2;--goldink:#15120B;--cream:#F4EEE0;--text:#E7E3D8;--mut:#9aa1ab;--faint:#6b727d;--green:#57b368;--blue:#5b8def;position:relative;display:flex;flex-direction:column;height:100%;background:var(--bg);color:var(--text);font-family:var(--sx-body);-webkit-font-smoothing:antialiased;overflow:hidden}
 .sx.write *{box-sizing:border-box;margin:0;padding:0}
 .sx.write svg{display:block}
 .sx.write .ico{width:18px;height:18px;stroke:currentColor;stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round}

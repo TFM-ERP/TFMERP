@@ -237,6 +237,12 @@ export default function ScriptonStudio(props: StudioProps) {
                       </div>
                     </div>
                     <div className="panel">
+                      <div className="pt">{t('AI engines')}</div>
+                      <div className="pintro">{t('The system models behind every ScriptON flow — manage them here without leaving the OS.')}</div>
+                      <div className="srow"><div><div className="sk2">{t('System LLM engines')}</div><div className="ss">{t('Providers, keys, routing & fallbacks for every text generation')}</div></div><button className="btn ghost" onClick={() => props.onAction('llm-engines')}>{t('Manage')} →</button></div>
+                      <div className="srow"><div><div className="sk2">{t('Audio engines')}</div><div className="ss">{t('Speech / TTS providers for table reads, narration & dubbing')}</div></div><button className="btn ghost" onClick={() => props.onAction('audio-engines')}>{t('Manage')} →</button></div>
+                    </div>
+                    <div className="panel">
                       <div className="pt">{t('Recent runs')}</div>
                       <div style={{ overflowX: 'auto', marginTop: 10 }}>
                         <table className="runs">

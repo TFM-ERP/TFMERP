@@ -85,6 +85,9 @@ export default function ScriptOnSettingsPage() {
   }, []);
 
   const onAction = (k: string) => {
+    // Surface the AI engines inside the OS — reachable from ScriptON without leaving for the FilmOS nav.
+    if (k === 'llm-engines') return router.push('/setup/llm-engines');
+    if (k === 'audio-engines') return router.push('/setup/audio-engines');
     const m: Record<string, string> = { save: t('Saving governance settings ships in the next phase — values shown are the live defaults.'), discard: t('Reverted.'), toggle: t('Confidence/approval gates are read-only here for now — wiring ships next.'), subnav: t('This settings section ships in the next phase.') };
     flash(m[k] || t('Coming soon.'));
   };

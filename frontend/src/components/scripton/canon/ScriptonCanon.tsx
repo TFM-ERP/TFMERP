@@ -159,7 +159,22 @@ export default function ScriptonCanon(props: CanonProps) {
                               return (
                                 <g key={i}>
                                   <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={e.superseded ? 'rgba(126,126,133,.45)' : EDGE_C} strokeWidth={e.superseded ? 1.2 : 1.6} strokeDasharray={e.superseded ? '5 4' : undefined} />
-                                  <text x={mx} y={my - 3} textAnchor="middle" fontSize="9.5" fontWeight="600" fill={e.superseded ? '#7e7e85' : '#E6D2A2'}>{e.label}{e.superseded ? ' · retired' : ''}</text>
+                                  {(() => {
+                                    // Stagger labels above/below the line + sit them on a chip so
+                                    // adjacent relationship labels ("alliance with" / "retired") don't collide.
+                                    const lbl = e.label + (e.superseded ? ' · retired' : '');
+                                    // Separate active vs retired labels for the SAME node pair (e.g.
+                                    // "alliance with" above the line, "alliance with · retired" below)
+                                    // so they never stack; chip backs each for contrast.
+                                    const off = e.superseded ? 13 : -6;
+                                    const w = lbl.length * 5.3 + 8;
+                                    return (
+                                      <>
+                                        <rect x={mx - w / 2} y={my + off - 9} width={w} height={12.5} rx={3} fill="rgba(10,11,14,.82)" />
+                                        <text x={mx} y={my + off} textAnchor="middle" fontSize="9.5" fontWeight="600" fill={e.superseded ? '#7e7e85' : '#E6D2A2'}>{lbl}</text>
+                                      </>
+                                    );
+                                  })()}
                                 </g>
                               );
                             })}</g>

@@ -102,7 +102,7 @@ export default function ScriptOnLibrary(props: {
                   <div className="cover" style={{ background: c.cover, position: 'relative' }}>
                     <span className="badge" style={{ background: 'rgba(255,255,255,.10)', color: c.typeColor }}>{c.type}</span>
                     <span className="pill rev" style={{ background: 'rgba(0,0,0,.35)', color: c.revColor }}><span className="d" style={{ background: c.revColor }} />{c.rev}</span>
-                    {props.onDelete && props.canDelete && props.canDelete(c.id) ? <span onClick={(e) => { e.stopPropagation(); props.onDelete!(c.id); }} title={t('Move to bin')} style={{ position: 'absolute', top: 8, insetInlineEnd: 8, width: 26, height: 26, borderRadius: 8, background: 'rgba(0,0,0,.5)', color: '#f0a3a0', display: 'grid', placeItems: 'center', fontSize: 12, cursor: 'pointer' }}>\u2716</span> : null}
+                    {props.onDelete && props.canDelete && props.canDelete(c.id) ? <span onClick={(e) => { e.stopPropagation(); props.onDelete!(c.id); }} title={t('Move to bin')} style={{ position: 'absolute', top: 8, insetInlineEnd: 8, width: 26, height: 26, borderRadius: 8, background: 'rgba(0,0,0,.5)', color: '#f0a3a0', display: 'grid', placeItems: 'center', fontSize: 12, cursor: 'pointer' }}>{'\u2715'}</span> : null}
                   </div>
                   <div className="b"><div className="ti2">{c.title}</div><div className="mrow"><span>{c.pages}</span><span>·</span><span style={{ color: c.gradeColor, fontWeight: 700 }}>{c.grade}</span><span style={{ marginInlineStart: 'auto' }}>{c.updated}</span></div></div>
                 </button>
