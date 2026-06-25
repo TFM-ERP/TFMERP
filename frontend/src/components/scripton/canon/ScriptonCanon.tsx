@@ -1,6 +1,6 @@
 'use client';
 /**
- * ScriptON · Canon — route /scripon/canon under the `new` shell flag. The
+ * ScriptON · Canon — route /scripton/canon under the `new` shell flag. The
  * bi-temporal canon graph, read from the merged kernel's CanonFact store.
  * Presentational; the page fetches facts via the canon read endpoint.
  * Tabs filter by CanonKind; the graph is the RELATIONSHIP view; the right

@@ -1,6 +1,6 @@
 'use client';
 /**
- * ScriptON · Doctor (single-canvas) — route /scripon/doctor under the `new`
+ * ScriptON · Doctor (single-canvas) — route /scripton/doctor under the `new`
  * shell flag. Collapses the old Coverage|Diagnostics tabs into one dashboard
  * (Figma 38:2): verdict banner → left (scorecard + scene-flow + emotional arc)
  * → right (diagnostics/continuity + conflict detector + 2×4 transforms).

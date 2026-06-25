@@ -1,6 +1,6 @@
 'use client';
 /** ScriptON Doctor — Command Palette (carbon-copy of design/command-palette.html). Workspace-wide ⌘K accelerator.
- *  Mounted once by the /scripon layout; opens on ⌘K / Ctrl-K or a 'scripon:cmdk' event. Namespaced `.sxk`. */
+ *  Mounted once by the /scripton layout; opens on ⌘K / Ctrl-K or a 'scripon:cmdk' event. Namespaced `.sxk`. */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLocale } from '@/lib/i18n';
@@ -40,21 +40,21 @@ export default function ScriptOnCmdK() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const CMDS: Cmd[] = useMemo(() => [
-    { group: t('DOCTOR ACTIONS'), label: t('Run coverage report'), hint: '↵', href: '/scripon/doctor', icon: I(<path d="M6 2h9l5 5v15H6z" />) },
-    { group: t('DOCTOR ACTIONS'), label: t('Diagnose scenes'), href: '/scripon/doctor', icon: I(<path d="M3 12h4l2 6 4-14 2 8h6" />) },
-    { group: t('DOCTOR ACTIONS'), label: t('Budget-fit rewrite'), href: '/scripon/schedule', icon: I(<path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />) },
-    { group: t('DOCTOR ACTIONS'), label: t('Compare revisions'), href: '/scripon/revisions', icon: I(<path d="M16 3l5 5-5 5M21 8H9M8 21l-5-5 5-5M3 16h12" />) },
-    { group: t('NAVIGATE'), label: t('Dashboard (Home)'), hint: 'G H', href: '/scripon', icon: I(<path d="M3 11l9-8 9 8M5 10v10h14V10" />) },
-    { group: t('NAVIGATE'), label: t('Script Library'), hint: 'G L', href: '/scripon/library', icon: I(<path d="M4 4h6v16H4zM14 4h6v16h-6z" />) },
-    { group: t('NAVIGATE'), label: t('Script Reader'), hint: 'G R', href: '/scripon/reader', icon: I(<path d="M6 2h9l5 5v15H6z" />) },
-    { group: t('NAVIGATE'), label: t('Breakdown'), href: '/scripon/breakdown', icon: I(<path d="M12 2l9 5-9 5-9-5z" />) },
-    { group: t('NAVIGATE'), label: t('Schedule & Budget'), hint: 'G S', href: '/scripon/schedule', icon: I(<><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M3 9h18" /></>) },
-    { group: t('NAVIGATE'), label: t('Doctor'), href: '/scripon/doctor', icon: I(<path d="M12 3l1.9 5.6L19.5 9l-4.5 3.3L16.8 18 12 14.7 7.2 18l1.8-5.7L4.5 9z" />) },
-    { group: t('NAVIGATE'), label: t('Reports & Exports'), href: '/scripon/reports', icon: I(<path d="M3 3v18h18M7 14l3-3 3 3 5-6" />) },
-    { group: t('NAVIGATE'), label: t('Revisions & Compare'), href: '/scripon/revisions', icon: I(<path d="M16 3l5 5-5 5M21 8H9" />) },
-    { group: t('NAVIGATE'), label: t('Notes & Collaboration'), href: '/scripon/notes', icon: I(<path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />) },
-    { group: t('NAVIGATE'), label: t('Approvals & Sign-off'), href: '/scripon/approvals', icon: I(<path d="M9 11l3 3L22 4" />) },
-    { group: t('NAVIGATE'), label: t('Settings & Governance'), href: '/scripon/settings', icon: I(<><circle cx="12" cy="12" r="3" /><path d="M19.4 13a7 7 0 000-2l2-1.5-2-3.4-2.3 1a7 7 0 00-1.7-1L15 3h-4l-.4 2.6a7 7 0 00-1.7 1l-2.3-1-2 3.4L6.6 11a7 7 0 000 2l-2 1.5 2 3.4 2.3-1a7 7 0 001.7 1L11 21h4l.4-2.6a7 7 0 001.7-1l2.3 1 2-3.4z" /></>) },
+    { group: t('DOCTOR ACTIONS'), label: t('Run coverage report'), hint: '↵', href: '/scripton/doctor', icon: I(<path d="M6 2h9l5 5v15H6z" />) },
+    { group: t('DOCTOR ACTIONS'), label: t('Diagnose scenes'), href: '/scripton/doctor', icon: I(<path d="M3 12h4l2 6 4-14 2 8h6" />) },
+    { group: t('DOCTOR ACTIONS'), label: t('Budget-fit rewrite'), href: '/scripton/schedule', icon: I(<path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />) },
+    { group: t('DOCTOR ACTIONS'), label: t('Compare revisions'), href: '/scripton/revisions', icon: I(<path d="M16 3l5 5-5 5M21 8H9M8 21l-5-5 5-5M3 16h12" />) },
+    { group: t('NAVIGATE'), label: t('Dashboard (Home)'), hint: 'G H', href: '/scripton', icon: I(<path d="M3 11l9-8 9 8M5 10v10h14V10" />) },
+    { group: t('NAVIGATE'), label: t('Script Library'), hint: 'G L', href: '/scripton/library', icon: I(<path d="M4 4h6v16H4zM14 4h6v16h-6z" />) },
+    { group: t('NAVIGATE'), label: t('Script Reader'), hint: 'G R', href: '/scripton/reader', icon: I(<path d="M6 2h9l5 5v15H6z" />) },
+    { group: t('NAVIGATE'), label: t('Breakdown'), href: '/scripton/breakdown', icon: I(<path d="M12 2l9 5-9 5-9-5z" />) },
+    { group: t('NAVIGATE'), label: t('Schedule & Budget'), hint: 'G S', href: '/scripton/schedule', icon: I(<><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M3 9h18" /></>) },
+    { group: t('NAVIGATE'), label: t('Doctor'), href: '/scripton/doctor', icon: I(<path d="M12 3l1.9 5.6L19.5 9l-4.5 3.3L16.8 18 12 14.7 7.2 18l1.8-5.7L4.5 9z" />) },
+    { group: t('NAVIGATE'), label: t('Reports & Exports'), href: '/scripton/reports', icon: I(<path d="M3 3v18h18M7 14l3-3 3 3 5-6" />) },
+    { group: t('NAVIGATE'), label: t('Revisions & Compare'), href: '/scripton/revisions', icon: I(<path d="M16 3l5 5-5 5M21 8H9" />) },
+    { group: t('NAVIGATE'), label: t('Notes & Collaboration'), href: '/scripton/notes', icon: I(<path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />) },
+    { group: t('NAVIGATE'), label: t('Approvals & Sign-off'), href: '/scripton/approvals', icon: I(<path d="M9 11l3 3L22 4" />) },
+    { group: t('NAVIGATE'), label: t('Settings & Governance'), href: '/scripton/settings', icon: I(<><circle cx="12" cy="12" r="3" /><path d="M19.4 13a7 7 0 000-2l2-1.5-2-3.4-2.3 1a7 7 0 00-1.7-1L15 3h-4l-.4 2.6a7 7 0 00-1.7 1l-2.3-1-2 3.4L6.6 11a7 7 0 000 2l-2 1.5 2 3.4 2.3-1a7 7 0 001.7 1L11 21h4l.4-2.6a7 7 0 001.7-1l2.3 1 2-3.4z" /></>) },
   ], [t]);
 
   const filtered = useMemo(() => { const s = q.trim().toLowerCase(); return s ? CMDS.filter((c) => c.label.toLowerCase().includes(s)) : CMDS; }, [q, CMDS]);

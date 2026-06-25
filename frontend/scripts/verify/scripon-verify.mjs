@@ -1,7 +1,7 @@
 // Headless ScriptON screen verifier (Playwright, dev mode).
 //
 // The per-screen browser gate for the OS rebuild: log in with seed creds,
-// render a /scripon route in a real browser, assert there are NO console /
+// render a /scripton route in a real browser, assert there are NO console /
 // hydration errors, assert the expected shell, and capture a screenshot.
 //
 // Run dev mode (next dev) so React surfaces hydration mismatches as console
@@ -17,7 +17,7 @@
 //
 // Usage:
 //   FRONTEND=http://localhost:3210 BACKEND=http://localhost:3001/api/v1 \
-//     node scripts/verify/scripon-verify.mjs
+//     node scripts/verify/scripton-verify.mjs
 //
 // Add a scenario to SCENARIOS to gate a new screen. Exit code 0 = all pass.
 
@@ -131,7 +131,7 @@ const studioExpect = async (page, r) => {
   r.assert('7-item sub-nav', r.subnav === 7);
   r.assert('4 export cards', r.exportCards === 4);
   r.activeRail = (await page.locator('.rail .ritem.on .lbl').first().innerText().catch(() => '')).trim();
-  r.assert('Studio rail item highlighted on /scripon/settings', r.activeRail === 'Studio');
+  r.assert('Studio rail item highlighted on /scripton/settings', r.activeRail === 'Studio');
 };
 
 // The single-canvas Doctor: no tabs, verdict banner, 5-tile scorecard, 2×4
@@ -151,12 +151,12 @@ const doctorExpect = async (page, r) => {
 };
 
 const SCENARIOS = [
-  { name: 'home-desktop', route: '/scripon', storage: {}, viewport: DESKTOP, expect: homeExpect },
-  { name: 'home-tablet', route: '/scripon', storage: {}, viewport: TABLET, expect: homeExpect },
-  { name: 'home-mobile', route: '/scripon', storage: {}, viewport: MOBILE, expect: homeExpect },
+  { name: 'home-desktop', route: '/scripton', storage: {}, viewport: DESKTOP, expect: homeExpect },
+  { name: 'home-tablet', route: '/scripton', storage: {}, viewport: TABLET, expect: homeExpect },
+  { name: 'home-mobile', route: '/scripton', storage: {}, viewport: MOBILE, expect: homeExpect },
   {
     name: 'home-old-fallback',
-    route: '/scripon',
+    route: '/scripton',
     storage: { 'scripon.osShell': 'old' },
     viewport: DESKTOP,
     expect: async (page, r) => {
@@ -167,12 +167,12 @@ const SCENARIOS = [
       r.assert('new Home NOT mounted under old flag', (await page.locator('.sx.home').count()) === 0);
     },
   },
-  { name: 'doctor-desktop', route: '/scripon/doctor', storage: {}, viewport: DESKTOP, expect: doctorExpect },
-  { name: 'doctor-tablet', route: '/scripon/doctor', storage: {}, viewport: TABLET, expect: doctorExpect },
-  { name: 'doctor-mobile', route: '/scripon/doctor', storage: {}, viewport: MOBILE, expect: doctorExpect },
+  { name: 'doctor-desktop', route: '/scripton/doctor', storage: {}, viewport: DESKTOP, expect: doctorExpect },
+  { name: 'doctor-tablet', route: '/scripton/doctor', storage: {}, viewport: TABLET, expect: doctorExpect },
+  { name: 'doctor-mobile', route: '/scripton/doctor', storage: {}, viewport: MOBILE, expect: doctorExpect },
   {
     name: 'doctor-old-fallback',
-    route: '/scripon/doctor',
+    route: '/scripton/doctor',
     storage: { 'scripon.osShell': 'old' },
     viewport: DESKTOP,
     expect: async (page, r) => {
@@ -182,24 +182,24 @@ const SCENARIOS = [
       r.assert('new Doctor canvas NOT mounted under old flag', (await page.locator('.sx.doctor').count()) === 0);
     },
   },
-  { name: 'studio-desktop', route: '/scripon/settings', storage: {}, viewport: DESKTOP, expect: studioExpect },
-  { name: 'studio-tablet', route: '/scripon/settings', storage: {}, viewport: TABLET, expect: studioExpect },
-  { name: 'studio-mobile', route: '/scripon/settings', storage: {}, viewport: MOBILE, expect: studioExpect },
+  { name: 'studio-desktop', route: '/scripton/settings', storage: {}, viewport: DESKTOP, expect: studioExpect },
+  { name: 'studio-tablet', route: '/scripton/settings', storage: {}, viewport: TABLET, expect: studioExpect },
+  { name: 'studio-mobile', route: '/scripton/settings', storage: {}, viewport: MOBILE, expect: studioExpect },
   {
-    // The route fix: Develop solely owns /scripon/studio and must highlight there.
+    // The route fix: Develop solely owns /scripton/studio and must highlight there.
     name: 'route-develop-highlight',
-    route: '/scripon/studio',
+    route: '/scripton/studio',
     storage: {},
     viewport: DESKTOP,
     expect: async (page, r) => {
       await page.waitForSelector('.rail .ritem.on .lbl', { timeout: 25000 });
       r.activeRail = (await page.locator('.rail .ritem.on .lbl').first().innerText()).trim();
-      r.assert('Develop rail item highlighted on /scripon/studio', r.activeRail === 'Develop');
+      r.assert('Develop rail item highlighted on /scripton/studio', r.activeRail === 'Develop');
     },
   },
   {
     name: 'studio-old-fallback',
-    route: '/scripon/settings',
+    route: '/scripton/settings',
     storage: { 'scripon.osShell': 'old' },
     viewport: DESKTOP,
     expect: async (page, r) => {
@@ -208,12 +208,12 @@ const SCENARIOS = [
       r.assert('new Studio NOT mounted under old flag', (await page.locator('.sx.studio').count()) === 0);
     },
   },
-  { name: 'room-desktop', route: '/scripon/notes', storage: {}, viewport: DESKTOP, expect: roomExpect },
-  { name: 'room-tablet', route: '/scripon/notes', storage: {}, viewport: TABLET, expect: roomExpect },
-  { name: 'room-mobile', route: '/scripon/notes', storage: {}, viewport: MOBILE, expect: roomExpect },
+  { name: 'room-desktop', route: '/scripton/notes', storage: {}, viewport: DESKTOP, expect: roomExpect },
+  { name: 'room-tablet', route: '/scripton/notes', storage: {}, viewport: TABLET, expect: roomExpect },
+  { name: 'room-mobile', route: '/scripton/notes', storage: {}, viewport: MOBILE, expect: roomExpect },
   {
     name: 'room-old-fallback',
-    route: '/scripon/notes',
+    route: '/scripton/notes',
     storage: { 'scripon.osShell': 'old' },
     viewport: DESKTOP,
     expect: async (page, r) => {
@@ -222,12 +222,12 @@ const SCENARIOS = [
       r.assert('new Room NOT mounted under old flag', (await page.locator('.sx.room').count()) === 0);
     },
   },
-  { name: 'develop-desktop', route: '/scripon/studio?tab=builds', storage: {}, viewport: DESKTOP, expect: developExpect },
-  { name: 'develop-tablet', route: '/scripon/studio?tab=builds', storage: {}, viewport: TABLET, expect: developExpect },
-  { name: 'develop-mobile', route: '/scripon/studio?tab=builds', storage: {}, viewport: MOBILE, expect: developExpect },
+  { name: 'develop-desktop', route: '/scripton/studio?tab=builds', storage: {}, viewport: DESKTOP, expect: developExpect },
+  { name: 'develop-tablet', route: '/scripton/studio?tab=builds', storage: {}, viewport: TABLET, expect: developExpect },
+  { name: 'develop-mobile', route: '/scripton/studio?tab=builds', storage: {}, viewport: MOBILE, expect: developExpect },
   {
     name: 'develop-old-fallback',
-    route: '/scripon/studio?tab=builds',
+    route: '/scripton/studio?tab=builds',
     storage: { 'scripon.osShell': 'old' },
     viewport: DESKTOP,
     expect: async (page, r) => {
@@ -236,12 +236,12 @@ const SCENARIOS = [
       r.assert('Builds panel NOT OS-reskinned under old flag', (await page.locator('.bld.osnew').count()) === 0);
     },
   },
-  { name: 'canon-desktop', route: '/scripon/canon', storage: {}, viewport: DESKTOP, expect: canonExpect },
-  { name: 'canon-tablet', route: '/scripon/canon', storage: {}, viewport: TABLET, expect: canonExpect },
-  { name: 'canon-mobile', route: '/scripon/canon', storage: {}, viewport: MOBILE, expect: canonExpect },
+  { name: 'canon-desktop', route: '/scripton/canon', storage: {}, viewport: DESKTOP, expect: canonExpect },
+  { name: 'canon-tablet', route: '/scripton/canon', storage: {}, viewport: TABLET, expect: canonExpect },
+  { name: 'canon-mobile', route: '/scripton/canon', storage: {}, viewport: MOBILE, expect: canonExpect },
   {
     name: 'canon-old-fallback',
-    route: '/scripon/canon',
+    route: '/scripton/canon',
     storage: { 'scripon.osShell': 'old' },
     viewport: DESKTOP,
     expect: async (page, r) => {

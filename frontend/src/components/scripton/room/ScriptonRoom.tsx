@@ -1,6 +1,6 @@
 'use client';
 /**
- * ScriptON · Room (3-column) — route /scripon/notes under the `new` shell flag.
+ * ScriptON · Room (3-column) — route /scripton/notes under the `new` shell flag.
  * Consolidates Notes + Approvals + Distribution (Figma 6:156; mobile 49:3).
  * Presentational; the page owns data + the real Resolve→approvalsApi routing.
  * Replies + distribution-viewed are honest stubs; the ↳ Revision Pass chip

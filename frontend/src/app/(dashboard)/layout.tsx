@@ -88,7 +88,7 @@ const MODULES: Module[] = [
     { label: 'Rate Approvals', href: '/setup/rate-approvals' },
   ]},
   { key: 'scripts', label: 'ScriptON', icon: ScrollText, pages: [
-    { label: '✦ Script Hub', href: '/scripon' },
+    { label: '✦ Script Hub', href: '/scripton' },
     { label: '✦ Reader', href: '/script-workspace' },
     { label: 'Script Library (classic)', href: '/scripts' },
     { label: 'Audio Engines', href: '/setup/audio-engines' },
@@ -220,7 +220,7 @@ const lsSet = (k: string, v: any) => { try { localStorage.setItem(k, JSON.string
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const shellFlag = useScriptonShellFlag();
-  const isScripton = pathname.startsWith('/scripon');
+  const isScripton = pathname.startsWith('/scripton');
   useEffect(() => { rememberFilmosRoute(pathname); }, [pathname]);
   const router = useRouter();
   const { locale, t, isRTL, setLocale } = useLocale();

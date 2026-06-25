@@ -1,7 +1,7 @@
 'use client';
 /**
  * ScriptON Doctor — Dashboard / command centre (carbon-copy of design/dashboard.html).
- * Self-contained, namespaced under `.sx`. Live data passed in by /scripon page; sample fallback.
+ * Self-contained, namespaced under `.sx`. Live data passed in by /scripton page; sample fallback.
  */
 import React from 'react';
 import { SxRail } from './ScriptOnStudio';

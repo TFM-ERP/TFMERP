@@ -1,7 +1,7 @@
 'use client';
 /**
  * ScriptON Doctor — Script Reader (carbon-copy of design/ScriptHub-Reader-Desktop-HiFi.html).
- * Presentational shell; all data + actions are passed in by the /scripon page.
+ * Presentational shell; all data + actions are passed in by the /scripton page.
  * CSS is the locked design, namespaced under `.sx` so it cannot leak into the app.
  */
 import React from 'react';

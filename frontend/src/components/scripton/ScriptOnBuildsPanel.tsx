@@ -4,7 +4,7 @@ import { productionApi } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
 
 /** Builds — name, save, switch and promote development builds. Folded into Studio as an overlay panel
- *  (was the standalone /scripon/builds). Open loads that build into Studio; Promote snapshots into a project. */
+ *  (was the standalone /scripton/builds). Open loads that build into Studio; Promote snapshots into a project. */
 const CSS = `
 .bld{--bg:#0b0c0f;--panel:#14161c;--hair:rgba(255,255,255,.07);--hair2:rgba(255,255,255,.13);--gold:#C6A463;--gold2:#E6D2A2;--goldink:#1a1509;--cream:#F4EEE0;--text:#E8E6E0;--mute:#9aa1ab;--faint:#6b727d;--green:#57b368;--blue:#5b8def;background:radial-gradient(1200px 600px at 50% -8%,#15171d,#0b0c0f 60%);min-height:100vh;color:var(--text);font-family:var(--sx-body)}
 .bld *{box-sizing:border-box}
@@ -92,8 +92,8 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
   const list = bin ? (Array.isArray(builds) ? builds : []) : ((builds && builds.length) ? builds : (builds === null ? SAMPLE : []));
   const shown = list.filter((b) => filter === 'All' || String(b.status || 'DRAFT').toUpperCase() === filter.toUpperCase());
 
-  const openBuild = (id: string) => { if (typeof window !== 'undefined') window.location.assign('/scripon/studio?build=' + id); };
-  const openScript = (docId: string) => { if (docId && typeof window !== 'undefined') window.location.assign('/scripon/script?doc=' + docId); };
+  const openBuild = (id: string) => { if (typeof window !== 'undefined') window.location.assign('/scripton/studio?build=' + id); };
+  const openScript = (docId: string) => { if (docId && typeof window !== 'undefined') window.location.assign('/scripton/script?doc=' + docId); };
   const cycleStatus = async (b: any) => { if (isDemo(b)) { flash(t('Demo build - connect a project to manage status.')); return; } const order = ['DRAFT', 'REVIEW', 'GREENLIT']; const cur = String(b.status || 'DRAFT').toUpperCase(); const next = order[(order.indexOf(cur) + 1) % order.length]; try { await productionApi.scripton.development.setBuildStatus(b.id, next); flash(t('Status') + ' \u2192 ' + next.charAt(0) + next.slice(1).toLowerCase()); if (projectId) await load(projectId, bin); } catch { flash(t('Could not update status.')); } };
   const openModal = (b: any) => { setModal(b); setTarget('existing'); setNewName(b.name + ' (project)'); };
 

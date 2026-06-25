@@ -1,6 +1,6 @@
 'use client';
 /**
- * ScriptON · Home (OS landing) — route /scripon under the `new` shell flag.
+ * ScriptON · Home (OS landing) — route /scripton under the `new` shell flag.
  * Greet → Continue hero → Your Slate + Activity. Reuses existing project/
  * library/script data; kernel-only bits (continuity %, render activity)
  * degrade gracefully when the kernel is inert on this branch.
@@ -162,9 +162,9 @@ export default function ScriptonHome() {
     return () => { alive = false; };
   }, []);
 
-  const openScript = (_id?: string) => router.push('/scripon/reader');
-  const newBuild = () => router.push('/scripon/studio?tab=builds');
-  const importScript = () => router.push('/scripon/library');
+  const openScript = (_id?: string) => router.push('/scripton/reader');
+  const newBuild = () => router.push('/scripton/studio?tab=builds');
+  const importScript = () => router.push('/scripton/library');
 
   return (
     <>

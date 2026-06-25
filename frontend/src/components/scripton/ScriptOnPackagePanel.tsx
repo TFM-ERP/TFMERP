@@ -4,7 +4,7 @@ import { productionApi } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
 
 /** Coverage package — role types, world/look boards, honest market read, living notes.
- *  Folded into the Doctor as a surface overlay (was the standalone /scripon/package). No performers, no faces. */
+ *  Folded into the Doctor as a surface overlay (was the standalone /scripton/package). No performers, no faces. */
 const CSS = `
 .pkg{--bg:#0b0c0f;--panel:#14161c;--hair:rgba(255,255,255,.07);--gold:#C6A463;--gold2:#E6D2A2;--goldink:#1a1509;--cream:#F4EEE0;--text:#E8E6E0;--mute:#9aa1ab;--faint:#6b727d;--green:#57b368;--amber:#e0a23b;background:radial-gradient(1200px 600px at 50% -8%,#15171d,#0b0c0f 60%);min-height:100vh;color:var(--text);font-family:var(--sx-body)}
 .pkg *{box-sizing:border-box}

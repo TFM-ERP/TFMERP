@@ -1,6 +1,6 @@
 'use client';
 /**
- * ScriptON · Studio (single-canvas) — route /scripon/settings under the `new`
+ * ScriptON · Studio (single-canvas) — route /scripton/settings under the `new`
  * shell flag. Consolidates Settings/Governance + Protected-Export into one
  * cinematic workspace (Figma 38:198): title → left sub-nav → active section.
  * Presentational; the page owns data + the export flows + modals. Drops the

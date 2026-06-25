@@ -63,7 +63,7 @@ export default function ScriptOnCompsDeck({ projectId, onClose }: { projectId: s
                 ))}
               </div>
             )}
-            <a href="/scripon/greenlight" style={{ display: 'block', textAlign: 'center', marginTop: 16, background: 'rgba(198,164,99,0.14)', color: C.gold, border: `1px solid ${C.gold}55`, borderRadius: 10, padding: '9px', fontSize: 12.5, textDecoration: 'none' }}>{t('Open full market & greenlight')} {dir === 'rtl' ? '←' : '→'}</a>
+            <a href="/scripton/greenlight" style={{ display: 'block', textAlign: 'center', marginTop: 16, background: 'rgba(198,164,99,0.14)', color: C.gold, border: `1px solid ${C.gold}55`, borderRadius: 10, padding: '9px', fontSize: 12.5, textDecoration: 'none' }}>{t('Open full market & greenlight')} {dir === 'rtl' ? '←' : '→'}</a>
           </>
         )}
       </div>

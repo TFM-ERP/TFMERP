@@ -18,6 +18,13 @@ const nextConfig = {
       { source: '/uploads/:path*', destination: `${BACKEND}/uploads/:path*` },
     ];
   },
+  // ScripON → ScriptON route rename: keep old links/bookmarks working.
+  async redirects() {
+    return [
+      { source: '/scripon', destination: '/scripton', permanent: true },
+      { source: '/scripon/:path*', destination: '/scripton/:path*', permanent: true },
+    ];
+  },
 };
 
 module.exports = nextConfig;

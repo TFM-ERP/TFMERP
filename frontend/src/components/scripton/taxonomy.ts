@@ -2,7 +2,7 @@
  * ScriptON intake taxonomy — the UI mirror of backend/src/production/scripton/knowledge/genres.ts.
  * Ids/labels are kept in sync so the Brief UI and the generation steering speak the same vocabulary.
  * Each item carries an Arabic label for the RTL interface. Guideline:
- * docs/knowledge-base/scripon/00-format-engine.md
+ * docs/knowledge-base/scripton/00-format-engine.md
  */
 
 export interface Tx { id: string; label: string; ar: string }

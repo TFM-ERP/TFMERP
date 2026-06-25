@@ -247,7 +247,7 @@ export const RAIL10: { k: string; lbl: string; d: React.ReactNode }[] = [
   { k: 'reports', lbl: 'Reports', d: <path d="M3 3v18h18M7 14l3-3 3 3 5-6" /> },
 ];
 
-const RAIL_ROUTES: Record<string, string> = { home: '/home', library: '/scripon/library', reader: '/scripon/reader', breakdown: '/scripon/breakdown', schedule: '/scripon/schedule', coverage: '/scripon/coverage', dialect: '/scripon/dialect', studio: '/scripon/studio', greenlight: '/scripon/greenlight', reports: '/scripon/reports', settings: '/scripon/settings' };
+const RAIL_ROUTES: Record<string, string> = { home: '/home', library: '/scripton/library', reader: '/scripton/reader', breakdown: '/scripton/breakdown', schedule: '/scripton/schedule', coverage: '/scripton/coverage', dialect: '/scripton/dialect', studio: '/scripton/studio', greenlight: '/scripton/greenlight', reports: '/scripton/reports', settings: '/scripton/settings' };
 export function SxRail(props: { active: string; onNav?: (k: string) => void }) {
   const router = useRouter();
   const pathname = usePathname();
