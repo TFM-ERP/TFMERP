@@ -13,6 +13,7 @@ import ScripOnBuildsPanel from '@/components/scripon/ScripOnBuildsPanel';
 import ScripOnBuildScreen from '@/components/scripon/ScripOnBuildScreen';
 import { useViewport } from '@/components/scripon/useViewport';
 import { useScriponBack } from '@/components/scripon/useScriponBack';
+import { useScriponShellFlag } from '@/components/scripon/osShellFlag';
 
 const STAGE_ORDER = ['LOGLINE', 'SYNOPSIS', 'TREATMENT', 'BEATS', 'SCENES', 'STEP_OUTLINE', 'DRAFT', 'COVERAGE'];
 const BUILD_ORDER: [string, string][] = [['LOGLINE', 'Logline'], ['SYNOPSIS', 'Synopsis'], ['TREATMENT', 'Treatment'], ['BEATS', 'Beats'], ['SCENES', 'Scenes'], ['STEP_OUTLINE', 'Step outline'], ['DRAFT', 'Draft']];
@@ -35,6 +36,7 @@ export default function StudioPage() {
   const { t } = useLocale();
   const vp = useViewport();
   const onBack = useScriponBack();
+  const osNew = useScriponShellFlag() === 'new'; // light OS re-skin (Develop screen 5)
   const [title, setTitle] = useState('Midnight Run');
   const [projectId, setProjectId] = useState<string | null>(null);
   const [mode, setMode] = useState('builds');
@@ -271,8 +273,8 @@ export default function StudioPage() {
 
   if (!mounted) return null;
   const RC: any = vp === 'mobile' ? ScripOnStudioMobile : vp === 'tablet' ? ScripOnStudioTablet : ScripOnStudio;
-  return (<><RC title={title} meta={t('Studio · seed → script')} mode={mode} onTab={onTab} showDevelop={mode === 'develop' || !!buildIdRef.current} ladder={ladder} spine={spine} comps={COMPS} note={t('Doctor: keep every stage true to the approved spine.')} adaptResult={adaptResult} formatResult={formatResult} formatTarget={formatTarget} busy={busy} genBusy={genBusy}
-    onNav={onNav} onBack={onBack} onAction={onAction} onAdapt={onAdapt} onFormat={onFormat} onPick={onPickDirection} onRegenerate={onRegenerate} onSwitchVersion={onSwitchVersion} onPromote={onPromote} onFramework={onFramework} onRead={onRead} onBranch={onBranch} onPromoteScript={onPromoteScript} reads={reads} toast={toast} />{mode === 'adapt' && projectId ? <ScripOnIntake projectId={projectId} busy={genBusy === 'LOGLINE'} onBegin={onIntakeBegin} onClose={() => setMode('develop')} /> : null}{mode === 'builds' && projectId ? <ScripOnBuildsPanel projectId={projectId} onClose={() => { if (buildIdRef.current) setMode('develop'); else router.push('/home'); }} onNewBuild={() => setMode('adapt')} railGap={vp === 'mobile' || vp === 'tablet' ? 0 : 74} /> : null}{building ? <ScripOnBuildScreen title={buildName} items={buildItems} status={buildStatus} error={buildError} progress={buildProgress} actions={buildActions} directions={buildDirections} onPick={onBuildPick} onRegen={onBuildRegen} onContinue={() => { try { if (projectId) window.localStorage.removeItem('scripon.dir.' + projectId); } catch { } setBuilding(false); setBuildActions(null); setBuildProgress(null); setMode('develop'); }} /> : null}
+  return (<><RC osNew={osNew} title={title} meta={t('Studio · seed → script')} mode={mode} onTab={onTab} showDevelop={mode === 'develop' || !!buildIdRef.current} ladder={ladder} spine={spine} comps={COMPS} note={t('Doctor: keep every stage true to the approved spine.')} adaptResult={adaptResult} formatResult={formatResult} formatTarget={formatTarget} busy={busy} genBusy={genBusy}
+    onNav={onNav} onBack={onBack} onAction={onAction} onAdapt={onAdapt} onFormat={onFormat} onPick={onPickDirection} onRegenerate={onRegenerate} onSwitchVersion={onSwitchVersion} onPromote={onPromote} onFramework={onFramework} onRead={onRead} onBranch={onBranch} onPromoteScript={onPromoteScript} reads={reads} toast={toast} />{mode === 'adapt' && projectId ? <ScripOnIntake projectId={projectId} busy={genBusy === 'LOGLINE'} onBegin={onIntakeBegin} onClose={() => setMode('develop')} /> : null}{mode === 'builds' && projectId ? <ScripOnBuildsPanel osNew={osNew} projectId={projectId} onClose={() => { if (buildIdRef.current) setMode('develop'); else router.push('/home'); }} onNewBuild={() => setMode('adapt')} railGap={vp === 'mobile' || vp === 'tablet' ? 0 : 74} /> : null}{building ? <ScripOnBuildScreen title={buildName} items={buildItems} status={buildStatus} error={buildError} progress={buildProgress} actions={buildActions} directions={buildDirections} onPick={onBuildPick} onRegen={onBuildRegen} onContinue={() => { try { if (projectId) window.localStorage.removeItem('scripon.dir.' + projectId); } catch { } setBuilding(false); setBuildActions(null); setBuildProgress(null); setMode('develop'); }} /> : null}
     {(buildIdRef.current && mode === 'develop') ? (
       <div style={{ position: 'fixed', top: 14, insetInlineStart: '50%', transform: 'translateX(-50%)', zIndex: 64, display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(19,21,27,0.96)', border: '1px solid rgba(198,164,99,0.3)', borderRadius: 999, padding: '5px 8px', boxShadow: '0 8px 28px rgba(0,0,0,0.5)', fontFamily: 'var(--sx-body)' }}>
         <span style={{ fontSize: 10.5, color: '#9aa1ab', fontWeight: 700, letterSpacing: 0.5, paddingInlineStart: 4 }}>{t('VERSIONS')}</span>

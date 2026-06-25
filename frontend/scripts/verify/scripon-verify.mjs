@@ -69,6 +69,24 @@ const DESKTOP = { width: 1440, height: 900 };
 const TABLET = { width: 1000, height: 1200 };
 const MOBILE = { width: 390, height: 844 };
 
+// Develop (light re-skin): the Builder's Builds panel in one OS shell, Develop
+// highlighted, the vestigial Close dropped, + New build kept, no console errors.
+const developExpect = async (page, r) => {
+  await page.waitForSelector('.bld', { timeout: 25000 });
+  // The re-skin is the shared Builds panel — applies at every breakpoint.
+  r.closeBtn = await page.locator('.bld .top .btn.ghost').count();
+  r.assert('vestigial Close button dropped', r.closeBtn === 0);
+  r.assert('+ New build kept', (await page.locator('.bld .top .btn.gold').count()) >= 1);
+  r.assert('OS-reskinned Builds panel (.bld.osnew)', (await page.locator('.bld.osnew').count()) === 1);
+  // The 9-workspace OS rail is the desktop Builder shell; tablet/mobile keep the
+  // Builder's own device nav (existing breakpoint logic).
+  r.rails = await page.locator('.rail').count();
+  if (r.rails > 0) {
+    r.activeRail = (await page.locator('.rail .ritem.on .lbl').first().innerText().catch(() => '')).trim();
+    r.assert('Develop rail item highlighted (desktop OS rail)', r.activeRail === 'Develop');
+  }
+};
+
 // The 3-column Room: title, Notes + Thread + (Approval chain + Distribution),
 // single shell, no console errors. Mobile carries the 3-tab review-first control.
 const roomExpect = async (page, r) => {
@@ -188,6 +206,20 @@ const SCENARIOS = [
       r.assert('new Room NOT mounted under old flag', (await page.locator('.sx.room').count()) === 0);
     },
   },
+  { name: 'develop-desktop', route: '/scripon/studio?tab=builds', storage: {}, viewport: DESKTOP, expect: developExpect },
+  { name: 'develop-tablet', route: '/scripon/studio?tab=builds', storage: {}, viewport: TABLET, expect: developExpect },
+  { name: 'develop-mobile', route: '/scripon/studio?tab=builds', storage: {}, viewport: MOBILE, expect: developExpect },
+  {
+    name: 'develop-old-fallback',
+    route: '/scripon/studio?tab=builds',
+    storage: { 'scripon.osShell': 'old' },
+    viewport: DESKTOP,
+    expect: async (page, r) => {
+      await page.waitForSelector('.bld', { timeout: 25000 });
+      r.assert('old flag keeps the Close button', (await page.locator('.bld .top .btn.ghost').count()) >= 1);
+      r.assert('Builds panel NOT OS-reskinned under old flag', (await page.locator('.bld.osnew').count()) === 0);
+    },
+  },
 ];
 
 // Cache the token between runs so repeated verifications don't trip the
@@ -259,7 +291,7 @@ async function run() {
       await page.goto(`${FRONTEND}${sc.route}`, { waitUntil: 'networkidle', timeout: 45000 });
       r.finalUrl = page.url();
       r.assert(`stayed on ${sc.route} (not redirected to /login or /setup)`,
-        new URL(r.finalUrl).pathname.startsWith(sc.route));
+        new URL(r.finalUrl).pathname.startsWith(sc.route.split('?')[0]));
       await sc.expect(page, r);
     } catch (e) {
       r.errors.push(`[harness] ${e.message}`);

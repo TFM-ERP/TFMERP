@@ -19,6 +19,7 @@ const CSS = `
 .bld .body{flex:1;display:flex;min-height:0}
 .bld .main{flex:1;min-width:0;display:flex;flex-direction:column;padding:24px 30px;gap:18px}
 .bld .phead h1{font-size:24px;font-weight:800;color:var(--cream)}.bld .phead .sub{font-size:13px;color:var(--mute);margin-top:4px}
+.bld.osnew .phead h1{font-family:var(--sx-title);font-weight:500;letter-spacing:-.3px;font-size:25px}.bld.osnew .top .proj{font-family:var(--sx-title);font-weight:600}
 .bld .tbar{display:flex;align-items:center;gap:8px}
 .bld .chip{padding:7px 13px;border-radius:999px;font-size:12.5px;font-weight:600;color:var(--mute);background:#171a20;border:1px solid var(--hair);cursor:pointer}.bld .chip.on{background:rgba(198,164,99,.14);border-color:rgba(198,164,99,.45);color:var(--gold2)}
 .bld .grid{flex:1;display:grid;grid-template-columns:repeat(3,1fr);gap:16px;align-content:start;overflow:auto}
@@ -57,7 +58,7 @@ const SAMPLE = [
   { id: 'b4', name: 'Oryx — pilot', status: 'DRAFT', updatedAt: null, linkedProjectId: null },
 ];
 
-export default function ScripOnBuildsPanel({ projectId, onClose, onNewBuild, railGap = 0 }: { projectId: string | null; onClose: () => void; onNewBuild?: () => void; railGap?: number }) {
+export default function ScripOnBuildsPanel({ projectId, onClose, onNewBuild, railGap = 0, osNew = false }: { projectId: string | null; onClose: () => void; onNewBuild?: () => void; railGap?: number; osNew?: boolean }) {
   const { dir, t } = useLocale();
   const [builds, setBuilds] = useState<any[] | null>(null);
   const [projects, setProjects] = useState<any[]>([]);
@@ -113,10 +114,10 @@ export default function ScripOnBuildsPanel({ projectId, onClose, onNewBuild, rai
   };
 
   return (
-    <div className="bld" dir={dir} style={{ position: 'fixed', top: 0, right: 0, bottom: 0, left: railGap, zIndex: 80, overflow: 'auto' }}>
+    <div className={'bld' + (osNew ? ' osnew' : '')} dir={dir} style={{ position: 'fixed', top: 0, right: 0, bottom: 0, left: railGap, zIndex: 80, overflow: 'auto' }}>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       <div className="scr">
-        <div className="top"><div className="tl"><div className="logo" onClick={onClose} title={t('Close')}>TFM</div><div className="proj">{t('Development builds')}</div><span className="meta">{t('standalone · unlinked until you promote')}</span></div><div style={{ display: 'flex', gap: 8 }}><div className="btn gold" onClick={onNewBuild || onClose}><svg className="ico" viewBox="0 0 24 24" style={{ stroke: '#1a1509' }}><path d="M12 5v14M5 12h14" /></svg>{t('New build')}</div><div className="btn ghost" onClick={onClose}>{t('Close')}</div></div></div>
+        <div className="top"><div className="tl"><div className="logo" onClick={onClose} title={t('Close')}>TFM</div><div className="proj">{t('Development builds')}</div><span className="meta">{t('standalone · unlinked until you promote')}</span></div><div style={{ display: 'flex', gap: 8 }}><div className="btn gold" onClick={onNewBuild || onClose}><svg className="ico" viewBox="0 0 24 24" style={{ stroke: '#1a1509' }}><path d="M12 5v14M5 12h14" /></svg>{t('New build')}</div>{!osNew ? <div className="btn ghost" onClick={onClose}>{t('Close')}</div> : null}</div></div>
         <div className="body">
           <div className="main">
             <div className="phead"><h1>{t('Builds')}</h1><div className="sub">{t('Name, save and switch development builds. Open loads a build into Studio; promote a finished build into a project.')}</div></div>

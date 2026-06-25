@@ -124,6 +124,7 @@ const CSS = `
 .sx .phead h1{font-size:24px;font-weight:800;color:var(--cream);letter-spacing:-.5px}
 .sx .sub{font-size:13px;color:var(--mute);margin-top:4px;max-width:680px}
 .sx .eyebrow{font-size:11px;font-weight:700;letter-spacing:1.4px;color:var(--gold)}
+.sx.osnew .phead h1{font-family:var(--sx-title);font-weight:500;letter-spacing:-.3px}
 .sx .tabs{display:flex;gap:8px}
 .sx .tab{padding:9px 16px;border-radius:11px;font-size:13px;font-weight:600;color:var(--mute);background:#171a20;border:1px solid var(--hair);cursor:pointer;display:flex;align-items:center;gap:7px}
 .sx .tab .ico{width:15px;height:15px}
@@ -302,7 +303,7 @@ export default function ScripOnStudio(props: {
   title: string; meta: string; mode: string; onTab: (k: string) => void; showDevelop?: boolean;
   ladder: SxLadder[]; spine: SxSpine[]; comps: string[]; note?: string;
   adaptResult: SxDirection[]; formatResult: SxEpisode[]; formatTarget: string; busy?: string;
-  onNav: (k: string) => void; onBack: () => void; onAction: (k: string) => void; onAdapt: (source: string) => void; onFormat: (target: string) => void; onPick?: (d: SxDirection, i: number) => void; onRegenerate?: (kind: string) => void; onSwitchVersion?: (stageId: string, dir: number) => void; onPromote?: (versionId: string) => void; onFramework?: (kind: string, fw: string) => void; onRead?: (versionId: string) => void; onBranch?: (stageId: string, versionId: string) => void; onPromoteScript?: (versionId: string) => void; reads?: Record<string, any>; approvals?: boolean; genBusy?: string | null; toast?: string | null;
+  onNav: (k: string) => void; onBack: () => void; onAction: (k: string) => void; onAdapt: (source: string) => void; onFormat: (target: string) => void; onPick?: (d: SxDirection, i: number) => void; onRegenerate?: (kind: string) => void; onSwitchVersion?: (stageId: string, dir: number) => void; onPromote?: (versionId: string) => void; onFramework?: (kind: string, fw: string) => void; onRead?: (versionId: string) => void; onBranch?: (stageId: string, versionId: string) => void; onPromoteScript?: (versionId: string) => void; reads?: Record<string, any>; approvals?: boolean; genBusy?: string | null; toast?: string | null; osNew?: boolean;
 }) {
   const { dir, t } = useLocale();
   const [src, setSrc] = useState('');
@@ -313,7 +314,7 @@ export default function ScripOnStudio(props: {
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
-      <div className="sx" dir={dir} style={{ position: 'fixed', inset: 0, zIndex: 50 }}>
+      <div className={'sx' + (props.osNew ? ' osnew' : '')} dir={dir} style={{ position: 'fixed', inset: 0, zIndex: 50 }}>
         <div className="top">
           <div className="tl">
             <div className="logo" onClick={props.onBack} title={t('Back to FilmOS')}>TFM</div>
