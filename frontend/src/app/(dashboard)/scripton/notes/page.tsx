@@ -7,7 +7,7 @@ import { useMemo, useRef, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { productionApi, approvalsApi } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
-import { pickScriptonProject } from '@/components/scripton/useScriptonProject';
+import { pickScriptonProject, resolveScriptonProjectId } from '@/components/scripton/useScriptonProject';
 import ScriptOnNotes, { SxNote, SxThread } from '@/components/scripton/ScriptOnNotes';
 import ScriptOnNotesTablet from '@/components/scripton/ScriptOnNotesTablet';
 import ScriptOnNotesMobile from '@/components/scripton/ScriptOnNotesMobile';
@@ -56,12 +56,16 @@ export default function ScriptOnNotesPage() {
       try {
         const pr: any = await productionApi.projects.list();
         const projects = pr.data?.items ?? (Array.isArray(pr.data) ? pr.data : []);
-        const proj = pickScriptonProject(projects); if (!proj?.id) return;
-        if (alive) { setTitle(proj.name || proj.title || 'ScriptON'); setProjectId(proj.id); }
+        let proj = pickScriptonProject(projects);
+        // Cold workspace cache → resolve the Library workspace explicitly.
+        if (!proj?.id) { const wid = await resolveScriptonProjectId(); if (wid) proj = { id: wid, name: 'ScriptON Library' }; }
+        if (!proj?.id) return;
+        if (alive) setProjectId(proj.id);
         try { const ar: any = await approvalsApi.forProject(proj.id); if (alive) setApprovals(Array.isArray(ar.data) ? ar.data : (ar.data?.items ?? [])); } catch { /* none */ }
         try { const ex: any = await productionApi.scripton.reviewProtection.listExports(proj.id); if (alive) setExports(Array.isArray(ex.data) ? ex.data : (ex.data?.items ?? ex.data?.exports ?? [])); } catch { /* none */ }
         const dr: any = await productionApi.script.list(proj.id);
         const docs = Array.isArray(dr.data) ? dr.data : (dr.data?.items ?? []);
+        if (alive) setTitle(docs[0]?.title || proj.name || proj.title || 'ScriptON');
         const revId = docs[0]?.activeRevisionId || docs[0]?.revisions?.[0]?.id; if (!revId) return;
         try { const rv: any = await productionApi.script.getRevision(revId); if (alive && rv.data) { setRevLabel(rv.data.revisionLabel || 'WHITE'); setRevColor(rv.data.colorCode || '#cfd3da'); } } catch { /* */ }
         const an: any = await productionApi.scriptAnnotations.list(revId).catch(() => null);

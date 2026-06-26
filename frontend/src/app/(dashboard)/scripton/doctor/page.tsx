@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { productionApi } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
-import { pickScriptonProject } from '@/components/scripton/useScriptonProject';
+import { pickScriptonProject, resolveScriptonProjectId } from '@/components/scripton/useScriptonProject';
 import ScriptOnDoctor, { SxGauge, SxCoverage, SxDiag, SxPt, SxTab } from '@/components/scripton/ScriptOnDoctor';
 import ScriptOnDoctorTablet from '@/components/scripton/ScriptOnDoctorTablet';
 import ScriptOnDoctorMobile from '@/components/scripton/ScriptOnDoctorMobile';
@@ -78,11 +78,14 @@ export default function ScriptOnDoctorPage() {
   const { t } = useLocale();
   const vp = useViewport();
   const onBack = useScriptonBack();
-  const [title, setTitle] = useState('Midnight Run');
-  const [revLabel, setRevLabel] = useState('BLUE · v4');
+  // Start neutral — never seed the fictional "Midnight Run" sample. Real identity
+  // fills in on bind; with no coverage the component shows its honest "No coverage
+  // yet" state (driven by covRaw), not invented grades.
+  const [title, setTitle] = useState('');
+  const [revLabel, setRevLabel] = useState('');
   const [revColor, setRevColor] = useState('#5b8def');
-  const [gauges, setGauges] = useState<SxGauge[]>(SAMPLE_GAUGES);
-  const [cov, setCov] = useState<SxCoverage>(SAMPLE_COV);
+  const [gauges, setGauges] = useState<SxGauge[]>(NEUTRAL_GAUGES);
+  const [cov, setCov] = useState<SxCoverage>(null);
   const [covRaw, setCovRaw] = useState<any | null>(null); // raw latestCoverage for the new single-canvas
   const flag = useScriptonShellFlag();
   const [actHealth, setActHealth] = useState(SAMPLE_ACT);
@@ -106,7 +109,10 @@ export default function ScriptOnDoctorPage() {
       try {
         const pr: any = await productionApi.projects.list();
         const projects = pr.data?.items ?? (Array.isArray(pr.data) ? pr.data : []);
-        const proj = pickScriptonProject(projects); if (!proj?.id) return;
+        let proj = pickScriptonProject(projects);
+        // Cold workspace cache → resolve the Library workspace explicitly (don't keep neutral defaults).
+        if (!proj?.id) { const wid = await resolveScriptonProjectId(); if (wid) proj = { id: wid, name: 'ScriptON Library' }; }
+        if (!proj?.id) return;
         const dr: any = await productionApi.script.list(proj.id);
         const docs = Array.isArray(dr.data) ? dr.data : (dr.data?.items ?? []);
         const doc = docs[0];
@@ -117,7 +123,7 @@ export default function ScriptOnDoctorPage() {
         let aData: any = null; try { const a: any = await productionApi.scripton.analytics(proj.id); aData = a.data; } catch { /* */ }
         let nData: any[] = []; try { const nn: any = await productionApi.scripton.notes(proj.id); nData = Array.isArray(nn.data) ? nn.data : []; } catch { /* */ }
         if (!alive) return;
-        setProjectId(proj.id); setTitle(proj.name || proj.title || 'Project');
+        setProjectId(proj.id); setTitle(doc?.title || proj.name || proj.title || 'Script');
         if (rev) { setRevLabel(rev.revisionLabel || 'CURRENT'); setRevColor(rev.colorCode || '#5b8def'); }
         setActHealth(MUTED_ACT);
         setCovRaw(c || null);
