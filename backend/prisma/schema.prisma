@@ -8768,6 +8768,9 @@ model IntakeProfile {
   cultureEra       String?
   sensitivityTier  String?
   guardrails       Json?
+  // ScriptON collaboration + workspace defaults (SP-2)
+  collabMode       String  @default("AUTO") // AUTO | TEAM | SOLO
+  scriptonDefaults Json?   // { format, revisionColor, exportProtection }
   projectIntent    String?
   budgetTier       String?
   sourceKind       String?
