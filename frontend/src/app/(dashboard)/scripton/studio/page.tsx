@@ -185,7 +185,8 @@ export default function StudioPage() {
         ]);
         if (projectId) loadPipeline(projectId);
       };
-      let lastDone = -1; let lastChange = Date.now(); let pollErrs = 0;
+      let lastBeat = -1; let lastChange = Date.now(); let pollErrs = 0;
+      const STALL_MS = 420000; // 7 min \u2014 only while WRITING; a single scene's retries/failover can be slow but alive
       promoCrawl.current = setInterval(async () => {
         try {
           const pr: any = await productionApi.scripton.development.scriptProgress(docId);
@@ -194,14 +195,19 @@ export default function StudioPage() {
           const total = d.total || total0; const done = d.done || 0; const pages = d.pageCount || 0;
           if (d.status === 'DONE') { finish(pages); return; }
           if (d.status === 'ERROR') { clearInterval(promoCrawl.current); setBuildError(d.error || t('Generation failed. Your developed draft is safe.')); return; }
-          // Stall guard: if the scene counter hasn't moved for a few minutes, the backend job likely died \u2014 surface it instead of spinning forever.
-          if (done !== lastDone) { lastDone = done; lastChange = Date.now(); }
-          else if (Date.now() - lastChange > 240000) { clearInterval(promoCrawl.current); setBuildError(t('Generation stalled \u2014 no new pages for a few minutes. Your draft is safe. Check your AI engine in Engines & Routing, then try Send to production again.')); return; }
-          const pct = Math.max(2, Math.min(99, Math.round((done / Math.max(1, total)) * 100)));
-          const idx = done <= 0 ? 0 : done < total ? 1 : 2;
+          // Phase-aware stall guard. PLANNING maps the whole scene list in one long AI call before any
+          // scene is written, so the page counter can't move \u2014 that is NOT a stall. Watch the backend
+          // heartbeat (lastActivityAt) and only surface a stall once WRITING has started and the
+          // heartbeat truly goes cold. A dead backend process is caught by the pollErrs guard below.
+          const planning = d.phase === 'PLANNING' || (d.status === 'GENERATING' && done === 0 && !d.phase);
+          const beat = d.lastActivityAt || done; // advances whenever the backend is alive (planning passes + each scene)
+          if (beat !== lastBeat) { lastBeat = beat; lastChange = Date.now(); }
+          else if (!planning && Date.now() - lastChange > STALL_MS) { clearInterval(promoCrawl.current); setBuildError(t('Generation stalled \u2014 no progress for several minutes. Your draft is safe. Check your AI engine in Engines & Routing, then try Send to production again.')); return; }
+          const pct = planning ? 5 : Math.max(2, Math.min(99, Math.round((done / Math.max(1, total)) * 100)));
+          const idx = planning ? 0 : (done <= 0 ? 0 : done < total ? 1 : 2);
           setBuildProgress(pct);
           setBuildItems(steps.map((l, i) => ({ label: l, state: i < idx ? 'done' : i === idx ? 'active' : 'wait' })));
-          setBuildStatus(t('Writing scene') + ' ' + Math.min(done + 1, total) + ' ' + t('of') + ' ' + total + (pages ? ' \u00b7 ' + pages + ' ' + t('pages') : ''));
+          setBuildStatus(planning ? t(d.note || 'Planning the scenes \u2014 this can take a few minutes on long scripts.') : (t('Writing scene') + ' ' + Math.min(done + 1, total) + ' ' + t('of') + ' ' + total + (pages ? ' \u00b7 ' + pages + ' ' + t('pages') : '')));
         } catch { pollErrs++; if (pollErrs >= 8) { clearInterval(promoCrawl.current); setBuildError(t('Lost contact with the generation service. Your developed draft is safe \u2014 try Send to production again.')); } }
       }, 1700);
     } catch (e: any) {

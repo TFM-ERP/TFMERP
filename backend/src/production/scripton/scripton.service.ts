@@ -991,7 +991,7 @@ export class ScripOnService {
   }
 
   // ── Production hand-off: hierarchical, scene-by-scene feature generation (async + live progress). ──
-  private genProgress = new Map<string, { status: string; done: number; total: number; pageCount: number; error?: string; coverage?: string; coverageNote?: string }>();
+  private genProgress = new Map<string, { status: string; done: number; total: number; pageCount: number; error?: string; coverage?: string; coverageNote?: string; phase?: string; lastActivityAt?: number; note?: string; scenesPerEp?: number; seasonScenes?: number }>();
 
   scriptProgress(documentId: string) {
     return this.genProgress.get(documentId) || { status: 'UNKNOWN', done: 0, total: 0, pageCount: 0 };
@@ -1139,7 +1139,7 @@ export class ScripOnService {
   // the climax AND resolution, never stopping mid-story. Tolerant JSON parse + a continuation pass if it comes short.
   // `episode` (#45): map ONE pilot episode at the format's per-episode scene density instead of a
   // full feature — so a series targets its real per-episode volume, not the 55-90 feature band.
-  private async planScenes(ctx: string, projectId: string, spine = '', target = 55, episode = false): Promise<any[]> {
+  private async planScenes(ctx: string, projectId: string, spine = '', target = 55, episode = false, onBeat?: () => void): Promise<any[]> {
     const lo = episode ? target : Math.max(50, target); const hi = episode ? target + 6 : Math.max(70, target + 18);
     const sys = episode
       ? 'You are a screenwriter mapping the FIRST EPISODE (the pilot) of a series into ' + lo + '-' + hi + ' scenes. Open the series, establish the world / lead characters / central engine, and END on the episode hook or cliffhanger. Use the OPENING movement of the developed outline only — do NOT compress the whole season, and do NOT resolve the season arc. Return ONLY JSON {scenes:[{intExt, location, dayNight, brief, characters}]} — intExt is INT or EXT; dayNight DAY or NIGHT; brief = 1-2 sentences of what happens; characters = comma list. No prose outside the JSON.'
@@ -1151,6 +1151,7 @@ export class ScripOnService {
       return arr.map((s: any) => ({ intExt: s.intExt, location: s.location, dayNight: s.dayNight, brief: String(s.brief || ''), characters: Array.isArray(s.characters) ? s.characters.join(', ') : String(s.characters || '') }));
     };
     let scenes: any[] = [];
+    onBeat?.(); // planning heartbeat — this single call can run minutes on a long story
     try {
       const r: any = await this.ai.run({ task: 'scripton.feature.plan', system: sys, user: base(episode ? '\nMap the PILOT episode now (' + lo + '-' + hi + ' scenes), ending on the episode cliffhanger.' : '\nMap the FULL story now (' + lo + '-' + hi + ' scenes), ending on the final beat.'), maxTokens: 15000, timeoutMs: 230000, projectId, refType: 'Project', refId: projectId });
       scenes = parse(r);
@@ -1159,7 +1160,7 @@ export class ScripOnService {
     // the map reaches feature length AND the final beat — or a pass stops adding scenes — or we hit the ceiling.
     let passes = 0;
     while (spine && scenes.length && scenes.length < lo && passes < 5) {
-      passes++; const before = scenes.length;
+      passes++; onBeat?.(); const before = scenes.length;
       try {
         const tail = scenes.slice(-3).map((s: any) => '- ' + String(s.brief || '')).join('\n');
         const cont: any = await this.ai.run({ task: 'scripton.feature.plan', system: sys, user: base('\nYou have already mapped ' + scenes.length + ' scenes, ending with:\n' + tail + (episode ? '\nContinue the SAME pilot episode toward ~' + lo + ' scenes, ending on the episode cliffhanger — do NOT repeat earlier scenes. Return ONLY JSON {scenes:[...]} for the REMAINING scenes.' : '\nContinue the scene map from the NEXT beat through the FINAL beat (climax + resolution) — do NOT repeat earlier scenes. Return ONLY JSON {scenes:[...]} for the REMAINING scenes.')), maxTokens: 15000, timeoutMs: 230000, projectId, refType: 'Project', refId: projectId });
@@ -1242,11 +1243,14 @@ export class ScripOnService {
       const isSeries = ['TV_SERIES', 'LIMITED'].indexOf(String(featBrief.projectType || '').toUpperCase()) >= 0;
       const ssc = isSeries ? seriesSceneCount(featBrief.episodes, featBrief.minutesPerEp) : null;
       const target = ssc ? ssc.scenesPerEp : Math.min(90, Math.max(55, beatN ? Math.round(beatN * 1.5) : 60));
-      const planned = await this.planScenes(ctx, projectId, spine, target, !!ssc);
+      // Heartbeat while PLANNING (planScenes runs minutes before the first scene is written, so the
+      // page counter can't move — the frontend stall guard must watch this, not just `done`).
+      const beat = () => { const p = this.genProgress.get(docId); if (p) { p.phase = 'PLANNING'; p.lastActivityAt = Date.now(); } };
+      const planned = await this.planScenes(ctx, projectId, spine, target, !!ssc, beat);
       // Series: use the planned pilot at episode density (don't let a full-season SCENES stage override it).
       let scenes: any[] = ssc ? planned : ((planned.length >= (existing ? existing.length : 0)) ? planned : existing);
       if (!scenes || !scenes.length) scenes = (existing && existing.length) ? existing : planned;
-      const setP = (patch: any) => { const p = this.genProgress.get(docId); if (p) Object.assign(p, patch); };
+      const setP = (patch: any) => { const p = this.genProgress.get(docId); if (p) Object.assign(p, patch, { lastActivityAt: Date.now() }); };
       const saveRev = async (pages: any[]) => { await (this.prisma as any).scriptRevision.update({ where: { id: revId }, data: { pageText: pages, pageCount: pages.length } }).catch(() => {}); };
       if (!scenes.length) {
         const bodyOf = (k: string) => { const x: any = stages.find((y: any) => y.kind === k); return String((x && x.current && x.current.body) || ''); };
@@ -1254,7 +1258,7 @@ export class ScripOnService {
         await saveRev(pages); setP({ status: 'DONE', total: pages.length, done: pages.length, pageCount: pages.length });
         return;
       }
-      setP({ total: scenes.length });
+      setP({ total: scenes.length, phase: 'WRITING', note: '' });
       const out: string[] = ['FADE IN:'];
       let storySoFar = ''; let prevTail = ''; let stubs = 0;
       for (let i = 0; i < scenes.length; i++) {
@@ -1423,7 +1427,7 @@ export class ScripOnService {
     const regDefs = await this.scriptonDefs();
     const newRev: any = await (this.prisma as any).scriptRevision.create({ data: { documentId: doc.id, revisionLabel: doExtend ? 'White Draft (extended)' : 'White Draft (rewrite)', pdfUrl: '', pageCount: seed.length, pageText: seed, revisionColor: 'WHITE', colorCode: regDefs.revisionColor || null, uploadedById: userId || null } });
     const estTotal = existing.length >= 20 ? existing.length : 60;
-    this.genProgress.set(doc.id, { status: 'GENERATING', done: doExtend ? existingPages.length : 0, total: estTotal, pageCount: existingPages.length });
+    this.genProgress.set(doc.id, { status: 'GENERATING', phase: 'PLANNING', lastActivityAt: Date.now(), note: 'Planning the scenes — this can take a few minutes on long scripts.', done: doExtend ? existingPages.length : 0, total: estTotal, pageCount: existingPages.length });
     const run = doExtend
       ? this.extendFeatureAsync(doc.id, newRev.id, doc.projectId, stages, existing, existingPages)
       : this.generateScriptAsync(doc.id, newRev.id, doc.projectId, stages, existing);
@@ -1453,16 +1457,17 @@ export class ScripOnService {
       const isSeries = ['TV_SERIES', 'LIMITED'].indexOf(String(featBrief.projectType || '').toUpperCase()) >= 0;
       const ssc = isSeries ? seriesSceneCount(featBrief.episodes, featBrief.minutesPerEp) : null;
       const target = ssc ? ssc.scenesPerEp : Math.min(90, Math.max(55, beatN ? Math.round(beatN * 1.5) : 60));
-      const planned = await this.planScenes(ctx, projectId, spine, target, !!ssc);
+      const beat = () => { const p = this.genProgress.get(docId); if (p) { p.phase = 'PLANNING'; p.lastActivityAt = Date.now(); } };
+      const planned = await this.planScenes(ctx, projectId, spine, target, !!ssc, beat);
       const scenes: any[] = ssc ? planned : ((planned.length >= existing.length) ? planned : existing);
-      const setP = (patch: any) => { const p = this.genProgress.get(docId); if (p) Object.assign(p, patch); };
+      const setP = (patch: any) => { const p = this.genProgress.get(docId); if (p) Object.assign(p, patch, { lastActivityAt: Date.now() }); };
       const saveRev = async (pages: any[]) => { await (this.prisma as any).scriptRevision.update({ where: { id: revId }, data: { pageText: pages, pageCount: pages.length } }).catch(() => {}); };
       // How many scenes does the existing script already contain? Numbered headers "N␠␠SLUG"; fall back to a page-based estimate.
       const existingText = (existingPages || []).map((p: any) => String(p.text || '')).join('\n');
       const haveN = (existingText.match(/^\s*\d+\s{2,}\S/gmu) || []).length || Math.max(1, Math.round((existingPages.length || 1) / 1.7));
       const startIdx = Math.min(haveN, scenes.length);
       if (startIdx >= scenes.length) { setP({ status: 'DONE', done: scenes.length, total: scenes.length, pageCount: existingPages.length, coverage: 'COMPLETE', coverageNote: 'Script already covers the full planned scene list.' }); return; }
-      setP({ total: scenes.length, done: startIdx });
+      setP({ total: scenes.length, done: startIdx, phase: 'WRITING', note: '' });
       // Trim a trailing FADE OUT (EN or AR) so new scenes append seamlessly, then keep numbering from where it left off.
       const baseText = existingText.replace(/\n*FADE OUT\.?\s*$/i, '').replace(/\n*اختفاء تدريجي[.،]?\s*$/u, '').trimEnd();
       const out: string[] = [baseText];
@@ -1520,7 +1525,7 @@ export class ScripOnService {
     // Generating the Library script links the doc to the build — it does NOT "promote to production".
     // (Real promotion sets linkedProjectId/PROMOTED via promoteBuild; setting them here falsely showed the build attached to a project.)
     if (stage.buildId) await (this.prisma as any).developmentBuild.update({ where: { id: stage.buildId }, data: { linkedScriptId: doc.id, promotedVersionId: versionId } }).catch(() => {});
-    this.genProgress.set(doc.id, { status: 'GENERATING', done: 0, total: estTotal, pageCount: 0 });
+    this.genProgress.set(doc.id, { status: 'GENERATING', phase: 'PLANNING', lastActivityAt: Date.now(), note: 'Planning the scenes — this can take a few minutes on long scripts.', done: 0, total: estTotal, pageCount: 0 });
     void this.generateScriptAsync(doc.id, rev.id, stage.projectId, stages, existing);
     return { documentId: doc.id, revisionId: rev.id, total: estTotal };
   }

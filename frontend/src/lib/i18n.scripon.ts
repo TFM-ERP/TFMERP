@@ -855,4 +855,7 @@ export const AR_SCRIPON: Record<string, string> = {
   "ep": "حلقة",
   "Custom": "مخصّص",
   "Pick a template, then tweak the numbers — editing switches to Custom. Country/market below is the cultural setting, not the format.": "اختر قالبًا ثم عدّل الأرقام — أي تعديل يحوّله إلى مخصّص. حقل البلد/السوق بالأسفل هو الإطار الثقافي للقصة، وليس قالب الشكل.",
+  // Generation progress / stall guard
+  "Planning the scenes — this can take a few minutes on long scripts.": "نخطّط المشاهد — قد يستغرق هذا بضع دقائق في النصوص الطويلة.",
+  "Generation stalled — no progress for several minutes. Your draft is safe. Check your AI engine in Engines & Routing, then try Send to production again.": "تعثّر التوليد — لا تقدّم منذ عدة دقائق. مسودتك آمنة. تحقّق من محرّك الذكاء الاصطناعي في المحرّكات والتوجيه، ثم أعد الإرسال إلى الإنتاج.",
 };
