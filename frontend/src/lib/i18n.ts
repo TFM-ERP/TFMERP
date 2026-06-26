@@ -249,6 +249,23 @@ const AR: Dict = {
   'Schedule & Budget': 'الجدول والميزانية', 'Reports & Exports': 'التقارير والتصدير',
   'Notes & Collaboration': 'الملاحظات والتعاون', 'Approval workflow': 'سير الاعتماد',
   'Settings & Governance': 'الإعدادات والحوكمة', 'Development package': 'حزمة التطوير', 'Package': 'الحزمة',
+  // ── OS rail labels (9-workspace ScripON rail — missing 4; Home/Doctor/Studio/Develop/Versions already above) ──
+  'Write': 'كتابة', 'Canon': 'كانون', 'Room': 'الغرفة', 'Slate': 'اللائحة',
+  // ── Project settings panel (Task 7) ──
+  'Project settings': 'إعدادات المشروع',
+  'Name, language and the defaults new builds & exports inherit.': 'الاسم واللغة والإعدادات الافتراضية التي تورثها الأبنية والتصديرات الجديدة.',
+  'Workspace name': 'اسم مساحة العمل',
+  'Shown across ScriptON': 'يظهر في كل أنحاء سكربت أون',
+  'UI + new script default': 'افتراضي للواجهة والسيناريوهات الجديدة',
+  'Collaboration': 'التعاون',
+  'Solo — just you (no sign-offs, Room hidden)': 'فردي — أنت وحدك (لا اعتمادات، الغرفة مخفية)',
+  'Team — approval workflow + Room on': 'فريق — سير اعتماد + الغرفة مفعّلة',
+  'Auto (follows membership)': 'تلقائي (حسب الأعضاء)',
+  'Team': 'فريق', 'Solo': 'فردي',
+  'Default revision color': 'لون المراجعة الافتراضي',
+  'Applied to new revisions': 'يُطبَّق على المراجعات الجديدة',
+  'Saved.': 'تم الحفظ.',
+  'Could not save settings.': 'تعذّر حفظ الإعدادات.',
   // script structure
   'Script': 'السيناريو', 'Scene': 'مشهد', 'Slugline': 'عنوان المشهد', 'Heading': 'العنوان',
   'Logline': 'السطر التعريفي', 'Treatment': 'المعالجة', 'Synopsis': 'الملخص',
