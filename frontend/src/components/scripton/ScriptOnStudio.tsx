@@ -9,7 +9,8 @@ import { useRouter, usePathname } from 'next/navigation';
 import { ScriptPaper } from './scriptPaper';
 import { useLocale } from '@/lib/i18n';
 import { useScriptonShellFlag } from './osShellFlag';
-import { OS_WORKSPACES, activeWorkspaceKey, type OsWorkspace } from './os-workspaces';
+import { OS_WORKSPACES, activeWorkspaceKey, filterWorkspaces, type OsWorkspace } from './os-workspaces';
+import { useScriptonMode } from './useScriptonMode';
 const lsGet = (k: string, fb: any) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : fb; } catch { return fb; } };
 
 export type SxLadder = { name: string; sub?: string; state: 'done' | 'on' | 'wait'; body?: string; kind?: string; stageId?: string; versionId?: string; versionN?: number; versionCount?: number; versionColor?: string; status?: string; framework?: string; scenes?: any[]; steps?: any[] };
@@ -260,13 +261,15 @@ export function SxRail(props: { active: string; onNav?: (k: string) => void }) {
   // active workspace — resolve the studio?tab=builds case from a post-mount search read.
   const [osSearch, setOsSearch] = useState('');
   useEffect(() => { setOsSearch(typeof window !== 'undefined' ? window.location.search : ''); }, [pathname]);
+  // collaboration mode — called unconditionally (hooks rule); used in the new-rail branch below.
+  const mode = useScriptonMode();
 
   if (flag === 'new') {
     const canSee = (w: OsWorkspace) => !w.perm || !perms || (perms[w.perm] ?? 0) >= 1;
     const activeKey = activeWorkspaceKey(pathname, osSearch);
     return (
       <div className="rail">
-        {OS_WORKSPACES.filter(canSee).map((w) => (
+        {filterWorkspaces(OS_WORKSPACES, mode).filter(canSee).map((w) => (
           <button key={w.key} className={'ritem' + (w.key === activeKey ? ' on' : '')} onClick={() => router.push(w.href)} title={t(w.label)} aria-label={t(w.label)}>
             <div className="box"><w.icon size={18} /></div><div className="lbl">{t(w.label)}</div>
           </button>

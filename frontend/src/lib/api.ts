@@ -446,6 +446,7 @@ export const productionApi = {
     remove: (id: string) => api.delete(`/production/brief/${id}`),
   },
   scripton: {
+    workspace: () => api.get('/production/scripton/workspace'),
     latestCoverage: (projectId: string) => api.get(`/production/scripton/coverage/${projectId}`),
     canon: (scriptId: string) => api.get('/production/scripton/canon?scriptId=' + encodeURIComponent(scriptId)),
     revisionPass: (scriptId: string) => api.get('/production/scripton/revision-pass?scriptId=' + encodeURIComponent(scriptId)),

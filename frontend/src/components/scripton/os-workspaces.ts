@@ -2,7 +2,7 @@
 import type { ComponentType } from 'react';
 import { Home, PenLine, Layers, Network, Stethoscope, GitBranch, MessagesSquare, FolderKanban, Settings } from 'lucide-react';
 
-export type OsWorkspace = { key: string; label: string; href: string; icon: ComponentType<any>; perm?: string };
+export type OsWorkspace = { key: string; label: string; href: string; icon: ComponentType<any>; perm?: string; teamOnly?: boolean };
 
 export const OS_WORKSPACES: OsWorkspace[] = [
   { key: 'home',     label: 'Home',     href: '/scripton',                    icon: Home },
@@ -11,7 +11,7 @@ export const OS_WORKSPACES: OsWorkspace[] = [
   { key: 'canon',    label: 'Canon',    href: '/scripton/canon',              icon: Network },
   { key: 'doctor',   label: 'Doctor',   href: '/scripton/doctor',             icon: Stethoscope },
   { key: 'versions', label: 'Versions', href: '/scripton/revisions',          icon: GitBranch },
-  { key: 'room',     label: 'Room',     href: '/scripton/notes',              icon: MessagesSquare },
+  { key: 'room',     label: 'Room',     href: '/scripton/notes',              icon: MessagesSquare, teamOnly: true },
   { key: 'slate',    label: 'Slate',    href: '/scripton/library',            icon: FolderKanban },
   { key: 'studio',   label: 'Studio',   href: '/scripton/settings',           icon: Settings, perm: 'setup' },
 ];
@@ -41,4 +41,9 @@ export function rememberFilmosRoute(pathname: string): void {
 }
 export function lastFilmosRoute(): string {
   try { return sessionStorage.getItem(LS_KEY) || '/home'; } catch { return '/home'; }
+}
+
+/** Drop team-only workspaces (e.g. Room) when in solo mode. Pure. */
+export function filterWorkspaces(list: OsWorkspace[], mode: 'team' | 'solo'): OsWorkspace[] {
+  return list.filter((w) => !(w.teamOnly && mode === 'solo'));
 }
