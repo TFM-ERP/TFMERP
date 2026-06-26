@@ -52,7 +52,25 @@ const GENRE_FAMS: { id: string; name: string; bring: string; presence: string[];
   { id: 'language', name: 'Language & voice', bring: 'slang, dialect, diction', presence: ['Light Touch', 'Occasional', 'Balanced', 'Strong', 'Defining'], intensity: ['Naturalistic', 'Flavoured', 'Stylised', 'Heightened', 'Signature'] },
   { id: 'anime', name: 'Anime & stylisation', bring: 'shonen, isekai, mecha', presence: ['Light Influence', 'Occasional', 'Balanced', 'Strong', 'Defining'], intensity: ['Subtle', 'Stylised', 'Bold', 'Heightened', 'Full Anime'] },
 ];
-const ROLES: [string, string][] = [['ANTAGONIST', 'Antagonist'], ['ALLY', 'Ally / guide'], ['WORLD_SYSTEM', 'World-system'], ['OBSTACLE', 'Obstacle'], ['OMEN', 'Omen']];
+const ROLES: [string, string][] = [
+  ['PROTAGONIST', 'Protagonist'],
+  ['ANTAGONIST', 'Antagonist'],
+  ['ALLY', 'Ally'],
+  ['MENTOR', 'Guide / Mentor'],
+  ['LOVE_INTEREST', 'Love Interest'],
+  ['WORLD_SYSTEM', 'World-System'],
+  ['OBSTACLE', 'Obstacle'],
+  ['OBSTACLE_TURNS_ALLY', 'Obstacle turns ally'],
+  ['RIVAL', 'Rival'],
+  ['KINGMAKER', 'Kingmaker'],
+  ['OMEN', 'Omen'],
+  ['CATALYST', 'Catalyst'],
+  ['GATEKEEPER', 'Gatekeeper'],
+  ['SHADOW', 'Shadow'],
+  ['TRICKSTER', 'Trickster'],
+  ['GUARDIAN', 'Guardian'],
+  ['HERALD', 'Herald'],
+];
 const DSTOPS = ['OFF', 'ACCENT', 'SUBPLOT', 'WOVEN', 'DRIVER', 'SATURATED'];
 const DNOTE: any = { OFF: 'No lore layer.', ACCENT: 'Lore stays flavour - a few beats and images. No scene turns on it; the ending would still work without it.', SUBPLOT: 'Lore powers a B-story or recurring motif. The A-plot stays grounded.', WOVEN: 'Lore is a world-rule; the midpoint turns on it. Remove it and you lose real plot, not just colour.', DRIVER: 'Lore is the engine - inciting, midpoint and climax turn on it. Grounded realism becomes the contrast.', SATURATED: 'Full mythic mode - the world runs on the lore end to end; realism is the accent.' };
 const ARLABEL: any = { 'shapeshifter': 'Shapeshifters', 'death-omen': 'Death-omens', 'blood-drinker': 'Blood-drinkers & undead', 'trickster': 'Tricksters', 'guardian': 'Guardians & spirits', 'world-system': 'World-systems', 'beast': 'Beasts', 'undead': 'Undead', 'spirit': 'Spirits', 'underworld': 'Underworld', 'custom': 'Customs', 'wardrobe': 'Wardrobe', 'naming': 'Naming', 'omen': 'Omens' };
