@@ -266,6 +266,11 @@ const AR: Dict = {
   'Applied to new revisions': 'يُطبَّق على المراجعات الجديدة',
   'Saved.': 'تم الحفظ.',
   'Could not save settings.': 'تعذّر حفظ الإعدادات.',
+  // ── Solo/team approval actions (Task 6) ──
+  'Distributed — sides ready (solo mode, no sign-off needed).': 'تم التوزيع — الصفحات جاهزة (الوضع الفردي، لا حاجة لاعتماد).',
+  'Connect a project with a script to distribute.': 'اربط مشروعًا به سيناريو للتوزيع.',
+  'Approved.': 'تم الاعتماد.',
+  'Could not approve.': 'تعذّر الاعتماد.',
   // script structure
   'Script': 'السيناريو', 'Scene': 'مشهد', 'Slugline': 'عنوان المشهد', 'Heading': 'العنوان',
   'Logline': 'السطر التعريفي', 'Treatment': 'المعالجة', 'Synopsis': 'الملخص',
