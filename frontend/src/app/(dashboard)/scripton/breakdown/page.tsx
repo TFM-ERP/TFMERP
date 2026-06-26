@@ -133,7 +133,11 @@ export default function ScriptOnBreakdownPage() {
     setSaving(true);
     try {
       if (mode === 'solo') {
-        await productionApi.breakdown.update(active.ids[0], data);
+        // Apply directly to EVERY selected element (team mode routes all of active.ids;
+        // solo must too — applying only ids[0] silently dropped the rest).
+        await Promise.all(active.ids.map((id: string) => productionApi.breakdown.update(id, data)));
+        // Refresh so the edited values show immediately (no stale cats).
+        try { const cb: any = await productionApi.breakdown.categoryBreakdown(projectId); const list: Cat[] = cb.data?.categories ?? []; if (list.length) setCats(list); } catch { /* keep */ }
         flash(t('Saved.')); setEditing(false);
       } else {
         await approvalsApi.routeChange({ projectId, entityType: 'BREAKDOWN_ELEMENT', entityId: active.ids[0], title: 'Edit element: ' + active.name, payload: { ids: active.ids, data } });
