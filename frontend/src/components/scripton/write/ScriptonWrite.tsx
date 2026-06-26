@@ -58,7 +58,10 @@ const CSS = `
 
 /* Canvas (paper) */
 .sx.write .canvas{flex:1;min-width:0;overflow:auto;background:linear-gradient(180deg,#0b0c0f,#090a0c);display:flex;justify-content:center;padding:26px 0 60px}
-.sx.write .empty{color:var(--faint);font-size:13px;text-align:center;padding:40px;align-self:flex-start}
+.sx.write .empty{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;padding:64px 32px;margin:auto;max-width:420px}
+.sx.write .empty .emptyh{font-family:var(--sx-title);font-size:18px;font-weight:600;color:var(--cream)}
+.sx.write .empty .emptyp{font-size:13px;line-height:1.55;color:var(--faint)}
+.sx.write .samplebadge{display:inline-flex;align-items:center;font-size:10px;font-weight:800;letter-spacing:.6px;color:#e0a23b;background:rgba(224,162,59,.12);border:1px solid rgba(224,162,59,.4);border-radius:7px;padding:4px 9px;white-space:nowrap}
 
 /* Revision Pass panel */
 .sx.write .pass{width:344px;flex:none;border-inline-start:1px solid var(--hair);background:#0c0d11;display:flex;flex-direction:column;min-height:0}
@@ -130,7 +133,7 @@ export type PassVM = { passId?: string; changeCount: number; continuity: number;
 export type WriteProps = {
   title: string; revisionLabel: string; revisionColor: string;
   scenes: SxScene[]; activeId?: string; onSelectScene: (id: string) => void;
-  pageCount?: number | string; loading?: boolean;
+  pageCount?: number | string; loading?: boolean; sample?: boolean;
   stagedSceneIds?: string[]; pass?: PassVM | null;
   onNav: (k: string) => void; onBack: () => void; onRender?: () => void; onPassAction?: (k: string) => void;
   onStage?: (change: any) => Promise<{ ok: boolean; conflict?: string }>;
@@ -223,6 +226,7 @@ export default function ScriptonWrite(props: WriteProps) {
       <div className="sx write" data-vp={props.vp} dir={dir} style={{ position: 'fixed', inset: 0, zIndex: 50 }}>
         <ScriptonTopBar vp={props.vp} onBack={props.onBack} continuity={props.pass?.continuity} />
         <div className="subtop">
+          {props.sample ? <span className="samplebadge">{t('SAMPLE')} · {t('no script bound')}</span> : null}
           <div className="pageind">
             <span className="nudge" onClick={() => goScene(activeIdx - 1)}>‹</span>
             <b>{t('Scene')} {n ? activeIdx + 1 : '—'}</b> / {n || '—'}
@@ -257,7 +261,10 @@ export default function ScriptonWrite(props: WriteProps) {
               {props.loading ? (
                 <div className="sk" style={{ height: 760, width: 600, maxWidth: '94%', borderRadius: 6 }} />
               ) : !scenes.length ? (
-                <div className="empty">{t('No scenes in this revision yet.')}</div>
+                <div className="empty">
+                  <div className="emptyh">{t('No parsed pages yet')}</div>
+                  <div className="emptyp">{t('This script has no readable scenes. Develop or render a draft to populate its pages.')}</div>
+                </div>
               ) : (
                 <ScriptPaper text={scriptText} />
               )}

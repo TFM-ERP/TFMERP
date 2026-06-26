@@ -38,13 +38,18 @@ export default function ScriptOnWorkspace() {
   const flag = useScriptonShellFlag();
   const onBackOs = useScriptonBack();
   const onNav = (k: string) => { if (k === 'home') return router.push('/scripton'); if (k === 'library') return router.push('/scripton/library'); if (k === 'coverage') return router.push('/scripton/coverage'); if (k !== 'reader') return onAction(k); };
-  const [scenes, setScenes] = useState<SxScene[]>(SAMPLE);
-  const [title, setTitle] = useState('Midnight Run');
-  const [revLabel, setRevLabel] = useState('BLUE · v4');
+  // Start neutral (loading) — never seed the fictional sample. A real script's
+  // identity is filled in once it binds; the sample is shown ONLY when no script
+  // can be bound at all (true demo), and is labelled as such (`sample`).
+  const [scenes, setScenes] = useState<SxScene[]>([]);
+  const [title, setTitle] = useState('');
+  const [revLabel, setRevLabel] = useState('');
   const [revColor, setRevColor] = useState('#5b8def');
-  const [pageCount, setPageCount] = useState<number | string>(111);
-  const [totalScenes, setTotalScenes] = useState(64);
-  const [updated, setUpdated] = useState('2h ago');
+  const [pageCount, setPageCount] = useState<number | string>(0);
+  const [totalScenes, setTotalScenes] = useState(0);
+  const [updated, setUpdated] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [sample, setSample] = useState(false);
   const [revisions, setRevisions] = useState<{ id: string; label: string; color?: string; date?: string }[]>([]);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [activeRev, setActiveRev] = useState<any>(null);
@@ -67,41 +72,72 @@ export default function ScriptOnWorkspace() {
   const toastT = useRef<any>(null);
   const flash = (m: string) => { setToast(m); clearTimeout(toastT.current); toastT.current = setTimeout(() => setToast(null), 3200); };
 
+  // `?doc=<id>` opens a specific script in Write (read post-mount, like ?pass=);
+  // default binds the ScriptON project's first doc.
+  const [docParam, setDocParam] = useState('');
+  useEffect(() => { if (typeof window !== 'undefined') setDocParam(new URLSearchParams(window.location.search).get('doc') || ''); }, []);
+
   useEffect(() => {
     let alive = true;
+    let bound = false;
+    // The labelled demo sample — shown ONLY when no real script can be bound
+    // (no project/doc, or the backend is unreachable before we bind anything).
+    const applyDemo = () => {
+      if (!alive) return;
+      setScenes(SAMPLE); setActiveId('s6'); setTitle('Midnight Run'); setRevLabel('BLUE · v4');
+      setRevColor('#5b8def'); setPageCount(111); setTotalScenes(64); setUpdated('2h ago'); setSample(true);
+    };
     (async () => {
+      setLoading(true); setSample(false);
       try {
-        const pr: any = await productionApi.projects.list();
-        const projects = pr.data?.items ?? (Array.isArray(pr.data) ? pr.data : []);
-        const pid = pickScriptonProject(projects)?.id;
-        if (!pid) return;
-        const dr: any = await productionApi.script.list(pid);
-        const docs = Array.isArray(dr.data) ? dr.data : (dr.data?.items ?? []);
-        const doc = docs[0];
-        if (!doc) return;
-        if (alive) setDocId(doc.id);
+        let doc: any = null; let pid: string | null = null;
+        // Explicit ?doc= wins — fetch that document directly.
+        if (docParam) {
+          try { const d: any = await productionApi.script.getDocument(docParam); doc = d.data || null; pid = doc?.projectId || null; } catch { /* fall through to project resolution */ }
+        }
+        if (!doc) {
+          const pr: any = await productionApi.projects.list();
+          const projects = pr.data?.items ?? (Array.isArray(pr.data) ? pr.data : []);
+          pid = pickScriptonProject(projects)?.id || null;
+          if (!pid) { applyDemo(); return; }
+          const dr: any = await productionApi.script.list(pid);
+          const docs = Array.isArray(dr.data) ? dr.data : (dr.data?.items ?? []);
+          doc = docs[0];
+        }
+        if (!doc) { applyDemo(); return; }
+        // A real script is bound — show ITS identity (e.g. عنترة), never the sample,
+        // even when it has no parsed pages yet.
+        bound = true;
+        if (alive) { setDocId(doc.id); setProjectId(pid); setTitle(doc.title || 'Script'); setSample(false); }
         try { const pp: any = await productionApi.scripton.revisionPass(doc.id); if (alive) setPassVM(toPassVM(pp.data)); } catch { /* no open pass */ }
         const revId = doc.activeRevisionId || doc.revisions?.[0]?.id;
-        if (!revId) return;
-        const rv: any = await productionApi.script.getRevision(revId);
-        const sc: SxScene[] = (rv.data?.scenes ?? []).map((s: any) => ({
-          id: s.id, sceneNumber: s.sceneNumber, slugline: s.slugline, intExt: s.intExt, dayNight: s.dayNight,
-          description: s.description, status: s.description ? 'tagged' : 'todo',
-        }));
-        if (!alive || !sc.length) return;
-        setScenes(sc); setActiveId(sc[0].id);
-        setTitle(doc.title || 'Script');
-        setRevLabel(rv.data?.revisionLabel || doc.activeRevisionLabel || 'CURRENT');
-        setRevColor(rv.data?.colorCode || '#5b8def');
-        setPageCount(rv.data?.pageCount || sc.length);
+        let rvData: any = null; let sc: SxScene[] = [];
+        if (revId) {
+          try {
+            const rv: any = await productionApi.script.getRevision(revId);
+            rvData = rv.data || null;
+            sc = (rvData?.scenes ?? []).map((s: any) => ({
+              id: s.id, sceneNumber: s.sceneNumber, slugline: s.slugline, intExt: s.intExt, dayNight: s.dayNight,
+              description: s.description, status: s.description ? 'tagged' : 'todo',
+            }));
+          } catch { /* revision unreadable → honest empty state, keep the real title */ }
+        }
+        if (!alive) return;
+        // Bound but no parsed scenes → empty state with the real title (NOT the sample).
+        setScenes(sc);
+        if (sc.length) setActiveId(sc[0].id);
+        setRevLabel(rvData?.revisionLabel || doc.activeRevisionLabel || 'DRAFT');
+        setRevColor(rvData?.colorCode || '#5b8def');
+        setPageCount(rvData?.pageCount || sc.length);
         setTotalScenes(sc.length);
         setUpdated('');
-        setProjectId(pid); setActiveRev(rv.data);
+        setActiveRev(rvData);
         setRevisions((doc.revisions ?? []).map((r: any) => ({ id: r.id, label: r.revisionLabel || 'Revision', color: r.colorCode, date: r.createdAt ? new Date(r.createdAt).toLocaleDateString() : '' })));
-      } catch { /* keep sample */ }
+      } catch { if (!bound) applyDemo(); }
+      finally { if (alive) setLoading(false); }
     })();
     return () => { alive = false; };
-  }, []);
+  }, [docParam]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -173,7 +209,7 @@ export default function ScriptOnWorkspace() {
       <ScriptonWrite
         title={title} revisionLabel={revLabel} revisionColor={revColor}
         scenes={filtered} activeId={active?.id} onSelectScene={selectScene}
-        pageCount={pageCount} loading={false} stagedSceneIds={stagedIds} pass={passVM}
+        pageCount={pageCount} loading={loading} sample={sample} stagedSceneIds={stagedIds} pass={passVM}
         onNav={onNav} onBack={onBackOs}
         onRender={async () => {
           const passId = passVM?.passId;
