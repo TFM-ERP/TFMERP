@@ -1405,7 +1405,8 @@ export class ScripOnService {
     const doExtend = mode === 'extend' && existingPages.length > 1;
     // A fresh revision to write into; the OLD revision stays active until the new one finishes (non-destructive).
     const seed = doExtend ? existingPages : [{ page: 1, text: 'FADE IN:\n\nGenerating…' }];
-    const newRev: any = await (this.prisma as any).scriptRevision.create({ data: { documentId: doc.id, revisionLabel: doExtend ? 'White Draft (extended)' : 'White Draft (rewrite)', pdfUrl: '', pageCount: seed.length, pageText: seed, revisionColor: 'WHITE', uploadedById: userId || null } });
+    const regDefs = await this.scriptonDefs();
+    const newRev: any = await (this.prisma as any).scriptRevision.create({ data: { documentId: doc.id, revisionLabel: doExtend ? 'White Draft (extended)' : 'White Draft (rewrite)', pdfUrl: '', pageCount: seed.length, pageText: seed, revisionColor: regDefs.revisionColor || 'WHITE', uploadedById: userId || null } });
     const estTotal = existing.length >= 20 ? existing.length : 60;
     this.genProgress.set(doc.id, { status: 'GENERATING', done: doExtend ? existingPages.length : 0, total: estTotal, pageCount: existingPages.length });
     const run = doExtend
@@ -1489,8 +1490,9 @@ export class ScripOnService {
     const existing = this.sceneCards(stages);
     const estTotal = existing.length >= 20 ? existing.length : 45;
     const verId = stage.buildId ? await this.activeVersionId(stage.buildId) : null;
+    const promoteDefs = await this.scriptonDefs();
     const doc: any = await (this.prisma as any).scriptDocument.create({ data: { projectId: stage.projectId, title, kind: 'SCRIPT', createdById: userId || null, buildVersionId: verId } });
-    const rev: any = await (this.prisma as any).scriptRevision.create({ data: { documentId: doc.id, revisionLabel: 'White Draft (developed)', pdfUrl: '', pageCount: 0, pageText: [{ page: 1, text: 'FADE IN:\n\nYour feature is being written, scene by scene...' }], revisionColor: 'WHITE', uploadedById: userId || null } });
+    const rev: any = await (this.prisma as any).scriptRevision.create({ data: { documentId: doc.id, revisionLabel: 'White Draft (developed)', pdfUrl: '', pageCount: 0, pageText: [{ page: 1, text: 'FADE IN:\n\nYour feature is being written, scene by scene...' }], revisionColor: promoteDefs.revisionColor || 'WHITE', uploadedById: userId || null } });
     await (this.prisma as any).scriptDocument.update({ where: { id: doc.id }, data: { activeRevisionId: rev.id } }).catch(() => {});
     await (this.prisma as any).stageVersion.update({ where: { id: versionId }, data: { status: 'LOCKED' } }).catch(() => {});
     // Generating the Library script links the doc to the build — it does NOT "promote to production".
@@ -1714,6 +1716,14 @@ export class ScripOnService {
     return p;
   }
 
+  /** Read scriptonDefaults from the workspace IntakeProfile. Returns {} when absent so callers can use `defs.x || fallback` safely. */
+  private async scriptonDefs(): Promise<any> {
+    const ws = await this.scriponWorkspace().catch(() => null);
+    if (!ws) return {};
+    const ip: any = await (this.prisma as any).intakeProfile.findUnique({ where: { projectId: ws.id }, select: { scriptonDefaults: true } }).catch(() => null);
+    return ip?.scriptonDefaults || {};
+  }
+
   /** The workspace row + the server-resolved collaboration mode (team/solo) every
    *  ScriptON screen reads. Counts ProjectRoleAssignment members for the AUTO rule. */
   async scriptonWorkspaceView() {
@@ -1807,8 +1817,9 @@ export class ScripOnService {
     }
 
     // ── File the WHITE master revision under the target project ──
+    const promBuildDefs = await this.scriptonDefs();
     const doc: any = await (this.prisma as any).scriptDocument.create({ data: { projectId, title: title.slice(0, 80), kind: 'SCRIPT', createdById: userId || null } });
-    const rev: any = await (this.prisma as any).scriptRevision.create({ data: { documentId: doc.id, revisionLabel: 'White Draft', pdfUrl: '', pageCount, pageText, revisionColor: 'WHITE', uploadedById: userId || null } });
+    const rev: any = await (this.prisma as any).scriptRevision.create({ data: { documentId: doc.id, revisionLabel: 'White Draft', pdfUrl: '', pageCount, pageText, revisionColor: promBuildDefs.revisionColor || 'WHITE', uploadedById: userId || null } });
     await (this.prisma as any).scriptDocument.update({ where: { id: doc.id }, data: { activeRevisionId: rev.id } }).catch(() => {});
     if (versionId) await (this.prisma as any).stageVersion.update({ where: { id: versionId }, data: { status: 'LOCKED' } }).catch(() => {});
     if (build) await (this.prisma as any).developmentBuild.update({ where: { id: build.id }, data: { status: 'PROMOTED', linkedProjectId: projectId, linkedScriptId: build.linkedScriptId || doc.id, promotedVersionId: versionId || build.promotedVersionId || null, promotedAt: new Date() } }).catch(() => {});
