@@ -8,6 +8,7 @@ import { knowledgeDirective, stageLadderFor, normalizeFamily } from './knowledge
 import { buildPackageDocModel } from './package-docx.util';
 import { packDocx } from './package-docx.renderer';
 import { LEVER_KEYS, resolveLever } from './intake-levers.util';
+import { resolveCollabMode } from './collab-mode.util';
 
 /**
  * ScripON Doctor P0 — data-grounded coverage + scene diagnostics.
@@ -1612,6 +1613,22 @@ export class ScripOnService {
     if (!p) p = await (this.prisma as any).productionProject.create({ data: { projectNumber: 'SCRIPON-LIBRARY', title: 'ScripON Library', projectType: 'OTHER', scriponWorkspace: true } }).catch(() => null);
     return p;
   }
+
+  /** The workspace row + the server-resolved collaboration mode (team/solo) every
+   *  ScriptON screen reads. Counts ProjectRoleAssignment members for the AUTO rule. */
+  async scriptonWorkspaceView() {
+    const p: any = await this.scriponWorkspace();
+    if (!p) return p;
+    const ip: any = await (this.prisma as any).intakeProfile
+      .findUnique({ where: { projectId: p.id }, select: { collabMode: true } })
+      .catch(() => null);
+    const memberCount: number = await (this.prisma as any).projectRoleAssignment
+      .count({ where: { projectId: p.id } })
+      .catch(() => 0);
+    const collabMode = String(ip?.collabMode || 'AUTO').toUpperCase();
+    return { ...p, collabMode, memberCount, mode: resolveCollabMode(collabMode, memberCount) };
+  }
+
   async renameBuild(id: string, name: string) {
     return (this.prisma as any).developmentBuild.update({ where: { id }, data: { name: String(name || '').slice(0, 120) } });
   }

@@ -78,7 +78,7 @@ export class ScripOnController {
   @Post('research/:projectId') @RequirePermission('production', 2) research(@Param('projectId') projectId: string) { return this.service.research(projectId); }
   @Get('lore') loreLibrary(@Query('culture') culture?: string, @Query('genre') genre?: string, @Query('archetype') archetype?: string, @Query('q') q?: string, @Query('pantheon') pantheon?: string) { return this.service.loreLibrary({ culture, genre, archetype, q, pantheon }); }
   @Post('analytics/:projectId') @RequirePermission('production', 2) analytics(@Param('projectId') projectId: string, @Body() body: any) { return this.service.analytics({ projectId, ...(body || {}) }); }
-  @Get('workspace') workspace() { return this.service.scriponWorkspace(); }
+  @Get('workspace') workspace() { return this.service.scriptonWorkspaceView(); }
   @Get('builds') buildsList(@Query('projectId') projectId?: string, @Query('bin') bin?: string) { return this.service.listBuilds(projectId, bin === '1' || bin === 'true'); }
   @Post('builds') @RequirePermission('production', 2) buildCreate(@Body() body: any) { return this.service.createBuild(body || {}); }
   @Post('builds/:id/rename') @RequirePermission('production', 2) buildRename(@Param('id') id: string, @Body() body: any) { return this.service.renameBuild(id, body?.name); }
