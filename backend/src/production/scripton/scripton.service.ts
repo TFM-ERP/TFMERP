@@ -11,6 +11,11 @@ import { packDocx } from './package-docx.renderer';
 import { LEVER_KEYS, resolveLever } from './intake-levers.util';
 import { resolveCollabMode } from './collab-mode.util';
 
+// Placeholder a scene falls back to when the AI returns no prose. Shared so the
+// generators can DETECT a wholesale-stub run (the all-"(The scene continues.)" bug)
+// instead of silently filing it as a finished draft.
+const SCENE_STUB = '(The scene continues.)';
+
 /**
  * ScripON Doctor P0 — data-grounded coverage + scene diagnostics.
  * Numbers (scene/location/INT-EXT/DAY-NIGHT/page counts, per-character Scenes-%) are COMPUTED
@@ -1179,13 +1184,37 @@ export class ScripOnService {
   private async writeScene(ctx: string, sc: any, header: string, storySoFar: string, prevTail: string, projectId: string): Promise<string> {
     const sys = 'You are a professional screenwriter writing ONE scene of a feature film in industry-standard FINAL DRAFT format. Present-tense action lines; dialogue formatted as a centred UPPERCASE CHARACTER cue on its own line, an optional (parenthetical), then the spoken line beneath; use (V.O.)/(O.S.)/(CONT\'D) where apt. Give the scene real emotion, subtext and conflict, and a small turn. Write it IN FULL - about 1.5 to 2.5 pages - never a summary or outline. Do NOT write the scene heading/slug line (it is already provided) and do NOT add a scene number. Output ONLY the scene text.';
     const user = ctx + (storySoFar ? '\n\nSTORY SO FAR (continuity - do not repeat):' + storySoFar : '') + (prevTail ? '\n\nPREVIOUS SCENE ENDED WITH (continue naturally, do not repeat):\n' + prevTail : '') + '\n\nSCENE HEADING (already set, do not rewrite): ' + header + '\nWHAT HAPPENS: ' + (sc.brief || 'Advance the story with conflict and a turn.') + (sc.characters ? '\nCHARACTERS PRESENT: ' + sc.characters : '') + '\n\nWrite this scene in full now.';
-    let txt = '';
-    try { const r: any = await this.ai.run({ task: 'scripton.feature.scene', system: sys, user, maxTokens: 8000, temperature: 0.85, timeoutMs: 120000, projectId, refType: 'Project', refId: projectId }); txt = String((r && r.text) || ''); } catch { txt = ''; }
-    txt = txt.replace(/^```[a-z]*\s*/i, '').replace(/```\s*$/i, '').trim();
-    txt = txt.replace(/^\s*\d*\s*(INT|EXT|INT\.?\/EXT|I\/E)[.\s][^\n]*\n?/i, '').trim();
-    txt = txt.replace(/^\s*(?:\d+\s+)?(?:مشهد|المشهد|داخلي|خارجي)[^\n]*\n?/u, '').trim();   // strip a leading Arabic slug the model may add on top of ours
-    txt = txt.replace(/^[ \t]*[-–—_=]{2,}[ \t]*$/gmu, '').replace(/\n{3,}/g, '\n\n').trim();   // drop "---" separator lines
-    return txt || '(The scene continues.)';
+    const clean = (raw: string) => raw
+      .replace(/^```[a-z]*\s*/i, '').replace(/```\s*$/i, '').trim()
+      .replace(/^\s*\d*\s*(INT|EXT|INT\.?\/EXT|I\/E)[.\s][^\n]*\n?/i, '').trim()
+      .replace(/^\s*(?:\d+\s+)?(?:مشهد|المشهد|داخلي|خارجي)[^\n]*\n?/u, '').trim()   // strip a leading Arabic slug the model may add on top of ours
+      .replace(/^[ \t]*[-–—_=]{2,}[ \t]*$/gmu, '').replace(/\n{3,}/g, '\n\n').trim();   // drop "---" separator lines
+    // Retry transient failures (timeout / rate-limit / empty return) before falling
+    // back to the stub — a whole run of stubs is the bug we are hardening against.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const r: any = await this.ai.run({ task: 'scripton.feature.scene', system: sys, user, maxTokens: 8000, temperature: 0.85, timeoutMs: 120000, projectId, refType: 'Project', refId: projectId });
+        const txt = clean(String((r && r.text) || ''));
+        if (txt) return txt;
+      } catch { /* transient — retry */ }
+    }
+    return SCENE_STUB;
+  }
+
+  // Half-or-more scenes stubbed = the AI never returned prose (a transient outage),
+  // not a real draft. Used to fail the run instead of silently filing stubs as DONE.
+  private mostlyStub(stubs: number, total: number): boolean {
+    return total > 0 && stubs / total >= 0.5;
+  }
+
+  // Mark a wholesale-stub generation as ERROR (not DONE) and replace the partial stub
+  // pages with an honest, actionable placeholder. On regenerate the caller only swaps
+  // the active revision on DONE, so the previous real draft (if any) survives untouched.
+  private async failStubRun(docId: string, revId: string, stubs: number, total: number): Promise<void> {
+    const p = this.genProgress.get(docId);
+    if (p) { p.status = 'ERROR'; p.error = `Scene generation returned no prose for ${stubs} of ${total} scenes.`; }
+    const text = 'FADE IN:\n\n(Scene generation did not return prose — ' + stubs + ' of ' + total + ' scenes came back empty. The draft was NOT filed as complete. Open the build in ScripON Studio and run "Generate script" again.)';
+    await (this.prisma as any).scriptRevision.update({ where: { id: revId }, data: { pageText: [{ page: 1, text }], pageCount: 1 } }).catch(() => {});
   }
 
   private async generateFeatureAsync(docId: string, revId: string, projectId: string, stages: any[], existing: any[]): Promise<void> {
@@ -1218,17 +1247,22 @@ export class ScripOnService {
       }
       setP({ total: scenes.length });
       const out: string[] = ['FADE IN:'];
-      let storySoFar = ''; let prevTail = '';
+      let storySoFar = ''; let prevTail = ''; let stubs = 0;
       for (let i = 0; i < scenes.length; i++) {
         const sc = scenes[i];
         const header = (i + 1) + '  ' + this.slugOf(sc, ar);
         const body = await this.writeScene(ctx, sc, header, storySoFar.slice(-1600), prevTail.slice(-700), projectId);
+        if (body === SCENE_STUB) stubs++;
         out.push(header + '\n\n' + body);
         prevTail = body.slice(-700);
         storySoFar = (storySoFar + '\n' + (i + 1) + '. ' + String(sc.brief || '').slice(0, 150)).slice(-2400);
         if (i % 3 === 0 || i === scenes.length - 1) { const pages = this.paginate(out.join('\n\n') + '\n\nFADE OUT.'); await saveRev(pages); setP({ done: i + 1, pageCount: pages.length }); }
         else setP({ done: i + 1 });
       }
+      // Wholesale scene-writing failure: if half-or-more scenes came back as stubs, the AI
+      // did not actually write prose (transient outage). Do NOT file an all-stub script as
+      // DONE — mark ERROR so the bridge skips it and (on regenerate) the old draft survives.
+      if (this.mostlyStub(stubs, scenes.length)) { await this.failStubRun(docId, revId, stubs, scenes.length); return; }
       out.push('FADE OUT.');
       const pages = this.paginate(out.join('\n\n'));
       await saveRev(pages);
@@ -1413,17 +1447,21 @@ export class ScripOnService {
       // Trim a trailing FADE OUT (EN or AR) so new scenes append seamlessly, then keep numbering from where it left off.
       const baseText = existingText.replace(/\n*FADE OUT\.?\s*$/i, '').replace(/\n*اختفاء تدريجي[.،]?\s*$/u, '').trimEnd();
       const out: string[] = [baseText];
-      let storySoFar = baseText.slice(-2000); let prevTail = baseText.slice(-700);
+      let storySoFar = baseText.slice(-2000); let prevTail = baseText.slice(-700); let stubs = 0;
+      const newCount = scenes.length - startIdx;
       for (let i = startIdx; i < scenes.length; i++) {
         const sc = scenes[i];
         const header = (i + 1) + '  ' + this.slugOf(sc, ar);
         const body = await this.writeScene(ctx, sc, header, storySoFar.slice(-1600), prevTail.slice(-700), projectId);
+        if (body === SCENE_STUB) stubs++;
         out.push(header + '\n\n' + body);
         prevTail = body.slice(-700);
         storySoFar = (storySoFar + '\n' + (i + 1) + '. ' + String(sc.brief || '').slice(0, 150)).slice(-2400);
         if (i % 3 === 0 || i === scenes.length - 1) { const pages = this.paginate(out.join('\n\n') + '\n\nFADE OUT.'); await saveRev(pages); setP({ done: i + 1, pageCount: pages.length }); }
         else setP({ done: i + 1 });
       }
+      // Wholesale failure on the NEW scenes → don't file the extend as DONE (old draft stays active).
+      if (this.mostlyStub(stubs, newCount)) { await this.failStubRun(docId, revId, stubs, newCount); return; }
       out.push('FADE OUT.');
       const pages = this.paginate(out.join('\n\n'));
       await saveRev(pages);
