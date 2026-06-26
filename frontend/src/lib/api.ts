@@ -484,6 +484,8 @@ export const productionApi = {
     marketForecast: (projectId: string, body: any = {}) => api.post(`/production/scripton/market-forecast/${projectId}`, body),
     greenlightDecision: (projectId: string, body: any = {}) => api.post(`/production/scripton/greenlight-decision/${projectId}`, body),
     renderPdf: (html: string, filename?: string) => api.post('/production/scripton/render-pdf', { html, filename }, { responseType: 'blob' }),
+    settings: (projectId: string) => api.get('/production/scripton/settings?projectId=' + encodeURIComponent(projectId)),
+    saveSettings: (body: any) => api.patch('/production/scripton/settings', body),
     reviewProtection: {
       getSettings: (projectId?: string) => api.get('/production/scripton/review-protection/settings' + (projectId ? ('?projectId=' + encodeURIComponent(projectId)) : '')),
       saveSettings: (body: any) => api.post('/production/scripton/review-protection/settings', body),

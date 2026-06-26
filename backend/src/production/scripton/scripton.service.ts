@@ -856,6 +856,32 @@ export class ScripOnService {
     return (this.prisma as any).intakeProfile.upsert({ where: { projectId }, create: { projectId, ...d }, update: d });
   }
 
+  /** ScriptON Settings read model: project name + locale + collab mode + defaults. */
+  async getScriptonSettings(projectId: string) {
+    const pid = projectId || (await this.scriponWorkspace())?.id;
+    if (!pid) return { name: '', language: null, collabMode: 'AUTO', defaults: {} };
+    const proj: any = await (this.prisma as any).productionProject.findUnique({ where: { id: pid }, select: { title: true } }).catch(() => null);
+    const ip: any = await (this.prisma as any).intakeProfile.findUnique({ where: { projectId: pid }, select: { language: true, collabMode: true, scriptonDefaults: true } }).catch(() => null);
+    return { projectId: pid, name: proj?.title || '', language: ip?.language || null, collabMode: String(ip?.collabMode || 'AUTO').toUpperCase(), defaults: ip?.scriptonDefaults || {} };
+  }
+
+  /** Persist ScriptON settings. name → project; locale/collabMode/defaults → IntakeProfile (upsert). */
+  async saveScriptonSettings(body: any) {
+    const pid = body?.projectId || (await this.scriponWorkspace())?.id;
+    if (!pid) throw new BadRequestException('No project to save settings for.');
+    if (typeof body?.name === 'string' && body.name.trim()) {
+      await (this.prisma as any).productionProject.update({ where: { id: pid }, data: { title: body.name.trim() } }).catch(() => {});
+    }
+    const data: any = {};
+    if (typeof body?.language === 'string') data.language = body.language;
+    if (typeof body?.collabMode === 'string') data.collabMode = String(body.collabMode).toUpperCase();
+    if (body?.defaults && typeof body.defaults === 'object') data.scriptonDefaults = body.defaults;
+    if (Object.keys(data).length) {
+      await (this.prisma as any).intakeProfile.upsert({ where: { projectId: pid }, create: { projectId: pid, ...data }, update: data }).catch(() => {});
+    }
+    return this.getScriptonSettings(pid);
+  }
+
   private async ensureLoreSeeded(): Promise<void> {
     try {
       // Idempotent: insert only seed rows whose slug isn't already in the DB, so NEW lore
