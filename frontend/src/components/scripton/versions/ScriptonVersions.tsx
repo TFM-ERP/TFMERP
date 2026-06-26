@@ -9,6 +9,7 @@
 import { useMemo, useEffect, useRef } from 'react';
 import { SxRail } from '@/components/scripton/ScriptOnStudio';
 import { useLocale } from '@/lib/i18n';
+import ScriptonTopBar from '@/components/scripton/topbar/ScriptonTopBar';
 import { unifiedDiff, detectBridge, isSlugLine, type DiffLine } from '@/components/scripton/compare/scripton-compare.logic';
 import { deriveTags, diffAnnotations, diffPairLabel } from './scripton-versions.logic';
 import type { CompareResult } from '@/components/scripton/compare/ScriptonCompare';
@@ -151,10 +152,7 @@ export default function ScriptonVersions(props: VersionsProps) {
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       <div className="sx vers" data-vp={props.vp} dir={dir} style={{ position: 'fixed', inset: 0, zIndex: 50 }}>
-        <div className="top">
-          <div className="logo" onClick={props.onBack} title={t('Back to TFM')}>TFM</div>
-          <div className="proj">{props.title}</div>
-        </div>
+        <ScriptonTopBar vp={props.vp} onBack={props.onBack} />
         <div className="body">
           <SxRail active="revisions" onNav={props.onNav} />
           <div className="main">

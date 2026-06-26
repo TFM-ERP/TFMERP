@@ -9,6 +9,7 @@
 import { useMemo } from 'react';
 import { SxRail } from '@/components/scripton/ScriptOnStudio';
 import { useLocale } from '@/lib/i18n';
+import ScriptonTopBar from '@/components/scripton/topbar/ScriptonTopBar';
 import { toSceneDiffs, detectBridge, isSlugLine, type DiffLine } from './scripton-compare.logic';
 
 export type CompareResult = {
@@ -115,11 +116,7 @@ export default function ScriptonCompare(props: CompareProps) {
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       <div className="sx cmp" data-vp={vp} dir={dir} style={{ position: 'fixed', inset: 0, zIndex: 50 }}>
-        <div className="top">
-          <div className="logo" onClick={props.onBack} title={t('Back to TFM')}>TFM</div>
-          <div className="proj">{props.title}</div>
-          <span className="cring"><span className="dot" />{score}</span>
-        </div>
+        <ScriptonTopBar vp={vp} onBack={props.onBack} continuity={props.result?.continuity} />
         <div className="body">
           <SxRail active="revisions" onNav={props.onNav} />
           <div className="main">

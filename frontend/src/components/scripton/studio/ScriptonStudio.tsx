@@ -10,6 +10,7 @@ import { useState } from 'react';
 import { SxRail } from '@/components/scripton/ScriptOnStudio';
 import ReviewProtectionPanel from '@/components/scripton/ReviewProtectionPanel';
 import { useLocale } from '@/lib/i18n';
+import ScriptonTopBar from '@/components/scripton/topbar/ScriptonTopBar';
 
 export type StudioRun = { surface: string; model: string; tokens: string; conf: number; status: string; statusClass: string; when: string };
 
@@ -158,15 +159,7 @@ export default function ScriptonStudio(props: StudioProps) {
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       <div className="sx studio" data-vp={props.vp} dir={dir} style={{ position: 'fixed', inset: 0, zIndex: 50 }}>
-        <div className="top">
-          <div className="tl">
-            <div className="logo" onClick={props.onBack} title={t('Back to TFM')}>TFM</div>
-            <div className="proj">{props.title}</div>
-            <span className="pill" style={{ background: props.revisionColor + '28', color: props.revisionColor }}>
-              <span className="d" style={{ background: props.revisionColor }} />{props.revisionLabel.toUpperCase()}
-            </span>
-          </div>
-        </div>
+        <ScriptonTopBar vp={props.vp} onBack={props.onBack} />
         <div className="body">
           <SxRail active="studio" />
           <div className="main"><div className="content">

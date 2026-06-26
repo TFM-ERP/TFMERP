@@ -221,7 +221,7 @@ export default function ScriptonWrite(props: WriteProps) {
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       <div className="sx write" data-vp={props.vp} dir={dir} style={{ position: 'fixed', inset: 0, zIndex: 50 }}>
-        <ScriptonTopBar vp={props.vp} onBack={props.onBack} scriptTitle={props.title} continuity={props.pass?.continuity} />
+        <ScriptonTopBar vp={props.vp} onBack={props.onBack} continuity={props.pass?.continuity} />
         <div className="subtop">
           <div className="pageind">
             <span className="nudge" onClick={() => goScene(activeIdx - 1)}>‹</span>

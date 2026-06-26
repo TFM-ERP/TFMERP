@@ -9,6 +9,7 @@
  */
 import { SxRail } from '@/components/scripton/ScriptOnStudio';
 import { useLocale } from '@/lib/i18n';
+import ScriptonTopBar from '@/components/scripton/topbar/ScriptonTopBar';
 import {
   scorecardTiles, verdictBanner, sceneFlowBars, arcPoints, diagRows, TRANSFORM_TILES,
   type DiagRow,
@@ -148,15 +149,7 @@ export default function ScriptonDoctor(props: DoctorCanvasProps) {
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       <div className="sx doctor" data-vp={props.vp} dir={dir} style={{ position: 'fixed', inset: 0, zIndex: 50 }}>
-        <div className="top">
-          <div className="tl">
-            <div className="logo" onClick={props.onBack} title={t('Back to TFM')}>TFM</div>
-            <div className="proj">{props.title}</div>
-            <span className="pill" style={{ background: props.revisionColor + '28', color: props.revisionColor }}>
-              <span className="d" style={{ background: props.revisionColor }} />{props.revisionLabel.toUpperCase()}
-            </span>
-          </div>
-        </div>
+        <ScriptonTopBar vp={props.vp} onBack={props.onBack} />
         <div className="body">
           <SxRail active="doctor" />
           <div className="main"><div className="content">

@@ -170,12 +170,20 @@ const versionsExpect = async (page, r) => {
   r.assert('semantic-diff: change tags + diff lines', (await page.locator('.sx.vers .card.diff .tag').count()) >= 1 && (await page.locator('.sx.vers .card.diff .dblock .ln').count()) >= 1);
   r.assert('decision log: real records + a status badge', (await page.locator('.sx.vers .dec').count()) >= 1 && (await page.locator('.sx.vers .dec .badge').count()) >= 1);
   // DRIVE node-select → the semantic-diff header (the V{a}→V{b} pair) must change.
+  // Click a node that ISN'T the default-selected one (.sel) — when the active
+  // version is also the first node (e.g. after a version-history cleanup that
+  // renumbered the current draft to V1), clicking the already-selected first
+  // node is a no-op and would falsely fail the assertion.
   const head0 = await page.locator('.sx.vers .card.diff .ch').first().innerText();
-  const nodes = page.locator('.sx.vers .node:not(.pending) .vcard');
-  await nodes.first().click();
-  await page.waitForTimeout(1200);
-  const head1 = await page.locator('.sx.vers .card.diff .ch').first().innerText();
-  r.assert('selecting a node updates the semantic-diff pair', head1 !== head0);
+  const nodes = page.locator('.sx.vers .node:not(.pending):not(.sel) .vcard');
+  if (await nodes.count()) {
+    await nodes.first().click();
+    await page.waitForTimeout(1200);
+    const head1 = await page.locator('.sx.vers .card.diff .ch').first().innerText();
+    r.assert('selecting a node updates the semantic-diff pair', head1 !== head0);
+  } else {
+    r.assert('single selectable node (no alternate to switch to) — node-select skipped', true);
+  }
   // DRIVE open-full-compare → deep-links to the compare mode (?pass=).
   if (await page.locator('.sx.vers .full').count()) {
     await Promise.all([

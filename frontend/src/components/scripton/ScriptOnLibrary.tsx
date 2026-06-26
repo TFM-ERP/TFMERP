@@ -4,6 +4,7 @@
 import React from 'react';
 import { SxRail } from './ScriptOnStudio';
 import { useLocale } from '@/lib/i18n';
+import ScriptonTopBar from '@/components/scripton/topbar/ScriptonTopBar';
 
 export type SxCard = { id: string; title: string; type: string; typeColor: string; rev: string; revColor: string; pages: string; grade: string; gradeColor: string; updated: string; cover: string };
 
@@ -82,8 +83,8 @@ export default function ScriptOnLibrary(props: {
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       <div className="sx" dir={dir} style={{ position: 'fixed', inset: 0, zIndex: 50 }}>
-        <div className="top">
-          <div className="tl"><div className="logo" onClick={props.onBack} title={t('Back to TFM')}>TFM</div><div className="proj">{t('Script Library')}</div><span className="meta">{props.meta}</span></div>
+        <ScriptonTopBar vp="desktop" onBack={props.onBack} />
+        <div className="top" style={{ height: 52, justifyContent: 'flex-end' }}>
           <div className="tr">
             <div className="search"><svg className="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4-4" /></svg><input value={props.search} onChange={(e) => props.onSearch(e.target.value)} placeholder={t('Search title, writer, character…')} /></div>
             {props.onBin ? <button className="btn outline" onClick={props.onBin}><svg className="ico" viewBox="0 0 24 24"><path d="M3 6h18M19 6l-1 14H6L5 6M10 11v6M14 11v6" /></svg>{t('Bin')}</button> : null}
