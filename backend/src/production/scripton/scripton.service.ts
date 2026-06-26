@@ -704,6 +704,37 @@ export class ScripOnService {
     while ((m = re.exec(t))) { const k = m[1]; const v = String(m[2]).replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\t/g, '  ').replace(/\\r/g, '').replace(/\\\\/g, '\\').trim(); if (!v) continue; segs.push((k === 'name' || k === 'anchor' || k === 'slugline') ? ('■ ' + v) : v); }
     return segs.join('\n\n');
   }
+
+  /** Truncation backstop for a long array stage (SCENES / STEP_OUTLINE): keep the
+   *  stage's cap, but if one capped call cut the JSON off mid-array, continue from the
+   *  last few items until the model stops truncating (clean JSON + under cap) or a pass
+   *  adds nothing — bounded, sequentially renumbered. Returns the completed array + a
+   *  warning when it's STILL truncating, so we never silently persist a partial outline.
+   *  Mirrors generateFeature()'s scene-map continuation. */
+  private async extendStageArray(o: { kind: string; arrKey: string; system: string; user: string; cap: number; firstRes: any; firstArr: any[]; projectId: string }): Promise<{ arr: any[]; passes: number; warning?: string }> {
+    const { kind, arrKey, system, user, cap, projectId } = o;
+    let arr: any[] = Array.isArray(o.firstArr) ? o.firstArr.slice() : [];
+    const truncated = (r: any): boolean => { if (!r) return true; const used = (r.usage && r.usage.output_tokens) || 0; const clean = !!(r.json && Array.isArray(r.json[arrKey])); return !clean || used >= cap * 0.9; };
+    const pull = (r: any): any[] => (r && r.json && Array.isArray(r.json[arrKey])) ? r.json[arrKey] : (this.recoverStage(String((r && r.text) || ''))[arrKey] || []);
+    const desc = (x: any): string => kind === 'SCENES'
+      ? ((x.sceneNumber != null ? x.sceneNumber + ' ' : '') + String(x.slugline || x.location || ''))
+      : ((x.n != null ? x.n + ' ' : '') + String(x.text || x.scene || x.slugline || '').slice(0, 70));
+    let last: any = o.firstRes; let passes = 0;
+    while (last && arr.length && truncated(last) && passes < 4) {
+      passes++; const before = arr.length;
+      const tail = arr.slice(-3).map((x) => '- ' + desc(x)).join('\n');
+      try {
+        last = await this.ai.run({ task: 'scripton.develop.' + kind.toLowerCase() + '.cont', system, user: user + '\nYou have already produced ' + arr.length + ' items, ending with:\n' + tail + '\nContinue the list from the NEXT item through the FINAL one (the ending/cliffhanger) — do NOT repeat any earlier item. Return ONLY JSON {' + arrKey + ':[...]} for the REMAINING items only.', maxTokens: cap, stream: true, timeoutMs: 600000, idleTimeoutMs: 120000, projectId, refType: 'Project', refId: projectId });
+      } catch { break; }
+      const more = pull(last); if (!more.length) break;
+      arr = arr.concat(more);
+      if (arr.length <= before) break; // a pass added nothing → stop
+    }
+    if (kind === 'SCENES') arr = arr.map((s, i) => ({ ...s, sceneNumber: i + 1 }));
+    if (kind === 'STEP_OUTLINE') arr = arr.map((s, i) => ({ ...s, n: i + 1 }));
+    const warning = (arr.length && truncated(last)) ? (kind + ' outline may be incomplete — still truncating after ' + passes + ' continuation pass(es) (' + arr.length + ' items). Re-run.') : undefined;
+    return { arr, passes, warning };
+  }
   async generateStage(opts: any, userId?: string) {
 
     const projectId = String(opts?.projectId || '');
@@ -743,14 +774,25 @@ export class ScripOnService {
     const MAXTOK: any = { LOGLINE: 600, SYNOPSIS: 2400, TREATMENT: 25000, BEATS: 25000, SCENES: 25000, STEP_OUTLINE: 25000, DRAFT: 25000, COVERAGE: 2000, SEASON_ARC: 25000, EPISODE_MAP: 25000, PREMISE: 2400, STORY_ENGINE: 3500, BEAT_ENGINE: 25000, THESIS: 2400, RESEARCH_PLAN: 4000, RIGHTS_PLAN: 3000, INTERVIEW_OUTLINE: 5000, PAPER_EDIT: 25000, NARRATION: 25000 };
     const HEAVY = ['SCENES', 'STEP_OUTLINE', 'DRAFT', 'TREATMENT', 'BEATS', 'EPISODE_MAP', 'BEAT_ENGINE', 'PAPER_EDIT', 'NARRATION', 'SEASON_ARC'];
     const heavy = HEAVY.indexOf(kind) >= 0;
-    const res: any = await this.ai.run({ task: 'scripton.develop.' + kind.toLowerCase(), system: brief.system, user, maxTokens: MAXTOK[kind] || 3000, stream: heavy, timeoutMs: heavy ? 600000 : undefined, idleTimeoutMs: heavy ? 120000 : undefined, projectId, refType: 'Project', refId: projectId }); const ai: any = (res && res.json) || {};
+    // Keep the per-stage ceiling (25k for the long stages); opts.maxTokens only overrides for tests.
+    const cap = Number(opts?.maxTokens) > 0 ? Number(opts.maxTokens) : (MAXTOK[kind] || 3000);
+    const res: any = await this.ai.run({ task: 'scripton.develop.' + kind.toLowerCase(), system: brief.system, user, maxTokens: cap, stream: heavy, timeoutMs: heavy ? 600000 : undefined, idleTimeoutMs: heavy ? 120000 : undefined, projectId, refType: 'Project', refId: projectId }); const ai: any = (res && res.json) || {};
     if (kind === 'BEATS' && !Array.isArray(ai.beats)) { const r = this.recoverStage(String((res && res.text) || '')); if (r.beats) ai.beats = r.beats; }
     if (kind === 'SCENES' && !Array.isArray(ai.scenes)) { const r = this.recoverStage(String((res && res.text) || '')); if (r.scenes) ai.scenes = r.scenes; }
     if (kind === 'STEP_OUTLINE' && !Array.isArray(ai.steps)) { const r = this.recoverStage(String((res && res.text) || '')); if (r.steps) ai.steps = r.steps; }
+    // Continuation backstop — if a long array stage cut off mid-array, extend it to the
+    // ending instead of silently persisting the partial (salvage alone left no cliffhanger).
+    const ARRKEY: Record<string, string> = { SCENES: 'scenes', STEP_OUTLINE: 'steps' };
+    if (ARRKEY[kind] && Array.isArray(ai[ARRKEY[kind]]) && ai[ARRKEY[kind]].length) {
+      const ext = await this.extendStageArray({ kind, arrKey: ARRKEY[kind], system: brief.system, user, cap, firstRes: res, firstArr: ai[ARRKEY[kind]], projectId });
+      ai[ARRKEY[kind]] = ext.arr;
+      if (ext.warning) ai.__warning = ext.warning;
+    }
     const data: any = {};
     if (Array.isArray(ai.beats)) data.beats = ai.beats;
     if (Array.isArray(ai.scenes)) data.scenes = ai.scenes;
     if (Array.isArray(ai.steps)) data.steps = ai.steps;
+    if (ai.__warning) data.warning = ai.__warning; // persisted so a still-truncated outline is never silent
     const maxN = (stage.versions || []).reduce((m: number, v: any) => Math.max(m, v.n || 0), 0);
     const n = maxN + 1;
     const META = new Set(['title', 'format', 'rating', 'totalScenes', 'type', 'genre']);
@@ -776,6 +818,7 @@ export class ScripOnService {
     const created: any = await (this.prisma as any).stageVersion.create({ data: { stageId: stage.id, n, title: kind.charAt(0) + kind.slice(1).toLowerCase().replace('_', ' ') + ' V' + n, body, data: Object.keys(data).length ? data : undefined, framework: opts?.framework || null, colorCode: this.WHEEL[(n - 1) % this.WHEEL.length], status: 'DRAFT', createdById: userId || null } });
     await (this.prisma as any).developmentStage.update({ where: { id: stage.id }, data: { currentVersionId: created.id } }).catch(() => {});
     if (kind === 'SCENES') { void this.generateCharacterBible(projectId, userId, opts?.buildId).catch(() => {}); }   // auto character breakdown the moment scenes land
+    if (ai.__warning) (created as any).warning = ai.__warning; // surface in the HTTP response too
     return created;
   }
 
