@@ -15,6 +15,7 @@ import { SxRail } from '@/components/scripton/ScriptOnStudio';
 import { useViewport } from '@/components/scripton/useViewport';
 import { useLocale } from '@/lib/i18n';
 import { useScriptonBack } from '@/components/scripton/useScriptonBack';
+import ScriptonTopBar from '@/components/scripton/topbar/ScriptonTopBar';
 import {
   greeting, firstNameOf, subLine, buildSlate, pickContinue, deriveCounts, toActivity,
   type SxCard, type HeroVM, type ActivityItem, type HomeCounts,
@@ -170,13 +171,7 @@ export default function ScriptonHome() {
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       <div className="sx home" data-vp={vp} dir={dir} style={{ position: 'fixed', inset: 0, zIndex: 50 }}>
-        <div className="top">
-          <div className="tl">
-            <div className="logo" onClick={onBack} title={t('Back to TFM')}>TFM</div>
-            <div className="proj">{t('ScriptON')}</div>
-            <span className="meta">{s.loading ? '' : `${s.cards.length} ${t('scripts')}`}</span>
-          </div>
-        </div>
+        <ScriptonTopBar vp={vp} onBack={onBack} />
         <div className="body">
           <SxRail active="home" />
           <div className="main"><div className="content">

@@ -9,6 +9,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { SxRail } from '@/components/scripton/ScriptOnStudio';
 import { ScriptPaper } from '@/components/scripton/scriptPaper';
+import ScriptonTopBar from '@/components/scripton/topbar/ScriptonTopBar';
 import { useLocale } from '@/lib/i18n';
 import type { SxScene } from '@/components/scripton/ScriptOnReader';
 
@@ -25,6 +26,7 @@ const CSS = `
 .sx.write svg{display:block}
 .sx.write .ico{width:18px;height:18px;stroke:currentColor;stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round}
 .sx.write .top{height:56px;flex:0 0 56px;display:flex;align-items:center;gap:14px;padding:0 18px;background:linear-gradient(180deg,#14161c,#101216);border-bottom:1px solid var(--hair);position:relative;z-index:2}
+.sx.write .subtop{height:44px;flex:0 0 44px;display:flex;align-items:center;gap:14px;padding:0 18px;background:#101216;border-bottom:1px solid var(--hair);position:relative;z-index:2}
 .sx.write .logo{width:30px;height:30px;border-radius:9px;background:linear-gradient(160deg,var(--gold2),var(--gold));display:grid;place-items:center;color:var(--goldink);font-weight:800;font-size:12px;cursor:pointer;flex:none}
 .sx.write .proj{font-weight:700;font-size:15px;color:var(--cream);font-family:var(--sx-title);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sx.write .pill{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap}
@@ -87,13 +89,13 @@ const CSS = `
 .sx.write[data-vp="tablet"] .pass{width:300px}
 
 /* Stage-a-change composer */
-.sx.write .composer{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);width:560px;max-width:calc(100% - 120px);z-index:8;background:var(--panel);border:1px solid rgba(198,164,99,.35);border-radius:14px;overflow:hidden;box-shadow:0 30px 70px -20px #000}
+.sx.write .composer{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);width:560px;max-width:calc(100% - 120px);max-height:calc(100% - 28px);display:flex;flex-direction:column;z-index:8;background:var(--panel);border:1px solid rgba(198,164,99,.35);border-radius:14px;overflow:hidden;box-shadow:0 30px 70px -20px #000}
 .sx.write .comph{display:flex;align-items:center;gap:9px;padding:11px 14px;border-bottom:1px solid var(--hair);background:rgba(198,164,99,.05)}
 .sx.write .comph .ci{width:24px;height:24px;border-radius:7px;background:rgba(198,164,99,.18);color:var(--gold2);display:grid;place-items:center;font-size:12px;flex:none}
 .sx.write .comph .ct{font-size:13px;font-weight:600;color:var(--cream)}
 .sx.write .comph .cs{font-size:10.5px;color:var(--faint);margin-top:1px}
 .sx.write .comph .x{margin-inline-start:auto;color:var(--faint);cursor:pointer;font-size:13px}
-.sx.write .compbody{padding:12px 14px;display:flex;flex-direction:column;gap:11px;max-height:46vh;overflow:auto}
+.sx.write .compbody{padding:12px 14px;display:flex;flex-direction:column;gap:11px;flex:1;min-height:0;overflow:auto}
 .sx.write .lab{font-size:9.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--gold);margin-bottom:6px}
 .sx.write .chips{display:flex;flex-wrap:wrap;gap:6px}
 .sx.write .chip{font-size:11.5px;color:var(--text);background:#171a21;border:1px solid var(--hair);border-radius:999px;padding:5px 11px;cursor:pointer}
@@ -219,12 +221,8 @@ export default function ScriptonWrite(props: WriteProps) {
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       <div className="sx write" data-vp={props.vp} dir={dir} style={{ position: 'fixed', inset: 0, zIndex: 50 }}>
-        <div className="top">
-          <div className="logo" onClick={props.onBack} title={t('Back to TFM')}>TFM</div>
-          <div className="proj">{props.title}</div>
-          <span className="pill" style={{ background: props.revisionColor + '28', color: props.revisionColor }}>
-            <span className="d" style={{ background: props.revisionColor }} />{props.revisionLabel.toUpperCase()}
-          </span>
+        <ScriptonTopBar vp={props.vp} onBack={props.onBack} scriptTitle={props.title} continuity={props.pass?.continuity} />
+        <div className="subtop">
           <div className="pageind">
             <span className="nudge" onClick={() => goScene(activeIdx - 1)}>‹</span>
             <b>{t('Scene')} {n ? activeIdx + 1 : '—'}</b> / {n || '—'}

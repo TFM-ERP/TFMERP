@@ -1,0 +1,56 @@
+'use client';
+import { useState, useEffect } from 'react';
+import { productionApi } from '@/lib/api';
+import { pickScriptonProject } from '@/components/scripton/useScriptonProject';
+import { activeVersion, type TopVersion } from './scripton-topbar.logic';
+
+export type TopBarData = {
+  scriptTitle: string | null;   // breadcrumb (the bound script, e.g. عنترة)
+  continuity: number | null;    // active version's continuity %, or null → ring hidden (no fake number)
+  versionLabel: string | null;  // e.g. "V3", or null
+  versions: TopVersion[];       // for the V-switcher dropdown
+  userInitials: string;         // from tfm_user, for the avatar
+};
+
+/** Self-resolves the top bar's data the same way the screens do: the bound ScriptON
+ *  script (breadcrumb) + its versions (active label + continuity for the ring). Reuses
+ *  the versions endpoint; degrades to nulls (the bar hides what it lacks). */
+export function useScriptonTopBar(): TopBarData {
+  const [data, setData] = useState<TopBarData>({ scriptTitle: null, continuity: null, versionLabel: null, versions: [], userInitials: '' });
+  useEffect(() => {
+    let alive = true;
+    // The bar's data is not on any screen's critical path — defer it off the mount
+    // tick so it never competes with the screen's own load / first interactions
+    // (the screens duplicate projects.list/script.list; piling on at mount starved
+    // their pass-refetch). The header fills in a beat later, which is fine.
+    const timer = setTimeout(() => { void run(); }, 400);
+    const run = async () => {
+      let userInitials = '';
+      try { const u = JSON.parse(window.localStorage.getItem('tfm_user') || '{}'); userInitials = String(u.firstName || u.name || u.email || ''); } catch { /* */ }
+      try {
+        const pr: any = await productionApi.projects.list();
+        const projects = pr.data?.items ?? (Array.isArray(pr.data) ? pr.data : []);
+        const pid = pickScriptonProject(projects)?.id;
+        if (!pid) { if (alive) setData((d) => ({ ...d, userInitials })); return; }
+        const dr: any = await productionApi.script.list(pid);
+        const docs = Array.isArray(dr.data) ? dr.data : (dr.data?.items ?? []);
+        const doc = docs[0];
+        if (!doc) { if (alive) setData((d) => ({ ...d, userInitials })); return; }
+        let versions: TopVersion[] = [];
+        try {
+          const vr: any = await productionApi.scripton.versions(doc.id);
+          versions = (vr.data?.versions || []).map((v: any) => ({ id: v.id, n: v.n, label: v.label, active: v.active, passId: v.passId, continuity: v.continuity }));
+        } catch { /* no versions */ }
+        const av = activeVersion(versions);
+        if (alive) setData({
+          scriptTitle: doc.title || null,
+          continuity: av && typeof av.continuity === 'number' ? av.continuity : null,
+          versionLabel: av?.label || null,
+          versions, userInitials,
+        });
+      } catch { if (alive) setData((d) => ({ ...d, userInitials })); }
+    };
+    return () => { alive = false; clearTimeout(timer); };
+  }, []);
+  return data;
+}
