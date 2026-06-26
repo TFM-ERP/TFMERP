@@ -69,45 +69,30 @@ const DESKTOP = { width: 1440, height: 900 };
 const TABLET = { width: 1000, height: 1200 };
 const MOBILE = { width: 390, height: 844 };
 
-// Write — the DEFAULT bind is عنترة, which has versions + canon but NO parsed
-// ScriptScene rows. The honest contract: real title (no "Midnight Run" sample),
-// an explicit empty state, no paper, and NO sample badge (a real script IS bound).
-// The populated Write UI (spine, paper, composer) is covered by write-populated
-// below, pointed via ?doc= at a script that actually has parsed scenes.
+// Write — the DEFAULT bind is عنترة. The develop→ScriptScene bridge now materialises
+// its scenes, so the canvas renders عنترة's REAL (Arabic) pages — never the fictional
+// "Midnight Run"/Mara sample, and never a fallback. Asserts the bridge end-to-end:
+// real paper, spine dots, Arabic content (not the English Mara sample), no SAMPLE badge,
+// + the composer opens. (A truly page-less script still shows the honest empty state in
+// code — but the bridge means real scripts no longer land there.)
 const writeExpect = async (page, r) => {
-  await page.waitForSelector('.sx.write .empty .emptyh, .sx.write .canvas .uvp-a4', { timeout: 25000 });
-  r.rails = await page.locator('.rail').count();
-  r.filmosAside = await page.locator('aside').count();
-  r.assert('single shell — no FilmOS <aside>', r.filmosAside === 0);
-  r.assert('workspace rail present', r.rails >= 1);
-  r.assert('unified top bar present', (await page.locator('.sxtb').count()) === 1);
-  // Bound-but-unparsed: honest empty state, NOT the fictional sample.
-  r.empty = await page.locator('.sx.write .empty .emptyh').count();
-  r.paper = await page.locator('.sx.write .canvas .uvp-a4').count();
-  r.sampleBadge = await page.locator('.sx.write .samplebadge').count();
-  r.assert('honest empty state ("No parsed pages yet")', r.empty >= 1);
-  r.assert('no sample paper rendered (unparsed script)', r.paper === 0);
-  r.assert('no SAMPLE badge — a real script is bound (not demo)', r.sampleBadge === 0);
-  // Breadcrumb resolves the real bound script (عنترة), never the "Midnight Run" sample.
-  r.crumb = (await page.locator('.sxtb .crumb').first().innerText().catch(() => '')).trim();
-  r.assert('breadcrumb is the real script (not "Midnight Run")', r.crumb !== 'Midnight Run' && !/Midnight Run/i.test(r.crumb));
-};
-
-// Write (populated) — opens a script that HAS parsed ScriptScene rows via ?doc=
-// (WRITE_DOC env). Covers the spine + Courier paper + composer UI. Does NOT drive
-// the destructive stage→render flow (that writes BuildVersions; and the conflict
-// gate is coupled to عنترة's ANTARAH canon, which this script lacks).
-const writePopulatedExpect = async (page, r) => {
   await page.waitForSelector('.sx.write .canvas .uvp-a4', { timeout: 25000 });
   r.rails = await page.locator('.rail').count();
   r.filmosAside = await page.locator('aside').count();
   r.assert('single shell — no FilmOS <aside>', r.filmosAside === 0);
   r.assert('workspace rail present', r.rails >= 1);
-  r.assert('Story Spine present', (await page.locator('.sx.write .spine').count()) >= 1);
+  r.assert('unified top bar present', (await page.locator('.sxtb').count()) === 1);
   r.spineDots = await page.locator('.sx.write .spdot').count();
-  r.assert('spine has scene dots', r.spineDots > 0);
-  r.assert('canvas uses shared ScriptPaper (slug headings)', (await page.locator('.sx.write .canvas .uvp-slug').count()) >= 1);
-  // Composer opens with kind tabs + options (no destructive staging here).
+  r.assert('spine has scene dots (materialised scenes)', r.spineDots > 0);
+  r.assert('canvas renders script paper', (await page.locator('.sx.write .canvas .uvp-slug').count()) >= 1);
+  r.sampleBadge = await page.locator('.sx.write .samplebadge').count();
+  r.assert('no SAMPLE badge — real script bound (not demo)', r.sampleBadge === 0);
+  // The bridge proof: عنترة's real Arabic scenes render — NOT the English Mara sample.
+  r.canvasText = (await page.locator('.sx.write .canvas').innerText().catch(() => '')).slice(0, 4000);
+  r.assert('renders bound script (Arabic عنترة), not the Mara sample', /[؀-ۿ]/.test(r.canvasText) && !/MARA|DINER|WAREHOUSE/i.test(r.canvasText));
+  r.crumb = (await page.locator('.sxtb .crumb').first().innerText().catch(() => '')).trim();
+  r.assert('breadcrumb is the real script (not "Midnight Run")', !/Midnight Run/i.test(r.crumb));
+  // Composer opens with kind tabs + options (non-destructive — no stage/render here).
   if (await page.locator('.sx.write .stagebtn').count()) {
     await page.locator('.sx.write .stagebtn').click();
     await page.waitForSelector('.sx.write .composer .opt', { timeout: 10000 });
@@ -380,11 +365,6 @@ const SCENARIOS = [
   { name: 'write-desktop', route: '/scripton/reader', storage: {}, viewport: DESKTOP, expect: writeExpect },
   { name: 'write-tablet', route: '/scripton/reader', storage: {}, viewport: TABLET, expect: writeExpect },
   { name: 'write-mobile', route: '/scripton/reader', storage: {}, viewport: MOBILE, expect: writeExpect },
-  // Write (populated) — opens a script WITH parsed scenes via ?doc= (WRITE_DOC env),
-  // covering the spine/paper/composer UI the default (unparsed عنترة) can't exercise.
-  ...(process.env.WRITE_DOC ? [
-    { name: 'write-populated-desktop', route: '/scripton/reader?doc=' + process.env.WRITE_DOC, storage: {}, viewport: DESKTOP, expect: writePopulatedExpect },
-  ] : []),
   // Render→Compare — only when a rendered pass id is supplied (COMPARE_PASS env).
   ...(process.env.COMPARE_PASS ? [
     { name: 'compare-desktop', route: '/scripton/revisions?pass=' + process.env.COMPARE_PASS, storage: {}, viewport: DESKTOP, expect: compareExpect },

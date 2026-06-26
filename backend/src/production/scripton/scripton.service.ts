@@ -5,6 +5,7 @@ import { CanonService } from './canon/canon.service';
 import { computeFacts, parseJsonArray } from './scripton.util';
 import { LORE_SEED } from './lore-seed.data';
 import { knowledgeDirective, stageLadderFor, normalizeFamily } from './knowledge';
+import { parseScenes } from '../script/scene-parse.util';
 import { buildPackageDocModel } from './package-docx.util';
 import { packDocx } from './package-docx.renderer';
 import { LEVER_KEYS, resolveLever } from './intake-levers.util';
@@ -1247,9 +1248,37 @@ export class ScripOnService {
     const bRow: any = await (this.prisma as any).developmentBuild.findFirst({ where: { linkedScriptId: docId } }).catch(() => null);
     const brief = (bRow && bRow.brief) || {};
     const fam = normalizeFamily(brief);
-    if (fam === 'VERTICAL') return this.generateVerticalAsync(docId, revId, projectId, stages, brief);
-    if (fam === 'DOCUMENTARY') return this.generateDocumentaryAsync(docId, revId, projectId, stages, brief);
-    return this.generateFeatureAsync(docId, revId, projectId, stages, existing);
+    if (fam === 'VERTICAL') await this.generateVerticalAsync(docId, revId, projectId, stages, brief);
+    else if (fam === 'DOCUMENTARY') await this.generateDocumentaryAsync(docId, revId, projectId, stages, brief);
+    else await this.generateFeatureAsync(docId, revId, projectId, stages, existing);
+    // Develop→ScriptScene bridge: only on a clean finish (a failed/short run wrote
+    // an error placeholder into pageText — don't materialise scenes from that).
+    if (this.genProgress.get(docId)?.status === 'DONE') await this.materialiseScenes(revId, projectId);
+  }
+
+  /**
+   * Develop→ScriptScene bridge. The develop/render path writes the screenplay into
+   * `ScriptRevision.pageText` (+ BuildVersion + CanonFacts) but creates no ScriptScene
+   * rows — so developed scripts rendered empty (and used to fall back to a sample).
+   * This parses the finished revision's pageText (the SAME parser the import path uses,
+   * now Arabic-aware) into ScriptScene rows so the Reader/Doctor/Room see real scenes.
+   * Idempotent (skips when scenes already exist) and parity with import (headings +
+   * page boundaries; no body — scene bodies live in pageText, not ScriptScene). Also
+   * used to backfill already-generated revisions.
+   */
+  async materialiseScenes(revisionId: string, projectId: string): Promise<number> {
+    try {
+      const existing = await (this.prisma as any).scriptScene.count({ where: { revisionId } });
+      if (existing > 0) return 0;
+      const rev: any = await (this.prisma as any).scriptRevision.findUnique({ where: { id: revisionId }, select: { pageText: true } });
+      const pageText: any = rev && rev.pageText;
+      const pages: string[] = Array.isArray(pageText) ? pageText.map((p: any) => String((p && p.text) || '')) : [];
+      if (!pages.length) return 0;
+      const scenes = parseScenes(pages);
+      if (!scenes.length) return 0;
+      await (this.prisma as any).scriptScene.createMany({ data: scenes.map((s, i) => ({ revisionId, projectId, sortOrder: i, ...s })) });
+      return scenes.length;
+    } catch { return 0; }
   }
 
   // Parse an EPISODE_MAP / BEAT_ENGINE prose body into ordered episode descriptors.
@@ -1349,7 +1378,14 @@ export class ScripOnService {
       ? this.extendFeatureAsync(doc.id, newRev.id, doc.projectId, stages, existing, existingPages)
       : this.generateScriptAsync(doc.id, newRev.id, doc.projectId, stages, existing);
     // Swap the active revision to the new one ONLY when generation finished cleanly. On ERROR the old pages remain.
-    void run.then(async () => { const p = this.genProgress.get(doc.id); if (p && p.status === 'DONE') await (this.prisma as any).scriptDocument.update({ where: { id: doc.id }, data: { activeRevisionId: newRev.id } }).catch(() => {}); }).catch(() => {});
+    // Materialise scenes for the new revision first (extend path doesn't go through generateScriptAsync; idempotent for rewrite).
+    void run.then(async () => {
+      const p = this.genProgress.get(doc.id);
+      if (p && p.status === 'DONE') {
+        await this.materialiseScenes(newRev.id, doc.projectId);
+        await (this.prisma as any).scriptDocument.update({ where: { id: doc.id }, data: { activeRevisionId: newRev.id } }).catch(() => {});
+      }
+    }).catch(() => {});
     return { documentId: doc.id, revisionId: newRev.id, total: estTotal, mode: doExtend ? 'extend' : 'rewrite' };
   }
 

@@ -8,12 +8,10 @@ import { PrismaService } from '../../common/prisma/prisma.service';
  */
 // WGA revision colour wheel (auto-advances on each new revision; round 1 = 'Double …')
 import { nextRevisionColor } from './revision-wheel.util';
+import { parseScenes as parseScenesUtil } from './scene-parse.util';
 @Injectable()
 export class ScriptService {
   constructor(private prisma: PrismaService) {}
-
-  // INT. / EXT. / INT/EXT slugline, with an optional leading scene number.
-  private readonly SLUG_RE = /^\s*(\d+[A-Z]?\.?\s+)?(INT\.?\/EXT\.?|I\/E\.?|INT\.?|EXT\.?)\s+(.+)$/i;
 
   // ── Documents ────────────────────────────────────────────────────────────────
   list(projectId: string) {
@@ -357,40 +355,8 @@ export class ScriptService {
     return { pages };
   }
 
-  /** Find sluglines across pages → scenes with page ranges. */
+  /** Find sluglines across pages → scenes with page ranges (English + Arabic). */
   private parseScenes(pages: string[]) {
-    type Raw = { sceneNumber: string | null; slugline: string; intExt: string; dayNight: string | null; pageStart: number; charStart: number };
-    const raw: Raw[] = [];
-    pages.forEach((pageText, idx) => {
-      const lines = pageText.split('\n');
-      let cursor = 0;
-      for (const line of lines) {
-        const m = line.match(this.SLUG_RE);
-        if (m) {
-          const intExt = m[2].toUpperCase().replace(/\./g, '').replace('I/E', 'INT/EXT');
-          const rest = m[3].trim();
-          const dn = rest.match(/\b(DAY|NIGHT|DAWN|DUSK|MORNING|EVENING|CONTINUOUS|LATER)\b/i);
-          raw.push({
-            sceneNumber: m[1] ? m[1].replace(/[.\s]/g, '') : null,
-            slugline: `${intExt}. ${rest}`.trim(),
-            intExt,
-            dayNight: dn ? dn[1].toUpperCase() : null,
-            pageStart: idx + 1,
-            charStart: cursor,
-          });
-        }
-        cursor += line.length + 1;
-      }
-    });
-    // pageEnd = (next scene's start page) - 1, else last page
-    return raw.map((s, i) => ({
-      sceneNumber: s.sceneNumber,
-      slugline: s.slugline,
-      intExt: s.intExt,
-      dayNight: s.dayNight,
-      pageStart: s.pageStart,
-      pageEnd: i + 1 < raw.length ? Math.max(s.pageStart, raw[i + 1].pageStart) : pages.length || s.pageStart,
-      charStart: s.charStart,
-    }));
+    return parseScenesUtil(pages);
   }
 }

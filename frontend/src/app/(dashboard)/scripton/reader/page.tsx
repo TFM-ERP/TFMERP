@@ -8,7 +8,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { productionApi , approvalsApi } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
-import { pickScriptonProject } from '@/components/scripton/useScriptonProject';
+import { pickScriptonProject, resolveScriptonProjectId } from '@/components/scripton/useScriptonProject';
 import ScriptOnReader, { SxScene, SxSceneRead, SxTab } from '@/components/scripton/ScriptOnReader';
 import ScriptOnBudgetFit from '@/components/scripton/ScriptOnBudgetFit';
 import ScriptOnRewriteSlate from '@/components/scripton/ScriptOnRewriteSlate';
@@ -99,6 +99,10 @@ export default function ScriptOnWorkspace() {
           const pr: any = await productionApi.projects.list();
           const projects = pr.data?.items ?? (Array.isArray(pr.data) ? pr.data : []);
           pid = pickScriptonProject(projects)?.id || null;
+          // Cold workspace cache → resolve the ScriptON Library workspace explicitly
+          // (a cold cache is NOT a no-script demo — only fall to the sample if even
+          // the workspace can't be resolved).
+          if (!pid) pid = await resolveScriptonProjectId();
           if (!pid) { applyDemo(); return; }
           const dr: any = await productionApi.script.list(pid);
           const docs = Array.isArray(dr.data) ? dr.data : (dr.data?.items ?? []);
