@@ -14,6 +14,7 @@ import ScriptOnBuildScreen from '@/components/scripton/ScriptOnBuildScreen';
 import { useViewport } from '@/components/scripton/useViewport';
 import { useScriptonBack } from '@/components/scripton/useScriptonBack';
 import { useScriptonShellFlag } from '@/components/scripton/osShellFlag';
+import { useScriptonMode } from '@/components/scripton/useScriptonMode';
 
 const STAGE_ORDER = ['LOGLINE', 'SYNOPSIS', 'TREATMENT', 'BEATS', 'SCENES', 'STEP_OUTLINE', 'DRAFT', 'COVERAGE'];
 const BUILD_ORDER: [string, string][] = [['LOGLINE', 'Logline'], ['SYNOPSIS', 'Synopsis'], ['TREATMENT', 'Treatment'], ['BEATS', 'Beats'], ['SCENES', 'Scenes'], ['STEP_OUTLINE', 'Step outline'], ['DRAFT', 'Draft']];
@@ -37,6 +38,7 @@ export default function StudioPage() {
   const vp = useViewport();
   const onBack = useScriptonBack();
   const osNew = useScriptonShellFlag() === 'new'; // light OS re-skin (Develop screen 5)
+  const collabMode = useScriptonMode();
   const [title, setTitle] = useState('Midnight Run');
   const [projectId, setProjectId] = useState<string | null>(null);
   const [mode, setMode] = useState('builds');
@@ -144,6 +146,11 @@ export default function StudioPage() {
   };
   const onPromote = async (versionId: string) => {
     if (!projectId) return;
+    if (collabMode === 'solo') {
+      try { await productionApi.scripton.development.setStatus(versionId, 'APPROVED'); await loadPipeline(projectId); flash(t('Approved.')); }
+      catch (e: any) { flash(e?.response?.data?.message || t('Could not approve.')); }
+      return;
+    }
     try {
       await approvalsApi.routeChange({ projectId, entityType: 'STAGE_VERSION_APPROVE', entityId: versionId, title: t('Approve development stage') });
       flash(t('Sent for sign-off → Approvals.'));

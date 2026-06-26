@@ -10,6 +10,7 @@ import ScriptOnBreakdownMobile from '@/components/scripton/ScriptOnBreakdownMobi
 import { useViewport } from '@/components/scripton/useViewport';
 import { useLocale } from '@/lib/i18n';
 import { useScriptonBack } from '@/components/scripton/useScriptonBack';
+import { useScriptonMode } from '@/components/scripton/useScriptonMode';
 
 type Item = { name: string; qty: number; estCost: number; scenes: string[]; days: number[]; costCenters: string[]; ids?: string[] };
 type Cat = { category: string; itemCount: number; items: Item[] };
@@ -45,6 +46,7 @@ export default function ScriptOnBreakdownPage() {
   const vp = useViewport();
   const { dir, t } = useLocale();
   const onBack = useScriptonBack();
+  const mode = useScriptonMode();
   const [cats, setCats] = useState<Cat[]>(SAMPLE);
   const [title, setTitle] = useState('Midnight Run');
   const [revLabel, setRevLabel] = useState('BLUE · v4');
@@ -130,8 +132,13 @@ export default function ScriptOnBreakdownPage() {
     if (!Object.keys(data).length) { flash(t('No changes to send.')); setEditing(false); return; }
     setSaving(true);
     try {
-      await approvalsApi.routeChange({ projectId, entityType: 'BREAKDOWN_ELEMENT', entityId: active.ids[0], title: 'Edit element: ' + active.name, payload: { ids: active.ids, data } });
-      flash(t('Edit sent for sign-off → Approvals.')); setEditing(false);
+      if (mode === 'solo') {
+        await productionApi.breakdown.update(active.ids[0], data);
+        flash(t('Saved.')); setEditing(false);
+      } else {
+        await approvalsApi.routeChange({ projectId, entityType: 'BREAKDOWN_ELEMENT', entityId: active.ids[0], title: 'Edit element: ' + active.name, payload: { ids: active.ids, data } });
+        flash(t('Edit sent for sign-off → Approvals.')); setEditing(false);
+      }
     } catch (e: any) { flash(e?.response?.data?.message || t('Could not route the edit — backend on :3001?')); }
     finally { setSaving(false); }
   };

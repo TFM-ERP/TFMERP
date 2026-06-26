@@ -17,6 +17,7 @@ import ScriptOnReaderMobile from '@/components/scripton/ScriptOnReaderMobile';
 import { useViewport } from '@/components/scripton/useViewport';
 import { useScriptonShellFlag } from '@/components/scripton/osShellFlag';
 import { useScriptonBack } from '@/components/scripton/useScriptonBack';
+import { useScriptonMode } from '@/components/scripton/useScriptonMode';
 import ScriptonWrite, { type PassVM } from '@/components/scripton/write/ScriptonWrite';
 
 const SAMPLE: SxScene[] = [
@@ -37,6 +38,7 @@ export default function ScriptOnWorkspace() {
   const vp = useViewport();
   const flag = useScriptonShellFlag();
   const onBackOs = useScriptonBack();
+  const mode = useScriptonMode();
   const onNav = (k: string) => { if (k === 'home') return router.push('/scripton'); if (k === 'library') return router.push('/scripton/library'); if (k === 'coverage') return router.push('/scripton/coverage'); if (k !== 'reader') return onAction(k); };
   // Start neutral (loading) — never seed the fictional sample. A real script's
   // identity is filled in once it binds; the sample is shown ONLY when no script
@@ -193,7 +195,14 @@ export default function ScriptOnWorkspace() {
     if (a === 'greenlight') return router.push('/scripton/greenlight');
     if (a === 'settings') return router.push('/scripton/settings');
     if (a === 'develop') return router.push('/scripton/studio');
-    if (a === 'distribute') { if (!projectId || !activeRev?.id) { flash(t('Bind a project with a script to distribute.')); return; } approvalsApi.routeChange({ projectId, entityType: 'SCRIPT_DISTRIBUTION', entityId: activeRev.id, title: 'Distribute script' }).then(() => flash(t('Sent for distribution sign-off → Approvals.'))).catch((e: any) => flash(e?.response?.data?.message || t('Could not route — is the backend on :3001?'))); return; }
+    if (a === 'distribute') {
+      if (!projectId || !activeRev?.id) { flash(t('Connect a project with a script to distribute.')); return; }
+      if (mode === 'solo') { flash(t('Distributed — sides ready (solo mode, no sign-off needed).')); return; }
+      approvalsApi.routeChange({ projectId, entityType: 'SCRIPT_DISTRIBUTION', entityId: activeRev.id, title: 'Distribute script' })
+        .then(() => flash(t('Sent for distribution sign-off → Approvals.')))
+        .catch((e: any) => flash(e?.response?.data?.message || t('Could not route — is the backend on :3001?')));
+      return;
+    }
     const msgs: Record<string, string> = {
       rewrite: t('Rewrite slate — variant generation ships in the next phase.'),
       develop: t('Develop / expand ships in the next phase.'),
