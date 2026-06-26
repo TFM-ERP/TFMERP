@@ -6,6 +6,7 @@ import { computeFacts, parseJsonArray } from './scripton.util';
 import { LORE_SEED } from './lore-seed.data';
 import { knowledgeDirective, stageLadderFor, normalizeFamily } from './knowledge';
 import { parseScenes } from '../script/scene-parse.util';
+import { seriesSceneCount } from './series-scene-count.util';
 import { buildPackageDocModel } from './package-docx.util';
 import { packDocx } from './package-docx.renderer';
 import { LEVER_KEYS, resolveLever } from './intake-levers.util';
@@ -1136,10 +1137,14 @@ export class ScripOnService {
 
   // Plan the COMPLETE feature scene map by faithfully expanding the developed outline — every beat IN ORDER through
   // the climax AND resolution, never stopping mid-story. Tolerant JSON parse + a continuation pass if it comes short.
-  private async planScenes(ctx: string, projectId: string, spine = '', target = 55): Promise<any[]> {
-    const lo = Math.max(50, target); const hi = Math.max(70, target + 18);
-    const sys = 'You are a screenwriter mapping a DEVELOPED story into a COMPLETE feature scene list for a ~100-120 page, 3-act script. Faithfully expand the GIVEN OUTLINE / BEAT MAP into ' + lo + '-' + hi + ' scenes that cover the ENTIRE story IN ORDER — from the opening beat through the midpoint, the climax AND the final resolution. EVERY numbered beat in the outline MUST be represented (1-3 scenes each), and the LAST few scenes MUST dramatise the final beats (the climax and ending). Never stop in the middle of the story. Return ONLY JSON {scenes:[{intExt, location, dayNight, brief, characters}]} — intExt is INT or EXT; dayNight DAY or NIGHT; brief = 1-2 sentences of what happens; characters = comma list. No prose outside the JSON.';
-    const base = (extra: string) => ctx + (spine ? '\n\nFULL DEVELOPED OUTLINE TO COVER (expand every beat, in order, all the way to the end):\n' + spine : '') + extra;
+  // `episode` (#45): map ONE pilot episode at the format's per-episode scene density instead of a
+  // full feature — so a series targets its real per-episode volume, not the 55-90 feature band.
+  private async planScenes(ctx: string, projectId: string, spine = '', target = 55, episode = false): Promise<any[]> {
+    const lo = episode ? target : Math.max(50, target); const hi = episode ? target + 6 : Math.max(70, target + 18);
+    const sys = episode
+      ? 'You are a screenwriter mapping the FIRST EPISODE (the pilot) of a series into ' + lo + '-' + hi + ' scenes. Open the series, establish the world / lead characters / central engine, and END on the episode hook or cliffhanger. Use the OPENING movement of the developed outline only — do NOT compress the whole season, and do NOT resolve the season arc. Return ONLY JSON {scenes:[{intExt, location, dayNight, brief, characters}]} — intExt is INT or EXT; dayNight DAY or NIGHT; brief = 1-2 sentences of what happens; characters = comma list. No prose outside the JSON.'
+      : 'You are a screenwriter mapping a DEVELOPED story into a COMPLETE feature scene list for a ~100-120 page, 3-act script. Faithfully expand the GIVEN OUTLINE / BEAT MAP into ' + lo + '-' + hi + ' scenes that cover the ENTIRE story IN ORDER — from the opening beat through the midpoint, the climax AND the final resolution. EVERY numbered beat in the outline MUST be represented (1-3 scenes each), and the LAST few scenes MUST dramatise the final beats (the climax and ending). Never stop in the middle of the story. Return ONLY JSON {scenes:[{intExt, location, dayNight, brief, characters}]} — intExt is INT or EXT; dayNight DAY or NIGHT; brief = 1-2 sentences of what happens; characters = comma list. No prose outside the JSON.';
+    const base = (extra: string) => ctx + (spine ? '\n\n' + (episode ? 'DEVELOPED OUTLINE (dramatise its OPENING as the pilot episode):\n' : 'FULL DEVELOPED OUTLINE TO COVER (expand every beat, in order, all the way to the end):\n') + spine : '') + extra;
     const parse = (r: any): any[] => {
       let arr: any[] = (r && r.json && Array.isArray(r.json.scenes)) ? r.json.scenes : [];
       if (!arr.length && r && typeof r.text === 'string') { try { const m = r.text.match(/\{[\s\S]*\}/); if (m) { const j = JSON.parse(m[0]); if (Array.isArray(j.scenes)) arr = j.scenes; } } catch { /* */ } }
@@ -1147,7 +1152,7 @@ export class ScripOnService {
     };
     let scenes: any[] = [];
     try {
-      const r: any = await this.ai.run({ task: 'scripton.feature.plan', system: sys, user: base('\nMap the FULL story now (' + lo + '-' + hi + ' scenes), ending on the final beat.'), maxTokens: 15000, timeoutMs: 230000, projectId, refType: 'Project', refId: projectId });
+      const r: any = await this.ai.run({ task: 'scripton.feature.plan', system: sys, user: base(episode ? '\nMap the PILOT episode now (' + lo + '-' + hi + ' scenes), ending on the episode cliffhanger.' : '\nMap the FULL story now (' + lo + '-' + hi + ' scenes), ending on the final beat.'), maxTokens: 15000, timeoutMs: 230000, projectId, refType: 'Project', refId: projectId });
       scenes = parse(r);
     } catch { /* fall through */ }
     // Continuation passes: a single call truncates at the token cap, so keep extending (from the last 3 scenes) until
@@ -1157,7 +1162,7 @@ export class ScripOnService {
       passes++; const before = scenes.length;
       try {
         const tail = scenes.slice(-3).map((s: any) => '- ' + String(s.brief || '')).join('\n');
-        const cont: any = await this.ai.run({ task: 'scripton.feature.plan', system: sys, user: base('\nYou have already mapped ' + scenes.length + ' scenes, ending with:\n' + tail + '\nContinue the scene map from the NEXT beat through the FINAL beat (climax + resolution) — do NOT repeat earlier scenes. Return ONLY JSON {scenes:[...]} for the REMAINING scenes.'), maxTokens: 15000, timeoutMs: 230000, projectId, refType: 'Project', refId: projectId });
+        const cont: any = await this.ai.run({ task: 'scripton.feature.plan', system: sys, user: base('\nYou have already mapped ' + scenes.length + ' scenes, ending with:\n' + tail + (episode ? '\nContinue the SAME pilot episode toward ~' + lo + ' scenes, ending on the episode cliffhanger — do NOT repeat earlier scenes. Return ONLY JSON {scenes:[...]} for the REMAINING scenes.' : '\nContinue the scene map from the NEXT beat through the FINAL beat (climax + resolution) — do NOT repeat earlier scenes. Return ONLY JSON {scenes:[...]} for the REMAINING scenes.')), maxTokens: 15000, timeoutMs: 230000, projectId, refType: 'Project', refId: projectId });
         const more = parse(cont); if (more.length) scenes = scenes.concat(more);
       } catch { /* */ }
       if (scenes.length <= before) break;
@@ -1233,9 +1238,13 @@ export class ScripOnService {
       // ALWAYS plan the full feature from the COMPLETE developed outline (synopsis+treatment+beats+step-outline),
       // then take the LARGER of the plan vs the existing SCENES cards. The old "existing.length >= 30 = complete"
       // shortcut trusted a token-truncated ~35-card SCENES stage and skipped planning → scripts ended mid-story.
-      const target = Math.min(90, Math.max(55, beatN ? Math.round(beatN * 1.5) : 60));
-      const planned = await this.planScenes(ctx, projectId, spine, target);
-      let scenes: any[] = (planned.length >= (existing ? existing.length : 0)) ? planned : existing;
+      // #45: a SERIES targets its per-episode scene density (the pilot episode), not the feature band.
+      const isSeries = ['TV_SERIES', 'LIMITED'].indexOf(String(featBrief.projectType || '').toUpperCase()) >= 0;
+      const ssc = isSeries ? seriesSceneCount(featBrief.episodes, featBrief.minutesPerEp) : null;
+      const target = ssc ? ssc.scenesPerEp : Math.min(90, Math.max(55, beatN ? Math.round(beatN * 1.5) : 60));
+      const planned = await this.planScenes(ctx, projectId, spine, target, !!ssc);
+      // Series: use the planned pilot at episode density (don't let a full-season SCENES stage override it).
+      let scenes: any[] = ssc ? planned : ((planned.length >= (existing ? existing.length : 0)) ? planned : existing);
       if (!scenes || !scenes.length) scenes = (existing && existing.length) ? existing : planned;
       const setP = (patch: any) => { const p = this.genProgress.get(docId); if (p) Object.assign(p, patch); };
       const saveRev = async (pages: any[]) => { await (this.prisma as any).scriptRevision.update({ where: { id: revId }, data: { pageText: pages, pageCount: pages.length } }).catch(() => {}); };
@@ -1266,9 +1275,15 @@ export class ScripOnService {
       out.push('FADE OUT.');
       const pages = this.paginate(out.join('\n\n'));
       await saveRev(pages);
-      // Belt-and-suspenders: confirm the finished script actually reaches the outline's ending; flag it if not.
-      const cov = await this.verifyEnding(spine, out.slice(-4).join('\n\n'), projectId);
-      setP({ status: 'DONE', done: scenes.length, pageCount: pages.length, coverage: cov.complete ? 'COMPLETE' : 'SHORT', coverageNote: cov.note });
+      if (ssc) {
+        // #45: a series build delivers the PILOT episode at its per-episode density; the full season
+        // is episodes × per-ep. Don't run the feature ending-check (the pilot ends on a cliffhanger).
+        setP({ status: 'DONE', done: scenes.length, pageCount: pages.length, coverage: 'COMPLETE', scenesPerEp: ssc.scenesPerEp, seasonScenes: ssc.seasonScenes, coverageNote: 'Pilot episode: ' + scenes.length + ' scenes at ~' + featBrief.minutesPerEp + ' min/ep · full season ≈ ' + ssc.seasonScenes + ' scenes (' + ssc.episodes + ' ep × ' + ssc.scenesPerEp + ').' });
+      } else {
+        // Belt-and-suspenders: confirm the finished feature actually reaches the outline's ending; flag it if not.
+        const cov = await this.verifyEnding(spine, out.slice(-4).join('\n\n'), projectId);
+        setP({ status: 'DONE', done: scenes.length, pageCount: pages.length, coverage: cov.complete ? 'COMPLETE' : 'SHORT', coverageNote: cov.note });
+      }
     } catch (e: any) {
       const msg = String((e && e.message) || e).slice(0, 200);
       const p = this.genProgress.get(docId); if (p) { p.status = 'ERROR'; p.error = msg; }
@@ -1434,9 +1449,12 @@ export class ScripOnService {
       const ar = this.isArabicBrief(featBrief);
       const spine = this.buildSpine(stages);
       const beatN = this.countBeats(stages);
-      const target = Math.min(90, Math.max(55, beatN ? Math.round(beatN * 1.5) : 60));
-      const planned = await this.planScenes(ctx, projectId, spine, target);
-      const scenes: any[] = (planned.length >= existing.length) ? planned : existing;
+      // #45: a series extends only to its per-episode pilot density, not the feature band.
+      const isSeries = ['TV_SERIES', 'LIMITED'].indexOf(String(featBrief.projectType || '').toUpperCase()) >= 0;
+      const ssc = isSeries ? seriesSceneCount(featBrief.episodes, featBrief.minutesPerEp) : null;
+      const target = ssc ? ssc.scenesPerEp : Math.min(90, Math.max(55, beatN ? Math.round(beatN * 1.5) : 60));
+      const planned = await this.planScenes(ctx, projectId, spine, target, !!ssc);
+      const scenes: any[] = ssc ? planned : ((planned.length >= existing.length) ? planned : existing);
       const setP = (patch: any) => { const p = this.genProgress.get(docId); if (p) Object.assign(p, patch); };
       const saveRev = async (pages: any[]) => { await (this.prisma as any).scriptRevision.update({ where: { id: revId }, data: { pageText: pages, pageCount: pages.length } }).catch(() => {}); };
       // How many scenes does the existing script already contain? Numbered headers "N␠␠SLUG"; fall back to a page-based estimate.
@@ -1466,8 +1484,12 @@ export class ScripOnService {
       out.push('FADE OUT.');
       const pages = this.paginate(out.join('\n\n'));
       await saveRev(pages);
-      const cov = await this.verifyEnding(spine, out.slice(-4).join('\n\n'), projectId);
-      setP({ status: 'DONE', done: scenes.length, pageCount: pages.length, coverage: cov.complete ? 'COMPLETE' : 'SHORT', coverageNote: cov.note });
+      if (ssc) {
+        setP({ status: 'DONE', done: scenes.length, pageCount: pages.length, coverage: 'COMPLETE', scenesPerEp: ssc.scenesPerEp, seasonScenes: ssc.seasonScenes, coverageNote: 'Pilot episode: ' + scenes.length + ' scenes at ~' + featBrief.minutesPerEp + ' min/ep · full season ≈ ' + ssc.seasonScenes + ' scenes (' + ssc.episodes + ' ep × ' + ssc.scenesPerEp + ').' });
+      } else {
+        const cov = await this.verifyEnding(spine, out.slice(-4).join('\n\n'), projectId);
+        setP({ status: 'DONE', done: scenes.length, pageCount: pages.length, coverage: cov.complete ? 'COMPLETE' : 'SHORT', coverageNote: cov.note });
+      }
     } catch (e: any) {
       const msg = String((e && e.message) || e).slice(0, 200);
       const p = this.genProgress.get(docId); if (p) { p.status = 'ERROR'; p.error = msg; }
