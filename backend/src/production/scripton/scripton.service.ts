@@ -237,8 +237,56 @@ export class ScripOnService {
     const shape = stage === 'beats' ? '{output, beats:[{n, beat, purpose}]}' : stage === 'scenes' ? '{output, scenes:[{sceneNumber, slugline, intExt, dayNight, description}]}' : '{output}';
     const system = 'You are a development executive helping develop a story from its agreed spine. Task: ' + (briefs[stage] || briefs.treatment) + ' Stay true to the spine (format, protagonist goal vs need, opposing force, theme, ending). Return ONLY JSON ' + shape + '. output is the prose (or a one-line summary for array stages). No text outside the JSON.';
     const user = 'STAGE: ' + stage + ' | SPINE: ' + JSON.stringify(spine) + ' | PREMISE: ' + premise.slice(0, 3000) + (prior ? ('\nPRIOR:\n' + prior.slice(0, 6000)) : '');
-    const ai: any = (await this.ai.json({ task: 'scripton.develop.' + stage, system, user, maxTokens: 3500, projectId: opts?.projectId, refType: 'Project', refId: opts?.projectId })) || {};
+    // Per-stage output ceilings (NOT targets). A flat 3500 truncated the scenes JSON
+    // mid-array on long / token-dense (e.g. Arabic) scripts — dropping the later scenes
+    // and the cliffhanger. Callers may override via opts.maxTokens.
+    const MAXTOK: Record<string, number> = { logline: 2000, synopsis: 2000, treatment: 4000, beats: 6000, scenes: 16000 };
+    const maxTokens = Number(opts?.maxTokens) > 0 ? Number(opts.maxTokens) : (MAXTOK[stage] || 4000);
+    if (stage === 'scenes') return this.developSceneList({ system, user, spine, maxTokens, projectId: opts?.projectId });
+    const ai: any = (await this.ai.json({ task: 'scripton.develop.' + stage, system, user, maxTokens, projectId: opts?.projectId, refType: 'Project', refId: opts?.projectId })) || {};
     return { stage, spine, output: ai.output || '', beats: Array.isArray(ai.beats) ? ai.beats : [], scenes: Array.isArray(ai.scenes) ? ai.scenes : [] };
+  }
+
+  /** The scenes stage with truncation-resilient continuation: one capped call can cut
+   *  the JSON off mid-array, so we keep extending from the last few scenes until the
+   *  output stops looking truncated (clean JSON + under the cap) or a pass adds nothing.
+   *  Bounded passes + sequential renumber; never silently returns a partial outline —
+   *  a `warning` is surfaced when it's still incomplete. Mirrors generateFeature()'s
+   *  proven scene-map continuation. */
+  private async developSceneList(p: { system: string; user: string; spine: any; maxTokens: number; projectId?: string }): Promise<any> {
+    const { system, spine, maxTokens, projectId } = p;
+    const parse = (r: any): any[] => {
+      if (r && r.json && Array.isArray(r.json.scenes)) return r.json.scenes;
+      const rec = this.recoverStage(String((r && r.text) || '')); // tolerant: salvage complete scene objects from a cut-off array
+      return Array.isArray(rec.scenes) ? rec.scenes : [];
+    };
+    // Truncated if the model couldn't return clean parseable JSON, or it hit the cap.
+    const truncated = (r: any): boolean => {
+      if (!r) return true;
+      const used = (r.usage && r.usage.output_tokens) || 0;
+      const cleanJson = !!(r.json && Array.isArray(r.json.scenes));
+      return !cleanJson || used >= maxTokens * 0.9;
+    };
+    const RUN = (extra: string) => this.ai.run({ task: 'scripton.develop.scenes', system, user: p.user + extra, maxTokens, stream: maxTokens >= 6000, timeoutMs: 600000, idleTimeoutMs: 120000, projectId, refType: 'Project', refId: projectId });
+
+    let last: any = null; let scenes: any[] = []; let output = '';
+    try { last = await RUN('\nMap the FULL scene list now, in order, all the way to the FINAL scene (the ending/cliffhanger). Return ONLY JSON {output, scenes:[...]}.'); scenes = parse(last); output = (last.json && last.json.output) || ''; } catch { last = null; }
+
+    let passes = 0;
+    while (last && scenes.length && truncated(last) && passes < 4) {
+      passes++; const before = scenes.length;
+      const tail = scenes.slice(-3).map((s) => '- ' + (s.sceneNumber != null ? s.sceneNumber + ' ' : '') + String(s.slugline || s.description || '')).join('\n');
+      try { last = await RUN('\nYou have already mapped ' + scenes.length + ' scenes, ending with:\n' + tail + '\nContinue the scene list from the NEXT scene through the FINAL scene (the ending/cliffhanger) — do NOT repeat any earlier scene. Return ONLY JSON {scenes:[...]} for the REMAINING scenes only.'); } catch { break; }
+      const more = parse(last); if (!more.length) break;
+      scenes = scenes.concat(more);
+      if (scenes.length <= before) break; // a pass added nothing → stop
+    }
+
+    scenes = scenes.map((s, i) => ({ ...s, sceneNumber: i + 1 })); // clean sequential numbering across concatenated passes
+    const warning = !scenes.length
+      ? 'Scene outline generation returned no scenes — re-run.'
+      : (truncated(last) ? ('Scene outline may be incomplete — still truncating after ' + passes + ' continuation pass(es) (' + scenes.length + ' scenes). Re-run or raise the cap.') : undefined);
+    return { stage: 'scenes', spine, output, beats: [], scenes, passes, warning };
   }
 
   /** P6 — Adaptation slate: book/source -> THREE distinct screen-adaptation directions, grounded in the supplied source. Proposal only. */
