@@ -1406,7 +1406,7 @@ export class ScripOnService {
     // A fresh revision to write into; the OLD revision stays active until the new one finishes (non-destructive).
     const seed = doExtend ? existingPages : [{ page: 1, text: 'FADE IN:\n\nGenerating…' }];
     const regDefs = await this.scriptonDefs();
-    const newRev: any = await (this.prisma as any).scriptRevision.create({ data: { documentId: doc.id, revisionLabel: doExtend ? 'White Draft (extended)' : 'White Draft (rewrite)', pdfUrl: '', pageCount: seed.length, pageText: seed, revisionColor: regDefs.revisionColor || 'WHITE', uploadedById: userId || null } });
+    const newRev: any = await (this.prisma as any).scriptRevision.create({ data: { documentId: doc.id, revisionLabel: doExtend ? 'White Draft (extended)' : 'White Draft (rewrite)', pdfUrl: '', pageCount: seed.length, pageText: seed, revisionColor: 'WHITE', colorCode: regDefs.revisionColor || null, uploadedById: userId || null } });
     const estTotal = existing.length >= 20 ? existing.length : 60;
     this.genProgress.set(doc.id, { status: 'GENERATING', done: doExtend ? existingPages.length : 0, total: estTotal, pageCount: existingPages.length });
     const run = doExtend
@@ -1492,7 +1492,7 @@ export class ScripOnService {
     const verId = stage.buildId ? await this.activeVersionId(stage.buildId) : null;
     const promoteDefs = await this.scriptonDefs();
     const doc: any = await (this.prisma as any).scriptDocument.create({ data: { projectId: stage.projectId, title, kind: 'SCRIPT', createdById: userId || null, buildVersionId: verId } });
-    const rev: any = await (this.prisma as any).scriptRevision.create({ data: { documentId: doc.id, revisionLabel: 'White Draft (developed)', pdfUrl: '', pageCount: 0, pageText: [{ page: 1, text: 'FADE IN:\n\nYour feature is being written, scene by scene...' }], revisionColor: promoteDefs.revisionColor || 'WHITE', uploadedById: userId || null } });
+    const rev: any = await (this.prisma as any).scriptRevision.create({ data: { documentId: doc.id, revisionLabel: 'White Draft (developed)', pdfUrl: '', pageCount: 0, pageText: [{ page: 1, text: 'FADE IN:\n\nYour feature is being written, scene by scene...' }], revisionColor: 'WHITE', colorCode: promoteDefs.revisionColor || null, uploadedById: userId || null } });
     await (this.prisma as any).scriptDocument.update({ where: { id: doc.id }, data: { activeRevisionId: rev.id } }).catch(() => {});
     await (this.prisma as any).stageVersion.update({ where: { id: versionId }, data: { status: 'LOCKED' } }).catch(() => {});
     // Generating the Library script links the doc to the build — it does NOT "promote to production".
@@ -1819,7 +1819,7 @@ export class ScripOnService {
     // ── File the WHITE master revision under the target project ──
     const promBuildDefs = await this.scriptonDefs();
     const doc: any = await (this.prisma as any).scriptDocument.create({ data: { projectId, title: title.slice(0, 80), kind: 'SCRIPT', createdById: userId || null } });
-    const rev: any = await (this.prisma as any).scriptRevision.create({ data: { documentId: doc.id, revisionLabel: 'White Draft', pdfUrl: '', pageCount, pageText, revisionColor: promBuildDefs.revisionColor || 'WHITE', uploadedById: userId || null } });
+    const rev: any = await (this.prisma as any).scriptRevision.create({ data: { documentId: doc.id, revisionLabel: 'White Draft', pdfUrl: '', pageCount, pageText, revisionColor: 'WHITE', colorCode: promBuildDefs.revisionColor || null, uploadedById: userId || null } });
     await (this.prisma as any).scriptDocument.update({ where: { id: doc.id }, data: { activeRevisionId: rev.id } }).catch(() => {});
     if (versionId) await (this.prisma as any).stageVersion.update({ where: { id: versionId }, data: { status: 'LOCKED' } }).catch(() => {});
     if (build) await (this.prisma as any).developmentBuild.update({ where: { id: build.id }, data: { status: 'PROMOTED', linkedProjectId: projectId, linkedScriptId: build.linkedScriptId || doc.id, promotedVersionId: versionId || build.promotedVersionId || null, promotedAt: new Date() } }).catch(() => {});
