@@ -115,7 +115,15 @@ export default function ScriptOnLibraryPage() {
 
   const shown = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return cards.filter((c) => matchFilter(activeFilter, c.type) && (!q || c.title.toLowerCase().includes(q)));
+    // One card per document (dedupe by id) so a script never renders twice — keeps web and
+    // tablet/mobile showing the same set. (Distinct documents stay distinct; data-level
+    // duplicate docs are cleaned up separately.)
+    const seen = new Set<string>();
+    return cards.filter((c) => {
+      if (seen.has(c.id)) return false;
+      seen.add(c.id);
+      return matchFilter(activeFilter, c.type) && (!q || c.title.toLowerCase().includes(q));
+    });
   }, [cards, activeFilter, search]);
 
   const onNav = (k: string) => {

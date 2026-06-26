@@ -19,6 +19,16 @@ export const T_CSS = `
 .dvt .qa{display:grid;grid-template-columns:1fr 1fr;gap:9px}.dvt .tile{background:linear-gradient(180deg,#1b1e25,#171a20);border:1px solid var(--hair);border-radius:11px;padding:12px;text-align:left;cursor:pointer}.dvt .tile .ti{width:30px;height:30px;border-radius:9px;background:rgba(198,164,99,.14);display:grid;place-items:center;color:var(--gold2);margin-bottom:8px}.dvt .tile .ti .ico{width:16px;height:16px}.dvt .tile .tt{font-size:12.5px;font-weight:600;color:var(--cream)}.dvt .tile .ts{font-size:10px;color:var(--faint);margin-top:2px}
 .dvt .mtr{height:5px;border-radius:4px;background:#23262e;overflow:hidden}.dvt .mtr i{display:block;height:100%;background:linear-gradient(90deg,var(--gold),var(--gold2))}
 .dvt .toast{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);background:#1b1e25;border:1px solid var(--hair2);color:var(--cream);font-size:12.5px;padding:10px 16px;border-radius:10px;box-shadow:0 14px 40px -12px rgba(0,0,0,.7)}
+/* Portrait / narrow tablet (e.g. iPad portrait ~834px): condense the top bar so the logo,
+   the nav tabs and the search/New cluster stop cramming. The tabs flex-fill the middle and
+   scroll horizontally; the project label hides and the search shrinks. */
+@media (max-width:950px){
+  .dvt .top{padding:0 12px;gap:10px}
+  .dvt .proj{display:none}
+  .dvt .seg{max-width:none;flex:1 1 0;min-width:0}
+  .dvt .search{width:128px;flex:none}
+  .dvt .btn{padding:0 11px;gap:6px}
+}
 `;
 export const M_CSS = `
 .dvm{--bg:#0b0c0f;--panel:#14161c;--hair:rgba(255,255,255,.08);--hair2:rgba(255,255,255,.14);--gold:#C6A463;--gold2:#E6D2A2;--goldink:#1a1509;--cream:#F4EEE0;--text:#E8E6E0;--mute:#9aa1ab;--faint:#6b727d;--paper:#F7F4EC;--ink:#23231f;--blue:#5b8def;--green:#57b368;--amber:#e0a23b;--violet:#8b7cf0;--pink:#d6649a;--red:#e5635f;position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;background:var(--bg);color:var(--text);font-family:var(--sx-body);-webkit-font-smoothing:antialiased;overflow:hidden}
