@@ -276,6 +276,25 @@ const doctorExpect = async (page, r) => {
   r.assert('transforms grid = 8 tiles', r.transformTiles === 8);
 };
 
+// The OS-shell Slate (desktop Script Library): the unified top bar (one bar —
+// the old .top logo header is gone), a single rail, real script cards. The
+// tablet/mobile Library are legacy device builds (.dvt/.dvm) on a different nav
+// model and are NOT covered here — they await their own OS rebuild.
+const slateExpect = async (page, r) => {
+  await page.waitForSelector('.sx .cardgrid .scard', { timeout: 25000 });
+  r.rails = await page.locator('.rail').count();
+  r.filmosAside = await page.locator('aside').count();
+  r.assert('single shell — no FilmOS <aside>', r.filmosAside === 0);
+  r.assert('workspace rail present', r.rails >= 1);
+  r.bar = await page.locator('.sxtb').count();
+  r.assert('unified top bar present', r.bar === 1);
+  r.assert('no double-header (old .top logo dropped)', (await page.locator('.sx .top .logo').count()) === 0);
+  r.slateCards = await page.locator('.sx .cardgrid .scard').count();
+  r.assert('real script cards (>=1)', r.slateCards >= 1);
+  r.activeRail = (await page.locator('.rail .ritem.on .lbl').first().innerText().catch(() => '')).trim();
+  r.assert('Slate rail item highlighted on /scripton/library', r.activeRail === 'Slate');
+};
+
 const SCENARIOS = [
   { name: 'home-desktop', route: '/scripton', storage: {}, viewport: DESKTOP, expect: homeExpect },
   { name: 'home-tablet', route: '/scripton', storage: {}, viewport: TABLET, expect: homeExpect },
@@ -377,6 +396,7 @@ const SCENARIOS = [
   { name: 'canon-desktop', route: '/scripton/canon', storage: {}, viewport: DESKTOP, expect: canonExpect },
   { name: 'canon-tablet', route: '/scripton/canon', storage: {}, viewport: TABLET, expect: canonExpect },
   { name: 'canon-mobile', route: '/scripton/canon', storage: {}, viewport: MOBILE, expect: canonExpect },
+  { name: 'slate-desktop', route: '/scripton/library', storage: {}, viewport: DESKTOP, expect: slateExpect },
   {
     name: 'canon-old-fallback',
     route: '/scripton/canon',
