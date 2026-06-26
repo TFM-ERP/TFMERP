@@ -14,6 +14,28 @@ const GENRES = ['Action', 'Adventure', 'Comedy', 'Drama', 'Romance', 'Thriller',
 const SCOPE: [string, string][] = [['subject', 'Real subject & history'], ['craft', 'Story-craft & refs'], ['mythology', 'Mythology / culture'], ['comps', 'Comps & box office'], ['legal', 'Cultural / legal fit'], ['general', 'General web']];
 const PTYPES: [string, string, string][] = [['MOVIE', 'Movie', '~90-120 min'], ['TV_SERIES', 'TV series', '8-22 ep'], ['LIMITED', 'Limited', '4-8 ep'], ['VERTICAL', 'Vertical', '60-100 ep'], ['SHORT', 'Short film', '<=40 min'], ['DOC', 'Documentary', 'varies']];
 const SERIES_TYPES = ['TV_SERIES', 'VERTICAL', 'LIMITED'];
+// Series-type presets — mirror backend SERIES_PRESETS / VERTICAL_PRESETS (knowledge/formats.ts).
+// episodes/minutesPerEp are the template norm (midpoint for ranges); the fields stay editable
+// (editing switches to Custom). marketKey is sent on the brief so the backend uses the explicit
+// template instead of only inferring it from the Country/market field. `types` gates which
+// project types show the preset.
+type SeriesPreset = { key: string; label: string; labelAr: string; episodes: number; minutesPerEp: number; seasons: number; marketKey: string; types: string[] };
+const SERIES_PRESETS: SeriesPreset[] = [
+  { key: 'US_STREAMING', label: 'US streaming drama', labelAr: 'دراما البث الأمريكية', episodes: 10, minutesPerEp: 60, seasons: 1, marketKey: 'US_STREAMING', types: ['TV_SERIES'] },
+  { key: 'US_NETWORK', label: 'US network hour', labelAr: 'ساعة الشبكات الأمريكية', episodes: 22, minutesPerEp: 44, seasons: 1, marketKey: 'US_NETWORK', types: ['TV_SERIES'] },
+  { key: 'UK', label: 'UK / BBC drama', labelAr: 'دراما بريطانية / BBC', episodes: 6, minutesPerEp: 58, seasons: 1, marketKey: 'UK', types: ['TV_SERIES'] },
+  { key: 'KDRAMA', label: 'K-drama', labelAr: 'دراما كورية', episodes: 16, minutesPerEp: 65, seasons: 1, marketKey: 'KDRAMA', types: ['TV_SERIES'] },
+  { key: 'TURKISH_DIZI', label: 'Turkish dizi', labelAr: 'دراما تركية', episodes: 36, minutesPerEp: 130, seasons: 1, marketKey: 'TURKISH_DIZI', types: ['TV_SERIES'] },
+  { key: 'TELENOVELA', label: 'Telenovela', labelAr: 'تيلينوفيلا', episodes: 120, minutesPerEp: 45, seasons: 1, marketKey: 'TELENOVELA', types: ['TV_SERIES'] },
+  { key: 'ANIME', label: 'Anime', labelAr: 'أنمي', episodes: 12, minutesPerEp: 24, seasons: 1, marketKey: 'ANIME', types: ['TV_SERIES'] },
+  { key: 'RAMADAN_MUSALSAL', label: 'Ramadan musalsal (MENA)', labelAr: 'مسلسل رمضاني', episodes: 30, minutesPerEp: 40, seasons: 1, marketKey: 'RAMADAN_MUSALSAL', types: ['TV_SERIES'] },
+  { key: 'NORDIC_NOIR', label: 'Nordic noir', labelAr: 'نوار إسكندنافي', episodes: 8, minutesPerEp: 58, seasons: 1, marketKey: 'NORDIC_NOIR', types: ['TV_SERIES'] },
+  { key: 'LIMITED', label: 'Limited series', labelAr: 'مسلسل محدود', episodes: 6, minutesPerEp: 55, seasons: 1, marketKey: 'UK', types: ['LIMITED'] },
+  { key: 'VERTICAL', label: 'Vertical micro-drama', labelAr: 'دراما عمودية قصيرة', episodes: 80, minutesPerEp: 1.5, seasons: 1, marketKey: 'GLOBAL', types: ['VERTICAL'] },
+];
+const seriesPresetsFor = (pt: string): SeriesPreset[] => SERIES_PRESETS.filter((s) => s.types.indexOf(pt) >= 0);
+// Locale-default so the first view is meaningful (no bare 10×50): MENA → Ramadan musalsal, else US streaming.
+const defaultPresetKey = (pt: string, ar: boolean): string => (pt === 'TV_SERIES' ? (ar ? 'RAMADAN_MUSALSAL' : 'US_STREAMING') : pt === 'LIMITED' ? 'LIMITED' : pt === 'VERTICAL' ? 'VERTICAL' : '');
 const smartFramework = (pt: string, genres: string[] = []): string => {
   if (pt === 'TV_SERIES' || pt === 'VERTICAL') return 'tv_network';
   if (pt === 'LIMITED') return 'limited';
@@ -135,6 +157,10 @@ export default function ScriptOnIntake({ projectId, busy, onBegin, onClose }: { 
   const vp = useViewport(); const narrow = vp !== 'desktop';
 
   const set = (k: string, v: any) => setF((p: any) => ({ ...p, [k]: v }));
+  // Apply a series-type preset → fill episodes / min-per-ep / seasons + marketKey from the template.
+  const applyPreset = (s: SeriesPreset) => setF((p: any) => ({ ...p, seriesPreset: s.key, marketKey: (s.key === 'VERTICAL' && locale === 'ar') ? 'MENA' : s.marketKey, episodes: s.episodes, minutesPerEp: s.minutesPerEp, seasons: s.seasons }));
+  // Editing any episode/duration field means the template no longer matches → Custom (and let the backend infer market).
+  const setManual = (k: string, v: number) => setF((p: any) => ({ ...p, [k]: v, seriesPreset: 'CUSTOM', marketKey: undefined }));
   const composeEnding = (ids: string[], custom?: string) => { const parts = ids.map((id) => { const en = ENDING_TYPES.find((x) => x.id === id); return en ? (en.label + ' \u2014 ' + en.desc) : id; }); if (custom && custom.trim()) parts.push('Custom: ' + custom.trim()); return parts.join('  +  '); };
   const endIds = (): string[] => ((f.spine && f.spine.endingIds) || []);
   const toggleEnding = (id: string) => setF((p: any) => { const sp: any = { ...(p.spine || {}) }; const cur: string[] = (sp.endingIds || []).slice(); const k = cur.indexOf(id); if (k >= 0) cur.splice(k, 1); else { if (cur.length >= 2) return p; cur.push(id); } sp.endingIds = cur; sp.ending = composeEnding(cur, sp.endingCustom); return { ...p, spine: sp }; });
@@ -163,6 +189,15 @@ export default function ScriptOnIntake({ projectId, busy, onBegin, onClose }: { 
   const onFile = async (file?: File | null) => { if (!file) return; setUpl(t('Uploading...')); try { const up = await uploadFile(file); setFiles((a) => [...a, { name: up.originalName || 'file', url: up.url }]); setUpl(''); } catch { setUpl(t('Upload failed')); } };
 
   useEffect(() => { if (f.mode === 'ORIGINAL') setStep(2); }, [f.mode]);
+  // When a series format is chosen, default the type-preset by locale/market so the first view is
+  // meaningful (no bare 10×50) — unless the user already picked one valid for this type or went Custom.
+  useEffect(() => {
+    if (SERIES_TYPES.indexOf(f.projectType) < 0) return;
+    if (f.seriesPreset === 'CUSTOM' || seriesPresetsFor(f.projectType).some((s) => s.key === f.seriesPreset)) return;
+    const def = SERIES_PRESETS.find((s) => s.key === defaultPresetKey(f.projectType, locale === 'ar'));
+    if (def) applyPreset(def);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [f.projectType, locale]);
   useEffect(() => {
     if (!projectId || typeof window === 'undefined') return;
     try { const raw = window.localStorage.getItem('scripon.intakeDraft.' + projectId); if (raw) { const d = JSON.parse(raw); if (d && d.f && typeof d.f === 'object') { savedDraftRef.current = d; setDraftAvailable(true); } } } catch { /* */ }
@@ -329,12 +364,19 @@ export default function ScriptOnIntake({ projectId, busy, onBegin, onClose }: { 
                 </div>
                 {(f.projectType === 'TV_SERIES' || f.projectType === 'VERTICAL' || f.projectType === 'LIMITED') ? (
                   <div style={{ marginTop: 10, border: '1px solid rgba(198,164,99,.3)', borderRadius: 10, padding: 11, background: 'rgba(198,164,99,.05)' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 9 }}>
-                      <div><div style={lab}>{t('Episodes')}</div><input type="number" value={f.episodes} onChange={(e) => set('episodes', Number(e.target.value))} style={field} /></div>
-                      <div><div style={lab}>{t('Minutes / ep')}</div><input type="number" value={f.minutesPerEp} onChange={(e) => set('minutesPerEp', Number(e.target.value))} style={field} /></div>
-                      <div><div style={lab}>{t('Seasons')}</div><input type="number" value={f.seasons} onChange={(e) => set('seasons', Number(e.target.value))} style={field} /></div>
+                    <div style={{ ...lab, marginBottom: 6 }}>{t('Series type')}</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+                      {seriesPresetsFor(f.projectType).map((s) => (
+                        <span key={s.key} onClick={() => applyPreset(s)} style={chip(f.seriesPreset === s.key)}>{(locale === 'ar' ? s.labelAr : s.label) + ' · ' + s.episodes + ' ' + t('ep') + ' × ~' + s.minutesPerEp + ' ' + t('min')}</span>
+                      ))}
+                      <span onClick={() => setF((p: any) => ({ ...p, seriesPreset: 'CUSTOM', marketKey: undefined }))} style={chip(f.seriesPreset === 'CUSTOM')}>{t('Custom')}</span>
                     </div>
-                    <div style={{ fontSize: 10, color: C.faint, marginTop: 7 }}>{t('Industry norm: streaming drama ~8-13 ep x 50-60 min; network ~22 x 43; vertical ~60-100 x 60-90 sec.')}</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 9 }}>
+                      <div><div style={lab}>{t('Episodes')}</div><input type="number" value={f.episodes} onChange={(e) => setManual('episodes', Number(e.target.value))} style={field} /></div>
+                      <div><div style={lab}>{t('Minutes / ep')}</div><input type="number" value={f.minutesPerEp} onChange={(e) => setManual('minutesPerEp', Number(e.target.value))} style={field} /></div>
+                      <div><div style={lab}>{t('Seasons')}</div><input type="number" value={f.seasons} onChange={(e) => setManual('seasons', Number(e.target.value))} style={field} /></div>
+                    </div>
+                    <div style={{ fontSize: 10, color: C.faint, marginTop: 7 }}>{t('Pick a template, then tweak the numbers — editing switches to Custom. Country/market below is the cultural setting, not the format.')}</div>
                   </div>
                 ) : null}
               </div>

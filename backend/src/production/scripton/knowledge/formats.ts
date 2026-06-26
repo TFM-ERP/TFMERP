@@ -84,6 +84,9 @@ export function normalizeFamily(brief: any): FormatPreset['family'] {
 
 /** Map a brief's country/market/language to a market key used by SERIES/VERTICAL presets. */
 export function normalizeMarket(brief: any): string {
+  // An explicit series-type template (chosen in the intake's Series-type picker) wins over
+  // inference from country/language — the format template is a different axis from the setting.
+  if (brief && brief.marketKey && SERIES_PRESETS[brief.marketKey]) return brief.marketKey;
   const hay = lc([brief && brief.market, brief && brief.country, brief && brief.language, brief && brief.region].filter(Boolean).join(' '));
   if (/musalsal|ramadan/.test(hay)) return 'RAMADAN_MUSALSAL';
   if (/dizi|turk|türk/.test(hay)) return 'TURKISH_DIZI';
@@ -107,7 +110,7 @@ export function isMena(brief: any): boolean {
 export function pickPreset(brief: any): FormatPreset {
   const fam = normalizeFamily(brief);
   if (fam === 'SERIES') return SERIES_PRESETS[normalizeMarket(brief)] || SERIES_PRESETS.US_STREAMING;
-  if (fam === 'VERTICAL') return isMena(brief) ? VERTICAL_PRESETS.MENA : VERTICAL_PRESETS.GLOBAL;
+  if (fam === 'VERTICAL') { if (brief && brief.marketKey && VERTICAL_PRESETS[brief.marketKey]) return VERTICAL_PRESETS[brief.marketKey]; return isMena(brief) ? VERTICAL_PRESETS.MENA : VERTICAL_PRESETS.GLOBAL; }
   if (fam === 'DOCUMENTARY') return BASE_PRESETS.DOCUMENTARY;
   if (fam === 'SHORT') return BASE_PRESETS.SHORT;
   return BASE_PRESETS.FEATURE;

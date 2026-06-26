@@ -850,4 +850,9 @@ export const AR_SCRIPON: Record<string, string> = {
   "Trickster": "المخادع",
   "Guardian": "الحامي",
   "Herald": "حامل النداء / مبشّر الرحلة",
+  // Series-type preset picker (ScriptOnIntake)
+  "Series type": "نوع المسلسل",
+  "ep": "حلقة",
+  "Custom": "مخصّص",
+  "Pick a template, then tweak the numbers — editing switches to Custom. Country/market below is the cultural setting, not the format.": "اختر قالبًا ثم عدّل الأرقام — أي تعديل يحوّله إلى مخصّص. حقل البلد/السوق بالأسفل هو الإطار الثقافي للقصة، وليس قالب الشكل.",
 };
