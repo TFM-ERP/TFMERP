@@ -146,6 +146,7 @@ export type StudioProps = {
   onExport: (kind: 'fdx' | 'fountain' | 'pdf' | 'word') => void;
   onAction: (k: string) => void; onNav: (k: string) => void; onBack: () => void;
   toast?: string | null; vp: 'mobile' | 'tablet' | 'desktop';
+  settings?: any; onSaveSettings?: (patch: any) => void; mode?: 'team' | 'solo';
 };
 
 export default function ScriptonStudio(props: StudioProps) {
@@ -251,12 +252,27 @@ export default function ScriptonStudio(props: StudioProps) {
                   </>
                 )}
 
-                {(section === 'integrations' || section === 'project' || section === 'danger') && (
+                {section === 'project' && (
                   <div className="panel">
-                    <div className="pt">{section === 'integrations' ? t('Integrations') : section === 'project' ? t('Project settings') : t('Danger zone')}</div>
+                    <div className="pt">{t('Project settings')}</div>
+                    <div className="pintro">{t('Name, language and the defaults new builds & exports inherit.')}</div>
+                    <div className="srow"><div><div className="sk2">{t('Workspace name')}</div><div className="ss">{t('Shown across ScriptON')}</div></div>
+                      <input defaultValue={props.settings?.name || ''} onBlur={(e) => props.onSaveSettings?.({ name: e.target.value })} style={{ background: '#15181e', border: '1px solid var(--hair)', borderRadius: 8, padding: '7px 10px', color: 'var(--text)', minWidth: 200 }} /></div>
+                    <div className="srow"><div><div className="sk2">{t('Language')}</div><div className="ss">{t('UI + new script default')}</div></div>
+                      <select defaultValue={props.settings?.language || 'en'} onChange={(e) => props.onSaveSettings?.({ language: e.target.value })} style={{ background: '#15181e', border: '1px solid var(--hair)', borderRadius: 8, padding: '7px 10px', color: 'var(--text)' }}><option value="en">English</option><option value="ar">العربية</option></select></div>
+                    <div className="srow"><div><div className="sk2">{t('Collaboration')}</div><div className="ss">{props.mode === 'solo' ? t('Solo — just you (no sign-offs, Room hidden)') : t('Team — approval workflow + Room on')}</div></div>
+                      <select defaultValue={props.settings?.collabMode || 'AUTO'} onChange={(e) => props.onSaveSettings?.({ collabMode: e.target.value })} style={{ background: '#15181e', border: '1px solid var(--hair)', borderRadius: 8, padding: '7px 10px', color: 'var(--text)' }}><option value="AUTO">{t('Auto (follows membership)')}</option><option value="TEAM">{t('Team')}</option><option value="SOLO">{t('Solo')}</option></select></div>
+                    <div className="srow"><div><div className="sk2">{t('Default revision color')}</div><div className="ss">{t('Applied to new revisions')}</div></div>
+                      <input type="color" defaultValue={props.settings?.defaults?.revisionColor || '#5b8def'} onBlur={(e) => props.onSaveSettings?.({ defaults: { ...(props.settings?.defaults || {}), revisionColor: e.target.value } })} /></div>
+                  </div>
+                )}
+
+                {(section === 'integrations' || section === 'danger') && (
+                  <div className="panel">
+                    <div className="pt">{section === 'integrations' ? t('Integrations') : t('Danger zone')}</div>
                     <div className="pintro">{section === 'danger' ? t('Irreversible actions for this workspace.') : t('Connect tools and tune this workspace.')}</div>
                     <div className="srow">
-                      <div><div className="sk2" style={section === 'danger' ? { color: 'var(--red)' } : undefined}>{section === 'integrations' ? t('Storage, calendars & comms') : section === 'project' ? t('Workspace name, locale & defaults') : t('Delete workspace')}</div><div className="ss">{t('This section ships in the next phase.')}</div></div>
+                      <div><div className="sk2" style={section === 'danger' ? { color: 'var(--red)' } : undefined}>{section === 'integrations' ? t('Storage, calendars & comms') : t('Delete workspace')}</div><div className="ss">{t('This section ships in the next phase.')}</div></div>
                       <button className={'btn ' + (section === 'danger' ? 'ghost' : 'ghost')} onClick={() => props.onAction('subnav')} style={section === 'danger' ? { borderColor: 'rgba(229,99,95,.4)', color: 'var(--red)' } : undefined}>{section === 'danger' ? t('Delete…') : t('Configure')}</button>
                     </div>
                   </div>

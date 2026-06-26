@@ -17,6 +17,7 @@ import { productionApi } from '@/lib/api';
 import { buildScriptPrintHtml } from '@/components/scripton/scriptPaper';
 import ProtectedExportDialog, { ProtectedExportTarget } from '@/components/scripton/ProtectedExportDialog';
 import ScriptonStudio from '@/components/scripton/studio/ScriptonStudio';
+import { useScriptonMode } from '@/components/scripton/useScriptonMode';
 
 const RUNS: SxRun[] = [
   { surface: 'Coverage report', model: 'claude-opus-4', tokens: '18.4k', conf: 0.84, status: 'APPROVED', statusClass: 'green', when: '2h' },
@@ -40,9 +41,22 @@ export default function ScriptOnSettingsPage() {
   const { t } = useLocale();
   const onBack = useScriptonBack();
   const flag = useScriptonShellFlag();
+  const mode = useScriptonMode();
   const [toast, setToast] = useState<string | null>(null);
   const toastT = useRef<any>(null);
   const flash = (m: string) => { setToast(m); clearTimeout(toastT.current); toastT.current = setTimeout(() => setToast(null), 3200); };
+
+  const [settings, setSettings] = useState<any>({ name: '', language: null, collabMode: 'AUTO', defaults: {} });
+  const [wsId, setWsId] = useState('');
+  useEffect(() => { (async () => {
+    try { const w: any = await productionApi.scripton.workspace(); const pid = w.data?.id; if (!pid) return; setWsId(pid);
+      const s: any = await productionApi.scripton.settings(pid); setSettings(s.data || {}); } catch { /* */ }
+  })(); }, []);
+  const saveSettings = async (patch: any) => {
+    const next = { ...settings, ...patch }; setSettings(next);
+    try { const r: any = await productionApi.scripton.saveSettings({ projectId: wsId, ...patch }); setSettings(r.data || next); flash(t('Saved.')); }
+    catch (e: any) { flash(e?.response?.data?.message || t('Could not save settings.')); }
+  };
 
   // Active script context — for the Export & interop flows (protected PDF / .docx).
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -130,6 +144,7 @@ export default function ScriptOnSettingsPage() {
           companyName="The Film Makers" model="claude-opus-4" promptSet={t('Prompt set v3')} confidence={0.75} humanApproval
           runs={RUNS} runsMeta={t('All AI flows through one service · 142 runs today')} projectId={projectId}
           onExport={onExport} onAction={onAction} onNav={onNav} onBack={onBack} toast={toast} vp={vp}
+          settings={settings} onSaveSettings={saveSettings} mode={mode}
         />
         <ProtectedExportDialog open={protOpen} onClose={() => setProtOpen(false)} target={exportTarget} />
       </>
