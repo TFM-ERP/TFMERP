@@ -21,6 +21,7 @@ export type ScriptonTopBarProps = {
   scriptTitle?: string;            // override breadcrumb
   continuity?: number | null;      // override the ring (null/undefined → hidden)
   versionLabel?: string;           // override the V-switcher label
+  centerTitle?: { title: string; sub: string }; // Develop (node 69:2): centered page title + sub in the freed search slot — search is suppressed
 };
 
 const RING_R = 10;
@@ -36,6 +37,10 @@ const CSS = `
 .sxtb .wm{font-family:var(--sx-title);font-weight:700;font-size:15px;color:var(--cream);white-space:nowrap}
 .sxtb .sep{color:var(--faint);font-size:13px}
 .sxtb .crumb{font-size:13.5px;color:var(--text);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px}
+/* center page title (Develop — node 69:2: replaces the search slot; Fraunces SemiBold 16 over Rubik 11) */
+.sxtb .ctr{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center;pointer-events:none;max-width:56%}
+.sxtb .ctr .ct-title{font-family:var(--sx-title);font-weight:600;font-size:16px;line-height:1;color:var(--cream);white-space:nowrap}
+.sxtb .ctr .ct-sub{font-family:var(--sx-body);font-weight:400;font-size:11px;line-height:1;color:var(--faint);white-space:nowrap}
 /* center search */
 .sxtb .search{flex:1;max-width:560px;margin:0 auto;display:flex;align-items:center;gap:9px;height:36px;padding:0 12px;border-radius:999px;background:#0e1015;border:1px solid var(--hair);color:var(--mut);cursor:text}
 .sxtb .search:hover{border-color:var(--hair2)}
@@ -86,8 +91,16 @@ export default function ScriptonTopBar(props: ScriptonTopBarProps) {
           {crumb ? <><span className="sep">›</span><span className="crumb">{crumb}</span></> : null}
         </div>
 
-        {/* Center search (visual only — ⌘K palette deferred) */}
-        {compact ? (
+        {/* Center: page title (Develop) replaces the search slot when centerTitle is set; otherwise the ⌘K search (visual only) */}
+        {props.centerTitle ? (
+          <>
+            <div className="ctr">
+              <span className="ct-title">{t(props.centerTitle.title)}</span>
+              <span className="ct-sub">{t(props.centerTitle.sub)}</span>
+            </div>
+            <div style={{ flex: 1 }} />
+          </>
+        ) : compact ? (
           <div className="sicon" style={{ marginInlineStart: 'auto' }} onClick={() => searchRef.current?.focus()} title={t('Search')}>
             <svg className="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4-4" /></svg>
           </div>

@@ -11,6 +11,7 @@ import ScriptOnStudioMobile from '@/components/scripton/ScriptOnStudioMobile';
 import ScriptOnIntake from '@/components/scripton/ScriptOnIntake';
 import ScriptOnBuildsPanel from '@/components/scripton/ScriptOnBuildsPanel';
 import ScriptOnBuildScreen from '@/components/scripton/ScriptOnBuildScreen';
+import ScriptonDevelop from '@/components/scripton/develop/ScriptonDevelop';
 import { useViewport } from '@/components/scripton/useViewport';
 import { useScriptonBack } from '@/components/scripton/useScriptonBack';
 import { useScriptonShellFlag } from '@/components/scripton/osShellFlag';
@@ -285,6 +286,11 @@ export default function StudioPage() {
   };
 
   if (!mounted) return null;
+  // New Develop — structural rebuild (Figma 69:2), under the new shell when a build is open.
+  // `old` (or the Builds list with no build open) keeps the current Builder below.
+  if (osNew && buildIdRef.current && mode === 'develop') {
+    return <ScriptonDevelop vp={vp} onBack={onBack} />;
+  }
   const RC: any = vp === 'mobile' ? ScriptOnStudioMobile : vp === 'tablet' ? ScriptOnStudioTablet : ScriptOnStudio;
   return (<><RC osNew={osNew} title={title} meta={t('Studio · seed → script')} mode={mode} onTab={onTab} showDevelop={mode === 'develop' || !!buildIdRef.current} ladder={ladder} spine={spine} comps={COMPS} note={t('Doctor: keep every stage true to the approved spine.')} adaptResult={adaptResult} formatResult={formatResult} formatTarget={formatTarget} busy={busy} genBusy={genBusy}
     onNav={onNav} onBack={onBack} onAction={onAction} onAdapt={onAdapt} onFormat={onFormat} onPick={onPickDirection} onRegenerate={onRegenerate} onSwitchVersion={onSwitchVersion} onPromote={onPromote} onFramework={onFramework} onRead={onRead} onBranch={onBranch} onPromoteScript={onPromoteScript} reads={reads} toast={toast} />{mode === 'adapt' && projectId ? <ScriptOnIntake projectId={projectId} busy={genBusy === 'LOGLINE'} onBegin={onIntakeBegin} onClose={() => setMode('develop')} /> : null}{mode === 'builds' && projectId ? <ScriptOnBuildsPanel osNew={osNew} projectId={projectId} onClose={() => { if (buildIdRef.current) setMode('develop'); else router.push('/home'); }} onNewBuild={() => setMode('adapt')} railGap={vp === 'mobile' || vp === 'tablet' ? 0 : 74} /> : null}{building ? <ScriptOnBuildScreen title={buildName} items={buildItems} status={buildStatus} error={buildError} progress={buildProgress} actions={buildActions} directions={buildDirections} onPick={onBuildPick} onRegen={onBuildRegen} onContinue={() => { try { if (projectId) window.localStorage.removeItem('scripon.dir.' + projectId); } catch { } setBuilding(false); setBuildActions(null); setBuildProgress(null); setMode('develop'); }} /> : null}
