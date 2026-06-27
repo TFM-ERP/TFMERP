@@ -152,32 +152,40 @@ export function paginateTokens(toks: Tok[], budget = PAGE_BUDGET): Tok[][] {
 export const SCRIPT_PAPER_CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Amiri:ital,wght@0,400;0,700;1,400&display=swap');
 .uvp-stack{display:flex;flex-direction:column;align-items:center;gap:26px}
-.uvp-a4{width:210mm;min-height:297mm;background:#fdfdf9;color:#1d1d1b;font-family:"Courier Prime","Courier New",Courier,monospace;font-size:12pt;line-height:1.08;border:1px solid rgba(0,0,0,.08);border-radius:2px;box-shadow:0 2px 5px rgba(0,0,0,.18),0 16px 40px rgba(0,0,0,.30);padding:22mm 25.4mm 22mm 32mm;box-sizing:border-box;position:relative}
-.uvp-a4 .uvp-pageno{position:absolute;top:12mm;right:14mm;font-size:11pt;color:#3a3a36}
+/* Screen sheet — measured from Figma node 7:14 (the Write paper). Courier Prime 12.5px, 22px line
+   rhythm, cream #f7f4ec, fixed-indent cues/dialogue (industry standard — not centred), 6px radius. */
+.uvp-a4{width:620px;min-height:877px;background:#f7f4ec;color:#23231f;font-family:"Courier Prime","Courier New",Courier,monospace;font-size:12.5px;line-height:22px;border:1px solid rgba(255,255,255,.12);border-radius:6px;box-shadow:0 30px 60px -18px rgba(0,0,0,.55);padding:40px 62px 48px 48px;box-sizing:border-box;position:relative}
+.uvp-a4 .uvp-pageno{position:absolute;top:15px;right:48px;font-size:11px;color:#6b727d}
 .uvp-el{white-space:pre-wrap;word-wrap:break-word}
-.uvp-slug{display:flex;justify-content:space-between;gap:14px;font-weight:700;text-transform:uppercase;margin:0 0 1em}
+.uvp-slug{display:flex;justify-content:space-between;gap:14px;font-weight:700;text-transform:uppercase;margin:0}
 .uvp-a4 > .uvp-slug:first-child,.uvp-a4 > .uvp-pageno + .uvp-slug{margin-top:0}
-.uvp-scene-gap{margin-top:1.5em}
-.uvp-action{margin:0 0 1em}
-.uvp-cue{text-align:center;font-weight:700;letter-spacing:.04em;margin:1em 0 0}
-.uvp-paren{text-align:center;margin:0}
-.uvp-parn{display:inline-block;max-width:42%;font-style:italic;color:#3a3a36}
-.uvp-dialogue{text-align:center;margin:0 0 1em}
-.uvp-dlgt{display:inline-block;max-width:48%;text-align:center;white-space:pre-wrap;word-wrap:break-word}
-.uvp-trans{text-align:right;font-weight:700;margin:1em 0}
-.uvp-fadein{font-weight:700;margin:0 0 1em}
-.uvp-gap{height:1em}
+.uvp-scene-gap{margin-top:22px}
+.uvp-action{margin:0;max-width:510px}
+.uvp-cue{margin:22px 0 0 19.6ch}
+.uvp-paren{margin:0 0 0 16ch}
+.uvp-parn{display:inline-block;max-width:30ch;font-style:italic;color:#3a3a36}
+.uvp-dialogue{margin:0 0 22px 13.5ch}
+.uvp-dlgt{display:inline-block;max-width:44ch;white-space:pre-wrap;word-wrap:break-word}
+.uvp-trans{text-align:right;font-weight:700;margin:22px 0}
+.uvp-fadein{font-weight:700;margin:0 0 22px}
+.uvp-gap{height:22px}
 .uvp-tp{display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center}
 .uvp-tp .uvp-tt{font-size:17pt;font-weight:700;text-transform:uppercase;letter-spacing:1.5px}
 .uvp-tp .uvp-ts{margin-top:.5em;font-size:12pt}
 .uvp-tp .uvp-tl{margin-top:1.4em;max-width:5in;font-size:11pt;font-style:italic;line-height:1.5;color:#444}
 .uvp-tp .uvp-tf{margin-top:2.4em;font-size:11pt;color:#555}
 @media(max-width:840px){.uvp-a4{width:100%;min-height:0;padding:26px 18px 30px}.uvp-dlgt{max-width:82%}.uvp-parn{max-width:60%}}
-/* Arabic manuscript mode (RTL): Amiri, mirrored margins, more leading; dialogue/cue stay centred. */
-.uvp-ar{direction:rtl;font-family:'Amiri','Courier Prime',serif;font-size:13.5pt;line-height:1.55;padding:22mm 32mm 22mm 25.4mm}
-.uvp-ar .uvp-pageno{right:auto;left:14mm}
-.uvp-ar .uvp-action{text-align:right}
-.uvp-ar .uvp-trans{text-align:left}
+/* Arabic manuscript mode (RTL): Amiri A4 manuscript — its own metrics (the 7:14 screen re-tune is
+   LTR). Restores the A4 width/stock/centred cues so the LTR change above doesn't leak into Arabic. */
+.uvp-ar{direction:rtl;width:210mm;min-height:297mm;background:#fdfdf9;color:#1d1d1b;font-family:'Amiri','Courier Prime',serif;font-size:13.5pt;line-height:1.55;border-radius:2px;padding:22mm 32mm 22mm 25.4mm}
+.uvp-ar .uvp-pageno{right:auto;left:14mm;top:12mm;font-size:11pt;color:#3a3a36}
+.uvp-ar .uvp-action{text-align:right;max-width:none}
+.uvp-ar .uvp-cue{text-align:center;font-weight:700;margin:1em 0 0}
+.uvp-ar .uvp-paren{text-align:center;margin:0}
+.uvp-ar .uvp-dialogue{text-align:center;margin:0 0 1em}
+.uvp-ar .uvp-trans{text-align:left;margin:1em 0}
+.uvp-ar .uvp-scene-gap{margin-top:1.5em}
+.uvp-ar .uvp-fadein{margin:0 0 1em}
 .uvp-ar .uvp-dlgt{max-width:58%}
 .uvp-ar .uvp-parn{max-width:52%}
 .uvp-ar .uvp-slug,.uvp-ar.uvp-tp{direction:rtl}
