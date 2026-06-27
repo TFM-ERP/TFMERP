@@ -1,19 +1,20 @@
 // frontend/src/components/scripton/os-workspaces.ts
 import type { ComponentType } from 'react';
-import { Home, PenLine, Hammer, Network, Stethoscope, GitBranch, MessagesSquare, FolderKanban, Settings } from 'lucide-react';
+import { Home, PenLine, Stethoscope } from 'lucide-react';
+import { BuildIcon, CanonIcon, VersionsIcon, RoomIcon, SlateIcon, StudioIcon } from './rail-icons';
 
 export type OsWorkspace = { key: string; label: string; href: string; icon: ComponentType<any>; perm?: string; teamOnly?: boolean };
 
 export const OS_WORKSPACES: OsWorkspace[] = [
   { key: 'home',     label: 'Home',     href: '/scripton',                    icon: Home },
   { key: 'write',    label: 'Write',    href: '/scripton/reader',             icon: PenLine },
-  { key: 'develop',  label: 'Build',    href: '/scripton/studio?tab=builds',  icon: Hammer },
-  { key: 'canon',    label: 'Canon',    href: '/scripton/canon',              icon: Network },
+  { key: 'develop',  label: 'Build',    href: '/scripton/studio?tab=builds',  icon: BuildIcon },
+  { key: 'canon',    label: 'Canon',    href: '/scripton/canon',              icon: CanonIcon },
   { key: 'doctor',   label: 'Doctor',   href: '/scripton/doctor',             icon: Stethoscope },
-  { key: 'versions', label: 'Versions', href: '/scripton/revisions',          icon: GitBranch },
-  { key: 'room',     label: 'Room',     href: '/scripton/notes',              icon: MessagesSquare, teamOnly: true },
-  { key: 'slate',    label: 'Slate',    href: '/scripton/library',            icon: FolderKanban },
-  { key: 'studio',   label: 'Studio',   href: '/scripton/settings',           icon: Settings, perm: 'setup' },
+  { key: 'versions', label: 'Versions', href: '/scripton/revisions',          icon: VersionsIcon },
+  { key: 'room',     label: 'Room',     href: '/scripton/notes',              icon: RoomIcon, teamOnly: true },
+  { key: 'slate',    label: 'Slate',    href: '/scripton/library',            icon: SlateIcon },
+  { key: 'studio',   label: 'Studio',   href: '/scripton/settings',           icon: StudioIcon, perm: 'setup' },
 ];
 
 const pathOf = (href: string) => href.split('?')[0];
