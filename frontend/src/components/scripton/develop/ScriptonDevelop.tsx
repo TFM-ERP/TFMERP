@@ -32,6 +32,7 @@ export type ScriptonDevelopProps = {
   onAdvance: () => void;         // generate the next stage
   onRegenerate: (kind: string) => void;   // regenerate the focused stage
   onSwitchVersion: (stageId: string, dir: number) => void; // ‹ Vn › prev/next on the focused stage
+  onPromoteScript?: (versionId: string) => void; // Draft → render the screenplay into the Library (opens the standalone render screen)
 };
 
 const TOTAL = 8;
@@ -214,6 +215,7 @@ const CSS = `
 .sx.develop .vsw b{color:var(--cream);font-weight:600}
 .sx.develop .vsw span{cursor:pointer;font-size:13px;color:var(--faint);user-select:none}
 .sx.develop .vsw span:hover{color:var(--gold2)}
+.sx.develop .vsw span.dis{opacity:.3;cursor:default;pointer-events:none}
 .sx.develop .regen{background:none;border:none;color:var(--gold);font-size:17px;cursor:pointer;line-height:1}
 .sx.develop .cvdiv{height:1px;background:var(--hair);margin:17px 19px 0}
 .sx.develop .cvbody{flex:1;min-height:0;overflow-y:auto;padding:20px 23px}
@@ -289,8 +291,9 @@ export default function ScriptonDevelop(props: ScriptonDevelopProps) {
   const { t, dir } = useLocale();
   const ladder = props.ladder || [];
 
-  // Counters (node §2): done = stages with a *completed* version (the current/active stage is 'on').
-  const done = useMemo(() => ladder.filter((l) => l.state === 'done').length, [ladder]);
+  // Counters (node §2): done = stages with a version (the node's 7/8 = Coverage mid-generation has
+  // no version yet; a fully-developed build is 8/8). pct = round(done/total*100).
+  const done = useMemo(() => ladder.filter((l) => !!l.versionId).length, [ladder]);
   const pct = Math.round((done / TOTAL) * 100);
 
   // The focused stage — defaults to the furthest-developed stage (the current 'on'); ladder rows switch it.
@@ -396,13 +399,17 @@ export default function ScriptonDevelop(props: ScriptonDevelopProps) {
                 <div className="cvname">{stageLabel(active?.kind)}</div>
                 <div className="cvmeta">{t('Stage')} {activeIdx + 1} {t('of')} {TOTAL}{metaHint ? ' · ' + metaHint : ''}</div>
                 <div className="cvctrl">
-                  {active?.versionN ? (
-                    <span className="vsw">
-                      <span onClick={() => active.stageId && props.onSwitchVersion(active.stageId, -1)}>‹</span>
-                      <b>V{active.versionN}</b>
-                      <span onClick={() => active.stageId && props.onSwitchVersion(active.stageId, 1)}>›</span>
-                    </span>
-                  ) : null}
+                  {active?.versionN ? (() => {
+                    const count = active.versionCount || 1;
+                    const atFirst = (active.versionN || 1) <= 1, atLast = (active.versionN || 1) >= count;
+                    return (
+                      <span className="vsw">
+                        <span className={atFirst ? 'dis' : ''} onClick={() => !atFirst && active.stageId && props.onSwitchVersion(active.stageId, -1)}>‹</span>
+                        <b>V{active.versionN}{count > 1 ? '/' + count : ''}</b>
+                        <span className={atLast ? 'dis' : ''} onClick={() => !atLast && active.stageId && props.onSwitchVersion(active.stageId, 1)}>›</span>
+                      </span>
+                    );
+                  })() : null}
                   <button className="regen" title={t('Regenerate')} onClick={() => active?.kind && props.onRegenerate(active.kind)}>⟳</button>
                 </div>
               </div>
@@ -415,7 +422,12 @@ export default function ScriptonDevelop(props: ScriptonDevelopProps) {
                   <StatusBar t={t} label={stageLabel(props.genBusy)} />
                 ) : (
                   <div className="acts">
-                    {nextStage ? <button className="btn gold" onClick={props.onAdvance}>{t('Generate')} {stageLabel(nextStage.kind)} →</button> : null}
+                    {active?.kind === 'DRAFT' && active.versionId && props.onPromoteScript
+                      ? <button className="btn gold" onClick={() => props.onPromoteScript!(active.versionId!)}>↗ {t('Generate script → Library')}</button>
+                      : null}
+                    {nextStage
+                      ? <button className={'btn' + (active?.kind === 'DRAFT' ? '' : ' gold')} onClick={props.onAdvance}>{t('Generate')} {stageLabel(nextStage.kind)} →</button>
+                      : null}
                     {active?.kind ? <button className="btn" onClick={() => props.onRegenerate(active.kind!)}>⟳ {t('Regenerate')} {stageLabel(active.kind)}</button> : null}
                   </div>
                 )}

@@ -287,11 +287,12 @@ export default function StudioPage() {
 
   if (!mounted) return null;
   // New Develop — structural rebuild (Figma 69:2), under the new shell when a build is open.
-  // `old` (or the Builds list with no build open) keeps the current Builder below.
-  if (osNew && buildIdRef.current && mode === 'develop') {
+  // `old` (or the Builds list with no build open) keeps the current Builder below. When `building`
+  // (a Draft → script render is running), fall through so the existing ScriptOnBuildScreen renders.
+  if (osNew && buildIdRef.current && mode === 'develop' && !building) {
     return <ScriptonDevelop vp={vp} onBack={onBack} projectId={projectId} buildId={buildIdRef.current}
       ladder={ladder} spine={spine} comps={COMPS} genBusy={genBusy}
-      onAdvance={advance} onRegenerate={onRegenerate} onSwitchVersion={onSwitchVersion} />;
+      onAdvance={advance} onRegenerate={onRegenerate} onSwitchVersion={onSwitchVersion} onPromoteScript={onPromoteScript} />;
   }
   const RC: any = vp === 'mobile' ? ScriptOnStudioMobile : vp === 'tablet' ? ScriptOnStudioTablet : ScriptOnStudio;
   return (<><RC osNew={osNew} title={title} meta={t('Studio · seed → script')} mode={mode} onTab={onTab} showDevelop={mode === 'develop' || !!buildIdRef.current} ladder={ladder} spine={spine} comps={COMPS} note={t('Doctor: keep every stage true to the approved spine.')} adaptResult={adaptResult} formatResult={formatResult} formatTarget={formatTarget} busy={busy} genBusy={genBusy}
