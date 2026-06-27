@@ -39,13 +39,6 @@ const CSS = `
 .sx.cmp .cring{margin-inline-start:auto;display:inline-flex;align-items:center;gap:7px;border:1px solid var(--hair2);border-radius:999px;padding:5px 12px;font-size:12px;font-weight:700;color:var(--green)}
 .sx.cmp .cring .dot{width:7px;height:7px;border-radius:50%;background:var(--green)}
 .sx.cmp .body{flex:1;display:flex;min-height:0;position:relative;z-index:1}
-.sx.cmp .rail{width:76px;flex:0 0 76px;background:#0c0d11;border-inline-end:1px solid var(--hair);display:flex;flex-direction:column;align-items:center;padding:14px 0;gap:6px;overflow-y:auto}
-.sx.cmp .ritem{width:58px;display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 0;border-radius:12px;color:var(--faint);cursor:pointer;position:relative;border:none;background:transparent}
-.sx.cmp .ritem .box{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:#171a21;border:1px solid var(--hair);color:var(--mute)}
-.sx.cmp .ritem .lbl{font-size:9px;font-weight:600}
-.sx.cmp .ritem.on .box{background:linear-gradient(160deg,var(--gold2),var(--gold));border-color:transparent;color:var(--goldink)}
-.sx.cmp .ritem.on .lbl{color:var(--gold2)}
-.sx.cmp .ritem.on:before{content:"";position:absolute;inset-inline-start:-1px;top:14px;bottom:14px;width:3px;border-radius:3px;background:var(--gold)}
 .sx.cmp .main{flex:1;min-width:0;display:flex;flex-direction:column;min-height:0}
 /* header banner */
 .sx.cmp .banner{display:flex;align-items:center;gap:12px;padding:14px 24px;border-bottom:1px solid rgba(87,179,104,.18);background:rgba(87,179,104,.04);flex:0 0 auto}

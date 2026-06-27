@@ -29,14 +29,6 @@ const CSS = `
 .sx .search input{flex:1;background:transparent;border:none;outline:none;color:var(--text);font:inherit}
 .sx .search input::placeholder{color:var(--faint)}
 .sx .body{flex:1;display:flex;min-height:0;position:relative;z-index:1}
-.sx .rail{width:74px;flex:0 0 74px;background:#0e1015;border-right:1px solid var(--hair);display:flex;flex-direction:column;align-items:center;padding:14px 0;gap:6px}
-.sx .ritem{width:58px;display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 0;border-radius:12px;color:var(--faint);cursor:pointer;position:relative;border:none;background:transparent}
-.sx .ritem .box{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:#171a21;border:1px solid var(--hair);color:var(--mute)}
-.sx .ritem .lbl{font-size:9px;font-weight:600}
-.sx .ritem:hover .box{border-color:var(--hair2);color:var(--cream)}
-.sx .ritem.on .box{background:linear-gradient(160deg,var(--gold2),var(--gold));border-color:transparent;color:var(--goldink);box-shadow:0 6px 16px -4px rgba(198,164,99,.5)}
-.sx .ritem.on .lbl{color:var(--gold2)}
-.sx .ritem.on:before{content:"";position:absolute;left:-1px;top:14px;bottom:14px;width:3px;border-radius:3px;background:var(--gold)}
 .sx .main{flex:1;min-width:0;display:flex;flex-direction:column}
 .sx .content{flex:1;overflow:hidden;padding:26px 30px;display:flex;flex-direction:column;gap:18px}
 .sx .phead h1{font-size:24px;font-weight:800;color:var(--cream);letter-spacing:-.5px}
@@ -84,17 +76,20 @@ export default function ScriptOnLibrary(props: {
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       <div className="sx" dir={dir} style={{ position: 'fixed', inset: 0, zIndex: 50 }}>
         <ScriptonTopBar vp="desktop" onBack={props.onBack} />
-        <div className="top" style={{ height: 52, justifyContent: 'flex-end' }}>
-          <div className="tr">
-            <div className="search"><svg className="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4-4" /></svg><input value={props.search} onChange={(e) => props.onSearch(e.target.value)} placeholder={t('Search title, writer, character…')} /></div>
-            {props.onBin ? <button className="btn outline" onClick={props.onBin}><svg className="ico" viewBox="0 0 24 24"><path d="M3 6h18M19 6l-1 14H6L5 6M10 11v6M14 11v6" /></svg>{t('Bin')}</button> : null}
-            <button className="btn outline" onClick={props.onNew}><svg className="ico" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14" /></svg>{t('Import')}</button>
-            <button className="btn gold" onClick={props.onNew}><svg className="ico" viewBox="0 0 24 24" style={{ stroke: '#1a1509' }}><path d="M12 5v14M5 12h14" /></svg>{t('New script')}</button>
-          </div>
-        </div>
         <div className="body">
           <SxRail active="library" />
-          <div className="main"><div className="content">
+          <div className="main">
+            {/* Library actions live INSIDE the main column (not a strip between bar and body),
+                so the rail sits directly under ScriptonTopBar — identical chrome to every screen. */}
+            <div className="top" style={{ height: 52, justifyContent: 'flex-end' }}>
+              <div className="tr">
+                <div className="search"><svg className="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4-4" /></svg><input value={props.search} onChange={(e) => props.onSearch(e.target.value)} placeholder={t('Search title, writer, character…')} /></div>
+                {props.onBin ? <button className="btn outline" onClick={props.onBin}><svg className="ico" viewBox="0 0 24 24"><path d="M3 6h18M19 6l-1 14H6L5 6M10 11v6M14 11v6" /></svg>{t('Bin')}</button> : null}
+                <button className="btn outline" onClick={props.onNew}><svg className="ico" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14" /></svg>{t('Import')}</button>
+                <button className="btn gold" onClick={props.onNew}><svg className="ico" viewBox="0 0 24 24" style={{ stroke: '#1a1509' }}><path d="M12 5v14M5 12h14" /></svg>{t('New script')}</button>
+              </div>
+            </div>
+            <div className="content">
             <div className="phead"><h1>{t('Scripts')}</h1><div className="sub">{t('Develop, adapt, import (FDX · Fountain · Celtx · Word · PDF + OCR) — one source of truth per title.')}</div></div>
             <div className="filters">{props.filters.map((f) => (<button key={f} className={'chip' + (f === props.activeFilter ? ' on' : '')} onClick={() => props.onFilter(f)}>{t(f)}</button>))}<span style={{ marginInlineStart: 'auto' }} className="meta">{t('Sorted by recently updated')}</span></div>
             <div className="cardgrid">

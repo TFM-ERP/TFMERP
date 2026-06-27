@@ -40,13 +40,6 @@ const CSS = `
 .sx.vers .logo{width:30px;height:30px;border-radius:9px;background:linear-gradient(160deg,var(--gold2),var(--gold));display:grid;place-items:center;color:var(--goldink);font-weight:800;font-size:12px;cursor:pointer;flex:none}
 .sx.vers .proj{font-weight:700;font-size:15px;color:var(--cream);font-family:var(--sx-title)}
 .sx.vers .body{flex:1;display:flex;min-height:0;position:relative;z-index:1}
-.sx.vers .rail{width:76px;flex:0 0 76px;background:#0c0d11;border-inline-end:1px solid var(--hair);display:flex;flex-direction:column;align-items:center;padding:14px 0;gap:6px;overflow-y:auto}
-.sx.vers .ritem{width:58px;display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 0;border-radius:12px;color:var(--faint);cursor:pointer;position:relative;border:none;background:transparent}
-.sx.vers .ritem .box{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:#171a21;border:1px solid var(--hair);color:var(--mute)}
-.sx.vers .ritem .lbl{font-size:9px;font-weight:600}
-.sx.vers .ritem.on .box{background:linear-gradient(160deg,var(--gold2),var(--gold));border-color:transparent;color:var(--goldink)}
-.sx.vers .ritem.on .lbl{color:var(--gold2)}
-.sx.vers .ritem.on:before{content:"";position:absolute;inset-inline-start:-1px;top:14px;bottom:14px;width:3px;border-radius:3px;background:var(--gold)}
 .sx.vers .main{flex:1;min-width:0;display:flex;flex-direction:column;min-height:0}
 .sx.vers .phead{padding:26px 40px 8px;flex:0 0 auto}
 .sx.vers .phead h1{font-family:var(--sx-title);font-size:21px;font-weight:600;color:var(--cream);letter-spacing:-.2px;font-variation-settings:"SOFT" 0,"WONK" 1}

@@ -34,14 +34,6 @@ const CSS = `
 .sx .btn.outline{background:#1c1d1a;border-color:rgba(198,164,99,.55);color:var(--gold2)}
 .sx .btn.gold{background:linear-gradient(180deg,var(--gold2),var(--gold));color:var(--goldink);font-weight:700;box-shadow:0 6px 18px -4px rgba(198,164,99,.45),inset 0 1px 0 rgba(255,255,255,.3)}
 .sx .body{flex:1;display:flex;min-height:0;position:relative;z-index:1}
-.sx .rail{width:74px;flex:0 0 74px;background:#0e1015;border-right:1px solid var(--hair);display:flex;flex-direction:column;align-items:center;padding:14px 0;gap:6px}
-.sx .ritem{width:56px;display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 0;border-radius:12px;color:var(--faint);cursor:pointer;position:relative;border:none;background:transparent}
-.sx .ritem .box{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:#171a21;border:1px solid var(--hair);color:var(--mute)}
-.sx .ritem .lbl{font-size:9px;font-weight:600;letter-spacing:.2px}
-.sx .ritem:hover .box{border-color:var(--hair2);color:var(--cream)}
-.sx .ritem.on .box{background:linear-gradient(160deg,var(--gold2),var(--gold));border-color:transparent;color:var(--goldink);box-shadow:0 6px 16px -4px rgba(198,164,99,.5)}
-.sx .ritem.on .lbl{color:var(--gold2)}
-.sx .ritem.on:before{content:"";position:absolute;left:-1px;top:14px;bottom:14px;width:3px;border-radius:3px;background:var(--gold)}
 .sx .nav{width:284px;flex:0 0 284px;background:var(--panel);border-right:1px solid var(--hair);display:flex;flex-direction:column}
 .sx .navhd{display:flex;align-items:center;justify-content:space-between;padding:16px 16px 10px}
 .sx .eyebrow{font-size:11px;font-weight:700;letter-spacing:1.4px;color:var(--gold)}

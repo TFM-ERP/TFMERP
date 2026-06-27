@@ -38,14 +38,8 @@ const CSS = `
 .sx.write .pageind b{color:var(--cream);font-weight:600}
 .sx.write .nudge{width:26px;height:26px;border:1px solid var(--hair);border-radius:7px;display:grid;place-items:center;color:var(--mute);cursor:pointer;background:transparent}
 .sx.write .body{flex:1;display:flex;min-height:0;position:relative;z-index:1}
-.sx.write .rail{width:76px;flex:0 0 76px;background:#0c0d11;border-inline-end:1px solid var(--hair);display:flex;flex-direction:column;align-items:center;padding:14px 0;gap:6px;overflow-y:auto}
-.sx.write .ritem{width:58px;display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 0;border-radius:12px;color:var(--faint);cursor:pointer;position:relative;border:none;background:transparent}
-.sx.write .ritem .box{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:#171a21;border:1px solid var(--hair);color:var(--mute)}
-.sx.write .ritem .lbl{font-size:9px;font-weight:600}
-.sx.write .ritem.on .box{background:linear-gradient(160deg,var(--gold2),var(--gold));border-color:transparent;color:var(--goldink)}
-.sx.write .ritem.on .lbl{color:var(--gold2)}
-.sx.write .ritem.on:before{content:"";position:absolute;inset-inline-start:-1px;top:14px;bottom:14px;width:3px;border-radius:3px;background:var(--gold)}
-.sx.write .main{flex:1;display:flex;min-height:0;position:relative}
+.sx.write .main{flex:1;display:flex;flex-direction:column;min-height:0}
+.sx.write .mainrow{flex:1;display:flex;min-height:0;position:relative}
 .sx.write .stagebtn{display:inline-flex;align-items:center;gap:6px;background:rgba(198,164,99,.14);border:1px solid rgba(198,164,99,.4);color:var(--gold2);font-size:12px;font-weight:600;border-radius:9px;padding:7px 12px;cursor:pointer;white-space:nowrap}
 .sx.write .stagebtn:disabled{opacity:.5;cursor:default}
 
@@ -228,22 +222,25 @@ export default function ScriptonWrite(props: WriteProps) {
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       <div className="sx write" data-vp={props.vp} dir={dir} style={{ position: 'fixed', inset: 0, zIndex: 50 }}>
         <ScriptonTopBar vp={props.vp} onBack={props.onBack} scriptId={props.scriptId} />
-        <div className="subtop">
-          {props.sample ? <span className="samplebadge">{t('SAMPLE')} · {t('no script bound')}</span> : null}
-          <div className="pageind">
-            <span className="nudge" onClick={() => goScene(activeIdx - 1)}>‹</span>
-            <b>{t('Scene')} {n ? activeIdx + 1 : '—'}</b> / {n || '—'}
-            <span className="nudge" onClick={() => goScene(activeIdx + 1)}>›</span>
-          </div>
-          {props.vp !== 'mobile' ? (
-            <button className="stagebtn" onClick={() => { setComposerOpen((o) => !o); setConflict(null); }} disabled={!scenes.length}>
-              ＋ {t('Stage a change')}{active ? ' · ' + t('Scene') + ' ' + (activeIdx + 1) : ''}
-            </button>
-          ) : null}
-        </div>
         <div className="body">
           <SxRail active="write" onNav={props.onNav} />
           <div className="main">
+            {/* Scene-nav strip lives INSIDE the main column so the rail runs full-height under the
+                top bar — identical chrome to every screen (was a strip between bar and body). */}
+            <div className="subtop">
+              {props.sample ? <span className="samplebadge">{t('SAMPLE')} · {t('no script bound')}</span> : null}
+              <div className="pageind">
+                <span className="nudge" onClick={() => goScene(activeIdx - 1)}>‹</span>
+                <b>{t('Scene')} {n ? activeIdx + 1 : '—'}</b> / {n || '—'}
+                <span className="nudge" onClick={() => goScene(activeIdx + 1)}>›</span>
+              </div>
+              {props.vp !== 'mobile' ? (
+                <button className="stagebtn" onClick={() => { setComposerOpen((o) => !o); setConflict(null); }} disabled={!scenes.length}>
+                  ＋ {t('Stage a change')}{active ? ' · ' + t('Scene') + ' ' + (activeIdx + 1) : ''}
+                </button>
+              ) : null}
+            </div>
+            <div className="mainrow">
             {/* Story Spine */}
             <div className="spine">
               <div className="cap">{t('Spine')}</div>
@@ -341,6 +338,7 @@ export default function ScriptonWrite(props: WriteProps) {
             {preview && (
               <div className="previewbar">{t('PREVIEW')} · {t('Scene')} {activeIdx + 1}: {preview.label}<span onClick={() => setPreview(null)} style={{ cursor: 'pointer', marginInlineStart: 10 }}>✕</span></div>
             )}
+            </div>{/* .mainrow */}
           </div>
         </div>
         {props.toast && <div className="toast">{props.toast}</div>}

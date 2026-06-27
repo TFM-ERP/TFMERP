@@ -51,14 +51,6 @@ const CSS = `
 .sx.studio .pill{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap}
 .sx.studio .pill .d{width:7px;height:7px;border-radius:50%;flex:none}
 .sx.studio .body{flex:1;display:flex;min-height:0;position:relative;z-index:1}
-.sx.studio .rail{width:76px;flex:0 0 76px;background:#0c0d11;border-inline-end:1px solid var(--hair);display:flex;flex-direction:column;align-items:center;padding:14px 0;gap:6px;overflow-y:auto}
-.sx.studio .ritem{width:58px;display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 0;border-radius:12px;color:var(--faint);cursor:pointer;position:relative;border:none;background:transparent}
-.sx.studio .ritem .box{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:#171a21;border:1px solid var(--hair);color:var(--mute)}
-.sx.studio .ritem .lbl{font-size:9px;font-weight:600}
-.sx.studio .ritem:hover .box{border-color:var(--hair2);color:var(--cream)}
-.sx.studio .ritem.on .box{background:linear-gradient(160deg,var(--gold2),var(--gold));border-color:transparent;color:var(--goldink);box-shadow:0 6px 16px -4px rgba(198,164,99,.5)}
-.sx.studio .ritem.on .lbl{color:var(--gold2)}
-.sx.studio .ritem.on:before{content:"";position:absolute;inset-inline-start:-1px;top:14px;bottom:14px;width:3px;border-radius:3px;background:var(--gold)}
 .sx.studio .main{flex:1;min-width:0;display:flex;flex-direction:column}
 .sx.studio .content{flex:1;overflow:auto;padding:26px 40px;display:flex;flex-direction:column;gap:18px}
 .sx.studio .content>*{flex:0 0 auto}
