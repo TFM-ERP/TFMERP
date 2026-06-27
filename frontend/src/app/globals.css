@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700&family=Tajawal:wght@300;400;500;700&family=Aref+Ruqaa:wght@400;700&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700&family=Tajawal:wght@300;400;500;700&family=Aref+Ruqaa:wght@400;700&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Courier+Prime:wght@400;700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -11,6 +11,24 @@
    / var(--sx-title) on their roots + title elements. */
 :root{ --sx-body:'Rubik', system-ui, -apple-system, "Segoe UI", sans-serif; --sx-title:'Fraunces', 'Aref Ruqaa', Georgia, serif; }
 [dir="rtl"]{ --sx-body:'Tajawal', 'Rubik', system-ui, sans-serif; }
+
+/* ── ScriptON shared design tokens (#40 · one source of truth) ────────────────
+   The OS palette + script-paper + glow, scoped to the ScriptON namespace (.sx) so
+   it never leaks into FilmOS chrome. Hexes are read from Figma dqUr3nasAkQIdefXcGDSyi
+   — the file binds NO Figma variables (get_variable_defs → {}), so fills are literal;
+   verified against the Develop handoff §8. New screens (Develop) reference these
+   tokens directly instead of redeclaring; legacy per-screen blocks hold the same
+   values and migrate to this layer over time. Radii stay literal (14/999/24) to
+   match the existing per-screen convention (no radius vars in the codebase yet). */
+.sx{
+  --bg:#0b0c0f; --panel:#14161c; --panel2:#1a1d24;
+  --hair:rgba(255,255,255,.07); --hair2:rgba(255,255,255,.13);
+  --gold:#C6A463; --gold2:#E6D2A2; --goldink:#1a1509;
+  --cream:#F4EEE0; --text:#E8E6E0; --mute:#9aa1ab; --faint:#6b727d;
+  --blue:#5b8def; --green:#57b368; --amber:#e0a23b; --violet:#8b7cf0; --pink:#d6649a; --red:#e5635f;
+  --paper:#F7F4EC; --paper-ink:#23231f; --glow:#F5DAA3;
+  --sx-mono:'Courier Prime','Courier New',Courier,monospace;
+}
 
 /* ═══════════════════════════════════════════════════════════════════════════
    FilmOS — NetSuite-inspired design system
