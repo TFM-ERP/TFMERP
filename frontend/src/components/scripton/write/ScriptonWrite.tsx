@@ -21,7 +21,10 @@ const ACTS = [
 const actOf = (i: number, n: number) => (n <= 1 ? 0 : Math.min(2, Math.floor((i / n) * 3)));
 
 const CSS = `
-.sx.write{--bg:#0a0b0e;--panel:#14161c;--ink:#0e1014;--paper:#F7F4EC;--hair:rgba(255,255,255,.07);--hair2:rgba(255,255,255,.13);--gold:#C6A463;--gold2:#E6D2A2;--goldink:#15120B;--cream:#F4EEE0;--text:#E7E3D8;--mut:#9aa1ab;--faint:#6b727d;--green:#57b368;--blue:#5b8def;position:relative;display:flex;flex-direction:column;height:100%;background:var(--bg);color:var(--text);font-family:var(--sx-body);-webkit-font-smoothing:antialiased;overflow:hidden}
+/* #40: no inline palette — references the shared .sx tokens (globals.css). Screen surface #0a0b0e
+   (node 1:2 body) is a literal — the shared --bg is the lighter #0b0c0f (the spine bg); --ink
+   (#0e1014, composer option rows, node 9:7) is also Write-specific. Both kept literal, not tokens. */
+.sx.write{position:relative;display:flex;flex-direction:column;height:100%;background:#0a0b0e;color:var(--text);font-family:var(--sx-body);-webkit-font-smoothing:antialiased;overflow:hidden}
 .sx.write *{box-sizing:border-box;margin:0;padding:0}
 .sx.write svg{display:block}
 .sx.write .ico{width:18px;height:18px;stroke:currentColor;stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round}
@@ -31,13 +34,13 @@ const CSS = `
 .sx.write .proj{font-weight:700;font-size:15px;color:var(--cream);font-family:var(--sx-title);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sx.write .pill{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap}
 .sx.write .pill .d{width:7px;height:7px;border-radius:50%;flex:none}
-.sx.write .pageind{margin:0 auto;display:flex;align-items:center;gap:10px;color:var(--mut);font-size:12px}
+.sx.write .pageind{margin:0 auto;display:flex;align-items:center;gap:10px;color:var(--mute);font-size:12px}
 .sx.write .pageind b{color:var(--cream);font-weight:600}
-.sx.write .nudge{width:26px;height:26px;border:1px solid var(--hair);border-radius:7px;display:grid;place-items:center;color:var(--mut);cursor:pointer;background:transparent}
+.sx.write .nudge{width:26px;height:26px;border:1px solid var(--hair);border-radius:7px;display:grid;place-items:center;color:var(--mute);cursor:pointer;background:transparent}
 .sx.write .body{flex:1;display:flex;min-height:0;position:relative;z-index:1}
-.sx.write .rail{width:74px;flex:0 0 74px;background:#0e1015;border-inline-end:1px solid var(--hair);display:flex;flex-direction:column;align-items:center;padding:14px 0;gap:6px;overflow-y:auto}
+.sx.write .rail{width:76px;flex:0 0 76px;background:#0c0d11;border-inline-end:1px solid var(--hair);display:flex;flex-direction:column;align-items:center;padding:14px 0;gap:6px;overflow-y:auto}
 .sx.write .ritem{width:58px;display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 0;border-radius:12px;color:var(--faint);cursor:pointer;position:relative;border:none;background:transparent}
-.sx.write .ritem .box{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:#171a21;border:1px solid var(--hair);color:var(--mut)}
+.sx.write .ritem .box{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:#171a21;border:1px solid var(--hair);color:var(--mute)}
 .sx.write .ritem .lbl{font-size:9px;font-weight:600}
 .sx.write .ritem.on .box{background:linear-gradient(160deg,var(--gold2),var(--gold));border-color:transparent;color:var(--goldink)}
 .sx.write .ritem.on .lbl{color:var(--gold2)}
@@ -47,7 +50,7 @@ const CSS = `
 .sx.write .stagebtn:disabled{opacity:.5;cursor:default}
 
 /* Story Spine */
-.sx.write .spine{width:66px;flex:none;border-inline-end:1px solid var(--hair);background:#0c0d11;position:relative;display:flex;flex-direction:column}
+.sx.write .spine{width:64px;flex:none;border-inline-end:1px solid var(--hair);background:#0b0c0f;position:relative;display:flex;flex-direction:column}
 .sx.write .spine .cap{font-size:8.5px;font-weight:700;letter-spacing:1px;color:var(--faint);text-align:center;padding:10px 0 6px;text-transform:uppercase;flex:0 0 auto}
 .sx.write .spinetrack{flex:1;min-height:0;display:flex;flex-direction:column;padding:4px 0 10px}
 .sx.write .spact{flex:1;min-height:0;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:0;border-top:2px solid var(--hair)}
@@ -57,19 +60,19 @@ const CSS = `
 .sx.write .spdot.staged{box-shadow:0 0 0 2px rgba(198,164,99,.5)}
 
 /* Canvas (paper) */
-.sx.write .canvas{flex:1;min-width:0;overflow:auto;background:linear-gradient(180deg,#0b0c0f,#090a0c);display:flex;justify-content:center;padding:26px 0 60px}
+.sx.write .canvas{flex:1;min-width:0;overflow:auto;background:#0a0b0e;display:flex;justify-content:center;padding:26px 0 60px}
 .sx.write .empty{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;padding:64px 32px;margin:auto;max-width:420px}
 .sx.write .empty .emptyh{font-family:var(--sx-title);font-size:18px;font-weight:600;color:var(--cream)}
 .sx.write .empty .emptyp{font-size:13px;line-height:1.55;color:var(--faint)}
 .sx.write .samplebadge{display:inline-flex;align-items:center;font-size:10px;font-weight:800;letter-spacing:.6px;color:#e0a23b;background:rgba(224,162,59,.12);border:1px solid rgba(224,162,59,.4);border-radius:7px;padding:4px 9px;white-space:nowrap}
 
 /* Revision Pass panel */
-.sx.write .pass{width:344px;flex:none;border-inline-start:1px solid var(--hair);background:#0c0d11;display:flex;flex-direction:column;min-height:0}
+.sx.write .pass{width:360px;flex:none;border-inline-start:1px solid var(--hair);background:#0c0d11;display:flex;flex-direction:column;min-height:0}
 .sx.write .passh{padding:15px 16px 12px;border-bottom:1px solid var(--hair);flex:0 0 auto}
 .sx.write .passh .eye{font-size:9.5px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--gold)}
 .sx.write .passh .pt{font-family:var(--sx-title);font-size:18px;color:var(--cream);margin-top:3px}
 .sx.write .meter{margin-top:11px}
-.sx.write .meter .mt{display:flex;justify-content:space-between;font-size:11px;color:var(--mut);margin-bottom:5px}
+.sx.write .meter .mt{display:flex;justify-content:space-between;font-size:11px;color:var(--mute);margin-bottom:5px}
 .sx.write .meter .mt b{color:var(--green)}
 .sx.write .track{height:6px;border-radius:4px;background:#23262e;overflow:hidden}
 .sx.write .track i{display:block;height:100%;background:linear-gradient(90deg,var(--green),#7ed99a)}
@@ -79,7 +82,7 @@ const CSS = `
 .sx.write .pic{width:24px;height:24px;border-radius:7px;display:grid;place-items:center;font-size:12px;flex:none;background:rgba(255,255,255,.05)}
 .sx.write .pn{font-size:12.5px;font-weight:600;color:var(--cream)}
 .sx.write .ptag{font-size:10px;color:var(--faint);margin-top:1px}
-.sx.write .psum{font-size:11.5px;color:var(--mut);margin-top:7px;line-height:1.4}
+.sx.write .psum{font-size:11.5px;color:var(--mute);margin-top:7px;line-height:1.4}
 .sx.write .diff{margin-top:7px;font-size:11px;font-family:"Courier Prime",monospace;line-height:1.55}
 .sx.write .diff .del{color:#e08585;text-decoration:line-through}
 .sx.write .diff .add{color:#7ed99a}
@@ -87,7 +90,7 @@ const CSS = `
 .sx.write .passfoot{padding:12px 14px;border-top:1px solid var(--hair);display:flex;flex-direction:column;gap:8px;flex:0 0 auto}
 .sx.write .renderbtn{width:100%;text-align:center;background:linear-gradient(180deg,var(--gold2),var(--gold));color:var(--goldink);font-weight:700;font-size:13px;border:none;border-radius:10px;padding:11px;cursor:pointer}
 .sx.write .footrow{display:flex;gap:8px}
-.sx.write .footrow span{flex:1;text-align:center;border:1px solid var(--hair);border-radius:9px;padding:8px;color:var(--mut);font-size:11.5px;cursor:pointer}
+.sx.write .footrow span{flex:1;text-align:center;border:1px solid var(--hair);border-radius:9px;padding:8px;color:var(--mute);font-size:11.5px;cursor:pointer}
 .sx.write .passempty{flex:1;display:grid;place-items:center;text-align:center;color:var(--faint);font-size:12.5px;padding:24px}
 .sx.write[data-vp="tablet"] .pass{width:300px}
 
@@ -103,16 +106,16 @@ const CSS = `
 .sx.write .chips{display:flex;flex-wrap:wrap;gap:6px}
 .sx.write .chip{font-size:11.5px;color:var(--text);background:#171a21;border:1px solid var(--hair);border-radius:999px;padding:5px 11px;cursor:pointer}
 .sx.write .chip.on{color:var(--goldink);background:linear-gradient(180deg,var(--gold2),var(--gold));border-color:transparent;font-weight:600}
-.sx.write .opt{display:flex;align-items:center;gap:10px;padding:9px 10px;border:1px solid var(--hair);border-radius:9px;background:var(--ink);cursor:pointer;margin-bottom:6px}
+.sx.write .opt{display:flex;align-items:center;gap:10px;padding:9px 10px;border:1px solid var(--hair);border-radius:9px;background:#0e1014;cursor:pointer;margin-bottom:6px}
 .sx.write .opt.sel{border-color:rgba(198,164,99,.45);background:rgba(198,164,99,.06)}
 .sx.write .dotc{width:7px;height:7px;border-radius:50%;flex:none}
 .sx.write .ot{font-size:12px;color:var(--cream);font-weight:500;flex:1}
 .sx.write .imp{margin-inline-start:auto;font-size:10.5px;font-weight:700}
-.sx.write .imp.up{color:var(--green)}.sx.write .imp.dn{color:var(--gold2)}.sx.write .imp.nn{color:var(--mut)}
+.sx.write .imp.up{color:var(--green)}.sx.write .imp.dn{color:var(--gold2)}.sx.write .imp.nn{color:var(--mute)}
 .sx.write .cflict{font-size:11.5px;color:#e08585;background:rgba(229,99,95,.1);border:1px solid rgba(229,99,95,.35);border-radius:9px;padding:9px 11px;line-height:1.4}
 .sx.write .cstagebar{display:flex;gap:8px;padding:12px 14px;border-top:1px solid var(--hair);background:rgba(255,255,255,.015)}
 .sx.write .cstage{flex:2;text-align:center;background:linear-gradient(180deg,var(--gold2),var(--gold));color:var(--goldink);font-weight:700;font-size:12.5px;border-radius:9px;padding:10px;cursor:pointer}
-.sx.write .cghost{flex:1;text-align:center;border:1px solid var(--hair);border-radius:9px;padding:10px;color:var(--mut);font-size:12.5px;cursor:pointer}
+.sx.write .cghost{flex:1;text-align:center;border:1px solid var(--hair);border-radius:9px;padding:10px;color:var(--mute);font-size:12.5px;cursor:pointer}
 .sx.write .previewbar{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:7;background:rgba(198,164,99,.16);border:1px solid rgba(198,164,99,.4);color:var(--gold2);font-size:11.5px;font-weight:600;border-radius:999px;padding:7px 14px;max-width:calc(100% - 120px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center}
 .sx.write .sk{background:linear-gradient(90deg,#16181e,#1c1f27,#16181e);background-size:200% 100%;animation:wkp 1.3s ease-in-out infinite;border-radius:8px}
 @keyframes wkp{0%{background-position:200% 0}100%{background-position:-200% 0}}
@@ -321,7 +324,7 @@ export default function ScriptonWrite(props: WriteProps) {
                   <div><div className="lab">{t('COMPOSE THE CHANGE')}</div>
                     {opts.map((o) => (
                       <div key={o.id} className={'opt' + (o.id === chosen?.id ? ' sel' : '')} onClick={() => { setSelOpt(o.id); setConflict(null); }}>
-                        <span className="dotc" style={{ background: o.impact === 'up' ? 'var(--green)' : o.impact === 'down' ? 'var(--gold2)' : 'var(--mut)' }} />
+                        <span className="dotc" style={{ background: o.impact === 'up' ? 'var(--green)' : o.impact === 'down' ? 'var(--gold2)' : 'var(--mute)' }} />
                         <div className="ot">{o.label}</div>
                         <span className={'imp ' + IMP_CLASS[o.impact]}>{o.tag}</span>
                       </div>
