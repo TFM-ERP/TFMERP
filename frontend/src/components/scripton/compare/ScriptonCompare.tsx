@@ -29,7 +29,7 @@ export type CompareProps = {
 };
 
 const CSS = `
-.sx.cmp{--bg:#0a0b0e;--panel:#14161c;--panel2:#1a1d24;--col:#101218;--hair:rgba(255,255,255,.07);--hair2:rgba(255,255,255,.13);--gold:#C6A463;--gold2:#E6D2A2;--goldink:#15120B;--cream:#F4EEE0;--text:#E7E3D8;--mut:#9aa1ab;--faint:#6b727d;--green:#57b368;--blue:#5b8def;--red:#e5635f;--amber:#e0a23b;--violet:#9b8cf0;position:relative;display:flex;flex-direction:column;height:100%;background:var(--bg);color:var(--text);font-family:var(--sx-body);-webkit-font-smoothing:antialiased;overflow:hidden}
+.sx.cmp{--col:#16181e;position:relative;display:flex;flex-direction:column;height:100%;background:#0a0b0e;color:var(--text);font-family:var(--sx-body);-webkit-font-smoothing:antialiased;overflow:hidden}
 .sx.cmp *{box-sizing:border-box;margin:0;padding:0}
 .sx.cmp svg{display:block}
 .sx.cmp .ico{width:16px;height:16px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round}
@@ -41,57 +41,59 @@ const CSS = `
 .sx.cmp .body{flex:1;display:flex;min-height:0;position:relative;z-index:1}
 .sx.cmp .rail{width:76px;flex:0 0 76px;background:#0c0d11;border-inline-end:1px solid var(--hair);display:flex;flex-direction:column;align-items:center;padding:14px 0;gap:6px;overflow-y:auto}
 .sx.cmp .ritem{width:58px;display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 0;border-radius:12px;color:var(--faint);cursor:pointer;position:relative;border:none;background:transparent}
-.sx.cmp .ritem .box{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:#171a21;border:1px solid var(--hair);color:var(--mut)}
+.sx.cmp .ritem .box{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:#171a21;border:1px solid var(--hair);color:var(--mute)}
 .sx.cmp .ritem .lbl{font-size:9px;font-weight:600}
 .sx.cmp .ritem.on .box{background:linear-gradient(160deg,var(--gold2),var(--gold));border-color:transparent;color:var(--goldink)}
 .sx.cmp .ritem.on .lbl{color:var(--gold2)}
 .sx.cmp .ritem.on:before{content:"";position:absolute;inset-inline-start:-1px;top:14px;bottom:14px;width:3px;border-radius:3px;background:var(--gold)}
 .sx.cmp .main{flex:1;min-width:0;display:flex;flex-direction:column;min-height:0}
 /* header banner */
-.sx.cmp .banner{display:flex;align-items:center;gap:14px;padding:15px 22px;border-bottom:1px solid var(--hair);background:linear-gradient(180deg,rgba(87,179,104,.05),transparent);flex:0 0 auto}
-.sx.cmp .chk{width:30px;height:30px;border-radius:9px;background:rgba(87,179,104,.16);color:var(--green);display:grid;place-items:center;flex:none}
-.sx.cmp .bttl{font-family:var(--sx-title);font-size:18px;font-weight:700;color:var(--cream)}
-.sx.cmp .bmeta{font-size:12px;color:var(--mut);margin-top:2px}
-.sx.cmp .bctl{margin-inline-start:auto;display:flex;gap:9px;flex-wrap:wrap;justify-content:flex-end}
-.sx.cmp .btn{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;border-radius:9px;font-size:12.5px;font-weight:600;cursor:pointer;border:1px solid var(--hair);background:#1b1e25;color:var(--mut);white-space:nowrap}
+.sx.cmp .banner{display:flex;align-items:center;gap:12px;padding:14px 24px;border-bottom:1px solid rgba(87,179,104,.18);background:rgba(87,179,104,.04);flex:0 0 auto}
+.sx.cmp .chk{width:28px;height:28px;border-radius:8px;background:rgba(87,179,104,.18);color:var(--green);display:grid;place-items:center;flex:none}
+.sx.cmp .bttl{font-family:var(--sx-title);font-size:15px;font-weight:600;color:var(--cream)}
+.sx.cmp .bmeta{font-size:11px;color:var(--mute);margin-top:3px}
+.sx.cmp .bctl{margin-inline-start:auto;display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.sx.cmp .btn{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 16px;border-radius:10px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid rgba(255,255,255,.4);background:transparent;color:var(--mute);white-space:nowrap}
 .sx.cmp .btn.danger{color:var(--red);border-color:rgba(229,99,95,.4);background:transparent}
-.sx.cmp .btn.gold{background:linear-gradient(180deg,var(--gold2),var(--gold));color:var(--goldink);font-weight:700;border-color:transparent}
+.sx.cmp .btn.gold{background:var(--gold2);color:var(--goldink);font-weight:600;border-color:transparent}
 .sx.cmp .btn:disabled{opacity:.55;cursor:default}
 /* layout */
-.sx.cmp .wrap{flex:1;min-height:0;display:grid;grid-template-columns:1fr 344px;gap:0}
-.sx.cmp .diff{min-height:0;display:grid;grid-template-columns:1fr 1fr;overflow:auto;padding:18px 18px 40px;gap:16px}
-.sx.cmp .colhead{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;letter-spacing:.3px;color:var(--mut);margin-bottom:11px}
+.sx.cmp .wrap{flex:1;min-height:0;display:grid;grid-template-columns:1fr 348px;gap:0}
+.sx.cmp .diff{min-height:0;display:grid;grid-template-columns:1fr 1fr;overflow:auto;padding:20px 24px 40px 32px;gap:24px}
+.sx.cmp .colhead{display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:600;letter-spacing:.2px;color:var(--mute);margin-bottom:12px}
 .sx.cmp .colhead .d{width:8px;height:8px;border-radius:50%;flex:none}
-.sx.cmp .scol{background:var(--col);border:1px solid var(--hair);border-radius:12px;padding:18px 18px;font-family:"Courier Prime",ui-monospace,monospace;font-size:12px;line-height:1.05}
+.sx.cmp .scol{background:var(--col);border:1px solid var(--hair2);border-radius:6px;padding:23px 25px;font-family:var(--sx-mono);font-size:11.5px;line-height:1.05}
 .sx.cmp .blk{margin-bottom:22px}
 .sx.cmp .blk:last-child{margin-bottom:0}
-.sx.cmp .ln{display:block;white-space:pre-wrap;word-wrap:break-word;padding:1px 0;color:var(--text)}
-.sx.cmp .ln.slug{font-weight:700;color:var(--gold2);text-transform:uppercase;margin-bottom:8px}
-.sx.cmp .ln.del{color:var(--red);text-decoration:line-through;opacity:.62}
-.sx.cmp .ln.add{border-inline-start:3px solid var(--green);background:rgba(87,179,104,.13);padding-inline-start:9px;margin-inline-start:-12px;color:#cfe9d4}
-.sx.cmp .ln.empty{min-height:1.05em}
+.sx.cmp .ln{display:block;white-space:pre-wrap;word-wrap:break-word;margin-bottom:13px;color:#d6d4cc}
+.sx.cmp .ln.slug{font-weight:700;color:var(--gold2);text-transform:uppercase;margin-bottom:11px}
+.sx.cmp .ln.del{color:#f0a8a3;text-decoration:line-through;opacity:.9}
+.sx.cmp .ln.add{border-inline-start:2px solid var(--green);background:rgba(87,179,104,.13);padding:2px 0 2px 12px;margin-inline-start:-12px;border-radius:4px;color:#a8e5bd}
+.sx.cmp .ln.empty{min-height:1.05em;margin-bottom:0}
 /* THIS RENDER panel */
-.sx.cmp .render{border-inline-start:1px solid var(--hair);background:#0c0d11;overflow:auto;padding:18px 18px 40px;display:flex;flex-direction:column;gap:18px;min-height:0}
+.sx.cmp .render{margin:20px 24px 40px 0;background:#0c0d11;border:1px solid var(--hair);border-radius:14px;overflow:auto;padding:17px;display:flex;flex-direction:column;gap:16px;min-height:0}
 .sx.cmp .rhead{display:flex;align-items:center;justify-content:space-between}
-.sx.cmp .rhead .rt{font-size:10.5px;font-weight:800;letter-spacing:1.1px;color:var(--gold)}
-.sx.cmp .rhead .rs{font-size:12px;font-weight:700;color:var(--green);display:inline-flex;align-items:center;gap:6px}
-.sx.cmp .sect .lab{font-size:9.5px;font-weight:700;letter-spacing:.7px;color:var(--faint);margin-bottom:9px;text-transform:uppercase}
-.sx.cmp .row{display:flex;gap:9px;align-items:flex-start;margin-bottom:9px;font-size:12px;line-height:1.4}
+.sx.cmp .rhead .rt{font-size:9.5px;font-weight:600;letter-spacing:.8px;color:var(--gold)}
+.sx.cmp .rhead .rs{font-size:11px;font-weight:600;color:var(--green);display:inline-flex;align-items:center;gap:6px}
+.sx.cmp .sect .lab{font-size:9px;font-weight:600;letter-spacing:.6px;color:var(--faint);margin-bottom:9px;text-transform:uppercase}
+.sx.cmp .row{display:flex;gap:9px;align-items:flex-start;margin-bottom:9px;font-size:11.5px;line-height:1.35}
 .sx.cmp .row .ic{flex:none;margin-top:1px}
-.sx.cmp .row .ic.ok{color:var(--green)}.sx.cmp .row .ic.dotc{width:7px;height:7px;border-radius:50%;margin-top:6px}
-.sx.cmp .row .tx{color:var(--text)}.sx.cmp .row .tx b{color:var(--cream);font-weight:600}
+.sx.cmp .row .ic.ok{color:var(--green)}.sx.cmp .row .ic.dotc{width:7px;height:7px;border-radius:50%;margin-top:5px}
+.sx.cmp .row .tx{color:var(--mute)}.sx.cmp .row .tx b{color:var(--cream);font-weight:500}
 .sx.cmp .row .tx .sub{color:var(--faint);font-size:11px}
-.sx.cmp .note{margin-top:auto;background:rgba(198,164,99,.06);border:1px solid rgba(198,164,99,.22);border-radius:11px;padding:12px 13px;font-size:11.5px;color:var(--gold2);line-height:1.5}
+.sx.cmp .render .sect:first-of-type .row{font-size:12px}
+.sx.cmp .render .sect:first-of-type .row .tx,.sx.cmp .render .sect:first-of-type .row .tx b{color:var(--cream);font-weight:500}
+.sx.cmp .note{margin-top:auto;background:rgba(87,179,104,.06);border:1px solid rgba(87,179,104,.22);border-radius:10px;padding:10px 13px;font-size:11px;color:var(--mute);line-height:1.5}
 /* chips (tablet/mobile condensed panel) */
 .sx.cmp .chips{display:flex;flex-wrap:wrap;gap:8px}
 .sx.cmp .chip{font-size:11.5px;font-weight:600;border-radius:999px;padding:6px 12px;border:1px solid var(--hair)}
 .sx.cmp .empty{flex:1;display:grid;place-items:center;text-align:center;color:var(--faint);font-size:13px;padding:40px}
-.sx.cmp .toast{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);z-index:9;background:#1b1e25;border:1px solid var(--hair2);color:var(--cream);font-size:12.5px;padding:10px 16px;border-radius:10px}
+.sx.cmp .toast{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);z-index:9;background:var(--track);border:1px solid var(--hair2);color:var(--cream);font-size:12.5px;padding:10px 16px;border-radius:10px}
 /* stacked (tablet/mobile per 51:3) */
 .sx.cmp[data-vp="tablet"] .wrap,.sx.cmp[data-vp="mobile"] .wrap{display:flex;flex-direction:column;overflow:auto}
-.sx.cmp[data-vp="tablet"] .diff,.sx.cmp[data-vp="mobile"] .diff{display:flex;flex-direction:column;overflow:visible;flex:0 0 auto}
-.sx.cmp[data-vp="tablet"] .scol,.sx.cmp[data-vp="mobile"] .scol{min-height:0}
-.sx.cmp[data-vp="tablet"] .render,.sx.cmp[data-vp="mobile"] .render{border-inline-start:none;border-top:1px solid var(--hair);flex:0 0 auto}
+.sx.cmp[data-vp="tablet"] .diff,.sx.cmp[data-vp="mobile"] .diff{display:flex;flex-direction:column;overflow:visible;flex:0 0 auto;padding:20px 20px 0;gap:18px}
+.sx.cmp[data-vp="tablet"] .scol,.sx.cmp[data-vp="mobile"] .scol{min-height:0;border-radius:8px;font-size:12px}
+.sx.cmp[data-vp="tablet"] .render,.sx.cmp[data-vp="mobile"] .render{margin:20px;background:var(--panel);border-radius:14px;flex:0 0 auto}
 .sx.cmp[data-vp="mobile"] .banner{flex-wrap:wrap}
 `;
 
@@ -146,7 +148,7 @@ export default function ScriptonCompare(props: CompareProps) {
                   </div>
                 </div>
                 <div>
-                  <div className="colhead"><span className="d" style={{ background: 'var(--green)' }} />{newLbl.toUpperCase()} · {t('rendered')}</div>
+                  <div className="colhead" style={{ color: 'var(--gold2)' }}><span className="d" style={{ background: 'var(--green)' }} />{newLbl.toUpperCase()} · {t('rendered')}</div>
                   <div className="scol">
                     {sceneDiffs.length ? sceneDiffs.map((b) => (
                       <div className="blk" key={'n' + b.key}>{b.next.map((l, i) => <Line key={i} l={l} />)}</div>
@@ -162,8 +164,8 @@ export default function ScriptonCompare(props: CompareProps) {
                 {stacked ? (
                   <div className="chips">
                     {r.canonWritten.slice(0, 4).map((f, i) => <span key={i} className="chip" style={{ color: 'var(--green)', borderColor: 'rgba(87,179,104,.4)', background: 'rgba(87,179,104,.08)' }}>{cap(f.subject)} → {f.object}</span>)}
-                    {r.decision && <span className="chip" style={{ color: 'var(--mut)' }}>{t('Decision recorded')}</span>}
-                    {bridge.note && <span className="chip" style={{ color: 'var(--violet)', borderColor: 'rgba(155,140,240,.4)', background: 'rgba(155,140,240,.08)' }}>{t('Auto-fix')}: {t('DAWN bridge')}</span>}
+                    {r.decision && <span className="chip" style={{ color: 'var(--mute)' }}>{t('Decision recorded')}</span>}
+                    {bridge.note && <span className="chip" style={{ color: 'var(--violet)', borderColor: 'rgba(139,124,240,.4)', background: 'rgba(139,124,240,.14)' }}>{t('Auto-fix')}: {t('DAWN bridge')}</span>}
                   </div>
                 ) : (
                   <>
