@@ -27,6 +27,7 @@
   --cream:#F4EEE0; --text:#E8E6E0; --mute:#9aa1ab; --faint:#6b727d;
   --blue:#5b8def; --green:#57b368; --amber:#e0a23b; --violet:#8b7cf0; --pink:#d6649a; --red:#e5635f;
   --paper:#F7F4EC; --paper-ink:#23231f; --glow:#F5DAA3;
+  --track:#1b1e25; /* progress-track / chip / pending-dot bg (Develop node 69:2) */
   --sx-mono:'Courier Prime','Courier New',Courier,monospace;
 }
 

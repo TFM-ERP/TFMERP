@@ -48,7 +48,7 @@ function salvageStage(t: string): string {
   while ((m = re.exec(t))) { const key = m[1]; const val = unescStr(m[2]); if (!val.trim()) continue; segs.push((key === 'name' || key === 'anchor' || key === 'slugline') ? ('■ ' + val) : val); }
   return segs.join('\n\n');
 }
-function cleanStageText(raw: string): string {
+export function cleanStageText(raw: string): string {
   let t = String(raw || '').trim();
   t = t.replace(/^```[a-z]*\s*/i, '').replace(/```\s*$/i, '').trim();
   if (/^[\[{]/.test(t)) {

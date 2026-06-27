@@ -289,7 +289,9 @@ export default function StudioPage() {
   // New Develop — structural rebuild (Figma 69:2), under the new shell when a build is open.
   // `old` (or the Builds list with no build open) keeps the current Builder below.
   if (osNew && buildIdRef.current && mode === 'develop') {
-    return <ScriptonDevelop vp={vp} onBack={onBack} />;
+    return <ScriptonDevelop vp={vp} onBack={onBack} projectId={projectId} buildId={buildIdRef.current}
+      ladder={ladder} spine={spine} comps={COMPS} genBusy={genBusy}
+      onAdvance={advance} onRegenerate={onRegenerate} onSwitchVersion={onSwitchVersion} />;
   }
   const RC: any = vp === 'mobile' ? ScriptOnStudioMobile : vp === 'tablet' ? ScriptOnStudioTablet : ScriptOnStudio;
   return (<><RC osNew={osNew} title={title} meta={t('Studio · seed → script')} mode={mode} onTab={onTab} showDevelop={mode === 'develop' || !!buildIdRef.current} ladder={ladder} spine={spine} comps={COMPS} note={t('Doctor: keep every stage true to the approved spine.')} adaptResult={adaptResult} formatResult={formatResult} formatTarget={formatTarget} busy={busy} genBusy={genBusy}
