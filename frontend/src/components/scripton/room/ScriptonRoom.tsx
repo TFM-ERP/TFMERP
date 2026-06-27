@@ -16,7 +16,7 @@ const STATE_COLOR: Record<string, string> = { done: 'var(--green)', current: 'va
 const STATE_LABEL: Record<string, string> = { done: 'Approved', current: 'Reviewing now', pending: 'Pending', rejected: 'Sent back' };
 
 const CSS = `
-.sx.room{--bg:#0b0c0f;--panel:#14161c;--panel2:#1a1d24;--hair:rgba(255,255,255,.07);--hair2:rgba(255,255,255,.13);--gold:#C6A463;--gold2:#E6D2A2;--goldink:#1a1509;--cream:#F4EEE0;--text:#E8E6E0;--mute:#9aa1ab;--faint:#6b727d;--blue:#5b8def;--green:#57b368;--amber:#e0a23b;--violet:#8b7cf0;--red:#e5635f;position:relative;display:flex;flex-direction:column;height:100%;background:radial-gradient(1200px 600px at 50% -8%,#15171d,#0b0c0f 60%);color:var(--text);font-family:var(--sx-body);-webkit-font-smoothing:antialiased;overflow:hidden}
+.sx.room{position:relative;display:flex;flex-direction:column;height:100%;background:radial-gradient(1200px 600px at 50% -8%,#15171d,#0a0b0e 60%);color:var(--text);font-family:var(--sx-body);-webkit-font-smoothing:antialiased;overflow:hidden}
 .sx.room *{box-sizing:border-box;margin:0;padding:0}
 .sx.room:before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(700px 280px at 72% -6%,rgba(198,164,99,.09),transparent 70%);z-index:0}
 .sx.room svg{display:block}
@@ -38,11 +38,11 @@ const CSS = `
 .sx.room .main{flex:1;min-width:0;display:flex;flex-direction:column}
 .sx.room .content{flex:1;min-height:0;overflow:hidden;padding:20px 24px;display:flex;flex-direction:column;gap:14px}
 .sx.room .phead{flex:0 0 auto}
-.sx.room .phead h1{font-family:var(--sx-title);font-size:25px;font-weight:500;color:var(--cream);letter-spacing:-.3px}
-.sx.room .phead .sub{font-size:12.5px;color:var(--mute);margin-top:3px}
-.sx.room .rcols{flex:1;min-height:0;display:grid;grid-template-columns:300px 1fr 300px;gap:16px}
+.sx.room .phead h1{font-family:var(--sx-title);font-size:21px;font-weight:600;color:var(--cream);letter-spacing:-.2px}
+.sx.room .phead .sub{font-size:12px;color:var(--faint);margin-top:6px}
+.sx.room .rcols{flex:1;min-height:0;display:grid;grid-template-columns:372px minmax(0,1fr) 374px;gap:24px}
 .sx.room .rcol{min-height:0;display:flex;flex-direction:column;gap:10px}
-.sx.room .seclabel{font-size:10.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--faint);flex:0 0 auto}
+.sx.room .seclabel{font-size:9.5px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--gold);flex:0 0 auto}
 .sx.room .card{background:var(--panel);border:1px solid var(--hair);border-radius:13px}
 
 /* Notes column */
@@ -50,54 +50,54 @@ const CSS = `
 .sx.room .chip{padding:5px 10px;border-radius:999px;font-size:11px;font-weight:600;color:var(--mute);background:#171a20;border:1px solid var(--hair);cursor:pointer}
 .sx.room .chip.on{background:rgba(198,164,99,.14);border-color:rgba(198,164,99,.45);color:var(--gold2)}
 .sx.room .nlist{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:8px;padding-right:2px}
-.sx.room .nrow{background:var(--panel);border:1px solid var(--hair);border-radius:12px;padding:11px;cursor:pointer;text-align:start;display:flex;gap:10px;transition:border-color .12s}
+.sx.room .nrow{background:var(--panel);border:1px solid var(--hair);border-radius:12px;padding:13px;cursor:pointer;text-align:start;display:flex;gap:10px;transition:border-color .12s}
 .sx.room .nrow:hover{border-color:var(--hair2)}
-.sx.room .nrow.on{border-color:rgba(198,164,99,.5);background:#181a14}
-.sx.room .av{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-size:10.5px;font-weight:800;color:#0b0c0f;flex:none}
+.sx.room .nrow.on{border-color:rgba(198,164,99,.3);background:rgba(198,164,99,.06)}
+.sx.room .av{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:9px;font-weight:600;color:#fff;flex:none}
 .sx.room .nb{min-width:0;flex:1}
 .sx.room .nh{display:flex;align-items:center;gap:7px}
-.sx.room .nsc{font-size:12px;font-weight:700;color:var(--cream)}
-.sx.room .tag{font-size:8.5px;font-weight:800;letter-spacing:.4px;padding:2px 6px;border-radius:999px;margin-inline-start:auto}
-.sx.room .nau{font-size:10px;color:var(--faint);margin-top:1px}
-.sx.room .ntx{font-size:11.5px;color:var(--text);margin-top:5px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.sx.room .nsc{font-size:12px;font-weight:600;color:var(--cream)}
+.sx.room .tag{font-size:8.5px;font-weight:500;letter-spacing:.4px;padding:2px 7px;border-radius:999px;margin-inline-start:auto}
+.sx.room .nau{font-size:10px;color:var(--faint);margin-top:2px}
+.sx.room .ntx{font-size:11px;color:var(--mute);margin-top:6px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 
 /* Thread column */
-.sx.room .thread{flex:1;min-height:0;display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--hair);border-radius:13px;overflow:hidden}
-.sx.room .th-h{flex:0 0 auto;padding:13px 15px;border-bottom:1px solid var(--hair)}
+.sx.room .thread{flex:1;min-height:0;display:flex;flex-direction:column;background:#181b22;border:1px solid var(--hair);border-radius:14px;overflow:hidden}
+.sx.room .th-h{flex:0 0 auto;padding:17px 19px;border-bottom:1px solid var(--hair)}
 .sx.room .th-sc{display:flex;align-items:center;gap:9px}
-.sx.room .th-t{font-size:13.5px;font-weight:700;color:var(--cream)}
+.sx.room .th-t{font-family:var(--sx-title);font-size:16px;font-weight:600;color:var(--cream)}
 .sx.room .badge{font-size:9px;font-weight:800;letter-spacing:.4px;padding:3px 8px;border-radius:999px}
 .sx.room .badge.amber{background:rgba(224,162,59,.16);color:var(--amber)}
 .sx.room .badge.green{background:rgba(87,179,104,.16);color:var(--green)}
-.sx.room .th-s{font-size:11px;color:var(--faint);margin-top:3px}
-.sx.room .th-b{flex:1;min-height:0;overflow:auto;padding:14px 15px;display:flex;flex-direction:column;gap:12px}
-.sx.room .bub{display:flex;gap:9px}
-.sx.room .bub .bx{min-width:0;flex:1;background:var(--panel2);border:1px solid var(--hair);border-radius:10px;padding:9px 11px}
-.sx.room .bub.doc .bx{background:linear-gradient(135deg,rgba(198,164,99,.14),rgba(198,164,99,.04));border-color:rgba(198,164,99,.4)}
-.sx.room .ba{font-size:11px;font-weight:700;color:var(--cream)}
-.sx.room .ba small{color:var(--faint);font-weight:500;margin-inline-start:6px}
-.sx.room .bt{font-size:12px;color:var(--text);margin-top:4px;line-height:1.45}
+.sx.room .th-s{font-size:11px;color:var(--faint);margin-top:4px}
+.sx.room .th-b{flex:1;min-height:0;overflow:auto;padding:19px;display:flex;flex-direction:column;gap:16px}
+.sx.room .bub{display:flex;gap:10px}
+.sx.room .bub .av{width:30px;height:30px;font-size:10px}
+.sx.room .bub .bx{min-width:0;flex:1}
+.sx.room .ba{font-size:12px;font-weight:600;color:var(--cream)}
+.sx.room .ba small{color:var(--faint);font-weight:400;margin-inline-start:8px}
+.sx.room .bt{font-size:12px;color:var(--mute);margin-top:4px;line-height:1.4}
 .sx.room .passchip{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;color:var(--gold2);background:rgba(198,164,99,.12);border:1px solid rgba(198,164,99,.3);border-radius:999px;padding:3px 9px;margin-top:8px;width:max-content}
-.sx.room .composer{flex:0 0 auto;border-top:1px solid var(--hair);padding:11px;display:flex;gap:9px;align-items:center}
-.sx.room .cin{flex:1;background:#171a20;border:1px solid var(--hair);border-radius:9px;padding:9px 11px;color:var(--text);font:inherit;font-size:12.5px;outline:none}
+.sx.room .composer{flex:0 0 auto;border-top:1px solid var(--hair);padding:14px 19px;display:flex;gap:8px;align-items:center}
+.sx.room .cin{flex:1;height:42px;background:#0e1014;border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:0 13px;color:var(--text);font:inherit;font-size:12px;outline:none}
 .sx.room .cin::placeholder{color:var(--faint)}
-.sx.room .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:36px;padding:0 13px;border-radius:9px;font-size:12.5px;font-weight:600;cursor:pointer;border:1px solid transparent;white-space:nowrap}
-.sx.room .btn.gold{background:linear-gradient(180deg,var(--gold2),var(--gold));color:var(--goldink);font-weight:700}
+.sx.room .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:42px;padding:0 18px;border-radius:10px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid transparent;white-space:nowrap}
+.sx.room .btn.gold{background:var(--gold2);color:#15120b;font-weight:600}
 .sx.room .btn.ghost{background:#1b1e25;border-color:var(--hair);color:var(--text)}
 .sx.room .empty{flex:1;display:grid;place-items:center;color:var(--faint);font-size:13px;text-align:center;padding:20px}
 
 /* Right column: chain + distribution */
-.sx.room .panel{background:var(--panel);border:1px solid var(--hair);border-radius:13px;padding:14px}
-.sx.room .stage{display:flex;gap:10px;align-items:flex-start;padding:8px 0}
-.sx.room .sdot{width:10px;height:10px;border-radius:50%;flex:none;margin-top:3px}
-.sx.room .sn{font-size:12.5px;font-weight:700;color:var(--cream)}
-.sx.room .sm{font-size:10.5px;color:var(--faint);margin-top:1px}
-.sx.room .drow{display:flex;gap:9px;align-items:center;padding:8px 0;border-top:1px solid var(--hair)}
+.sx.room .panel{background:#0c0d11;border:1px solid var(--hair);border-radius:14px;padding:17px 19px}
+.sx.room .stage{display:flex;gap:12px;align-items:flex-start;padding:6px 0}
+.sx.room .sdot{width:10px;height:10px;border-radius:50%;flex:none;margin-top:4px}
+.sx.room .sn{font-size:12.5px;font-weight:600;color:var(--cream)}
+.sx.room .sm{font-size:10px;color:var(--faint);margin-top:2px}
+.sx.room .drow{display:flex;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--hair)}
 .sx.room .drow:first-of-type{border-top:none}
-.sx.room .dn{font-size:12px;font-weight:600;color:var(--cream)}
-.sx.room .dm{font-size:10px;color:var(--faint);margin-top:1px}
+.sx.room .dn{font-size:12px;font-weight:500;color:var(--cream)}
+.sx.room .dm{font-size:10px;color:var(--faint);margin-top:2px}
 .sx.room .dstat{font-size:10px;color:var(--mute);margin-inline-start:auto;display:flex;align-items:center;gap:4px}
-.sx.room .pfoot{font-size:10px;color:var(--faint);margin-top:10px;line-height:1.4}
+.sx.room .pfoot{font-size:10px;color:var(--mute);margin-top:14px;line-height:1.4}
 .sx.room .muted{font-size:12px;color:var(--faint);padding:8px 0}
 .sx.room .toast{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);z-index:9;background:#1b1e25;border:1px solid var(--hair2);color:var(--cream);font-size:12.5px;padding:10px 16px;border-radius:10px;box-shadow:0 14px 40px -12px rgba(0,0,0,.7)}
 .sx.room .mtabs{display:none}
@@ -110,13 +110,13 @@ const CSS = `
 
 /* Mobile (49:3, review-first): one panel at a time via the segmented control */
 .sx.room[data-vp="mobile"] .content{padding:14px 12px;gap:10px}
-.sx.room[data-vp="mobile"] .mtabs{display:flex;gap:6px;flex:0 0 auto}
-.sx.room[data-vp="mobile"] .mtab{flex:1;padding:8px;border-radius:9px;font-size:12px;font-weight:700;background:#171a20;border:1px solid var(--hair);color:var(--mute);cursor:pointer}
-.sx.room[data-vp="mobile"] .mtab.on{background:rgba(198,164,99,.14);border-color:rgba(198,164,99,.45);color:var(--gold2)}
+.sx.room[data-vp="mobile"] .mtabs{display:flex;gap:8px;flex:0 0 auto}
+.sx.room[data-vp="mobile"] .mtab{padding:6px 18px;border-radius:999px;font-size:12px;font-weight:500;background:transparent;border:1px solid var(--hair2);color:var(--mute);cursor:pointer}
+.sx.room[data-vp="mobile"] .mtab.on{background:var(--gold2);border-color:transparent;color:#15120b;font-weight:600}
 .sx.room[data-vp="mobile"] .rcols{display:block;flex:1;min-height:0;overflow:hidden}
 .sx.room[data-vp="mobile"] .rcol{height:100%}
 .sx.room[data-vp="mobile"] .rcol.side{flex-direction:column}
-.sx.room[data-vp="mobile"] .phead h1{font-size:21px}
+.sx.room[data-vp="mobile"] .phead h1{font-size:22px}
 `;
 
 export type RoomProps = {
@@ -172,7 +172,7 @@ export default function ScriptonRoom(props: RoomProps) {
           <div className="th-b">
             {props.thread.bubbles.map((b, i) => (
               <div className={'bub' + (b.doc ? ' doc' : '')} key={i}>
-                <span className="av" style={{ background: b.color, color: b.doc ? '#0b0c0f' : '#0b0c0f' }}>{b.av}</span>
+                <span className="av" style={{ background: b.color }}>{b.av}</span>
                 <div className="bx"><div className="ba">{b.author}<small>{b.time}</small></div><div className="bt">{b.text}</div></div>
               </div>
             ))}
