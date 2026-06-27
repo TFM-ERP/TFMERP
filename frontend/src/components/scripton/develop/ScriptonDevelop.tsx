@@ -17,6 +17,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { productionApi } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
 import { SxRail, cleanStageText, type SxLadder, type SxSpine } from '@/components/scripton/ScriptOnStudio';
+import { ScriptPaper } from '@/components/scripton/scriptPaper';
 import ScriptonTopBar from '@/components/scripton/topbar/ScriptonTopBar';
 
 export type ScriptonDevelopProps = {
@@ -35,6 +36,124 @@ export type ScriptonDevelopProps = {
 
 const TOTAL = 8;
 const LABEL: Record<string, string> = { LOGLINE: 'Logline', SYNOPSIS: 'Synopsis', TREATMENT: 'Treatment', BEATS: 'Beats', SCENES: 'Scenes', STEP_OUTLINE: 'Step Outline', DRAFT: 'Draft', COVERAGE: 'Coverage' };
+
+// ── Markdown-clean (#47) + per-kind rendering ────────────────────────────────
+// Strip ** / * / ` / leading # / --- rules / runs of blank lines. No content is translated —
+// dir="auto" on every body block makes Arabic render RTL right-aligned and English LTR.
+const stripMd = (s: string) => String(s || '').replace(/\*+/g, '').replace(/`+/g, '').replace(/^\s*#{1,6}\s*/gm, '').replace(/^\s*[-_*]{3,}\s*$/gm, '').replace(/\n{3,}/g, '\n\n').trim();
+// Robust output unwrap: strict JSON first, then a hand extraction for malformed JSON (the AI sometimes
+// writes literal newlines inside the "output" string value, which breaks JSON.parse + the salvage regex).
+const unwrapOutput = (raw?: string): string => {
+  const s = String(raw || '').trim();
+  if (s.startsWith('{') || s.startsWith('[')) {
+    try { const o: any = JSON.parse(s); if (o && typeof o === 'object') return String(o.output || o.text || o.body || ''); } catch { /* malformed/truncated */ }
+    // Grab the output value to end-of-string (tolerates a truncated/unterminated JSON string — the
+    // AI sometimes runs out mid-value), then strip a trailing close quote/brace if the JSON was whole.
+    const m = s.match(/"(?:output|text|body)"\s*:\s*"([\s\S]*)$/);
+    if (m) return m[1].replace(/"\s*[}\]]?\s*$/, '').replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\t/g, '  ').replace(/\\r/g, '').replace(/\\\\/g, '\\');
+  }
+  return s;
+};
+const cleanProse = (raw?: string) => stripMd(unwrapOutput(cleanStageText(String(raw || ''))));
+
+// Verdict colouring — GO/RECOMMEND green · CONSIDER amber · HOLD/PASS red (no hardcoded labels;
+// detected from the real verdict text, English or Arabic section).
+const VERDICT_COLOR: Record<string, string> = { GO: 'var(--green)', RECOMMEND: 'var(--green)', CONSIDER: 'var(--amber)', HOLD: 'var(--red)', PASS: 'var(--red)' };
+function verdictColor(label: string, body: string): string | null {
+  const lead = body.match(/^\s*(GO|RECOMMEND|CONSIDER|HOLD|PASS)\b/i);
+  if (lead) return VERDICT_COLOR[lead[1].toUpperCase()] || null;
+  if (/verdict|recommendation|توصية|الحكم|الخلاصة/i.test(label)) { const m = body.match(/\b(GO|RECOMMEND|CONSIDER|HOLD|PASS)\b/i); return m ? (VERDICT_COLOR[m[1].toUpperCase()] || null) : null; }
+  return null;
+}
+// Coverage → its REAL section headers (English or Arabic) as gold mini-labels + clean prose.
+// Sections are delimited by --- rules (Arabic عنترة) and/or a header line (a short line — markdown
+// bold/heading, ALL-CAPS, or a few words with no sentence punctuation — that precedes its prose).
+function coverageSections(raw?: string): { label: string; body: string }[] {
+  const s = unwrapOutput(raw);
+  const headerish = (first: string) => {
+    const bare = first.replace(/^#{1,6}\s*/, '').replace(/\*+/g, '').replace(/[:：]\s*$/, '').trim();
+    if (!bare || first.length > 70) return false;
+    return /^\*\*.+\*\*$/.test(first) || /^#{1,6}\s+/.test(first) || /^[A-Z0-9 /&'’-]{3,}$/.test(bare) || (bare.split(/\s+/).length <= 6 && !/[.!?؟،…]$/.test(bare));
+  };
+  const out: { label: string; body: string }[] = [];
+  for (const blk of s.split(/\n\s*[-_*]{3,}\s*\n/)) {
+    const lines = blk.split('\n');
+    while (lines.length && !lines[0].trim()) lines.shift();
+    while (lines.length && !lines[lines.length - 1].trim()) lines.pop();
+    if (!lines.length) continue;
+    const first = lines[0].trim();
+    let label = '', body = '';
+    if (headerish(first) && lines.length > 1) { label = stripMd(first).replace(/[:：]\s*$/, '').trim(); body = stripMd(lines.slice(1).join('\n')); }
+    else { body = stripMd(lines.join('\n')); }
+    if (label || body) out.push({ label, body });
+  }
+  // drop a leading title-only / label-less single short line (the coverage's own title — the head already names the stage)
+  if (out.length && !out[0].label && out[0].body.length < 80 && !out[0].body.includes('\n')) out.shift();
+  return out.filter((x) => x.body);
+}
+
+function CoverageBody({ raw, t }: { raw?: string; t: (k: string) => string }) {
+  const sections = useMemo(() => coverageSections(raw), [raw]);
+  if (!sections.length) { const p = cleanProse(raw); return <>{p.split(/\n{2,}/).filter(Boolean).map((x, i) => <p key={i} dir="auto">{x}</p>)}</>; }
+  return (
+    <>
+      {sections.map((s, i) => {
+        const vc = verdictColor(s.label, s.body);
+        return (
+          <div className="cvsec" key={i}>
+            {s.label ? <div className="cvlabel">{s.label}</div> : null}
+            <div className={'cvprose' + (vc ? ' verdict' : '')} dir="auto" style={vc ? { color: vc } : undefined}>{s.body}</div>
+          </div>
+        );
+      })}
+    </>
+  );
+}
+function SceneCards({ scenes, t }: { scenes: any[]; t: (k: string) => string }) {
+  return (
+    <div className="scards">
+      {scenes.map((s, i) => {
+        const open = s.chargeOpen, close = s.chargeClose;
+        const flat = !open || !close || open === close;
+        const purpose = s.purpose || s.synopsis || s.description || '';
+        return (
+          <div className={'scard' + (flat ? ' flat' : '')} key={i} dir="auto">
+            <div className="scslug">{s.sceneNumber != null ? s.sceneNumber + '. ' : ''}{s.slugline || s.location || t('Scene')}</div>
+            {purpose ? <div className="scbody">{purpose}</div> : null}
+            <div className="sctags">
+              {open || close ? <span className={'charge' + (flat ? ' flatc' : '')} dir="ltr">{open || '·'} → {close || '·'}</span> : null}
+              {s.turnType ? <span className="tag">{s.turnType}</span> : null}
+              {s.thread ? <span className="tag">{t('thread')} {s.thread}</span> : null}
+              {flat ? <span className="tag red">{t('flat')}</span> : null}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+function StepList({ steps }: { steps: any[] }) {
+  return (
+    <ol className="steps">
+      {steps.map((s, i) => (
+        <li key={i} dir="auto"><span className="snum">{s.n != null ? s.n : i + 1}.</span><span className="stext">{s.text || s.scene || ''}</span></li>
+      ))}
+    </ol>
+  );
+}
+// The focused stage's content, by kind (prose · coverage sections · scene cards · numbered steps · Reader script paper · empty).
+function StageCanvasBody({ active, t }: { active?: SxLadder; t: (k: string) => string }) {
+  const kind = active?.kind || '';
+  const hasContent = !!(active && (active.body || active.scenes?.length || active.steps?.length));
+  if (!hasContent) return <div className="cvempty" dir="auto">{t('Not written yet — generate this stage from the one before it.')}</div>;
+  if (kind === 'DRAFT') return <div className="draftwrap"><ScriptPaper text={unwrapOutput(active!.body)} /></div>;
+  if (kind === 'SCENES' && active!.scenes?.length) return <SceneCards scenes={active!.scenes!} t={t} />;
+  if (kind === 'STEP_OUTLINE' && active!.steps?.length) return <StepList steps={active!.steps!} />;
+  if (kind === 'COVERAGE') return <CoverageBody raw={active!.body} t={t} />;
+  const paras = cleanProse(active!.body).split(/\n{2,}/).filter((p) => p.trim());
+  if (!paras.length) return <div className="cvempty" dir="auto">{t('Not written yet — generate this stage from the one before it.')}</div>;
+  return <>{paras.map((p, i) => <p key={i} dir="auto">{p}</p>)}</>;
+}
 
 // Node 69:2 — body #0a0b0e; 76px rail #0c0d11; panels #14161c hairlined; track/chip/pending #1b1e25 (--track).
 const CSS = `
@@ -98,8 +217,29 @@ const CSS = `
 .sx.develop .regen{background:none;border:none;color:var(--gold);font-size:17px;cursor:pointer;line-height:1}
 .sx.develop .cvdiv{height:1px;background:var(--hair);margin:17px 19px 0}
 .sx.develop .cvbody{flex:1;min-height:0;overflow-y:auto;padding:20px 23px}
-.sx.develop .cvbody p{font-size:13px;line-height:20px;color:var(--text);margin-bottom:14px;white-space:pre-wrap}
+.sx.develop .cvbody p{font-size:13px;line-height:20px;color:var(--text);margin-bottom:14px}
 .sx.develop .cvempty{font-size:13px;color:var(--faint);line-height:20px}
+/* Per-kind canvas (slice C) */
+.sx.develop .cvsec{margin-bottom:4px}
+.sx.develop .cvlabel{font-weight:600;font-size:10.5px;letter-spacing:.6px;color:var(--gold2);text-transform:uppercase;margin:18px 0 6px}
+.sx.develop .cvsec:first-child .cvlabel{margin-top:0}
+.sx.develop .cvprose{font-size:13px;line-height:20px;color:var(--text);white-space:pre-wrap}
+.sx.develop .cvprose.verdict{font-weight:500}
+.sx.develop .draftwrap{display:flex;justify-content:center;padding:2px 0 8px}
+.sx.develop .scards{display:flex;flex-direction:column;gap:12px}
+.sx.develop .scard{border:1px solid var(--hair);border-radius:12px;background:rgba(255,255,255,.02);padding:13px 15px}
+.sx.develop .scard.flat{border-color:rgba(229,99,95,.45)}
+.sx.develop .scslug{font-weight:600;font-size:12.5px;color:var(--cream);margin-bottom:6px}
+.sx.develop .scbody{font-size:12.5px;line-height:19px;color:var(--mute);margin-bottom:9px}
+.sx.develop .sctags{display:flex;flex-wrap:wrap;gap:7px;align-items:center}
+.sx.develop .charge{font-size:11px;font-weight:600;color:var(--gold2);background:rgba(198,164,99,.13);padding:3px 9px;border-radius:999px}
+.sx.develop .charge.flatc{color:var(--red);background:rgba(229,99,95,.13)}
+.sx.develop .tag{font-size:11px;color:var(--faint);background:rgba(255,255,255,.05);padding:3px 9px;border-radius:999px}
+.sx.develop .tag.red{color:var(--red);background:rgba(229,99,95,.13)}
+.sx.develop .steps{list-style:none;display:flex;flex-direction:column;gap:12px}
+.sx.develop .steps li{display:flex;gap:10px}
+.sx.develop .steps .snum{color:var(--gold2);font-weight:600;font-size:13px;flex:none;min-width:22px}
+.sx.develop .steps .stext{font-size:13px;line-height:20px;color:var(--text)}
 .sx.develop .cvfoot{flex:none;border-top:1px solid var(--hair);padding:14px 23px}
 .sx.develop .stbar{display:flex;align-items:center;gap:11px}
 .sx.develop .spin{width:14px;height:14px;flex:none;border:2px solid var(--gold2);border-radius:7px;border-top-color:transparent;animation:dvspin 1s linear infinite}
@@ -164,8 +304,19 @@ export default function ScriptonDevelop(props: ScriptonDevelopProps) {
   const active = ladder.find((l) => l.kind === focusKind) || ladder.find((l) => l.state === 'on') || ladder[ladder.length - 1];
   const activeIdx = Math.max(0, ladder.findIndex((l) => l.kind === active?.kind));
   const nextStage = ladder.find((l) => !l.versionId); // next stage with no version yet
-  const bodyText = useMemo(() => (active?.body ? cleanStageText(active.body) : ''), [active?.body]);
-  const paras = bodyText ? bodyText.split(/\n{2,}/).filter((p) => p.trim()) : [];
+  const metaHint = (() => {
+    switch (active?.kind) {
+      case 'LOGLINE': return t('the promise in one line');
+      case 'SYNOPSIS': return t('the story in brief');
+      case 'TREATMENT': return t('the film in prose');
+      case 'BEATS': return active?.framework || t('the beat map');
+      case 'SCENES': return (active?.scenes?.length || 0) + ' ' + t('scenes');
+      case 'STEP_OUTLINE': return (active?.steps?.length || 0) + ' ' + t('steps');
+      case 'DRAFT': return t('feature draft');
+      case 'COVERAGE': return t('grounded in your pages');
+      default: return '';
+    }
+  })();
 
   // Top-bar ring + V ▾ — resolve the OPEN BUILD's linked kernel script, then its active version's
   // continuity + label. Builds whose script has renders light up; otherwise honestly hidden (no fake).
@@ -220,10 +371,13 @@ export default function ScriptonDevelop(props: ScriptonDevelopProps) {
               </div>
               <div className="lrows">
                 {ladder.map((l, i) => {
-                  const sub = l.state === 'on' && props.genBusy ? t('writing…') : (l.versionN ? 'V' + l.versionN + (l.framework ? ' · ' + l.framework : '') : (l.state === 'wait' ? t('pending') : (l.sub || '')));
-                  const dot = l.state === 'done' ? '✓' : l.state === 'on' ? '●' : '';
+                  // Row highlight follows the FOCUSED stage (gold ●); other stages show ✓ (has a version)
+                  // or a hollow pending dot. The N/8 counter stays pipeline-based (l.state), not focus.
+                  const st = l.kind === focusKind ? 'on' : (l.versionId ? 'done' : 'wait');
+                  const sub = l.kind === props.genBusy ? t('writing…') : (l.versionN ? 'V' + l.versionN + (l.framework ? ' · ' + l.framework : '') : (!l.versionId ? t('pending') : (l.sub || '')));
+                  const dot = st === 'done' ? '✓' : st === 'on' ? '●' : '';
                   return (
-                    <button key={l.kind || i} className={'lrow ' + l.state} onClick={() => l.kind && setFocusKind(l.kind)} title={l.name}>
+                    <button key={l.kind || i} className={'lrow ' + st} onClick={() => l.kind && setFocusKind(l.kind)} title={l.name}>
                       <span className="ldot">{dot}</span>
                       <span className="ltext"><span className="lname">{l.name}</span><span className="lsub">{sub}</span></span>
                     </button>
@@ -240,7 +394,7 @@ export default function ScriptonDevelop(props: ScriptonDevelopProps) {
             <div className="panel stagecanvas">
               <div className="cvhead">
                 <div className="cvname">{stageLabel(active?.kind)}</div>
-                <div className="cvmeta">{t('Stage')} {activeIdx + 1} {t('of')} {TOTAL}{active?.framework ? ' · ' + active.framework : ''}</div>
+                <div className="cvmeta">{t('Stage')} {activeIdx + 1} {t('of')} {TOTAL}{metaHint ? ' · ' + metaHint : ''}</div>
                 <div className="cvctrl">
                   {active?.versionN ? (
                     <span className="vsw">
@@ -254,7 +408,7 @@ export default function ScriptonDevelop(props: ScriptonDevelopProps) {
               </div>
               <div className="cvdiv" />
               <div className="cvbody">
-                {paras.length ? paras.map((p, i) => <p key={i}>{p}</p>) : <div className="cvempty">{t('Not written yet — generate this stage from the one before it.')}</div>}
+                <StageCanvasBody active={active} t={t} />
               </div>
               <div className="cvfoot">
                 {props.genBusy ? (
