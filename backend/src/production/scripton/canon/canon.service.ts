@@ -8,6 +8,7 @@ import { orderChanges } from './change-order.util';
 import { canonDirective } from './canon-inject.util';
 import { detectConflicts, factsExcludingScenes } from './canon-verify.util';
 import { stagedCandidates } from './render-extract.util';
+import { pickRenderedScriptId } from './top-version.util';
 
 @Injectable()
 export class CanonService {
@@ -329,6 +330,53 @@ export class CanonService {
       .findMany({ where: { scriptId }, orderBy: { createdAt: 'desc' }, take: limit, select: { id: true, title: true, status: true, context: true, decision: true, consequences: true, supersedesId: true, createdAt: true } })
       .catch(() => []);
     return { versions, pending, decisions };
+  }
+
+  /**
+   * The shared top bar's continuity ring + active version for a workspace. Resolves the SAME source
+   * Develop uses — a build's linked kernel script — but selects it by "has a RENDERED pass" (not by
+   * title/order: a ScriptON draft doc has no link to its rendered build, and one screenplay can have
+   * several builds). So every script-scoped screen shows the identical %·V, and hides uniformly when
+   * nothing has rendered. An explicit `scriptId` that itself has renders wins (e.g. Compare's result).
+   * Returns the rendered script's active version: { scriptId, continuity (0–100|null), versionLabel, versions }.
+   */
+  async workspaceTopVersion(projectId: string, scriptId?: string): Promise<any> {
+    const empty = { scriptId: null, continuity: null, versionLabel: null, versions: [] as any[] };
+    const fromView = (sid: string, vv: any) => {
+      const vs: any[] = vv?.versions || [];
+      if (!vs.length) return null;
+      const av = vs.find((v) => v.active) || vs[vs.length - 1];
+      return {
+        scriptId: sid,
+        continuity: av && typeof av.continuity === 'number' ? av.continuity : null,
+        versionLabel: av?.label || (av ? 'V' + av.n : null),
+        versions: vs,
+      };
+    };
+    // 1) If a concrete scriptId was supplied and it actually has rendered versions, prefer it.
+    if (scriptId) {
+      const hit = fromView(scriptId, await this.versionsView(scriptId).catch(() => null));
+      if (hit && hit.continuity !== null) return hit;
+    }
+    // 2) Otherwise resolve the workspace's rendered build chain, selected by render — not title.
+    if (!projectId) return empty;
+    const builds: any[] = await (this.prisma as any).developmentBuild
+      .findMany({
+        where: { OR: [{ projectId }, { linkedProjectId: projectId }], linkedScriptId: { not: null } },
+        select: { linkedScriptId: true },
+      })
+      .catch(() => []);
+    const linkedScriptIds = [...new Set(builds.map((b) => b.linkedScriptId).filter(Boolean))];
+    if (!linkedScriptIds.length) return empty;
+    const passes: any[] = await (this.prisma as any).revisionPass
+      .findMany({
+        where: { scriptId: { in: linkedScriptIds }, status: 'RENDERED', continuityScore: { not: null } },
+        select: { scriptId: true, createdAt: true },
+      })
+      .catch(() => []);
+    const sid = pickRenderedScriptId(linkedScriptIds, passes);
+    if (!sid) return empty;
+    return fromView(sid, await this.versionsView(sid).catch(() => null)) || empty;
   }
 
   /** Live ACTIVE canon for a script, as a CANON steering block at a story point. '' on error/empty. */

@@ -126,4 +126,11 @@ export class ScripOnController {
   async versionsView(@Query('scriptId') scriptId: string) {
     return this.canon.versionsView(scriptId);
   }
+  // Shared top bar: the workspace's current continuity ring + active version. Resolves the SAME
+  // source Develop uses (a build's linked kernel script), selected by "has a rendered pass" — so
+  // every script-scoped screen shows the identical %·V, and hides uniformly when nothing rendered.
+  @Get('top-version') @RequirePermission('production', 1)
+  async topVersion(@Query('projectId') projectId: string, @Query('scriptId') scriptId?: string) {
+    return this.canon.workspaceTopVersion(projectId, scriptId);
+  }
 }

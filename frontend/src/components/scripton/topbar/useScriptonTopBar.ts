@@ -36,18 +36,21 @@ export function useScriptonTopBar(scriptId?: string): TopBarData {
         const docs = Array.isArray(dr.data) ? dr.data : (dr.data?.items ?? []);
         const doc = docs[0];
         if (!doc) { if (alive) setData((d) => ({ ...d, userInitials })); return; }
+        // Ring + V resolve from the SAME source Develop uses: the workspace's rendered build chain
+        // (a build's linked kernel script, selected server-side by "has a rendered pass"), NOT the
+        // bound draft doc (which has no renders). So for عنترة every screen shows the identical %·V,
+        // and hides uniformly when nothing rendered. The breadcrumb stays the bound doc's title.
         let versions: TopVersion[] = [];
+        let continuity: number | null = null;
+        let versionLabel: string | null = null;
         try {
-          const vr: any = await productionApi.scripton.versions(scriptId || doc.id);
-          versions = (vr.data?.versions || []).map((v: any) => ({ id: v.id, n: v.n, label: v.label, active: v.active, passId: v.passId, continuity: v.continuity }));
-        } catch { /* no versions */ }
-        const av = activeVersion(versions);
-        if (alive) setData({
-          scriptTitle: doc.title || null,
-          continuity: av && typeof av.continuity === 'number' ? av.continuity : null,
-          versionLabel: av?.label || null,
-          versions, userInitials,
-        });
+          const tv: any = await productionApi.scripton.topVersion(pid, scriptId);
+          versions = (tv.data?.versions || []).map((v: any) => ({ id: v.id, n: v.n, label: v.label, active: v.active, passId: v.passId, continuity: v.continuity }));
+          const av = activeVersion(versions);
+          continuity = typeof tv.data?.continuity === 'number' ? tv.data.continuity : (av && typeof av.continuity === 'number' ? av.continuity : null);
+          versionLabel = tv.data?.versionLabel || av?.label || null;
+        } catch { /* no rendered version → ring/V stay hidden */ }
+        if (alive) setData({ scriptTitle: doc.title || null, continuity, versionLabel, versions, userInitials });
       } catch { if (alive) setData((d) => ({ ...d, userInitials })); }
     };
     return () => { alive = false; clearTimeout(timer); };
