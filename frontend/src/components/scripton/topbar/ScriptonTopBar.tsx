@@ -22,6 +22,7 @@ export type ScriptonTopBarProps = {
   continuity?: number | null;      // override the ring (null/undefined → hidden)
   versionLabel?: string;           // override the V-switcher label
   centerTitle?: { title: string; sub: string }; // Develop (node 69:2): centered page title + sub in the freed search slot — search is suppressed
+  noSearch?: boolean;              // suppress the search entirely (e.g. Develop portrait, where the title is a body header)
 };
 
 const RING_R = 10;
@@ -100,6 +101,8 @@ export default function ScriptonTopBar(props: ScriptonTopBarProps) {
             </div>
             <div style={{ flex: 1 }} />
           </>
+        ) : props.noSearch ? (
+          <div style={{ flex: 1 }} />
         ) : compact ? (
           <div className="sicon" style={{ marginInlineStart: 'auto' }} onClick={() => searchRef.current?.focus()} title={t('Search')}>
             <svg className="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4-4" /></svg>

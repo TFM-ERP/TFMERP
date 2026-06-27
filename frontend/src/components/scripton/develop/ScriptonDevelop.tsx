@@ -273,6 +273,35 @@ const CSS = `
 .sx.develop .chip{padding:5px 11px;border-radius:999px;background:rgba(198,164,99,.13);font-weight:500;font-size:12px;color:var(--gold2)}
 .sx.develop .cnote{font-size:11px;line-height:16px;color:var(--mute);margin-top:16px}
 .sx.develop .cempty{font-size:11.5px;line-height:16px;color:var(--faint);margin-top:6px}
+
+/* ── Responsive · portrait (tablet 78:2 / mobile 80:2) — no OS rail; stacked column ── */
+.sx.develop .pbody{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:16px;padding:22px 26px 26px}
+.sx.develop .pheader{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;flex:none}
+.sx.develop .pheader h1{font-family:var(--sx-title);font-weight:600;font-size:26px;color:var(--cream)}
+.sx.develop .pheader .psub{font-size:13px;color:#6b7380}
+/* ladder chip strip (107:20) */
+.sx.develop .ladcard{background:var(--panel);border:1px solid var(--hair);border-radius:14px;padding:14px 19px;flex:none}
+.sx.develop .ladtop{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.sx.develop .ladlabel{font-weight:600;font-size:12.5px;color:var(--cream);margin-inline-end:4px}
+.sx.develop .lchip{display:inline-flex;align-items:center;gap:7px;background:var(--track);padding:7px 13px 7px 11px;border-radius:999px;font-size:12.5px;font-weight:500;cursor:pointer;border:1px solid transparent;color:var(--mute)}
+.sx.develop .lchip .cdot{width:9px;height:9px;border-radius:9px;flex:none;background:#3a3f49}
+.sx.develop .lchip.done{color:#b9c0b3}
+.sx.develop .lchip.done .cdot{background:var(--green)}
+.sx.develop .lchip.on{background:rgba(198,164,99,.12);border-color:rgba(198,164,99,.5);color:var(--gold2)}
+.sx.develop .lchip.on .cdot{background:var(--gold)}
+.sx.develop .ladbar{display:flex;align-items:center;gap:14px;margin-top:13px;padding-top:13px;border-top:1px solid var(--hair)}
+.sx.develop .ladbar .ltrack{flex:1;height:5px}
+.sx.develop .ladbar .ltrack i{height:5px}
+.sx.develop .ladcount{font-size:11px;color:var(--faint);white-space:nowrap;font-weight:500}
+/* portrait canvas + context */
+.sx.develop .pbody .stagecanvas{flex:none;margin:0}
+.sx.develop .pbody .cvbody{flex:none;max-height:62vh}
+.sx.develop .pctx{display:grid;grid-template-columns:1fr 1fr;gap:16px;flex:none}
+.sx.develop .pctx .spine,.sx.develop .pctx .comps{flex:none}
+.sx.develop[data-vp="mobile"] .pctx{grid-template-columns:1fr}
+.sx.develop[data-vp="mobile"] .pheader{flex-direction:column;gap:4px;align-items:flex-start}
+/* mobile script paper — horizontally scrollable (don't reflow screenplay geometry) */
+.sx.develop[data-vp="mobile"] .draftwrap{justify-content:flex-start;overflow-x:auto}
 `;
 
 function StatusBar({ t, label }: { t: (k: string) => string; label: string }) {
@@ -347,124 +376,168 @@ export default function ScriptonDevelop(props: ScriptonDevelopProps) {
   }, [props.projectId, props.buildId]);
 
   const stageLabel = (kind?: string) => t(LABEL[kind || ''] || kind || '');
+  const vp = props.vp;
+  const portrait = vp !== 'desktop';
+
+  // Ladder rail (desktop, vertical — 92:2): dot + name + sub per row, highlight follows focus.
+  const ladderRail = (
+    <div className="panel ladderrail">
+      <div className="lhead">
+        <div className="ltile">✦</div>
+        <div className="lhh">
+          <div className="lht">{t('The ladder')}</div>
+          <div className="lhs">{done} / {TOTAL} {t('stages')}</div>
+        </div>
+      </div>
+      <div className="lrows">
+        {ladder.map((l, i) => {
+          // Row highlight follows the FOCUSED stage (gold ●); others show ✓ (has a version) or hollow pending.
+          const st = l.kind === focusKind ? 'on' : (l.versionId ? 'done' : 'wait');
+          const sub = l.kind === props.genBusy ? t('writing…') : (l.versionN ? 'V' + l.versionN + (l.framework ? ' · ' + l.framework : '') : (!l.versionId ? t('pending') : (l.sub || '')));
+          const dot = st === 'done' ? '✓' : st === 'on' ? '●' : '';
+          return (
+            <button key={l.kind || i} className={'lrow ' + st} onClick={() => l.kind && setFocusKind(l.kind)} title={l.name}>
+              <span className="ldot">{dot}</span>
+              <span className="ltext"><span className="lname">{l.name}</span><span className="lsub">{sub}</span></span>
+            </button>
+          );
+        })}
+      </div>
+      <div className="lfoot">
+        <div className="lfr"><span>{t('Pipeline')}</span><span className="lfn">{done} / {TOTAL}</span></div>
+        <div className="ltrack"><i style={{ width: pct + '%' }} /></div>
+      </div>
+    </div>
+  );
+
+  // Ladder chip strip (portrait, horizontal wrap — 107:20): dot + stage name; same focus/state model.
+  const ladderStrip = (
+    <div className="ladcard">
+      <div className="ladtop">
+        <span className="ladlabel">{t('The ladder')}</span>
+        {ladder.map((l, i) => {
+          const st = l.kind === focusKind ? 'on' : (l.versionId ? 'done' : 'wait');
+          return (
+            <button key={l.kind || i} className={'lchip ' + st} onClick={() => l.kind && setFocusKind(l.kind)}>
+              <span className="cdot" />{l.name}
+            </button>
+          );
+        })}
+      </div>
+      <div className="ladbar">
+        <div className="ltrack"><i style={{ width: pct + '%' }} /></div>
+        <span className="ladcount">{done} / {TOTAL} {t('stages')}</span>
+      </div>
+    </div>
+  );
+
+  // Stage canvas (93:2 / 108:2) — per-kind body (slice C), version/regenerate/advance/promote (slice D).
+  const stageCanvas = (
+    <div className="panel stagecanvas">
+      <div className="cvhead">
+        <div className="cvname">{stageLabel(active?.kind)}</div>
+        <div className="cvmeta">{t('Stage')} {activeIdx + 1} {t('of')} {TOTAL}{metaHint ? ' · ' + metaHint : ''}</div>
+        <div className="cvctrl">
+          {active?.versionN ? (() => {
+            const count = active.versionCount || 1;
+            const atFirst = (active.versionN || 1) <= 1, atLast = (active.versionN || 1) >= count;
+            return (
+              <span className="vsw">
+                <span className={atFirst ? 'dis' : ''} onClick={() => !atFirst && active.stageId && props.onSwitchVersion(active.stageId, -1)}>‹</span>
+                <b>V{active.versionN}{count > 1 ? '/' + count : ''}</b>
+                <span className={atLast ? 'dis' : ''} onClick={() => !atLast && active.stageId && props.onSwitchVersion(active.stageId, 1)}>›</span>
+              </span>
+            );
+          })() : null}
+          <button className="regen" title={t('Regenerate')} onClick={() => active?.kind && props.onRegenerate(active.kind)}>⟳</button>
+        </div>
+      </div>
+      <div className="cvdiv" />
+      <div className="cvbody">
+        <StageCanvasBody active={active} t={t} />
+      </div>
+      <div className="cvfoot">
+        {props.genBusy ? (
+          <StatusBar t={t} label={stageLabel(props.genBusy)} />
+        ) : (
+          <div className="acts">
+            {active?.kind === 'DRAFT' && active.versionId && props.onPromoteScript
+              ? <button className="btn gold" onClick={() => props.onPromoteScript!(active.versionId!)}>↗ {t('Generate script → Library')}</button>
+              : null}
+            {nextStage
+              ? <button className={'btn' + (active?.kind === 'DRAFT' ? '' : ' gold')} onClick={props.onAdvance}>{t('Generate')} {stageLabel(nextStage.kind)} →</button>
+              : null}
+            {active?.kind ? <button className="btn" onClick={() => props.onRegenerate(active.kind!)}>⟳ {t('Regenerate')} {stageLabel(active.kind)}</button> : null}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const spinePanel = (
+    <div className="panel spine">
+      <div className="ctxin">
+        <div className="ctxhead">
+          <div className="ctxtitle">{t('The spine')}</div>
+          <div className="badge">{t('AGREED FIRST')}</div>
+        </div>
+        {props.spine.map((s, i) => (
+          <div className="srow" key={i}>
+            <div className="slabel">{s.k.toUpperCase()}</div>
+            <div className="sval">{s.v}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  const compsPanel = (
+    <div className="panel comps">
+      <div className="ctxin">
+        <div className="ctxhead"><div className="ctxtitle">{t('Comparables')}</div></div>
+        <div className="csub">{t('Auto — closest titles by tone, scale & market.')}</div>
+        {props.comps.length ? (
+          <div className="chips">{props.comps.map((c, i) => <span className="chip" key={i}>{c}</span>)}</div>
+        ) : (
+          <div className="cempty">{t('No comparables yet — they surface with coverage.')}</div>
+        )}
+        <div className="cnote">{t('Comparables steer tone, scale & market — not plot.')}</div>
+      </div>
+    </div>
+  );
 
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
-      <div className="sx develop" data-vp={props.vp} dir={dir}>
+      <div className="sx develop" data-vp={vp} dir={dir}>
         <ScriptonTopBar
-          vp={props.vp}
+          vp={vp}
           onBack={props.onBack}
-          centerTitle={{ title: 'Develop', sub: 'Nothing is written until the spine is agreed.' }}
+          // Desktop: the title sits centred in the bar. Portrait (78:2/80:2): the title is a body header
+          // instead and the bar carries no search — brand + crumb + ring (+ V2/avatars at tablet).
+          centerTitle={portrait ? undefined : { title: 'Develop', sub: 'Nothing is written until the spine is agreed.' }}
+          noSearch
           continuity={hdr.continuity}
           versionLabel={hdr.versionLabel ?? undefined}
           scriptTitle={hdr.title ?? undefined}
         />
-        <div className="body">
-          <SxRail active="develop" />
-          <div className="dvbody">
-            {/* ── Ladder rail (92:2) ── */}
-            <div className="panel ladderrail">
-              <div className="lhead">
-                <div className="ltile">✦</div>
-                <div className="lhh">
-                  <div className="lht">{t('The ladder')}</div>
-                  <div className="lhs">{done} / {TOTAL} {t('stages')}</div>
-                </div>
-              </div>
-              <div className="lrows">
-                {ladder.map((l, i) => {
-                  // Row highlight follows the FOCUSED stage (gold ●); other stages show ✓ (has a version)
-                  // or a hollow pending dot. The N/8 counter stays pipeline-based (l.state), not focus.
-                  const st = l.kind === focusKind ? 'on' : (l.versionId ? 'done' : 'wait');
-                  const sub = l.kind === props.genBusy ? t('writing…') : (l.versionN ? 'V' + l.versionN + (l.framework ? ' · ' + l.framework : '') : (!l.versionId ? t('pending') : (l.sub || '')));
-                  const dot = st === 'done' ? '✓' : st === 'on' ? '●' : '';
-                  return (
-                    <button key={l.kind || i} className={'lrow ' + st} onClick={() => l.kind && setFocusKind(l.kind)} title={l.name}>
-                      <span className="ldot">{dot}</span>
-                      <span className="ltext"><span className="lname">{l.name}</span><span className="lsub">{sub}</span></span>
-                    </button>
-                  );
-                })}
-              </div>
-              <div className="lfoot">
-                <div className="lfr"><span>{t('Pipeline')}</span><span className="lfn">{done} / {TOTAL}</span></div>
-                <div className="ltrack"><i style={{ width: pct + '%' }} /></div>
-              </div>
-            </div>
-
-            {/* ── Stage canvas (93:2) ── */}
-            <div className="panel stagecanvas">
-              <div className="cvhead">
-                <div className="cvname">{stageLabel(active?.kind)}</div>
-                <div className="cvmeta">{t('Stage')} {activeIdx + 1} {t('of')} {TOTAL}{metaHint ? ' · ' + metaHint : ''}</div>
-                <div className="cvctrl">
-                  {active?.versionN ? (() => {
-                    const count = active.versionCount || 1;
-                    const atFirst = (active.versionN || 1) <= 1, atLast = (active.versionN || 1) >= count;
-                    return (
-                      <span className="vsw">
-                        <span className={atFirst ? 'dis' : ''} onClick={() => !atFirst && active.stageId && props.onSwitchVersion(active.stageId, -1)}>‹</span>
-                        <b>V{active.versionN}{count > 1 ? '/' + count : ''}</b>
-                        <span className={atLast ? 'dis' : ''} onClick={() => !atLast && active.stageId && props.onSwitchVersion(active.stageId, 1)}>›</span>
-                      </span>
-                    );
-                  })() : null}
-                  <button className="regen" title={t('Regenerate')} onClick={() => active?.kind && props.onRegenerate(active.kind)}>⟳</button>
-                </div>
-              </div>
-              <div className="cvdiv" />
-              <div className="cvbody">
-                <StageCanvasBody active={active} t={t} />
-              </div>
-              <div className="cvfoot">
-                {props.genBusy ? (
-                  <StatusBar t={t} label={stageLabel(props.genBusy)} />
-                ) : (
-                  <div className="acts">
-                    {active?.kind === 'DRAFT' && active.versionId && props.onPromoteScript
-                      ? <button className="btn gold" onClick={() => props.onPromoteScript!(active.versionId!)}>↗ {t('Generate script → Library')}</button>
-                      : null}
-                    {nextStage
-                      ? <button className={'btn' + (active?.kind === 'DRAFT' ? '' : ' gold')} onClick={props.onAdvance}>{t('Generate')} {stageLabel(nextStage.kind)} →</button>
-                      : null}
-                    {active?.kind ? <button className="btn" onClick={() => props.onRegenerate(active.kind!)}>⟳ {t('Regenerate')} {stageLabel(active.kind)}</button> : null}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* ── Right context: spine (94:2) + comparables (94:14) ── */}
-            <div className="ctxcol">
-              <div className="panel spine">
-                <div className="ctxin">
-                  <div className="ctxhead">
-                    <div className="ctxtitle">{t('The spine')}</div>
-                    <div className="badge">{t('AGREED FIRST')}</div>
-                  </div>
-                  {props.spine.map((s, i) => (
-                    <div className="srow" key={i}>
-                      <div className="slabel">{s.k.toUpperCase()}</div>
-                      <div className="sval">{s.v}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="panel comps">
-                <div className="ctxin">
-                  <div className="ctxhead"><div className="ctxtitle">{t('Comparables')}</div></div>
-                  <div className="csub">{t('Auto — closest titles by tone, scale & market.')}</div>
-                  {props.comps.length ? (
-                    <div className="chips">{props.comps.map((c, i) => <span className="chip" key={i}>{c}</span>)}</div>
-                  ) : (
-                    <div className="cempty">{t('No comparables yet — they surface with coverage.')}</div>
-                  )}
-                  <div className="cnote">{t('Comparables steer tone, scale & market — not plot.')}</div>
-                </div>
-              </div>
+        {portrait ? (
+          <div className="pbody">
+            <div className="pheader"><h1>{t('Develop')}</h1><span className="psub">{t('Nothing is written until the spine is agreed.')}</span></div>
+            {ladderStrip}
+            {stageCanvas}
+            <div className="pctx">{spinePanel}{compsPanel}</div>
+          </div>
+        ) : (
+          <div className="body">
+            <SxRail active="develop" />
+            <div className="dvbody">
+              {ladderRail}
+              {stageCanvas}
+              <div className="ctxcol">{spinePanel}{compsPanel}</div>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </>
   );
