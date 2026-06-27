@@ -22,9 +22,8 @@ const firstSentence = (s?: string) => {
 };
 
 const CSS = `
-.sx.doctor{--bg:#0b0c0f;--panel:#14161c;--panel2:#1a1d24;--hair:rgba(255,255,255,.07);--hair2:rgba(255,255,255,.13);--gold:#C6A463;--gold2:#E6D2A2;--goldink:#1a1509;--cream:#F4EEE0;--text:#E8E6E0;--mute:#9aa1ab;--faint:#6b727d;--blue:#5b8def;--green:#57b368;--amber:#e0a23b;--violet:#8b7cf0;--pink:#d6649a;--red:#e5635f;--teal:#48b6a0;position:relative;display:flex;flex-direction:column;height:100%;background:radial-gradient(1200px 600px at 50% -8%,#15171d,#0b0c0f 60%);color:var(--text);font-family:var(--sx-body);-webkit-font-smoothing:antialiased;overflow:hidden}
+.sx.doctor{--teal:#48b6a0;position:relative;display:flex;flex-direction:column;height:100%;background:#0a0b0e;color:var(--text);font-family:var(--sx-body);-webkit-font-smoothing:antialiased;overflow:hidden}
 .sx.doctor *{box-sizing:border-box;margin:0;padding:0}
-.sx.doctor:before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(700px 280px at 72% -6%,rgba(198,164,99,.09),transparent 70%);z-index:0}
 .sx.doctor svg{display:block}
 .sx.doctor .ico{width:18px;height:18px;stroke:currentColor;stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round}
 .sx.doctor .top{height:60px;flex:0 0 60px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;background:linear-gradient(180deg,#15181e,#121419);border-bottom:1px solid var(--hair);position:relative;z-index:2}
@@ -43,62 +42,65 @@ const CSS = `
 .sx.doctor .ritem.on .lbl{color:var(--gold2)}
 .sx.doctor .ritem.on:before{content:"";position:absolute;inset-inline-start:-1px;top:14px;bottom:14px;width:3px;border-radius:3px;background:var(--gold)}
 .sx.doctor .main{flex:1;min-width:0;display:flex;flex-direction:column}
-.sx.doctor .content{flex:1;overflow:auto;padding:24px 28px;display:flex;flex-direction:column;gap:18px}
+.sx.doctor .content{flex:1;overflow:auto;padding:26px 40px 40px;display:flex;flex-direction:column;gap:16px}
 .sx.doctor .content>*{flex:0 0 auto}
-.sx.doctor .phead h1{font-family:var(--sx-title);font-size:26px;font-weight:500;color:var(--cream);letter-spacing:-.3px}
-.sx.doctor .phead .sub{font-size:12.5px;color:var(--mute);margin-top:4px}
+.sx.doctor .phead h1{font-family:var(--sx-title);font-size:21px;font-weight:600;color:#f4eee0;letter-spacing:-.2px;font-variation-settings:"SOFT" 0,"WONK" 1}
+.sx.doctor .phead .sub{font-size:12px;color:#6b727d;margin-top:9px}
 
 /* Verdict banner */
-.sx.doctor .verdict{display:flex;align-items:center;gap:16px;background:linear-gradient(120deg,#141416 0%,#0E0E10 55%,#1c1407 130%);border:1px solid #232326;border-radius:16px;padding:16px 18px}
-.sx.doctor .gchip{width:52px;height:52px;border-radius:13px;display:grid;place-items:center;font-size:22px;font-weight:800;flex:none;background:rgba(255,255,255,.05);border:1px solid var(--hair2)}
-.sx.doctor .vmid{flex:1;min-width:0}
-.sx.doctor .vrec{display:inline-flex;align-items:center;font-size:10.5px;font-weight:800;letter-spacing:.5px;padding:3px 9px;border-radius:999px;margin-bottom:5px}
-.sx.doctor .vlog{font-size:14px;color:var(--text);line-height:1.4;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.sx.doctor .verdict{display:flex;align-items:center;gap:14px;background:#181b22;border:1px solid var(--hair);border-radius:14px;padding:15px 17px;min-height:76px}
+.sx.doctor .gchip{width:44px;height:44px;border-radius:11px;display:grid;place-items:center;font-family:var(--sx-title);font-size:19px;font-weight:600;flex:none;font-variation-settings:"SOFT" 0,"WONK" 1}
+.sx.doctor .vmid{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.sx.doctor .vrec{display:inline-flex;align-items:center;align-self:flex-start;font-size:10px;font-weight:600;letter-spacing:.4px;padding:3px 9px;border-radius:999px}
+.sx.doctor .vlog{font-size:12px;color:#9aa1ab;line-height:1.4;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .sx.doctor .vright{display:flex;flex-direction:column;align-items:flex-end;gap:7px;flex:none}
-.sx.doctor .vcomps{font-size:11px;color:var(--faint);max-width:200px;text-align:end}
-.sx.doctor .link{font-size:12px;font-weight:600;color:var(--gold2);cursor:pointer;background:none;border:none;white-space:nowrap}
+.sx.doctor .vcomps{font-size:11px;color:#6b727d;max-width:220px;text-align:end}
+.sx.doctor .link{font-size:11.5px;font-weight:500;color:#e6d2a2;cursor:pointer;background:none;border:none;white-space:nowrap}
 
 /* Panels + columns */
-.sx.doctor .cols{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
-.sx.doctor .colstack{display:flex;flex-direction:column;gap:18px;min-width:0}
-.sx.doctor .panel{background:var(--panel);border:1px solid var(--hair);border-radius:14px;padding:15px}
-.sx.doctor .ph{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
-.sx.doctor .ph .t{font-size:13px;font-weight:700;color:var(--cream)}
-.sx.doctor .eyebrow{font-size:9.5px;font-weight:700;letter-spacing:.6px;color:var(--faint);text-transform:uppercase}
+.sx.doctor .cols{display:grid;grid-template-columns:600px 664px;gap:20px;align-items:start}
+.sx.doctor .colstack{display:flex;flex-direction:column;gap:16px;min-width:0}
+.sx.doctor .panel{background:#181b22;border:1px solid var(--hair);border-radius:14px;padding:15px 17px 17px}
+.sx.doctor .ph{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;min-height:14px}
+.sx.doctor .eyebrow{font-size:9.5px;font-weight:600;letter-spacing:.8px;color:var(--gold);text-transform:uppercase}
+.sx.doctor .phsub{font-size:10.5px;color:#6b727d;font-weight:400}
 
 /* Scorecard */
-.sx.doctor .score{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
-.sx.doctor .stile{background:var(--panel2);border:1px solid var(--hair);border-radius:11px;padding:10px 6px;text-align:center}
-.sx.doctor .stile .sg{font-size:22px;font-weight:800;letter-spacing:-.5px}
-.sx.doctor .stile .sl{font-size:9.5px;color:var(--faint);font-weight:600;margin-top:2px;text-transform:uppercase;letter-spacing:.3px}
-.sx.doctor .summary{font-size:12px;color:var(--mute);line-height:1.5;margin-top:12px}
-.sx.doctor .flow{display:flex;align-items:flex-end;gap:3px;height:48px;margin-top:14px}
+.sx.doctor .score{display:grid;grid-template-columns:repeat(5,106px);gap:7px}
+.sx.doctor .stile{background:#0e1014;border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:9px 11px;height:82px;display:flex;flex-direction:column;justify-content:space-between}
+.sx.doctor .stile .sg{font-family:var(--sx-title);font-size:24px;font-weight:600;line-height:1;font-variation-settings:"SOFT" 0,"WONK" 1}
+.sx.doctor .stile .sl{font-size:11px;color:#f4eee0;font-weight:600}
+.sx.doctor .summary{font-size:12px;color:#9aa1ab;line-height:1.5;margin-top:14px}
+.sx.doctor .flowcap{font-size:9px;color:#6b727d;letter-spacing:.6px;text-transform:uppercase;font-weight:600;margin-top:16px}
+.sx.doctor .flow{display:flex;align-items:flex-end;gap:3px;height:60px;margin-top:8px}
 .sx.doctor .flow i{flex:1;min-width:2px;border-radius:2px 2px 0 0;display:block}
-.sx.doctor .flowcap{font-size:9.5px;color:var(--faint);letter-spacing:.5px;text-transform:uppercase;margin-top:6px}
 
 /* Emotional arc */
 .sx.doctor .arcwrap{position:relative}
-.sx.doctor .arcx{display:flex;justify-content:space-between;font-size:9.5px;color:var(--faint);margin-top:6px;text-transform:uppercase;letter-spacing:.4px}
-.sx.doctor .cap{font-size:11px;color:var(--faint);margin-top:8px;line-height:1.4}
+.sx.doctor .arcx{display:flex;justify-content:space-between;font-size:9px;color:#6b727d;margin-top:6px}
+.sx.doctor .cap{font-size:10px;color:#6b727d;margin-top:8px;line-height:1.4}
 
 /* Diagnostics */
-.sx.doctor .drow{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-top:1px solid var(--hair)}
-.sx.doctor .drow:first-of-type{border-top:none}
-.sx.doctor .dsc{font-family:"Courier Prime",monospace;font-size:10.5px;color:var(--gold2);flex:none;width:34px;padding-top:1px}
+.sx.doctor .drow{display:flex;gap:11px;align-items:center;background:#0e1014;border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:9px 13px;min-height:52px;margin-bottom:8px}
+.sx.doctor .drow:last-of-type{margin-bottom:0}
+.sx.doctor .dsc{font-family:var(--sx-mono);font-size:10.5px;color:var(--gold2);flex:none;width:30px}
 .sx.doctor .dmid{flex:1;min-width:0}
-.sx.doctor .dslug{font-size:12px;font-weight:600;color:var(--cream)}
-.sx.doctor .dnote{font-size:11px;color:var(--mute);margin-top:1px;line-height:1.4}
-.sx.doctor .dtag{font-size:9px;font-weight:800;letter-spacing:.4px;padding:3px 7px;border-radius:999px;flex:none}
-.sx.doctor .conflict{background:var(--panel2);border:1px solid var(--hair);border-radius:11px;padding:11px 12px;margin-top:12px;display:flex;gap:9px;align-items:flex-start;font-size:11.5px;color:var(--mute);line-height:1.4}
-.sx.doctor .conflict .ok{color:var(--green);flex:none;font-weight:800}
+.sx.doctor .dslug{font-size:12.5px;font-weight:600;color:#f4eee0}
+.sx.doctor .dnote{font-size:10.5px;color:#9aa1ab;margin-top:3px;line-height:1.4}
+.sx.doctor .dtag{font-size:9px;font-weight:600;letter-spacing:.4px;padding:3px 8px;border-radius:999px;flex:none}
+.sx.doctor .conflict{background:rgba(87,179,104,.06);border:1px solid rgba(87,179,104,.25);border-radius:10px;padding:9px 13px;margin-top:8px;min-height:56px;display:flex;flex-direction:column;gap:3px;justify-content:center}
+.sx.doctor .conflict .ct{font-size:11.5px;font-weight:600;color:#f4eee0}
+.sx.doctor .conflict .cn{font-size:10.5px;color:#9aa1ab;line-height:1.4}
+.sx.doctor .conflict .ok{color:var(--green);font-weight:600}
 
 /* Transforms */
-.sx.doctor .tgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}
-.sx.doctor .ttile{display:flex;gap:10px;align-items:center;background:var(--panel2);border:1px solid var(--hair);border-radius:11px;padding:11px 12px;cursor:pointer;text-align:start;transition:border-color .15s,transform .12s}
+.sx.doctor .tgrid{display:grid;grid-template-columns:repeat(4,150px);gap:8px}
+.sx.doctor .ttile{display:flex;flex-direction:column;background:#0e1014;border:1px solid rgba(255,255,255,.06);border-radius:11px;padding:11px;height:72px;cursor:pointer;text-align:start;transition:border-color .15s,transform .12s}
 .sx.doctor .ttile:hover{border-color:rgba(198,164,99,.5);transform:translateY(-1px)}
+.sx.doctor .thead{display:flex;align-items:center;gap:8px}
 .sx.doctor .tdot{width:9px;height:9px;border-radius:50%;flex:none}
-.sx.doctor .tname{font-size:12.5px;font-weight:700;color:var(--cream)}
-.sx.doctor .tdesc{font-size:10px;color:var(--faint);margin-top:1px}
+.sx.doctor .tdesc{font-size:9.5px;color:#9aa1ab}
+.sx.doctor .tname{font-size:12px;font-weight:600;color:#f4eee0;margin-top:auto}
 
 /* Buttons / states */
 .sx.doctor .btn{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 13px;border-radius:9px;font-size:12.5px;font-weight:600;cursor:pointer;border:1px solid transparent;white-space:nowrap}
@@ -112,17 +114,20 @@ const CSS = `
 /* Tablet: columns stack, scorecard 5 stays, transforms 2-up */
 .sx.doctor[data-vp="tablet"] .cols{grid-template-columns:1fr}
 .sx.doctor[data-vp="tablet"] .content{padding:20px 18px}
+.sx.doctor[data-vp="tablet"] .score{grid-template-columns:repeat(5,minmax(0,1fr))}
+.sx.doctor[data-vp="tablet"] .tgrid{grid-template-columns:repeat(4,minmax(0,1fr))}
 /* Mobile: single column, scorecard wraps, transforms 2-up */
 .sx.doctor[data-vp="mobile"] .content{padding:16px 13px;gap:14px}
 .sx.doctor[data-vp="mobile"] .cols{grid-template-columns:1fr}
 .sx.doctor[data-vp="mobile"] .panel{padding:11px}
 .sx.doctor[data-vp="mobile"] .score{grid-template-columns:repeat(5,minmax(0,1fr));gap:3px}
-.sx.doctor[data-vp="mobile"] .stile{padding:8px 1px}
+.sx.doctor[data-vp="mobile"] .stile{padding:8px 6px;height:auto}
 .sx.doctor[data-vp="mobile"] .stile .sg{font-size:17px}
-.sx.doctor[data-vp="mobile"] .stile .sl{font-size:7px;letter-spacing:0}
+.sx.doctor[data-vp="mobile"] .stile .sl{font-size:8px}
+.sx.doctor[data-vp="mobile"] .tgrid{grid-template-columns:repeat(2,minmax(0,1fr))}
 .sx.doctor[data-vp="mobile"] .verdict{flex-direction:column;align-items:flex-start;gap:11px}
 .sx.doctor[data-vp="mobile"] .vright{align-items:flex-start}
-.sx.doctor[data-vp="mobile"] .phead h1{font-size:22px}
+.sx.doctor[data-vp="mobile"] .phead h1{font-size:20px}
 `;
 
 export type DoctorCanvasProps = {
@@ -163,9 +168,9 @@ export default function ScriptonDoctor(props: DoctorCanvasProps) {
                 {/* Verdict banner */}
                 {v.hasData ? (
                   <div className="verdict">
-                    <div className="gchip" style={{ color: v.gradeColor }}>{v.grade}</div>
+                    <div className="gchip" style={{ color: v.gradeColor, background: v.gradeColor + '29' }}>{v.grade}</div>
                     <div className="vmid">
-                      {v.rec ? <span className="vrec" style={{ background: v.recColor + '22', color: v.recColor }}>{v.rec}</span> : null}
+                      {v.rec ? <span className="vrec" style={{ background: v.recColor + '29', color: v.recColor }}>{v.rec}</span> : null}
                       <div className="vlog">{v.logline || t('Coverage complete — open the full report for the breakdown.')}</div>
                     </div>
                     <div className="vright">
@@ -175,7 +180,7 @@ export default function ScriptonDoctor(props: DoctorCanvasProps) {
                   </div>
                 ) : (
                   <div className="verdict">
-                    <div className="gchip" style={{ color: 'var(--faint)' }}>—</div>
+                    <div className="gchip" style={{ color: 'var(--faint)', background: 'rgba(255,255,255,.05)' }}>—</div>
                     <div className="vmid"><div className="vlog">{t('No coverage yet — generate it to read the verdict, scorecard and notes.')}</div></div>
                     <div className="vright"><button className="btn gold" disabled={props.covLoading} onClick={props.onGenerate}>{props.covLoading ? t('Generating…') : t('Generate coverage')}</button></div>
                   </div>
@@ -185,28 +190,28 @@ export default function ScriptonDoctor(props: DoctorCanvasProps) {
                   {/* Left — Coverage */}
                   <div className="colstack">
                     <div className="panel">
-                      <div className="ph"><span className="t">{t('Coverage Scorecard')}</span><span className="eyebrow">{t('GRADES')}</span></div>
+                      <div className="ph"><span className="eyebrow">{t('Coverage Scorecard')}</span></div>
                       <div className="score">
                         {tiles.map((tl) => (
                           <div className="stile" key={tl.key}><div className="sg" style={{ color: tl.color }}>{tl.grade}</div><div className="sl">{t(tl.label)}</div></div>
                         ))}
                       </div>
                       {summary ? <div className="summary">{summary}</div> : null}
+                      {bars.length ? <div className="flowcap">{t('Scene flow')}</div> : null}
                       <div className="flow">
                         {bars.length ? bars.map((b, i) => <i key={i} style={{ height: b.pct + '%', background: b.color }} />) : <div className="muted">{t('Scene flow appears once analytics run.')}</div>}
                       </div>
-                      {bars.length ? <div className="flowcap">{t('Scene flow · per-scene health')}</div> : null}
                     </div>
 
                     <div className="panel arcwrap">
-                      <div className="ph"><span className="t">{t('Emotional Arc')} — {props.title}</span><span className="eyebrow">{t('ARC')}</span></div>
+                      <div className="ph"><span className="eyebrow">{t('Emotional Arc')} — {props.title}</span></div>
                       {arc ? (
                         <>
-                          <svg viewBox="0 0 220 46" style={{ width: '100%', height: 64 }}>
-                            <polyline fill="none" stroke="var(--mute)" strokeWidth="2" strokeDasharray="4 3" points={arc} />
+                          <svg viewBox="0 0 220 46" preserveAspectRatio="none" style={{ width: '100%', height: 130 }}>
+                            <polyline fill="none" stroke="var(--mute)" strokeWidth="1.5" strokeDasharray="4 3" vectorEffect="non-scaling-stroke" points={arc} />
                           </svg>
                           <div className="arcx"><span>{t('fear')}</span><span>{t('resolve')}</span><span>{t('triumph')}</span></div>
-                          <div className="cap">{t('Dotted = current arc. Stage a pass to overlay the projected arc.')}</div>
+                          <div className="cap">{t('dotted = current · stage a pass to overlay the projected arc')}</div>
                         </>
                       ) : <div className="muted">{t('The emotional arc appears once analytics run.')}</div>}
                     </div>
@@ -215,25 +220,27 @@ export default function ScriptonDoctor(props: DoctorCanvasProps) {
                   {/* Right — Diagnostics + Transforms */}
                   <div className="colstack">
                     <div className="panel">
-                      <div className="ph"><span className="t">{t('Diagnostics & Continuity')}</span>{!rows.length ? <button className="btn ghost" disabled={props.diagLoading} onClick={props.onRunDiag} style={{ height: 28 }}>{props.diagLoading ? t('Running…') : t('Run')}</button> : <span className="eyebrow">{rows.length} {t('SCENES')}</span>}</div>
+                      <div className="ph"><span className="eyebrow">{t('Diagnostics & Continuity')}</span>{!rows.length ? <button className="btn ghost" disabled={props.diagLoading} onClick={props.onRunDiag} style={{ height: 28 }}>{props.diagLoading ? t('Running…') : t('Run')}</button> : null}</div>
                       {rows.length ? rows.slice(0, 6).map((r, i) => (
                         <div className="drow" key={i}>
-                          <span className="dsc">{r.scene}</span>
-                          <div className="dmid"><div className="dslug">{r.slug || t('scene')}</div>{r.note ? <div className="dnote">{r.note}</div> : null}</div>
-                          <span className="dtag" style={{ background: r.tagColor + '22', color: r.tagColor }}>{r.tag}</span>
+                          <div className="dmid"><div className="dslug">{r.scene} · {r.slug || t('scene')}</div>{r.note ? <div className="dnote">{r.note}</div> : null}</div>
+                          <span className="dtag" style={{ background: r.tagColor + '29', color: r.tagColor }}>{r.tag}</span>
                         </div>
                       )) : <div className="muted">{t('Run diagnostics to surface per-scene notes.')}</div>}
                       {/* Conflict detector — kernel-degraded */}
-                      <div className="conflict"><span className="ok">✓</span>{props.kernelInert === false ? t('No continuity conflicts in the current pass.') : t('Continuity is grounded in your pages. Stage a pass to check it against canon.')}</div>
+                      <div className="conflict">
+                        <div className="ct">{t('Conflict Detector')}</div>
+                        <div className="cn">{props.kernelInert === false ? <>{t('No continuity conflicts in the current pass.')} <span className="ok">✓</span></> : t('Continuity is grounded in your pages. Stage a pass to check it against canon.')}</div>
+                      </div>
                     </div>
 
                     <div className="panel">
-                      <div className="ph"><span className="t">{t('Fixes & Transforms')}</span><span className="eyebrow">{t('ONE CLICK → STAGES A CHANGE')}</span></div>
+                      <div className="ph"><span className="eyebrow">{t('Fixes & Transforms')}</span><span className="phsub">{t('one click → stages a change in the pass')}</span></div>
                       <div className="tgrid">
                         {TRANSFORM_TILES.map((tile) => (
                           <button className="ttile" key={tile.key} onClick={() => props.onAction(tile.action)}>
-                            <span className="tdot" style={{ background: tile.dot }} />
-                            <span><span className="tname" style={{ display: 'block' }}>{t(tile.name)}</span><span className="tdesc">{t(tile.desc)}</span></span>
+                            <span className="thead"><span className="tdot" style={{ background: tile.dot }} /><span className="tdesc">{t(tile.desc)}</span></span>
+                            <span className="tname">{t(tile.name)}</span>
                           </button>
                         ))}
                       </div>
@@ -253,10 +260,10 @@ export default function ScriptonDoctor(props: DoctorCanvasProps) {
 function DoctorSkeleton() {
   return (
     <>
-      <div className="sk" style={{ height: 86, borderRadius: 16 }} />
+      <div className="sk" style={{ height: 76, borderRadius: 14 }} />
       <div className="cols">
-        <div className="colstack"><div className="sk" style={{ height: 220, borderRadius: 14 }} /><div className="sk" style={{ height: 140, borderRadius: 14 }} /></div>
-        <div className="colstack"><div className="sk" style={{ height: 200, borderRadius: 14 }} /><div className="sk" style={{ height: 180, borderRadius: 14 }} /></div>
+        <div className="colstack"><div className="sk" style={{ height: 300, borderRadius: 14 }} /><div className="sk" style={{ height: 212, borderRadius: 14 }} /></div>
+        <div className="colstack"><div className="sk" style={{ height: 300, borderRadius: 14 }} /><div className="sk" style={{ height: 212, borderRadius: 14 }} /></div>
       </div>
     </>
   );
