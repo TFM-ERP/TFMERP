@@ -31,7 +31,7 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     try {
-      const res = await api.post('/auth/login', { email, password, totpCode: totpCode || undefined });
+      const res = await api.post('/auth/login', { email: email.trim(), password, totpCode: totpCode || undefined });
       // Account has 2FA on but no code yet → reveal the code field and wait for the second step.
       if (res.data?.requires2FA) { setNeeds2FA(true); setLoading(false); return; }
       const { access_token, user } = res.data;
@@ -103,7 +103,8 @@ export default function LoginPage() {
           <div>
             <label className="block text-[11px] font-semibold uppercase mb-1.5" style={{ color: C.label, letterSpacing: '1.5px' }}>Email</label>
             <input
-              type="email" placeholder="you@thefilmmakers.com" value={email} onChange={e => setEmail(e.target.value)} required autoFocus
+              type="email" inputMode="email" autoCapitalize="none" autoCorrect="off" spellCheck={false}
+              placeholder="you@thefilmmakers.com" value={email} onChange={e => setEmail(e.target.value.replace(/\s/g, ''))} required autoFocus
               className="w-full h-11 px-3.5 text-sm rounded-[11px] outline-none transition-all" style={inputStyle}
               onFocus={e => focusOn(e.currentTarget)} onBlur={e => focusOff(e.currentTarget)}
             />

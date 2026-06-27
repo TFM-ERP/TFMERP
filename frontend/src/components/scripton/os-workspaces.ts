@@ -1,13 +1,13 @@
 // frontend/src/components/scripton/os-workspaces.ts
 import type { ComponentType } from 'react';
-import { Home, PenLine, Layers, Network, Stethoscope, GitBranch, MessagesSquare, FolderKanban, Settings } from 'lucide-react';
+import { Home, PenLine, Hammer, Network, Stethoscope, GitBranch, MessagesSquare, FolderKanban, Settings } from 'lucide-react';
 
 export type OsWorkspace = { key: string; label: string; href: string; icon: ComponentType<any>; perm?: string; teamOnly?: boolean };
 
 export const OS_WORKSPACES: OsWorkspace[] = [
   { key: 'home',     label: 'Home',     href: '/scripton',                    icon: Home },
   { key: 'write',    label: 'Write',    href: '/scripton/reader',             icon: PenLine },
-  { key: 'develop',  label: 'Develop',  href: '/scripton/studio?tab=builds',  icon: Layers },
+  { key: 'develop',  label: 'Build',    href: '/scripton/studio?tab=builds',  icon: Hammer },
   { key: 'canon',    label: 'Canon',    href: '/scripton/canon',              icon: Network },
   { key: 'doctor',   label: 'Doctor',   href: '/scripton/doctor',             icon: Stethoscope },
   { key: 'versions', label: 'Versions', href: '/scripton/revisions',          icon: GitBranch },

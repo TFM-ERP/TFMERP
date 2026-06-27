@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ScripON · TFM logo = home</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0a0b0e;--panel:#14161c;--ink:#0e1014;--hair:rgba(255,255,255,.08);--hair2:rgba(255,255,255,.14);--gold:#C6A463;--gold2:#E6D2A2;--goldink:#15120B;--cream:#F4EEE0;--text:#E7E3D8;--mut:#9aa1ab;--faint:#6b727d;--green:#57b368}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:radial-gradient(1100px 600px at 50% -12%,#16181f,#0a0b0e 62%);color:var(--text);font-family:'Rubik',system-ui,sans-serif;-webkit-font-smoothing:antialiased;padding:30px 22px 70px}
+.wrap{max-width:1060px;margin:0 auto}
+.eyebrow{font-size:11px;font-weight:700;letter-spacing:2px;color:var(--gold);text-transform:uppercase}
+h1{font-family:'Fraunces',serif;font-size:27px;color:var(--cream);font-weight:600;margin:8px 0 6px}
+.sub{font-size:14px;color:var(--mut);max-width:760px}
+h3{font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--gold);margin:30px 0 12px}
+/* brand cluster */
+.tfm{width:34px;height:34px;border-radius:9px;background:linear-gradient(155deg,var(--gold2),var(--gold));display:grid;place-items:center;flex:none}
+.tfm span{font-weight:800;font-size:11px;color:var(--goldink);letter-spacing:.3px}
+.brandrow{display:flex;align-items:center;gap:11px}
+.wordmark{font-family:'Fraunces',serif;font-size:18px;color:var(--cream);font-weight:600}
+/* states */
+.states{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:720px){.states{grid-template-columns:1fr}}
+.state{background:var(--panel);border:1px solid var(--hair);border-radius:14px;padding:26px 24px}
+.state.lit{border-color:rgba(198,164,99,.35)}
+.slabel{font-size:11px;color:var(--faint);margin-bottom:18px;text-transform:uppercase;letter-spacing:.5px;font-weight:700}
+.hold{position:relative;display:inline-flex}
+.cluster{display:flex;align-items:center;gap:11px;padding:8px 10px;border-radius:11px;border:1px solid transparent}
+.cluster.hover{background:rgba(198,164,99,.08);border-color:rgba(198,164,99,.3);cursor:pointer}
+.cluster.hover .wordmark{color:var(--gold2)}
+.tip{position:absolute;top:58px;left:6px;background:#0c0d10;border:1px solid var(--hair2);border-radius:8px;padding:6px 11px;font-size:11.5px;color:var(--cream);white-space:nowrap;box-shadow:0 10px 24px -10px #000}
+.tip:before{content:"";position:absolute;top:-5px;left:18px;width:9px;height:9px;background:#0c0d10;border-left:1px solid var(--hair2);border-top:1px solid var(--hair2);transform:rotate(45deg)}
+.tip b{color:var(--gold2);font-weight:600}
+.cap{font-size:12.5px;color:var(--mut);line-height:1.6;margin-top:22px}
+/* in-context bar */
+.crop{background:#0c0d10;border:1px solid var(--hair2);border-radius:12px;overflow:hidden;margin-top:6px}
+.tbar{height:54px;display:flex;align-items:center;gap:12px;padding:0 16px;background:linear-gradient(180deg,#15181e,#10131a);border-bottom:1px solid var(--hair)}
+.cmdk{margin:0 auto;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--faint);background:#0f1218;border:1px solid var(--hair);border-radius:9px;padding:8px 14px;width:360px}
+.tright{display:flex;gap:8px;align-items:center}
+.pillc{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--mut);background:rgba(87,179,104,.09);border:1px solid rgba(87,179,104,.25);border-radius:999px;padding:5px 10px}
+.vpill{font-size:11px;font-weight:700;color:var(--gold2);background:rgba(198,164,99,.13);border:1px solid rgba(198,164,99,.3);border-radius:8px;padding:5px 9px}
+.av{width:24px;height:24px;border-radius:50%}
+.proj{font-size:12px;color:var(--mut);border-inline-start:1px solid var(--hair);padding-inline-start:12px}
+.note{margin-top:26px;background:rgba(198,164,99,.05);border:1px solid rgba(198,164,99,.22);border-radius:14px;padding:16px 20px}
+.note h4{font-family:'Fraunces',serif;color:var(--cream);font-size:15px;margin-bottom:6px}
+.note p{font-size:12.5px;color:var(--mut);line-height:1.65}
+.note b{color:var(--gold2)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">ScripON · OS shell — top-left brand</div>
+  <h1>TFM logo = home → FilmOS · “ScripON” beside it</h1>
+  <p class="sub">The TFM mark is the click-target back to FilmOS (no arrow). “ScripON” sits next to it to say which app you're in. Clean and conventional — but since there's no arrow, a tiny hover tooltip keeps the “it's a button” discoverable.</p>
+
+  <h3>The affordance — resting vs. hover</h3>
+  <div class="states">
+    <div class="state">
+      <div class="slabel">Resting</div>
+      <div class="hold">
+        <div class="cluster">
+          <div class="tfm"><span>TFM</span></div>
+          <div class="wordmark">ScripON</div>
+        </div>
+      </div>
+      <p class="cap">Just the mark + the app name. Quiet, premium, no chrome. The TFM logo is the whole hit-area.</p>
+    </div>
+    <div class="state lit">
+      <div class="slabel">Hover / focus</div>
+      <div class="hold">
+        <div class="cluster hover">
+          <div class="tfm"><span>TFM</span></div>
+          <div class="wordmark">ScripON</div>
+        </div>
+        <div class="tip">Back to <b>FilmOS</b> ↩</div>
+      </div>
+      <p class="cap">On hover the cluster lifts (subtle gold wash) and a tooltip confirms it returns to FilmOS — so the no-arrow button never feels mysterious.</p>
+    </div>
+  </div>
+
+  <h3>In context — the full top bar</h3>
+  <div class="crop">
+    <div class="tbar">
+      <div class="cluster hover" style="padding:6px 8px">
+        <div class="tfm"><span>TFM</span></div>
+        <div class="wordmark">ScripON</div>
+      </div>
+      <div class="proj">Antarah</div>
+      <div class="cmdk">⌕ Search scenes, characters, decisions — or run a command &nbsp; ⌘K</div>
+      <div class="tright">
+        <div class="pillc">◷ 96%</div>
+        <div class="vpill">V2 ▾</div>
+        <div class="av" style="background:rgba(91,141,239,.6)"></div>
+        <div class="av" style="background:rgba(139,124,240,.6);margin-inline-start:-8px"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <h4>How it behaves</h4>
+    <p>Clicking the <b>TFM logo</b> returns you to FilmOS — to the <b>last route you came from</b> (dip into a script from Finance → land back in Finance). “ScripON” next to it is the current-app label (not a separate link). The rail stays purely the nine workspaces — no exit item needed. On tablet/mobile the same TFM mark sits in the header/drawer and does the same job. One small ask for discoverability: keep the <b>hover tooltip</b> (and a focus ring for keyboard users), since you're dropping the arrow.</p>
+  </div>
+</div>
+</body>
+</html>
