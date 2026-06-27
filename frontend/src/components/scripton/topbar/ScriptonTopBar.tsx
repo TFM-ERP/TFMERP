@@ -25,7 +25,7 @@ export type ScriptonTopBarProps = {
   noSearch?: boolean;              // suppress the search entirely (e.g. Develop portrait, where the title is a body header)
 };
 
-const RING_R = 10;
+const RING_R = 6; // mini ring inside the green continuity pill (node 3:11)
 const RING_C = 2 * Math.PI * RING_R;
 
 const CSS = `
@@ -49,17 +49,17 @@ const CSS = `
 .sxtb .search input::placeholder{color:var(--faint)}
 .sxtb .kbd{font-size:10.5px;font-weight:700;color:var(--faint);border:1px solid var(--hair2);border-radius:6px;padding:2px 6px;flex:none}
 .sxtb .sicon{width:34px;height:34px;border-radius:9px;border:1px solid var(--hair);display:grid;place-items:center;color:var(--mut);cursor:pointer;flex:none;background:#0e1015}
-/* right cluster */
+/* right cluster — node 6:80 / 1:2 (3:11–3:24): green continuity pill · boxed V ▾ · avatar stack · share */
 .sxtb .tr{display:flex;align-items:center;gap:11px;flex:none}
-.sxtb .ring{position:relative;width:34px;height:34px;flex:none}
-.sxtb .ring svg{position:absolute;inset:0;transform:rotate(-90deg)}
-.sxtb .ring .pct{position:absolute;inset:0;display:grid;place-items:center;font-size:9px;font-weight:800;color:var(--green)}
-.sxtb .vsw{display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 10px;border-radius:999px;border:1px solid var(--hair2);background:#0e1015;color:var(--cream);font-size:12px;font-weight:700;cursor:pointer;flex:none}
-.sxtb .vsw .car{color:var(--mut);font-size:10px}
+.sxtb .ring{display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 12px 0 11px;border-radius:999px;background:rgba(87,179,104,.09);border:1px solid rgba(87,179,104,.28);flex:none}
+.sxtb .ring svg{width:16px;height:16px;flex:none;transform:rotate(-90deg)}
+.sxtb .ring .pct{font-size:12px;font-weight:600;color:var(--green);line-height:1}
+.sxtb .vsw{display:inline-flex;align-items:center;gap:5px;height:32px;padding:0 11px;border-radius:8px;border:1px solid rgba(198,164,99,.3);background:rgba(198,164,99,.13);color:var(--gold2);font-size:11.5px;font-weight:600;cursor:pointer;flex:none}
+.sxtb .vsw .car{color:var(--gold2);font-size:10px}
 .sxtb .avs{display:flex;align-items:center;flex:none}
-.sxtb .av{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:10px;font-weight:800;color:#fff;border:2px solid var(--bg);margin-inline-start:-7px}
+.sxtb .av{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:9px;font-weight:600;color:#fff;border:2px solid var(--bg);margin-inline-start:-8px}
 .sxtb .av:first-child{margin-inline-start:0}
-.sxtb .share{width:34px;height:34px;border-radius:9px;border:1px solid var(--hair);display:grid;place-items:center;color:var(--mut);cursor:pointer;flex:none;background:#0e1015}
+.sxtb .share{width:34px;height:34px;border-radius:9px;border:1px solid rgba(255,255,255,.09);display:grid;place-items:center;color:var(--mut);cursor:pointer;flex:none;background:rgba(255,255,255,.04)}
 .sxtb .share:hover,.sxtb .sicon:hover{color:var(--cream);border-color:var(--hair2)}
 `;
 
@@ -119,11 +119,11 @@ export default function ScriptonTopBar(props: ScriptonTopBarProps) {
         <div className="tr">
           {ringOn && (
             <div className="ring" title={t('Continuity')}>
-              <svg viewBox="0 0 34 34">
-                <circle cx="17" cy="17" r={RING_R} fill="none" stroke="rgba(255,255,255,.10)" strokeWidth="3" />
-                <circle cx="17" cy="17" r={RING_R} fill="none" stroke="var(--green)" strokeWidth="3" strokeLinecap="round" strokeDasharray={RING_C} strokeDashoffset={ringOffset(continuity as number, RING_C)} />
+              <svg viewBox="0 0 16 16">
+                <circle cx="8" cy="8" r={RING_R} fill="none" stroke="rgba(87,179,104,.25)" strokeWidth="2" />
+                <circle cx="8" cy="8" r={RING_R} fill="none" stroke="var(--green)" strokeWidth="2" strokeLinecap="round" strokeDasharray={RING_C} strokeDashoffset={ringOffset(continuity as number, RING_C)} />
               </svg>
-              <span className="pct">{Math.round(continuity as number)}</span>
+              <span className="pct">{Math.round(continuity as number)}%</span>
             </div>
           )}
           {versionLabel && !(vp === 'mobile') && (

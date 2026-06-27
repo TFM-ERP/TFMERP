@@ -34,7 +34,7 @@ const CSS = `
 .sx.home .meta{color:var(--faint);font-size:12px;font-weight:500}
 .sx.home .body{flex:1;display:flex;min-height:0;position:relative;z-index:1}
 /* Workspace rail (SxRail renders the markup; the host screen styles it) */
-.sx.home .rail{width:74px;flex:0 0 74px;background:#0e1015;border-inline-end:1px solid var(--hair);display:flex;flex-direction:column;align-items:center;padding:14px 0;gap:6px;overflow-y:auto}
+.sx.home .rail{width:76px;flex:0 0 76px;background:#0c0d11;border-inline-end:1px solid var(--hair);display:flex;flex-direction:column;align-items:center;padding:14px 0;gap:6px;overflow-y:auto}
 .sx.home .ritem{width:58px;display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 0;border-radius:12px;color:var(--faint);cursor:pointer;position:relative;border:none;background:transparent}
 .sx.home .ritem .box{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:#171a21;border:1px solid var(--hair);color:var(--mute)}
 .sx.home .ritem .lbl{font-size:9px;font-weight:600}

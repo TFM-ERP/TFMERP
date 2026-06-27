@@ -211,11 +211,11 @@ const CSS = `
 .sx.develop .cvname{font-family:var(--sx-title);font-weight:600;font-size:20px;color:var(--cream)}
 .sx.develop .cvmeta{font-size:11px;color:var(--faint);margin-top:9px}
 .sx.develop .cvctrl{position:absolute;top:17px;inset-inline-end:23px;display:flex;align-items:center;gap:12px}
-.sx.develop .vsw{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--mute)}
-.sx.develop .vsw b{color:var(--cream);font-weight:600}
-.sx.develop .vsw span{cursor:pointer;font-size:13px;color:var(--faint);user-select:none}
-.sx.develop .vsw span:hover{color:var(--gold2)}
-.sx.develop .vsw span.dis{opacity:.3;cursor:default;pointer-events:none}
+.sx.develop .cvsw{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--mute)}
+.sx.develop .cvsw b{color:var(--cream);font-weight:600}
+.sx.develop .cvsw span{cursor:pointer;font-size:13px;color:var(--faint);user-select:none}
+.sx.develop .cvsw span:hover{color:var(--gold2)}
+.sx.develop .cvsw span.dis{opacity:.3;cursor:default;pointer-events:none}
 .sx.develop .regen{background:none;border:none;color:var(--gold);font-size:17px;cursor:pointer;line-height:1}
 .sx.develop .cvdiv{height:1px;background:var(--hair);margin:17px 19px 0}
 .sx.develop .cvbody{flex:1;min-height:0;overflow-y:auto;padding:20px 23px}
@@ -249,8 +249,8 @@ const CSS = `
 @keyframes dvspin{to{transform:rotate(360deg)}}
 .sx.develop .sttext{font-size:12.5px;font-weight:500;color:var(--gold2);flex:1;min-width:0}
 .sx.develop .sttrack{height:5px;border-radius:99px;background:var(--track);overflow:hidden;margin-top:11px}
-.sx.develop .sttrack .ind{display:block;height:5px;width:40%;border-radius:99px;background:var(--gold);animation:dvsweep 1.5s ease-in-out infinite}
-@keyframes dvsweep{0%{margin-inline-start:-40%}100%{margin-inline-start:100%}}
+.sx.develop .sttrack .ind{display:block;height:5px;width:40%;border-radius:99px;background:var(--gold);animation:dcvsweep 1.5s ease-in-out infinite}
+@keyframes dcvsweep{0%{margin-inline-start:-40%}100%{margin-inline-start:100%}}
 .sx.develop .acts{display:flex;align-items:center;gap:10px}
 .sx.develop .btn{height:34px;padding:0 15px;border-radius:9px;font-size:12.5px;font-weight:600;cursor:pointer;border:1px solid var(--hair2);background:transparent;color:var(--cream);display:inline-flex;align-items:center;gap:7px}
 .sx.develop .btn:hover{border-color:var(--gold2)}
@@ -442,7 +442,7 @@ export default function ScriptonDevelop(props: ScriptonDevelopProps) {
             const count = active.versionCount || 1;
             const atFirst = (active.versionN || 1) <= 1, atLast = (active.versionN || 1) >= count;
             return (
-              <span className="vsw">
+              <span className="cvsw">
                 <span className={atFirst ? 'dis' : ''} onClick={() => !atFirst && active.stageId && props.onSwitchVersion(active.stageId, -1)}>‹</span>
                 <b>V{active.versionN}{count > 1 ? '/' + count : ''}</b>
                 <span className={atLast ? 'dis' : ''} onClick={() => !atLast && active.stageId && props.onSwitchVersion(active.stageId, 1)}>›</span>
