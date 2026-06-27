@@ -68,6 +68,10 @@ desktop.ini
 tmp/
 *.tmp
 
+# Scratch / throwaway scripts (underscore-prefixed, e.g. _dbwatch.mjs)
+_*.mjs
+_*.js
+
 # Build copies, DB dumps, uploads, FUSE junk (never push)
 backend/dist*/
 /backups/
