@@ -16,9 +16,8 @@ import {
 } from './scripton-canon.logic';
 
 const CSS = `
-.sx.canon{--bg:#0b0c0f;--panel:#14161c;--panel2:#1a1d24;--hair:rgba(255,255,255,.07);--hair2:rgba(255,255,255,.13);--gold:#C6A463;--gold2:#E6D2A2;--goldink:#1a1509;--cream:#F4EEE0;--text:#E8E6E0;--mute:#9aa1ab;--faint:#6b727d;--blue:#5b8def;--green:#57b368;--amber:#e0a23b;--violet:#8b7cf0;--red:#e5635f;position:relative;display:flex;flex-direction:column;height:100%;background:radial-gradient(1200px 600px at 50% -8%,#15171d,#0b0c0f 60%);color:var(--text);font-family:var(--sx-body);-webkit-font-smoothing:antialiased;overflow:hidden}
+.sx.canon{position:relative;display:flex;flex-direction:column;height:100%;background:#0a0b0e;color:var(--text);font-family:var(--sx-body);-webkit-font-smoothing:antialiased;overflow:hidden}
 .sx.canon *{box-sizing:border-box;margin:0;padding:0}
-.sx.canon:before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(700px 280px at 72% -6%,rgba(198,164,99,.09),transparent 70%);z-index:0}
 .sx.canon svg{display:block}
 .sx.canon .top{height:60px;flex:0 0 60px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;background:linear-gradient(180deg,#15181e,#121419);border-bottom:1px solid var(--hair);position:relative;z-index:2}
 .sx.canon .tl{display:flex;align-items:center;gap:12px;min-width:0}
@@ -35,15 +34,15 @@ const CSS = `
 .sx.canon .ritem.on .lbl{color:var(--gold2)}
 .sx.canon .ritem.on:before{content:"";position:absolute;inset-inline-start:-1px;top:14px;bottom:14px;width:3px;border-radius:3px;background:var(--gold)}
 .sx.canon .main{flex:1;min-width:0;display:flex;flex-direction:column}
-.sx.canon .content{flex:1;min-height:0;overflow:hidden;padding:20px 24px;display:flex;flex-direction:column;gap:13px}
+.sx.canon .content{flex:1;min-height:0;overflow:hidden;padding:26px 40px;display:flex;flex-direction:column;gap:14px}
 .sx.canon .phead{flex:0 0 auto}
-.sx.canon .phead h1{font-family:var(--sx-title);font-size:25px;font-weight:500;color:var(--cream);letter-spacing:-.3px}
-.sx.canon .phead .sub{font-size:12.5px;color:var(--mute);margin-top:3px}
+.sx.canon .phead h1{font-family:var(--sx-title);font-size:21px;font-weight:600;color:var(--cream);letter-spacing:-.3px}
+.sx.canon .phead .sub{font-size:12px;color:var(--faint);margin-top:7px}
 .sx.canon .tabs{display:flex;gap:7px;flex:0 0 auto;flex-wrap:wrap}
-.sx.canon .tab{padding:7px 13px;border-radius:9px;font-size:12.5px;font-weight:600;color:var(--mute);background:#171a20;border:1px solid var(--hair);cursor:pointer}
-.sx.canon .tab.on{background:rgba(198,164,99,.14);border-color:rgba(198,164,99,.45);color:var(--gold2)}
-.sx.canon .cols{flex:1;min-height:0;display:grid;grid-template-columns:1.6fr 1fr;gap:16px}
-.sx.canon .gpanel{min-height:0;background:var(--panel);border:1px solid var(--hair);border-radius:14px;padding:8px;display:flex;flex-direction:column;overflow:hidden}
+.sx.canon .tab{padding:6px 12px;border-radius:999px;font-size:12px;font-weight:500;color:var(--mute);background:transparent;border:1px solid rgba(255,255,255,.1);cursor:pointer}
+.sx.canon .tab.on{background:var(--gold2);border-color:transparent;color:#15120b;font-weight:600}
+.sx.canon .cols{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,2.34fr) minmax(0,1fr);gap:20px}
+.sx.canon .gpanel{min-height:0;background:#181b22;border:1px solid var(--hair);border-radius:14px;padding:8px;display:flex;flex-direction:column;overflow:hidden}
 .sx.canon .gpanel svg{width:100%;height:100%;flex:1;min-height:0}
 .sx.canon .glegend{flex:0 0 auto;display:flex;gap:14px;padding:6px 10px;font-size:10px;color:var(--faint)}
 .sx.canon .glegend i{display:inline-block;width:14px;height:0;border-top:2px solid var(--gold);vertical-align:middle;margin-inline-end:5px}
@@ -52,25 +51,30 @@ const CSS = `
 .sx.canon .frow{background:var(--panel2);border:1px solid var(--hair);border-radius:11px;padding:11px 13px}
 .sx.canon .fsub{font-size:10.5px;color:var(--faint);margin-top:3px}
 
-/* Right panel */
-.sx.canon . side{min-height:0;display:flex;flex-direction:column;gap:12px;overflow:auto}
-.sx.canon .ehead{font-family:var(--sx-title);font-size:19px;font-weight:500;color:var(--cream)}
-.sx.canon .erole{font-size:11.5px;color:var(--faint);margin-top:1px}
-.sx.canon .seclabel{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--faint);margin:4px 0}
-.sx.canon .fact{display:flex;gap:9px;padding:9px 0;border-top:1px solid var(--hair)}
-.sx.canon .fact:first-of-type{border-top:none}
-.sx.canon .fdot{width:8px;height:8px;border-radius:50%;flex:none;margin-top:5px}
-.sx.canon .fst{font-size:12.5px;color:var(--text);line-height:1.4}
+/* Right panel — single #0c0d11 entity card (node 18:2) */
+.sx.canon .side{min-height:0;background:#0c0d11;border:1px solid var(--hair);border-radius:14px;padding:17px;display:flex;flex-direction:column;gap:0;overflow:auto}
+.sx.canon .ehrow{display:flex;align-items:center;gap:8px}
+.sx.canon .edot{width:12px;height:12px;border-radius:50%;flex:none;background:var(--gold)}
+.sx.canon .ehead{font-family:var(--sx-title);font-size:18px;font-weight:600;color:var(--cream)}
+.sx.canon .erole{font-size:11px;color:var(--faint);margin-top:7px}
+.sx.canon .seclabel{font-size:9.5px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--gold);margin:16px 0 8px}
+/* Fact cards (node 18:7 / highlighted 18:11) */
+.sx.canon .fact{display:flex;gap:8px;padding:10px 12px;background:#0e1014;border:1px solid rgba(255,255,255,.06);border-radius:10px;margin-bottom:8px}
+.sx.canon .fact.hl{background:rgba(198,164,99,.07);border-color:rgba(198,164,99,.3)}
+.sx.canon .fdot{width:7px;height:7px;border-radius:50%;flex:none;margin-top:4px}
+.sx.canon .fst{font-size:12.5px;font-weight:500;color:var(--cream);line-height:1.15}
 .sx.canon .fst.muted{color:var(--faint);text-decoration:line-through;text-decoration-color:rgba(255,255,255,.2)}
-.sx.canon .fmeta{font-size:10.5px;color:var(--faint);margin-top:2px}
-.sx.canon .note{font-size:10.5px;color:var(--faint);line-height:1.45;background:var(--panel2);border:1px solid var(--hair);border-radius:9px;padding:9px 10px}
+.sx.canon .fmeta{font-size:9.5px;color:var(--faint);margin-top:4px}
+.sx.canon .fmeta.hl{color:var(--gold2)}
+.sx.canon .note{font-size:10.5px;color:var(--mute);line-height:1.45;margin-top:8px}
+.sx.canon .bitemp{font-size:9px;font-weight:600;letter-spacing:.6px;color:var(--faint);margin:18px 0 8px}
 .sx.canon .tl{display:flex;flex-direction:column;gap:0}
 .sx.canon .tlp{display:flex;gap:10px;align-items:flex-start;padding:7px 0;position:relative}
 .sx.canon .tlp:before{content:"";position:absolute;inset-inline-start:13px;top:18px;bottom:-4px;width:2px;background:var(--hair)}
 .sx.canon .tlp:last-child:before{display:none}
-.sx.canon .tlnum{width:28px;height:22px;border-radius:6px;flex:none;display:grid;place-items:center;font-size:10px;font-weight:800;background:rgba(198,164,99,.14);color:var(--gold2);font-family:"Courier Prime",monospace}
+.sx.canon .tlnum{width:28px;height:22px;border-radius:6px;flex:none;display:grid;place-items:center;font-size:10px;font-weight:800;background:rgba(198,164,99,.14);color:var(--gold2);font-family:var(--sx-mono)}
 .sx.canon .tlc{font-size:11.5px;color:var(--text);line-height:1.4;padding-top:2px}
-.sx.canon .panelbox{background:var(--panel);border:1px solid var(--hair);border-radius:14px;padding:14px}
+.sx.canon .panelbox{background:#181b22;border:1px solid var(--hair);border-radius:14px;padding:14px}
 .sx.canon .empty{flex:1;display:grid;place-items:center;text-align:center;color:var(--faint);font-size:13px;padding:30px}
 .sx.canon .sk{background:linear-gradient(90deg,#16181e,#1c1f27,#16181e);background-size:200% 100%;animation:ckp 1.3s ease-in-out infinite;border-radius:12px}
 @keyframes ckp{0%{background-position:200% 0}100%{background-position:-200% 0}}
@@ -85,7 +89,17 @@ const CSS = `
 .sx.canon[data-vp="mobile"] .phead h1{font-size:21px}
 `;
 
-const EDGE_C = 'rgba(198,164,99,.55)';
+// Per-relationship edge colours (node 6:2): match the relationship semantics by
+// keyword so the colouring is data-driven, not bound to specific entity names.
+// loves→teal, enslaved→red, father/parent→blue, mother→violet, ally→gold.
+const REL_COLORS: { re: RegExp; c: string }[] = [
+  { re: /lov|marri|wed|betroth/i, c: '#48b6a0' },
+  { re: /enslav|captur|serv|owns?/i, c: '#e5635f' },
+  { re: /father|sire|son|paternal/i, c: '#5b8def' },
+  { re: /mother|maternal|daughter/i, c: '#8b7cf0' },
+  { re: /all(y|ied|iance)|friend|protect/i, c: '#C6A463' },
+];
+const edgeColor = (label: string) => REL_COLORS.find((r) => r.re.test(label))?.c || '#E6D2A2';
 
 export type CanonProps = {
   title: string; revisionLabel: string; revisionColor: string;
@@ -149,9 +163,10 @@ export default function ScriptonCanon(props: CanonProps) {
                             <g>{graph.edges.map((e, i) => {
                               const a = pos[e.from], b = pos[e.to]; if (!a || !b) return null;
                               const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+                              const ec = edgeColor(e.label);
                               return (
                                 <g key={i}>
-                                  <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={e.superseded ? 'rgba(126,126,133,.45)' : EDGE_C} strokeWidth={e.superseded ? 1.2 : 1.6} strokeDasharray={e.superseded ? '5 4' : undefined} />
+                                  <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={e.superseded ? 'rgba(126,126,133,.45)' : ec} strokeWidth={e.superseded ? 1.2 : 1.6} strokeDasharray={e.superseded ? '5 4' : undefined} />
                                   {(() => {
                                     // Stagger labels above/below the line + sit them on a chip so
                                     // adjacent relationship labels ("alliance with" / "retired") don't collide.
@@ -164,7 +179,7 @@ export default function ScriptonCanon(props: CanonProps) {
                                     return (
                                       <>
                                         <rect x={mx - w / 2} y={my + off - 9} width={w} height={12.5} rx={3} fill="rgba(10,11,14,.82)" />
-                                        <text x={mx} y={my + off} textAnchor="middle" fontSize="9.5" fontWeight="600" fill={e.superseded ? '#7e7e85' : '#E6D2A2'}>{lbl}</text>
+                                        <text x={mx} y={my + off} textAnchor="middle" fontSize="9.5" fontWeight="600" fill={e.superseded ? '#7e7e85' : ec}>{lbl}</text>
                                       </>
                                     );
                                   })()}
@@ -199,32 +214,30 @@ export default function ScriptonCanon(props: CanonProps) {
                     )}
                   </div>
 
-                  {/* Right — entity panel + bi-temporal timeline */}
+                  {/* Right — single entity card + bi-temporal timeline (node 18:2) */}
                   <div className="side">
-                    <div className="panelbox">
-                      <div className="ehead">{sel}</div>
-                      <div className="erole">{role ? role : ents.find((e) => e.name === sel)?.count + ' ' + t('canon facts')}</div>
-                      <div className="seclabel" style={{ marginTop: 10 }}>{t('Canon facts')}</div>
-                      {pf.map((f, i) => (
-                        <div className="fact" key={i}>
-                          <span className="fdot" style={{ background: f.superseded ? 'var(--faint)' : f.isNew ? 'var(--amber)' : 'var(--green)' }} />
-                          <div>
-                            <div className={'fst' + (f.superseded ? ' muted' : '')}>{f.statement}</div>
-                            <div className="fmeta">{t('Established S')}{f.established} · {f.superseded ? t('retired') : f.isNew ? t('new · supersedes a retired fact') : t('active')}</div>
-                          </div>
+                    <div className="ehrow"><span className="edot" /><div className="ehead">{sel}</div></div>
+                    <div className="erole">{role ? role : ents.find((e) => e.name === sel)?.count + ' ' + t('canon facts')}</div>
+                    <div className="seclabel">{t('Canon facts')}</div>
+                    {pf.map((f, i) => (
+                      <div className={'fact' + (f.isNew ? ' hl' : '')} key={i}>
+                        <span className="fdot" style={{ background: f.superseded ? 'var(--faint)' : f.isNew ? 'var(--amber)' : 'var(--green)' }} />
+                        <div>
+                          <div className={'fst' + (f.superseded ? ' muted' : '')}>{f.statement}</div>
+                          <div className={'fmeta' + (f.isNew ? ' hl' : '')}>{t('Established S')}{f.established} · {f.superseded ? t('retired') : f.isNew ? t('new · supersedes a retired fact') : t('active')}</div>
                         </div>
-                      ))}
-                      <div className="note" style={{ marginTop: 10 }}>{t('Every rewrite, summary, bible, pitch & adaptation is checked against these facts before it’s accepted.')}</div>
-                    </div>
+                      </div>
+                    ))}
+                    <div className="note">{t('Every rewrite, summary, bible, pitch & adaptation is checked against these facts before it’s accepted.')}</div>
                     {tl.length > 1 ? (
-                      <div className="panelbox">
-                        <div className="seclabel">{t('Bi-temporal — canon changes with the story')}</div>
+                      <>
+                        <div className="bitemp">{t('BI-TEMPORAL — canon changes with the story')}</div>
                         <div className="tl">
                           {tl.map((p, i) => (
                             <div className="tlp" key={i}><span className="tlnum">S{p.at}</span><span className="tlc">{p.caption}</span></div>
                           ))}
                         </div>
-                      </div>
+                      </>
                     ) : null}
                   </div>
                 </div>
