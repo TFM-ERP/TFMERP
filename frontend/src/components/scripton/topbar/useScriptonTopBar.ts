@@ -15,7 +15,7 @@ export type TopBarData = {
 /** Self-resolves the top bar's data the same way the screens do: the bound ScriptON
  *  script (breadcrumb) + its versions (active label + continuity for the ring). Reuses
  *  the versions endpoint; degrades to nulls (the bar hides what it lacks). */
-export function useScriptonTopBar(): TopBarData {
+export function useScriptonTopBar(scriptId?: string): TopBarData {
   const [data, setData] = useState<TopBarData>({ scriptTitle: null, continuity: null, versionLabel: null, versions: [], userInitials: '' });
   useEffect(() => {
     let alive = true;
@@ -38,7 +38,7 @@ export function useScriptonTopBar(): TopBarData {
         if (!doc) { if (alive) setData((d) => ({ ...d, userInitials })); return; }
         let versions: TopVersion[] = [];
         try {
-          const vr: any = await productionApi.scripton.versions(doc.id);
+          const vr: any = await productionApi.scripton.versions(scriptId || doc.id);
           versions = (vr.data?.versions || []).map((v: any) => ({ id: v.id, n: v.n, label: v.label, active: v.active, passId: v.passId, continuity: v.continuity }));
         } catch { /* no versions */ }
         const av = activeVersion(versions);
@@ -51,6 +51,6 @@ export function useScriptonTopBar(): TopBarData {
       } catch { if (alive) setData((d) => ({ ...d, userInitials })); }
     };
     return () => { alive = false; clearTimeout(timer); };
-  }, []);
+  }, [scriptId]);
   return data;
 }

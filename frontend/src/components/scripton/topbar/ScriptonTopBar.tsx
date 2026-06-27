@@ -23,6 +23,7 @@ export type ScriptonTopBarProps = {
   versionLabel?: string;           // override the V-switcher label
   centerTitle?: { title: string; sub: string }; // Develop (node 69:2): centered page title + sub in the freed search slot — search is suppressed
   noSearch?: boolean;              // suppress the search entirely (e.g. Develop portrait, where the title is a body header)
+  scriptId?: string;               // the screen's CURRENT script — drives the continuity ring + V chip from its kernel versions (real data; hidden when none)
 };
 
 const RING_R = 6; // mini ring inside the green continuity pill (node 3:11)
@@ -68,7 +69,7 @@ const AV_COLORS = ['#5b8def', '#9b8cf0', '#57b368', '#e0a23b'];
 export default function ScriptonTopBar(props: ScriptonTopBarProps) {
   const { t, dir } = useLocale();
   const router = useRouter();
-  const data = useScriptonTopBar();
+  const data = useScriptonTopBar(props.scriptId);
   const searchRef = useRef<HTMLInputElement>(null);
   const goBack = props.onBack || (() => router.push('/scripton'));
   const goVersions = props.onOpenVersions || (() => router.push('/scripton/revisions'));

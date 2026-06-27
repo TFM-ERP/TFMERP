@@ -137,7 +137,7 @@ export type WriteProps = {
   title: string; revisionLabel: string; revisionColor: string;
   scenes: SxScene[]; activeId?: string; onSelectScene: (id: string) => void;
   pageCount?: number | string; loading?: boolean; sample?: boolean;
-  stagedSceneIds?: string[]; pass?: PassVM | null;
+  stagedSceneIds?: string[]; pass?: PassVM | null; scriptId?: string;
   onNav: (k: string) => void; onBack: () => void; onRender?: () => void; onPassAction?: (k: string) => void;
   onStage?: (change: any) => Promise<{ ok: boolean; conflict?: string }>;
   toast?: string | null; vp: 'mobile' | 'tablet' | 'desktop';
@@ -227,7 +227,7 @@ export default function ScriptonWrite(props: WriteProps) {
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       <div className="sx write" data-vp={props.vp} dir={dir} style={{ position: 'fixed', inset: 0, zIndex: 50 }}>
-        <ScriptonTopBar vp={props.vp} onBack={props.onBack} continuity={props.pass?.continuity} />
+        <ScriptonTopBar vp={props.vp} onBack={props.onBack} scriptId={props.scriptId} />
         <div className="subtop">
           {props.sample ? <span className="samplebadge">{t('SAMPLE')} · {t('no script bound')}</span> : null}
           <div className="pageind">

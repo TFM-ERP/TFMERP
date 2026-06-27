@@ -68,7 +68,7 @@ const CSS = `
 .sx.canon .fmeta.hl{color:var(--gold2)}
 .sx.canon .note{font-size:10.5px;color:var(--mute);line-height:1.45;margin-top:8px}
 .sx.canon .bitemp{font-size:9px;font-weight:600;letter-spacing:.6px;color:var(--faint);margin:18px 0 8px}
-.sx.canon .tl{display:flex;flex-direction:column;gap:0}
+.sx.canon .cvtl{display:flex;flex-direction:column;gap:0}
 .sx.canon .tlp{display:flex;gap:10px;align-items:flex-start;padding:7px 0;position:relative}
 .sx.canon .tlp:before{content:"";position:absolute;inset-inline-start:13px;top:18px;bottom:-4px;width:2px;background:var(--hair)}
 .sx.canon .tlp:last-child:before{display:none}
@@ -232,7 +232,7 @@ export default function ScriptonCanon(props: CanonProps) {
                     {tl.length > 1 ? (
                       <>
                         <div className="bitemp">{t('BI-TEMPORAL — canon changes with the story')}</div>
-                        <div className="tl">
+                        <div className="cvtl">
                           {tl.map((p, i) => (
                             <div className="tlp" key={i}><span className="tlnum">S{p.at}</span><span className="tlc">{p.caption}</span></div>
                           ))}

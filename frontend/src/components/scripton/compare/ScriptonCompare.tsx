@@ -118,7 +118,7 @@ export default function ScriptonCompare(props: CompareProps) {
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       <div className="sx cmp" data-vp={vp} dir={dir} style={{ position: 'fixed', inset: 0, zIndex: 50 }}>
-        <ScriptonTopBar vp={vp} onBack={props.onBack} continuity={props.result?.continuity} />
+        <ScriptonTopBar vp={vp} onBack={props.onBack} scriptId={props.result?.scriptId} continuity={props.result?.continuity} versionLabel={props.result?.version?.label || (props.result?.version ? 'V' + props.result.version.n : undefined)} />
         <div className="body">
           <SxRail active="revisions" onNav={props.onNav} />
           <div className="main">

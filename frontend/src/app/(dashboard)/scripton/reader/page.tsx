@@ -222,7 +222,7 @@ export default function ScriptOnWorkspace() {
       <ScriptonWrite
         title={title} revisionLabel={revLabel} revisionColor={revColor}
         scenes={filtered} activeId={active?.id} onSelectScene={selectScene}
-        pageCount={pageCount} loading={loading} sample={sample} stagedSceneIds={stagedIds} pass={passVM}
+        pageCount={pageCount} loading={loading} sample={sample} stagedSceneIds={stagedIds} pass={passVM} scriptId={docId}
         onNav={onNav} onBack={onBackOs}
         onRender={async () => {
           const passId = passVM?.passId;
