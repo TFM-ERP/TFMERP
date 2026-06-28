@@ -19,6 +19,7 @@ import { useLocale } from '@/lib/i18n';
 import { SxRail, cleanStageText, type SxLadder, type SxSpine } from '@/components/scripton/ScriptOnStudio';
 import { ScriptPaper } from '@/components/scripton/scriptPaper';
 import ScriptonTopBar from '@/components/scripton/topbar/ScriptonTopBar';
+import ScriptonShell from '@/components/scripton/ScriptonShell';
 
 export type ScriptonDevelopProps = {
   vp: 'mobile' | 'tablet' | 'desktop';
@@ -501,36 +502,35 @@ export default function ScriptonDevelop(props: ScriptonDevelopProps) {
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
-      <div className="sx develop" data-vp={vp} dir={dir}>
-        <ScriptonTopBar
-          vp={vp}
-          onBack={props.onBack}
+      <ScriptonShell
+        screen="develop" active="develop" vp={vp} onBack={props.onBack}
+        rail={!portrait}
+        bodyClassName={portrait ? 'pbody' : 'body'}
+        topbar={{
           // Desktop: the title sits centred in the bar. Portrait (78:2/80:2): the title is a body header
           // instead and the bar carries no search — brand + crumb + ring (+ V2/avatars at tablet).
-          centerTitle={portrait ? undefined : { title: 'Develop', sub: 'Nothing is written until the spine is agreed.' }}
-          noSearch
-          continuity={hdr.continuity}
-          versionLabel={hdr.versionLabel ?? undefined}
-          scriptTitle={hdr.title ?? undefined}
-        />
+          centerTitle: portrait ? undefined : { title: 'Develop', sub: 'Nothing is written until the spine is agreed.' },
+          noSearch: true,
+          continuity: hdr.continuity,
+          versionLabel: hdr.versionLabel ?? undefined,
+          scriptTitle: hdr.title ?? undefined,
+        }}
+      >
         {portrait ? (
-          <div className="pbody">
+          <>
             <div className="pheader"><h1>{t('Develop')}</h1><span className="psub">{t('Nothing is written until the spine is agreed.')}</span></div>
             {ladderStrip}
             {stageCanvas}
             <div className="pctx">{spinePanel}{compsPanel}</div>
-          </div>
+          </>
         ) : (
-          <div className="body">
-            <SxRail active="develop" />
-            <div className="dvbody">
-              {ladderRail}
-              {stageCanvas}
-              <div className="ctxcol">{spinePanel}{compsPanel}</div>
-            </div>
+          <div className="dvbody">
+            {ladderRail}
+            {stageCanvas}
+            <div className="ctxcol">{spinePanel}{compsPanel}</div>
           </div>
         )}
-      </div>
+      </ScriptonShell>
     </>
   );
 }

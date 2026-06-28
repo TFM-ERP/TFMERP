@@ -12,6 +12,7 @@ import ScriptOnIntake from '@/components/scripton/ScriptOnIntake';
 import ScriptOnBuildsPanel from '@/components/scripton/ScriptOnBuildsPanel';
 import ScriptOnBuildScreen from '@/components/scripton/ScriptOnBuildScreen';
 import ScriptonDevelop from '@/components/scripton/develop/ScriptonDevelop';
+import ScriptonShell from '@/components/scripton/ScriptonShell';
 import { useViewport } from '@/components/scripton/useViewport';
 import { useScriptonBack } from '@/components/scripton/useScriptonBack';
 import { useScriptonShellFlag } from '@/components/scripton/osShellFlag';
@@ -293,6 +294,18 @@ export default function StudioPage() {
     return <ScriptonDevelop vp={vp} onBack={onBack} projectId={projectId} buildId={buildIdRef.current}
       ladder={ladder} spine={spine} comps={COMPS} genBusy={genBusy}
       onAdvance={advance} onRegenerate={onRegenerate} onSwitchVersion={onSwitchVersion} onPromoteScript={onPromoteScript} />;
+  }
+  // New shell — the Build workspace landing (builds list) renders inside the ONE ScriptonShell, so its
+  // chrome matches every other route (no more standalone "Development builds" bar bypassing the shell).
+  // The create-flow (adapt/intake) and the render screen still use the legacy overlays below; opening a
+  // build routes to ScriptonDevelop above. `old` keeps the legacy Builder untouched.
+  if (osNew && projectId && !buildIdRef.current && mode === 'builds' && !building) {
+    return (
+      <ScriptonShell screen="develop" active="develop" vp={vp} onBack={onBack}
+        topbar={{ centerTitle: vp === 'desktop' ? { title: 'Build', sub: 'Develop builds · seed → script' } : undefined, noSearch: true }}>
+        <ScriptOnBuildsPanel embedded osNew projectId={projectId} onNewBuild={() => setMode('adapt')} onClose={() => router.push('/home')} />
+      </ScriptonShell>
+    );
   }
   const RC: any = vp === 'mobile' ? ScriptOnStudioMobile : vp === 'tablet' ? ScriptOnStudioTablet : ScriptOnStudio;
   return (<><RC osNew={osNew} title={title} meta={t('Studio · seed → script')} mode={mode} onTab={onTab} showDevelop={mode === 'develop' || !!buildIdRef.current} ladder={ladder} spine={spine} comps={COMPS} note={t('Doctor: keep every stage true to the approved spine.')} adaptResult={adaptResult} formatResult={formatResult} formatTarget={formatTarget} busy={busy} genBusy={genBusy}

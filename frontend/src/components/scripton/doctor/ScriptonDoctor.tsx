@@ -10,6 +10,7 @@
 import { SxRail } from '@/components/scripton/ScriptOnStudio';
 import { useLocale } from '@/lib/i18n';
 import ScriptonTopBar from '@/components/scripton/topbar/ScriptonTopBar';
+import ScriptonShell from '@/components/scripton/ScriptonShell';
 import {
   scorecardTiles, verdictBanner, sceneFlowBars, arcPoints, diagRows, TRANSFORM_TILES,
   type DiagRow,
@@ -145,10 +146,7 @@ export default function ScriptonDoctor(props: DoctorCanvasProps) {
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
-      <div className="sx doctor" data-vp={props.vp} dir={dir} style={{ position: 'fixed', inset: 0, zIndex: 50 }}>
-        <ScriptonTopBar vp={props.vp} onBack={props.onBack} />
-        <div className="body">
-          <SxRail active="doctor" />
+      <ScriptonShell screen="doctor" active="doctor" vp={props.vp} onBack={props.onBack} overlay={props.toast ? <div className="toast">{props.toast}</div> : null}>
           <div className="main"><div className="content">
             <div className="phead">
               <h1>{t('Doctor')}</h1>
@@ -242,9 +240,7 @@ export default function ScriptonDoctor(props: DoctorCanvasProps) {
               </>
             )}
           </div></div>
-        </div>
-        {props.toast && <div className="toast">{props.toast}</div>}
-      </div>
+      </ScriptonShell>
     </>
   );
 }

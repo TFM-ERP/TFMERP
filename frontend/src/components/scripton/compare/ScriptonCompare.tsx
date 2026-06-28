@@ -10,6 +10,7 @@ import { useMemo } from 'react';
 import { SxRail } from '@/components/scripton/ScriptOnStudio';
 import { useLocale } from '@/lib/i18n';
 import ScriptonTopBar from '@/components/scripton/topbar/ScriptonTopBar';
+import ScriptonShell from '@/components/scripton/ScriptonShell';
 import { toSceneDiffs, detectBridge, isSlugLine, type DiffLine } from './scripton-compare.logic';
 
 export type CompareResult = {
@@ -110,10 +111,7 @@ export default function ScriptonCompare(props: CompareProps) {
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
-      <div className="sx cmp" data-vp={vp} dir={dir} style={{ position: 'fixed', inset: 0, zIndex: 50 }}>
-        <ScriptonTopBar vp={vp} onBack={props.onBack} scriptId={props.result?.scriptId} continuity={props.result?.continuity} versionLabel={props.result?.version?.label || (props.result?.version ? 'V' + props.result.version.n : undefined)} />
-        <div className="body">
-          <SxRail active="revisions" onNav={props.onNav} />
+      <ScriptonShell screen="cmp" active="revisions" vp={vp} onBack={props.onBack} onNav={props.onNav} topbar={{ scriptId: props.result?.scriptId, continuity: props.result?.continuity, versionLabel: props.result?.version?.label || (props.result?.version ? 'V' + props.result.version.n : undefined) }} overlay={props.toast ? <div className="toast">{props.toast}</div> : null}>
           <div className="main">
             {/* Header banner */}
             <div className="banner">
@@ -189,9 +187,7 @@ export default function ScriptonCompare(props: CompareProps) {
               </div>
             </div>
           </div>
-        </div>
-        {props.toast && <div className="toast">{props.toast}</div>}
-      </div>
+      </ScriptonShell>
     </>
   );
 }

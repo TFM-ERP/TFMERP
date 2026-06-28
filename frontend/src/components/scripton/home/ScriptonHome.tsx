@@ -16,6 +16,7 @@ import { useViewport } from '@/components/scripton/useViewport';
 import { useLocale } from '@/lib/i18n';
 import { useScriptonBack } from '@/components/scripton/useScriptonBack';
 import ScriptonTopBar from '@/components/scripton/topbar/ScriptonTopBar';
+import ScriptonShell from '@/components/scripton/ScriptonShell';
 import {
   greeting, firstNameOf, subLine, buildSlate, pickContinue, deriveCounts, toActivity,
   type SxCard, type HeroVM, type ActivityItem, type HomeCounts,
@@ -172,15 +173,11 @@ export default function ScriptonHome() {
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
-      <div className="sx home" data-vp={vp} dir={dir} style={{ position: 'fixed', inset: 0, zIndex: 50 }}>
-        <ScriptonTopBar vp={vp} onBack={onBack} />
-        <div className="body">
-          <SxRail active="home" />
+      <ScriptonShell screen="home" active="home" vp={vp} onBack={onBack}>
           <div className="main"><div className="content">
             {s.loading ? <HomeSkeleton t={t} /> : <HomeBody s={s} t={t} openScript={openScript} newBuild={newBuild} importScript={importScript} />}
           </div></div>
-        </div>
-      </div>
+      </ScriptonShell>
     </>
   );
 }

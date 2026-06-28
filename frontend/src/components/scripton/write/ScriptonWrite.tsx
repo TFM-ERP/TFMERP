@@ -10,6 +10,7 @@ import { useMemo, useRef, useState } from 'react';
 import { SxRail } from '@/components/scripton/ScriptOnStudio';
 import { ScriptPaper } from '@/components/scripton/scriptPaper';
 import ScriptonTopBar from '@/components/scripton/topbar/ScriptonTopBar';
+import ScriptonShell from '@/components/scripton/ScriptonShell';
 import { useLocale } from '@/lib/i18n';
 import type { SxScene } from '@/components/scripton/ScriptOnReader';
 
@@ -220,10 +221,7 @@ export default function ScriptonWrite(props: WriteProps) {
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
-      <div className="sx write" data-vp={props.vp} dir={dir} style={{ position: 'fixed', inset: 0, zIndex: 50 }}>
-        <ScriptonTopBar vp={props.vp} onBack={props.onBack} scriptId={props.scriptId} />
-        <div className="body">
-          <SxRail active="write" onNav={props.onNav} />
+      <ScriptonShell screen="write" active="write" vp={props.vp} onBack={props.onBack} onNav={props.onNav} topbar={{ scriptId: props.scriptId }} overlay={props.toast ? <div className="toast">{props.toast}</div> : null}>
           <div className="main">
             {/* Scene-nav strip lives INSIDE the main column so the rail runs full-height under the
                 top bar — identical chrome to every screen (was a strip between bar and body). */}
@@ -340,9 +338,7 @@ export default function ScriptonWrite(props: WriteProps) {
             )}
             </div>{/* .mainrow */}
           </div>
-        </div>
-        {props.toast && <div className="toast">{props.toast}</div>}
-      </div>
+      </ScriptonShell>
     </>
   );
 }

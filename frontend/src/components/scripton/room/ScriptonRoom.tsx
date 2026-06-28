@@ -10,6 +10,7 @@ import { useState } from 'react';
 import { SxRail } from '@/components/scripton/ScriptOnStudio';
 import { useLocale } from '@/lib/i18n';
 import ScriptonTopBar from '@/components/scripton/topbar/ScriptonTopBar';
+import ScriptonShell from '@/components/scripton/ScriptonShell';
 import type { RoomNote, ChainStage, DistRow, Thread } from './scripton-room.logic';
 
 const STATE_COLOR: Record<string, string> = { done: 'var(--green)', current: 'var(--amber)', pending: 'var(--faint)', rejected: 'var(--red)' };
@@ -206,10 +207,7 @@ export default function ScriptonRoom(props: RoomProps) {
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
-      <div className="sx room" data-vp={props.vp} dir={dir} style={{ position: 'fixed', inset: 0, zIndex: 50 }}>
-        <ScriptonTopBar vp={props.vp} onBack={props.onBack} />
-        <div className="body">
-          <SxRail active="room" />
+      <ScriptonShell screen="room" active="room" vp={props.vp} onBack={props.onBack} overlay={props.toast ? <div className="toast">{props.toast}</div> : null}>
           <div className="main"><div className="content">
             <div className="phead"><h1>{t('Room')}</h1><div className="sub">{t('Notes, approvals & distribution — live and structured, never emailed PDFs.')}</div></div>
             <div className="mtabs">
@@ -219,9 +217,7 @@ export default function ScriptonRoom(props: RoomProps) {
             </div>
             <div className="rcols">{NotesCol}{ThreadCol}{SideCol}</div>
           </div></div>
-        </div>
-        {props.toast && <div className="toast">{props.toast}</div>}
-      </div>
+      </ScriptonShell>
     </>
   );
 }

@@ -58,7 +58,7 @@ const SAMPLE = [
   { id: 'b4', name: 'Oryx — pilot', status: 'DRAFT', updatedAt: null, linkedProjectId: null },
 ];
 
-export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, railGap = 0, osNew = false }: { projectId: string | null; onClose: () => void; onNewBuild?: () => void; railGap?: number; osNew?: boolean }) {
+export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, railGap = 0, osNew = false, embedded = false }: { projectId: string | null; onClose: () => void; onNewBuild?: () => void; railGap?: number; osNew?: boolean; embedded?: boolean }) {
   const { dir, t } = useLocale();
   const [builds, setBuilds] = useState<any[] | null>(null);
   const [projects, setProjects] = useState<any[]>([]);
@@ -114,10 +114,11 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
   };
 
   return (
-    <div className={'bld' + (osNew ? ' osnew' : '')} dir={dir} style={{ position: 'fixed', top: 0, right: 0, bottom: 0, left: railGap, zIndex: 80, overflow: 'auto' }}>
+    <div className={'bld' + (osNew ? ' osnew' : '') + (embedded ? ' embedded' : '')} dir={dir} style={embedded ? { flex: 1, minWidth: 0, minHeight: 0, overflow: 'auto', position: 'relative' } : { position: 'fixed', top: 0, right: 0, bottom: 0, left: railGap, zIndex: 80, overflow: 'auto' }}>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       <div className="scr">
-        <div className="top"><div className="tl"><div className="logo" onClick={onClose} title={t('Close')}>TFM</div><div className="proj">{t('Development builds')}</div><span className="meta">{t('standalone · unlinked until you promote')}</span></div><div style={{ display: 'flex', gap: 8 }}><div className="btn gold" onClick={onNewBuild || onClose}><svg className="ico" viewBox="0 0 24 24" style={{ stroke: '#1a1509' }}><path d="M12 5v14M5 12h14" /></svg>{t('New build')}</div>{!osNew ? <div className="btn ghost" onClick={onClose}>{t('Close')}</div> : null}</div></div>
+        {/* Embedded in ScriptonShell → the shared top bar provides the chrome; suppress the local bar. */}
+        {!embedded && <div className="top"><div className="tl"><div className="logo" onClick={onClose} title={t('Close')}>TFM</div><div className="proj">{t('Development builds')}</div><span className="meta">{t('standalone · unlinked until you promote')}</span></div><div style={{ display: 'flex', gap: 8 }}><div className="btn gold" onClick={onNewBuild || onClose}><svg className="ico" viewBox="0 0 24 24" style={{ stroke: '#1a1509' }}><path d="M12 5v14M5 12h14" /></svg>{t('New build')}</div>{!osNew ? <div className="btn ghost" onClick={onClose}>{t('Close')}</div> : null}</div></div>}
         <div className="body">
           <div className="main">
             <div className="phead"><h1>{t('Builds')}</h1><div className="sub">{t('Name, save and switch development builds. Open loads a build into Studio; promote a finished build into a project.')}</div></div>

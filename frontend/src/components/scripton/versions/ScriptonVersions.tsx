@@ -10,6 +10,7 @@ import { useMemo, useEffect, useRef } from 'react';
 import { SxRail } from '@/components/scripton/ScriptOnStudio';
 import { useLocale } from '@/lib/i18n';
 import ScriptonTopBar from '@/components/scripton/topbar/ScriptonTopBar';
+import ScriptonShell from '@/components/scripton/ScriptonShell';
 import { unifiedDiff, detectBridge, isSlugLine, type DiffLine } from '@/components/scripton/compare/scripton-compare.logic';
 import { deriveTags, diffAnnotations, diffPairLabel } from './scripton-versions.logic';
 import type { CompareResult } from '@/components/scripton/compare/ScriptonCompare';
@@ -145,10 +146,7 @@ export default function ScriptonVersions(props: VersionsProps) {
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
-      <div className="sx vers" data-vp={props.vp} dir={dir} style={{ position: 'fixed', inset: 0, zIndex: 50 }}>
-        <ScriptonTopBar vp={props.vp} onBack={props.onBack} />
-        <div className="body">
-          <SxRail active="revisions" onNav={props.onNav} />
+      <ScriptonShell screen="vers" active="revisions" vp={props.vp} onBack={props.onBack} onNav={props.onNav} overlay={props.toast ? <div className="toast">{props.toast}</div> : null}>
           <div className="main">
             <div className="phead">
               <h1>{t('Versions')}</h1>
@@ -229,9 +227,7 @@ export default function ScriptonVersions(props: VersionsProps) {
               </div>
             </div>
           </div>
-        </div>
-        {props.toast && <div className="toast">{props.toast}</div>}
-      </div>
+      </ScriptonShell>
     </>
   );
 }

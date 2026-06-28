@@ -10,6 +10,7 @@ import { useState } from 'react';
 import { SxRail } from '@/components/scripton/ScriptOnStudio';
 import { useLocale } from '@/lib/i18n';
 import ScriptonTopBar from '@/components/scripton/topbar/ScriptonTopBar';
+import ScriptonShell from '@/components/scripton/ScriptonShell';
 import {
   TABS, factsForTab, entityList, buildGraph, entityFacts, panelFacts, timelinePoints, humanPred,
   type Fact, type CanonTab,
@@ -127,10 +128,7 @@ export default function ScriptonCanon(props: CanonProps) {
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
-      <div className="sx canon" data-vp={props.vp} dir={dir} style={{ position: 'fixed', inset: 0, zIndex: 50 }}>
-        <ScriptonTopBar vp={props.vp} onBack={props.onBack} />
-        <div className="body">
-          <SxRail active="canon" onNav={props.onNav} />
+      <ScriptonShell screen="canon" active="canon" vp={props.vp} onBack={props.onBack} onNav={props.onNav} overlay={props.toast ? <div className="toast">{props.toast}</div> : null}>
           <div className="main"><div className="content">
             <div className="phead">
               <h1>{t('Canon')}</h1>
@@ -237,9 +235,7 @@ export default function ScriptonCanon(props: CanonProps) {
               </>
             )}
           </div></div>
-        </div>
-        {props.toast && <div className="toast">{props.toast}</div>}
-      </div>
+      </ScriptonShell>
     </>
   );
 }

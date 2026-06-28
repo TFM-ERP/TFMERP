@@ -11,6 +11,7 @@ import { SxRail } from '@/components/scripton/ScriptOnStudio';
 import ReviewProtectionPanel from '@/components/scripton/ReviewProtectionPanel';
 import { useLocale } from '@/lib/i18n';
 import ScriptonTopBar from '@/components/scripton/topbar/ScriptonTopBar';
+import ScriptonShell from '@/components/scripton/ScriptonShell';
 
 export type StudioRun = { surface: string; model: string; tokens: string; conf: number; status: string; statusClass: string; when: string };
 
@@ -162,10 +163,7 @@ export default function ScriptonStudio(props: StudioProps) {
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
-      <div className="sx studio" data-vp={props.vp} dir={dir} style={{ position: 'fixed', inset: 0, zIndex: 50 }}>
-        <ScriptonTopBar vp={props.vp} onBack={props.onBack} />
-        <div className="body">
-          <SxRail active="studio" />
+      <ScriptonShell screen="studio" active="studio" vp={props.vp} onBack={props.onBack} overlay={props.toast ? <div className="toast">{props.toast}</div> : null}>
           <div className="main"><div className="content">
             <div className="phead"><h1>{t('Studio')}</h1><div className="sub">{t('Export · interop · security · access · settings')}</div></div>
 
@@ -278,9 +276,7 @@ export default function ScriptonStudio(props: StudioProps) {
               </div>
             </div>
           </div></div>
-        </div>
-        {props.toast && <div className="toast">{props.toast}</div>}
-      </div>
+      </ScriptonShell>
     </>
   );
 }
