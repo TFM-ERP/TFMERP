@@ -75,7 +75,7 @@ export default function ScriptOnLibrary(props: {
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       <div className="sx" dir={dir} style={{ position: 'fixed', inset: 0, zIndex: 50 }}>
-        <ScriptonTopBar vp="desktop" onBack={props.onBack} />
+        <ScriptonTopBar vp="desktop" onBack={props.onBack} scriptScoped={false} />
         <div className="body">
           <SxRail active="library" />
           <div className="main">

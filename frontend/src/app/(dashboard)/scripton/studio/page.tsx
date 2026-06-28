@@ -302,7 +302,7 @@ export default function StudioPage() {
   if (osNew && projectId && !buildIdRef.current && mode === 'builds' && !building) {
     return (
       <ScriptonShell screen="develop" active="develop" vp={vp} onBack={onBack}
-        topbar={{ centerTitle: vp === 'desktop' ? { title: 'Build', sub: 'Develop builds · seed → script' } : undefined, noSearch: true }}>
+        topbar={{ scriptScoped: false }}>
         <ScriptOnBuildsPanel embedded osNew projectId={projectId} onNewBuild={() => setMode('adapt')} onClose={() => router.push('/home')} />
       </ScriptonShell>
     );

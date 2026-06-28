@@ -24,6 +24,7 @@ export type ScriptonTopBarProps = {
   centerTitle?: { title: string; sub: string }; // Develop (node 69:2): centered page title + sub in the freed search slot — search is suppressed
   noSearch?: boolean;              // suppress the search entirely (e.g. Develop portrait, where the title is a body header)
   scriptId?: string;               // the screen's CURRENT script — drives the continuity ring + V chip from its kernel versions (real data; hidden when none)
+  scriptScoped?: boolean;          // default true. false on non-script screens (Home, Slate, Builds list) → hide the whole script cluster: crumb + continuity ring + version chip (Figma 142:2 / 145:2)
 };
 
 const RING_R = 6; // mini ring inside the green continuity pill (node 3:11)
@@ -74,10 +75,13 @@ export default function ScriptonTopBar(props: ScriptonTopBarProps) {
   const goBack = props.onBack || (() => router.push('/scripton'));
   const goVersions = props.onOpenVersions || (() => router.push('/scripton/revisions'));
 
-  const crumb = props.scriptTitle ?? data.scriptTitle ?? '';
+  // Non-script-scoped screens (Home, Slate, Builds list) describe no single script → hide the whole
+  // script cluster (crumb + continuity ring + version chip). Search · avatars · share stay. (Figma 142:2/145:2)
+  const scriptScoped = props.scriptScoped !== false;
+  const crumb = scriptScoped ? (props.scriptTitle ?? data.scriptTitle ?? '') : '';
   const continuity = props.continuity !== undefined ? props.continuity : data.continuity;
-  const versionLabel = props.versionLabel ?? data.versionLabel ?? '';
-  const ringOn = showRing(continuity);
+  const versionLabel = scriptScoped ? (props.versionLabel ?? data.versionLabel ?? '') : '';
+  const ringOn = scriptScoped && showRing(continuity);
   const me = initials(data.userInitials);
   const vp = props.vp;
   const compact = vp !== 'desktop';

@@ -78,3 +78,14 @@ export function StudioIcon(p: RailIconProps) {
     </RailSvg>
   );
 }
+
+// Settings (gear) — the /scripton/settings rail item ("Build" owns the creative-studio role, so this
+// is renamed Studio → Settings with a gear, not the sun StudioIcon).
+export function SettingsIcon(p: RailIconProps) {
+  return (
+    <RailSvg {...p}>
+      <path d="M12 15.5C13.933 15.5 15.5 13.933 15.5 12C15.5 10.067 13.933 8.5 12 8.5C10.067 8.5 8.5 10.067 8.5 12C8.5 13.933 10.067 15.5 12 15.5Z" {...S} />
+      <path d="M19.4 13a7 7 0 000-2l2-1.5-2-3.4-2.3 1a7 7 0 00-1.7-1L15 3h-4l-.4 2.6a7 7 0 00-1.7 1l-2.3-1-2 3.4L6.6 11a7 7 0 000 2l-2 1.5 2 3.4 2.3-1a7 7 0 001.7 1L11 21h4l.4-2.6a7 7 0 001.7-1l2.3 1 2-3.4z" {...S} />
+    </RailSvg>
+  );
+}

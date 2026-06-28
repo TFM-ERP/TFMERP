@@ -173,7 +173,7 @@ export default function ScriptonHome() {
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
-      <ScriptonShell screen="home" active="home" vp={vp} onBack={onBack}>
+      <ScriptonShell screen="home" active="home" vp={vp} onBack={onBack} topbar={{ scriptScoped: false }}>
           <div className="main"><div className="content">
             {s.loading ? <HomeSkeleton t={t} /> : <HomeBody s={s} t={t} openScript={openScript} newBuild={newBuild} importScript={importScript} />}
           </div></div>

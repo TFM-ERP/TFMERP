@@ -1,7 +1,7 @@
 // frontend/src/components/scripton/os-workspaces.ts
 import type { ComponentType } from 'react';
 import { Home, PenLine, Stethoscope } from 'lucide-react';
-import { BuildIcon, CanonIcon, VersionsIcon, RoomIcon, SlateIcon, StudioIcon } from './rail-icons';
+import { BuildIcon, CanonIcon, VersionsIcon, RoomIcon, SlateIcon, SettingsIcon } from './rail-icons';
 
 export type OsWorkspace = { key: string; label: string; href: string; icon: ComponentType<any>; perm?: string; teamOnly?: boolean };
 
@@ -14,7 +14,7 @@ export const OS_WORKSPACES: OsWorkspace[] = [
   { key: 'versions', label: 'Versions', href: '/scripton/revisions',          icon: VersionsIcon },
   { key: 'room',     label: 'Room',     href: '/scripton/notes',              icon: RoomIcon, teamOnly: true },
   { key: 'slate',    label: 'Slate',    href: '/scripton/library',            icon: SlateIcon },
-  { key: 'studio',   label: 'Studio',   href: '/scripton/settings',           icon: StudioIcon, perm: 'setup' },
+  { key: 'studio',   label: 'Settings',  href: '/scripton/settings',           icon: SettingsIcon, perm: 'setup' },
 ];
 
 const pathOf = (href: string) => href.split('?')[0];

@@ -21,7 +21,7 @@ const R = [
   { name:'Versions', route:'/scripton/revisions',        body:'.sx.vers .main',   active:'Versions' },
   { name:'Room',     route:'/scripton/notes',            body:'.sx.room .main',   active:'Room' },
   { name:'Slate',    route:'/scripton/library',          body:'.cardgrid',        active:'Slate' },
-  { name:'Settings', route:'/scripton/settings',         body:'.sx.studio .main', active:'Studio' },
+  { name:'Settings', route:'/scripton/settings',         body:'.sx.studio .main', active:'Settings' },
 ];
 const b = await chromium.launch({ headless:true });
 let refRail = null, allOK = true;

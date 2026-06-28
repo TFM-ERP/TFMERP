@@ -36,6 +36,9 @@ export function useScriptonTopBar(scriptId?: string): TopBarData {
         const docs = Array.isArray(dr.data) ? dr.data : (dr.data?.items ?? []);
         const doc = docs[0];
         if (!doc) { if (alive) setData((d) => ({ ...d, userInitials })); return; }
+        // Breadcrumb = the screen's ACTIVE script: the passed scriptId's title when it's a workspace
+        // doc (so Write/Compare show their own script, not always docs[0]); otherwise the bound doc.
+        const crumbDoc = (scriptId && docs.find((d: any) => d.id === scriptId)) || doc;
         // Ring + V resolve from the SAME source Develop uses: the workspace's rendered build chain
         // (a build's linked kernel script, selected server-side by "has a rendered pass"), NOT the
         // bound draft doc (which has no renders). So for عنترة every screen shows the identical %·V,
@@ -50,7 +53,7 @@ export function useScriptonTopBar(scriptId?: string): TopBarData {
           continuity = typeof tv.data?.continuity === 'number' ? tv.data.continuity : (av && typeof av.continuity === 'number' ? av.continuity : null);
           versionLabel = tv.data?.versionLabel || av?.label || null;
         } catch { /* no rendered version → ring/V stay hidden */ }
-        if (alive) setData({ scriptTitle: doc.title || null, continuity, versionLabel, versions, userInitials });
+        if (alive) setData({ scriptTitle: crumbDoc.title || null, continuity, versionLabel, versions, userInitials });
       } catch { if (alive) setData((d) => ({ ...d, userInitials })); }
     };
     return () => { alive = false; clearTimeout(timer); };
