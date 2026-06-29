@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ScriptON · AI Vertical Video — Audit & Roadmap</title>
+<style>
+  :root{
+    --bg:#0b0c0f; --panel:#14161c; --panel2:#1a1d24; --hair:rgba(255,255,255,.08); --hair2:rgba(255,255,255,.14);
+    --gold:#C6A463; --gold2:#E6D2A2; --goldink:#1a1509; --cream:#F4EEE0; --text:#E8E6E0; --mute:#9aa1ab; --faint:#6b727d;
+    --green:#57b368; --amber:#e0a23b; --red:#e5635f; --blue:#5b8def; --violet:#9b8cf0;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:radial-gradient(1200px 700px at 50% -10%,#15171d,#0b0c0f 60%);color:var(--text);
+    font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.6;font-size:15px;padding:40px 18px 80px}
+  .wrap{max-width:980px;margin:0 auto}
+  h1{font-family:'Fraunces','Georgia',serif;font-weight:600;font-size:34px;color:var(--cream);letter-spacing:-.4px;line-height:1.15}
+  h2{font-family:'Fraunces','Georgia',serif;font-weight:600;font-size:23px;color:var(--gold2);margin:38px 0 14px;letter-spacing:-.2px;
+    padding-bottom:8px;border-bottom:1px solid var(--hair)}
+  h3{font-size:15.5px;font-weight:700;color:var(--cream);margin:20px 0 8px;letter-spacing:.1px}
+  p{margin:9px 0;color:var(--text)}
+  .lead{color:var(--mute);font-size:15.5px;max-width:760px;margin-top:10px}
+  .eyebrow{font-size:11px;font-weight:700;letter-spacing:2px;color:var(--gold);text-transform:uppercase}
+  a{color:var(--gold2);text-decoration:none;border-bottom:1px solid rgba(230,210,162,.3)}
+  a:hover{border-color:var(--gold2)}
+  code{font-family:'Courier Prime',ui-monospace,monospace;font-size:12.5px;background:#0e1015;border:1px solid var(--hair);
+    border-radius:5px;padding:1px 6px;color:var(--gold2)}
+  strong{color:var(--cream)}
+  em{color:var(--gold2);font-style:normal;font-weight:600}
+  .card{background:var(--panel);border:1px solid var(--hair);border-radius:14px;padding:18px 20px;margin:14px 0}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:760px){.grid2{grid-template-columns:1fr}}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px}
+  th{text-align:start;font-size:10.5px;letter-spacing:.5px;text-transform:uppercase;color:var(--faint);font-weight:700;
+    padding:9px 10px;border-bottom:1px solid var(--hair2)}
+  td{padding:10px;border-bottom:1px solid var(--hair);color:var(--text);vertical-align:top}
+  .pill{display:inline-block;font-size:10.5px;font-weight:800;letter-spacing:.3px;padding:3px 9px;border-radius:999px;white-space:nowrap}
+  .ok{background:rgba(87,179,104,.16);color:var(--green)} .bug{background:rgba(229,99,95,.16);color:var(--red)}
+  .gap{background:rgba(224,162,59,.16);color:var(--amber)} .info{background:rgba(91,141,239,.16);color:var(--blue)}
+  ul{margin:8px 0 8px 4px;padding-left:18px} li{margin:5px 0}
+  .ladder{counter-reset:step;list-style:none;padding:0;margin:12px 0}
+  .ladder li{position:relative;padding:11px 0 11px 44px;border-top:1px solid var(--hair)}
+  .ladder li:before{counter-increment:step;content:counter(step);position:absolute;left:0;top:11px;width:28px;height:28px;border-radius:8px;
+    background:rgba(198,164,99,.14);border:1px solid rgba(198,164,99,.4);color:var(--gold2);display:grid;place-items:center;font-weight:800;font-size:12.5px}
+  .ladder b{color:var(--cream)}
+  .flow{background:#0e1015;border:1px solid var(--hair);border-radius:12px;padding:16px 18px;font-family:'Courier Prime',ui-monospace,monospace;
+    font-size:12.5px;color:var(--mute);white-space:pre;overflow-x:auto;line-height:1.7}
+  .flow b{color:var(--gold2)}
+  .schema{display:grid;grid-template-columns:150px 1fr;gap:0}
+  .schema>div{padding:9px 10px;border-bottom:1px solid var(--hair)}
+  .schema .k{color:var(--gold2);font-weight:700;font-size:12.5px;background:rgba(198,164,99,.05)}
+  .schema .v{color:var(--text);font-size:13.5px}
+  .phase{border-left:3px solid var(--gold);padding:4px 0 4px 16px;margin:14px 0}
+  .phase .pt{font-weight:800;color:var(--gold2);font-size:14px}
+  .note{font-size:12.5px;color:var(--faint);margin-top:6px}
+  .foot{margin-top:40px;padding-top:18px;border-top:1px solid var(--hair);font-size:12.5px;color:var(--faint)}
+  .foot a{color:var(--mute)}
+  .tag{font-size:11px;color:var(--faint);font-weight:600}
+  .hl{background:linear-gradient(transparent 60%, rgba(198,164,99,.18) 60%);padding:0 2px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="eyebrow">ScriptON · Vertical AI Video</div>
+  <h1>Audit &amp; Roadmap to Generated Episodes</h1>
+  <p class="lead">A full read of the current pipeline against your walkthrough, the 2026 best-practice for AI vertical serial video, and the plan to reach the goal: <em>a series → episodes (60–90s) → scenes (≤5s) → a pure script + a fully-described AI-generation spec → real, character-consistent clips → stitched episodes.</em></p>
+  <p class="note">Researched June 2026 · review this before any build · companion file: <code>AI-VIDEO-AUDIT-AND-ROADMAP.md</code></p>
+
+  <h2>1 · Your walkthrough, decoded</h2>
+  <table>
+    <thead><tr><th style="width:42px">#</th><th>What you saw</th><th style="width:74px">Status</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>"Generate video" → Internal server error</td><td><span class="pill bug">bug</span></td><td>No usable engine at the time. Also threw a raw 500 — <strong>fixed</strong> (now a clean message). Seedance is live now, so it should render.</td></tr>
+      <tr><td>2</td><td>AI-video format asks no episodes / length</td><td><span class="pill gap">gap</span></td><td>Modeled as one ~5s piece, not a series. The core structural gap.</td></tr>
+      <tr><td>3–4</td><td>Develop shows 11 stages; "generate logline" no-op; refresh → 3 stages</td><td><span class="pill bug">bug</span></td><td>Load-order: the page paints the default feature ladder before the build's format loads. Logline isn't a stage in this format.</td></tr>
+      <tr><td>6–8</td><td>Premise · SHOT_LIST · VIDEO_PROMPT all generated good output</td><td><span class="pill ok">works</span></td><td>The creative engine is solid. This is the hard part — and it works.</td></tr>
+      <tr><td>9</td><td>VIDEO_PROMPT ran, then no video</td><td><span class="pill info">by design</span></td><td>VIDEO_PROMPT writes the <em>prompts</em>; the pixels come from the separate "Generate video" render (#1).</td></tr>
+    </tbody>
+  </table>
+
+  <h2>2 · What you flagged is exactly right</h2>
+  <div class="grid2">
+    <div class="card"><h3>The shot spec is too thin</h3><p>Today a shot carries <code>prompt</code>, <code>camera_movement</code>, <code>audio_fx</code>, <code>negativePrompt</code>, <code>seed</code>. Missing the fields the engine actually leans on: <em>location/set, lens, shot size, angle, zoom, lighting, wardrobe, facial expression, body language, color, continuity</em>. Research below defines the full schema.</p></div>
+    <div class="card"><h3>The ladder skips your knowledge</h3><p>It jumps Premise → Shot List, ignoring the rich micro-drama ladder already in ScriptON: <em>logline · synopsis · beats · outline · scenes · draft</em>. You want a real <strong>pure script per episode</strong> <span class="tag">+</span> a <strong>fully-described generation spec</strong>. That's the standard AI-film split.</p></div>
+  </div>
+
+  <h2>3 · 2026 best practice (researched)</h2>
+  <ul>
+    <li><strong>Format:</strong> serialized vertical micro-drama — <em>60–80 episodes/series, 60–90s/episode</em>, each episode several short scenes, <em>each scene a separate ≤5s clip</em>, stitched, ending on a cliffhanger.</li>
+    <li><strong>The split (your point):</strong> "<em>A screenplay tells the story; a shot plan tells how it's shown.</em>" Pipelines produce a <strong>pure script</strong> and a <strong>shot-by-shot prompt sheet</strong> — separate artifacts.</li>
+    <li><strong>Shot Grammar (8 points):</strong> Subject &amp; Action · Emotional Energy · Camera Optics · Motion · Lighting Physics · Style/Color · Audio · Continuity. Front-load subject + action (first ~25 words carry the most weight).</li>
+    <li><strong>Character consistency = reference images, not text.</strong> "Identity lives in the reference, action lives in the prompt." 2–3 head-shots/character (straight-on · ¾ · profile), repeated stable identity phrase, ~70% identity / 30% motion.</li>
+    <li><strong>Engine fit:</strong> <em>Seedream 4.5</em> (image, same fal key) for the head-shots → <em>Seedance 2.0</em> (video) for the scenes — one ByteDance stack, native audio.</li>
+  </ul>
+
+  <h2>4 · The enriched pipeline (what to build)</h2>
+  <p>Leverage the micro-drama ladder ScriptON already has, then branch into the two artifacts you asked for, then render &amp; stitch.</p>
+  <ol class="ladder">
+    <li><b>Intake → series spec.</b> Total duration <em>or</em> episode count × episode length (60–90s) → scenes/episode = round(len ÷ 5) ≈ 12–18.</li>
+    <li><b>Logline → Synopsis → Story Engine.</b> Existing stages — the premise, the repeatable conflict machine.</li>
+    <li><b>Episode Map.</b> N episodes, each a one-line logline + its cliffhanger.</li>
+    <li><b>Per-episode Beat Sheet.</b> Hook (0–15s) · Friction (15–60s) · Spike · Button/cliffhanger (freeze 55–58s).</li>
+    <li><b>Per-episode Scene List.</b> Beats broken into ≤5s scenes (one observable action each).</li>
+    <li><b>Per-episode Draft = the PURE SCRIPT.</b> Sluglines, action, dialogue — human-readable screenplay.</li>
+    <li><b>Character Bible → approved head-shots.</b> Seedream 4.5 generates 2–3 stills/character → <em>you approve</em>.</li>
+    <li><b>Per-scene Shot Spec = the AI-GENERATION SCRIPT.</b> The full Shot Grammar (section 5) per ≤5s scene.</li>
+    <li><b>Render.</b> Each scene → Seedance ≤5s clip, anchored to the character reference (+ last-frame chain).</li>
+    <li><b>Stitch.</b> Scenes → episode (ffmpeg) + subtitles + native audio, ending on the cliffhanger.</li>
+  </ol>
+
+  <h2>5 · The complete Shot Spec (per ≤5s scene)</h2>
+  <p>This is the "AI-generation script" — every field the engine relies on. The <code>prompt</code> is assembled from these (front-loaded), and the structured fields stay editable.</p>
+  <div class="card" style="padding:6px 0">
+    <div class="schema">
+      <div class="k">Subject</div><div class="v">character (stable identity phrase + <strong>reference head-shot</strong>), wardrobe/outfit, age/look</div>
+      <div class="k">Expression</div><div class="v">facial expression as emotion tokens ("micro-smile, eye glint, brows easing 0:00→0:04")</div>
+      <div class="k">Body language</div><div class="v">posture + the ONE primary physical action of the shot</div>
+      <div class="k">Location / Set</div><div class="v">environment, time of day, weather — the continuity lock</div>
+      <div class="k">Camera</div><div class="v">shot size (CU/MS/WS), angle (low/high/eye/dutch), <strong>lens</strong> (24/50/85/135mm), <strong>zoom</strong>, depth of field</div>
+      <div class="k">Movement</div><div class="v">camera move (push-in/pan/dolly) + pacing — never static-only</div>
+      <div class="k">Lighting</div><div class="v">key/fill/rim, direction, colour temp (3200K/5600K), quality (hard/diffused), volumetrics</div>
+      <div class="k">Colour / Style</div><div class="v">palette + film look (e.g. "amber-and-shadow, anamorphic, fine grain")</div>
+      <div class="k">Audio</div><div class="v">dialogue (lip-sync) · ambient · sfx · music cue</div>
+      <div class="k">Continuity</div><div class="v">character ref image(s), last-frame → next-scene chain, the lock sheet</div>
+      <div class="k">Render</div><div class="v"><code>durationSec ≤5</code> · <code>aspectRatio 9:16</code> · <code>negativePrompt</code> · <code>seed</code> · assembled <code>prompt</code></div>
+    </div>
+  </div>
+  <p class="note">Two artifacts per episode: <strong>① Pure Script</strong> (story) and <strong>② Shot Spec sheet</strong> (generation). The current VIDEO_PROMPT becomes artifact ②, enriched with the fields above.</p>
+
+  <h2>6 · Episode beat engine</h2>
+  <div class="flow"><b>HOOK</b>  0–15s   the "explosion point" — world + stakes + image in 3s
+<b>FRICTION</b> 15–60s  filmable conflict (physical/verbal, in frame)
+<b>SPIKE</b>  ~50s    the jolt / reversal
+<b>BUTTON</b> 55–58s  freeze-frame cliffhanger — retention lives here</div>
+
+  <h2>7 · Character consistency — the head-shot step</h2>
+  <p><strong>Seedream 4.5</strong> (same <code>FAL_KEY</code>) generates 2–3 reference head-shots per character → <em>you approve / regenerate</em> → the approved stills anchor every scene's Seedance render. Keep angles similar, repeat the identity phrase, weight 70% identity / 30% motion. Alternatives to compare: Nano Banana Pro (headshot realism), Flux Kontext / Ideogram V3.</p>
+
+  <h2>8 · Target architecture</h2>
+  <div class="flow">intake (episodes × length) ─► <b>logline → synopsis → story engine</b>
+        │
+        ▼  <b>episode map</b> (N × logline + cliffhanger)
+   per episode ─► <b>beat sheet</b> → <b>scene list (≤5s)</b> → <b>① pure script (draft)</b>
+        │
+   character bible ─► <b>Seedream</b> head-shots ─► <i>you approve</i>
+        │
+   per scene ─► <b>② shot spec</b> (full Shot Grammar) ─► <b>Seedance</b> render (ref-anchored, ≤5s, 9:16, audio)
+        │
+   per episode ─► <b>stitch</b> (ffmpeg) + subtitles ─► episode.mp4  ►  series</div>
+
+  <h2>9 · Roadmap (phased — each shippable on its own)</h2>
+  <div class="phase"><div class="pt">Phase 0 · prove the render <span class="tag">— now, no code</span></div><p>Seedance live + first in chain → click "Generate video" on a VIDEO_PROMPT shot → confirm a real 5s clip in Recent Runs. Validates the whole pipe.</p></div>
+  <div class="phase"><div class="pt">Phase 1 · episodic intake + full ladder</div><p>Add episode count + length to intake; switch VERTICAL_AI_VIDEO to the full ladder (logline → synopsis → story engine → episode map → per-episode beats → scenes → <strong>pure script</strong>). Fix the load-order so the right ladder shows without refresh.</p></div>
+  <div class="phase"><div class="pt">Phase 2 · the rich Shot Spec (artifact ②)</div><p>Upgrade VIDEO_PROMPT to the full Shot Grammar schema (section 5): location, lens, angle, zoom, lighting, wardrobe, expression, body language, audio, continuity — structured + an assembled prompt.</p></div>
+  <div class="phase"><div class="pt">Phase 3 · character bible + head-shots</div><p>Generate approved Seedream reference head-shots per character; feed them into every scene's Seedance render. This is what makes a <em>series</em> look like one show.</p></div>
+  <div class="phase"><div class="pt">Phase 4 · render + stitch a full episode</div><p>Batch-render every scene of an episode → stitch (ffmpeg) → subtitles + native audio → one finished 60–90s episode on its cliffhanger. Then: series view + export.</p></div>
+
+  <h3>Already fixed</h3>
+  <ul>
+    <li>Render endpoint returns a clear, actionable message instead of a 500 (and rejects an empty prompt).</li>
+    <li>Seedance 2.0 wired as a config-driven engine; live and first in the chain.</li>
+  </ul>
+
+  <div class="foot">
+    <strong>Sources</strong> ·
+    <a href="https://www.truefan.ai/blogs/cinematic-ai-video-prompts-2026">Cinematic AI video prompts 2026</a> ·
+    <a href="https://filmustage.com/blog/how-to-write-a-vertical-drama-script/">Writing a vertical drama script</a> ·
+    <a href="https://www.finaldraft.com/blog/what-are-verticals-and-micro-dramas">Verticals &amp; micro-dramas (Final Draft)</a> ·
+    <a href="https://frameo.ai/blog/ai-film-pipeline-script-to-screen/">AI film pipeline: script→screen</a> ·
+    <a href="https://mstudio.ai/blog/ai-filmmaking/how-to-make-a-shot-list">Script→shot-list workflow</a> ·
+    <a href="https://medium.com/@cliprise/seedance-2-0-guide-the-complete-tutorial-for-bytedances-multimodal-ai-video-model-2026-fbad74a8c6f9">Seedance 2.0 guide</a> ·
+    <a href="https://www.seedance.tv/blog/seedance-character-consistency-guide-2026">Seedance character consistency</a> ·
+    <a href="https://melies.co/compare/ai-image-models">AI image models 2026 (Seedream/Flux/Nano Banana)</a>
+  </div>
+
+</div>
+</body>
+</html>

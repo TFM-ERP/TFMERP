@@ -1,38 +1,28 @@
 'use client';
 
 /**
- * AI Engines & Routing — the Unified Engine Switchboard admin page.
- * Sibling of /setup/audio-engines; built on the SON design system so it follows
- * the global Graphite & Gold light/dark theme. Talks to /production/ai/* (aiEnginesApi).
+ * Video Engines & Routing — the render-side Unified Engine Switchboard admin page.
+ * Sibling of /setup/llm-engines and /setup/audio-engines; built on the SON design
+ * system so it follows the global Graphite & Gold theme. Talks to /production/video/*.
  */
 import { useEffect, useState, useCallback, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { aiEnginesApi } from '@/lib/api';
+import { videoEnginesApi } from '@/lib/api';
 import { SonRoot, SonCard, SonBtn, SonChip, SonTabs } from '@/components/production/scripton/Son';
-import { Cpu, Loader2, Sparkles, Plus, X, ChevronUp, ChevronDown, Pencil, Trash2 } from 'lucide-react';
+import { Clapperboard, Loader2, Sparkles, Plus, X, ChevronUp, ChevronDown, Pencil, Trash2 } from 'lucide-react';
 
 const TIER: Record<string, { label: string; color: string }> = {
   PAID: { label: 'paid', color: 'var(--son-info)' },
   LIMITED_FREE: { label: 'limited free', color: 'var(--son-warn)' },
-  ULTIMATE_FREE: { label: 'ultimate free', color: 'var(--son-ok)' },
+  ULTIMATE_FREE: { label: 'local · free', color: 'var(--son-ok)' },
 };
-const PROVIDERS = ['anthropic', 'deepseek', 'gemini', 'openrouter', 'local'];
+const PROVIDERS = ['local_comfy', 'runway', 'seedance', 'luma', 'kling'];
 const CAPS = [
-  { key: 'LLM_DEFAULT', label: 'Default' },
-  { key: 'BREAKDOWN', label: 'Breakdowns' },
-  { key: 'DRAFTING', label: 'Drafting' },
-  { key: 'POLISH', label: 'Polish' },
-  { key: 'LEGAL', label: 'Legal / data' },
+  { key: 'VIDEO_DEFAULT', label: 'Default' },
+  { key: 'PREVIEW', label: 'Preview' },
+  { key: 'FINAL', label: 'Final' },
 ];
-const fmt = (n: number) => (n >= 1e6 ? (n / 1e6).toFixed(2) + 'M' : n >= 1e3 ? Math.round(n / 1e3) + 'K' : String(n));
-
-function Bar({ pct, color }: { pct: number; color: string }) {
-  return (
-    <div style={{ height: 6, borderRadius: 3, background: 'var(--son-surface-2)', overflow: 'hidden' }}>
-      <i style={{ display: 'block', height: '100%', width: `${Math.min(100, Math.max(0, pct * 100))}%`, background: color }} />
-    </div>
-  );
-}
+const cap = (s: string) => (s ? s.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : s);
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (
@@ -44,7 +34,7 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
   );
 }
 
-export default function LlmEnginesPage() {
+export default function VideoEnginesPage() {
   const [engines, setEngines] = useState<any[]>([]);
   const [routing, setRouting] = useState<any[]>([]);
   const [health, setHealth] = useState<any>(null);
@@ -52,35 +42,35 @@ export default function LlmEnginesPage() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
   const [tab, setTab] = useState('engines');
-  const [drawer, setDrawer] = useState<any>(null); // engine | {__new:true} | null
+  const [drawer, setDrawer] = useState<any>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const [e, r, h] = await Promise.all([
-        aiEnginesApi.engines(),
-        aiEnginesApi.routing('ORG'),
-        aiEnginesApi.health().catch(() => ({ data: null })),
+        videoEnginesApi.engines(),
+        videoEnginesApi.routing('ORG'),
+        videoEnginesApi.health().catch(() => ({ data: null })),
       ]);
       setEngines(e.data || []); setRouting(r.data || []); setHealth(h.data || null);
     } finally { setLoading(false); }
   }, []);
   useEffect(() => { load(); }, [load]);
 
-  const seed = async () => { setBusy(true); setMsg(''); try { await aiEnginesApi.seedEngines(); await load(); setMsg('Default providers seeded — Anthropic and Local enabled.'); } finally { setBusy(false); } };
-  const toggleEngine = async (id: string, enabled: boolean) => { await aiEnginesApi.updateEngine(id, { enabled }); await load(); };
-  const createEngine = async (data: any) => { await aiEnginesApi.createEngine(data); await load(); setDrawer(null); };
-  const updateEngine = async (id: string, data: any) => { await aiEnginesApi.updateEngine(id, data); await load(); setDrawer(null); };
-  const removeEngine = async (id: string) => { await aiEnginesApi.removeEngine(id); await load(); setDrawer(null); };
+  const seed = async () => { setBusy(true); setMsg(''); try { await videoEnginesApi.seedEngines(); await load(); setMsg('Default providers seeded — Local ComfyUI is enabled; Runway is ready once you add its key.'); } finally { setBusy(false); } };
+  const toggleEngine = async (id: string, enabled: boolean) => { await videoEnginesApi.updateEngine(id, { enabled }); await load(); };
+  const createEngine = async (data: any) => { await videoEnginesApi.createEngine(data); await load(); setDrawer(null); };
+  const updateEngine = async (id: string, data: any) => { await videoEnginesApi.updateEngine(id, data); await load(); setDrawer(null); };
+  const removeEngine = async (id: string) => { await videoEnginesApi.removeEngine(id); await load(); setDrawer(null); };
 
   return (
     <SonRoot className="p-6">
       <div className="max-w-[1180px] mx-auto">
         <div className="flex items-center gap-3 mb-1" style={{ flexWrap: 'wrap' }}>
-          <Cpu className="text-[var(--son-accent)]" />
+          <Clapperboard className="text-[var(--son-accent)]" />
           <div className="son-grow">
-            <h1 className="text-2xl font-semibold">AI Engines &amp; Routing</h1>
-            <p className="son-faint text-sm mt-0.5">Route every AI task across providers — with automatic failover when one runs out of credit.</p>
+            <h1 className="text-2xl font-semibold">Video Engines &amp; Routing</h1>
+            <p className="son-faint text-sm mt-0.5">Route every render across providers — local ComfyUI first, cloud (Runway) on failover.</p>
           </div>
           <SonBtn onClick={seed} disabled={busy}>{busy ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />} Seed defaults</SonBtn>
           <SonBtn primary onClick={() => setDrawer({ __new: true })}><Plus size={14} /> Add engine</SonBtn>
@@ -107,7 +97,7 @@ export default function LlmEnginesPage() {
               </div>
             ) : (
               <RoutingTab engines={engines} routing={routing} health={health}
-                onSave={async (cap: string, data: any) => { await aiEnginesApi.setRouting(cap, { scope: 'ORG', ...data }); await load(); }} />
+                onSave={async (capKey: string, data: any) => { await videoEnginesApi.setRouting(capKey, { scope: 'ORG', ...data }); await load(); }} />
             )}
           </div>
         )}
@@ -127,14 +117,14 @@ function ChainStrip({ providers }: { providers: any[] }) {
     <SonCard style={{ padding: '14px 16px', marginTop: 16 }}>
       <div className="flex items-center justify-between mb-3" style={{ gap: 10, flexWrap: 'wrap' }}>
         <span className="inline-flex items-center gap-2" style={{ fontWeight: 600, fontSize: 14 }}>
-          <span className="son-dot" style={{ background: 'var(--son-ok)' }} /> Active failover chain
+          <span className="son-dot" style={{ background: 'var(--son-ok)' }} /> Active render chain
         </span>
-        <span className="son-faint" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '.06em' }}>Capability: LLM_DEFAULT</span>
+        <span className="son-faint" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '.06em' }}>Capability: VIDEO_DEFAULT</span>
       </div>
       <div className="flex items-center" style={{ gap: 8, flexWrap: 'wrap' }}>
         {providers.map((p, i) => {
           const color = p.usable ? 'var(--son-ok)' : p.hasCredential ? 'var(--son-warn)' : 'var(--son-faint)';
-          const state = p.usable ? 'ready' : p.hasCredential ? 'paused' : 'no key';
+          const state = p.usable ? 'live' : p.hasCredential ? 'paused' : 'no key';
           return (
             <span key={p.key} className="inline-flex items-center" style={{ gap: 8 }}>
               <span className="inline-flex items-center" style={{ gap: 7, padding: '7px 12px', borderRadius: 22, border: `1px solid ${p.usable ? 'var(--son-accent)' : 'var(--son-border)'}`, background: p.usable ? 'color-mix(in srgb,var(--son-accent) 12%,transparent)' : 'var(--son-surface-2)' }}>
@@ -150,22 +140,17 @@ function ChainStrip({ providers }: { providers: any[] }) {
     </SonCard>
   );
 }
-const cap = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 
 /* ── Engine row ────────────────────────────────────────────────────────────── */
 function EngineRow({ engine, health, onToggle, onEdit }: { engine: any; health: any; onToggle: (v: boolean) => void; onEdit: () => void }) {
   const [status, setStatus] = useState<any>(null);
-  useEffect(() => { aiEnginesApi.engineStatus(engine.key).then((r) => setStatus(r.data)).catch(() => {}); }, [engine.key, engine.enabled]);
+  useEffect(() => { videoEnginesApi.engineStatus(engine.key).then((r) => setStatus(r.data)).catch(() => {}); }, [engine.key, engine.enabled]);
   const tier = TIER[engine.tier] || TIER.PAID;
   const hp = (health?.providers || []).find((p: any) => p.key === engine.key);
   const usable = hp?.usable;
   const statusColor = !engine.enabled ? 'var(--son-faint)' : usable ? 'var(--son-ok)' : 'var(--son-warn)';
-  const statusLabel = !engine.enabled ? 'Disabled' : usable ? 'Active' : 'No key';
-  const used = status?.tokensUsed;
-  const capVal = engine.tier === 'LIMITED_FREE' ? engine.freeTokenCap : engine.monthlyTokenCap;
-  const pct = capVal && used != null ? used / capVal : null;
-  const low = pct != null && pct >= 0.85;
-  const isLocal = engine.provider === 'local';
+  const statusLabel = !engine.enabled ? 'Disabled' : usable ? 'Live' : 'Needs setup';
+  const isLocal = engine.provider === 'local_comfy';
 
   return (
     <SonCard style={{ padding: '14px 16px' }}>
@@ -176,7 +161,7 @@ function EngineRow({ engine, health, onToggle, onEdit }: { engine: any; health: 
           <div>
             <div className="flex items-center" style={{ gap: 7, flexWrap: 'wrap' }}>
               <span style={{ fontWeight: 700, fontSize: 15 }}>{engine.displayName}</span>
-              <SonChip>llm</SonChip>
+              <SonChip>video</SonChip>
               <SonChip color={tier.color}>{tier.label}</SonChip>
             </div>
             <div className="son-faint" style={{ fontSize: 11, marginTop: 3 }}>
@@ -187,23 +172,17 @@ function EngineRow({ engine, health, onToggle, onEdit }: { engine: any; health: 
 
         <span style={{ flex: 1 }} />
 
-        {/* telemetry */}
-        <div style={{ minWidth: 190 }}>
-          {engine.tier === 'ULTIMATE_FREE' ? (
-            <SonChip color="var(--son-ok)">Ultimate Free — No limits</SonChip>
-          ) : pct != null ? (
+        {/* status / readiness */}
+        <div style={{ minWidth: 200 }}>
+          {isLocal ? (
             <div>
-              <div className="son-faint" style={{ fontSize: 10, display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-                <span>{engine.tier === 'LIMITED_FREE' ? 'free tier' : 'this month'}</span>
-                <span style={{ color: low ? 'var(--son-warn)' : undefined, fontWeight: low ? 700 : 400 }}>{fmt(used)} / {fmt(capVal)}</span>
-              </div>
-              <Bar pct={pct} color={low ? 'var(--son-warn)' : 'var(--son-accent)'} />
-              {status?.balance?.remaining != null && <div className="son-faint" style={{ fontSize: 10, marginTop: 3 }}>balance {status.balance.remaining}</div>}
+              <SonChip color="var(--son-ok)">Local · no limits</SonChip>
+              <div className="son-faint" style={{ fontSize: 10, marginTop: 4 }}>{status?.workflowConfigured ? 'workflow set ✓' : 'set COMFYUI_WORKFLOW_PATH'}</div>
             </div>
           ) : !engine.enabled && engine.credentialRef ? (
             <div className="son-faint" style={{ fontSize: 11 }}>Add <code>{engine.credentialRef}</code> to .env</div>
           ) : (
-            <div className="son-faint" style={{ fontSize: 11 }}>No usage cap set</div>
+            <div className="son-faint" style={{ fontSize: 11 }}>Cloud render API · pay per clip</div>
           )}
         </div>
 
@@ -223,8 +202,8 @@ function EngineRow({ engine, health, onToggle, onEdit }: { engine: any; health: 
 
       {/* facts line */}
       <div className="son-faint" style={{ fontSize: 11, marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--son-border)', display: 'flex', gap: 18, flexWrap: 'wrap' }}>
-        <span>{isLocal ? 'Base URL' : 'Credential'}: <code style={{ color: status?.hasCredential ? 'var(--son-ok)' : 'var(--son-faint)' }}>{isLocal ? (engine.baseUrl || 'LOCAL_LLM_SERVER_URL') : (engine.credentialRef || '—')}</code> {status?.hasCredential ? '✓' : '✗'}</span>
-        {status?.callsThisMonth != null && <span>{status.callsThisMonth} calls this month</span>}
+        <span>{isLocal ? 'Server' : 'Credential'}: <code style={{ color: status?.hasCredential ? 'var(--son-ok)' : 'var(--son-faint)' }}>{isLocal ? (engine.baseUrl || 'COMFYUI_BASE_URL') : (engine.credentialRef || '—')}</code> {status?.hasCredential ? '✓' : '✗'}</span>
+        {isLocal && <span>workflow: <code style={{ color: status?.workflowConfigured ? 'var(--son-ok)' : 'var(--son-faint)' }}>COMFYUI_WORKFLOW_PATH</code> {status?.workflowConfigured ? '✓' : '✗'}</span>}
       </div>
     </SonCard>
   );
@@ -237,8 +216,8 @@ function EmptyState({ onSeed, busy }: { onSeed: () => void; busy: boolean }) {
       <div style={{ width: 54, height: 54, borderRadius: 15, margin: '0 auto 14px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'color-mix(in srgb,var(--son-accent) 14%,transparent)', border: '1px solid var(--son-accent)' }}>
         <Sparkles className="text-[var(--son-accent)]" />
       </div>
-      <h3 style={{ fontWeight: 700, fontSize: 16 }}>No engines configured yet</h3>
-      <p className="son-faint text-sm" style={{ maxWidth: 440, margin: '6px auto 16px' }}>Seed the 5 default providers to get started — Anthropic and Local are enabled, the rest are ready the moment you add their key.</p>
+      <h3 style={{ fontWeight: 700, fontSize: 16 }}>No video engines configured yet</h3>
+      <p className="son-faint text-sm" style={{ maxWidth: 460, margin: '6px auto 16px' }}>Seed the default providers to get started — Local ComfyUI is enabled (point it at your workflow), and Runway Gen-4.5 is ready the moment you add its key.</p>
       <SonBtn primary onClick={onSeed} disabled={busy}>{busy ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />} Seed defaults</SonBtn>
     </SonCard>
   );
@@ -246,7 +225,7 @@ function EmptyState({ onSeed, busy }: { onSeed: () => void; busy: boolean }) {
 
 /* ── Routing & failover tab ────────────────────────────────────────────────── */
 function RoutingTab({ engines, routing, health, onSave }: { engines: any[]; routing: any[]; health: any; onSave: (cap: string, data: any) => Promise<void> }) {
-  const [capKey, setCapKey] = useState('LLM_DEFAULT');
+  const [capKey, setCapKey] = useState('VIDEO_DEFAULT');
   const [order, setOrder] = useState<string[]>([]);
   const [incl, setIncl] = useState<Record<string, boolean>>({});
   const [def, setDef] = useState<string>('');
@@ -293,7 +272,7 @@ function RoutingTab({ engines, routing, health, onSave }: { engines: any[]; rout
         {/* failover order */}
         <SonCard style={{ padding: '14px 16px' }}>
           <div className="son-h3" style={{ marginBottom: 4 }}>Failover order — {CAPS.find((c) => c.key === capKey)?.label}</div>
-          <p className="son-faint" style={{ fontSize: 11, marginBottom: 12 }}>Top = tried first. Unchecked or unusable engines are skipped at runtime.</p>
+          <p className="son-faint" style={{ fontSize: 11, marginBottom: 12 }}>Top = tried first. Unchecked or unusable engines are skipped at render time.</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {order.map((id, i) => {
               const e = engineById(id); if (!e) return null;
@@ -330,7 +309,7 @@ function RoutingTab({ engines, routing, health, onSave }: { engines: any[]; rout
             <input type="checkbox" checked={projOverride} onChange={(e) => setProjOverride(e.target.checked)} />
           </label>
           <label className="flex items-center justify-between text-sm" style={{ marginTop: 12 }}>
-            <span>Allow per-render override<br /><span className="son-faint" style={{ fontSize: 10 }}>Users pick an engine per run</span></span>
+            <span>Allow per-render override<br /><span className="son-faint" style={{ fontSize: 10 }}>Users pick an engine per render</span></span>
             <input type="checkbox" checked={userOverride} onChange={(e) => setUserOverride(e.target.checked)} />
           </label>
           <div style={{ marginTop: 14 }}><SonBtn primary onClick={save} disabled={saving} className="w-full" style={{ justifyContent: 'center', width: '100%' }}>{saving ? <Loader2 size={14} className="animate-spin" /> : null} Save routing</SonBtn></div>
@@ -338,8 +317,8 @@ function RoutingTab({ engines, routing, health, onSave }: { engines: any[]; rout
           {health?.providers?.length > 0 && (
             <div style={{ marginTop: 14, padding: 12, borderRadius: 10, border: '1px solid var(--son-border)', background: 'var(--son-bg)' }}>
               <div className="inline-flex items-center gap-1.5" style={{ fontSize: 11, fontWeight: 600, marginBottom: 4 }}><span className="son-dot" style={{ background: 'var(--son-ok)' }} /> Resolved now</div>
-              <div style={{ fontWeight: 700, color: 'var(--son-accent)' }}>{(health.providers.find((p: any) => p.usable) || {}).key ? cap((health.providers.find((p: any) => p.usable)).provider) : 'No usable provider'}</div>
-              <div className="son-faint" style={{ fontSize: 10.5, marginTop: 2 }}>First usable engine in the chain serves traffic.</div>
+              <div style={{ fontWeight: 700, color: 'var(--son-accent)' }}>{(health.providers.find((p: any) => p.usable) || {}).key ? cap((health.providers.find((p: any) => p.usable)).provider) : 'No usable engine'}</div>
+              <div className="son-faint" style={{ fontSize: 10.5, marginTop: 2 }}>First usable engine in the chain serves the render.</div>
             </div>
           )}
         </SonCard>
@@ -351,7 +330,7 @@ function RoutingTab({ engines, routing, health, onSave }: { engines: any[]; rout
 /* ── Add / edit engine drawer ──────────────────────────────────────────────── */
 function EngineDrawer({ engine, onClose, onCreate, onUpdate, onRemove }: { engine: any; onClose: () => void; onCreate: (d: any) => void; onUpdate: (id: string, d: any) => void; onRemove: (id: string) => void }) {
   const editing = !!engine;
-  const [provider, setProvider] = useState(engine?.provider || 'anthropic');
+  const [provider, setProvider] = useState(engine?.provider || 'local_comfy');
   const [key, setKey] = useState(engine?.key || '');
   const [displayName, setDisplayName] = useState(engine?.displayName || '');
   const [tier, setTier] = useState(engine?.tier || 'PAID');
@@ -359,22 +338,17 @@ function EngineDrawer({ engine, onClose, onCreate, onUpdate, onRemove }: { engin
   const [credentialRef, setCredentialRef] = useState(engine?.credentialRef || '');
   const [baseUrl, setBaseUrl] = useState(engine?.baseUrl || '');
   const [priority, setPriority] = useState(String(engine?.priority ?? 100));
-  const [monthlyCap, setMonthlyCap] = useState(engine?.monthlyTokenCap ? String(engine.monthlyTokenCap) : '');
-  const [freeCap, setFreeCap] = useState(engine?.freeTokenCap ? String(engine.freeTokenCap) : '');
   const [notes, setNotes] = useState(engine?.notes || '');
   const [saving, setSaving] = useState(false);
-  const isLocal = provider === 'local';
+  const isLocal = provider === 'local_comfy';
 
   const submit = async () => {
     setSaving(true);
     try {
       const data: any = {
-        provider, displayName: displayName || cap(provider), tier,
+        provider, displayName: displayName || cap(provider), tier: isLocal ? 'ULTIMATE_FREE' : tier,
         defaultModel: model || null, credentialRef: credentialRef || null, baseUrl: baseUrl || null,
-        priority: Number(priority) || 100,
-        monthlyTokenCap: monthlyCap ? Number(monthlyCap) : null,
-        freeTokenCap: freeCap ? Number(freeCap) : null,
-        notes: notes || null,
+        priority: Number(priority) || 100, notes: notes || null,
       };
       if (editing) await onUpdate(engine.id, data);
       else await onCreate({ ...data, key: (key || displayName || provider).toUpperCase().replace(/\s+/g, '_') });
@@ -389,71 +363,44 @@ function EngineDrawer({ engine, onClose, onCreate, onUpdate, onRemove }: { engin
         <div className="flex items-center justify-between">
           <div>
             <h2 style={{ fontWeight: 700, fontSize: 17 }}>{editing ? 'Edit engine' : 'Add engine'}</h2>
-            <p className="son-faint" style={{ fontSize: 11 }}>Register a provider in the switchboard</p>
+            <p className="son-faint" style={{ fontSize: 11 }}>Register a render provider in the switchboard</p>
           </div>
           <button className="son-iconbtn" onClick={onClose}><X size={15} /></button>
         </div>
         <div style={{ borderTop: '1px solid var(--son-border)' }} />
 
-        <Field label="Provider" hint="Selects the adapter used to call the API.">
+        <Field label="Provider" hint="Selects the adapter used to render. local_comfy + runway have built-in adapters.">
           <select className="son-input" style={{ width: '100%' }} value={provider} onChange={(e) => setProvider(e.target.value)} disabled={editing}>
             {PROVIDERS.map((p) => <option key={p} value={p}>{cap(p)}</option>)}
           </select>
         </Field>
         {!editing && (
-          <Field label="Key" hint="Unique id for this engine (e.g. ANTHROPIC).">
+          <Field label="Key" hint="Unique id for this engine (e.g. RUNWAY).">
             <input className="son-input" style={{ width: '100%' }} value={key} onChange={(e) => setKey(e.target.value)} placeholder={provider.toUpperCase()} />
           </Field>
         )}
-        <Field label="Display name"><input className="son-input" style={{ width: '100%' }} value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Anthropic Claude" /></Field>
-        <Field label="Tier" hint="Controls which telemetry the card shows.">
-          <select className="son-input" style={{ width: '100%' }} value={tier} onChange={(e) => setTier(e.target.value)}>
-            <option value="PAID">Paid / capped</option>
-            <option value="LIMITED_FREE">Limited free</option>
-            <option value="ULTIMATE_FREE">Ultimate free (local)</option>
-          </select>
-        </Field>
-        <Field label="Default model" hint={Array.isArray(engine?.models) && engine.models.length ? 'Pick a model — or type a custom id below' : undefined}>
-          {Array.isArray(engine?.models) && engine.models.length ? (
-            <select className="son-input" style={{ width: '100%', marginBottom: 8 }} value={engine.models.some((m: any) => m.id === model) ? model : ''} onChange={(e) => { if (e.target.value) setModel(e.target.value); }}>
-              <option value="">Custom / other…</option>
-              {(() => {
-                const ms = engine.models as any[];
-                const free = ms.filter((m) => m.tier === 'free');
-                const paid = ms.filter((m) => m.tier === 'paid');
-                const other = ms.filter((m) => m.tier !== 'free' && m.tier !== 'paid');
-                if (free.length && paid.length) return (
-                  <>
-                    <optgroup label="✓ Free tier — works on a free key">
-                      {free.map((m) => <option key={m.id} value={m.id}>{m.label || m.id}</option>)}
-                    </optgroup>
-                    <optgroup label="$ Paid tier — needs billing enabled">
-                      {paid.map((m) => <option key={m.id} value={m.id}>{m.label || m.id}</option>)}
-                    </optgroup>
-                    {other.length ? <optgroup label="Other">{other.map((m) => <option key={m.id} value={m.id}>{m.label || m.id}</option>)}</optgroup> : null}
-                  </>
-                );
-                return ms.map((m) => <option key={m.id} value={m.id}>{m.label || m.id}</option>);
-              })()}
+        <Field label="Display name"><input className="son-input" style={{ width: '100%' }} value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Runway Gen-4.5" /></Field>
+        {!isLocal && (
+          <Field label="Tier">
+            <select className="son-input" style={{ width: '100%' }} value={tier} onChange={(e) => setTier(e.target.value)}>
+              <option value="PAID">Paid (cloud)</option>
+              <option value="LIMITED_FREE">Limited free</option>
             </select>
-          ) : null}
-          <input className="son-input" style={{ width: '100%' }} value={model} onChange={(e) => setModel(e.target.value)} placeholder="claude-sonnet-4-6" />
+          </Field>
+        )}
+        <Field label="Default model" hint="e.g. gen4.5 (Runway), or your ComfyUI workflow id.">
+          <input className="son-input" style={{ width: '100%' }} value={model} onChange={(e) => setModel(e.target.value)} placeholder={isLocal ? 'comfy-workflow' : 'gen4.5'} />
         </Field>
         {isLocal ? (
-          <Field label="Base URL" hint="OpenAI-compatible chat server (Ollama :11434/v1, LM Studio :1234/v1).">
-            <input className="son-input" style={{ width: '100%' }} value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder="http://127.0.0.1:11434/v1" />
+          <Field label="Server base URL" hint="ComfyUI server (default http://127.0.0.1:8188). The 9:16 workflow comes from COMFYUI_WORKFLOW_PATH.">
+            <input className="son-input" style={{ width: '100%' }} value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder="http://127.0.0.1:8188" />
           </Field>
         ) : (
           <Field label="Credential reference" hint="Env-var name only — the key itself never leaves .env.">
-            <input className="son-input" style={{ width: '100%' }} value={credentialRef} onChange={(e) => setCredentialRef(e.target.value)} placeholder="ANTHROPIC_API_KEY" />
+            <input className="son-input" style={{ width: '100%' }} value={credentialRef} onChange={(e) => setCredentialRef(e.target.value)} placeholder="RUNWAYML_API_SECRET" />
           </Field>
         )}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <Field label="Priority" hint="Lower = earlier"><input className="son-input" style={{ width: '100%' }} value={priority} onChange={(e) => setPriority(e.target.value)} /></Field>
-          {tier === 'LIMITED_FREE'
-            ? <Field label="Free token cap" hint="Drives the tracker"><input className="son-input" style={{ width: '100%' }} value={freeCap} onChange={(e) => setFreeCap(e.target.value)} placeholder="1500000" /></Field>
-            : <Field label="Monthly token cap" hint="Drives the bar (paid)"><input className="son-input" style={{ width: '100%' }} value={monthlyCap} onChange={(e) => setMonthlyCap(e.target.value)} placeholder="1600000" /></Field>}
-        </div>
+        <Field label="Priority" hint="Lower = earlier in the failover chain"><input className="son-input" style={{ width: '100%' }} value={priority} onChange={(e) => setPriority(e.target.value)} /></Field>
         <Field label="Notes"><textarea className="son-input" style={{ width: '100%', minHeight: 60 }} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" /></Field>
 
         <span style={{ flex: 1 }} />

@@ -1812,6 +1812,29 @@ export const aiEnginesApi = {
   routing:         (scope = 'ORG', projectId?: string) => api.get('/production/ai/routing', { params: { scope, projectId } }),
   setRouting:      (capability: string, data: any) => api.put(`/production/ai/routing/${capability}`, data),
   routingResolved: (projectId?: string) => api.get('/production/ai/routing-resolved', { params: { projectId } }),
+  runs:            (params?: { hours?: number; limit?: number; projectId?: string; surface?: string; status?: string; size?: string }) => api.get('/production/ai/runs', { params }),
+};
+
+// ── Video Engines & Routing (render-side switchboard) ────────────────────────
+export const videoEnginesApi = {
+  engines:         () => api.get('/production/video/engines'),
+  engineStatus:    (key: string) => api.get(`/production/video/engines/${encodeURIComponent(key)}/status`),
+  health:          () => api.get('/production/video/health'),
+  seedEngines:     () => api.post('/production/video/engines/seed'),
+  createEngine:    (data: any) => api.post('/production/video/engines', data),
+  updateEngine:    (id: string, data: any) => api.put(`/production/video/engines/${id}`, data),
+  removeEngine:    (id: string) => api.delete(`/production/video/engines/${id}`),
+  routing:         (scope = 'ORG', projectId?: string) => api.get('/production/video/routing', { params: { scope, projectId } }),
+  setRouting:      (capability: string, data: any) => api.put(`/production/video/routing/${capability}`, data),
+  routingResolved: (projectId?: string) => api.get('/production/video/routing-resolved', { params: { projectId } }),
+  generate:        (data: any) => api.post('/production/video/generate', data),
+  runStatus:       (id: string) => api.get(`/production/video/runs/${id}`),
+  videoRuns:       (projectId: string) => api.get('/production/video/runs', { params: { projectId } }),
+  stitch:          (data: any) => api.post('/production/video/stitch', data),
+  anchor:          (data: any) => api.post('/production/video/anchor', data),
+  renderEpisode:   (data: any) => api.post('/production/video/episode', data),
+  episodeStatus:   (id: string) => api.get(`/production/video/episode/${id}`),
+  episodeList:     (projectId: string) => api.get('/production/video/episodes', { params: { projectId } }),
 };
 
 // ── Master Location Library (SYS-07) ─────────────────────────────────────────

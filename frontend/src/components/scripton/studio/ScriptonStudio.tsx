@@ -6,12 +6,13 @@
  * Presentational; the page owns data + the export flows + modals. Drops the
  * old embedded 74px rail/fixed overlay — the OS rail comes from the shell.
  */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { SxRail } from '@/components/scripton/ScriptOnStudio';
 import ReviewProtectionPanel from '@/components/scripton/ReviewProtectionPanel';
 import { useLocale } from '@/lib/i18n';
 import ScriptonTopBar from '@/components/scripton/topbar/ScriptonTopBar';
 import ScriptonShell from '@/components/scripton/ScriptonShell';
+import { aiEnginesApi, scriptAudioApi, videoEnginesApi } from '@/lib/api';
 
 export type StudioRun = { surface: string; model: string; tokens: string; conf: number; status: string; statusClass: string; when: string };
 
@@ -126,6 +127,17 @@ const CSS = `
 .sx.studio .badge.amber{background:rgba(224,162,59,.16);color:var(--amber)}
 .sx.studio .muted{font-size:12px;color:var(--faint);padding:10px 0}
 .sx.studio .toast{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);z-index:9;background:#1b1e25;border:1px solid var(--hair2);color:var(--cream);font-size:12.5px;padding:10px 16px;border-radius:10px;box-shadow:0 14px 40px -12px rgba(0,0,0,.7)}
+/* Live engine status + Recent Runs filters (ported from legacy settings) */
+.sx.studio .liverow{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:8px 0 14px}
+.sx.studio .livecard{display:flex;flex-direction:row;align-items:center;gap:11px;background:var(--panel2);border:1px solid var(--hair);border-radius:12px;padding:12px 13px}
+.sx.studio .ldot{width:10px;height:10px;border-radius:50%;flex:none}
+.sx.studio .rfilters{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.sx.studio .fchip{font-size:11px;font-weight:600;color:var(--mute);background:var(--panel2);border:1px solid var(--hair);border-radius:999px;padding:5px 11px;cursor:pointer}
+.sx.studio .fchip.on{background:linear-gradient(180deg,var(--gold2),var(--gold));color:var(--goldink);border-color:transparent}
+.sx.studio .fsel{font-size:11px;color:var(--text);background:var(--panel2);border:1px solid var(--hair);border-radius:999px;padding:5px 10px;cursor:pointer}
+.sx.studio .badge.red{background:rgba(229,99,95,.16);color:var(--red)}
+.sx.studio .runs td.mono{font-family:'Courier Prime',ui-monospace,monospace;font-size:11px;color:var(--mute)}
+.sx.studio[data-vp="mobile"] .liverow{grid-template-columns:1fr}
 
 /* Tablet: sub-nav becomes a top pill row */
 .sx.studio[data-vp="tablet"] .layout{grid-template-columns:1fr}
@@ -156,6 +168,17 @@ export type StudioProps = {
 export default function ScriptonStudio(props: StudioProps) {
   const { dir, t } = useLocale();
   const [section, setSection] = useState('export');
+  // Live engine status + Recent Runs feed (ported from the retired legacy settings — single home now).
+  const [live, setLive] = useState<any>({});
+  const [feed, setFeed] = useState<any>(null);
+  const [rf, setRf] = useState<{ hours: number; surface?: string; status?: string; size?: string }>({ hours: 24 });
+  useEffect(() => { let ok = true; Promise.all([aiEnginesApi.health().catch(() => ({ data: null })), videoEnginesApi.health().catch(() => ({ data: null })), scriptAudioApi.engines().catch(() => ({ data: [] }))]).then(([l, v, a]: any) => { if (ok) setLive({ llm: l.data, video: v.data, audio: a.data }); }); return () => { ok = false; }; }, []);
+  useEffect(() => { let ok = true; aiEnginesApi.runs({ hours: rf.hours, surface: rf.surface, status: rf.status, size: rf.size, limit: 60 }).then((r: any) => { if (ok) setFeed(r.data); }).catch(() => { if (ok) setFeed({ runs: [], surfaces: [], sizes: [] }); }); return () => { ok = false; }; }, [rf.hours, rf.surface, rf.status, rf.size]);
+  const llmLive = (live.llm?.providers || []).filter((p: any) => p.usable).length, llmTot = (live.llm?.providers || []).length;
+  const vidLive = (live.video?.providers || []).filter((p: any) => p.usable).length, vidTot = (live.video?.providers || []).length;
+  const audTot = Array.isArray(live.audio) ? live.audio.length : 0, audLive = Array.isArray(live.audio) ? live.audio.filter((e: any) => e.enabled).length : 0;
+  const fmtTok = (n: number) => (n >= 1000 ? (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k' : String(n));
+  const relTime = (d: string) => { const m = Math.round((Date.now() - new Date(d).getTime()) / 60000); if (m < 1) return 'now'; if (m < 60) return m + 'm'; const h = Math.round(m / 60); return h < 24 ? h + 'h' : Math.round(h / 24) + 'd'; };
   const Tog = ({ on, onClick }: { on: boolean; onClick?: () => void }) => (
     <button className={'tog' + (on ? ' on' : '')} onClick={onClick} aria-pressed={on}><i /></button>
   );
@@ -229,18 +252,34 @@ export default function ScriptonStudio(props: StudioProps) {
                     <div className="panel">
                       <div className="pt">{t('AI engines')}</div>
                       <div className="pintro">{t('The system models behind every ScriptON flow — manage them here without leaving the OS.')}</div>
+                      <div className="liverow">
+                        {[['System LLM', llmLive, llmTot], ['Audio', audLive, audTot], ['Video', vidLive, vidTot]].map((s: any, i: number) => (
+                          <div className="livecard" key={i}><span className="ldot" style={{ background: s[1] > 0 ? 'var(--green)' : (s[2] > 0 ? 'var(--amber)' : 'var(--faint)') }} /><div><div style={{ fontWeight: 700, color: 'var(--cream)', fontSize: 13 }}>{t(s[0] as string)}</div><div className="ss">{s[1]} {t('of')} {s[2]} {t('live')}</div></div></div>
+                        ))}
+                      </div>
                       <div className="srow"><div><div className="sk2">{t('System LLM engines')}</div><div className="ss">{t('Providers, keys, routing & fallbacks for every text generation')}</div></div><button className="btn ghost" onClick={() => props.onAction('llm-engines')}>{t('Manage')} →</button></div>
                       <div className="srow"><div><div className="sk2">{t('Audio engines')}</div><div className="ss">{t('Speech / TTS providers for table reads, narration & dubbing')}</div></div><button className="btn ghost" onClick={() => props.onAction('audio-engines')}>{t('Manage')} →</button></div>
+                      <div className="srow"><div><div className="sk2">{t('Video engines')}</div><div className="ss">{t('ComfyUI / Runway render providers for vertical AI video — failover & live status')}</div></div><button className="btn ghost" onClick={() => props.onAction('video-engines')}>{t('Manage')} →</button></div>
                     </div>
                     <div className="panel">
-                      <div className="pt">{t('Recent runs')}</div>
+                      <div className="pc-h" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                        <div className="pt">{t('Recent runs')} <span style={{ fontSize: 10.5, color: 'var(--faint)', fontWeight: 500 }}>· {t('live · AiRun ∪ VideoRun')}{feed ? ' · ' + feed.total : ''}</span></div>
+                        <div className="rfilters">
+                          {[['24h', 24], ['7 days', 168], ['All', 720]].map((o: any) => (<button key={o[1]} className={'fchip' + (rf.hours === o[1] ? ' on' : '')} onClick={() => setRf((s) => ({ ...s, hours: o[1] }))}>{t(o[0])}</button>))}
+                          {[['All', undefined], ['Success', 'success'], ['Error', 'error']].map((o: any, i: number) => (<button key={i} className={'fchip' + ((rf.status || 'All') === (o[1] || 'All') ? ' on' : '')} onClick={() => setRf((s) => ({ ...s, status: o[1] }))}>{t(o[0])}</button>))}
+                          <select className="fsel" value={rf.surface || ''} onChange={(e) => setRf((s) => ({ ...s, surface: e.target.value || undefined }))}><option value="">{t('All surfaces')}</option>{(feed?.surfaces || []).map((sf: string) => (<option key={sf} value={sf}>{sf}</option>))}</select>
+                          <select className="fsel" value={rf.size || ''} onChange={(e) => setRf((s) => ({ ...s, size: e.target.value || undefined }))}><option value="">{t('Any size')}</option>{(feed?.sizes || []).map((sz: string) => (<option key={sz} value={sz}>{sz}</option>))}</select>
+                        </div>
+                      </div>
                       <div style={{ overflowX: 'auto', marginTop: 10 }}>
                         <table className="runs">
-                          <thead><tr><th>{t('Surface')}</th><th>{t('Model')}</th><th>{t('Tokens')}</th><th>{t('Conf')}</th><th>{t('Status')}</th><th>{t('When')}</th></tr></thead>
+                          <thead><tr><th>{t('Surface')}</th><th>{t('Stage / purpose')}</th><th>{t('Model')}</th><th>{t('Size')}</th><th>{t('Status')}</th><th>{t('Dur')}</th><th>{t('When')}</th></tr></thead>
                           <tbody>
-                            {props.runs.map((r, i) => (
-                              <tr key={i}><td>{r.surface}</td><td>{r.model}</td><td>{r.tokens}</td><td>{Math.round((r.conf || 0) * 100)}%</td><td><span className={'badge ' + (r.statusClass || 'amber')}>{r.status}</span></td><td>{r.when}</td></tr>
+                            {(feed?.runs || []).map((r: any, i: number) => (
+                              <tr key={r.id || i}><td style={{ color: r.kind === 'VIDEO' ? 'var(--blue)' : undefined, fontWeight: 600 }}>{r.surface}</td><td>{[r.purpose, r.stage].filter(Boolean).join(' · ') || '—'}</td><td className="mono">{r.model}</td><td>{r.tokens ? (r.size + ' · ' + fmtTok(r.tokens)) : (r.durationSec ? (r.durationSec + 's clip') : '—')}</td><td><span className={'badge ' + (r.result === 'error' ? 'red' : (r.result === 'running' ? 'amber' : 'green'))}>{r.status}</span></td><td>{r.durationMs ? Math.round(r.durationMs / 1000) + 's' : (r.durationSec ? r.durationSec + 's' : '—')}</td><td>{relTime(r.when)}</td></tr>
                             ))}
+                            {feed && !feed.runs.length && (<tr><td colSpan={7} style={{ color: 'var(--faint)' }}>{t('No runs in this window.')}</td></tr>)}
+                            {!feed && (<tr><td colSpan={7} style={{ color: 'var(--faint)' }}>{t('Loading run history…')}</td></tr>)}
                           </tbody>
                         </table>
                       </div>

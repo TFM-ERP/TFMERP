@@ -28,4 +28,8 @@ export class LlmEnginesController {
   @Get('routing') getRouting(@Query('scope') scope = 'ORG', @Query('projectId') projectId?: string) { return this.llm.getRouting(scope, projectId); }
   @Put('routing/:capability') @RequirePermission('production', 2) setRouting(@Param('capability') c: string, @Body() b: any, @Req() req: any) { return this.llm.setRouting(c, { ...b, userId: req.user?.id }); }
   @Get('routing-resolved') resolveAll(@Query('projectId') projectId?: string) { return this.llm.resolveAll(projectId); }
+
+  @Get('runs') runs(@Query('hours') hours?: string, @Query('limit') limit?: string, @Query('projectId') projectId?: string, @Query('surface') surface?: string, @Query('status') status?: string, @Query('size') size?: string) {
+    return this.llm.recentRuns({ hours: hours ? Number(hours) : undefined, limit: limit ? Number(limit) : undefined, projectId, surface, status, size });
+  }
 }

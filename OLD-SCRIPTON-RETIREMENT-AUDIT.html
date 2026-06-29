@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Old ScriptOn — Retirement Audit &amp; Plan</title>
+<style>
+  :root{
+    --bg:#0c0d11; --panel:#14161c; --panel2:#181b22; --hair:rgba(255,255,255,.08);
+    --gold:#C6A463; --gold2:#E6D2A2; --goldink:#1a1509;
+    --text:#e8e6e1; --mute:#9aa1ab; --faint:#6b727d;
+    --green:#57b368; --amber:#e0a23b; --red:#e5635f; --blue:#6ea8d8;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 700px at 70% -10%,#15171f 0%,var(--bg) 55%);
+    color:var(--text);font:15px/1.62 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:0 0 90px}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 28px}
+  header{padding:52px 0 28px;border-bottom:1px solid var(--hair)}
+  .kick{font-size:12px;letter-spacing:3px;text-transform:uppercase;color:var(--gold);font-weight:700}
+  h1{font-size:32px;line-height:1.15;margin:14px 0 10px;font-weight:800;letter-spacing:-.5px}
+  h1 .accent{background:linear-gradient(180deg,var(--gold2),var(--gold));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .sub{color:var(--mute);font-size:16px;max-width:780px}
+  h2{font-size:13px;letter-spacing:2.5px;text-transform:uppercase;color:var(--gold);margin:44px 0 14px;font-weight:700}
+  h3{font-size:17px;margin:22px 0 6px;font-weight:700}
+  p{margin:9px 0}
+  .lead{font-size:16px;color:#d7d4cc}
+  .card{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--hair);border-radius:14px;padding:20px 22px;margin:14px 0}
+  .verdict{border-color:rgba(198,164,99,.45);background:linear-gradient(180deg,rgba(198,164,99,.10),rgba(198,164,99,.02))}
+  .warn{border-color:rgba(229,99,95,.45);background:linear-gradient(180deg,rgba(229,99,95,.08),transparent)}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--hair);vertical-align:top}
+  th{color:var(--gold);font-size:10.5px;letter-spacing:1px;text-transform:uppercase}
+  code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;background:rgba(255,255,255,.05);padding:1px 5px;border-radius:5px;color:var(--gold2)}
+  .pill{font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:6px;white-space:nowrap}
+  .keep{background:rgba(87,179,104,.14);color:var(--green)}
+  .dual{background:rgba(224,162,59,.14);color:var(--amber)}
+  .old{background:rgba(229,99,95,.14);color:var(--red)}
+  .new{background:rgba(110,168,216,.14);color:var(--blue)}
+  ul{margin:8px 0;padding-left:20px}li{margin:6px 0}
+  .num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:linear-gradient(180deg,var(--gold2),var(--gold));color:var(--goldink);font-weight:800;font-size:12px;margin-right:8px}
+  .phase{border-left:3px solid var(--gold);padding-left:16px;margin:18px 0}
+  .big{font-size:20px;font-weight:800;color:var(--gold2)}
+  .muted{color:var(--mute)}
+  .tag{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;border:1px solid var(--hair);color:var(--mute);margin:2px 3px 2px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="kick">ScriptON · Technical audit</div>
+  <h1>Retiring <span class="accent">old ScriptOn</span> — full inventory &amp; plan</h1>
+  <p class="sub">Every remaining legacy surface, what still depends on it, and the ordered, low-risk path to delete it for good. Audited statically across the whole frontend (and the backend pool).</p>
+  <div style="margin-top:14px">
+    <span class="tag">8 dual routes</span><span class="tag">5 legacy-only routes</span><span class="tag">~44 legacy files</span><span class="tag">1 shared-primitive gate</span><span class="tag">Settings ✓ locked to new</span>
+  </div>
+</header>
+
+<div class="card verdict">
+  <p class="lead" style="margin-top:0"><b>Headline.</b> The new OS is the hard default (<code>osShell = 'new'</code>); <b>'old' survives only as a localStorage escape hatch and as the tablet/mobile path.</b> Old isn't a few stray files — it's a parallel set of ~44 components behind a flag, plus 5 screens that were <b>never</b> rebuilt on the new OS. And one trap: the shared rail + design tokens (<code>SxRail</code>, <code>SX_CSS</code>) still live <i>inside</i> the old <code>ScriptOnStudio.tsx</code>, which the new OS imports. Extract those first, then the rest comes out cleanly in four phases.</p>
+</div>
+
+<!-- FLAG MODEL -->
+<h2>How old still renders</h2>
+<div class="card">
+  <table>
+    <tr><th>Mechanism</th><th>Where</th><th>Effect</th></tr>
+    <tr><td><b>The flag</b></td><td><code>osShellFlag.ts</code> · default <code>'new'</code></td><td>Only <code>localStorage['scripon.osShell']==='old'</code> flips a route back to legacy. Escape hatch — "kept, not deleted."</td></tr>
+    <tr><td><b>Layout bypass</b></td><td><code>(dashboard)/layout.tsx</code> ~L458</td><td><code>isScripton &amp;&amp; flag==='new'</code> → fullscreen, no dashboard chrome. <code>else</code> → the old dashboard layout.</td></tr>
+    <tr><td><b>Viewport twins</b></td><td>every dual route</td><td>The new shell renders <b>desktop only</b>: <code>flag==='new' &amp;&amp; vp==='desktop' ? new : body</code> — so <b>tablet &amp; mobile always get the old twins</b>, even on the new flag.</td></tr>
+  </table>
+</div>
+
+<!-- ROUTE INVENTORY -->
+<h2>Every ScriptON route, classified</h2>
+<div class="card">
+  <table>
+    <tr><th>Route</th><th>New-OS component</th><th>Legacy still wired</th><th>Status</th></tr>
+    <tr><td><code>/settings</code></td><td>studio/ScriptonStudio</td><td>— (trio retired)</td><td><span class="pill keep">DONE · locked</span></td></tr>
+    <tr><td><code>/script</code></td><td>ScriptPaper + SxRail</td><td>—</td><td><span class="pill keep">unified</span></td></tr>
+    <tr><td><code>/package</code></td><td>canvas + SxRail</td><td>ScriptOnPackagePanel*</td><td><span class="pill keep">unified</span></td></tr>
+    <tr><td><code>/dialect</code></td><td>canvas + SxRail/SX_CSS</td><td>—</td><td><span class="pill keep">unified</span></td></tr>
+    <tr><td><code>/coverage · /builds · /intake</code></td><td>redirects → doctor / studio / studio</td><td>—</td><td><span class="pill keep">retired</span></td></tr>
+    <tr><td><code>/</code> (home)</td><td>home/ScriptonHome</td><td>ScriptOnDashboard +Tablet +Mobile</td><td><span class="pill dual">dual</span></td></tr>
+    <tr><td><code>/doctor</code></td><td>doctor/ScriptonDoctor</td><td>ScriptOnDoctor +T +M · RewriteSlate · CompsDeck · PackagePanel</td><td><span class="pill dual">dual</span></td></tr>
+    <tr><td><code>/canon</code></td><td>canon/ScriptonCanon</td><td>legacy "coming soon" stub</td><td><span class="pill dual">dual</span></td></tr>
+    <tr><td><code>/studio</code></td><td>develop/ScriptonDevelop · ScriptonShell</td><td>ScriptOnStudio +T +M · BuildScreen · Intake</td><td><span class="pill dual">dual</span></td></tr>
+    <tr><td><code>/library</code></td><td>ScriptOnLibrary <i>embedded</i> + Shell</td><td>ScriptOnLibrary +T +M (old desktop path)</td><td><span class="pill dual">dual</span></td></tr>
+    <tr><td><code>/reader</code></td><td>write/ScriptonWrite</td><td>ScriptOnReader +T +M · RewriteSlate</td><td><span class="pill dual">dual</span></td></tr>
+    <tr><td><code>/revisions</code></td><td>compare/ScriptonCompare · versions/ScriptonVersions</td><td>ScriptOnRevisions +T +M</td><td><span class="pill dual">dual</span></td></tr>
+    <tr><td><code>/notes</code></td><td>room/ScriptonRoom</td><td>ScriptOnNotes +T +M</td><td><span class="pill dual">dual</span></td></tr>
+    <tr><td><code>/breakdown</code></td><td><b>none</b></td><td>ScriptOnBreakdown +T +M</td><td><span class="pill old">legacy-only</span></td></tr>
+    <tr><td><code>/schedule</code></td><td><b>none</b></td><td>ScriptOnSchedule +T +M</td><td><span class="pill old">legacy-only</span></td></tr>
+    <tr><td><code>/approvals</code></td><td><b>none</b></td><td>ScriptOnApprovals +T +M</td><td><span class="pill old">legacy-only</span></td></tr>
+    <tr><td><code>/reports</code></td><td><b>none</b></td><td>ScriptOnReports +T +M</td><td><span class="pill old">legacy-only</span></td></tr>
+    <tr><td><code>/greenlight</code></td><td><b>none</b></td><td>ScriptOnGreenlight +T +M</td><td><span class="pill old">legacy-only</span></td></tr>
+  </table>
+  <p class="muted" style="margin-bottom:0">* <code>ScriptOnPackagePanel</code> is consumed by the doctor route; the package route is otherwise unified.</p>
+</div>
+
+<!-- THE GATE -->
+<div class="card warn">
+  <h3 style="margin-top:0">⚠ The one blocker — shared primitives live in the old file</h3>
+  <p>The old <code>ScriptOnStudio.tsx</code> <b>exports</b> <code>SxRail</code> (the rail), <code>SX_CSS</code> (design tokens), <code>cleanStageText</code>, and the <code>SxLadder / SxSpine / SxDirection / SxEpisode</code> types. <b>14 files import them — including the new OS itself:</b> ScriptonHome, ScriptonDevelop, ScriptonWrite, ScriptonRoom, ScriptonCompare, ScriptonVersions, ScriptonCanon, ScriptonDoctor, studio/ScriptonStudio, plus the canon/script/package/dialect pages.</p>
+  <p style="margin-bottom:0"><b>Consequence:</b> you cannot delete <code>ScriptOnStudio.tsx</code> until those primitives are extracted into a neutral shared module. This is step zero.</p>
+</div>
+
+<!-- FILE TALLY -->
+<h2>What gets deleted, in numbers</h2>
+<div class="card">
+  <table>
+    <tr><th>Cluster</th><th>Files</th><th>Gated by</th></tr>
+    <tr><td>Tablet/Mobile twins (all 13 screens)</td><td><b>26</b></td><td>new shell must be responsive</td></tr>
+    <tr><td>Old desktop components (dual routes)</td><td><b>7</b> <span class="muted">Dashboard, Doctor, Reader, Revisions, Notes, Studio-body, Library-old-path</span></td><td>drop the <code>'old'</code> flag branch</td></tr>
+    <tr><td>Legacy-only desktop (no new yet)</td><td><b>5</b> <span class="muted">Breakdown, Schedule, Approvals, Reports, Greenlight</span></td><td>product decision: rebuild or sunset</td></tr>
+    <tr><td>Legacy helpers</td><td><b>5</b> <span class="muted">RewriteSlate, CmdK, CompsDeck, PackagePanel, BuildScreen</span></td><td>clean their host routes first</td></tr>
+    <tr><td>Shared-primitive shell</td><td><b>1</b> <span class="muted">ScriptOnStudio.tsx (after extraction)</span></td><td>step 0 extraction</td></tr>
+    <tr><td style="border:none"><b>Total</b></td><td style="border:none"><b class="big">~44 files</b></td><td style="border:none"></td></tr>
+  </table>
+  <p class="muted" style="margin-bottom:0">None are orphaned today — every legacy file is still reachable via the flag, a viewport, or a legacy-only route. So nothing is "delete now"; each comes out as its blocker is cleared.</p>
+</div>
+
+<!-- PLAN -->
+<h2>Retirement plan — ordered, low-risk</h2>
+
+<div class="phase">
+  <h3><span class="num">0</span>Extract the shared primitives <span class="pill new">unblocks all</span></h3>
+  <p class="muted">Move <code>SxRail</code>, <code>SX_CSS</code>, <code>cleanStageText</code> + the <code>Sx*</code> types out of <code>ScriptOnStudio.tsx</code> into <code>scripton/shared/sx.tsx</code>; repoint all 14 imports. Zero UX change — pure refactor. After this, the old <code>ScriptOnStudio</code> is just a (still-referenced) screen, not a library.</p>
+</div>
+<div class="phase">
+  <h3><span class="num">1</span>Make the new shell responsive, delete the 26 twins</h3>
+  <p class="muted">Let <code>ScriptonShell</code> + the new components handle tablet/mobile (they're fluid already; mostly drop the <code>vp==='desktop'</code> guard and add breakpoints). Then remove the <code>vp→Tablet/Mobile</code> branches on all 13 routes and delete the 26 <code>*Tablet/*Mobile</code> files.</p>
+</div>
+<div class="phase">
+  <h3><span class="num">2</span>Drop the <code>'old'</code> escape hatch, delete 7 old desktops</h3>
+  <p class="muted">Remove the <code>flag==='old'</code> branches from the 8 dual routes + the <code>else</code> dashboard-chrome path in <code>layout.tsx</code>; retire <code>osShellFlag</code>'s <code>'old'</code> value. Delete the 7 old desktop components + the canon legacy stub. New becomes the only path.</p>
+</div>
+<div class="phase">
+  <h3><span class="num">3</span>Decide the 5 legacy-only screens <span class="pill old">needs your call</span></h3>
+  <p class="muted"><b>Breakdown, Schedule, Approvals, Reports, Greenlight</b> have <b>no</b> new-OS version — deleting them removes the feature. Per screen: (a) rebuild on the new shell, (b) redirect to the nearest new screen, or (c) sunset. Then delete their 15 files.</p>
+</div>
+<div class="phase">
+  <h3><span class="num">4</span>Sweep the helpers + the flag</h3>
+  <p class="muted">After their hosts are clean, delete <code>ScriptOnRewriteSlate, ScriptOnCmdK, ScriptOnCompsDeck, ScriptOnPackagePanel, ScriptOnBuildScreen</code> and finally <code>ScriptOnStudio.tsx</code> + <code>osShellFlag.ts</code>. No more old/new branching anywhere.</p>
+</div>
+
+<!-- BACKEND -->
+<h2>Backend &amp; data</h2>
+<div class="card">
+  <p style="margin-top:0">The pool split you flagged is <b>already fixed</b> — the Slate now merges the whole <code>DevelopmentBuild</code> pool with the old master-script library. One remaining concept to keep (not "old"): the hidden <code>scriponWorkspace</code> project, which is just the home builds develop under when no project is attached — it stays.</p>
+  <p style="margin-bottom:0" class="muted">No legacy/duplicate ScriptON <i>endpoints</i> were found beyond that; the API surface is already single-pool.</p>
+</div>
+
+<!-- DECISION -->
+<h2>What I need from you</h2>
+<div class="card verdict">
+  <ol style="margin:0">
+    <li><b>The 5 legacy-only screens</b> (Breakdown, Schedule, Approvals, Reports, Greenlight) — for each: rebuild on the new OS, redirect, or sunset? This is the only product decision; the rest is mechanical.</li>
+    <li><b>Tablet/mobile</b> — keep supporting them (I make the new shell responsive) or desktop-only for now (then the twins just get dropped)?</li>
+    <li><b>Go order</b> — I'd start with <b>Phase 0 (extract primitives)</b> + <b>Phase 2 (drop the 'old' flag on the 8 dual routes)</b> right away, since those are pure cleanup with no feature loss. Approve and I'll execute once the backend's back up to verify.</li>
+  </ol>
+</div>
+
+<p class="muted" style="font-size:12.5px;margin-top:30px">Static audit of <code>frontend/src</code> (every <code>/scripton</code> route + <code>components/scripton</code>) and the backend ScriptON pool. Settings verified unconditionally on the new <code>ScriptonStudio</code> and hardened against regression.</p>
+
+</div>
+</body>
+</html>

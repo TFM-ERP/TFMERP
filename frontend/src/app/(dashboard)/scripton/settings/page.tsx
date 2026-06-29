@@ -1,25 +1,22 @@
 'use client';
-/** ScriptON — Settings/Governance route /scripton/settings. Under the `new` shell
- *  flag it renders the consolidated Studio (export · security · access · AI gov);
- *  `old` keeps the existing tabbed settings. AI-gov runs are illustrative defaults
- *  (no runs API yet); Review Protection + the export flows are live. */
+/** ScriptON — Settings/Governance route /scripton/settings. ALWAYS renders the consolidated
+ *  new-OS Studio (export · security · access · AI gov) for every shell mode and viewport — the
+ *  legacy ScriptOnSettings desktop/tablet/mobile trio is retired and must NOT be reintroduced
+ *  (do not gate this on the osShell flag). Review Protection + the export flows are live. */
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import ScriptOnSettings, { SxRun } from '@/components/scripton/ScriptOnSettings';
-import ScriptOnSettingsTablet from '@/components/scripton/ScriptOnSettingsTablet';
-import ScriptOnSettingsMobile from '@/components/scripton/ScriptOnSettingsMobile';
+// Legacy ScriptOnSettings (desktop/tablet/mobile) retired — settings is unified on ScriptonStudio.
 import { useViewport } from '@/components/scripton/useViewport';
 import { useLocale, getLocale } from '@/lib/i18n';
 import { useScriptonBack } from '@/components/scripton/useScriptonBack';
-import { useScriptonShellFlag } from '@/components/scripton/osShellFlag';
 import { pickScriptonProject, resolveScriptonProjectId } from '@/components/scripton/useScriptonProject';
 import { productionApi } from '@/lib/api';
 import { buildScriptPrintHtml } from '@/components/scripton/scriptPaper';
 import ProtectedExportDialog, { ProtectedExportTarget } from '@/components/scripton/ProtectedExportDialog';
-import ScriptonStudio from '@/components/scripton/studio/ScriptonStudio';
+import ScriptonStudio, { StudioRun } from '@/components/scripton/studio/ScriptonStudio';
 import { useScriptonMode } from '@/components/scripton/useScriptonMode';
 
-const RUNS: SxRun[] = [
+const RUNS: StudioRun[] = [
   { surface: 'Coverage report', model: 'claude-opus-4', tokens: '18.4k', conf: 0.84, status: 'APPROVED', statusClass: 'green', when: '2h' },
   { surface: 'Scene diagnostics', model: 'claude-opus-4', tokens: '9.1k', conf: 0.88, status: 'APPROVED', statusClass: 'green', when: '2h' },
   { surface: 'Budget-fit · apply', model: 'claude-opus-4', tokens: '12.7k', conf: 0.71, status: 'PENDING', statusClass: 'amber', when: '1d' },
@@ -40,7 +37,6 @@ export default function ScriptOnSettingsPage() {
   const vp = useViewport();
   const { t } = useLocale();
   const onBack = useScriptonBack();
-  const flag = useScriptonShellFlag();
   const mode = useScriptonMode();
   const [toast, setToast] = useState<string | null>(null);
   const toastT = useRef<any>(null);
@@ -102,6 +98,7 @@ export default function ScriptOnSettingsPage() {
     // Surface the AI engines inside the OS — reachable from ScriptON without leaving for the FilmOS nav.
     if (k === 'llm-engines') return router.push('/setup/llm-engines');
     if (k === 'audio-engines') return router.push('/setup/audio-engines');
+    if (k === 'video-engines') return router.push('/setup/video-engines');
     const m: Record<string, string> = { save: t('Saving governance settings ships in the next phase — values shown are the live defaults.'), discard: t('Reverted.'), toggle: t('Confidence/approval gates are read-only here for now — wiring ships next.'), subnav: t('This settings section ships in the next phase.') };
     flash(m[k] || t('Coming soon.'));
   };
@@ -131,27 +128,22 @@ export default function ScriptOnSettingsPage() {
     flash(t('FDX & Fountain interop ship next — protected PDF and Word are live.'));
   };
 
-  if (flag === 'new') {
-    const exportTarget: ProtectedExportTarget = {
-      projectId: projectId || undefined, scriptDocumentId: docId || undefined, revisionId: revId || undefined,
-      getBaseHtml: () => buildScriptPrintHtml(text, title || 'Script', { ...info, lang: getLocale() }),
-      docTitle: title, meta: { projectTitle: info.projectTitle, scriptTitle: title, scriptVersion: revLabel },
-    };
-    return (
-      <>
-        <ScriptonStudio
-          title={title || 'ScriptON'} revisionLabel={revLabel} revisionColor={revColor}
-          companyName="The Film Makers" model="claude-opus-4" promptSet={t('Prompt set v3')} confidence={0.75} humanApproval
-          runs={RUNS} runsMeta={t('All AI flows through one service · 142 runs today')} projectId={projectId}
-          onExport={onExport} onAction={onAction} onNav={onNav} onBack={onBack} toast={toast} vp={vp}
-          settings={settings} onSaveSettings={saveSettings} mode={mode}
-        />
-        <ProtectedExportDialog open={protOpen} onClose={() => setProtOpen(false)} target={exportTarget} />
-      </>
-    );
-  }
-
-  const RC: any = vp === 'mobile' ? ScriptOnSettingsMobile : vp === 'tablet' ? ScriptOnSettingsTablet : ScriptOnSettings;
-  return <RC companyName="The Film Makers" model="claude-opus-4" promptSet={t('Prompt set v3')} confidence={0.75} humanApproval={true}
-    runs={RUNS} runsMeta={t('All AI flows through one service · 142 runs today')} onAction={onAction} onNav={onNav} onBack={onBack} toast={toast} />;
+  const exportTarget: ProtectedExportTarget = {
+    projectId: projectId || undefined, scriptDocumentId: docId || undefined, revisionId: revId || undefined,
+    getBaseHtml: () => buildScriptPrintHtml(text, title || 'Script', { ...info, lang: getLocale() }),
+    docTitle: title, meta: { projectTitle: info.projectTitle, scriptTitle: title, scriptVersion: revLabel },
+  };
+  // Settings is unified on ScriptonStudio for every shell mode — the legacy trio is retired; it is responsive via `vp`.
+  return (
+    <>
+      <ScriptonStudio
+        title={title || 'ScriptON'} revisionLabel={revLabel} revisionColor={revColor}
+        companyName="The Film Makers" model="claude-opus-4" promptSet={t('Prompt set v3')} confidence={0.75} humanApproval
+        runs={RUNS} runsMeta={t('All AI flows through one service · 142 runs today')} projectId={projectId}
+        onExport={onExport} onAction={onAction} onNav={onNav} onBack={onBack} toast={toast} vp={vp}
+        settings={settings} onSaveSettings={saveSettings} mode={mode}
+      />
+      <ProtectedExportDialog open={protOpen} onClose={() => setProtOpen(false)} target={exportTarget} />
+    </>
+  );
 }

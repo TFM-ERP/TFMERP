@@ -52,6 +52,14 @@ const CSS = `
 .sx .scard.add:hover{color:var(--gold2);border-color:rgba(198,164,99,.5)}
 .sx .scard.add .plus{width:46px;height:46px;border-radius:50%;border:1.5px dashed currentColor;display:grid;place-items:center}
 .sx .toast{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);z-index:9;background:#1b1e25;border:1px solid var(--hair2);color:var(--cream);font-size:12.5px;padding:10px 16px;border-radius:10px;box-shadow:0 14px 40px -12px rgba(0,0,0,.7)}
+/* actions inlined into the page header (no separate full-width strip → matches Home/Build) */
+.sx .libhead{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.sx .libactions{display:flex;align-items:center;gap:8px;flex:none}
+.sx .libactions .search{min-width:210px}
+/* delete affordance reveals on hover and swaps with the revision pill (no overlap) */
+.sx .cardx{position:absolute;top:10px;inset-inline-end:12px;width:26px;height:26px;border-radius:8px;background:rgba(0,0,0,.55);border:1px solid rgba(240,163,160,.4);color:#f0a3a0;display:grid;place-items:center;font-size:12px;cursor:pointer;opacity:0;transition:opacity .12s;z-index:2}
+.sx .scard:hover .cardx{opacity:1}
+.sx .scard:hover .pill.rev{opacity:0}
 `;
 
 const RAIL: { k: string; lbl: string; d: React.ReactNode }[] = [
@@ -69,28 +77,23 @@ const RAIL: { k: string; lbl: string; d: React.ReactNode }[] = [
 export default function ScriptOnLibrary(props: {
   meta: string; filters: string[]; activeFilter: string; onFilter: (f: string) => void; search: string; onSearch: (v: string) => void;
   cards: SxCard[]; onOpen: (id: string) => void; onNew: () => void; onNav: (k: string) => void; onBack: () => void; toast?: string | null; onDelete?: (id: string) => void; canDelete?: (id: string) => boolean; onBin?: () => void;
+  embedded?: boolean; // render only the main column inside ScriptonShell (new shell) — no hand-rolled chrome
 }) {
   const { dir, t } = useLocale();
-  return (
-    <>
-      <style dangerouslySetInnerHTML={{ __html: CSS }} />
-      <div className="sx" dir={dir} style={{ position: 'fixed', inset: 0, zIndex: 50 }}>
-        <ScriptonTopBar vp="desktop" onBack={props.onBack} scriptScoped={false} />
-        <div className="body">
-          <SxRail active="library" />
-          <div className="main">
+  const main = (
+    <div className="main">
             {/* Library actions live INSIDE the main column (not a strip between bar and body),
                 so the rail sits directly under ScriptonTopBar — identical chrome to every screen. */}
-            <div className="top" style={{ height: 52, justifyContent: 'flex-end' }}>
-              <div className="tr">
+            <div className="content">
+            <div className="phead libhead">
+              <div><h1>{t('Scripts')}</h1><div className="sub">{t('Develop, adapt, import (FDX · Fountain · Celtx · Word · PDF + OCR) — one source of truth per title.')}</div></div>
+              <div className="libactions">
                 <div className="search"><svg className="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4-4" /></svg><input value={props.search} onChange={(e) => props.onSearch(e.target.value)} placeholder={t('Search title, writer, character…')} /></div>
                 {props.onBin ? <button className="btn outline" onClick={props.onBin}><svg className="ico" viewBox="0 0 24 24"><path d="M3 6h18M19 6l-1 14H6L5 6M10 11v6M14 11v6" /></svg>{t('Bin')}</button> : null}
                 <button className="btn outline" onClick={props.onNew}><svg className="ico" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14" /></svg>{t('Import')}</button>
                 <button className="btn gold" onClick={props.onNew}><svg className="ico" viewBox="0 0 24 24" style={{ stroke: '#1a1509' }}><path d="M12 5v14M5 12h14" /></svg>{t('New script')}</button>
               </div>
             </div>
-            <div className="content">
-            <div className="phead"><h1>{t('Scripts')}</h1><div className="sub">{t('Develop, adapt, import (FDX · Fountain · Celtx · Word · PDF + OCR) — one source of truth per title.')}</div></div>
             <div className="filters">{props.filters.map((f) => (<button key={f} className={'chip' + (f === props.activeFilter ? ' on' : '')} onClick={() => props.onFilter(f)}>{t(f)}</button>))}<span style={{ marginInlineStart: 'auto' }} className="meta">{t('Sorted by recently updated')}</span></div>
             <div className="cardgrid">
               {props.cards.map((c) => (
@@ -98,7 +101,7 @@ export default function ScriptOnLibrary(props: {
                   <div className="cover" style={{ background: c.cover, position: 'relative' }}>
                     <span className="badge" style={{ background: 'rgba(255,255,255,.10)', color: c.typeColor }}>{c.type}</span>
                     <span className="pill rev" style={{ background: 'rgba(0,0,0,.35)', color: c.revColor }}><span className="d" style={{ background: c.revColor }} />{c.rev}</span>
-                    {props.onDelete && props.canDelete && props.canDelete(c.id) ? <span onClick={(e) => { e.stopPropagation(); props.onDelete!(c.id); }} title={t('Move to bin')} style={{ position: 'absolute', top: 8, insetInlineEnd: 8, width: 26, height: 26, borderRadius: 8, background: 'rgba(0,0,0,.5)', color: '#f0a3a0', display: 'grid', placeItems: 'center', fontSize: 12, cursor: 'pointer' }}>{'\u2715'}</span> : null}
+                    {props.onDelete && props.canDelete && props.canDelete(c.id) ? <span onClick={(e) => { e.stopPropagation(); props.onDelete!(c.id); }} title={t('Move to bin')} className="cardx">{'\u2715'}</span> : null}
                   </div>
                   <div className="b"><div className="ti2">{c.title}</div><div className="mrow"><span>{c.pages}</span><span>·</span><span style={{ color: c.gradeColor, fontWeight: 700 }}>{c.grade}</span><span style={{ marginInlineStart: 'auto' }}>{c.updated}</span></div></div>
                 </button>
@@ -106,6 +109,22 @@ export default function ScriptOnLibrary(props: {
               <button className="scard add" onClick={props.onNew}><div className="plus"><svg className="ico" viewBox="0 0 24 24" style={{ width: 22, height: 22 }}><path d="M12 5v14M5 12h14" /></svg></div><div style={{ fontSize: 13, fontWeight: 600 }}>{t('New · Import · Develop')}</div></button>
             </div>
           </div></div>
+  );
+
+  // New shell: render only the main column — ScriptonShell supplies the .sx container, top bar, rail & toast.
+  if (props.embedded) {
+    return (<><style dangerouslySetInnerHTML={{ __html: CSS }} />{main}</>);
+  }
+
+  // Standalone (old-shell fallback): hand-rolled full chrome.
+  return (
+    <>
+      <style dangerouslySetInnerHTML={{ __html: CSS }} />
+      <div className="sx" dir={dir} style={{ position: 'fixed', inset: 0, zIndex: 50 }}>
+        <ScriptonTopBar vp="desktop" onBack={props.onBack} scriptScoped={false} />
+        <div className="body">
+          <SxRail active="library" />
+          {main}
         </div>
         {props.toast && <div className="toast">{props.toast}</div>}
       </div>

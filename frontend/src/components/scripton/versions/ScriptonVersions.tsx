@@ -46,8 +46,8 @@ const CSS = `
 .sx.vers .phead h1{font-family:var(--sx-title);font-size:21px;font-weight:600;color:var(--cream);letter-spacing:-.2px;font-variation-settings:"SOFT" 0,"WONK" 1}
 .sx.vers .phead .sub{font-size:12px;color:var(--faint);margin-top:6px}
 .sx.vers .grid{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr;gap:24px;padding:12px 40px 28px;overflow:hidden}
-/* timeline */
-.sx.vers .tl{background:#181b22;border:1px solid var(--hair);border-radius:14px;padding:26px 26px 26px 30px;overflow:auto;position:relative}
+/* timeline (renamed .tl → .vtl: .tl collided with the shared top bar's left cluster and turned it into a card) */
+.sx.vers .vtl{background:#181b22;border:1px solid var(--hair);border-radius:14px;padding:26px 26px 26px 30px;overflow:auto;position:relative}
 .sx.vers .spine{position:relative;padding-inline-start:30px}
 .sx.vers .spine:before{content:"";position:absolute;inset-inline-start:5px;top:8px;bottom:8px;width:2px;background:var(--hair2)}
 .sx.vers .node{position:relative;margin-bottom:18px}
@@ -104,7 +104,7 @@ const CSS = `
 .sx.vers .toast{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);z-index:9;background:#1b1e25;border:1px solid var(--hair2);color:var(--cream);font-size:12.5px;padding:10px 16px;border-radius:10px}
 /* responsive: stack */
 .sx.vers[data-vp="tablet"] .grid,.sx.vers[data-vp="mobile"] .grid{display:flex;flex-direction:column;overflow:auto}
-.sx.vers[data-vp="tablet"] .tl,.sx.vers[data-vp="mobile"] .tl{flex:0 0 auto;overflow:visible}
+.sx.vers[data-vp="tablet"] .vtl,.sx.vers[data-vp="mobile"] .vtl{flex:0 0 auto;overflow:visible}
 .sx.vers[data-vp="tablet"] .rightcol,.sx.vers[data-vp="mobile"] .rightcol{flex:0 0 auto}
 .sx.vers[data-vp="tablet"] .dblock,.sx.vers[data-vp="mobile"] .dblock{max-height:340px}
 .sx.vers[data-vp="tablet"] .logwrap,.sx.vers[data-vp="mobile"] .logwrap{overflow:visible}
@@ -154,7 +154,7 @@ export default function ScriptonVersions(props: VersionsProps) {
             </div>
             <div className="grid">
               {/* ── Timeline ── */}
-              <div className="tl" ref={tlRef}>
+              <div className="vtl" ref={tlRef}>
                 <div className="spine">
                   {versions.length === 0 ? <div className="empty">{t('No versions yet — render a pass to start the timeline.')}</div> : versions.map((v) => (
                     <div className={'node' + (v.active ? ' active' : '') + (v.id === props.selectedId ? ' sel' : '')} key={v.id}>

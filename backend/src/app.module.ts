@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { AiModule } from './ai/ai.module';
+import { VideoModule } from './video/video.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { ClientsModule } from './clients/clients.module';
@@ -56,6 +57,7 @@ import { SavedViewsModule } from './saved-views/saved-views.module';
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
     AiModule,
+    VideoModule,
     StatusModule,
     AuthModule,
     UsersModule,

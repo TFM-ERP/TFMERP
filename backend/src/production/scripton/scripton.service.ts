@@ -596,6 +596,9 @@ export class ScripOnService {
     if (kind === 'INTERVIEW_OUTLINE') return { system: base + 'Write the INTERVIEW / SHOOTING OUTLINE: the key subjects, the questions for each (grouped by theme), and the verite sequences to capture. No fabricated answers.', shape: '{output}' };
     if (kind === 'PAPER_EDIT') return { system: base + 'Write the PAPER EDIT (string-out): assemble the film’s spine from the anticipated interview/archive/verite material — the ordered sequence of beats and sequences the edit will follow, act by act.', shape: '{output}' };
     if (kind === 'NARRATION') return { system: 'You are a documentary writer. Stay true to the prior stages (thesis, paper edit) and the creative brief. Write the NARRATION SCRIPT to the assumed locked picture: the voice-over that carries the argument, timed to the paper edit’s sequences. Mark sequence headers, then the VO beneath. Written LAST. Output ONLY the narration script as plain text.', shape: '{output}' };
+    // ── AI video (vertical, ~5s text-to-video) ──
+    if (kind === 'SHOT_LIST') return { system: base + 'Break the PREMISE into an ordered SHOT LIST for a short vertical (9:16) AI video. Each shot is ONE observable, physical action — no abstractions. Carry exact, consistent character/physical tags across shots, with a camera movement and the setting. Keep it tight (the whole piece is only a few seconds). Return {output, shots:[{index, action, characters, camera_movement, setting}]}.', shape: '{output, shots}' };
+    if (kind === 'VIDEO_PROMPT') return { system: 'You are an elite AI Cinematic Director. Stay true to the prior PREMISE and SHOT_LIST and the creative brief. Break the story into a strict JSON array of visual shots. Each shot represents EXACTLY the requested video duration. Honour the FORMAT CRITICAL rules in the brief (observable physical motion only; exact character tags; ONE primary action per shot). Fill EVERY structured field of each shot (location, subject, wardrobe, facial_expression, body_language, shot_size, camera_angle, lens, camera_movement, zoom, lighting, color_style, audio_fx_ambiance) — these structured fields ARE the generation spec the engine relies on. Then write each "prompt" as a COMPLETE, self-contained cinematic description — Subject + Action + Camera move + Scene/Lighting + Style, ~40-120 words — with the camera move and lighting baked into the sentence so any text-to-video engine (local ComfyUI, Runway or ByteDance Seedance) renders it faithfully without reading the other fields. Describe camera and subject motion separately, and avoid the word "fast" (it causes jitter). Return ONLY JSON, no text outside it.', shape: 'Return ONLY JSON matching this exact structure:\n{\n  "format": "VERTICAL_AI_VIDEO",\n  "aspectRatio": "9:16",\n  "shots": [\n    {\n      "index": 0,\n      "durationSec": 5,\n      "location": "<set / environment + time of day + weather — the continuity lock>",\n      "subject": "<character: the stable identity phrase, repeated verbatim in every scene>",\n      "wardrobe": "<outfit / costume>",\n      "facial_expression": "<emotion tokens, e.g. micro-smile, eye glint, brows easing across the shot>",\n      "body_language": "<posture + the ONE primary physical action>",\n      "shot_size": "<CU | MCU | MS | WS | EWS>",\n      "camera_angle": "<eye-level | low | high | dutch | overhead>",\n      "lens": "<e.g. 24mm wide | 50mm natural | 85mm portrait | 135mm compressed>",\n      "camera_movement": "<e.g. slow push-in, pan right, dolly>",\n      "zoom": "<none | slow zoom-in | snap zoom>",\n      "lighting": "<key/fill/rim + direction + colour temp (3200K warm / 5600K cool) + quality (hard/diffused) + volumetrics>",\n      "color_style": "<palette + film look, e.g. amber-and-shadow, anamorphic, fine grain>",\n      "reading_dialogue": "<Character: line or None>",\n      "audio_fx_ambiance": "<ambient + sfx + music cue; Seedance synthesises native audio>",\n      "prompt": "<COMPLETE self-contained text-to-video prompt assembled from the fields above: front-load Subject + Action, then Camera (size/angle/lens/move), then Lighting/Style; ~40-120 words; observable physical motion only; keep the identity phrase verbatim>",\n      "negativePrompt": "<the exact negative prompt provided in the directive>",\n      "seed": <integer>\n    }\n  ]\n}' };
     return { system: base, shape: '{output}' };
   }
 
@@ -773,14 +776,15 @@ export class ScripOnService {
     const knowDir = knowledgeDirective((buildRow && buildRow.brief) || intakeRow || {});
     const knowBlock = knowDir ? ('\n\nFORMAT & WORLD ENGINE (honour precisely across this stage):\n' + knowDir) : '';
     const draftRaw = kind === 'DRAFT';
-    const user = 'STAGE: ' + kind + (framework ? (' | FRAMEWORK: ' + framework) : '') + steer + researchBlock + srcBlock + soFarBlock + knowBlock + langDir + (draftRaw ? '\nWrite the screenplay now as plain text (no JSON, no metadata header).' : '\nReturn ONLY JSON ' + brief.shape + ' with NO title/format/rating/metadata fields.');
+    const jsonExact = kind === 'VIDEO_PROMPT'; // emit the exact JSON shape verbatim (format/aspectRatio are wanted output, not metadata to strip)
+    const user = 'STAGE: ' + kind + (framework ? (' | FRAMEWORK: ' + framework) : '') + steer + researchBlock + srcBlock + soFarBlock + knowBlock + langDir + (draftRaw ? '\nWrite the screenplay now as plain text (no JSON, no metadata header).' : jsonExact ? '\n' + brief.shape : '\nReturn ONLY JSON ' + brief.shape + ' with NO title/format/rating/metadata fields.');
     // Generous ceilings (NOT targets) — the model stops when the stage is done; a high cap only prevents premature
     // truncation of long stages. Every "heavy" long-form stage (scene maps, treatments, beat maps, drafts, narration,
     // step outlines, season arcs) gets a 25,000-token ceiling, is STREAMED (no single long blocking request, and no
     // non-streaming long-request ceiling), and runs on a 600s overall + 120s idle budget — so a busy provider has time
     // to finish a big generation, while a true stall aborts in ~2 min and fails over to the next engine.
-    const MAXTOK: any = { LOGLINE: 600, SYNOPSIS: 2400, TREATMENT: 25000, BEATS: 25000, SCENES: 25000, STEP_OUTLINE: 25000, DRAFT: 25000, COVERAGE: 2000, SEASON_ARC: 25000, EPISODE_MAP: 25000, PREMISE: 2400, STORY_ENGINE: 3500, BEAT_ENGINE: 25000, THESIS: 2400, RESEARCH_PLAN: 4000, RIGHTS_PLAN: 3000, INTERVIEW_OUTLINE: 5000, PAPER_EDIT: 25000, NARRATION: 25000 };
-    const HEAVY = ['SCENES', 'STEP_OUTLINE', 'DRAFT', 'TREATMENT', 'BEATS', 'EPISODE_MAP', 'BEAT_ENGINE', 'PAPER_EDIT', 'NARRATION', 'SEASON_ARC'];
+    const MAXTOK: any = { LOGLINE: 600, SYNOPSIS: 2400, TREATMENT: 25000, BEATS: 25000, SCENES: 25000, STEP_OUTLINE: 25000, DRAFT: 25000, COVERAGE: 2000, SEASON_ARC: 25000, EPISODE_MAP: 25000, PREMISE: 2400, STORY_ENGINE: 3500, BEAT_ENGINE: 25000, THESIS: 2400, RESEARCH_PLAN: 4000, RIGHTS_PLAN: 3000, INTERVIEW_OUTLINE: 5000, PAPER_EDIT: 25000, NARRATION: 25000, SHOT_LIST: 25000, VIDEO_PROMPT: 25000 };
+    const HEAVY = ['SCENES', 'STEP_OUTLINE', 'DRAFT', 'TREATMENT', 'BEATS', 'EPISODE_MAP', 'BEAT_ENGINE', 'PAPER_EDIT', 'NARRATION', 'SEASON_ARC', 'SHOT_LIST', 'VIDEO_PROMPT'];
     const heavy = HEAVY.indexOf(kind) >= 0;
     // Keep the per-stage ceiling (25k for the long stages); opts.maxTokens only overrides for tests.
     const cap = Number(opts?.maxTokens) > 0 ? Number(opts.maxTokens) : (MAXTOK[kind] || 3000);
@@ -800,12 +804,35 @@ export class ScripOnService {
     if (Array.isArray(ai.beats)) data.beats = ai.beats;
     if (Array.isArray(ai.scenes)) data.scenes = ai.scenes;
     if (Array.isArray(ai.steps)) data.steps = ai.steps;
+    if (Array.isArray(ai.shots)) data.shots = ai.shots;
+    if (kind === 'VIDEO_PROMPT' && ai && (ai.shots || ai.format)) data.videoPayload = { format: ai.format || 'VERTICAL_AI_VIDEO', aspectRatio: ai.aspectRatio || '9:16', shots: ai.shots || [] };
     if (ai.__warning) data.warning = ai.__warning; // persisted so a still-truncated outline is never silent
     const maxN = (stage.versions || []).reduce((m: number, v: any) => Math.max(m, v.n || 0), 0);
     const n = maxN + 1;
     const META = new Set(['title', 'format', 'rating', 'totalScenes', 'type', 'genre']);
     const flat = (v: any): string => { if (v == null) return ''; if (typeof v === 'string') return v; if (typeof v === 'number' || typeof v === 'boolean') return ''; if (Array.isArray(v)) return v.map(flat).filter(Boolean).join('\n\n'); if (typeof v === 'object') return Object.keys(v).filter((k) => !META.has(k)).map((k) => flat(v[k])).filter(Boolean).join('\n\n'); return String(v); };
     const stripFence = (t: string) => t.replace(/^```[a-z]*\s*/i, '').replace(/```\s*$/i, '').trim();
+    // Recover complete shot objects from a (possibly token-cap-truncated) VIDEO_PROMPT array. Brace-matches each
+    // top-level {…} inside "shots", string/escape aware, keeping every shot that parses; the cut-off trailing one
+    // is dropped. Turns an unterminated 90 KB blob into a valid payload the render panel and persistence can use.
+    const salvageVideoShots = (raw: string): { format: string; aspectRatio: string; shots: any[] } | null => {
+      if (!raw) return null;
+      const i = raw.indexOf('"shots"'); const lb = i >= 0 ? raw.indexOf('[', i) : -1;
+      if (lb < 0) return null;
+      const shots: any[] = []; let depth = 0, start = -1, inStr = false, esc = false;
+      for (let p = lb + 1; p < raw.length; p++) {
+        const ch = raw[p];
+        if (inStr) { if (esc) esc = false; else if (ch === '\\') esc = true; else if (ch === '"') inStr = false; continue; }
+        if (ch === '"') { inStr = true; continue; }
+        if (ch === '{') { if (depth === 0) start = p; depth++; }
+        else if (ch === '}') { depth--; if (depth === 0 && start >= 0) { try { shots.push(JSON.parse(raw.slice(start, p + 1))); } catch { /* skip malformed */ } start = -1; } }
+        else if (ch === ']' && depth === 0) break;
+      }
+      if (!shots.length) return null;
+      const fmt = (raw.match(/"format"\s*:\s*"([^"]+)"/) || [])[1] || 'VERTICAL_AI_VIDEO';
+      const ar = (raw.match(/"aspectRatio"\s*:\s*"([^"]+)"/) || [])[1] || '9:16';
+      return { format: fmt, aspectRatio: ar, shots };
+    };
     let body = '';
     if (kind === 'BEATS' && Array.isArray(data.beats) && data.beats.length) {
       body = data.beats.map((b: any) => ('■ ' + String(b.name || b.beatName || '') + (b.beat ? ' — ' + b.beat : '') + (b.purpose ? '\n   ' + b.purpose : '')).trim()).filter(Boolean).join('\n\n');
@@ -813,6 +840,23 @@ export class ScripOnService {
       body = data.scenes.map((sc: any) => ((sc.sceneNumber ? sc.sceneNumber + '. ' : '') + String(sc.slugline || sc.location || 'Scene') + (sc.synopsis ? '\n' + sc.synopsis : '') + (sc.purpose ? '\n   Purpose: ' + sc.purpose : '')).trim()).join('\n\n');
     } else if (kind === 'STEP_OUTLINE' && Array.isArray(data.steps) && data.steps.length) {
       body = data.steps.map((st: any, j: number) => ((st.n ?? j + 1) + '. ' + String(st.text || st.scene || '')).trim()).join('\n\n');
+    } else if (kind === 'SHOT_LIST' && Array.isArray(data.shots) && data.shots.length) {
+      body = data.shots.map((s: any, j: number) => ((s.index ?? j) + '. ' + String(s.action || s.prompt || 'Shot') + (s.camera_movement ? '  [' + s.camera_movement + ']' : '')).trim()).join('\n');
+    } else if (kind === 'VIDEO_PROMPT') {
+      let payload: any = (ai && (ai.shots || ai.format)) ? ai : (() => { try { return JSON.parse(stripFence(String((res && res.text) || ''))); } catch { return null; } })();
+      // Token-cap truncation leaves the JSON unterminated → recover every complete shot so the stage stays usable.
+      if (!payload || !Array.isArray(payload.shots) || !payload.shots.length) {
+        const salv = salvageVideoShots(stripFence(String((res && res.text) || '')));
+        if (salv && salv.shots.length) payload = salv;
+      }
+      if (payload && Array.isArray(payload.shots) && payload.shots.length) {
+        payload = { format: payload.format || 'VERTICAL_AI_VIDEO', aspectRatio: payload.aspectRatio || '9:16', shots: payload.shots };
+        data.shots = payload.shots;                 // reliable structured copy for the render panel + persistence
+        data.videoPayload = payload;
+        body = JSON.stringify(payload, null, 2);     // always valid JSON, never a truncated blob
+      } else {
+        body = stripFence(String((res && res.text) || ''));
+      }
     } else if (draftRaw) {
       body = (typeof ai.output === 'string' && ai.output.trim()) ? ai.output.trim() : stripFence(String((res && res.text) || ''));
     } else {
@@ -820,7 +864,7 @@ export class ScripOnService {
       if (!body) body = this.salvageProse(String((res && res.text) || '')) || stripFence(String((res && res.text) || ''));
     }
     if (/^[\[{][\s\S]*"(output|scenes|steps|beats)"\s*:/.test(body)) { try { const j: any = JSON.parse(body); const re = flat(j.output ?? j).trim(); if (re) body = re; } catch { /* leave as-is */ } }
-    if (/^[\[{]/.test(body.trim())) { const sv = this.salvageProse(body); if (sv) body = sv; }
+    if (/^[\[{]/.test(body.trim()) && kind !== 'VIDEO_PROMPT') { const sv = this.salvageProse(body); if (sv) body = sv; }
     if (!body) body = stripFence(String((res && res.text) || '').trim());
     if (!body) throw new BadRequestException('The model returned an empty draft for ' + kind + '. Try again - the prompt may be too long or the model was rate-limited.');
     const created: any = await (this.prisma as any).stageVersion.create({ data: { stageId: stage.id, n, title: kind.charAt(0) + kind.slice(1).toLowerCase().replace('_', ' ') + ' V' + n, body, data: Object.keys(data).length ? data : undefined, framework: opts?.framework || null, colorCode: this.WHEEL[(n - 1) % this.WHEEL.length], status: 'DRAFT', createdById: userId || null } });

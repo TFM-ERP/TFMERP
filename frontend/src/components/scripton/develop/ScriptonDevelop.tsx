@@ -18,6 +18,8 @@ import { productionApi } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
 import { SxRail, cleanStageText, type SxLadder, type SxSpine } from '@/components/scripton/ScriptOnStudio';
 import { ScriptPaper } from '@/components/scripton/scriptPaper';
+import VideoRenderPanel from '@/components/scripton/VideoRenderPanel';
+import CohesiveEpisodePanel from '@/components/scripton/CohesiveEpisodePanel';
 import ScriptonTopBar from '@/components/scripton/topbar/ScriptonTopBar';
 import ScriptonShell from '@/components/scripton/ScriptonShell';
 
@@ -36,8 +38,8 @@ export type ScriptonDevelopProps = {
   onPromoteScript?: (versionId: string) => void; // Draft → render the screenplay into the Library (opens the standalone render screen)
 };
 
-const TOTAL = 8;
-const LABEL: Record<string, string> = { LOGLINE: 'Logline', SYNOPSIS: 'Synopsis', TREATMENT: 'Treatment', BEATS: 'Beats', SCENES: 'Scenes', STEP_OUTLINE: 'Step Outline', DRAFT: 'Draft', COVERAGE: 'Coverage' };
+// TOTAL is computed per build from the ladder length (in the component body) — see below.
+const LABEL: Record<string, string> = { LOGLINE: 'Logline', SYNOPSIS: 'Synopsis', TREATMENT: 'Treatment', BEATS: 'Beats', SCENES: 'Scenes', STEP_OUTLINE: 'Step Outline', DRAFT: 'Draft', COVERAGE: 'Coverage', SEASON_ARC: 'Season arc', EPISODE_MAP: 'Episode map', PREMISE: 'Premise', STORY_ENGINE: 'Story engine', BEAT_ENGINE: 'Beat engine', THESIS: 'Thesis', RESEARCH_PLAN: 'Research plan', RIGHTS_PLAN: 'Rights plan', INTERVIEW_OUTLINE: 'Interview outline', PAPER_EDIT: 'Paper edit', NARRATION: 'Narration', SHOT_LIST: 'Shot List', VIDEO_PROMPT: 'Video Prompt' };
 
 // ── Markdown-clean (#47) + per-kind rendering ────────────────────────────────
 // Strip ** / * / ` / leading # / --- rules / runs of blank lines. No content is translated —
@@ -143,8 +145,31 @@ function StepList({ steps }: { steps: any[] }) {
     </ol>
   );
 }
+// Recover complete shot objects from a VIDEO_PROMPT body even when the JSON is truncated (the model hit
+// the token ceiling mid-array). Brace-matches each top-level {…} inside the "shots" array, string-aware,
+// and keeps every shot that parses — the incomplete trailing one is simply dropped.
+function salvageVideoPayload(raw: string): { format: string; aspectRatio: string; shots: any[] } | null {
+  if (!raw) return null;
+  const i = raw.indexOf('"shots"');
+  const lb = i >= 0 ? raw.indexOf('[', i) : -1;
+  if (lb < 0) return null;
+  const shots: any[] = [];
+  let depth = 0, start = -1, inStr = false, esc = false;
+  for (let p = lb + 1; p < raw.length; p++) {
+    const ch = raw[p];
+    if (inStr) { if (esc) esc = false; else if (ch === '\\') esc = true; else if (ch === '"') inStr = false; continue; }
+    if (ch === '"') { inStr = true; continue; }
+    if (ch === '{') { if (depth === 0) start = p; depth++; }
+    else if (ch === '}') { depth--; if (depth === 0 && start >= 0) { try { shots.push(JSON.parse(raw.slice(start, p + 1))); } catch { /* skip malformed */ } start = -1; } }
+    else if (ch === ']' && depth === 0) break;
+  }
+  if (!shots.length) return null;
+  const fmt = (raw.match(/"format"\s*:\s*"([^"]+)"/) || [])[1] || 'VERTICAL_AI_VIDEO';
+  const ar = (raw.match(/"aspectRatio"\s*:\s*"([^"]+)"/) || [])[1] || '9:16';
+  return { format: fmt, aspectRatio: ar, shots };
+}
 // The focused stage's content, by kind (prose · coverage sections · scene cards · numbered steps · Reader script paper · empty).
-function StageCanvasBody({ active, t }: { active?: SxLadder; t: (k: string) => string }) {
+function StageCanvasBody({ active, t, projectId }: { active?: SxLadder; t: (k: string) => string; projectId?: string | null }) {
   const kind = active?.kind || '';
   const hasContent = !!(active && (active.body || active.scenes?.length || active.steps?.length));
   if (!hasContent) return <div className="cvempty" dir="auto">{t('Not written yet — generate this stage from the one before it.')}</div>;
@@ -152,6 +177,21 @@ function StageCanvasBody({ active, t }: { active?: SxLadder; t: (k: string) => s
   if (kind === 'SCENES' && active!.scenes?.length) return <SceneCards scenes={active!.scenes!} t={t} />;
   if (kind === 'STEP_OUTLINE' && active!.steps?.length) return <StepList steps={active!.steps!} />;
   if (kind === 'COVERAGE') return <CoverageBody raw={active!.body} t={t} />;
+  if (kind === 'VIDEO_PROMPT') {
+    let payload: any = {};
+    try { payload = JSON.parse(String(active!.body || '{}')); } catch { /* truncated — salvage below */ }
+    // If the body didn't parse (token-cap truncation) or carried no shots, recover the complete shots so the
+    // render panel still works without forcing a costly regenerate.
+    if (!Array.isArray(payload?.shots) || !payload.shots.length) {
+      const salv = salvageVideoPayload(String(active!.body || ''));
+      if (salv) payload = salv;
+    }
+    return (<div dir="auto">
+      <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: "'Courier Prime',ui-monospace,monospace", fontSize: 12, color: 'var(--text)', lineHeight: 1.5, margin: 0 }}>{active!.body}</pre>
+      <CohesiveEpisodePanel projectId={projectId || ''} stageVersionId={active!.versionId} payload={payload} />
+      <VideoRenderPanel projectId={projectId || ''} stageVersionId={active!.versionId} payload={payload} />
+    </div>);
+  }
   const paras = cleanProse(active!.body).split(/\n{2,}/).filter((p) => p.trim());
   if (!paras.length) return <div className="cvempty" dir="auto">{t('Not written yet — generate this stage from the one before it.')}</div>;
   return <>{paras.map((p, i) => <p key={i} dir="auto">{p}</p>)}</>;
@@ -312,6 +352,7 @@ function StatusBar({ t, label }: { t: (k: string) => string; label: string }) {
 export default function ScriptonDevelop(props: ScriptonDevelopProps) {
   const { t, dir } = useLocale();
   const ladder = props.ladder || [];
+  const TOTAL = ladder.length || 8;   // stage count tracks the build's real ladder (feature = 8, vertical AI micro-drama = 10, …)
 
   // Counters (node §2): done = stages with a version (the node's 7/8 = Coverage mid-generation has
   // no version yet; a fully-developed build is 8/8). pct = round(done/total*100).
@@ -447,7 +488,7 @@ export default function ScriptonDevelop(props: ScriptonDevelopProps) {
       </div>
       <div className="cvdiv" />
       <div className="cvbody">
-        <StageCanvasBody active={active} t={t} />
+        <StageCanvasBody active={active} t={t} projectId={props.projectId} />
       </div>
       <div className="cvfoot">
         {props.genBusy ? (

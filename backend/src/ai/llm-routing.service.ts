@@ -308,4 +308,43 @@ export class LlmRoutingService implements OnModuleInit {
   async resolveAll(projectId?: string) {
     return { capabilities: CAPABILITIES, org: await this.getRouting('ORG'), project: projectId ? await this.getRouting('PROJECT', projectId) : null };
   }
+
+  // ── Recent runs feed (AiRun ∪ VideoRun) — powers the AI Governance "Recent Runs" section ──
+  private sizeBucket(t: number): string {
+    if (!t || t < 1000) return 'Tiny';
+    if (t < 5000) return 'Small';
+    if (t < 15000) return 'Medium';
+    if (t < 40000) return 'Large';
+    if (t < 100000) return 'X-Large';
+    return 'Massive';
+  }
+
+  /** Recent AI + video runs, normalized + filterable. Surface/purpose/stage parse from the task string. */
+  async recentRuns(opts: { hours?: number; limit?: number; projectId?: string; surface?: string; status?: string; size?: string } = {}) {
+    const hours = Math.min(Number(opts.hours) || 24, 24 * 30);
+    const limit = Math.min(Number(opts.limit) || 80, 300);
+    const since = new Date(Date.now() - hours * 3600 * 1000);
+    const where: any = { createdAt: { gte: since } };
+    if (opts.projectId) where.projectId = opts.projectId;
+    let ai: any[] = []; let vid: any[] = [];
+    try { ai = await (this.prisma as any).aiRun.findMany({ where, orderBy: { createdAt: 'desc' }, take: limit * 2 }); } catch { ai = []; }
+    try { vid = await (this.prisma as any).videoRun.findMany({ where, orderBy: { createdAt: 'desc' }, take: limit * 2 }); } catch { vid = []; }
+    const norm: any[] = [];
+    for (const r of ai) {
+      const parts = String(r.task || '').split('.');
+      const tokens = (r.inputTokens || 0) + (r.outputTokens || 0);
+      norm.push({ kind: 'LLM', id: r.id, when: r.createdAt, surface: parts[0] || 'system', purpose: parts[1] || '', stage: parts.slice(2).join('.') || '', task: r.task, model: r.model, provider: r.provider || '', tokens, size: this.sizeBucket(tokens), status: r.status, result: r.status === 'DONE' ? 'success' : r.status === 'ERROR' ? 'error' : 'running', durationMs: r.latencyMs ?? null, confidence: r.confidence != null ? Number(r.confidence) : null, error: r.error || null });
+    }
+    for (const r of vid) {
+      norm.push({ kind: 'VIDEO', id: r.id, when: r.createdAt, surface: 'video', purpose: 'render', stage: r.provider || '', task: 'video.render.' + (r.provider || ''), model: r.model, provider: r.provider || '', tokens: null, size: null, durationSec: r.durationSec ?? null, status: r.status, result: r.status === 'COMPLETED' ? 'success' : r.status === 'FAILED' ? 'error' : 'running', durationMs: r.latencyMs ?? null, videoUrl: r.videoUrl || null, error: r.error || null });
+    }
+    norm.sort((a, b) => new Date(b.when).getTime() - new Date(a.when).getTime());
+    const surfaces = Array.from(new Set(norm.map((r) => r.surface).filter(Boolean))).sort();
+    const models = Array.from(new Set(norm.map((r) => r.model).filter(Boolean))).sort();
+    let rows = norm;
+    if (opts.surface) rows = rows.filter((r) => r.surface === opts.surface);
+    if (opts.status) rows = rows.filter((r) => r.result === opts.status || r.status === opts.status);
+    if (opts.size) rows = rows.filter((r) => r.size === opts.size);
+    return { runs: rows.slice(0, limit), total: norm.length, surfaces, models, sizes: ['Tiny', 'Small', 'Medium', 'Large', 'X-Large', 'Massive'], window: { hours } };
+  }
 }

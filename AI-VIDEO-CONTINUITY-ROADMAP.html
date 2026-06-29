@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ScriptON · Cohesive AI Episode Pipeline — Audit, Research & Roadmap</title>
+<style>
+  :root{
+    --bg:#0c0d11; --panel:#14161c; --panel2:#181b22; --hair:rgba(255,255,255,.08);
+    --gold:#C6A463; --gold2:#E6D2A2; --goldink:#1a1509;
+    --text:#e8e6e1; --mute:#9aa1ab; --faint:#6b727d;
+    --green:#57b368; --amber:#e0a23b; --red:#e5635f; --blue:#6ea8d8;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 700px at 70% -10%,#15171f 0%,var(--bg) 55%);
+    color:var(--text);font:15px/1.62 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased;padding:0 0 90px}
+  .wrap{max-width:1060px;margin:0 auto;padding:0 28px}
+  header{padding:54px 0 30px;border-bottom:1px solid var(--hair);margin-bottom:8px}
+  .kick{font-size:12px;letter-spacing:3px;text-transform:uppercase;color:var(--gold);font-weight:700}
+  h1{font-size:34px;line-height:1.15;margin:14px 0 10px;font-weight:800;letter-spacing:-.5px}
+  h1 .accent{background:linear-gradient(180deg,var(--gold2),var(--gold));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .sub{color:var(--mute);font-size:16px;max-width:760px}
+  h2{font-size:13px;letter-spacing:2.5px;text-transform:uppercase;color:var(--gold);margin:46px 0 16px;font-weight:700}
+  h3{font-size:18px;margin:26px 0 8px;font-weight:700}
+  p{margin:10px 0}
+  .lead{font-size:16px;color:#d7d4cc}
+  .card{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--hair);border-radius:14px;padding:22px 24px;margin:16px 0}
+  .card.tight{padding:16px 20px}
+  .verdict{border-color:rgba(198,164,99,.45);background:linear-gradient(180deg,rgba(198,164,99,.10),rgba(198,164,99,.02))}
+  .grid{display:grid;gap:14px}
+  .g2{grid-template-columns:1fr 1fr}
+  .g3{grid-template-columns:1fr 1fr 1fr}
+  @media(max-width:760px){.g2,.g3{grid-template-columns:1fr}}
+  .tag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.4px;padding:3px 9px;border-radius:20px;border:1px solid var(--hair);color:var(--mute);background:rgba(255,255,255,.03)}
+  .tag.red{color:var(--red);border-color:rgba(229,99,95,.4);background:rgba(229,99,95,.08)}
+  .tag.green{color:var(--green);border-color:rgba(87,179,104,.4);background:rgba(87,179,104,.08)}
+  .tag.gold{color:var(--gold2);border-color:rgba(198,164,99,.5);background:rgba(198,164,99,.10)}
+  .tag.blue{color:var(--blue);border-color:rgba(110,168,216,.4);background:rgba(110,168,216,.08)}
+  ul{margin:10px 0;padding-left:20px}
+  li{margin:7px 0}
+  .flow{display:flex;flex-wrap:wrap;align-items:stretch;gap:10px;margin:14px 0}
+  .step{flex:1;min-width:150px;background:var(--panel2);border:1px solid var(--hair);border-radius:12px;padding:14px}
+  .step .n{font-size:11px;color:var(--gold);font-weight:700;letter-spacing:1px}
+  .step .t{font-weight:700;margin:5px 0 4px;font-size:14.5px}
+  .step .d{font-size:12.5px;color:var(--mute)}
+  .step.bad{border-color:rgba(229,99,95,.35)}
+  .step.good{border-color:rgba(87,179,104,.35)}
+  .arrow{align-self:center;color:var(--faint);font-size:18px}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--hair);vertical-align:top}
+  th{color:var(--gold);font-size:11px;letter-spacing:1px;text-transform:uppercase}
+  td .mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;color:var(--gold2)}
+  .pill{font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px}
+  .pill.reuse{background:rgba(87,179,104,.14);color:var(--green)}
+  .pill.build{background:rgba(224,162,59,.14);color:var(--amber)}
+  .pill.new{background:rgba(110,168,216,.14);color:var(--blue)}
+  .phase{border-left:3px solid var(--gold);padding-left:18px;margin:22px 0}
+  .phase h3{margin-top:0}
+  .num{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:linear-gradient(180deg,var(--gold2),var(--gold));color:var(--goldink);font-weight:800;font-size:13px;margin-right:8px}
+  .src{font-size:12.5px;color:var(--faint);margin-top:6px}
+  .src a{color:var(--blue);text-decoration:none}
+  code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;background:rgba(255,255,255,.05);padding:1px 6px;border-radius:5px;color:var(--gold2)}
+  .big{font-size:21px;font-weight:800;color:var(--gold2)}
+  .muted{color:var(--mute)}
+  .rule{height:1px;background:var(--hair);margin:36px 0}
+  .callout{border-left:3px solid var(--blue);background:rgba(110,168,216,.06);padding:12px 16px;border-radius:0 10px 10px 0;margin:14px 0;font-size:14px}
+  .win{border-left-color:var(--green);background:rgba(87,179,104,.06)}
+  .warn{border-left-color:var(--amber);background:rgba(224,162,59,.06)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="kick">ScriptON · Vertical AI Video</div>
+  <h1>From 41 unrelated clips to <span class="accent">cohesive episodes</span></h1>
+  <p class="sub">Why the current renders feel like separate videos — and the exact, researched pipeline to make every 5-second beat carry character, continuity, dialogue and music into a 60–90s episode, then scale to a 60–80 episode series.</p>
+  <div style="margin-top:16px">
+    <span class="tag gold">Audit</span>
+    <span class="tag gold">2026 research</span>
+    <span class="tag gold">Target architecture</span>
+    <span class="tag gold">4-phase build</span>
+    <span class="tag">Shown before building — per your call</span>
+  </div>
+</header>
+
+<div class="card verdict">
+  <p class="lead" style="margin-top:0"><b>The one-line diagnosis.</b> Today each clip is a <b>independent text-to-video</b> generation — no shared face, no carry-over from the previous shot, no audio. The fix is the standard 2026 micro-drama pipeline: <b>lock a character anchor image → render with image-to-video → chain by last frame → let Seedance generate native audio → stitch per episode.</b> Seedance 2.0 already supports every piece of this on the FAL key we use.</p>
+</div>
+
+<!-- ───────────────────────── PROBLEM ───────────────────────── -->
+<h2>What you're seeing</h2>
+<div class="grid g3">
+  <div class="card tight"><span class="tag red">Symptom 1</span><h3 style="margin:10px 0 4px;font-size:16px">Faces &amp; outfits drift</h3><p class="muted" style="margin:0;font-size:13.5px">Every clip re-invents the character from text, so look, face and wardrobe change shot to shot.</p></div>
+  <div class="card tight"><span class="tag red">Symptom 2</span><h3 style="margin:10px 0 4px;font-size:16px">No continuity</h3><p class="muted" style="margin:0;font-size:13.5px">Clip 2 doesn't continue clip 1 — there's no visual handoff between scenes, so it reads as 41 unrelated videos.</p></div>
+  <div class="card tight"><span class="tag red">Symptom 3</span><h3 style="margin:10px 0 4px;font-size:16px">Silent</h3><p class="muted" style="margin:0;font-size:13.5px">No dialogue, no music, no ambience — even though the script already writes the lines.</p></div>
+</div>
+
+<!-- ───────────────────────── AUDIT ───────────────────────── -->
+<h2>Audit — how it works today</h2>
+<div class="flow">
+  <div class="step"><div class="n">NOW · 1</div><div class="t">VIDEO_PROMPT</div><div class="d">41 shots, each a self-contained text prompt. ✅ good spec</div></div>
+  <div class="arrow">→</div>
+  <div class="step bad"><div class="n">NOW · 2</div><div class="t">text-to-video</div><div class="d">Each shot rendered <b>alone</b> on Seedance text-to-video. No image input.</div></div>
+  <div class="arrow">→</div>
+  <div class="step bad"><div class="n">NOW · 3</div><div class="t">stitch</div><div class="d">ffmpeg concatenates the clips — but nothing makes them continuous.</div></div>
+</div>
+
+<div class="card">
+  <h3 style="margin-top:0">The five breaks</h3>
+  <table>
+    <tr><th>#</th><th>Break</th><th>Root cause</th></tr>
+    <tr><td><b>1</b></td><td>Character drift</td><td>No <b>reference image</b> is passed — Seedance has nothing to lock the face/outfit to. We generate a text <b>character bible</b> but never turn it into an image.</td></tr>
+    <tr><td><b>2</b></td><td>No scene continuity</td><td>We use <code>text-to-video</code>, not <code>image-to-video</code> — so no first-frame / last-frame handoff between shots.</td></tr>
+    <tr><td><b>3</b></td><td>Silent clips</td><td><code>generate_audio</code> is never set; <code>reading_dialogue</code> and <code>audio_fx_ambiance</code> from the prompt are never sent to the engine.</td></tr>
+    <tr><td><b>4</b></td><td>No episode structure</td><td>Shots render as a flat pile of 41, not grouped into 60–90s episodes (the ladder already has an <b>Episode map</b> we don't use at render time).</td></tr>
+    <tr><td><b>5</b></td><td>Concatenation ≠ continuity</td><td>The stitch joins clips end-to-end, but with no shared frames the cut is jarring.</td></tr>
+  </table>
+  <p class="muted" style="margin-bottom:0">Good news: the spec layer (script → shot grammar) and the engine governance, render, persistence and stitch are already built. The gaps are all in <i>how</i> we drive the engine — not new infrastructure.</p>
+</div>
+
+<!-- ───────────────────────── RESEARCH ───────────────────────── -->
+<h2>What the 2026 best practice actually is</h2>
+<p class="lead">The micro-drama industry solved character + continuity this year. Two facts reshape our build:</p>
+
+<div class="card">
+  <h3 style="margin-top:0">① Seedance 2.0 already does continuity &amp; audio — on our FAL key</h3>
+  <table>
+    <tr><th>Capability</th><th>Endpoint / param</th><th>What it gives us</th></tr>
+    <tr><td>First + last frame control</td><td class="mono">image-to-video</td><td>Start a clip from an image and <b>end on a target image</b> → chain clip N's last frame into clip N+1.</td></tr>
+    <tr><td>Reference identity (up to 9 images)</td><td class="mono">reference-to-video</td><td>Pass character anchor images (<code>@Image1…</code>) → <b>Face Lock</b> keeps the same face/outfit across every shot.</td></tr>
+    <tr><td>Native audio — free</td><td class="mono">generate_audio:true</td><td>Music + SFX + <b>lip-synced dialogue</b> generated in the same pass, timing locked, <b>no extra cost</b>.</td></tr>
+    <tr><td>Up to 15s, multi-shot</td><td class="mono">duration:4–15</td><td>One call can hold several internal cuts — a 60–90s episode is ~5–6 chained clips, not 18.</td></tr>
+    <tr><td>Vertical + cost tiers</td><td class="mono">9:16 · fast · mini</td><td>9:16 native; <b>video-input renders are 0.6×</b> price; <code>fast</code>/<code>mini</code> tiers cut cost further.</td></tr>
+  </table>
+  <p class="src">Sources: <a href="https://fal.ai/models/bytedance/seedance-2.0/reference-to-video">fal · Seedance 2 reference-to-video</a> · <a href="https://fal.ai/models/bytedance/seedance-2.0/image-to-video">fal · image-to-video</a> · <a href="https://fal.ai/seedance-2.0">Seedance 2.0 (Apr 2026)</a></p>
+</div>
+
+<div class="card">
+  <h3 style="margin-top:0">② The "storyboard-anchored" route beats per-clip prompting</h3>
+  <p>The most-used 2026 drama workflow doesn't prompt each shot blind. It generates <b>one storyboard image first</b> (a character/scene anchor — often a 3×3 nine-panel page), confirms it, <b>then</b> hands it to Seedance image-to-video as <b>"visual DNA"</b>: character, wardrobe, location, lighting and palette are all locked from that image, and the motion prompt only describes the action. Character consistency becomes <b>free</b> because every beat derives from the same canvas.</p>
+  <div class="grid g3" style="margin-top:8px">
+    <div class="step good"><div class="n">WHY</div><div class="t">Consistency</div><div class="d">All beats share one source image → same face/outfit, automatically.</div></div>
+    <div class="step good"><div class="n">WHY</div><div class="t">Cost ↓ 5–8×</div><div class="d">1 image + 1 video call per ~15s vs 6–18 independent renders.</div></div>
+    <div class="step good"><div class="n">WHY</div><div class="t">Approvable</div><div class="d">You sign off the look <i>before</i> any paid video — exactly the head-shots you asked for.</div></div>
+  </div>
+  <p class="src">Sources: <a href="https://www.atlascloud.ai/blog/guides/ultimate-drama-workflow-gpt-image-2-seedance-2-0">Atlas Cloud · GPT-Image-2 + Seedance drama workflow</a> · <a href="https://www.seedance.tv/blog/seedance-character-consistency-guide-2026">Seedance character-consistency guide</a> · <a href="https://outlierkit.com/resources/ai-tools-vertical-micro-drama-2026/">OutlierKit · AI micro-drama teardown 2026</a></p>
+</div>
+
+<!-- ───────────────────────── TARGET ───────────────────────── -->
+<h2>Target architecture</h2>
+<div class="flow">
+  <div class="step good"><div class="n">NEW · 1</div><div class="t">Character anchor</div><div class="d">Bible → portrait + turnaround image per character. <b>You approve.</b></div></div>
+  <div class="arrow">→</div>
+  <div class="step good"><div class="n">NEW · 2</div><div class="t">Scene frame</div><div class="d">First-frame image per beat, built from the approved anchor (look locked).</div></div>
+  <div class="arrow">→</div>
+  <div class="step good"><div class="n">NEW · 3</div><div class="t">image-to-video + audio</div><div class="d">Render from that frame; <code>generate_audio</code> on → dialogue + music + ambience.</div></div>
+  <div class="arrow">→</div>
+  <div class="step good"><div class="n">NEW · 4</div><div class="t">Last-frame chain</div><div class="d">Clip N's final frame seeds clip N+1 → seamless continuity.</div></div>
+  <div class="arrow">→</div>
+  <div class="step good"><div class="n">NEW · 5</div><div class="t">Stitch per episode</div><div class="d">Join into one 60–90s episode + music bed. Repeat ×60–80.</div></div>
+</div>
+
+<div class="grid g2">
+  <div class="card">
+    <span class="tag gold">Strategy A · recommended</span>
+    <h3 style="margin:10px 0 4px">Storyboard-anchored episodes</h3>
+    <p class="muted" style="font-size:13.5px">Per episode: 1 character anchor + a storyboard frame per ~15s chunk → image-to-video (native audio, multi-cut) → chain chunks by last frame → stitch.</p>
+    <ul style="font-size:13.5px">
+      <li><span class="tag green">best consistency</span> look locked from shared images</li>
+      <li><span class="tag green">cheapest</span> ~4–6 video calls / episode</li>
+      <li>cuts <i>inside</i> a 15s clip act as your 5s beats</li>
+    </ul>
+  </div>
+  <div class="card">
+    <span class="tag blue">Strategy B · max control</span>
+    <h3 style="margin:10px 0 4px">Per-5s-scene chaining</h3>
+    <p class="muted" style="font-size:13.5px">Render every 5s beat as its own image-to-video clip, anchor + previous last frame each time, then stitch 12–18 per episode.</p>
+    <ul style="font-size:13.5px">
+      <li><span class="tag green">tightest control</span> per-beat camera/lens</li>
+      <li><span class="tag red">priciest</span> 12–18 calls / episode</li>
+      <li>more places drift can creep in</li>
+    </ul>
+  </div>
+</div>
+<div class="callout win"><b>Recommendation:</b> ship <b>Strategy A</b> as the default (consistent, cheap, fast), and keep <b>per-5s-scene</b> as an advanced toggle for hero episodes that need shot-by-shot control. Both reuse the same anchor + chain + audio + stitch machinery.</div>
+
+<!-- ───────────────────────── PHASES ───────────────────────── -->
+<h2>The build — four phases</h2>
+
+<div class="phase">
+  <h3><span class="num">A</span>Character anchor &amp; approval</h3>
+  <p class="muted">Kills drift (Break #1). Turns the existing text bible into approved images.</p>
+  <table>
+    <tr><th>Piece</th><th>Action</th><th>Status</th></tr>
+    <tr><td>Image engine</td><td>Add a governed <b>image-generation engine</b> (Seedream 4 / GPT-Image-2 via the same <code>FAL_KEY</code>) next to the video engines.</td><td><span class="pill new">new</span></td></tr>
+    <tr><td>Character bible</td><td>Already generated after SCENES — feed each character's identity into the image prompt.</td><td><span class="pill reuse">reuse</span></td></tr>
+    <tr><td>Anchor gallery</td><td>Generate portrait + 3-angle turnaround per character; <b>you approve / re-roll</b> before any video spend.</td><td><span class="pill build">build</span></td></tr>
+  </table>
+</div>
+
+<div class="phase">
+  <h3><span class="num">B</span>Continuity render engine</h3>
+  <p class="muted">Fixes Breaks #2 + #3. Switches the render to image-driven, chained, with audio.</p>
+  <table>
+    <tr><th>Piece</th><th>Action</th><th>Status</th></tr>
+    <tr><td>Engine variants</td><td>Register Seedance <code>image-to-video</code> + <code>reference-to-video</code> (config-driven, like text-to-video already is).</td><td><span class="pill build">build</span></td></tr>
+    <tr><td>Render params</td><td>Pass <code>image_urls</code> (anchor), first/last frame, <code>generate_audio:true</code>, dialogue + music/ambience text, <code>9:16</code>.</td><td><span class="pill build">build</span></td></tr>
+    <tr><td>Last-frame chain</td><td>ffmpeg-extract the final frame of each clip → seed the next clip's first frame.</td><td><span class="pill build">build</span> <span class="muted">(ffmpeg already on server)</span></td></tr>
+    <tr><td>Governance / failover</td><td>Routing policy, health, run logging, persistence — already there.</td><td><span class="pill reuse">reuse</span></td></tr>
+  </table>
+</div>
+
+<div class="phase">
+  <h3><span class="num">C</span>Episode assembly</h3>
+  <p class="muted">Fixes Breaks #4 + #5. Groups beats into episodes and stitches with a music bed.</p>
+  <table>
+    <tr><th>Piece</th><th>Action</th><th>Status</th></tr>
+    <tr><td>Episode grouping</td><td>Use the <b>Episode map</b> to slice the shot list into 60–90s episodes at render time.</td><td><span class="pill build">build</span></td></tr>
+    <tr><td>Stitch</td><td>Per-episode ffmpeg concat → one continuous 9:16 MP4.</td><td><span class="pill reuse">reuse</span> <span class="muted">(built this session)</span></td></tr>
+    <tr><td>Music bed</td><td>Optional episode-level track mux (or rely on Seedance native audio).</td><td><span class="pill build">build</span></td></tr>
+    <tr><td>Episode gallery</td><td>One card per episode in the render bay; play / download / re-stitch.</td><td><span class="pill build">build</span></td></tr>
+  </table>
+</div>
+
+<div class="phase">
+  <h3><span class="num">D</span>Scale to the series</h3>
+  <p class="muted">60–80 episodes, one consistent world.</p>
+  <ul>
+    <li>Reuse the <b>same approved character anchors</b> across every episode → series-wide face/outfit consistency.</li>
+    <li>Queue episodes; render in the background with progress per episode.</li>
+    <li>Series view: episode list, total runtime, cost-to-date, re-roll any episode.</li>
+  </ul>
+</div>
+
+<!-- ───────────────────────── COST ───────────────────────── -->
+<h2>Cost model</h2>
+<table>
+  <tr><th>Approach</th><th>Per 60–90s episode</th><th>Character + audio?</th><th>Series ×70</th></tr>
+  <tr><td>Today — 18×5s text-to-video, silent</td><td>~$27</td><td><span class="tag red">no · no</span></td><td>~$1,900 &amp; inconsistent</td></tr>
+  <tr><td><b>Strategy A</b> — storyboard-anchored i2v</td><td><b class="big">~$8–12</b></td><td><span class="tag green">yes · yes</span></td><td><b>~$600–850</b></td></tr>
+  <tr><td>Strategy B — per-5s chained i2v</td><td>~$18–24</td><td><span class="tag green">yes · yes</span></td><td>~$1,300–1,700</td></tr>
+</table>
+<p class="muted" style="font-size:13px">Seedance 720p ≈ $0.30/sec; <b>video-input (chained) renders bill at 0.6× ≈ $0.18/sec</b>; <code>fast</code>/<code>mini</code> tiers and image anchors cut it further. Native audio is included at no extra cost. Figures are estimates for budgeting, not quotes.</p>
+
+<div class="rule"></div>
+
+<!-- ───────────────────────── DECISION ───────────────────────── -->
+<h2>What I need from you</h2>
+<div class="card verdict">
+  <p class="lead" style="margin-top:0">Nothing here spends money until you say go. To start building, one decision:</p>
+  <ol>
+    <li><b>Default strategy</b> — ship <b>Strategy A</b> (storyboard-anchored, recommended) as the default, with per-5s as an advanced toggle? Or build B first?</li>
+    <li><b>Where to prove it</b> — build <b>Phase A + B on the DAS desert project</b> and produce <b>one fully-cohesive ~60s episode</b> (approved character → chained, voiced, scored) as the reference, for ~$8–12 — before we scale?</li>
+  </ol>
+  <p class="muted" style="margin-bottom:0">My recommendation: <b>yes to both</b> — build A, prove one cohesive DAS episode end-to-end, then open the series queue.</p>
+</div>
+
+<p class="muted" style="font-size:12.5px;margin-top:34px">ScriptON · cohesive AI episode pipeline — audit + research + roadmap. Engine capabilities verified against the live fal Seedance 2.0 API (April 2026). Built on the FAL key already configured.</p>
+
+</div>
+</body>
+</html>

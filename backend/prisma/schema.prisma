@@ -9143,3 +9143,69 @@ model SceneChange {
   @@index([passId])
   @@map("scene_changes")
 }
+
+// ── ScriptON · VERTICAL_AI_VIDEO render jobs (async text-to-video provider polling) ──
+model VideoRun {
+  id              String   @id @default(cuid())
+  projectId       String
+  stageVersionId  String? // links back to the StageVersion.data (VIDEO_PROMPT payload)
+  provider        String // "runway" | "local_comfy"
+  model           String
+  jobId           String
+  status          String   @default("PENDING") // PENDING | PROCESSING | COMPLETED | FAILED
+  videoUrl        String?
+  prompt          String   @db.Text
+  negativePrompt  String?  @db.Text
+  durationSec     Int
+  aspectRatio     String
+  latencyMs       Int?
+  error           String?  @db.Text
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([projectId])
+  @@index([jobId])
+  @@map("video_runs")
+}
+
+// ── ScriptON · Video engines governance (render-side switchboard; mirrors LlmEngine/AudioEngine) ──
+model VideoEngine {
+  id            String   @id @default(cuid())
+  key           String   @unique // LOCAL_COMFY | RUNWAY | ...
+  provider      String // local_comfy | runway | luma | kling
+  displayName   String
+  tier          String   @default("PAID") // PAID | LIMITED_FREE | ULTIMATE_FREE
+  enabled       Boolean  @default(false)
+  credentialRef String? // env var name (e.g. RUNWAYML_API_SECRET); null for local
+  baseUrl       String?
+  defaultModel  String?
+  models        Json?
+  capabilities  Json? // { text_to_video, image_to_video }
+  priority      Int      @default(100)
+  costModel     Json?
+  status        String   @default("ACTIVE")
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("video_engines")
+}
+
+model VideoRoutingPolicy {
+  id                     String   @id @default(cuid())
+  scope                  String   @default("ORG") // ORG | PROJECT
+  projectId              String?
+  capability             String // VIDEO_DEFAULT | PREVIEW | FINAL
+  defaultEngineId        String?
+  allowedEngineIds       Json?
+  fallbackChain          Json?
+  projectOverrideAllowed Boolean  @default(false)
+  userMayOverride        Boolean  @default(false)
+  updatedById            String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@unique([scope, projectId, capability])
+  @@index([projectId])
+  @@map("video_routing_policies")
+}

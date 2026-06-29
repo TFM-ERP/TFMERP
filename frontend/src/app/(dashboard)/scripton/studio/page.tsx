@@ -20,7 +20,7 @@ import { useScriptonMode } from '@/components/scripton/useScriptonMode';
 
 const STAGE_ORDER = ['LOGLINE', 'SYNOPSIS', 'TREATMENT', 'BEATS', 'SCENES', 'STEP_OUTLINE', 'DRAFT', 'COVERAGE'];
 const BUILD_ORDER: [string, string][] = [['LOGLINE', 'Logline'], ['SYNOPSIS', 'Synopsis'], ['TREATMENT', 'Treatment'], ['BEATS', 'Beats'], ['SCENES', 'Scenes'], ['STEP_OUTLINE', 'Step outline'], ['DRAFT', 'Draft']];
-const STAGE_LABEL: Record<string, string> = { LOGLINE: 'Logline', SYNOPSIS: 'Synopsis', TREATMENT: 'Treatment', BEATS: 'Beats', SCENES: 'Scenes', STEP_OUTLINE: 'Step Outline', DRAFT: 'Draft', COVERAGE: 'Coverage', SEASON_ARC: 'Season arc', EPISODE_MAP: 'Episode map', PREMISE: 'Premise', STORY_ENGINE: 'Story engine', BEAT_ENGINE: 'Beat engine', THESIS: 'Thesis', RESEARCH_PLAN: 'Research plan', RIGHTS_PLAN: 'Rights plan', INTERVIEW_OUTLINE: 'Interview outline', PAPER_EDIT: 'Paper edit', NARRATION: 'Narration' };
+const STAGE_LABEL: Record<string, string> = { LOGLINE: 'Logline', SYNOPSIS: 'Synopsis', TREATMENT: 'Treatment', BEATS: 'Beats', SCENES: 'Scenes', STEP_OUTLINE: 'Step Outline', DRAFT: 'Draft', COVERAGE: 'Coverage', SEASON_ARC: 'Season arc', EPISODE_MAP: 'Episode map', PREMISE: 'Premise', STORY_ENGINE: 'Story engine', BEAT_ENGINE: 'Beat engine', THESIS: 'Thesis', RESEARCH_PLAN: 'Research plan', RIGHTS_PLAN: 'Rights plan', INTERVIEW_OUTLINE: 'Interview outline', PAPER_EDIT: 'Paper edit', NARRATION: 'Narration', SHOT_LIST: 'Shot List', VIDEO_PROMPT: 'Video Prompt' };
 const SAMPLE_LADDER: SxLadder[] = [
   { name: 'Logline', sub: 'Connect a project to develop a real story — this is demo content.', state: 'on', body: 'A burned-out fixer has one night to move a witness across a city that wants them both dead.' },
   { name: 'Synopsis', sub: 'pending', state: 'wait' }, { name: 'Treatment', sub: 'pending', state: 'wait' },
@@ -100,7 +100,8 @@ export default function StudioPage() {
   const lastIdx = useMemo(() => { if (!stages) return -1; let last = -1; stages.forEach((s, i) => { if (s.current) last = i; }); return last; }, [stages]);
 
   const ladder: SxLadder[] = useMemo(() => {
-    if (!projectId || !stages || !stages.length) return SAMPLE_LADDER;
+    if (!projectId) return SAMPLE_LADDER;                       // no build connected → the demo ladder
+    if (!stages || !stages.length) return [];                  // build connected but stages still loading → render nothing, never the wrong default (fixes the "wrong ladder until refresh" flash)
     // Render the build's actual format ladder (feature/series/vertical/documentary), in the order the backend returns it.
     return stages.map((s, i) => {
       const kind = s.kind;

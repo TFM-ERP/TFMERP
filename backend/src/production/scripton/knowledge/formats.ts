@@ -16,7 +16,9 @@ export type StageKind =
   // vertical
   | 'PREMISE' | 'STORY_ENGINE' | 'BEAT_ENGINE'
   // documentary
-  | 'THESIS' | 'RESEARCH_PLAN' | 'RIGHTS_PLAN' | 'INTERVIEW_OUTLINE' | 'PAPER_EDIT' | 'NARRATION';
+  | 'THESIS' | 'RESEARCH_PLAN' | 'RIGHTS_PLAN' | 'INTERVIEW_OUTLINE' | 'PAPER_EDIT' | 'NARRATION'
+  // ai video (PREMISE reused from vertical)
+  | 'SHOT_LIST' | 'VIDEO_PROMPT';
 
 /** The classic feature ladder — also used for SHORT. */
 export const FEATURE_LADDER: StageKind[] = ['LOGLINE', 'SYNOPSIS', 'TREATMENT', 'BEATS', 'SCENES', 'STEP_OUTLINE', 'DRAFT', 'COVERAGE'];
@@ -26,10 +28,14 @@ export const SERIES_LADDER: StageKind[] = ['LOGLINE', 'SYNOPSIS', 'SEASON_ARC', 
 export const VERTICAL_LADDER: StageKind[] = ['PREMISE', 'STORY_ENGINE', 'EPISODE_MAP', 'BEAT_ENGINE', 'SCENES', 'DRAFT', 'COVERAGE'];
 /** Documentary is written in the edit — no dialogue beats; narration comes LAST. */
 export const DOC_LADDER: StageKind[] = ['THESIS', 'TREATMENT', 'RESEARCH_PLAN', 'RIGHTS_PLAN', 'INTERVIEW_OUTLINE', 'PAPER_EDIT', 'NARRATION', 'COVERAGE'];
+/** AI video (vertical micro-drama): the full development ladder (logline → synopsis → premise → story
+ *  engine → episode map → per-episode beat engine → scenes → pure-script draft) then the render stages
+ *  (shot list → the Shot-Grammar text-to-video prompt). Scenes are ≤5s; episodes are stitched. */
+export const VERTICAL_AI_LADDER: StageKind[] = ['LOGLINE', 'SYNOPSIS', 'PREMISE', 'STORY_ENGINE', 'EPISODE_MAP', 'BEAT_ENGINE', 'SCENES', 'DRAFT', 'SHOT_LIST', 'VIDEO_PROMPT'];
 
 export interface FormatPreset {
   id: string;
-  family: 'FEATURE' | 'SHORT' | 'SERIES' | 'VERTICAL' | 'DOCUMENTARY';
+  family: 'FEATURE' | 'SHORT' | 'SERIES' | 'VERTICAL' | 'VERTICAL_AI_VIDEO' | 'DOCUMENTARY';
   label: string;
   ladder: StageKind[];
   episodes?: number | [number, number];
@@ -69,12 +75,16 @@ export const VERTICAL_PRESETS: Record<string, FormatPreset> = {
   MENA: { id: 'MENA', family: 'VERTICAL', label: 'Vertical micro-drama (MENA)', ladder: VERTICAL_LADDER, episodes: [40, 80], lengthLabel: '60–90 s/ep (→120 when needed)', actTemplate: 'scenic objective + power/info shift + escalation + final hook', arcModel: 'Addiction Loop (yes-but / no-also); Arabic-first; romance within social constraints', terminology: '8 episode templates · 8 story engines (see vertical.ts)' },
 };
 
+/** AI video (vertical micro-drama) — the full development ladder, then per-scene ≤5s text-to-video, stitched into episodes. */
+export const VERTICAL_AI_PRESET: FormatPreset = { id: 'VERTICAL_AI_VIDEO', family: 'VERTICAL_AI_VIDEO', label: 'AI video (vertical micro-drama)', ladder: VERTICAL_AI_LADDER, episodes: [40, 80], lengthLabel: '60–90 s/episode · scenes ≤5 s each (9:16)', actTemplate: 'micro-drama ladder → per-episode Hook · Friction · Spike · Button → per-scene text-to-video (≤5s) → stitched episodes', arcModel: 'one observable physical action per ≤5s scene; character consistency via reference head-shots; per-episode cliffhanger', terminology: '9:16 face-first; pure script + Shot-Grammar generation spec; text-to-video payload' };
+
 const lc = (v: any) => String(v == null ? '' : v).trim().toLowerCase();
 const up = (v: any) => String(v == null ? '' : v).trim().toUpperCase();
 
 /** Canonical family from the messy projectType field. */
 export function normalizeFamily(brief: any): FormatPreset['family'] {
   const t = up(brief && (brief.projectType || brief.format));
+  if (t === 'VERTICAL_AI_VIDEO' || /AI[_ ]?VIDEO/.test(t)) return 'VERTICAL_AI_VIDEO';
   if (/VERT|MICRO|SHORT_?FORM|REEL/.test(t)) return 'VERTICAL';
   if (/DOC/.test(t)) return 'DOCUMENTARY';
   if (/SERIES|TV|LIMITED|SEASON|EPISOD|MUSALSAL|DIZI|DRAMA_SERIES/.test(t)) return 'SERIES';
@@ -109,6 +119,7 @@ export function isMena(brief: any): boolean {
 /** Resolve the active preset for a brief (format family + market). */
 export function pickPreset(brief: any): FormatPreset {
   const fam = normalizeFamily(brief);
+  if (fam === 'VERTICAL_AI_VIDEO') return VERTICAL_AI_PRESET;
   if (fam === 'SERIES') return SERIES_PRESETS[normalizeMarket(brief)] || SERIES_PRESETS.US_STREAMING;
   if (fam === 'VERTICAL') { if (brief && brief.marketKey && VERTICAL_PRESETS[brief.marketKey]) return VERTICAL_PRESETS[brief.marketKey]; return isMena(brief) ? VERTICAL_PRESETS.MENA : VERTICAL_PRESETS.GLOBAL; }
   if (fam === 'DOCUMENTARY') return BASE_PRESETS.DOCUMENTARY;

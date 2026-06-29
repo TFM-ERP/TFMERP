@@ -10,6 +10,8 @@ import ScriptOnLibraryMobile from '@/components/scripton/ScriptOnLibraryMobile';
 import { useViewport } from '@/components/scripton/useViewport';
 import { useLocale } from '@/lib/i18n';
 import { useScriptonBack } from '@/components/scripton/useScriptonBack';
+import { useScriptonShellFlag } from '@/components/scripton/osShellFlag';
+import ScriptonShell from '@/components/scripton/ScriptonShell';
 
 const COVERS = ['linear-gradient(150deg,#243046,#141821)', 'linear-gradient(150deg,#3a2730,#151016)', 'linear-gradient(150deg,#2a1f2e,#120f15)', 'linear-gradient(150deg,#3a2336,#15101a)', 'linear-gradient(150deg,#262046,#131020)', 'linear-gradient(150deg,#332c1c,#151209)', 'linear-gradient(150deg,#1f3329,#101713)'];
 const typeColor = (t: string) => { const u = t.toUpperCase(); return /SERIES|PILOT/.test(u) ? '#c3b6f5' : /TVC|COMMERCIAL/.test(u) ? 'var(--gold2)' : /VERTICAL|MICRO/.test(u) ? '#e7a6c6' : /HORROR/.test(u) ? '#f0a3a0' : /ADAPT/.test(u) ? '#9fe3c0' : '#a9c4f7'; };
@@ -33,6 +35,7 @@ export default function ScriptOnLibraryPage() {
   const vp = useViewport();
   const { dir, t } = useLocale();
   const onBack = useScriptonBack();
+  const flag = useScriptonShellFlag();
   const [cards, setCards] = useState<SxCard[]>(SAMPLE);
   const [activeFilter, setActiveFilter] = useState('All');
   const [search, setSearch] = useState('');
@@ -41,6 +44,7 @@ export default function ScriptOnLibraryPage() {
   const [busy, setBusy] = useState(false);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [docIds, setDocIds] = useState<Set<string>>(new Set());
+  const [buildIds, setBuildIds] = useState<Set<string>>(new Set());
   const [binOpen, setBinOpen] = useState(false);
   const [binItems, setBinItems] = useState<any[]>([]);
   const [conf, setConf] = useState<any | null>(null);
@@ -67,6 +71,28 @@ export default function ScriptOnLibraryPage() {
           };
         }));
       } catch { /* keep sample */ }
+      // Unify the pool: every ScriptON DevelopmentBuild (new-OS work — Studio ideas, vertical AI video, etc.)
+      // shows in the SAME slate as the old master-script library. listBuilds() with no projectId returns the
+      // whole build pool (workspace + every project), so old and new always live together.
+      try {
+        const br: any = await productionApi.scripton.development.listBuilds();
+        const bl: any[] = Array.isArray(br.data) ? br.data : (br.data?.items ?? []);
+        if (alive && bl.length) {
+          const bcards: SxCard[] = bl.map((b: any, i: number): SxCard => {
+            const brief = b.brief || {};
+            const type = String(brief.projectType || brief.format || brief.family || 'BUILD');
+            return {
+              id: b.id, title: b.name || 'Untitled build',
+              type: type.toUpperCase().slice(0, 12), typeColor: typeColor(type),
+              rev: String(b.status || 'DRAFT').toUpperCase().slice(0, 10), revColor: '#C6A463',
+              pages: '—', grade: '—', gradeColor: 'var(--faint)',
+              updated: rel(b.updatedAt || b.createdAt), cover: COVERS[i % COVERS.length],
+            };
+          });
+          setBuildIds(new Set(bcards.map((c) => c.id)));
+          setCards((prev) => { const base = (prev === SAMPLE) ? [] : prev; const ids = new Set(bcards.map((c) => c.id)); return [...bcards, ...base.filter((c) => !ids.has(c.id))]; });
+        }
+      } catch { /* no builds yet */ }
       try {
         const pr: any = await productionApi.projects.list();
         const projects = pr.data?.items ?? (Array.isArray(pr.data) ? pr.data : []);
@@ -147,7 +173,7 @@ export default function ScriptOnLibraryPage() {
   const openBin = () => { setBinOpen(true); loadBin(); };
   const doRestore = async (id: string) => { try { await productionApi.script.restore(id); setBinItems((b) => b.filter((x) => x.id !== id)); flash(t('Restored - reload to see it in the library.')); } catch { flash(t('Could not restore.')); } };
   const doConf = async () => { const c = conf; setConf(null); if (!c) return; try { if (c.kind === 'purge') { await productionApi.script.remove(c.id); setBinItems((b) => b.filter((x) => x.id !== c.id)); flash(t('Deleted forever.')); } else { await productionApi.script.trash(c.id); setCards((cc) => cc.filter((x) => x.id !== c.id)); setDocIds((sset) => { const n = new Set(sset); n.delete(c.id); return n; }); flash(t('Moved to bin.')); } } catch { flash(t('Action failed.')); } };
-  const common = { meta: `${cards.length} ${t('scripts across the slate')}`, filters: FILTERS, activeFilter, onFilter: setActiveFilter, search, onSearch: setSearch, cards: shown, onOpen: (id: string) => router.push(docIds.has(id) ? ('/scripton/package?doc=' + id) : '/scripton/reader'), onNew: () => setAdding(true), onNav, onBack, toast, onDelete: onCardDelete, canDelete: (id: string) => docIds.has(id), onBin: openBin };
+  const common = { meta: `${cards.length} ${t('scripts across the slate')}`, filters: FILTERS, activeFilter, onFilter: setActiveFilter, search, onSearch: setSearch, cards: shown, onOpen: (id: string) => router.push(buildIds.has(id) ? ('/scripton/studio?build=' + id) : docIds.has(id) ? ('/scripton/package?doc=' + id) : '/scripton/reader'), onNew: () => setAdding(true), onNav, onBack, toast, onDelete: onCardDelete, canDelete: (id: string) => docIds.has(id), onBin: openBin };
   const body = vp === 'mobile' ? <ScriptOnLibraryMobile {...common} /> : vp === 'tablet' ? <ScriptOnLibraryTablet {...common} /> : <ScriptOnLibrary {...common} />;
 
   const aBtn: React.CSSProperties = { width: '100%', textAlign: 'start', background: 'rgba(198,164,99,0.14)', color: '#C6A463', border: '1px solid rgba(198,164,99,0.30)', borderRadius: 10, padding: '10px 12px', fontSize: 12.5, cursor: 'pointer', marginTop: 8 };
@@ -155,7 +181,11 @@ export default function ScriptOnLibraryPage() {
 
   return (
     <>
-      {body}
+      {flag === 'new' && vp === 'desktop' ? (
+        <ScriptonShell screen="slate" active="slate" vp={vp} onBack={onBack} onNav={onNav} topbar={{ scriptScoped: false }}>
+          <ScriptOnLibrary {...common} embedded />
+        </ScriptonShell>
+      ) : body}
       <input ref={fileRef} type="file" accept=".pdf,.fdx,.fountain,.txt,.docx" style={{ display: 'none' }} onChange={(e) => doImport(e.target.files?.[0])} />
       {binOpen && (
         <div onClick={() => setBinOpen(false)} dir={dir} style={{ position: 'fixed', inset: 0, zIndex: 72, background: 'rgba(6,7,10,0.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, fontFamily: 'var(--sx-body)' }}>

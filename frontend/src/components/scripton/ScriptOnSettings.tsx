@@ -5,6 +5,7 @@ import React from 'react';
 import { SxRail } from './ScriptOnStudio';
 import { useLocale } from '@/lib/i18n';
 import ReviewProtectionPanel from './ReviewProtectionPanel';
+import { aiEnginesApi, scriptAudioApi, videoEnginesApi } from '@/lib/api';
 
 export type SxRun = { surface: string; model: string; tokens: string; conf: number; status: string; statusClass: string; when: string };
 
@@ -54,6 +55,16 @@ const CSS = `
 .sx .gconf{display:flex;align-items:center;gap:8px;color:var(--mute)}.sx .cbar{width:46px;height:5px;border-radius:3px;background:#23262e;overflow:hidden}.sx .cbar i{display:block;height:100%;background:var(--green)}
 .sx .badge{font-size:10px;font-weight:800;padding:4px 9px;border-radius:999px}.sx .badge.green{background:rgba(87,179,104,.16);color:var(--green)}.sx .badge.amber{background:rgba(224,162,59,.16);color:var(--amber)}
 .sx .toast{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);z-index:9;background:#1b1e25;border:1px solid var(--hair2);color:var(--cream);font-size:12.5px;padding:10px 16px;border-radius:10px;box-shadow:0 14px 40px -12px rgba(0,0,0,.7)}
+.sx .liverow{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.sx .livecard{flex-direction:row !important;align-items:center;gap:12px}
+.sx .ldot{width:10px;height:10px;border-radius:50%;flex:none}
+.sx .rfilters{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.sx .fchip{font-size:11.5px;font-weight:600;color:var(--mute);background:var(--panel2);border:1px solid var(--hair);border-radius:999px;padding:5px 11px;cursor:pointer}
+.sx .fchip.on{background:linear-gradient(180deg,var(--gold2),var(--gold));color:var(--goldink);border-color:transparent}
+.sx .fsel{font-size:11.5px;color:var(--text);background:var(--panel2);border:1px solid var(--hair);border-radius:999px;padding:5px 10px;cursor:pointer}
+.sx .gthead,.sx .gtr{grid-template-columns:1.1fr 1.6fr 1.3fr 1.1fr .9fr .55fr .7fr}
+.sx .gstage{color:var(--text)}.sx .gsize{color:var(--mute);font-size:11.5px}.sx .gdur{color:var(--faint);font-size:11px}
+.sx .badge.red{background:rgba(229,99,95,.16);color:var(--red)}
 `;
 
 const RAIL: { k: string; lbl: string; d: React.ReactNode }[] = [
@@ -83,6 +94,16 @@ export default function ScriptOnSettings(props: {
 }) {
   const { dir, t } = useLocale();
   const [section, setSection] = React.useState<'ai' | 'protection'>('ai');
+  const [live, setLive] = React.useState<any>({});
+  const [feed, setFeed] = React.useState<any>(null);
+  const [rf, setRf] = React.useState<{ hours: number; surface?: string; status?: string; size?: string }>({ hours: 24 });
+  React.useEffect(() => { let ok = true; Promise.all([aiEnginesApi.health().catch(() => ({ data: null })), videoEnginesApi.health().catch(() => ({ data: null })), scriptAudioApi.engines().catch(() => ({ data: [] }))]).then(([l, v, a]: any) => { if (ok) setLive({ llm: l.data, video: v.data, audio: a.data }); }); return () => { ok = false; }; }, []);
+  React.useEffect(() => { let ok = true; aiEnginesApi.runs({ hours: rf.hours, surface: rf.surface, status: rf.status, size: rf.size, limit: 60 }).then((r: any) => { if (ok) setFeed(r.data); }).catch(() => { if (ok) setFeed({ runs: [], surfaces: [], sizes: [] }); }); return () => { ok = false; }; }, [rf.hours, rf.surface, rf.status, rf.size]);
+  const llmLive = (live.llm?.providers || []).filter((p: any) => p.usable).length, llmTot = (live.llm?.providers || []).length;
+  const vidLive = (live.video?.providers || []).filter((p: any) => p.usable).length, vidTot = (live.video?.providers || []).length;
+  const audTot = Array.isArray(live.audio) ? live.audio.length : 0, audLive = Array.isArray(live.audio) ? live.audio.filter((e: any) => e.enabled).length : 0;
+  const fmtTok = (n: number) => (n >= 1000 ? (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k' : String(n));
+  const rel = (d: string) => { const m = Math.round((Date.now() - new Date(d).getTime()) / 60000); if (m < 1) return 'now'; if (m < 60) return m + 'm'; const h = Math.round(m / 60); return h < 24 ? h + 'h' : Math.round(h / 24) + 'd'; };
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
@@ -100,19 +121,29 @@ export default function ScriptOnSettings(props: {
               <div className="setmain">
                 {section === 'protection' ? <ReviewProtectionPanel /> : <>
                 <div className="panelcard" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-                  <div><div className="eyebrow">{t('ENGINES & ROUTING')}</div><div className="sub" style={{ fontSize: 12 }}>{t('Configure providers, failover order and telemetry for text + audio AI.')}</div></div>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}><a className="btn gold" href="/setup/llm-engines">{t('AI Engines & Routing')}</a><a className="btn ghost" href="/setup/audio-engines">{t('Audio Engines')}</a></div>
+                  <div><div className="eyebrow">{t('ENGINES & ROUTING')}</div><div className="sub" style={{ fontSize: 12 }}>{t('Configure providers, failover order and telemetry for text, audio + video AI.')}</div></div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}><a className="btn gold" href="/setup/llm-engines">{t('AI Engines & Routing')}</a><a className="btn ghost" href="/setup/audio-engines">{t('Audio Engines')}</a><a className="btn ghost" href="/setup/video-engines">{t('Video Engines')}</a></div>
                 </div>
+                <div className="liverow">{[['System LLM', llmLive, llmTot], ['Audio', audLive, audTot], ['Video', vidLive, vidTot]].map((s: any, i: number) => (<div className="panelcard livecard" key={i}><span className="ldot" style={{ background: s[1] > 0 ? 'var(--green)' : s[2] > 0 ? 'var(--amber)' : 'var(--faint)' }} /><div><div style={{ fontWeight: 700, color: 'var(--cream)', fontSize: 13.5 }}>{t(s[0])}</div><div className="meta" style={{ fontSize: 11.5 }}>{s[1]} {t('of')} {s[2]} {t('live')}</div></div></div>))}</div>
                 <div className="kpis">
                   <div className="panelcard"><div className="eyebrow">{t('ACTIVE MODEL')}</div><div style={{ fontSize: 15, fontWeight: 700, color: 'var(--cream)', fontFamily: "'Courier Prime',ui-monospace,monospace" }}>{props.model}</div><div className="sub" style={{ fontSize: 11 }}>{props.promptSet} · {t('single gateway (AiService)')}</div></div>
                   <div className="panelcard"><div className="eyebrow">{t('CONFIDENCE GATE')}</div><div className="slider"><i style={{ width: Math.round(props.confidence * 100) + '%' }} /><span className="knob" style={{ left: 'calc(' + Math.round(props.confidence * 100) + '% - 8px)' }} /></div><div className="sub" style={{ fontSize: 11 }}>{t('Hold runs below')} <b style={{ color: 'var(--gold2)' }}>{props.confidence.toFixed(2)}</b> {t('as PENDING')}</div></div>
                   <div className="panelcard"><div className="eyebrow">{t('HUMAN APPROVAL')}</div><div style={{ display: 'flex', alignItems: 'center', gap: 11 }}><button className={'toggle' + (props.humanApproval ? '' : ' off')} onClick={() => props.onAction('toggle')} /><span style={{ fontSize: 12.5, color: 'var(--cream)', fontWeight: 600 }}>{props.humanApproval ? t('Required') : t('Off')}</span></div><div className="sub" style={{ fontSize: 11 }}>{t('Applied rewrites need sign-off before they branch a revision')}</div></div>
                 </div>
-                <div className="pc-h" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 }}><span className="eyebrow">{t('AiRun AUDIT LOG · LAST 24H')}</span><span className="meta" style={{ fontSize: 11 }}>{props.runsMeta}</span></div>
+                <div className="pc-h" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 2, flexWrap: 'wrap', gap: 8 }}>
+                  <span className="eyebrow">{t('RECENT RUNS')} <span className="meta" style={{ fontSize: 10.5, letterSpacing: 0, fontWeight: 500 }}>· {t('live · AiRun ∪ VideoRun')}{feed ? ' · ' + feed.total : ''}</span></span>
+                  <div className="rfilters">
+                    {[['24h', 24], ['7 days', 168], ['All', 720]].map((o: any) => (<button key={o[1]} className={'fchip' + (rf.hours === o[1] ? ' on' : '')} onClick={() => setRf((s) => ({ ...s, hours: o[1] }))}>{t(o[0])}</button>))}
+                    {[['All', undefined], ['Success', 'success'], ['Error', 'error']].map((o: any, i: number) => (<button key={i} className={'fchip' + ((rf.status || 'All') === (o[1] || 'All') ? ' on' : '')} onClick={() => setRf((s) => ({ ...s, status: o[1] }))}>{t(o[0])}</button>))}
+                    <select className="fsel" value={rf.surface || ''} onChange={(e) => setRf((s) => ({ ...s, surface: e.target.value || undefined }))}><option value="">{t('All surfaces')}</option>{(feed?.surfaces || []).map((sf: string) => (<option key={sf} value={sf}>{sf}</option>))}</select>
+                    <select className="fsel" value={rf.size || ''} onChange={(e) => setRf((s) => ({ ...s, size: e.target.value || undefined }))}><option value="">{t('Any size')}</option>{(feed?.sizes || []).map((sz: string) => (<option key={sz} value={sz}>{sz}</option>))}</select>
+                  </div>
+                </div>
                 <div className="gtable">
-                  <div className="gthead"><span>{t('SURFACE')}</span><span>{t('MODEL')}</span><span>{t('TOKENS')}</span><span>{t('CONFIDENCE')}</span><span>{t('STATUS')}</span><span>{t('WHEN')}</span></div>
-                  {props.runs.map((r, i) => (<div className="gtr" key={i}><span className="gsf">{t(r.surface)}</span><span className="gmodel">{r.model}</span><span className="gtok">{r.tokens}</span><span className="gconf"><span className="cbar"><i style={{ width: Math.round(r.conf * 100) + '%' }} /></span>{r.conf.toFixed(2)}</span><span className={'badge ' + r.statusClass}>{r.status}</span><span className="gwhen">{r.when}</span></div>))}
-                  {!props.runs.length && <div className="gtr"><span className="gsf" style={{ gridColumn: '1/7', color: 'var(--faint)' }}>{t('No AI runs logged yet.')}</span></div>}
+                  <div className="gthead"><span>{t('SURFACE')}</span><span>{t('STAGE / PURPOSE')}</span><span>{t('MODEL')}</span><span>{t('SIZE')}</span><span>{t('STATUS')}</span><span>{t('DUR')}</span><span>{t('WHEN')}</span></div>
+                  {(feed?.runs || []).map((r: any, i: number) => (<div className="gtr" key={r.id || i}><span className="gsf" style={{ color: r.kind === 'VIDEO' ? 'var(--blue)' : undefined }}>{r.surface}</span><span className="gstage">{[r.purpose, r.stage].filter(Boolean).join(' · ') || '—'}</span><span className="gmodel">{r.model}</span><span className="gsize">{r.tokens ? (r.size + ' · ' + fmtTok(r.tokens)) : (r.durationSec ? (r.durationSec + 's clip') : '—')}</span><span className={'badge ' + (r.result === 'error' ? 'red' : r.result === 'running' ? 'amber' : 'green')}>{r.status}</span><span className="gdur">{r.durationMs ? Math.round(r.durationMs / 1000) + 's' : (r.durationSec ? r.durationSec + 's' : '—')}</span><span className="gwhen">{rel(r.when)}</span></div>))}
+                  {feed && !feed.runs.length && <div className="gtr"><span className="gsf" style={{ gridColumn: '1/8', color: 'var(--faint)' }}>{t('No runs in this window.')}</span></div>}
+                  {!feed && <div className="gtr"><span className="gsf" style={{ gridColumn: '1/8', color: 'var(--faint)' }}>{t('Loading run history…')}</span></div>}
                 </div>
                 </>}
               </div>

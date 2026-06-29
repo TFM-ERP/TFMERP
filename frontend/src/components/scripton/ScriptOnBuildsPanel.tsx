@@ -84,7 +84,7 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
     let alive = true;
     (async () => {
       try { const pr: any = await productionApi.projects.list(); const ps = pr.data?.items ?? (Array.isArray(pr.data) ? pr.data : []); if (alive) setProjects(ps); } catch { /* */ }
-      if (projectId) { setDestProj(projectId); await load(projectId, false); } else { setBuilds(null); }
+      if (projectId) { setDestProj(projectId); await load(projectId, false); } else { await load('', false); } // unscoped → show the whole build pool, not demo
     })();
     return () => { alive = false; };
   }, [projectId]);

@@ -12,7 +12,9 @@ import { BASE_GENRES, BLEND_LAYERS, TONES, MOODS, TREATMENTS, SETTING_ERAS, SETT
 const C = { scrim: 'rgba(6,7,10,0.85)', panel: '#0e1014', band: '#14161c', hair: 'rgba(255,255,255,.08)', gold: '#C6A463', gold2: '#E6D2A2', ink: '#1a1509', cream: '#F4EEE0', text: '#E7E3D8', mut: '#9aa1ab', faint: '#6b727d', blue: '#5b8def', violet: '#8b7cf0', green: '#57b368', red: '#e5635f', amber: '#e0a458' };
 const GENRES = ['Action', 'Adventure', 'Comedy', 'Drama', 'Romance', 'Thriller', 'Horror', 'Sci-fi', 'Fantasy', 'Mystery', 'Crime', 'War', 'Western', 'Historical', 'Epic', 'Biopic', 'Musical', 'Family', 'Animation', 'Sport', 'Film-noir', 'Disaster', 'Survival', 'Coming-of-age', 'Spy', 'Heist', 'Superhero', 'Psychological', 'Satire', 'Road movie', 'Martial arts', 'Slasher'];
 const SCOPE: [string, string][] = [['subject', 'Real subject & history'], ['craft', 'Story-craft & refs'], ['mythology', 'Mythology / culture'], ['comps', 'Comps & box office'], ['legal', 'Cultural / legal fit'], ['general', 'General web']];
-const PTYPES: [string, string, string][] = [['MOVIE', 'Movie', '~90-120 min'], ['TV_SERIES', 'TV series', '8-22 ep'], ['LIMITED', 'Limited', '4-8 ep'], ['VERTICAL', 'Vertical', '60-100 ep'], ['SHORT', 'Short film', '<=40 min'], ['DOC', 'Documentary', 'varies']];
+const PTYPES: [string, string, string][] = [['MOVIE', 'Movie', '~90-120 min'], ['TV_SERIES', 'TV series', '8-22 ep'], ['LIMITED', 'Limited', '4-8 ep'], ['VERTICAL', 'Vertical', '60-100 ep'], ['SHORT', 'Short film', '<=40 min'], ['DOC', 'Documentary', 'varies'], ['VERTICAL_AI_VIDEO', 'AI video', '60–90s ep · ≤5s scenes']];
+// AI-video visual styles (mirror of the backend VIDEO_STYLES catalog) — the look applied to every scene.
+const VIDEO_STYLES: [string, string][] = [['cinematic', 'Cinematic (photoreal)'], ['anime', 'Anime'], ['pixar3d', '3D / Pixar'], ['comic', 'Motion comic'], ['claymation', 'Claymation'], ['watercolor', 'Watercolour'], ['cyberpunk', 'Cyberpunk neon'], ['inkwash', 'Ink wash']];
 const SERIES_TYPES = ['TV_SERIES', 'VERTICAL', 'LIMITED'];
 // Series-type presets — mirror backend SERIES_PRESETS / VERTICAL_PRESETS (knowledge/formats.ts).
 // episodes/minutesPerEp are the template norm (midpoint for ranges); the fields stay editable
@@ -131,7 +133,7 @@ function Combo({ value, onChange, options, placeholder }: { value: string; onCha
 
 export default function ScriptOnIntake({ projectId, busy, onBegin, onClose }: { projectId: string | null; busy?: boolean; onBegin: (form: any) => void; onClose: () => void }) {
   const { dir, t, locale } = useLocale();
-  const [f, setF] = useState<any>({ mode: 'ADAPT', sourceText: '', realBased: true, realityLevel: 'INSPIRED', researchSubject: true, researchAmount: 55, genres: [], baseGenre: '', baseGenres: [], subgenre: '', subMix: {}, styles: [], styleMix: {}, blendLayers: [], tones: [], moods: [], treatment: '', settingCountry: '', settingEra: '', settingWorld: [], cultureEra: '', settingPlace: [], projectIntent: '', budgetTier: '', tone: '', framework: '', projectType: 'MOVIE', episodes: 10, minutesPerEp: 50, seasons: 1, loreSelections: [], loreDensity: 'ACCENT', lorePolicy: { allowHistoricalPantheon: false }, format: '', language: '', country: '', rating: '', researchScope: { subject: true, craft: true, mythology: true, comps: true, legal: true, general: true }, researchDepth: 60 });
+  const [f, setF] = useState<any>({ mode: 'ADAPT', sourceText: '', realBased: true, realityLevel: 'INSPIRED', researchSubject: true, researchAmount: 55, genres: [], baseGenre: '', baseGenres: [], subgenre: '', subMix: {}, styles: [], styleMix: {}, blendLayers: [], tones: [], moods: [], treatment: '', settingCountry: '', settingEra: '', settingWorld: [], cultureEra: '', settingPlace: [], projectIntent: '', budgetTier: '', tone: '', framework: '', projectType: 'MOVIE', episodes: 10, minutesPerEp: 50, seasons: 1, loreSelections: [], loreDensity: 'ACCENT', lorePolicy: { allowHistoricalPantheon: false }, format: '', language: '', country: '', rating: '', researchScope: { subject: true, craft: true, mythology: true, comps: true, legal: true, general: true }, researchDepth: 60, aspectRatio: '9:16', durationSec: 5, videoStyle: [], negativePrompt: 'blurry, text, watermark, deformed, extra fingers, abstract, low resolution, motion blur', seed: 0 });
   const [step, setStep] = useState(1);
   const [pastes, setPastes] = useState<string[]>([]);
   const [urls, setUrls] = useState<string[]>([]);
@@ -189,6 +191,8 @@ export default function ScriptOnIntake({ projectId, busy, onBegin, onClose }: { 
   const onFile = async (file?: File | null) => { if (!file) return; setUpl(t('Uploading...')); try { const up = await uploadFile(file); setFiles((a) => [...a, { name: up.originalName || 'file', url: up.url }]); setUpl(''); } catch { setUpl(t('Upload failed')); } };
 
   useEffect(() => { if (f.mode === 'ORIGINAL') setStep(2); }, [f.mode]);
+  // Seed lazily on mount (avoids SSR hydration mismatch from Math.random in initial state).
+  useEffect(() => { setF((p: any) => (p.seed ? p : { ...p, seed: Math.floor(Math.random() * 1000000) })); }, []);
   // When a series format is chosen, default the type-preset by locale/market so the first view is
   // meaningful (no bare 10×50) — unless the user already picked one valid for this type or went Custom.
   useEffect(() => {
@@ -256,7 +260,7 @@ export default function ScriptOnIntake({ projectId, busy, onBegin, onClose }: { 
     const framework = f.framework || smartFramework(f.projectType, f.genres);
     // Keep the draft here. It is cleared by the Studio ONLY once the build truly succeeds (directions generated),
     // so a mid-build failure (AI/credits/network) leaves the form intact and the user can return to Adapt & Build and Resume.
-    onBegin({ ...f, episodes: isSeries ? f.episodes : null, minutesPerEp: isSeries ? f.minutesPerEp : null, seasons: isSeries ? f.seasons : null, framework, sourceText: aggregate, sources, sourceUrl: urls[0] || '', sourceFileUrl: files[0] ? files[0].url : '' });
+    onBegin({ ...f, episodes: (isSeries || f.projectType === 'VERTICAL_AI_VIDEO') ? f.episodes : null, minutesPerEp: isSeries ? f.minutesPerEp : null, seasons: isSeries ? f.seasons : null, framework, sourceText: aggregate, sources, sourceUrl: urls[0] || '', sourceFileUrl: files[0] ? files[0].url : '' });
   };
 
   const band: React.CSSProperties = { border: '1px solid ' + C.hair, borderRadius: 14, padding: 16, marginBottom: 12, background: C.band };
@@ -291,6 +295,7 @@ export default function ScriptOnIntake({ projectId, busy, onBegin, onClose }: { 
 
   const densIdx = DSTOPS.indexOf(f.loreDensity);
   const densColor = densIdx <= 1 ? C.green : densIdx <= 3 ? C.amber : C.red;
+  const aiVid = f.projectType === 'VERTICAL_AI_VIDEO';
 
   return (
     <div dir={dir} style={{ position: 'fixed', inset: 0, zIndex: 75, background: C.scrim, overflow: 'auto', fontFamily: 'var(--sx-body)' }}>
@@ -381,7 +386,46 @@ export default function ScriptOnIntake({ projectId, busy, onBegin, onClose }: { 
                 ) : null}
               </div>
 
-              {f.mode === 'ADAPT' ? (
+              {f.projectType === 'VERTICAL_AI_VIDEO' ? (
+                <div style={bandLit}>
+                  <div style={bt}>{t('AI video settings')} <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, color: C.gold, marginInlineStart: 8 }}>{t('SHORT-FORM AI')}</span></div>
+                  <div style={{ fontSize: 10.5, color: C.faint, margin: '6px 0 4px' }}>{t('Develops a vertical micro-drama → episodes → ≤5s scenes, then renders each scene in your chosen look.')}</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: narrow ? '1fr' : '1fr 1fr', gap: 12, marginTop: 8 }}>
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><span style={lab}>{t('Shot duration')}</span><span style={{ fontSize: 11.5, fontWeight: 700, color: C.cream }}>{f.durationSec}s</span></div>
+                      <input type="range" min={3} max={10} step={1} value={f.durationSec} onChange={(e) => set('durationSec', Number(e.target.value))} style={{ width: '100%', accentColor: C.gold }} />
+                    </div>
+                    <div>
+                      <div style={lab}>{t('Aspect ratio')}</div>
+                      <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>{([['9:16', 'Vertical'], ['16:9', 'Landscape'], ['1:1', 'Square']] as [string, string][]).map(([v, l]) => <span key={v} style={chip(f.aspectRatio === v)} onClick={() => set('aspectRatio', v)}>{v} · {t(l)}</span>)}</div>
+                    </div>
+                  </div>
+                  <div style={{ marginTop: 12 }}>
+                    <div style={lab}>{t('Visual style')} <span style={{ color: C.faint, fontWeight: 500 }}>· {t('the look applied to every scene')}</span></div>
+                    <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>{VIDEO_STYLES.map(([id, lbl]) => <span key={id} style={chip((f.videoStyle || 'cinematic') === id)} onClick={() => set('videoStyle', id)}>{t(lbl)}</span>)}</div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: narrow ? '1fr' : '1fr 1fr', gap: 12, marginTop: 10 }}>
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><span style={lab}>{t('Episodes')}</span><span style={{ fontSize: 11.5, fontWeight: 700, color: C.cream }}>{f.episodes || 8}</span></div>
+                      <input type="range" min={1} max={80} step={1} value={f.episodes || 8} onChange={(e) => set('episodes', Number(e.target.value))} style={{ width: '100%', accentColor: C.gold }} />
+                    </div>
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><span style={lab}>{t('Episode length')}</span><span style={{ fontSize: 11.5, fontWeight: 700, color: C.cream }}>{f.episodeSec || 75}s</span></div>
+                      <input type="range" min={30} max={120} step={5} value={f.episodeSec || 75} onChange={(e) => set('episodeSec', Number(e.target.value))} style={{ width: '100%', accentColor: C.gold }} />
+                      <div style={{ fontSize: 9.5, color: C.faint, marginTop: 3 }}>{'≈ ' + Math.max(1, Math.round((f.episodeSec || 75) / (f.durationSec || 5))) + ' '}{t('scenes/episode')}</div>
+                    </div>
+                  </div>
+                  <div style={lab}>{t('Negative prompt')} <span style={{ color: C.faint, fontWeight: 500 }}>· {t('what to avoid')}</span></div>
+                  <textarea value={f.negativePrompt} onChange={(e) => set('negativePrompt', e.target.value)} placeholder={t('e.g. blurry, text, watermark, deformed, extra fingers, low resolution')} style={{ ...field, minHeight: 64, resize: 'none' }} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10, flexWrap: 'wrap' }}>
+                    <span style={{ ...lab, margin: 0 }}>{t('Seed')}</span>
+                    <input type="number" value={f.seed} onChange={(e) => set('seed', Number(e.target.value))} style={{ ...field, width: 150 }} />
+                    <span onClick={() => set('seed', Math.floor(Math.random() * 1000000))} style={{ ...chip(false), borderStyle: 'dashed' }}>{t('Randomize')}</span>
+                  </div>
+                </div>
+              ) : null}
+
+              {f.mode === 'ADAPT' && !aiVid ? (
                 <div style={bandLit}>
                   <div style={bt}>{t('Grounding in reality')}</div>
                   <div style={{ marginTop: 8 }}><Toggle on={f.realBased} onClick={() => set('realBased', !f.realBased)}>{t('Based on a real story / person')}</Toggle></div>
@@ -428,7 +472,7 @@ export default function ScriptOnIntake({ projectId, busy, onBegin, onClose }: { 
                 <div style={{ fontSize: 10.5, color: C.faint, marginTop: 6 }}>{t('The engine auto-loads each era’s language, names and customs — for Egypt, every Arab country, and many world settings.')}</div>
               </div>
 
-              <div style={band}>
+              <div style={band} hidden={aiVid}>
                 <div style={bt}>{t('Intent & budget')}</div>
                 <div style={lab}>{t('Project intent')}</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>{PROJECT_INTENTS.map((g) => <span key={g.id} style={chip(f.projectIntent === g.label)} onClick={() => setTax('projectIntent', f.projectIntent === g.label ? '' : g.label)}>{tx(g, locale)}</span>)}</div>
@@ -437,7 +481,7 @@ export default function ScriptOnIntake({ projectId, busy, onBegin, onClose }: { 
                 {f.budgetTier ? <div style={{ fontSize: 10.5, color: C.faint, marginTop: 6 }}>{(() => { const b: any = BUDGET_TIERS.find((x) => x.label === f.budgetTier) || {}; return (locale === 'ar' ? b.arHint : b.hint) || ''; })()}</div> : null}
               </div>
 
-              <div style={band}>
+              <div style={band} hidden={aiVid}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div style={bt}>{t('Story framework')}</div><button type="button" onClick={() => setFwInfo((v) => !v)} title={t('What each framework means')} style={{ width: 18, height: 18, borderRadius: '50%', border: '1px solid ' + C.hair, background: fwInfo ? 'rgba(198,164,99,.18)' : 'transparent', color: C.gold2, fontSize: 11, fontWeight: 800, fontStyle: 'italic', cursor: 'pointer', lineHeight: 1, display: 'grid', placeItems: 'center' }}>i</button></div>
                 <div style={{ fontSize: 10.5, color: C.faint, margin: '6px 0 8px' }}>{t('The beat map your Beats stage will follow. Auto picks the best fit for your format; tap the i to see what each one is.')}</div>
                 <select value={f.framework || ''} onChange={(e) => set('framework', e.target.value)} style={{ ...field, cursor: 'pointer' }}>
@@ -459,7 +503,7 @@ export default function ScriptOnIntake({ projectId, busy, onBegin, onClose }: { 
                   </div>); })}</div>) : null}
               </div>
 
-              <div style={band}>
+              <div style={band} hidden={aiVid}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div style={bt}>{t('Ending')}</div><button type="button" onClick={() => setEndInfo((v) => !v)} title={t('What each ending means')} style={{ width: 18, height: 18, borderRadius: '50%', border: '1px solid ' + C.hair, background: endInfo ? 'rgba(198,164,99,.18)' : 'transparent', color: C.gold2, fontSize: 11, fontWeight: 800, fontStyle: 'italic', cursor: 'pointer', lineHeight: 1, display: 'grid', placeItems: 'center' }}>i</button><span style={{ marginInlineStart: 'auto', fontSize: 10, color: endIds().length >= 2 ? C.gold2 : C.faint, fontWeight: 700 }}>{endIds().length}/2 {t('chosen')}</span></div>
                 <div style={{ fontSize: 10.5, color: C.faint, margin: '6px 0 8px' }}>{t("How the story lands - pick up to two to blend (e.g. bittersweet + open / sequel hook). Written into the brief and honoured at the climax; same list as the Doctor's Re-engineer ending.")}</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>{ENDING_TYPES.map((en) => { const on = endIds().includes(en.id); const full = !on && endIds().length >= 2; return <span key={en.id} onClick={() => toggleEnding(en.id)} title={locale === 'ar' ? en.arDesc : en.desc} style={{ ...chip(on), opacity: full ? 0.4 : 1, cursor: full ? 'not-allowed' : 'pointer' }}>{on ? '\u2713 ' : ''}{locale === 'ar' ? en.ar : en.label}</span>; })}</div>
@@ -467,7 +511,7 @@ export default function ScriptOnIntake({ projectId, busy, onBegin, onClose }: { 
                 {endInfo ? (<div style={{ marginTop: 8, background: '#101218', border: '1px solid ' + C.hair, borderRadius: 10, padding: '10px 12px', display: 'grid', gap: 7, maxHeight: 240, overflow: 'auto' }}>{ENDING_TYPES.map((en) => (<div key={en.id} style={{ fontSize: 11, lineHeight: 1.45 }}><span style={{ color: C.gold2, fontWeight: 700 }}>{locale === 'ar' ? en.ar : en.label}</span><span style={{ color: C.faint }}>{' — ' + (locale === 'ar' ? en.arDesc : en.desc)}</span></div>))}</div>) : null}
               </div>
 
-              <div style={layerOn ? bandLit : band}>
+              <div style={layerOn ? bandLit : band} hidden={aiVid}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                   <div style={bt}>{t('Lore Atlas - genre & lore layer')}</div>
                   <Toggle on={layerOn} onClick={() => setLayerOn(!layerOn)}>{t('Add a lore layer')}</Toggle>
@@ -561,7 +605,7 @@ export default function ScriptOnIntake({ projectId, busy, onBegin, onClose }: { 
                 )}
               </div>
 
-              <div style={band}>
+              <div style={band} hidden={aiVid}>
                 <div style={bt}>{t('Target')} <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, color: C.gold, marginInlineStart: 8 }}>{t('SHAPES THE STORY')}</span></div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 8 }}>
                   <div><div style={lab}>{t('Target language')}</div><Combo value={f.language} onChange={(v) => set('language', v)} options={LANGUAGES} placeholder={t('Pick a language...')} /></div>
@@ -594,7 +638,7 @@ export default function ScriptOnIntake({ projectId, busy, onBegin, onClose }: { 
                 ) : null}
               </div>
 
-              <div style={band}>
+              <div style={band} hidden={aiVid}>
                 <div style={bt}>{t('Research scope')} <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, color: C.gold, marginInlineStart: 8 }}>{t('ON BY DEFAULT')}</span></div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginTop: 8 }}>{SCOPE.map(([k, l]) => <span key={k} style={chip(!!f.researchScope?.[k])} onClick={() => set('researchScope', { ...f.researchScope, [k]: !f.researchScope?.[k] })}>{t(l)}</span>)}</div>
                 <div style={lab}>{t('Research depth')}</div>{slider('researchDepth')}
