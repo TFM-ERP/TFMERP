@@ -22,14 +22,23 @@
  */
 
 /** Lines on a standard 12pt Courier screenplay page. MUST stay equal to ScripOnService.paginate()'s `per`. */
+import { normalizeFamily } from './knowledge/formats';
+
 export const LINES_PER_PAGE = 55;
 
 /** Visual wrap width used by paginate() when converting a raw line into page lines. */
 export const WRAP_CHARS = 58;
 
+/**
+ * THE FEATURE BAND: 90 to 115 pages. A stated product constraint, not a guideline.
+ *
+ * The ceiling was 120, which let MAX_COMPLETION_RATIO file a 105-page target as complete at 121 —
+ * six pages outside the band. isLengthOver now enforces MAX_TARGET_PAGES absolutely, so no ratio
+ * against any target can produce a draft above it.
+ */
 export const DEFAULT_TARGET_PAGES = 105;
 export const MIN_TARGET_PAGES = 90;
-export const MAX_TARGET_PAGES = 120;
+export const MAX_TARGET_PAGES = 115;
 
 /** A finished draft below this fraction of its page target is NOT complete, whatever the ending says. */
 export const MIN_COMPLETION_RATIO = 0.9;
@@ -52,8 +61,23 @@ export const MAX_COMPLETION_RATIO = 1.15;
  * words than a page can physically hold, before the model wrote anything wrong. 165 is the measured
  * figure rounded up slightly, since a more dialogue-heavy script (dialogue is indented and narrow,
  * so it holds FEWER words per page) will sit below this, not above.
+ *
+ * ── 2 SEP: RE-FITTED FOR US LETTER ──────────────────────────────────────────────────────────────
+ *
+ * The 985 chars/page above was measured on an A4 export. The export is now US Letter, which has a
+ * shorter text column — 9in against A4's 9.96in — and the figure scales with it and nothing else:
+ *
+ *     985 chars/page x (9 / 9.96) = 890 chars/page
+ *     890 / 6.11 chars per word   = 146 words per page
+ *
+ * 149 keeps the same slight rounding up as before, for the same reason: a dialogue-heavy script
+ * holds fewer words per page than the average, so the budget should sit at the top of the range
+ * rather than the middle. PAGE_BUDGET in scripton.service.ts moved from 61 to 55 in the same
+ * change. These two describe one physical page between them — move them together or the word
+ * budget and the page budget drift apart, which is the arithmetic that produced 190 in the first
+ * place.
  */
-export const WORDS_PER_PAGE = 165;
+export const WORDS_PER_PAGE = 149;
 
 /** The page allocations a scene may be given. Anything else is snapped to the nearest of these. */
 export const PAGE_WEIGHTS: number[] = [0.25, 0.5, 1, 1.5, 2, 3];
@@ -164,15 +188,24 @@ export interface GenreLengthProfile {
 /**
  * Genre profiles. sceneDensity and pagesPerMinute are derived from published analyses of produced
  * screenplays; defaultPages is the genre's typical length. Genres not listed fall back to DEFAULT.
+ *
+ * defaultPages USED TO BE 105 for ACTION, THRILLER, DRAMA, ROMANCE and MUSICAL alike, which is how
+ * two unrelated films — MINUTEMEN (thriller) and JASON QUICK — were handed the identical target and
+ * delivered 103 and 100 pages. The intake collects no length for a MOVIE, so every one of those
+ * builds fell through briefTargetPages to this number. Spread now, so an untouched build at least
+ * varies by genre.
+ *
+ * The spread is the SMALLER half of that fix. Two thrillers still share a default, correctly — the
+ * real repair is that the intake now asks, and an explicit targetPages always wins over this table.
  */
 const GENRE_PROFILES: GenreLengthProfile[] = [
-  { key: 'ACTION', sceneDensity: 1.25, pagesPerMinute: 0.99, defaultPages: 105 },
-  { key: 'THRILLER', sceneDensity: 1.15, pagesPerMinute: 1.02, defaultPages: 105 },
+  { key: 'ACTION', sceneDensity: 1.25, pagesPerMinute: 0.99, defaultPages: 102 },
+  { key: 'THRILLER', sceneDensity: 1.15, pagesPerMinute: 1.02, defaultPages: 100 },
   { key: 'COMEDY', sceneDensity: 0.93, pagesPerMinute: 1.15, defaultPages: 106 },
-  { key: 'DRAMA', sceneDensity: 1.04, pagesPerMinute: 1.12, defaultPages: 105 },
+  { key: 'DRAMA', sceneDensity: 1.04, pagesPerMinute: 1.12, defaultPages: 108 },
   { key: 'HORROR', sceneDensity: 1.06, pagesPerMinute: 1.05, defaultPages: 98 },
   { key: 'HISTORICAL', sceneDensity: 1.04, pagesPerMinute: 1.10, defaultPages: 110 },
-  { key: 'ROMANCE', sceneDensity: 0.98, pagesPerMinute: 1.12, defaultPages: 105 },
+  { key: 'ROMANCE', sceneDensity: 0.98, pagesPerMinute: 1.12, defaultPages: 100 },
   { key: 'FANTASY', sceneDensity: 1.10, pagesPerMinute: 1.05, defaultPages: 110 },
   { key: 'SCIFI', sceneDensity: 1.10, pagesPerMinute: 1.05, defaultPages: 110 },
   { key: 'MUSICAL', sceneDensity: 1.00, pagesPerMinute: 0.90, defaultPages: 105 },
@@ -235,12 +268,30 @@ export function resolveGenreProfile(brief: any): GenreLengthProfile {
 
 export interface FeatureLengthPlan {
   genreKey: string;
+  /** FEATURE, SHORT or DOCUMENTARY — which page band governed this plan. */
+  formatKey: string;
   /** Pages the finished draft should reach. */
   targetPages: number;
   /** Screen-time estimate for display. Always present it as "approximately". */
   targetMinutes: number;
-  /** How many scenes to plan for that page count. */
+  /**
+   * Scenes the page budget will carry. A CEILING derived from the pages-per-scene floor — NOT a
+   * quota to fill. The planner may come in under it; it may not sail past it.
+   */
   targetScenes: number;
+  /** Pages a scene should average. The constraint `targetScenes` is derived from. */
+  pagesPerScene: number;
+  /** SPEC or PRODUCED. Decides whether the spec-corpus densities are used raw or damped. */
+  texture: Texture;
+  /**
+   * Beats per scene implied by the developed outline. 0 when there is no outline yet.
+   *
+   * The outline used to FORCE the scene count — `max(fromPages, beatN)` — so a 130-beat outline
+   * produced 130 scenes whatever the page budget said, and the prompt then asked for 1-3 scenes per
+   * beat on top. Beats now share scenes instead: this number tells the planner how many to fold
+   * together, and the page budget keeps its authority.
+   */
+  beatsPerScene: number;
   /** Upper bound on scenes accepted back from the planner (headroom over the target). */
   planCap: number;
   /** Lower bound the finished draft must clear to be filed as complete. */
@@ -271,26 +322,140 @@ export function briefTargetPages(brief: any, pagesPerMinute: number): number | n
 /**
  * The whole length budget for one feature.
  *
- * `beatN` is a FLOOR, not the driver: every beat in the developed outline still has to be dramatised,
- * so a 130-beat outline forces at least 130 scenes even if the page maths asked for fewer. It is no
- * longer the source of the count — that was the bug.
+ * `beatN` is NEITHER the driver NOR a floor any more. It was a floor — "every beat still has to be
+ * dramatised, so a 130-beat outline forces at least 130 scenes" — which is true about COVERAGE and
+ * false about SCENE COUNT: beats can share a scene, and over a fixed page budget they must. It is
+ * now reported as `beatsPerScene` so the planner knows how much to fold, and the pages decide.
  */
 export function planFeatureLength(brief: any, beatN = 0): FeatureLengthPlan {
   const g = resolveGenreProfile(brief);
+  const band = resolveFormatBand(brief);
+  const texture = resolveTexture(brief);
   const asked = briefTargetPages(brief, g.pagesPerMinute);
-  const targetPages = Math.round(clamp(asked ?? g.defaultPages, MIN_TARGET_PAGES, MAX_TARGET_PAGES));
-  const fromPages = Math.round(targetPages * g.sceneDensity);
-  const targetScenes = Math.max(fromPages, Math.max(0, Math.round(beatN)));
+  // The band decides the range AND, for anything that is not a feature, the default. A short film
+  // has no business collecting a feature's genre default and then being clamped up to ninety pages.
+  const targetPages = Math.round(clamp(asked ?? (band.defaultPages ?? g.defaultPages), band.minPages, band.maxPages));
+  const targetScenes = sceneCeilingFor(targetPages, g.sceneDensity, texture);
+  const beats = Math.max(0, Math.round(beatN));
   return {
     genreKey: g.key,
+    formatKey: band.key,
     targetPages,
     targetMinutes: Math.round(targetPages / g.pagesPerMinute),
     targetScenes,
-    planCap: Math.ceil(targetScenes * 1.3),
+    pagesPerScene: pagesPerSceneFloor(g.sceneDensity, texture),
+    texture,
+    // Reported, never enforced: how much folding the outline implies. 1 or below means the beats fit
+    // one to a scene; 1.8 means the planner should expect to carry two beats in most scenes.
+    beatsPerScene: beats > 0 && targetScenes > 0 ? Math.round((beats / targetScenes) * 100) / 100 : 0,
+    // Headroom was 30%, which on a quota model meant a 131-scene ask could be answered with 170 and
+    // accepted. Against a ceiling the headroom is a parser tolerance, not a licence.
+    planCap: Math.ceil(targetScenes * 1.1),
     minPages: Math.round(targetPages * MIN_COMPLETION_RATIO),
     sceneDensity: g.sceneDensity,
     pagesPerMinute: g.pagesPerMinute,
   };
+}
+
+/**
+ * FORMAT BANDS — a feature is not the only thing this system writes.
+ *
+ * The band used to be 90–115 for EVERYTHING, so a twenty-minute short was silently planned as a
+ * ninety-page feature. The knowledge layer already knew better — `normalizeFamily` gives the family
+ * and the format preset says "under ~40 min, single story" — and `knowledgeDirective` was already
+ * telling the model "short film, under ~40 min" while the page budget contradicted it in the same
+ * prompt. This makes the two agree.
+ *
+ * DOCUMENTARY is here for completeness only: that family routes to `generateDocumentaryAsync`, which
+ * never calls this function. SERIES and VERTICAL likewise have their own writers, and fall back to
+ * the feature band if they ever arrive here.
+ */
+export interface FormatBand {
+  key: string;
+  minPages: number;
+  maxPages: number;
+  /** null = let the genre profile decide, which is what a feature does. */
+  defaultPages: number | null;
+}
+
+export const FORMAT_BANDS: Record<string, FormatBand> = {
+  FEATURE: { key: 'FEATURE', minPages: MIN_TARGET_PAGES, maxPages: MAX_TARGET_PAGES, defaultPages: null },
+  SHORT: { key: 'SHORT', minPages: 3, maxPages: 40, defaultPages: 12 },
+  DOCUMENTARY: { key: 'DOCUMENTARY', minPages: 40, maxPages: 120, defaultPages: 90 },
+};
+
+export function resolveFormatBand(brief: any): FormatBand {
+  let fam = 'FEATURE';
+  try { fam = String(normalizeFamily(brief) || 'FEATURE'); } catch { fam = 'FEATURE'; }
+  return FORMAT_BANDS[fam] || FORMAT_BANDS.FEATURE;
+}
+
+/**
+ * TEXTURE — the single most consequential number in this file, and it used to be invisible.
+ *
+ * Every sceneDensity in the table below is measured against the FOLLOWS corpus: 12,309 SPEC scripts,
+ * competition and query material. The other corpus, ScriptBase, measured 1,276 PRODUCED films:
+ *
+ *     Follows (spec):      110 scenes / 106 pages = 0.96 pages per scene
+ *     ScriptBase (produced): ~80 scenes / ~110 pages = 1.4 pages per scene
+ *
+ * Produced screenplays run roughly 40% FEWER scenes per page than the corpus our constants came
+ * from. Shipping the spec numbers as the default meant `sceneDensity 1.25 x defaultPages 105 = 131`
+ * — and the planner then executed perfectly against a television number. 139 scenes came back and 93
+ * of them ran under half a page. The planner was never broken. The target was.
+ *
+ * So texture is a SWITCH, not a silent edit, and PRODUCED is the default because a screenplay meant
+ * to be shot should read like one that was.
+ *
+ * The 0.7 factor is not fitted to our drafts — it is the cross-corpus ratio — and it lands the scene
+ * counts almost exactly on the produced corpus, which is the strongest evidence available that it is
+ * the right number:
+ *
+ *     genre     ceiling at 105pp   ScriptBase produced (scaled to 105pp)
+ *     ACTION    91                 97
+ *     THRILLER  84                 88
+ *     DRAMA     76                 76
+ *     COMEDY    68                 63
+ */
+export type Texture = 'PRODUCED' | 'SPEC';
+
+/** Produced films run ~30% fewer scenes per page than spec scripts. Multiplies scenes-per-page. */
+export const PRODUCED_TEXTURE_FACTOR = 0.7;
+
+/** SPEC only when the brief asks for it by name. Everything else is a film meant to be shot. */
+export function resolveTexture(brief: any): Texture {
+  const raw = String((brief && (brief.texture ?? brief.sceneTexture)) || '').trim().toUpperCase();
+  return raw === 'SPEC' ? 'SPEC' : 'PRODUCED';
+}
+
+/** Scenes per page after texture. The number the planner is actually held to. */
+export function effectiveSceneDensity(sceneDensity: number, texture: Texture): number {
+  const d = Number(sceneDensity);
+  const base = isFinite(d) && d > 0 ? d : DEFAULT_GENRE_PROFILE.sceneDensity;
+  return base * (texture === 'SPEC' ? 1 : PRODUCED_TEXTURE_FACTOR);
+}
+
+/**
+ * THE FLOOR. Density inverted: the pages a scene should average, not the scenes a page should hold.
+ *
+ * This is the whole point of the change. `targetScenes` was a QUOTA the planner was told to fill —
+ * "expand the outline into 131-147 scenes ... do NOT compress it into fewer, longer ones" — and a
+ * quota over a fixed page count is an instruction to fragment. Stated as a floor it becomes a
+ * constraint on scene LENGTH, which is what a reader actually experiences, and the scene count falls
+ * out of it as a ceiling rather than being aimed at.
+ */
+export function pagesPerSceneFloor(sceneDensity: number, texture: Texture): number {
+  const d = effectiveSceneDensity(sceneDensity, texture);
+  return Math.round((1 / d) * 100) / 100;
+}
+
+/** Below this a "plan" is not a story, whatever the arithmetic says. */
+export const MIN_PLANNED_SCENES = 3;
+
+/** Scenes the page budget will carry at this texture. A CEILING — floored, never rounded up. */
+export function sceneCeilingFor(targetPages: number, sceneDensity: number, texture: Texture): number {
+  const pages = Math.max(0, Number(targetPages) || 0);
+  return Math.max(MIN_PLANNED_SCENES, Math.floor(pages * effectiveSceneDensity(sceneDensity, texture)));
 }
 
 /** Snap any number to the nearest allowed page allocation. Junk becomes 1 (a normal one-page scene). */
@@ -533,9 +698,20 @@ export function remainingBudgetScale(targetPages: number, actualPagesSoFar: numb
   return Math.min(2, Math.max(0.25, left / remainingPlannedPages));
 }
 
-/** Is this draft longer than a feature should be? */
-export function isLengthOver(actualPages: number, targetPages: number, maxRatio = MAX_COMPLETION_RATIO): boolean {
-  return completionRatio(actualPages, targetPages) > maxRatio;
+/**
+ * Is this draft longer than a feature should be?
+ *
+ * Two ceilings, and a draft has to clear BOTH. The ratio is relative — a short target tolerates a
+ * proportionally smaller overrun — while MAX_TARGET_PAGES is absolute, because 115 pages is the top
+ * of the band whatever the target was. Without the second test a 105-page target filed as complete
+ * at 120, and a 115-page target would have filed at 132.
+ */
+export function isLengthOver(
+  actualPages: number, targetPages: number, maxRatio = MAX_COMPLETION_RATIO, hardCap = MAX_TARGET_PAGES,
+): boolean {
+  const actual = Math.max(0, Number(actualPages) || 0);
+  if (hardCap > 0 && actual > hardCap) return true;
+  return completionRatio(actual, targetPages) > maxRatio;
 }
 
 /** Count a block of text the way paginate() does, so budgets and page counts agree. */

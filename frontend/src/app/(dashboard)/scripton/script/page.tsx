@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { productionApi } from '@/lib/api';
 import { SxRail } from '@/components/scripton/shared/sx';
-import { markScriptonGenerating, clearScriptonGenerating } from '@/components/scripton/useScriptonGenerating';
+import { markScriptonGenerating, clearScriptonGenerating, isScriptonGenerating } from '@/components/scripton/useScriptonGenerating';
 import { ScriptPaper, buildScriptPrintHtml } from '@/components/scripton/scriptPaper';
 import { downloadScriptPdf } from '@/components/scripton/scriptPdf';
 import ProtectedExportDialog, { ProtectedExportTarget } from '@/components/scripton/ProtectedExportDialog';
@@ -75,6 +75,27 @@ export default function ScriptOnScriptPage() {
   const [genStat, setGenStat] = useState<string>('');
   const [genMode, setGenMode] = useState<'extend' | 'rewrite' | null>(null);
   const [genHidden, setGenHidden] = useState(false);
+  /**
+   * TELL THE FLOATING PILL TO STAND DOWN — but only while THIS screen is actually reporting.
+   *
+   * The pill used to hide on the whole /scripton/script route, on the assumption that the reader
+   * always shows its own overlay. It does not: `regening` is local state, set only when this page
+   * instance pressed Generate. Walk back to the reader later and you get the old pages, the old
+   * draft label and no indication whatsoever that a rewrite is running — which is exactly what it
+   * looked like on 2 Sep. `regening` covers the overlay AND the minimised "resume" chip, so the two
+   * of them never occupy the same corner either.
+   */
+  useEffect(() => {
+    const mark = () => {
+      try {
+        if (regening) document.body.dataset.scriptonOverlay = '1';
+        else delete document.body.dataset.scriptonOverlay;
+        window.dispatchEvent(new Event('scripton:overlay'));
+      } catch { /* ignore */ }
+    };
+    mark();
+    return () => { try { delete document.body.dataset.scriptonOverlay; window.dispatchEvent(new Event('scripton:overlay')); } catch { /* ignore */ } };
+  }, [regening]);
   const [cancelling, setCancelling] = useState(false);   // stop requested, waiting for the scene in flight
   const [protReq, setProtReq] = useState(false);
   const [protOpen, setProtOpen] = useState(false);
@@ -210,7 +231,7 @@ export default function ScriptOnScriptPage() {
     setRegening(true); setCovWarn(null); setGenErr(null); setGenHidden(false); setGenMode(mode); setGenPct(null); setCancelling(false); setGenStat(t('Starting…'));
     // Remember the run OUTSIDE this screen, so the rail can show it from anywhere in ScriptON —
     // and so "Continue in background" stops meaning "the generation disappears".
-    markScriptonGenerating(docId);
+    markScriptonGenerating(docId, mode);
     try { await productionApi.scripton.development.regenerateFeature(docId, mode); }
     catch (e: any) { setRegening(false); setGenErr(e?.response?.data?.message || t('Could not start generation — check AI Engines & Routing.')); return; }
     // Refresh the visible text as scenes land, and keep polling the progress endpoint until it is actually DONE —
@@ -262,12 +283,18 @@ export default function ScriptOnScriptPage() {
       // is on screen they have already been told, so clear it; if it was minimised, leave it beating
       // until they come back and click it. The functional updater reads the live value without
       // changing it — `genHidden` captured in this closure would be stale by now.
-      setGenHidden((hidden) => { if (!hidden) clearScriptonGenerating(); return hidden; });
+      setGenHidden((hidden) => { if (!hidden) clearScriptonGenerating(docId); return hidden; });
       // However the run ended — clean, failed or cancelled — it left a draft on file. Re-read the list
       // so it is visible immediately, rather than after a page reload.
       void refreshDrafts();
     };
     poll = setInterval(async () => {
+      // THE ORPHANED POLL. This interval is never cleared on unmount, so navigating away from a run
+      // leaves it alive in the same JS context. On 1 Sep a cancelled MINUTEMEN poll outlived its
+      // screen, reached its stop() a minute later and wiped the badge for the Jason Quick run that
+      // had started in the meantime — an hour of generation with no indication anywhere. If this
+      // document is no longer the one being followed, the run has been superseded: stand down.
+      if (!isScriptonGenerating(docId)) { if (poll) clearInterval(poll); poll = null; return; }
       let finished = false;
       try {
         const pr: any = await productionApi.scripton.development.scriptProgress(docId);

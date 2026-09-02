@@ -14,6 +14,11 @@ import {
   findMetaCommentary, stripMetaCommentary,
   findWrittenDeaths, collectWrittenDeaths, writtenDeathsAsExits,
   collectPronounEvidence, findPronounDrift, checkFixedAttributes,
+  sceneDefectInstruction, checkSceneIntegrity,
+  parseSpokenClock, findAllTimeTokens, checkClockRegression, findTimeTokens,
+  checkPropContinuity, propStateAt, spineDirective, type PropEvent,
+  findFlashbackMismatches,
+  findFragmentRuns, findFalseSceneBreaks, findEchoedPhrases, headingKey,
 } from './continuity.util';
 
 // ── the classifier, lifted out of paginate() ────────────────────────────────────────────────
@@ -785,4 +790,343 @@ test('findPronounDrift is fail-safe on junk', () => {
   assert.deepEqual(findPronounDrift(null as any), []);
   assert.deepEqual(checkFixedAttributes([], PCAST), []);
   assert.deepEqual(checkFixedAttributes([{ heading: 'INT. A', text: 'Nothing happens.' }], []), []);
+});
+
+// ── a scene that stops on a cue or a bracket ────────────────────────────────────────────────
+
+test('the two truncations an external reader found and the gate did not', () => {
+  // Scene 30 of the 2 Sep draft, verbatim at the cut.
+  const sc30 = 'INT. QUICK MARITIME — BRIDGE (FLASHBACK) - DAY\n\n'
+    + '                      ALEXANDER (CONT\'D)\n                That\'s all a route is. A promise.\n'
+    + '                      JASON QUICK\n                   (not looking up)\n                So?\n'
+    + '                      ALEXANDER\n                   (smi';
+  const d30 = checkSceneIntegrity(29, 'INT. QUICK MARITIME — BRIDGE (FLASHBACK) - DAY', sc30);
+  assert.ok(d30.some((d) => d.kind === 'DANGLING_CUE'), 'a scene may not end on a parenthetical');
+  assert.ok(d30.some((d) => d.kind === 'UNCLOSED_PAREN'), 'and the bracket is never closed');
+
+  // Scene 74, which stopped on a bare GI where GIDEON should have been.
+  const sc74 = 'INT. STUDY, BEACON HILL - NIGHT\n\n'
+    + '   He turns the decanter a quarter-turn. Squares it.\n'
+    + '                      ALEXANDER (CONT\'D)\n                He\'s become structural.\n'
+    + '   Gideon doesn\'t move.\n   GI';
+  const d74 = checkSceneIntegrity(73, 'INT. STUDY, BEACON HILL - NIGHT', sc74);
+  assert.ok(d74.some((d) => d.kind === 'DANGLING_CUE'), 'a scene may not end on a cue with no speech');
+});
+
+test('a well-formed scene is never flagged by either rule', () => {
+  const good = 'INT. HARBOUR SHACK - DAY\n\n'
+    + '   Steam off the kettle. ARLO deals three cards.\n'
+    + '                      ARLO\n                   (not looking)\n                You\'re down eleven.\n'
+    + '   Jason turns a card over. Says nothing.\n';
+  assert.deepEqual(checkSceneIntegrity(2, 'INT. HARBOUR SHACK - DAY', good), []);
+});
+
+test('a bracket wrapped across two action lines still balances', () => {
+  // Per-line balance would call this broken. Over the body it is fine, which is why the count is
+  // taken over the whole scene.
+  const wrapped = 'INT. BOATHOUSE - DAY\n\n'
+    + '   He opens the case (the one he carried up from\n   the skiff) and lifts out a coil of line.\n';
+  assert.deepEqual(checkSceneIntegrity(4, 'INT. BOATHOUSE - DAY', wrapped), []);
+});
+
+test('a scene ending on a transition is legal — only cues and brackets are not', () => {
+  const trans = 'EXT. QUAYSIDE - DAY\n\n   The ship swings out toward open water.\n\n   CUT TO:';
+  assert.deepEqual(checkSceneIntegrity(5, 'EXT. QUAYSIDE - DAY', trans), []);
+});
+
+test('both new defects explain themselves to the writer', () => {
+  assert.match(sceneDefectInstruction({ kind: 'DANGLING_CUE', sceneIndex: 0, detail: '(smi' }),
+    /no speech after it/);
+  assert.match(sceneDefectInstruction({ kind: 'UNCLOSED_PAREN', sceneIndex: 0, detail: '(smi' }),
+    /unclosed bracket/);
+});
+
+// ── clocks people say out loud ──────────────────────────────────────────────────────────────
+
+test('every spoken clock in the MINUTEMEN draft parses to the right minute', () => {
+  const cases: [string, number][] = [
+    ['zero-eight-two-four', 8 * 60 + 24], ['zero-eight-two-six', 8 * 60 + 26],
+    ['zero-eight-forty-one', 8 * 60 + 41], ['zero-eight-forty-two', 8 * 60 + 42],
+    ['zero eight twenty-nine', 8 * 60 + 29], ['zero-nine-forty', 9 * 60 + 40],
+    ['zero-nine-forty-one', 9 * 60 + 41], ['zero-nine-forty-four', 9 * 60 + 44],
+    ['zero-nine-fifty', 9 * 60 + 50], ['zero-nine-fifty-five', 9 * 60 + 55],
+    ['zero-nine-fourteen', 9 * 60 + 14], ['nine-fifty-five', 9 * 60 + 55],
+    ['nine twenty-two', 9 * 60 + 22], ['zero six hundred', 6 * 60],
+  ];
+  for (const [phrase, want] of cases) assert.equal(parseSpokenClock(phrase), want, phrase);
+});
+
+test('a count is not a clock — the leading zero is what makes one unambiguous', () => {
+  // "Twenty two" read as 20:02 is the false positive that would retire this rule on arrival.
+  for (const p of ['twenty two', 'one two', 'nine', 'forty five', 'Bay nine section two', 'six seven eight nine ten']) {
+    assert.equal(parseSpokenClock(p), null, p);
+  }
+});
+
+test('the old reader did not merely miss the spoken clock — it mis-read it', () => {
+  const scene = 'INT. CAPSULE - DAY\n\n   The clock reads 09:19.\n\n'
+    + '                      CROSS\n                Window opens zero-nine-fifty. Closes zero-nine-fifty-five.\n';
+  const digits = findTimeTokens(0, scene);
+  const all = findAllTimeTokens(0, scene);
+  const at = (list: any[], m: number) => list.some((t) => t.minutes === m);
+  assert.ok(at(digits, 9 * 60 + 50), 'it did catch the opening time');
+  assert.ok(!at(digits, 9 * 60 + 55),
+    'but it read "nine-fifty" out of "zero-nine-fifty-five" and returned 09:50 for a 09:55 — a WRONG value, not a gap');
+  assert.ok(at(all, 9 * 60 + 55), 'the full reader closes the window at the minute the scene says');
+  assert.ok(all.length > digits.length);
+});
+
+test('a clock on the wall may not run backwards, but a character may say any time at all', () => {
+  const toks = [
+    { sceneIndex: 10, minutes: 9 * 60 + 15, source: 'shown' as const, raw: '09:15' },
+    { sceneIndex: 12, minutes: 9 * 60 + 50, source: 'spoken' as const, raw: 'zero-nine-fifty' },  // a future window
+    { sceneIndex: 14, minutes: 8 * 60 + 8, source: 'spoken' as const, raw: '08:08' },             // a past relief
+    { sceneIndex: 20, minutes: 7 * 60 + 58, source: 'shown' as const, raw: '07:58' },             // the real fault
+  ];
+  const f = checkClockRegression(toks);
+  assert.equal(f.length, 1, 'only the wall clock counts');
+  assert.match(f[0].detail, /09:15 in scene 11 and 07:58 in scene 21/);
+});
+
+test('a flashback is exempt, and crossing midnight is not a regression', () => {
+  const back = [
+    { sceneIndex: 1, minutes: 9 * 60, source: 'shown' as const, raw: '09:00' },
+    { sceneIndex: 2, minutes: 4 * 60, source: 'shown' as const, raw: '04:00' },
+  ];
+  assert.equal(checkClockRegression(back, [2]).length, 0, 'the earlier scene is a flashback');
+  const midnight = [
+    { sceneIndex: 1, minutes: 23 * 60 + 50, source: 'shown' as const, raw: '23:50' },
+    { sceneIndex: 2, minutes: 10, source: 'shown' as const, raw: '00:10' },
+  ];
+  assert.equal(checkClockRegression(midnight).length, 0, 'past midnight is the next day, not a fault');
+});
+
+// ── the spine: prop lifecycle and the writer's directive ────────────────────────────────────
+
+test('THE LAMINATED CARD: binned in scene 62, back on the panel in 72', () => {
+  const f = checkPropContinuity([
+    { scene: 31, name: 'the laminated card', state: 'PLACED', note: 'face-up on the panel' },
+    { scene: 62, name: 'the laminated card', state: 'DESTROYED', note: 'Cross bins it' },
+    { scene: 72, name: 'the laminated card', state: 'PLACED', note: 'back on the panel' },
+  ]);
+  assert.equal(f.length, 1);
+  assert.match(f[0].detail, /destroyed in scene 62.*appears again in scene 72/);
+});
+
+test("THE PASSPORT: burned in 105, beside the filing in 117, buried in 137", () => {
+  const f = checkPropContinuity([
+    { scene: 105, name: "Jason's passport", state: 'DESTROYED', note: 'burned' },
+    { scene: 117, name: "Jason's passport", state: 'PLACED' },
+    { scene: 137, name: 'the passport', state: 'PLACED', note: 'buried at the graves' },
+  ]);
+  assert.equal(f.length, 1);
+  assert.match(f[0].detail, /scenes 117, 137/, '"the passport" is the same object as "Jason\'s passport"');
+});
+
+test('two owners are two objects — the fold refuses to guess when both could match', () => {
+  assert.deepEqual(checkPropContinuity([
+    { scene: 10, name: "Jason's passport", state: 'DESTROYED' },
+    { scene: 20, name: "Sophie's passport", state: 'PLACED' },
+  ]), []);
+});
+
+test('only DESTROYED is terminal — putting a thing down and picking it up is ordinary staging', () => {
+  assert.deepEqual(checkPropContinuity([
+    { scene: 5, name: 'the ledger', state: 'HIDDEN' },
+    { scene: 40, name: 'the ledger', state: 'TAKEN' },
+    { scene: 90, name: 'the ledger', state: 'GIVEN' },
+    { scene: 95, name: 'the ledger', state: 'PLACED' },
+  ]), []);
+});
+
+test('propStateAt reports the object as the scene OPENS, not after it', () => {
+  const evs: PropEvent[] = [
+    { scene: 31, name: 'the card', state: 'PLACED' },
+    { scene: 62, name: 'the card', state: 'DESTROYED' },
+  ];
+  assert.equal(propStateAt(evs, 62).get('card')!.state, 'PLACED', 'scene 62 has not happened yet');
+  assert.equal(propStateAt(evs, 63).get('card')!.state, 'DESTROYED');
+});
+
+test('the directive tells the writer what it could contradict, and nothing else', () => {
+  const d = spineDirective(72, 9 * 60 + 14, [
+    { scene: 62, name: 'the laminated card', state: 'DESTROYED', note: 'Cross bins it' },
+  ], ['SKYLINE', 'Sortie Four']);
+  assert.match(d, /it is 09:14/);
+  assert.match(d, /09:14 or later/);
+  assert.match(d, /the laminated card is destroyed/);
+  assert.match(d, /A destroyed object does not come back/);
+  assert.match(d, /SKYLINE, Sortie Four/);
+});
+
+test('with nothing to say the directive says nothing — a prompt is not a state dump', () => {
+  assert.equal(spineDirective(1, null, [], []), '');
+  assert.equal(spineDirective(1, null, [{ scene: 5, name: 'x', state: 'PLACED' }], []), '',
+    'an object whose scene has not happened yet is not yet in play');
+});
+
+// ── the unmarked flashback ──────────────────────────────────────────────────────────────────
+
+test('a scene planned as a memory but unmarked on the page is reported', () => {
+  const f = findFlashbackMismatches([
+    { heading: 'INT. BOAT BARN - DAY', text: 'INT. BOAT BARN - DAY\n\n   Callum coils rope. Jason watches.' },
+  ], [1]);
+  assert.equal(f.length, 1);
+  assert.equal(f[0].kind, 'UNMARKED_ON_THE_PAGE');
+  assert.match(f[0].detail, /A reader meets it as the present/);
+});
+
+test('a scene marked on the page but missing from the plan is reported the other way', () => {
+  const f = findFlashbackMismatches([
+    { heading: 'INT. BOAT BARN — FLASHBACK - DAY', text: 'INT. BOAT BARN — FLASHBACK - DAY\n\n   Younger. Rope.' },
+  ], []);
+  assert.equal(f.length, 1);
+  assert.equal(f[0].kind, 'UNPLANNED_IN_THE_MAP');
+  assert.match(f[0].detail, /counted it as present-day/);
+});
+
+test('agreement in either direction is silence', () => {
+  assert.deepEqual(findFlashbackMismatches([
+    { heading: 'INT. BARN — FLASHBACK - DAY', text: 'INT. BARN — FLASHBACK - DAY\n\n   Rope.' },
+    { heading: 'EXT. DOCK - DAY', text: 'EXT. DOCK - DAY\n\n   Gulls.' },
+  ], [1]), []);
+});
+
+test('a memory is told to announce itself, and told nothing about the present', () => {
+  const d = spineDirective(94, 9 * 60 + 14, [
+    { scene: 62, name: 'the card', state: 'DESTROYED' },
+  ], ['SKYLINE'], true);
+  assert.match(d, /THIS SCENE IS A MEMORY/);
+  assert.match(d, /FLASHBACK in the slug line/);
+  assert.match(d, /SKYLINE/);
+});
+
+// ─── scene density: fragment runs ───────────────────────────────────────────────────────────
+
+test('an ordinary cross-cut run of short scenes is not a finding', () => {
+  // Four short scenes between two full ones. Both delivered drafts are full of these.
+  assert.deepEqual(findFragmentRuns([1.2, 0.3, 0.4, 0.2, 0.35, 1.1]), []);
+});
+
+test('six or more fragments back to back is a stretch the film never lands in', () => {
+  const runs = findFragmentRuns([1.5, 0.3, 0.3, 0.2, 0.4, 0.3, 0.25, 1.2]);
+  assert.equal(runs.length, 1);
+  assert.equal(runs[0].from, 2);
+  assert.equal(runs[0].to, 7);
+  assert.equal(runs[0].scenes, 6);
+  assert.match(runs[0].detail, /none of them reaching half a page/);
+});
+
+test('the run is measured, not guessed — pages are summed across it', () => {
+  const runs = findFragmentRuns([0.25, 0.25, 0.25, 0.25, 0.25, 0.25]);
+  assert.equal(runs.length, 1);
+  assert.equal(runs[0].pages, 1.5);
+});
+
+test('a run that reaches the end of the draft still closes', () => {
+  // Jason Quick's stub tail: the last eight scenes, all fragments, nothing after them.
+  const runs = findFragmentRuns([1, 1, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2]);
+  assert.equal(runs.length, 1);
+  assert.equal(runs[0].to, 9);
+  assert.equal(runs[0].scenes, 7);
+});
+
+test('a scene of zero pages is missing, not short, and never starts a run', () => {
+  assert.deepEqual(findFragmentRuns([0, 0, 0, 0, 0, 0, 0]), []);
+});
+
+// ─── repetition: scene breaks that break nothing ────────────────────────────────────────────
+
+test('the scene number is stripped from a heading, the time of day is not', () => {
+  assert.equal(headingKey('12  INT. CAPSULE - DAY'), 'INT CAPSULE DAY');
+  assert.equal(headingKey('INT. CAPSULE - DAY'), 'INT CAPSULE DAY');
+  assert.notEqual(headingKey('7  INT. CAPSULE - DAY'), headingKey('8  INT. CAPSULE - LATER'));
+});
+
+test('returning to a location across the film is not a false break', () => {
+  // The boathouse three times with different business. Not consecutive, so not a run.
+  assert.deepEqual(findFalseSceneBreaks([
+    '1  INT. BOATHOUSE - DAY', '2  EXT. DOCK - DAY', '3  INT. BOATHOUSE - NIGHT',
+    '4  INT. OFFICE - DAY', '5  INT. BOATHOUSE - DAY',
+  ]), []);
+});
+
+test('two consecutive scenes on one slug are left alone; three are not', () => {
+  assert.deepEqual(findFalseSceneBreaks([
+    '1  INT. CAPSULE - DAY', '2  INT. CAPSULE - DAY', '3  EXT. PLAIN - DAY',
+  ]), []);
+  const runs = findFalseSceneBreaks([
+    '1  INT. CAPSULE - DAY', '2  INT. CAPSULE - DAY', '3  INT. CAPSULE - DAY', '4  EXT. PLAIN - DAY',
+  ]);
+  assert.equal(runs.length, 1);
+  assert.equal(runs[0].scenes, 3);
+  assert.match(runs[0].detail, /A scene break that breaks nothing is a paragraph/);
+});
+
+test('LATER and CONTINUOUS are how the format says time moved, so they break the run', () => {
+  assert.deepEqual(findFalseSceneBreaks([
+    '1  INT. CAPSULE - DAY', '2  INT. CAPSULE - LATER', '3  INT. CAPSULE - CONTINUOUS',
+    '4  INT. CAPSULE - DAY',
+  ]), []);
+});
+
+test('the MINUTEMEN shape: one heading swallowing the film, reported with its page cost', () => {
+  const heads: string[] = [];
+  const pages: number[] = [];
+  for (let i = 1; i <= 24; i++) { heads.push(i + '  INT. ECHO-01 LAUNCH CONTROL CAPSULE - DAY'); pages.push(0.6); }
+  heads.push('25  EXT. FROZEN PLAINS - DAY'); pages.push(1);
+  const runs = findFalseSceneBreaks(heads, pages);
+  assert.equal(runs.length, 1);
+  assert.equal(runs[0].scenes, 24);
+  assert.equal(runs[0].pages, 14.4);
+  assert.equal(runs[0].heading, 'INT. ECHO-01 LAUNCH CONTROL CAPSULE - DAY');
+});
+
+test('a blank heading is never a run, however many of them there are', () => {
+  assert.deepEqual(findFalseSceneBreaks(['', '', '', '', '']), []);
+});
+
+// ─── repetition: echoed phrases ─────────────────────────────────────────────────────────────
+
+test('a phrase in four scenes is below the bar; the fifth brings it into view', () => {
+  const four = [1, 2, 3, 4].map(() => ({ text: 'He waits.\n\nShe doesn\'t look up.\n\nThe door closes.' }));
+  assert.deepEqual(findEchoedPhrases(four), []);
+  const five = four.concat([{ text: 'Rain on the glass.\n\nShe doesn\'t look up.' }]);
+  const echo = findEchoedPhrases(five);
+  assert.equal(echo.length, 1);
+  assert.equal(echo[0].scenes.length, 5);
+  assert.match(echo[0].detail, /either a motif or a tic/);
+});
+
+test('short lines are the vocabulary of the genre, never an echo', () => {
+  // "Copy that." recurs in every procedural ever written and means nothing.
+  const scenes = [1, 2, 3, 4, 5, 6, 7].map(() => ({ text: 'Copy that.\n\nSilence.\n\nHe nods.' }));
+  assert.deepEqual(findEchoedPhrases(scenes), []);
+});
+
+test('a repeat inside ONE scene is not a repeat across scenes', () => {
+  const scenes = [{ text: 'His left hand trembles.\n\nHe waits.\n\nHis left hand trembles.\n\nHis left hand trembles.\n\nHis left hand trembles.\n\nHis left hand trembles.' }];
+  assert.deepEqual(findEchoedPhrases(scenes), []);
+});
+
+test('slug lines and character cues are not prose and are never counted', () => {
+  const scenes = [1, 2, 3, 4, 5, 6].map((i) => ({
+    text: 'INT. LAUNCH CONTROL CAPSULE - DAY\n\n                    CROSS\n          Nothing yet.',
+  }));
+  assert.deepEqual(findEchoedPhrases(scenes), []);
+});
+
+test('the loudest echo is reported first', () => {
+  const scenes = [
+    { text: 'The room holds its breath.\n\nNobody moves toward it.' },
+    { text: 'The room holds its breath.\n\nNobody moves toward it.' },
+    { text: 'The room holds its breath.\n\nNobody moves toward it.' },
+    { text: 'The room holds its breath.\n\nNobody moves toward it.' },
+    { text: 'The room holds its breath.\n\nNobody moves toward it.' },
+    { text: 'The room holds its breath.' },
+  ];
+  const echo = findEchoedPhrases(scenes);
+  assert.equal(echo.length, 2);
+  assert.equal(echo[0].scenes.length, 6);
+  assert.match(echo[0].phrase, /holds its breath/);
 });

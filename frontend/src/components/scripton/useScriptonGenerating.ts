@@ -35,6 +35,10 @@ export type ScriptonGenerating = {
   docId: string | null;
   /** The script's name, so the indicator can say WHICH script rather than "a generation". */
   title: string;
+  /** 'rewrite' | 'extend' | '' — which button started it, so the indicator can title itself the
+   *  way the reader's overlay does. Empty when the run was adopted or recovered rather than
+   *  started here, because nothing on the wire carries it. */
+  mode: string;
   status: string;
   phase: string | null;
   done: number;
@@ -51,16 +55,62 @@ export type ScriptonGenerating = {
 };
 
 const EMPTY: ScriptonGenerating = {
-  docId: null, title: '', status: 'IDLE', phase: null, done: 0, total: 0, pageCount: 0,
+  docId: null, title: '', mode: '', status: 'IDLE', phase: null, done: 0, total: 0, pageCount: 0,
   pct: null, note: null, finished: false, failed: false,
 };
 
-/** Called by whatever starts a generation, so the rest of the app can find it. */
-export function markScriptonGenerating(docId: string): void {
+/**
+ * Called by whatever starts a generation, so the rest of the app can find it.
+ *
+ * `mode` rides along in the same key as "docId|mode" rather than in a second one: it is written and
+ * cleared at exactly the same moments, and two keys that must agree are two keys that can disagree.
+ */
+export function markScriptonGenerating(docId: string, mode?: string): void {
   if (!docId) return;
-  try { sessionStorage.setItem(KEY, docId); } catch { /* private mode — the badge is a nicety, never load-bearing */ }
+  const list = readRuns().filter((r) => r.docId !== docId);
+  list.unshift({ docId, mode: mode || '' });
+  writeRuns(list);
   try { localStorage.setItem(LAST_KEY, docId); } catch { /* ignore */ }
 }
+
+export interface ScriptonRun { docId: string; mode: string }
+
+/**
+ * MORE THAN ONE RUN AT A TIME. The key used to hold a single document id, so starting a second
+ * generation silently replaced the first: on 2 Sep a MINUTEMEN rewrite was launched beside a
+ * running Jason Quick and the indicator simply forgot Jason Quick existed — still generating,
+ * still spending, invisible. The backend never had this limit; `genProgress` is keyed per
+ * document and only ever blocked a second run on the SAME script.
+ *
+ * Stored as JSON, newest first. A legacy single "docId" or "docId|mode" string still reads.
+ */
+function readRuns(): ScriptonRun[] {
+  let raw = '';
+  try { raw = sessionStorage.getItem(KEY) || ''; } catch { return []; }
+  if (!raw) return [];
+  if (raw.charAt(0) !== '[') {
+    const i = raw.indexOf('|');
+    const docId = i < 0 ? raw : raw.slice(0, i);
+    return docId ? [{ docId, mode: i < 0 ? '' : raw.slice(i + 1) }] : [];
+  }
+  try {
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) return [];
+    return arr
+      .map((r: any) => ({ docId: String((r && r.docId) || ''), mode: String((r && r.mode) || '') }))
+      .filter((r: ScriptonRun) => !!r.docId);
+  } catch { return []; }
+}
+
+function writeRuns(list: ScriptonRun[]): void {
+  try {
+    if (!list.length) sessionStorage.removeItem(KEY);
+    else sessionStorage.setItem(KEY, JSON.stringify(list.slice(0, 6)));
+  } catch { /* private mode — the badge is a nicety, never load-bearing */ }
+}
+
+/** Every run this tab is following, newest first. */
+export function readScriptonRuns(): ScriptonRun[] { return readRuns(); }
 
 /**
  * Called when the writer has seen the result. Clears the badge.
@@ -76,20 +126,25 @@ export function markScriptonGenerating(docId: string): void {
  * the one caller that genuinely means "clear whatever is there" — the writer clicking the badge.
  */
 export function clearScriptonGenerating(onlyIfDocId?: string): void {
-  try {
-    if (onlyIfDocId && sessionStorage.getItem(KEY) !== onlyIfDocId) return;
-    sessionStorage.removeItem(KEY);
-  } catch { /* ignore */ }
+  if (!onlyIfDocId) { writeRuns([]); return; }
+  writeRuns(readRuns().filter((r) => r.docId !== onlyIfDocId));
 }
 
 /** True while this document is still the one the badge is following. A poll whose document has
  *  been superseded should stop rather than keep reporting over the newer run. */
 export function isScriptonGenerating(docId: string): boolean {
-  return !!docId && readScriptonGenerating() === docId;
+  return !!docId && readRuns().some((r) => r.docId === docId);
 }
 
+/** The newest run, for the single-run consumers (the rail badge). */
 export function readScriptonGenerating(): string | null {
-  try { return sessionStorage.getItem(KEY); } catch { return null; }
+  const r = readRuns()[0];
+  return r ? r.docId : null;
+}
+
+export function readScriptonGeneratingMode(): string {
+  const r = readRuns()[0];
+  return r ? r.mode : '';
 }
 
 /**
@@ -141,41 +196,42 @@ async function recoverRunningDoc(): Promise<string | null> {
 }
 
 /**
- * Poll the run, if there is one. Idle when there isn't — no timer beyond the tick, no requests.
+ * Poll every run this tab is following. Idle when there are none — no timer work, no requests.
  *
  * `intervalMs` is deliberately slower than the overlay's own poll: this is an ambient indicator,
- * not a progress bar being watched, and a generation runs for the better part of an hour.
+ * not a progress bar being watched, and a generation runs for the better part of an hour. The
+ * requests are issued together, so following three runs costs one round trip, not three in series.
  */
-export function useScriptonGenerating(intervalMs = 8000): ScriptonGenerating & { dismiss: () => void } {
-  const [state, setState] = useState<ScriptonGenerating>(EMPTY);
+export function useScriptonGenerations(intervalMs = 8000): {
+  runs: ScriptonGenerating[];
+  dismiss: (docId?: string) => void;
+} {
+  const [runs, setRuns] = useState<ScriptonGenerating[]>([]);
 
-  const dismiss = useCallback(() => { clearScriptonGenerating(); setState(EMPTY); }, []);
+  const dismiss = useCallback((docId?: string) => {
+    clearScriptonGenerating(docId);
+    setRuns((prev) => (docId ? prev.filter((r) => r.docId !== docId) : []));
+  }, []);
 
   useEffect(() => {
     let alive = true;
     let timer: ReturnType<typeof setInterval> | null = null;
 
-    const tick = async () => {
-      let docId = readScriptonGenerating();
-      if (!docId) {
-        docId = await recoverRunningDoc();
-        if (!alive) return;
-        if (!docId) { setState(EMPTY); return; }
-      }
+    const one = async (run: ScriptonRun): Promise<ScriptonGenerating | null> => {
       try {
         const [r, title]: [any, string] = await Promise.all([
-          productionApi.scripton.development.scriptProgress(docId),
-          docTitle(docId),
+          productionApi.scripton.development.scriptProgress(run.docId),
+          docTitle(run.docId),
         ]);
-        if (!alive) return;
         const p: any = r?.data || {};
         const status = String(p.status || 'UNKNOWN');
         const done = Number(p.done) || 0;
         const total = Number(p.total) || 0;
         const planning = p.phase === 'PLANNING' || (status === 'GENERATING' && done === 0 && !p.phase);
-        setState({
-          docId,
+        return {
+          docId: run.docId,
           title,
+          mode: run.mode,
           status,
           phase: p.phase || null,
           done,
@@ -185,10 +241,28 @@ export function useScriptonGenerating(intervalMs = 8000): ScriptonGenerating & {
           note: p.note ? String(p.note) : null,
           finished: status === 'DONE',
           failed: status === 'ERROR' || status === 'CANCELLED',
-        });
+        };
       } catch {
-        // A failed poll is not a failed run — the backend may be restarting. Hold the last state.
+        // A failed poll is not a failed run — the backend may be restarting. Drop this tick only.
+        return null;
       }
+    };
+
+    const tick = async () => {
+      let list = readScriptonRuns();
+      if (!list.length) {
+        const recovered = await recoverRunningDoc();
+        if (!alive) return;
+        if (!recovered) { setRuns([]); return; }
+        list = readScriptonRuns();
+      }
+      const results = await Promise.all(list.map(one));
+      if (!alive) return;
+      // A poll that failed keeps whatever that run last showed, rather than blinking out of the
+      // stack because the backend was mid-restart.
+      setRuns((prev) => list
+        .map((run, i) => results[i] || prev.find((x) => x.docId === run.docId) || null)
+        .filter((x): x is ScriptonGenerating => !!x));
     };
 
     void tick();
@@ -199,5 +273,18 @@ export function useScriptonGenerating(intervalMs = 8000): ScriptonGenerating & {
     return () => { alive = false; if (timer) clearInterval(timer); window.removeEventListener('storage', onStorage); };
   }, [intervalMs]);
 
-  return { ...state, dismiss };
+  return { runs, dismiss };
+}
+
+/**
+ * The NEWEST run, for consumers that can only draw one — the rail badge.
+ *
+ * Kept deliberately as its own shape so adding parallel runs did not have to touch the rail. It is
+ * a view over the same poll, not a second one.
+ */
+export function useScriptonGenerating(intervalMs = 8000): ScriptonGenerating & { dismiss: () => void } {
+  const { runs, dismiss } = useScriptonGenerations(intervalMs);
+  const primary = runs.find((r) => r.status === 'GENERATING') || runs[0] || EMPTY;
+  const dismissPrimary = useCallback(() => { dismiss(primary.docId || undefined); }, [dismiss, primary.docId]);
+  return { ...primary, dismiss: dismissPrimary };
 }

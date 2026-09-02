@@ -10,7 +10,7 @@ import { seriesSceneCount } from './series-scene-count.util';
 import {
   planFeatureLength, applyPageWeights, lineBudgetFor, snapPageWeight, countVisualLines,
   expansionCandidates, isLengthComplete, isLengthOver, completionRatio,
-  remainingBudgetScale, LINES_PER_PAGE, planSliceBudget, planSliceInstruction,
+  remainingBudgetScale, LINES_PER_PAGE, planSliceBudget, planSliceInstruction, MIN_PLANNED_SCENES,
   type FeatureLengthPlan, type LineBudget,
 } from './feature-length.util';
 import {
@@ -22,9 +22,13 @@ import {
   type LineKind, type CastExit, type ContinuityFinding,
   checkSceneIntegrity, sceneDefectInstruction, shortenSlugLocation,
   findTimeTokens, checkStatedTimeOrder,
+  findAllTimeTokens, checkClockRegression, isRecalledTime,
+  checkPropContinuity, spineDirective, isPropState, type PropEvent,
   findMetaCommentary, stripMetaCommentary,
   collectWrittenDeaths, writtenDeathsAsExits,
   checkFixedAttributes,
+  findFlashbackMismatches,
+  findFragmentRuns, findFalseSceneBreaks, findEchoedPhrases,
   type SceneDefect, type TimeToken,
 } from './continuity.util';
 import {
@@ -1309,8 +1313,29 @@ export class ScripOnService {
    * KNOWN, SEPARATE: the on-screen reader re-paginates by live measurement and showed 134 pages for
    * this same 103-sheet script. Screen and print geometry disagree by ~30%, so the reader's page
    * count is still wrong even after this fix. That is a scriptPaper.tsx CSS issue, not this one.
+   *
+   * ── 2 SEP: RE-FITTED FOR US LETTER ──────────────────────────────────────────────────────────
+   *
+   * Everything above was measured against an A4 export, and the export is now US Letter. The fit
+   * scales with the usable text height and nothing else:
+   *
+   *     A4      297mm - 22mm - 22mm  = 253mm = 9.96in   ->  61 lines (measured)
+   *     Letter  11in  -  1in -  1in  =   9in            ->  61 x (9 / 9.96) = 55.1
+   *
+   * 55 is also the industry figure for a 12pt Courier page and it is what LINES_PER_PAGE in
+   * feature-length.util.ts has always said. Those two constants describe the SAME quantity and have
+   * disagreed by 10% since the paginator was fitted — the line budget asked each scene for 55 lines
+   * while the paginator packed 61, which is a large part of why drafts kept landing short of their
+   * page target. They now agree.
+   *
+   * The consequence is intended: the same text paginates to ~11% more pages, so a 105-page target
+   * finally means 105 Letter pages, which is the ~105 minutes `pagesPerMinute` has always assumed.
+   * An A4 page was never a minute of screen time.
+   *
+   * WORDS_PER_PAGE moves with it — see feature-length.util.ts. Changing one without the other puts
+   * the word budget and the page budget back out of step.
    */
-  private static readonly PAGE_BUDGET = 61;
+  private static readonly PAGE_BUDGET = 55;
   private paginate(text: string): { page: number; text: string }[] {
     const lines = String(text || '').replace(/\r/g, '').split('\n');
     const per = ScripOnService.PAGE_BUDGET; const pages: { page: number; text: string }[] = [];
@@ -1355,7 +1380,7 @@ export class ScripOnService {
 
   // Render finished print HTML → a real A4 PDF via headless Chromium (server-side). Used for Arabic
   // (and any) one-click download where client-side pdf-lib can't shape the glyphs. Graceful if puppeteer absent.
-  async renderPdf(html: string, opts?: { footerHtml?: string; headerHtml?: string; margin?: { top?: string; right?: string; bottom?: string; left?: string } }): Promise<Buffer> {
+  async renderPdf(html: string, opts?: { footerHtml?: string; headerHtml?: string; format?: 'A4' | 'Letter'; margin?: { top?: string; right?: string; bottom?: string; left?: string } }): Promise<Buffer> {
     if (!html || typeof html !== 'string') throw new BadRequestException('html is required');
     const pkg = 'pup' + 'peteer';
     let mod: any = null;
@@ -1395,7 +1420,21 @@ export class ScripOnService {
       // Repeating footer/header (protected export) render in RESERVED page margins via Chromium's
       // native header/footer — so they can never overlap the script text. Otherwise honour @page.
       const hf = !!(opts && (opts.footerHtml || opts.headerHtml));
-      const pdfOpts: any = { format: 'A4', printBackground: true };
+      /**
+       * US LETTER for Latin, A4 for Arabic — read off the document rather than plumbed through.
+       *
+       * Every server-rendered PDF in the product came out A4 because this line said so, including
+       * the protected exports that go to readers. Spec screenplays in the English-language market
+       * are 8.5x11; an external coverage report on the 2 Sep draft listed the A4 page among the
+       * reasons it would undermine professional confidence. Arabic manuscripts genuinely are A4.
+       *
+       * Detected from the HTML because the reader already marks it — `dir="rtl"` / `lang="ar"` —
+       * and threading a format parameter through the controller, the API client and the caller
+       * would be three more places for the two to disagree. An explicit opts.format still wins.
+       */
+      const looksArabic = /dir=["']rtl["']|lang=["']ar["']|@page\{size:A4/i.test(html);
+      const format = (opts && (opts as any).format) || (looksArabic ? 'A4' : 'Letter');
+      const pdfOpts: any = { format, printBackground: true };
       if (hf) {
         const m = (opts && opts.margin) || {};
         pdfOpts.displayHeaderFooter = true;
@@ -1501,16 +1540,33 @@ export class ScripOnService {
     this.planFailure.delete(projectId);   // this run's verdict only — never last run's
     // The band the planner is asked for. It used to be floored at 50-70 regardless of the film's real
     // length; it now tracks the page budget, so a 105-page feature asks for ~110 scenes, not ~60.
-    const lo = episode ? target : Math.max(24, target); const hi = episode ? target + 6 : target + Math.max(8, Math.round(target * 0.12));
+    // THE ASK NOW DESCENDS FROM A CEILING. It used to ascend from a quota — `target` up to
+    // `target + 12%` — so a 131-scene target asked for 131-147 over 105 pages, which is an
+    // instruction to fragment stated as arithmetic. `target` is now the most scenes the page budget
+    // will carry, so it is the TOP of the ask and the planner is free to come in under it.
+    // The old floor of 24 also had to go: on a twelve-page short it demanded twenty-four scenes.
+    const lo = episode ? target : Math.max(MIN_PLANNED_SCENES, Math.round(target * 0.85));
+    const hi = episode ? target + 6 : target;
     // Per-scene page allocation. Without it every scene comes back the same size, and a feature made of
     // uniform scenes is neither a feature nor readable.
+    // Stated as a FLOOR on scene length, because that is what a reader experiences. A scene count is
+    // an abstraction; "a scene has to last about a page and a quarter" is a craft instruction.
+    const densityRule = (plan && !episode)
+      ? ' SCENE LENGTH IS THE CONSTRAINT, not scene count: across this script a scene must average about '
+        + plan.pagesPerScene + ' pages to play on screen, which is why ' + plan.targetScenes
+        + ' is the MOST scenes ' + plan.targetPages + ' pages will carry. Fewer, fuller scenes are BETTER than more, thinner ones.'
+        + (plan.beatsPerScene > 1.15
+            ? ' The outline runs to roughly ' + plan.beatsPerScene + ' beats per scene at this length, so consecutive beats'
+              + ' that happen in ONE place at ONE time MUST be written as ONE scene rather than split apart.'
+            : '')
+      : '';
     const weightRule = plan
       ? ' Also give every scene a "pageWeight" — the screenplay pages it should occupy, one of 0.25, 0.5, 1, 1.5, 2 or 3. Most scenes are 1. Use 0.25-0.5 for cutaways, beats and quick intercuts; 2-3 ONLY for genuine set pieces or the climax. The pageWeight values across all scenes MUST add up to about '
         + plan.targetPages + ' (the film is a ' + plan.targetPages + '-page feature, roughly ' + plan.targetMinutes + ' minutes).'
       : '';
     const sys = episode
       ? 'You are a screenwriter mapping the FIRST EPISODE (the pilot) of a series into ' + lo + '-' + hi + ' scenes. Open the series, establish the world / lead characters / central engine, and END on the episode hook or cliffhanger. Use the OPENING movement of the developed outline only — do NOT compress the whole season, and do NOT resolve the season arc. Return ONLY JSON {scenes:[{intExt, location, dayNight, brief, characters, exits, pageWeight}]} — intExt is INT or EXT; dayNight DAY or NIGHT; brief = 1-2 sentences of what happens; characters = comma list; exits = ONLY the characters who DIE or leave the story permanently in this scene, as [{name, how}] (omit the field entirely otherwise) - getting this right is what stops a murdered character answering a telephone eighty pages later, so do not guess and do not list a character who merely walks out of the room; No prose outside the JSON.' + weightRule
-      : 'You are a screenwriter mapping a DEVELOPED story into a COMPLETE feature scene list for a ' + (plan ? plan.targetPages : 105) + '-page, 3-act script. Faithfully expand the GIVEN OUTLINE / BEAT MAP into ' + lo + '-' + hi + ' scenes that cover the ENTIRE story IN ORDER — from the opening beat through the midpoint, the climax AND the final resolution. EVERY numbered beat in the outline MUST be represented (1-3 scenes each), and the LAST few scenes MUST dramatise the final beats (the climax and ending). A real feature of this length runs to this many scenes — do NOT compress it into fewer, longer ones, and never stop in the middle of the story. Return ONLY JSON {scenes:[{intExt, location, dayNight, brief, characters, exits, pageWeight}]} — intExt is INT or EXT; dayNight DAY or NIGHT; brief = 1-2 sentences of what happens; characters = comma list; exits = ONLY the characters who DIE or leave the story permanently in this scene, as [{name, how}] (omit the field entirely otherwise) - getting this right is what stops a murdered character answering a telephone eighty pages later, so do not guess and do not list a character who merely walks out of the room; No prose outside the JSON.' + weightRule;
+      : 'You are a screenwriter mapping a DEVELOPED story into a COMPLETE feature scene list for a ' + (plan ? plan.targetPages : 105) + '-page, 3-act script. Faithfully expand the GIVEN OUTLINE / BEAT MAP into ' + lo + '-' + hi + ' scenes that cover the ENTIRE story IN ORDER — from the opening beat through the midpoint, the climax AND the final resolution. EVERY numbered beat in the outline MUST be COVERED, and the LAST few scenes MUST dramatise the final beats (the climax and ending). Covering a beat does NOT mean giving it its own scene: where consecutive beats share a place and a moment, carry them in ONE scene. Never stop in the middle of the story. Return ONLY JSON {scenes:[{intExt, location, dayNight, brief, characters, exits, pageWeight}]} — intExt is INT or EXT; dayNight DAY or NIGHT; brief = 1-2 sentences of what happens; characters = comma list; exits = ONLY the characters who DIE or leave the story permanently in this scene, as [{name, how}] (omit the field entirely otherwise) - getting this right is what stops a murdered character answering a telephone eighty pages later, so do not guess and do not list a character who merely walks out of the room; No prose outside the JSON.' + densityRule + weightRule;
     const base = (extra: string) => ctx + (spine ? '\n\n' + (episode ? 'DEVELOPED OUTLINE (dramatise its OPENING as the pilot episode):\n' : 'FULL DEVELOPED OUTLINE TO COVER (expand every beat, in order, all the way to the end):\n') + spine : '') + extra;
     const parse = (r: any): any[] => {
       let arr: any[] = (r && r.json && Array.isArray(r.json.scenes)) ? r.json.scenes : [];
@@ -1602,9 +1658,9 @@ export class ScripOnService {
       const perScene = scenes.length > 0 ? (plan.targetPages / scenes.length).toFixed(2) : 'n/a';
       this.log.warn('planScenes: planned only ' + scenes.length + ' scenes against a target of ' + plan.targetScenes
         + ' (' + plan.targetPages + ' pages, genre ' + plan.genreKey + ') after ' + passes + ' continuation pass(es)'
-        + ' — that is ' + perScene + ' pages per scene against a planned '
-        + (plan.targetScenes > 0 ? (plan.targetPages / plan.targetScenes).toFixed(2) : 'n/a')
-        + '. Checking whether the ending survived.');
+        + ' — that is ' + perScene + ' pages per scene against a floor of ' + plan.pagesPerScene
+        + ' (' + plan.texture + ' texture). Coming in UNDER the scene target is no longer a defect in itself:'
+        + ' the target is a ceiling. Checking whether the ending survived.');
     }
 
     // Apply the runaway cap BEFORE the ending gate, not after it. Capping last meant the gate could
@@ -1922,8 +1978,8 @@ export class ScripOnService {
    */
   private async extractPlanState(
     scenes: any[], reg: EntityRegistry, projectId: string,
-  ): Promise<{ facts: StateFact[]; places: PlaceObservation[]; transit: Set<number> }> {
-    const empty = { facts: [] as StateFact[], places: [] as PlaceObservation[], transit: new Set<number>() };
+  ): Promise<{ facts: StateFact[]; places: PlaceObservation[]; transit: Set<number>; clock: Map<number, number>; props: PropEvent[]; designators: string[]; recalled: Set<number> }> {
+    const empty = { facts: [] as StateFact[], places: [] as PlaceObservation[], transit: new Set<number>(), clock: new Map<number, number>(), props: [] as PropEvent[], designators: [] as string[], recalled: new Set<number>() };
     const list = Array.isArray(scenes) ? scenes : [];
     if (!list.length) return empty;
 
@@ -1939,18 +1995,32 @@ export class ScripOnService {
       + '"elapsed":"CONTINUOUS"|"SAME_DAY"|"LATER","travel":true|false,"recalled":true|false,'
       + '"learns":[{"who":"<EXACT NAME FROM THE CAST LIST>","fact":"<SHORT STABLE UPPERCASE KEY>"}],'
       + '"opens":[{"name":"<the thing named>","kind":"VESSEL"|"OBJECT"|"ORG"|"TIME_ANCHOR","promise":"<the constraint stated>"}],'
-      + '"closes":["<name of a thing established earlier and settled here>"]}]}\n'
+      + '"closes":["<name of a thing established earlier and settled here>"],'
+      + '"clock":"<HH:MM the scene begins, ONLY if the story runs on a clock — otherwise omit>",'
+      + '"props":[{"name":"<the object>","state":"CARRIED"|"PLACED"|"HIDDEN"|"TAKEN"|"GIVEN"|"RETURNED"|"DESTROYED","note":"<where it is or who has it>"}]}],'
+      + '"designators":["<call signs, code names and unit designators the script must not vary>"]}\n'
       + 'RULES. "who" MUST be copied exactly from the CAST list — never invent a person, never abbreviate one. '
       + 'A scene with no discovery returns an empty "learns". '
       + '"fact" is a short key like FATHER_BUILT_THE_NETWORK, and the SAME discovery in two scenes MUST use the SAME key — that is the entire point of the field. '
       + '"opens" is ONLY for a named thing carrying a stated constraint: a vessel with a sailing day, a hearing with a date, a deadline. It is not for every prop. '
       + '"travel" is true when the scene SHOWS someone departing, arriving or journeying. '
       + '"recalled" is true for a flashback, dream, memory or archive/news footage. '
+      + '"clock" is ONLY for a story that runs on a running clock — a countdown, a siege, one shift, one night. '
+      + 'If the story spans weeks or is not clock-driven, omit it entirely rather than inventing times. '
+      + 'When you do use it, the times must run FORWARD across the whole scene list and never repeat backwards. '
+      + '"props" is ONLY for a physical object whose state CHANGES in this scene and that a later scene could contradict '
+      + '— a document burned, a card discarded, a weapon handed over, a drive hidden. Not scenery, not clothing, not every object touched. '
+      + 'Use the SAME name for the same object every time it appears; that is what makes the field usable. '
+      + '"designators" is ONE list for the whole run, not per scene: call signs, code names, vessel names, unit numbers — the vocabulary the script must never vary. '
       + 'No prose outside the JSON.';
 
     const facts: StateFact[] = [];
     const places: PlaceObservation[] = [];
     const transit = new Set<number>();
+    const clock = new Map<number, number>();
+    const props: PropEvent[] = [];
+    const recalledScenes = new Set<number>();
+    const designators = new Set<string>();
     const openedAt = new Map<string, StateFact>();
     let recordedAt = 0;
     const CHUNK = 50;
@@ -1972,6 +2042,10 @@ export class ScripOnService {
         });
         const parsed = JSON.parse(String((r && r.text) || '{}').replace(/^[^{]*/, '').replace(/[^}]*$/, ''));
         rows = Array.isArray(parsed && parsed.scenes) ? parsed.scenes : [];
+        for (const d of (Array.isArray(parsed && parsed.designators) ? parsed.designators : [])) {
+          const name = String(d || '').trim();
+          if (name && name.length <= 40) designators.add(name);
+        }
       } catch (e: any) {
         this.log.warn('extractPlanState: scenes ' + (start + 1) + '-' + (start + slice.length)
           + ' returned nothing usable — the ledger loses knowledge and geography for this span. ' + this.why(e));
@@ -1985,6 +2059,27 @@ export class ScripOnService {
         const heading = this.slugOf(sc);
         const recalled = row.recalled === true;
         if (row.travel === true || isTransitPlace(heading)) transit.add(n);
+
+        // The clock, when the story has one. A flashback's time is not the running clock.
+        if (!recalled && typeof row.clock === 'string') {
+          const t = /^\s*([01]?\d|2[0-3])\s*:\s*([0-5]\d)\s*$/.exec(row.clock);
+          if (t) clock.set(n, Number(t[1]) * 60 + Number(t[2]));
+        }
+        if (recalled) recalledScenes.add(n);
+        /**
+         * A FLASHBACK'S OBJECTS ARE NOT THE RUNNING LIFECYCLE.
+         *
+         * Without this guard a memory at scene 130 showing the passport intact would record it as
+         * PLACED at 130 — after it was burned at 105 — and the prop check would report a
+         * contradiction in a story that has none. The same exemption the life-state ledger has
+         * always had: the dead may speak in the past, and a burned thing may be whole there.
+         */
+        for (const pr of (recalled ? [] : (Array.isArray(row.props) ? row.props : []))) {
+          const name = String((pr && pr.name) || '').trim();
+          const state = String((pr && pr.state) || '').toUpperCase();
+          if (!name || name.length > 60 || !isPropState(state)) continue;
+          props.push({ scene: n, name, state: state as any, note: String((pr && pr.note) || '').trim().slice(0, 60) || undefined });
+        }
 
         if (row.region) {
           places.push({
@@ -2039,7 +2134,29 @@ export class ScripOnService {
     this.log.log('extractPlanState: ' + facts.filter((f) => f.dimension === 'knows').length + ' knowledge fact(s), '
       + facts.filter((f) => f.dimension === 'open').length + ' open promise(s), '
       + expanded.length + ' place observation(s), ' + transit.size + ' travel beat(s).');
-    return { facts, places: expanded, transit };
+    const hhmm = (m: number) => String(Math.floor(m / 60) % 24).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+    if (clock.size) {
+      const times = Array.from(clock.entries()).sort((a, b) => a[0] - b[0]);
+      const backwards = times.filter((t, i) => i > 0 && t[1] < times[i - 1][1]).length;
+      if (backwards) {
+        // The plan is the one place a running clock can still be fixed for free. If the PLANNER
+        // cannot keep it straight, handing it to 139 scene prompts would only spread the damage.
+        this.log.warn('extractPlanState: the planned clock runs backwards at ' + backwards
+          + ' point(s) — dropping it rather than handing a broken timeline to the writer.');
+        clock.clear();
+      } else {
+        this.log.log('extractPlanState: clock planned for ' + times.length + ' scene(s), '
+          + hhmm(times[0][1]) + ' to ' + hhmm(times[times.length - 1][1]) + '.');
+      }
+    }
+    if (props.length) {
+      const bad = checkPropContinuity(props);
+      this.log.log('extractPlanState: ' + props.length + ' prop state change(s) across '
+        + new Set(props.map((x) => x.name.toLowerCase())).size + ' object(s).');
+      for (const b of bad.slice(0, 10)) this.log.warn('  prop: ' + b.detail);
+    }
+    if (designators.size) this.log.log('extractPlanState: ' + designators.size + ' locked designator(s) — ' + Array.from(designators).slice(0, 12).join(', '));
+    return { facts, places: expanded, transit, clock, props, designators: Array.from(designators), recalled: recalledScenes };
   }
 
   private cueCounts(view: { heading: string; text: string }[]): Map<string, number> {
@@ -2265,11 +2382,138 @@ export class ScripOnService {
       this.log.warn('fixedAttributes: check skipped — ' + this.why(e));
     }
 
+    /**
+     * THE CLOCK. Reported, never repaired.
+     *
+     * The MINUTEMEN draft is a real-time thriller whose timeline collapses, and every check we own
+     * sat silent through it. The reason was notation: of its 33 clock references, 9 are digits in
+     * action, 7 are the written military form ("0947") and 17 are SPOKEN — "Window opens
+     * zero-nine-fifty". findTimeTokens read the first group only, so it was auditing nine
+     * references out of thirty-three, and worse, it read "nine-fifty" out of "zero-nine-fifty-five"
+     * and returned the wrong minute. findAllTimeTokens reads all three notations.
+     *
+     * Only clocks the scene SHOWS are held to running forwards. A character may say any time at
+     * any moment — a window that opens later, a relief that happened earlier — and treating those
+     * as regressions produced fourteen findings on a draft with one.
+     */
+    try {
+      const clocks: any[] = [];
+      const recalled: number[] = [];
+      const draft = view();
+      const plannedRecalled = new Set<number>(
+        ((ledger && (ledger as any).places) || []).filter((p: any) => p && p.recalled).map((p: any) => Number(p.scene)),
+      );
+      for (let i = 0; i < draft.length; i++) {
+        if (!draft[i] || !draft[i].text) continue;
+        // Two readings of "is this a memory": the planner's own verdict, which saw the brief, and
+        // the slug/first-lines regex, which sees the written page. A scene either of them calls
+        // recalled is exempt — a missed flashback produces a false regression, and a false
+        // exemption only loses a finding.
+        if (isRecalledTime(draft[i].heading, draft[i].text) || plannedRecalled.has(i + 1)) recalled.push(i);
+        for (const t of findAllTimeTokens(i, draft[i].text)) clocks.push(t);
+      }
+      const back = checkClockRegression(clocks as any, recalled);
+      if (back.length) {
+        this.log.warn('clock: ' + back.length + ' regression(s) — the story clock runs backwards —');
+        for (const b of back.slice(0, 10)) this.log.warn('  ' + b.detail);
+      } else if (clocks.length >= 8) {
+        this.log.log('clock: ' + clocks.length + ' time reference(s) across the draft, none of them backwards.');
+      }
+    } catch (e: any) {
+      this.log.warn('clock: check skipped — ' + this.why(e));
+    }
+
+    /**
+     * FLASHBACKS. Reported, never repaired.
+     *
+     * The same two verdicts the clock uses to EXEMPT a scene — the planner's `recalled` flag, set
+     * while it could still see the brief, and the page's own marker in the slug or opening lines —
+     * are here compared instead of combined. Their disagreement is the finding.
+     *
+     * Planned as a memory with nothing on the page to say so is the craft defect: the reader meets
+     * a jump in time as the present and is left to infer it. Marked on the page but missing from
+     * the plan is this engine's defect: the clock and the object ledger counted that scene as
+     * present-day, so anything they said around it should be read with that in mind.
+     */
+    try {
+      const draft = view();
+      const plannedRecalled = new Set<number>(
+        ((ledger && (ledger as any).places) || []).filter((p: any) => p && p.recalled).map((p: any) => Number(p.scene)),
+      );
+      const flash = findFlashbackMismatches(
+        draft.map((d: any) => ({ heading: String((d && d.heading) || ''), text: String((d && d.text) || '') })),
+        plannedRecalled,
+      );
+      if (flash.length) {
+        const unmarked = flash.filter((f) => f.kind === 'UNMARKED_ON_THE_PAGE').length;
+        this.log.warn('flashback: ' + flash.length + ' scene(s) where the plan and the page disagree about time — '
+          + unmarked + ' unmarked on the page —');
+        for (const f of flash.slice(0, 10)) this.log.warn('  [' + f.kind + '] ' + f.detail);
+      } else if (plannedRecalled.size) {
+        this.log.log('flashback: ' + plannedRecalled.size + ' planned memory scene(s), all of them marked on the page.');
+      }
+    } catch (e: any) {
+      this.log.warn('flashback: check skipped — ' + this.why(e));
+    }
+
+    /**
+     * SHAPE OF THE DRAFT — density and repetition. Reported, never repaired.
+     *
+     * The obvious check here is the wrong one. "Warn when the average scene runs under a page"
+     * fails BOTH delivered drafts (MINUTEMEN 1.25 scenes/page, Jason Quick 1.35) and would fail
+     * every produced cross-cut thriller; the genre profile in feature-length.util already says a
+     * THRILLER runs 1.15 scenes per page, so 1.25 is inside its own tolerance. Scene COUNT was
+     * never the defect, and a check that fires on a clean draft is worse than no check.
+     *
+     * What separates the two drafts cleanly, measured before any of this was written:
+     *
+     *   fragment runs        MINUTEMEN 1 (scenes 117–128)   Jason Quick 1 (132–139, the stub tail)
+     *   false scene breaks   MINUTEMEN 10 runs, 104 scenes, 90 pages     Jason Quick ZERO
+     *   echoed phrases       MINUTEMEN 1                    Jason Quick 2
+     *
+     * The middle line is the reviewer's "consolidate the 129 micro-scenes", stated as a fact rather
+     * than a preference: 108 of those 129 scenes sit in a run of consecutive scenes carrying an
+     * IDENTICAL slug — twenty-four in a row reading INT. ECHO-01 LAUNCH CONTROL CAPSULE - DAY. The
+     * count is not the problem. The problem is that most of them are not scenes.
+     */
+    try {
+      const draft = view();
+      const pages = draft.map((d: any) => (d && d.text ? countVisualLines(String(d.text)) / LINES_PER_PAGE : 0));
+      const written = pages.filter((p: number) => p > 0).length;
+
+      const fake = findFalseSceneBreaks(draft.map((d: any) => String((d && d.heading) || '')), pages);
+      if (fake.length) {
+        const inRuns = fake.reduce((a, b) => a + b.scenes, 0);
+        const cost = Math.round(fake.reduce((a, b) => a + b.pages, 0) * 10) / 10;
+        this.log.warn('density: ' + fake.length + ' run(s) of consecutive scenes sharing one heading — '
+          + inRuns + ' of ' + draft.length + ' scenes (' + cost + ' pages) are scene breaks that break nothing —');
+        for (const f of fake.slice(0, 8)) this.log.warn('  ' + f.detail);
+      }
+
+      const frag = findFragmentRuns(pages);
+      if (frag.length) {
+        this.log.warn('density: ' + frag.length + ' stretch(es) where the film never lands —');
+        for (const f of frag.slice(0, 6)) this.log.warn('  ' + f.detail);
+      }
+
+      if (!fake.length && !frag.length && written >= 40) {
+        this.log.log('density: ' + written + ' written scene(s), no fragment stretches and no repeated headings.');
+      }
+
+      const echo = findEchoedPhrases(draft);
+      if (echo.length) {
+        this.log.log('echo: ' + echo.length + ' phrase(s) the draft returns to — motif or tic, the writer decides —');
+        for (const e of echo.slice(0, 6)) this.log.log('  ' + e.detail);
+      }
+    } catch (e: any) {
+      this.log.warn('density: check skipped — ' + this.why(e));
+    }
+
     setP({ note: '' });
     return { found, repaired, residue };
   }
 
-  private async writeScene(ctx: string, sc: any, header: string, storySoFar: string, prevTail: string, projectId: string, budget?: LineBudget, unavailable = '', canon = '', canonNames?: Iterable<string>): Promise<string> {
+  private async writeScene(ctx: string, sc: any, header: string, storySoFar: string, prevTail: string, projectId: string, budget?: LineBudget, unavailable = '', canon = '', canonNames?: Iterable<string>, spine = ''): Promise<string> {
     // The length instruction used to read "MUST fit on ONE page — roughly 8 to 16 short lines", which is
     // self-contradictory: a 12pt Courier page is 55 lines (the same 55 paginate() counts). Every scene
     // therefore came back at about a fifth of a page, and 60 of them made a 16-page "feature". The budget
@@ -2321,6 +2565,11 @@ export class ScripOnService {
             + '. They CANNOT appear in this scene, speak, telephone, message or be met. The living may'
             + ' still name them, remember them, grieve them or argue about them.'
           : '')
+      // THE SPINE. Decided at plan time, handed over here — the same device as ALREADY GONE above,
+      // which is the one continuity mechanism in this system with a clean record across two drafts.
+      // Telling the writer what is true costs one line; recovering it from the prose afterwards has
+      // failed three times running.
+      + (spine ? '\n' + spine : '')
       + '\nTARGET LENGTH: ' + b.target + ' lines (' + b.pages + ' page' + (b.pages === 1 ? '' : 's') + ').\n\nWrite this scene in full now.';
     const clean = (raw: string) => this.cleanSceneText(raw);
     // What the last attempt got wrong, in words, appended to the next attempt's prompt.
@@ -2678,7 +2927,27 @@ export class ScripOnService {
       // fields cannot carry. It mutates `ledgerSeed.reg` by registering the vessels and objects the
       // story declares, which is why it runs before the writer starts rather than beside it.
       const planState = await this.extractPlanState(scenes, ledgerSeed.reg, projectId)
-        .catch((e: any) => { this.log.warn('extractPlanState: skipped — ' + this.why(e)); return { facts: [] as StateFact[], places: [] as PlaceObservation[], transit: new Set<number>() }; });
+        .catch((e: any) => { this.log.warn('extractPlanState: skipped — ' + this.why(e)); return { facts: [] as StateFact[], places: [] as PlaceObservation[], transit: new Set<number>(), clock: new Map<number, number>(), props: [] as PropEvent[], designators: [] as string[], recalled: new Set<number>() }; });
+      /**
+       * THE SPINE, handed to each scene as it is written.
+       *
+       * Everything this returns was decided once, at plan time, by a call that was already being
+       * made. The writer is told the clock, the objects in play and the locked vocabulary, exactly
+       * as it is already told who is dead — and for the same reason: a contradiction the writer is
+       * warned about is one it does not have to be caught making afterwards.
+       *
+       * Empty when the plan has nothing to say, which is most stories. A film that does not run on
+       * a clock gets no clock, and a prompt with nothing to add gets nothing added.
+       */
+      const spineFor = (sceneNumber: number): string => {
+        try {
+          // A scene set in the past is told the vocabulary and NOTHING ELSE. Handing a memory the
+          // present-day clock, or the news that an object it is about to show was destroyed
+          // eighty scenes later, is worse than telling it nothing.
+          if (planState.recalled.has(sceneNumber)) return spineDirective(sceneNumber, null, [], planState.designators, true);
+          return spineDirective(sceneNumber, planState.clock.get(sceneNumber) ?? null, planState.props, planState.designators, false);
+        } catch { return ''; }
+      };
       const ledger = { reg: ledgerSeed.reg, facts: ledgerSeed.facts.concat(planState.facts), places: planState.places, transit: planState.transit };
       if (exits.length) {
         const planIssues = checkPlanCast(scenes, exits);
@@ -2737,7 +3006,7 @@ export class ScripOnService {
         const budget = lineBudgetFor(baseWeight * scale);
         let body: string;
         try {
-          body = await this.writeScene(ctx, sc, header, storySoFar.slice(-1600), prevTail.slice(-700), projectId, budget, unavailableLine(exits, i), await this.canon.directiveFor(docId, i), castVocab);
+          body = await this.writeScene(ctx, sc, header, storySoFar.slice(-1600), prevTail.slice(-700), projectId, budget, unavailableLine(exits, i), await this.canon.directiveFor(docId, i), castVocab, spineFor(i + 1));
         } catch (e) {
           // Only a deliberate halt lands here; anything else is a real crash and belongs to the
           // catch-all below, which is allowed to replace pageText because there is nothing to keep.
@@ -2826,6 +3095,35 @@ export class ScripOnService {
         const notes: string[] = [];
         if (cov.note) notes.push(cov.note);
         if (continNote) notes.push(continNote);
+        /**
+         * FINAL SCENE-INTEGRITY SWEEP — the one the 2 Sep draft needed and did not have.
+         *
+         * The per-scene gate in `writeScene` retries three times and then files a stub rather than
+         * abandoning a forty-minute run, which is the right trade. But it means a FINISHED draft can
+         * still carry dead scenes, and nothing downstream said so: the 2 Sep export reported clean
+         * and shipped four broken scenes — 53 and 124 containing only "(The scene continues.)", 30
+         * stopping at `ALEXANDER (smi` and 74 at a bare `GI`. An external reader found all four in
+         * minutes; the system that wrote them called the draft complete.
+         *
+         * So the draft counts them and says so in its own coverage note. Not a hard block — a
+         * partial feature the writer can repair by hand beats no feature at all — but it can no
+         * longer be presented as finished work.
+         */
+        const brokenScenes: number[] = [];
+        try {
+          for (let i = 0; i < out.length; i++) {
+            const whole = String(out[i] || '');
+            const nl = whole.indexOf('\n');
+            const head = nl < 0 ? whole : whole.slice(0, nl);
+            if (checkSceneIntegrity(i, head, whole, castVocab).length) brokenScenes.push(i + 1);
+          }
+        } catch (e: any) { this.log.warn('sceneIntegrity sweep skipped — ' + this.why(e)); }
+        if (brokenScenes.length) {
+          this.log.error('sceneIntegrity: ' + brokenScenes.length + ' scene(s) did NOT finish and are in the filed draft — '
+            + brokenScenes.join(', '));
+          notes.push(brokenScenes.length + ' scene(s) did not finish (' + brokenScenes.slice(0, 8).join(', ')
+            + (brokenScenes.length > 8 ? '…' : '') + ') — rewrite them before circulating this draft.');
+        }
         if (lenPlan) {
           notes.push(pages.length + ' of ~' + lp.targetPages + ' pages (' + pct + '%) · ≈ '
             + Math.round(pages.length / lp.pagesPerMinute) + ' min · ' + scenes.length + ' scenes'
@@ -3097,7 +3395,27 @@ export class ScripOnService {
       // fields cannot carry. It mutates `ledgerSeed.reg` by registering the vessels and objects the
       // story declares, which is why it runs before the writer starts rather than beside it.
       const planState = await this.extractPlanState(scenes, ledgerSeed.reg, projectId)
-        .catch((e: any) => { this.log.warn('extractPlanState: skipped — ' + this.why(e)); return { facts: [] as StateFact[], places: [] as PlaceObservation[], transit: new Set<number>() }; });
+        .catch((e: any) => { this.log.warn('extractPlanState: skipped — ' + this.why(e)); return { facts: [] as StateFact[], places: [] as PlaceObservation[], transit: new Set<number>(), clock: new Map<number, number>(), props: [] as PropEvent[], designators: [] as string[], recalled: new Set<number>() }; });
+      /**
+       * THE SPINE, handed to each scene as it is written.
+       *
+       * Everything this returns was decided once, at plan time, by a call that was already being
+       * made. The writer is told the clock, the objects in play and the locked vocabulary, exactly
+       * as it is already told who is dead — and for the same reason: a contradiction the writer is
+       * warned about is one it does not have to be caught making afterwards.
+       *
+       * Empty when the plan has nothing to say, which is most stories. A film that does not run on
+       * a clock gets no clock, and a prompt with nothing to add gets nothing added.
+       */
+      const spineFor = (sceneNumber: number): string => {
+        try {
+          // A scene set in the past is told the vocabulary and NOTHING ELSE. Handing a memory the
+          // present-day clock, or the news that an object it is about to show was destroyed
+          // eighty scenes later, is worse than telling it nothing.
+          if (planState.recalled.has(sceneNumber)) return spineDirective(sceneNumber, null, [], planState.designators, true);
+          return spineDirective(sceneNumber, planState.clock.get(sceneNumber) ?? null, planState.props, planState.designators, false);
+        } catch { return ''; }
+      };
       const ledger = { reg: ledgerSeed.reg, facts: ledgerSeed.facts.concat(planState.facts), places: planState.places, transit: planState.transit };
       if (exits.length) {
         const strip = stripExitedCast(scenes, exits);
@@ -3152,7 +3470,7 @@ export class ScripOnService {
           : 1;
         let body: string;
         try {
-          body = await this.writeScene(ctx, sc, header, storySoFar.slice(-1600), prevTail.slice(-700), projectId, lineBudgetFor(baseWeight * scale), unavailableLine(exits, i), await this.canon.directiveFor(docId, i), castVocab);
+          body = await this.writeScene(ctx, sc, header, storySoFar.slice(-1600), prevTail.slice(-700), projectId, lineBudgetFor(baseWeight * scale), unavailableLine(exits, i), await this.canon.directiveFor(docId, i), castVocab, spineFor(i + 1));
         } catch (e) {
           if (!isHalt(e)) throw e;
           // Floor 1: out[0] is the ENTIRE pre-existing draft, which must survive the trim.

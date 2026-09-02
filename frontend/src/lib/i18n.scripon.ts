@@ -858,4 +858,15 @@ export const AR_SCRIPON: Record<string, string> = {
   // Generation progress / stall guard
   "Planning the scenes — this can take a few minutes on long scripts.": "نخطّط المشاهد — قد يستغرق هذا بضع دقائق في النصوص الطويلة.",
   "Generation stalled — no progress for several minutes. Your draft is safe. Check your AI engine in Engines & Routing, then try Send to production again.": "تعثّر التوليد — لا تقدّم منذ عدة دقائق. مسودتك آمنة. تحقّق من محرّك الذكاء الاصطناعي في المحرّكات والتوجيه، ثم أعد الإرسال إلى الإنتاج.",
+  // Script-reader regenerate path (/scripton/script) — same guard, but the recovery action there is the
+  // Regenerate button on the page, not "Send to production".
+  "Generation stalled — no progress for several minutes. Your current pages are safe. Check your engine in AI Engines & Routing, then try again.": "تعثّر التوليد — لا تقدّم منذ عدة دقائق. صفحاتك الحالية آمنة. تحقّق من محرّكك في محرّكات الذكاء الاصطناعي والتوجيه، ثم حاول مجددًا.",
+  "Lost contact with the generation service. Your current pages are safe — reload the page to see whether the draft landed.": "انقطع الاتصال بخدمة التوليد. صفحاتك الحالية آمنة — أعد تحميل الصفحة لمعرفة ما إذا كانت المسودة قد وصلت.",
+  // Cancel a running generation
+  "Stop generating": "إيقاف التوليد",
+  "Stopping…": "جارٍ الإيقاف…",
+  "Stopping after the current scene…": "سيتوقّف بعد المشهد الحالي…",
+  "The scene being written now will finish first.": "سيكتمل المشهد الجاري كتابته أولاً.",
+  "Generation stopped. Your current script is unchanged.": "تم إيقاف التوليد. النص الحالي لم يتغيّر.",
+  "Could not stop the generation — it is still running.": "تعذّر إيقاف التوليد — لا يزال قيد التشغيل.",
 };

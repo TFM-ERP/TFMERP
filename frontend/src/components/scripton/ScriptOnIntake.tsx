@@ -133,7 +133,7 @@ function Combo({ value, onChange, options, placeholder }: { value: string; onCha
 
 export default function ScriptOnIntake({ projectId, busy, onBegin, onClose }: { projectId: string | null; busy?: boolean; onBegin: (form: any) => void; onClose: () => void }) {
   const { dir, t, locale } = useLocale();
-  const [f, setF] = useState<any>({ mode: 'ADAPT', sourceText: '', realBased: true, realityLevel: 'INSPIRED', researchSubject: true, researchAmount: 55, genres: [], baseGenre: '', baseGenres: [], subgenre: '', subMix: {}, styles: [], styleMix: {}, blendLayers: [], tones: [], moods: [], treatment: '', settingCountry: '', settingEra: '', settingWorld: [], cultureEra: '', settingPlace: [], projectIntent: '', budgetTier: '', tone: '', framework: '', projectType: 'MOVIE', episodes: 10, minutesPerEp: 50, seasons: 1, loreSelections: [], loreDensity: 'ACCENT', lorePolicy: { allowHistoricalPantheon: false }, format: '', language: '', country: '', rating: '', researchScope: { subject: true, craft: true, mythology: true, comps: true, legal: true, general: true }, researchDepth: 60, aspectRatio: '9:16', durationSec: 5, videoStyle: [], negativePrompt: 'blurry, text, watermark, deformed, extra fingers, abstract, low resolution, motion blur', seed: 0 });
+  const [f, setF] = useState<any>({ mode: 'ADAPT', sourceText: '', realBased: true, realityLevel: 'INSPIRED', researchSubject: true, researchAmount: 55, genres: [], baseGenre: '', baseGenres: [], subgenre: '', subMix: {}, styles: [], styleMix: {}, blendLayers: [], tones: [], moods: [], treatment: '', settingCountry: '', settingEra: '', settingWorld: [], cultureEra: '', settingPlace: [], projectIntent: '', budgetTier: '', tone: '', framework: '', projectType: 'MOVIE', targetPages: null, episodes: 10, minutesPerEp: 50, seasons: 1, loreSelections: [], loreDensity: 'ACCENT', lorePolicy: { allowHistoricalPantheon: false }, format: '', language: '', country: '', rating: '', researchScope: { subject: true, craft: true, mythology: true, comps: true, legal: true, general: true }, researchDepth: 60, aspectRatio: '9:16', durationSec: 5, videoStyle: [], negativePrompt: 'blurry, text, watermark, deformed, extra fingers, abstract, low resolution, motion blur', seed: 0 });
   const [step, setStep] = useState(1);
   const [pastes, setPastes] = useState<string[]>([]);
   const [urls, setUrls] = useState<string[]>([]);
@@ -260,7 +260,7 @@ export default function ScriptOnIntake({ projectId, busy, onBegin, onClose }: { 
     const framework = f.framework || smartFramework(f.projectType, f.genres);
     // Keep the draft here. It is cleared by the Studio ONLY once the build truly succeeds (directions generated),
     // so a mid-build failure (AI/credits/network) leaves the form intact and the user can return to Adapt & Build and Resume.
-    onBegin({ ...f, episodes: (isSeries || f.projectType === 'VERTICAL_AI_VIDEO') ? f.episodes : null, minutesPerEp: isSeries ? f.minutesPerEp : null, seasons: isSeries ? f.seasons : null, framework, sourceText: aggregate, sources, sourceUrl: urls[0] || '', sourceFileUrl: files[0] ? files[0].url : '' });
+    onBegin({ ...f, targetPages: (f.projectType === 'MOVIE' && f.targetPages) ? Number(f.targetPages) : null, episodes: (isSeries || f.projectType === 'VERTICAL_AI_VIDEO') ? f.episodes : null, minutesPerEp: isSeries ? f.minutesPerEp : null, seasons: isSeries ? f.seasons : null, framework, sourceText: aggregate, sources, sourceUrl: urls[0] || '', sourceFileUrl: files[0] ? files[0].url : '' });
   };
 
   const band: React.CSSProperties = { border: '1px solid ' + C.hair, borderRadius: 14, padding: 16, marginBottom: 12, background: C.band };
@@ -382,6 +382,39 @@ export default function ScriptOnIntake({ projectId, busy, onBegin, onClose }: { 
                       <div><div style={lab}>{t('Seasons')}</div><input type="number" value={f.seasons} onChange={(e) => setManual('seasons', Number(e.target.value))} style={field} /></div>
                     </div>
                     <div style={{ fontSize: 10, color: C.faint, marginTop: 7 }}>{t('Pick a template, then tweak the numbers — editing switches to Custom. Country/market below is the cultural setting, not the format.')}</div>
+                  </div>
+                ) : null}
+                {/*
+                  SCRIPT LENGTH — a MOVIE had no length field at all, which is why two unrelated
+                  builds came back at 100 and 103 pages: with nothing on the brief, the backend fell
+                  through to the genre's default and every thriller and drama collected the same 105.
+                  Unset means "let the genre decide", so leaving this alone changes nothing.
+                */}
+                {f.projectType === 'MOVIE' ? (
+                  <div style={{ marginTop: 10, border: '1px solid rgba(198,164,99,.3)', borderRadius: 10, padding: 11, background: 'rgba(198,164,99,.05)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                      <span style={{ ...lab, margin: 0 }}>{t('Script length')}</span>
+                      <span style={{ fontSize: 11.5, fontWeight: 700, color: f.targetPages ? C.cream : C.faint }}>
+                        {f.targetPages
+                          ? (f.targetPages + ' ' + t('pages') + ' \u00b7 ~' + Math.round(Number(f.targetPages) / 1.05) + ' ' + t('min'))
+                          : t('Auto — set by genre')}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={90}
+                      max={115}
+                      step={1}
+                      value={f.targetPages || 105}
+                      onChange={(e) => set('targetPages', Number(e.target.value))}
+                      style={{ width: '100%', accentColor: C.gold, marginTop: 6 }}
+                    />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginTop: 2 }}>
+                      <span style={{ fontSize: 10, color: C.faint }}>90</span>
+                      {f.targetPages ? <span onClick={() => set('targetPages', null)} style={{ fontSize: 10.5, color: C.gold2, cursor: 'pointer' }}>{t('Reset to auto')}</span> : null}
+                      <span style={{ fontSize: 10, color: C.faint }}>115</span>
+                    </div>
+                    <div style={{ fontSize: 10, color: C.faint, marginTop: 7 }}>{t('A feature runs 90 to 115 pages — roughly a page a minute. Leave it on Auto and the genre picks; move it and your number wins.')}</div>
                   </div>
                 ) : null}
               </div>
@@ -651,7 +684,7 @@ export default function ScriptOnIntake({ projectId, busy, onBegin, onClose }: { 
               <div style={{ position: 'sticky', top: 12, background: 'linear-gradient(180deg,#16191f,#121419)', border: '1px solid rgba(198,164,99,.25)', borderRadius: 12, padding: 13 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}><span style={{ fontSize: 12, fontWeight: 700, color: C.cream }}>{t('Creative brief')}</span><span style={{ fontSize: 8.5, fontWeight: 800, color: C.green, background: 'rgba(87,179,104,.16)', borderRadius: 4, padding: '2px 6px' }}>{t('LIVE')}</span></div>
                 {[
-                  t(PTYPES.find((p) => p[0] === f.projectType)?.[1] || 'Movie') + (f.projectType === 'TV_SERIES' || f.projectType === 'VERTICAL' || f.projectType === 'LIMITED' ? ' - ' + f.episodes + ' ' + t('ep x') + ' ' + f.minutesPerEp + ' ' + t('min') : ''),
+                  t(PTYPES.find((p) => p[0] === f.projectType)?.[1] || 'Movie') + (f.projectType === 'TV_SERIES' || f.projectType === 'VERTICAL' || f.projectType === 'LIMITED' ? ' - ' + f.episodes + ' ' + t('ep x') + ' ' + f.minutesPerEp + ' ' + t('min') : (f.projectType === 'MOVIE' ? ' - ' + (f.targetPages ? f.targetPages + ' ' + t('pages') : t('length by genre')) : '')),
                   (f.mode === 'ORIGINAL' ? t('From scratch') : t('Adapting source')) + (f.mode === 'ADAPT' && f.realBased ? ', ' + t((f.realityLevel || '').toLowerCase()) : ''),
                   t('Genres:') + ' ' + (f.genres || []).map((g: string) => arLabel(g, locale)).join('، ') + (((f.tones || []).length || (f.moods || []).length) ? ' - ' + ([] as string[]).concat((f.tones || []).map((x: string) => arLabel(x, locale)), (f.moods || []).map((x: string) => arLabel(x, locale))).join('، ') : ''),
                   layerOn && ((f.loreSelections || []).length || Object.keys(((f.lorePolicy || {}).genreIntensity) || {}).length) ? t('Lore:') + ' ' + ([] as string[]).concat((f.loreSelections || []).map((s: any) => s.name), GENRE_FAMS.filter((g) => giOn(g.id)).map((g) => g.name.split(' ')[0] + ' ' + gi()[g.id].inf + '%')).join(', ') + ' (' + f.loreDensity.toLowerCase() + ')' : t('No lore layer'),

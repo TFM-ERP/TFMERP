@@ -4,6 +4,8 @@ import {
   LINES_PER_PAGE, PAGE_WEIGHTS, DEFAULT_TARGET_PAGES, MIN_TARGET_PAGES, MAX_TARGET_PAGES,
   resolveGenreProfile, briefTargetPages, planFeatureLength, snapPageWeight, applyPageWeights,
   lineBudgetFor, countVisualLines, completionRatio, isLengthComplete, expansionCandidates,
+  FORMAT_BANDS, resolveFormatBand, resolveTexture, effectiveSceneDensity, pagesPerSceneFloor,
+  sceneCeilingFor, PRODUCED_TEXTURE_FACTOR, MIN_PLANNED_SCENES,
   isLengthOver, remainingBudgetScale, WORDS_PER_PAGE,
   TOKENS_PER_WORD, CAP_HEADROOM, MIN_SCENE_TOKENS, OBSERVED_OVERRUN,
   DELIVERY_FACTOR, MIN_ASK_WORDS,
@@ -29,11 +31,15 @@ test('target pages are read from pages, minutes or a free-text length', () => {
   assert.equal(briefTargetPages({}, 1.1), null);
 });
 
-test('planFeatureLength produces a real feature, not the old 60-scene short', () => {
+test('planFeatureLength produces a real feature — at PRODUCED texture, not spec-competition density', () => {
   const p = planFeatureLength({});
   assert.equal(p.targetPages, DEFAULT_TARGET_PAGES);
-  // the whole point: comfortably above the old ceiling of 90
-  assert.ok(p.targetScenes >= 105, 'expected >=105 scenes, got ' + p.targetScenes);
+  // THIS ASSERTION USED TO READ `>= 105`, and that number was the defect. It encoded the Follows
+  // SPEC corpus (0.96 pages per scene) as the definition of "a real feature". The ScriptBase
+  // PRODUCED corpus measures ~80 scenes over ~110 pages, so a 105-page drama is ~76 scenes.
+  assert.equal(p.texture, 'PRODUCED');
+  assert.ok(p.targetScenes >= 70 && p.targetScenes <= 85, 'expected produced density, got ' + p.targetScenes);
+  assert.ok(p.pagesPerScene > 1.2, 'a scene should average over a page, got ' + p.pagesPerScene);
   assert.ok(p.planCap > p.targetScenes);
   assert.equal(p.minPages, Math.round(DEFAULT_TARGET_PAGES * 0.9));
   assert.ok(p.targetMinutes >= 90 && p.targetMinutes <= 100);
@@ -44,8 +50,38 @@ test('genre changes the scene count without changing the page count', () => {
   const comedy = planFeatureLength({ genres: ['Comedy'], targetPages: 105 });
   assert.equal(action.targetPages, comedy.targetPages);
   assert.ok(action.targetScenes > comedy.targetScenes, 'action should be denser than comedy');
-  assert.equal(action.targetScenes, Math.round(105 * 1.25));
-  assert.equal(comedy.targetScenes, Math.round(105 * 0.93));
+  // Floored, not rounded — it is a ceiling — and damped by the produced-texture factor.
+  assert.equal(action.targetScenes, Math.floor(105 * 1.25 * PRODUCED_TEXTURE_FACTOR));   // 91
+  assert.equal(comedy.targetScenes, Math.floor(105 * 0.93 * PRODUCED_TEXTURE_FACTOR));   // 68
+});
+
+test('the ceiling lands on the produced corpus, which is the evidence it is right', () => {
+  // ScriptBase measured, scaled from its ~110-page average to 105 pages, against what we now plan:
+  //   ACTION 97 vs 91 · THRILLER 88 vs 84 · DRAMA 76 vs 76 · COMEDY 63 vs 68
+  const at = (g: string) => planFeatureLength({ genres: [g], targetPages: 105 }).targetScenes;
+  assert.equal(at('Action'), 91);
+  assert.equal(at('Thriller'), 84);
+  assert.equal(at('Drama'), 76);
+  assert.equal(at('Comedy'), 68);
+});
+
+test('SPEC texture restores the old numbers exactly — the switch is honest in both directions', () => {
+  const spec = planFeatureLength({ genres: ['Action'], targetPages: 105, texture: 'SPEC' });
+  assert.equal(spec.texture, 'SPEC');
+  assert.equal(spec.targetScenes, Math.floor(105 * 1.25));   // 131 — the number that fragmented
+  assert.ok(spec.pagesPerScene < 0.85);
+});
+
+test('the floor is the density inverted, and it is what a reader actually feels', () => {
+  assert.equal(pagesPerSceneFloor(1.25, 'PRODUCED'), 1.14);
+  assert.equal(pagesPerSceneFloor(1.25, 'SPEC'), 0.8);
+  assert.ok(effectiveSceneDensity(1.25, 'PRODUCED') < effectiveSceneDensity(1.25, 'SPEC'));
+});
+
+test('a ceiling is floored and never collapses to nothing', () => {
+  assert.equal(sceneCeilingFor(105, 1.04, 'PRODUCED'), 76);
+  assert.equal(sceneCeilingFor(0, 1.04, 'PRODUCED'), MIN_PLANNED_SCENES);
+  assert.equal(sceneCeilingFor(1, 1.04, 'PRODUCED'), MIN_PLANNED_SCENES);
 });
 
 test('page targets are clamped to the feature band', () => {
@@ -53,11 +89,20 @@ test('page targets are clamped to the feature band', () => {
   assert.equal(planFeatureLength({ targetPages: 400 }).targetPages, MAX_TARGET_PAGES);
 });
 
-test('beat count acts as a floor, never as the driver', () => {
+test('beats no longer force scenes — they are folded, and the pages keep authority', () => {
+  // THIS TEST USED TO ASSERT `many.targetScenes === 140`. A 140-beat outline over 90 pages is 0.64
+  // pages per scene, and the planner obeyed. Beats can share a scene, and over a fixed page budget
+  // they must; coverage is a promise about the STORY, not about the scene count.
   const many = planFeatureLength({ targetPages: 90 }, 140);
-  assert.equal(many.targetScenes, 140, 'every beat must still be dramatised');
+  assert.ok(many.targetScenes < 140, 'the outline must not dictate the scene count');
+  assert.equal(many.targetScenes, sceneCeilingFor(90, many.sceneDensity, 'PRODUCED'));
+  assert.ok(many.beatsPerScene > 2, 'the planner is told how much to fold: ' + many.beatsPerScene);
+
   const few = planFeatureLength({ targetPages: 105 }, 12);
-  assert.ok(few.targetScenes > 12, 'a thin outline must not shrink the feature');
+  assert.ok(few.targetScenes > 12, 'a thin outline must not shrink the feature either');
+  assert.ok(few.beatsPerScene < 1, 'and folding is not asked for when there is nothing to fold');
+
+  assert.equal(planFeatureLength({ targetPages: 105 }).beatsPerScene, 0, 'no outline, no claim');
 });
 
 test('snapPageWeight lands on an allowed allocation', () => {
@@ -151,7 +196,10 @@ test('remainingBudgetScale pulls a hot run back onto target', () => {
 
 test('the gate rejects a draft that runs LONG, not just one that runs short', () => {
   assert.equal(isLengthOver(105, 105), false);
-  assert.equal(isLengthOver(120, 105), false);   // inside the 115% tolerance
+  // 120 USED to pass here: 120/105 = 1.14, inside the 115% ratio. It no longer does, because 115
+  // is the top of the band whatever the target was — the ratio is not the only ceiling any more.
+  assert.equal(isLengthOver(120, 105), true);
+  assert.equal(isLengthOver(114, 105), false);  // still inside both the ratio and the band
   assert.equal(isLengthOver(190, 105), true);    // the run that prompted this fix
   assert.equal(isLengthComplete(190, 105), true, 'long drafts still clear the FLOOR - hence the ceiling');
 });
@@ -195,9 +243,11 @@ test('the cap is derived from the word budget, so it cannot drift away from it',
 test('WORDS_PER_PAGE is the measured figure, not the optimistic one', () => {
   // 190 was an 18% overshoot baked into the arithmetic: it converted a page allocation into more
   // words than a page can physically hold. Measured on the 31 Aug draft: 203,837 chars / 207 pages
-  // = 985 chars per page, at 6.11 chars per word = 161 words per page.
-  assert.ok(WORDS_PER_PAGE <= 170, 'WORDS_PER_PAGE ' + WORDS_PER_PAGE + ' is above the measured ~161');
-  assert.ok(WORDS_PER_PAGE >= 150, 'below ~150 the budget starves scenes');
+  // = 985 chars per page, at 6.11 chars per word = 161 words per page — on A4.
+  // Re-fitted 2 Sep for US Letter, whose text column is 9in against A4's 9.96in:
+  //   985 x (9 / 9.96) = 890 chars/page, / 6.11 = 146 words per page.
+  assert.ok(WORDS_PER_PAGE <= 155, 'WORDS_PER_PAGE ' + WORDS_PER_PAGE + ' is above the measured ~146 for US Letter');
+  assert.ok(WORDS_PER_PAGE >= 135, 'below ~135 the budget starves scenes');
   // The page budget must also land inside the WORD band for a feature, not just the page band.
   const words = DEFAULT_TARGET_PAGES * WORDS_PER_PAGE;
   assert.ok(words >= 7500 && words <= 20000,
@@ -333,4 +383,102 @@ test('progress is reported against the plan, not against the pages already writt
   assert.match(planSliceInstruction(s), /50% of the film/);
   assert.match(planSliceInstruction(s), /about 53 of its 105 pages/);
   assert.match(planSliceInstruction(s), /from about 50% to about 81% of the outline/);
+});
+
+// ─── the feature band: 90 to 115 ────────────────────────────────────────────────────────────
+
+test('the band is 90 to 115 and a target outside it is pulled back in', () => {
+  assert.equal(MIN_TARGET_PAGES, 90);
+  assert.equal(MAX_TARGET_PAGES, 115);
+  assert.equal(planFeatureLength({ targetPages: 60 }).targetPages, 90);
+  assert.equal(planFeatureLength({ targetPages: 200 }).targetPages, 115);
+  assert.equal(planFeatureLength({ targetPages: 97 }).targetPages, 97);
+});
+
+test('no target and no ratio can carry a draft past the top of the band', () => {
+  // The old ceiling was purely relative, so the longest allowed target dragged it with it.
+  assert.equal(isLengthOver(132, 115), true);
+  assert.equal(isLengthOver(116, 115), true);
+  assert.equal(isLengthOver(115, 115), false);
+});
+
+test('an explicit page target beats the genre default, in either direction', () => {
+  assert.equal(planFeatureLength({ genres: ['Thriller'], targetPages: 112 }).targetPages, 112);
+  assert.equal(planFeatureLength({ genres: ['Drama'], targetPages: 92 }).targetPages, 92);
+});
+
+test('a runtime in minutes still works, and is read through the genre page rate', () => {
+  // 100 minutes of thriller at 1.02 pages/minute is a 102-page script.
+  assert.equal(planFeatureLength({ genres: ['Thriller'], targetMinutes: 100 }).targetPages, 102);
+  assert.equal(planFeatureLength({ genres: ['Drama'], runtimeMinutes: 95 }).targetPages, 106);
+});
+
+test('THE DEFECT: two unrelated films no longer collect the same default', () => {
+  // MINUTEMEN (thriller) and a drama both fell through to 105 and delivered 100 and 103 pages.
+  const thriller = planFeatureLength({ genres: ['Thriller'] }).targetPages;
+  const drama = planFeatureLength({ genres: ['Drama'] }).targetPages;
+  const action = planFeatureLength({ genres: ['Action'] }).targetPages;
+  const romance = planFeatureLength({ genres: ['Romance'] }).targetPages;
+  assert.notEqual(thriller, drama);
+  assert.notEqual(action, drama);
+  assert.notEqual(romance, drama);
+  for (const p of [thriller, drama, action, romance]) {
+    assert.ok(p >= MIN_TARGET_PAGES && p <= MAX_TARGET_PAGES, 'default ' + p + ' left the band');
+  }
+});
+
+test('every genre default sits inside the band', () => {
+  for (const g of ['Action', 'Thriller', 'Comedy', 'Drama', 'Horror', 'Historical', 'Romance', 'Fantasy', 'Sci-Fi', 'Musical', 'Western']) {
+    const p = planFeatureLength({ genres: [g] }).targetPages;
+    assert.ok(p >= MIN_TARGET_PAGES && p <= MAX_TARGET_PAGES, g + ' defaulted to ' + p);
+  }
+});
+
+// ─── format bands: a short film is not a ninety-page feature ────────────────────────────────
+
+test('a MOVIE gets the feature band and the genre default', () => {
+  const band = resolveFormatBand({ projectType: 'MOVIE' });
+  assert.equal(band.key, 'FEATURE');
+  assert.equal(band.defaultPages, null, 'a feature lets the genre decide');
+  assert.equal(planFeatureLength({ projectType: 'MOVIE', genres: ['Drama'] }).targetPages, 108);
+});
+
+test('THE DEFECT: a short film was silently planned as a ninety-page feature', () => {
+  const p = planFeatureLength({ projectType: 'SHORT', genres: ['Drama'] });
+  assert.equal(p.formatKey, 'SHORT');
+  assert.equal(p.targetPages, 12, 'the short band decides, not the genre default of 108');
+  assert.ok(p.targetPages < MIN_TARGET_PAGES, 'and the feature floor must not drag it back up');
+  assert.ok(p.targetScenes >= MIN_PLANNED_SCENES && p.targetScenes < 20);
+});
+
+test('a short still honours an explicit length, inside its own band', () => {
+  assert.equal(planFeatureLength({ projectType: 'SHORT', targetPages: 25 }).targetPages, 25);
+  assert.equal(planFeatureLength({ projectType: 'SHORT', targetMinutes: 20 }).targetPages, 22);
+  assert.equal(planFeatureLength({ projectType: 'SHORT', targetPages: 300 }).targetPages, 40);
+  assert.equal(planFeatureLength({ projectType: 'SHORT', targetPages: 1 }).targetPages, 3);
+});
+
+test('an unknown or missing project type is a feature, never a crash', () => {
+  assert.equal(resolveFormatBand(null).key, 'FEATURE');
+  assert.equal(resolveFormatBand({ projectType: 'WHAT' }).key, 'FEATURE');
+  assert.equal(resolveFormatBand({}).key, 'FEATURE');
+  assert.equal(planFeatureLength({ projectType: 'WHAT' }).targetPages, DEFAULT_TARGET_PAGES);
+});
+
+test('every band is internally coherent', () => {
+  for (const k of Object.keys(FORMAT_BANDS)) {
+    const b = FORMAT_BANDS[k];
+    assert.ok(b.minPages > 0 && b.minPages < b.maxPages, k + ' band is inverted');
+    if (b.defaultPages !== null) {
+      assert.ok(b.defaultPages >= b.minPages && b.defaultPages <= b.maxPages, k + ' default sits outside its own band');
+    }
+  }
+});
+
+test('texture defaults to PRODUCED and only SPEC by name', () => {
+  assert.equal(resolveTexture({}), 'PRODUCED');
+  assert.equal(resolveTexture(null), 'PRODUCED');
+  assert.equal(resolveTexture({ texture: 'spec' }), 'SPEC');
+  assert.equal(resolveTexture({ texture: 'PRODUCED' }), 'PRODUCED');
+  assert.equal(resolveTexture({ texture: 'anything else' }), 'PRODUCED');
 });

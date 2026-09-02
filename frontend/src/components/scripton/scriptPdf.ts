@@ -46,12 +46,27 @@ export async function downloadScriptPdf(text: string, title: string, info?: any)
   const bold = await doc.embedFont(PDFLib.StandardFonts.CourierBold);
   const obl = await doc.embedFont(PDFLib.StandardFonts.CourierOblique);
 
-  const W = 595.28, H = 841.89, size = 12, lh = 13.5;
-  const L = 90.7, R = 72, topY = H - 62.4, botY = 62.4;       // 32mm left, ~1in right, 22mm top/bottom
+  /**
+   * US LETTER at the industry margins — 8.5x11, 1.5in binding left, 1in elsewhere.
+   *
+   * This was A4 (595.28 x 841.89) with metric margins. Every spec screenplay in the English-language
+   * market is Letter; an external coverage report on the 2 Sep draft named the A4 page as one of the
+   * reasons the document reads as non-professional. 12pt Courier at 6 lines to the inch gives 9in of
+   * text, which is the 55-line page the whole length budget is built on.
+   */
+  const W = 612, H = 792, size = 12, lh = 13.5;
+  const L = 108, R = 72, topY = H - 72, botY = 72;            // 1.5in left, 1in right, 1in top/bottom
   const cw = W - L - R, centerX = W / 2;   // centre on the true page centre, not the binding-offset content box
   let page = doc.addPage([W, H]); let y = topY; let pageNo = 0;
-  const stamp = () => { pageNo++; page.drawText(pageNo + '.', { x: W - R - 18, y: H - 50, size: 11, font }); };
-  stamp();
+  // The number sits 0.5in from the top, hard against the right margin, with the period screenplays
+  // put after it. Half an inch is where a reader's eye and every production office expects it.
+  const stamp = () => {
+    pageNo++;
+    const label = pageNo + '.';
+    page.drawText(label, { x: W - R - font.widthOfTextAtSize(label, 11), y: H - 36, size: 11, font });
+  };
+  // NO stamp() here. The title page is not page 1 — it is not numbered at all, and the first page of
+  // script is. Numbering it was an off-by-one that put "2." on the first page of every draft.
   const need = (lines: number) => { if (y - lines * lh < botY) { page = doc.addPage([W, H]); y = topY; stamp(); } };
   const wrap = (txt: string, max: number, f: any) => {
     const words = String(txt).split(/\s+/); let line = ''; const out: string[] = [];

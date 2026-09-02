@@ -167,7 +167,7 @@ export const SCRIPT_PAPER_CSS = `
 .uvp-stack{display:flex;flex-direction:column;align-items:center;gap:26px}
 /* Screen sheet — measured from Figma node 7:14 (the Write paper). Courier Prime 12.5px, 22px line
    rhythm, cream #f7f4ec, fixed-indent cues/dialogue (industry standard — not centred), 6px radius. */
-.uvp-a4{width:620px;min-height:913px;background:#f7f4ec;color:#23231f;font-family:"Courier Prime","Courier New",Courier,monospace;font-size:12.5px;line-height:15px;border:1px solid rgba(255,255,255,.12);border-radius:6px;box-shadow:0 30px 60px -18px rgba(0,0,0,.55);padding:40px 62px 48px 48px;box-sizing:border-box;position:relative}
+.uvp-a4{width:620px;min-height:802px;background:#f7f4ec;color:#23231f;font-family:"Courier Prime","Courier New",Courier,monospace;font-size:12.5px;line-height:15px;border:1px solid rgba(255,255,255,.12);border-radius:6px;box-shadow:0 30px 60px -18px rgba(0,0,0,.55);padding:40px 62px 48px 48px;box-sizing:border-box;position:relative}
 .uvp-a4 .uvp-pageno{position:absolute;top:15px;right:48px;font-size:11px;color:#6b727d}
 .uvp-el{white-space:pre-wrap;word-wrap:break-word}
 .uvp-slug{display:flex;justify-content:space-between;gap:14px;font-weight:700;text-transform:uppercase;margin:0}
@@ -327,10 +327,26 @@ export function buildScriptPrintHtml(text: string, title: string, info?: any): s
   for (const t of toks) { body += tokHtml(t, lang, first); if (t.type !== 'gap') first = false; }
   const flow = '<section class="uvp-flow' + arCls + '">' + body + '</section>';
   const arFont = '@import url("https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Amiri:ital,wght@0,400;0,700;1,400&display=swap");';
-  // Print geometry: the flow paints continuously; @page provides the physical A4 margin box.
+  /**
+   * Print geometry: the flow paints continuously; @page provides the physical margin box.
+   *
+   * US LETTER, NOT A4, for Latin scripts. Every spec screenplay in the English-language market is
+   * 8.5x11 with a 1.5in binding margin — an A4 page is 8mm narrower and 18mm taller, and a reader
+   * who prints it gets reflowed line breaks and a page count that does not match the slug numbers.
+   * An external coverage report on the 2 Sep draft listed "A4 rather than US Letter" among the
+   * reasons the document would undermine professional confidence, and it was right.
+   *
+   * Arabic manuscripts keep A4, which IS the standard across the MENA market.
+   *
+   * NOTE FOR ANYONE CHANGING THIS AGAIN: the paper decides how many lines fit on a page, and
+   * PAGE_BUDGET in feature-length.util.ts is that number. Letter at 12pt Courier with 1in top and
+   * bottom margins holds 55 lines; A4 held 61. The two constants move together or the page target
+   * silently means something else.
+   */
   const printCss = arFont
-    + '@page{size:A4;margin:22mm 25.4mm 22mm 32mm}'
-    + (ar ? '@page{margin:22mm 32mm 22mm 25.4mm}' : '')
+    + (ar
+        ? '@page{size:A4;margin:22mm 32mm 22mm 25.4mm}'
+        : '@page{size:Letter;margin:1in 1in 1in 1.5in}')
     + 'html,body{margin:0;background:#fff;color:#1d1d1b}'
     + '.uvp-flow{font-family:' + (ar ? "'Amiri','Courier Prime',serif" : '"Courier Prime","Courier New",monospace') + ';font-size:' + (ar ? '13.5pt' : '12pt') + ';line-height:' + (ar ? '1.55' : '1.08') + ';direction:' + (ar ? 'rtl' : 'ltr') + '}'
     + '.uvp-el{white-space:pre-wrap;word-wrap:break-word}'

@@ -926,6 +926,8 @@ export function trimToSentence(raw: any, max = 240): string {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type SceneDefectKind =
+  | 'DANGLING_CUE'
+  | 'UNCLOSED_PAREN'
   | 'EMPTY_BODY'          // a numbered scene with no prose at all
   | 'PLACEHOLDER_BODY'    // the model promised the scene instead of writing it
   | 'TRUNCATED_TAIL'      // the last line stops mid-sentence
@@ -1059,6 +1061,46 @@ export function checkSceneIntegrity(
   }
   const meaningful = lines;
 
+  /**
+   * A SCENE NEVER ENDS ON A CUE OR A PARENTHETICAL.
+   *
+   * THE BLIND SPOT THIS CLOSES. The walk-back below skips cues, parentheticals, transitions and
+   * sluglines before testing terminal punctuation — correct, because none of them ends in a full
+   * stop and flagging them would fire on every well-formed scene. But skipping them also made the
+   * two worst truncations in the 2 Sep draft invisible: scene 30 stopped at
+   *
+   *     ALEXANDER
+   *            (smi
+   *
+   * and scene 74 stopped at a bare `GI` where GIDEON should have been. The walk-back stepped over
+   * both, found the last complete line of dialogue underneath, saw a full stop and passed the
+   * scene. An external reader found them in minutes.
+   *
+   * The rule is mechanical and cannot fire on a whole scene: a cue exists to introduce speech, and
+   * a parenthetical exists to qualify speech. If either is the last thing in the scene, the speech
+   * it promised was never written.
+   */
+  const lastLine = meaningful[meaningful.length - 1].trim();
+  const lastKind = classifyLine(lastLine, false);
+  if (lastKind === 'cue' || lastKind === 'paren') {
+    out.push({ kind: 'DANGLING_CUE', sceneIndex, detail: lastLine.slice(0, 90) });
+  }
+
+  /**
+   * An unclosed parenthesis, counted over the WHOLE body rather than per line.
+   *
+   * Per line would be wrong: action legitimately wraps a parenthesis across two lines. Over the
+   * body it is unambiguous — a screenplay closes every bracket it opens, so a surplus `(` is a cut.
+   * This is what actually catches `(smi`.
+   */
+  const bodyText = meaningful.join('\n');
+  const opensBody = (bodyText.match(/\(/g) || []).length;
+  const closesBody = (bodyText.match(/\)/g) || []).length;
+  if (opensBody > closesBody) {
+    const at = bodyText.slice(bodyText.lastIndexOf('('));
+    out.push({ kind: 'UNCLOSED_PAREN', sceneIndex, detail: at.replace(/\s+/g, ' ').slice(0, 90) });
+  }
+
   // Walk back past cues, parentheticals, transitions and sluglines: none of those end a scene in
   // punctuation, and flagging them would fire on every well-formed scene in the draft.
   let tail = '';
@@ -1090,6 +1132,12 @@ export function sceneDefectInstruction(d: SceneDefect): string {
       return 'The scene stops mid-sentence at "' + d.detail + '". Finish the thought and end the scene properly.';
     case 'TRUNCATED_SLUG':
       return 'The heading "' + d.detail + '" is incomplete. Return a whole slug line ending in a time of day.';
+    case 'DANGLING_CUE':
+      return 'The scene ends on "' + d.detail + '" — a character cue or a parenthetical with no speech after it.'
+        + ' Write the line that character says, and end the scene on a finished beat.';
+    case 'UNCLOSED_PAREN':
+      return 'The scene has an unclosed bracket, starting at "' + d.detail + '". Close it, and make sure'
+        + ' nothing after it was lost.';
     case 'LABEL_LEAK':
       return 'A screenplay presentation label leaked into the story here: "' + d.detail
         + '". Labels such as YOUNG/OLDER/TEEN describe how a character is SHOWN in a flashback. They are never a name on a document, in dialogue, or in a record. Use the character\'s real name.';
@@ -1596,4 +1644,647 @@ export function checkFixedAttributes(
     for (const e of collectPronounEvidence(i, w.text, registeredNames)) evidence.push(e);
   }
   return findPronounDrift(evidence);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// CLOCKS PEOPLE SAY OUT LOUD
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * "Zero-nine-fifty" is a time. `findTimeTokens` could not see it, and that is why a real-time
+ * thriller whose clock runs backwards passed every check we own.
+ *
+ * MEASURED ON THE DELIVERED MINUTEMEN DRAFT. Thirty-three clock references:
+ *
+ *     digits in action     "The clock reads 09:14."          9
+ *     military 4-digit     "0947"                            7
+ *     SPOKEN in dialogue   "Window opens zero-nine-fifty"   17
+ *
+ * Every contradiction an external reader found — 08:24 against 08:26, a window announced as
+ * 09:40-09:55 while the clock showed 09:19, then moved to 09:50-09:55, then to 09:40-10:10 —
+ * lives in that third row. Not one of those times appears as digits anywhere in the document.
+ * A detector that reads only digits was auditing nine references out of thirty-three and calling
+ * the timeline clean.
+ *
+ * People in uniform say the clock digit by digit, and a screenplay writes it the way they say it.
+ */
+const CLOCK_WORD: Record<string, number> = {
+  zero: 0, oh: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9,
+  ten: 10, eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16,
+  seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20, thirty: 30, forty: 40, fifty: 50,
+};
+
+/**
+ * A clock spoken aloud, or null when the phrase is not one.
+ *
+ * Deliberately strict about the minutes, because the shapes overlap: "fifty-five" is 55 by tens
+ * plus unit, while "two-four" is 24 digit by digit, and the same grammar has to read both without
+ * turning "Bay nine, section two" into half past something.
+ */
+export function parseSpokenClock(phrase: string): number | null {
+  const parts = String(phrase || '').toLowerCase().split(/[\s\-]+/).filter(Boolean);
+  if (parts.length < 2 || parts.length > 5) return null;
+  /**
+   * Two number words with no leading zero are a COUNT, not a clock. "Twenty two" is twenty-two,
+   * and reading it as 20:02 is the false positive that would put this rule straight back in the
+   * bin with PLACE_JUMP. The leading zero is what makes a spoken clock unambiguous — it is why
+   * people in uniform say it — and three words carry their own shape ("nine twenty-two").
+   */
+  const leadingZero = parts[0] === 'zero' || parts[0] === 'oh';
+  if (!leadingZero && parts.length < 3) return null;
+  const v = parts.map((p) => (Object.prototype.hasOwnProperty.call(CLOCK_WORD, p) ? CLOCK_WORD[p] : (p === 'hundred' ? -1 : null)));
+  if (v.some((x) => x === null)) return null;
+  const nums = v as number[];
+
+  let i = 0;
+  let hour: number;
+  if (parts[0] === 'zero' || parts[0] === 'oh') {
+    // "zero-nine-fifty" — the leading zero IS the hour's tens digit.
+    if (nums.length < 2 || nums[1] < 0 || nums[1] > 9) return null;
+    hour = nums[1];
+    i = 2;
+  } else {
+    if (nums[0] < 0 || nums[0] > 23) return null;
+    hour = nums[0];
+    i = 1;
+  }
+
+  const rest = nums.slice(i);
+  const restWords = parts.slice(i);
+  let minutes: number | null = null;
+  if (!rest.length) return null;                                        // a bare hour is a number, not a clock
+  if (restWords[0] === 'hundred' && rest.length === 1) minutes = 0;      // "zero six hundred"
+  else if (rest.length === 1) minutes = rest[0];                        // fourteen -> :14, five -> :05
+  else if (rest.length === 2) {
+    const [a, b] = rest;
+    if (a >= 20 && a % 10 === 0 && b >= 1 && b <= 9) minutes = a + b;    // forty-one
+    else if (a <= 5 && b <= 9) minutes = a * 10 + b;                     // two-four
+    else return null;
+  } else return null;
+
+  if (minutes == null || minutes < 0 || minutes > 59 || hour > 23) return null;
+  return hour * 60 + minutes;
+}
+
+/** Candidate phrases: two to five number words in a row, which `parseSpokenClock` then judges. */
+const SPOKEN_CLOCK_RE = new RegExp(
+  '\\b(?:' + Object.keys(CLOCK_WORD).join('|') + '|hundred)'
+  + '(?:[\\s\\-](?:' + Object.keys(CLOCK_WORD).join('|') + '|hundred)){1,4}\\b', 'gi',
+);
+
+/** "0947" — the written military form, which is also not a colon and also went unread. */
+const MILITARY_DIGITS_RE = /\b([01]\d|2[0-3])([0-5]\d)\s*(?:hours|hrs|Z|zulu|local)?\b/g;
+
+/**
+ * Every clock in one scene, in ALL THREE notations the drafts actually use.
+ *
+ * `shown` when the scene shows it in action, `spoken` when a character says it — the distinction
+ * the timeline check needs, because a character may lie or misremember while a clock on a wall
+ * may not.
+ */
+export function findSpokenTimeTokens(sceneIndex: number, text: string): TimeToken[] {
+  const out: TimeToken[] = [];
+  const seen = new Set<string>();
+  for (const line of classifyScript(String(text || ''))) {
+    if (line.kind !== 'dialogue' && line.kind !== 'action') continue;
+    const source: 'spoken' | 'shown' = line.kind === 'dialogue' ? 'spoken' : 'shown';
+    let m: RegExpExecArray | null;
+
+    SPOKEN_CLOCK_RE.lastIndex = 0;
+    while ((m = SPOKEN_CLOCK_RE.exec(line.text)) !== null) {
+      const minutes = parseSpokenClock(m[0]);
+      if (minutes == null) continue;
+      const key = source + '|' + m[0].toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ sceneIndex, minutes, source, raw: m[0].trim() });
+    }
+
+    MILITARY_DIGITS_RE.lastIndex = 0;
+    while ((m = MILITARY_DIGITS_RE.exec(line.text)) !== null) {
+      const minutes = Number(m[1]) * 60 + Number(m[2]);
+      const key = source + '|mil|' + m[0];
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ sceneIndex, minutes, source, raw: m[0].trim() });
+    }
+  }
+  return out;
+}
+
+/** Digits, words, military and spoken — the whole clock of one scene, in reading order. */
+export function findAllTimeTokens(sceneIndex: number, text: string): TimeToken[] {
+  const digits = findTimeTokens(sceneIndex, text);
+  const spoken = findSpokenTimeTokens(sceneIndex, text);
+  const seen = new Set(digits.map((t) => t.source + '|' + t.minutes + '|' + t.raw.toLowerCase()));
+  const out = digits.slice();
+  for (const t of spoken) {
+    const k = t.source + '|' + t.minutes + '|' + t.raw.toLowerCase();
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(t);
+  }
+  return out;
+}
+
+/**
+ * A clock that runs BACKWARDS.
+ *
+ * WHY THIS IS NOT SIMPLY "any earlier time is a defect". Running the 47 clock references of the
+ * MINUTEMEN draft in order produces fourteen backward steps, and most of them are correct writing:
+ *
+ *     "Window opens zero-nine-fifty."   said at 09:19   — a FUTURE reference
+ *     "We were relieved at 08:08."      said at the end — a PAST reference
+ *     a mission briefing recalling 04:12 and 02:30      — recall
+ *
+ * A character may say any time at any moment; that is what people do. What cannot happen is a
+ * clock ON THE WALL reading 09:15 in one scene and 07:58 in a later one. So this reads only the
+ * times the scene SHOWS, never the times a character says, and it skips flashbacks entirely.
+ *
+ * The consequence is a much smaller, much truer finding list — and the loud half of the MINUTEMEN
+ * timeline problem, the launch window announced three times with three different values, is NOT
+ * this rule's business. That is one named thing carrying contradictory values, which is a fact the
+ * planner should have fixed before a word was written, not a direction a detector can infer.
+ */
+export interface ClockRegression {
+  from: TimeToken;
+  to: TimeToken;
+  detail: string;
+}
+
+export function checkClockRegression(
+  tokens: TimeToken[],
+  recalledScenes?: Iterable<number>,
+  toleranceMin = 1,
+): ClockRegression[] {
+  const skip = new Set<number>(Array.from(recalledScenes || []));
+  const shown = (Array.isArray(tokens) ? tokens : [])
+    .filter((t) => t && t.source === 'shown' && !skip.has(t.sceneIndex))
+    .slice()
+    .sort((a, b) => a.sceneIndex - b.sceneIndex);
+  const out: ClockRegression[] = [];
+  const fmt = (m: number) => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+  for (let i = 1; i < shown.length; i++) {
+    const from = shown[i - 1];
+    const to = shown[i];
+    if (to.sceneIndex === from.sceneIndex) continue;      // one scene may show a clock twice
+    // Midnight is a real thing: a jump of more than 12 hours backwards is the next day, not a fault.
+    const back = from.minutes - to.minutes;
+    if (back <= toleranceMin || back > 12 * 60) continue;
+    out.push({
+      from,
+      to,
+      detail: 'The clock shows ' + fmt(from.minutes) + ' in scene ' + (from.sceneIndex + 1)
+        + ' and ' + fmt(to.minutes) + ' in scene ' + (to.sceneIndex + 1)
+        + '. Time runs one way; decide which reading is right and correct the other.',
+    });
+  }
+  return out;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// THE SPINE — state decided at plan time and handed to the writer
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * WHY THE SPINE EXISTS, AND WHY IT IS NOT ANOTHER DETECTOR.
+ *
+ * Three detectors in a row have failed on real drafts: PLACE_JUMP reported nine impossibilities in
+ * a draft containing none, the pronoun rule produced four findings and all four were wrong, and
+ * written-death detection found neither of the two deaths an external reader found in ten minutes.
+ * They fail for one reason. A detector tries to RECOVER a decision the generator never wrote down,
+ * and recovering intent from prose is guesswork.
+ *
+ * The loud half of the MINUTEMEN timeline problem shows the limit exactly. Its launch window is
+ * announced as 09:40-09:55, then as 09:50-09:55, then as 09:40-10:10. No rule can know which is
+ * right, because all three are grammatical, all three are plausible, and the story never said. But
+ * a planner that FIXES the window once and hands it to every scene makes the contradiction
+ * unwritable.
+ *
+ * So: decide first, tell the writer, and keep the check as a backstop rather than the mechanism.
+ * This is the same shape as `unavailableLine`, which is the one continuity device in the system
+ * with a clean record across two full drafts — because it tells the writer who is dead instead of
+ * asking afterwards.
+ */
+
+/** What can happen to a physical object, in the order of finality. DESTROYED is terminal. */
+export type PropStateKind = 'CARRIED' | 'PLACED' | 'HIDDEN' | 'TAKEN' | 'GIVEN' | 'RETURNED' | 'DESTROYED';
+
+export interface PropEvent {
+  /** 1-based scene number in which the object reaches this state. */
+  scene: number;
+  /** The object as the plan names it — "the laminated card", "Jason's passport". */
+  name: string;
+  state: PropStateKind;
+  /** Where it now is, or who now holds it. Shown to the writer, never parsed. */
+  note?: string;
+}
+
+const PROP_STATES: readonly string[] = ['CARRIED', 'PLACED', 'HIDDEN', 'TAKEN', 'GIVEN', 'RETURNED', 'DESTROYED'];
+export function isPropState(s: any): s is PropStateKind {
+  return PROP_STATES.indexOf(String(s || '').toUpperCase()) >= 0;
+}
+
+function propKey(name: any): string {
+  return String(name || '').toLowerCase().replace(/^(?:the|a|an|his|her|their|its)\s+/, '').replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+/** Where every tracked object stands as scene `scene` opens. */
+export function propStateAt(events: PropEvent[], scene: number): Map<string, PropEvent> {
+  const out = new Map<string, PropEvent>();
+  for (const e of (Array.isArray(events) ? events : []).slice().sort((a, b) => a.scene - b.scene)) {
+    if (!e || !e.name || e.scene >= scene) continue;
+    out.set(propKey(e.name), e);
+  }
+  return out;
+}
+
+export interface PropFinding { name: string; detail: string }
+
+/**
+ * A destroyed object cannot come back.
+ *
+ * TWO REAL CASES, ONE RULE. Jason's passport is burned in scene 105 and lies beside Sophie's
+ * filing in 117 and is buried at the graves in 137. The laminated card is thrown into the waste bin
+ * in scene 62 and is back on the panel in 72. Both readers found both in a single pass; nothing in
+ * the system did, because nothing in the system was tracking objects at all.
+ *
+ * DESTROYED is the only terminal state on purpose — everything else is reversible, because a thing
+ * that is put down can be picked up and a thing that is hidden can be found. Making TAKEN or PLACED
+ * terminal would fire on ordinary staging.
+ */
+export function checkPropContinuity(events: PropEvent[]): PropFinding[] {
+  const byKey = new Map<string, PropEvent[]>();
+  const raw = (Array.isArray(events) ? events : []).filter((e) => e && e.name && isPropState(e.state));
+  const keys = Array.from(new Set(raw.map((e) => propKey(e.name)).filter(Boolean)));
+  /**
+   * "The passport" and "Jason's passport" are one object; "Jason's passport" and "Sophie's
+   * passport" are two. A short key folds into a longer one ONLY when exactly one longer key ends
+   * with it — the same refusal to guess that `resolveEntity` makes, and for the same reason. Two
+   * candidates means the plan named its objects ambiguously, and inventing an answer there is how
+   * a check starts merging things the story kept apart.
+   */
+  const fold = (k: string): string => {
+    const longer = keys.filter((o) => o !== k && (o === k || o.endsWith(' ' + k)));
+    return longer.length === 1 ? longer[0] : k;
+  };
+  for (const e of raw) {
+    const k = fold(propKey(e.name));
+    if (!k) continue;
+    const arr = byKey.get(k) || [];
+    arr.push(e);
+    byKey.set(k, arr);
+  }
+  const out: PropFinding[] = [];
+  for (const arr of byKey.values()) {
+    const sorted = arr.slice().sort((a, b) => a.scene - b.scene);
+    const gone = sorted.find((e) => e.state === 'DESTROYED');
+    if (!gone) continue;
+    const after = sorted.filter((e) => e.scene > gone.scene && e.state !== 'DESTROYED');
+    if (!after.length) continue;
+    out.push({
+      name: gone.name,
+      detail: gone.name + ' is destroyed in scene ' + gone.scene
+        + (gone.note ? ' (' + gone.note + ')' : '')
+        + ', then appears again in scene' + (after.length === 1 ? ' ' : 's ')
+        + after.map((e) => e.scene).join(', ')
+        + '. Either it is not destroyed there, or a second one was established first.',
+    });
+  }
+  return out;
+}
+
+const fmtClock = (m: number) => String(Math.floor(m / 60) % 24).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+
+/**
+ * The block the scene writer is handed — the same job `unavailableLine` does for the dead.
+ *
+ * Deliberately short and imperative. A scene prompt that carries a paragraph of state stops being
+ * a scene prompt; this names only what THIS scene could contradict, and says nothing when there is
+ * nothing to say.
+ */
+export function spineDirective(
+  sceneNumber: number,
+  clockMinutes: number | null | undefined,
+  props: PropEvent[],
+  designators?: Iterable<string>,
+  recalled = false,
+  limit = 6,
+): string {
+  const parts: string[] = [];
+
+  /**
+   * PREVENTION BEATS DETECTION, HERE MOST OF ALL. When the plan says a scene is a memory, the
+   * writer is told to SAY SO on the page. An unmarked flashback is the one state error no checker
+   * can see from the outside — and the reader cannot see it either, which is the real cost.
+   */
+  if (recalled) {
+    parts.push('THIS SCENE IS A MEMORY, not the present. Mark it where a reader will see it —'
+      + ' FLASHBACK in the slug line, or a dated marker such as SEVEN YEARS EARLIER. Never leave a'
+      + ' jump in time for the reader to infer.');
+  }
+
+  if (clockMinutes != null && Number.isFinite(clockMinutes)) {
+    parts.push('TIME: it is ' + fmtClock(clockMinutes) + '. Every clock this scene states or shows must be '
+      + fmtClock(clockMinutes) + ' or later — the story runs forward on one clock.');
+  }
+
+  const live = Array.from(propStateAt(props || [], sceneNumber).values())
+    .sort((a, b) => b.scene - a.scene)
+    .slice(0, limit);
+  if (live.length) {
+    parts.push('OBJECTS, as they stand right now: '
+      + live.map((e) => e.name + ' is ' + e.state.toLowerCase()
+        + (e.note ? ' (' + e.note + ')' : '') + ' since scene ' + e.scene).join('; ')
+      + '. A destroyed object does not come back.');
+  }
+
+  const names = Array.from(designators || []).filter(Boolean).slice(0, 12);
+  if (names.length) {
+    parts.push('NAMES AND CALL SIGNS, use these EXACTLY and invent no variants: ' + names.join(', ') + '.');
+  }
+
+  return parts.join('\n');
+}
+
+/**
+ * A MEMORY THE PAGE DOES NOT ADMIT TO.
+ *
+ * The gap this closes was a checker's blind spot, and looking at it properly turned it into a
+ * craft defect worth reporting on its own.
+ *
+ * Two independent verdicts exist on whether a scene is a memory: the PLANNER's, which read the
+ * brief and answered `recalled` before a word was written, and the PAGE's — FLASHBACK in the slug,
+ * "SEVEN YEARS EARLIER", a marker in the opening lines. Every exemption in this system takes their
+ * union, because a missed flashback produces a false finding while a false exemption only loses
+ * one. But the union throws away the interesting half:
+ *
+ *   * planned as a memory, UNMARKED on the page — the reader has no way to know. This is the real
+ *     defect. A screenplay signals a jump in time; one that does not is not being clever, it is
+ *     being unreadable, and the audit tools are the least of what goes wrong.
+ *   * marked on the page, NOT planned as a memory — the page is right and the plan was wrong, so
+ *     the clock and the prop ledger consumed that scene as present-day. Less serious for the
+ *     reader, more serious for everything downstream that trusted the plan.
+ *
+ * Neither reading involves a guess. Both are two booleans disagreeing.
+ */
+export type FlashbackMismatch = 'UNMARKED_ON_THE_PAGE' | 'UNPLANNED_IN_THE_MAP';
+
+export interface FlashbackFinding {
+  kind: FlashbackMismatch;
+  sceneIndex: number;
+  heading: string;
+  detail: string;
+}
+
+export function findFlashbackMismatches(
+  written: Array<{ heading: string; text: string }>,
+  plannedRecalled: Iterable<number>,
+): FlashbackFinding[] {
+  const planned = new Set<number>(Array.from(plannedRecalled || []).map((n) => Number(n)));
+  const list = Array.isArray(written) ? written : [];
+  const out: FlashbackFinding[] = [];
+  for (let i = 0; i < list.length; i++) {
+    const w = list[i];
+    if (!w || !w.text) continue;
+    const onPage = isRecalledTime(w.heading, w.text);
+    const inPlan = planned.has(i + 1);
+    if (onPage === inPlan) continue;
+    const heading = String(w.heading || '').trim();
+    if (inPlan && !onPage) {
+      out.push({
+        kind: 'UNMARKED_ON_THE_PAGE', sceneIndex: i, heading,
+        detail: 'Scene ' + (i + 1) + ' is a memory in the plan, but nothing on the page says so — "'
+          + heading.slice(0, 70) + '". A reader meets it as the present. Mark it in the slug'
+          + ' (FLASHBACK, or SEVEN YEARS EARLIER) or write it as the present and mean it.',
+      });
+    } else {
+      out.push({
+        kind: 'UNPLANNED_IN_THE_MAP', sceneIndex: i, heading,
+        detail: 'Scene ' + (i + 1) + ' is written as a memory — "' + heading.slice(0, 70)
+          + '" — but the plan did not know, so the clock and the object ledger counted it as'
+          + ' present-day. Anything they report around it should be read with that in mind.',
+      });
+    }
+  }
+  return out;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// SCENE DENSITY AND REPETITION — measured on the WRITTEN draft
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * MEASURED FIRST, THEN BUILT. The numbers below come from the two delivered drafts, not from
+ * screenwriting folklore, and the thresholds were chosen where the data has an actual gap.
+ *
+ * MINUTEMEN: 129 scenes / 103 pages = 1.25 scenes per page.
+ * JASON QUICK: 139 scenes / 103 pages = 1.35.
+ *
+ * The reviewer's complaint about MINUTEMEN was "consolidate the 129 micro-scenes", and the obvious
+ * check — warn when the average scene runs under a page — is WRONG, because both drafts fail it and
+ * so does every produced cross-cut thriller. The genre profile in feature-length.util already says a
+ * THRILLER runs 1.15 scenes per page; 1.25 is inside its own tolerance. Scene COUNT was never the
+ * defect.
+ *
+ * Two things are, and both separate the drafts cleanly instead of firing on each.
+ */
+
+/** A scene below this share of a page is a fragment, not a scene. */
+export const FRAGMENT_PAGE = 0.5;
+/**
+ * How many fragments must run back to back before the stretch is a defect rather than a cross-cut.
+ *
+ * Measured run lengths of sub-half-page scenes:
+ *   MINUTEMEN   12, 4, 3, 2, 2, 2, 2, 2, then eighteen 1s
+ *   JASON QUICK  8, 4, 3, 3, 3, 2 ×7, then twenty-one 1s
+ *
+ * The data has a hole between 4 and 8. Six sits in it, so the twenty-odd ordinary cross-cut runs in
+ * each draft stay silent and each draft reports exactly one stretch — MINUTEMEN's 117–128, and
+ * Jason Quick's 132–139, which is the stub tail the credit exhaustion produced. Both real.
+ */
+export const FRAGMENT_RUN = 6;
+
+export interface FragmentRun {
+  /** 1-based, inclusive. */
+  from: number;
+  to: number;
+  scenes: number;
+  pages: number;
+  detail: string;
+}
+
+/**
+ * Stretches where the film stops landing anywhere.
+ *
+ * Takes page sizes rather than text so that the one true measure of a page — countVisualLines over
+ * LINES_PER_PAGE, which the caller already owns — is not reimplemented here.
+ */
+export function findFragmentRuns(pages: number[], floor = FRAGMENT_PAGE, minRun = FRAGMENT_RUN): FragmentRun[] {
+  const list = (Array.isArray(pages) ? pages : []).map((p) => (isFinite(Number(p)) ? Number(p) : 0));
+  const out: FragmentRun[] = [];
+  let start = -1;
+  const close = (endExclusive: number) => {
+    if (start < 0) return;
+    const n = endExclusive - start;
+    if (n >= minRun) {
+      const span = list.slice(start, endExclusive);
+      const total = Math.round(span.reduce((a, b) => a + b, 0) * 10) / 10;
+      out.push({
+        from: start + 1, to: endExclusive, scenes: n, pages: total,
+        detail: 'Scenes ' + (start + 1) + '–' + endExclusive + ': ' + n + ' scenes in a row, none of'
+          + ' them reaching half a page, ' + total + ' pages between them. A reader crosses this'
+          + ' stretch without the film settling anywhere. Merge them into fewer, longer scenes, or'
+          + ' give the ones worth keeping the room to play.',
+      });
+    }
+    start = -1;
+  };
+  for (let i = 0; i < list.length; i++) {
+    if (list[i] > 0 && list[i] < floor) { if (start < 0) start = i; } else close(i);
+  }
+  close(list.length);
+  return out;
+}
+
+/**
+ * How many consecutive scenes may carry the SAME heading before the scene numbers are fiction.
+ *
+ * Two in a row happens honestly — a hard cut across a beat of time. Three does not.
+ */
+export const FALSE_BREAK_RUN = 3;
+
+export interface FalseBreakRun {
+  from: number;
+  to: number;
+  scenes: number;
+  heading: string;
+  pages: number;
+  detail: string;
+}
+
+/** A heading reduced to its comparable form: the scene number stripped, everything else kept. */
+export function headingKey(raw: any): string {
+  return String(raw == null ? '' : raw)
+    .replace(/^\s*\d+[A-Z]?[.)]?\s+/, '')
+    .toUpperCase()
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim();
+}
+
+/**
+ * SCENE BREAKS THAT BREAK NOTHING.
+ *
+ * This is the mechanical form of "consolidate the micro-scenes", and unlike a scene-count opinion it
+ * is a formal fact: a new scene number over an IDENTICAL slug line — same place, same time, no
+ * CONTINUOUS and no LATER — is a paragraph break wearing a scene number. Nothing changed, so nothing
+ * broke.
+ *
+ * The measurement that settled it:
+ *   MINUTEMEN   12 such runs, the longest 24 scenes (104–127). 108 of 129 scenes — 84% of the
+ *               script, 91 pages — sit inside one. Twenty-four consecutive scenes all reading
+ *               INT. ECHO-01 LAUNCH CONTROL CAPSULE - DAY.
+ *   JASON QUICK ZERO.
+ *
+ * Perfect separation, on the two drafts we have, with no threshold tuning at all. And it explains
+ * the reviewer's other complaints in one stroke: 129 scenes is not too many for a thriller — it is
+ * too many because 108 of them are not scenes. Merged, MINUTEMEN is a ~40-scene bunker film, which
+ * is what it always was.
+ *
+ * The time-of-day tail is deliberately part of the key. "- LATER" and "- CONTINUOUS" are how the
+ * format says time moved, so a slug that carries one is a different heading and never counted here.
+ */
+export function findFalseSceneBreaks(
+  headings: string[], pages?: number[], minRun = FALSE_BREAK_RUN,
+): FalseBreakRun[] {
+  const heads = Array.isArray(headings) ? headings : [];
+  const size = Array.isArray(pages) ? pages : [];
+  const keys = heads.map(headingKey);
+  const out: FalseBreakRun[] = [];
+  let start = 0;
+  const close = (endExclusive: number) => {
+    const n = endExclusive - start;
+    if (n >= minRun && keys[start]) {
+      const total = Math.round(size.slice(start, endExclusive).reduce((a, b) => a + (Number(b) || 0), 0) * 10) / 10;
+      out.push({
+        from: start + 1, to: endExclusive, scenes: n,
+        heading: String(heads[start] || '').replace(/^\s*\d+[A-Z]?[.)]?\s+/, '').trim(),
+        pages: total,
+        detail: 'Scenes ' + (start + 1) + '–' + endExclusive + ' all carry the same heading — "'
+          + String(heads[start] || '').replace(/^\s*\d+[A-Z]?[.)]?\s+/, '').trim().slice(0, 60)
+          + '". Same place, same time, nothing between them but a number' + (total ? ' (' + total + ' pages)' : '')
+          + '. A scene break that breaks nothing is a paragraph. Merge them, or give each one a'
+          + ' reason to be its own scene — a move, a jump in time, a change of who is in the room.',
+      });
+    }
+    start = endExclusive;
+  };
+  for (let i = 1; i <= keys.length; i++) {
+    if (i === keys.length || keys[i] !== keys[start]) close(i);
+  }
+  return out;
+}
+
+/** A phrase must appear in this many DISTINCT scenes before it is worth a second look. */
+export const ECHO_MIN_SCENES = 5;
+/** Below this many words a repeat is the vocabulary of the genre, not a repeat. */
+export const ECHO_MIN_WORDS = 4;
+
+export interface EchoedPhrase {
+  phrase: string;
+  scenes: number[];
+  detail: string;
+}
+
+/**
+ * PHRASES THE DRAFT KEEPS REACHING FOR. Reported as a COUNT, never as a defect.
+ *
+ * Measured at five-or-more distinct scenes this stays rare — one finding on MINUTEMEN
+ * ("Doesn't look up." across 8 scenes), two on Jason Quick ("His left hand trembles." ×6,
+ * "He picks it up." ×5).
+ *
+ * And one of those two is a deliberate motif: the tremor is the character's tell, planted in scene
+ * 2 and paid off at the trial. THAT IS WHY THIS FUNCTION MAKES NO JUDGEMENT. A phrase repeated
+ * across a script is either a motif or a tic, the difference is authorial intent, and no regex has
+ * access to intent. Reporting the count and naming both possibilities is the whole of what can be
+ * said honestly — so it is the whole of what is said.
+ */
+export function findEchoedPhrases(
+  written: Array<{ text: string }>,
+  minScenes = ECHO_MIN_SCENES,
+  minWords = ECHO_MIN_WORDS,
+): EchoedPhrase[] {
+  const list = Array.isArray(written) ? written : [];
+  const where = new Map<string, Set<number>>();
+  const shown = new Map<string, string>();
+  for (let i = 0; i < list.length; i++) {
+    const body = list[i] && list[i].text;
+    if (!body) continue;
+    for (const ln of classifyScript(String(body))) {
+      if (ln.kind !== 'action' && ln.kind !== 'dialogue') continue;
+      for (const raw of String(ln.text).split(/(?<=[.!?])\s+/)) {
+        const phrase = raw.trim();
+        if (!phrase) continue;
+        const key = phrase.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+        if (!key || key.split(' ').length < minWords) continue;
+        let seen = where.get(key);
+        if (!seen) { seen = new Set<number>(); where.set(key, seen); shown.set(key, phrase); }
+        seen.add(i + 1);
+      }
+    }
+  }
+  const out: EchoedPhrase[] = [];
+  where.forEach((scenes, key) => {
+    if (scenes.size < minScenes) return;
+    const where2 = Array.from(scenes).sort((a, b) => a - b);
+    out.push({
+      phrase: String(shown.get(key) || key).slice(0, 90),
+      scenes: where2,
+      detail: '"' + String(shown.get(key) || key).slice(0, 70) + '" appears in ' + where2.length
+        + ' separate scenes (' + where2.slice(0, 8).join(', ') + (where2.length > 8 ? ', …' : '')
+        + '). That is either a motif or a tic, and only the writer knows which — no check can tell'
+        + ' them apart. Worth one look.',
+    });
+  });
+  return out.sort((a, b) => b.scenes.length - a.scenes.length || a.phrase.localeCompare(b.phrase));
 }
