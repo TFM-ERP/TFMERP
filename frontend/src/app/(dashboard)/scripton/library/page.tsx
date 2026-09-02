@@ -5,12 +5,9 @@ import { useRouter } from 'next/navigation';
 import { masterScriptApi, productionApi, uploadFile } from '@/lib/api';
 import { pickScriptonProject } from '@/components/scripton/useScriptonProject';
 import ScriptOnLibrary, { SxCard } from '@/components/scripton/ScriptOnLibrary';
-import ScriptOnLibraryTablet from '@/components/scripton/ScriptOnLibraryTablet';
-import ScriptOnLibraryMobile from '@/components/scripton/ScriptOnLibraryMobile';
 import { useViewport } from '@/components/scripton/useViewport';
 import { useLocale } from '@/lib/i18n';
 import { useScriptonBack } from '@/components/scripton/useScriptonBack';
-import { useScriptonShellFlag } from '@/components/scripton/osShellFlag';
 import ScriptonShell from '@/components/scripton/ScriptonShell';
 
 const COVERS = ['linear-gradient(150deg,#243046,#141821)', 'linear-gradient(150deg,#3a2730,#151016)', 'linear-gradient(150deg,#2a1f2e,#120f15)', 'linear-gradient(150deg,#3a2336,#15101a)', 'linear-gradient(150deg,#262046,#131020)', 'linear-gradient(150deg,#332c1c,#151209)', 'linear-gradient(150deg,#1f3329,#101713)'];
@@ -35,7 +32,6 @@ export default function ScriptOnLibraryPage() {
   const vp = useViewport();
   const { dir, t } = useLocale();
   const onBack = useScriptonBack();
-  const flag = useScriptonShellFlag();
   const [cards, setCards] = useState<SxCard[]>(SAMPLE);
   const [activeFilter, setActiveFilter] = useState('All');
   const [search, setSearch] = useState('');
@@ -174,18 +170,16 @@ export default function ScriptOnLibraryPage() {
   const doRestore = async (id: string) => { try { await productionApi.script.restore(id); setBinItems((b) => b.filter((x) => x.id !== id)); flash(t('Restored - reload to see it in the library.')); } catch { flash(t('Could not restore.')); } };
   const doConf = async () => { const c = conf; setConf(null); if (!c) return; try { if (c.kind === 'purge') { await productionApi.script.remove(c.id); setBinItems((b) => b.filter((x) => x.id !== c.id)); flash(t('Deleted forever.')); } else { await productionApi.script.trash(c.id); setCards((cc) => cc.filter((x) => x.id !== c.id)); setDocIds((sset) => { const n = new Set(sset); n.delete(c.id); return n; }); flash(t('Moved to bin.')); } } catch { flash(t('Action failed.')); } };
   const common = { meta: `${cards.length} ${t('scripts across the slate')}`, filters: FILTERS, activeFilter, onFilter: setActiveFilter, search, onSearch: setSearch, cards: shown, onOpen: (id: string) => router.push(buildIds.has(id) ? ('/scripton/studio?build=' + id) : docIds.has(id) ? ('/scripton/package?doc=' + id) : '/scripton/reader'), onNew: () => setAdding(true), onNav, onBack, toast, onDelete: onCardDelete, canDelete: (id: string) => docIds.has(id), onBin: openBin };
-  const body = vp === 'mobile' ? <ScriptOnLibraryMobile {...common} /> : vp === 'tablet' ? <ScriptOnLibraryTablet {...common} /> : <ScriptOnLibrary {...common} />;
+  // Legacy viewport library twins retired — the new shell serves every viewport (desktop-only OS).
 
   const aBtn: React.CSSProperties = { width: '100%', textAlign: 'start', background: 'rgba(198,164,99,0.14)', color: '#C6A463', border: '1px solid rgba(198,164,99,0.30)', borderRadius: 10, padding: '10px 12px', fontSize: 12.5, cursor: 'pointer', marginTop: 8 };
   const aGhost: React.CSSProperties = { ...aBtn, background: 'transparent', color: '#E8E6E0' };
 
   return (
     <>
-      {flag === 'new' && vp === 'desktop' ? (
-        <ScriptonShell screen="slate" active="slate" vp={vp} onBack={onBack} onNav={onNav} topbar={{ scriptScoped: false }}>
-          <ScriptOnLibrary {...common} embedded />
-        </ScriptonShell>
-      ) : body}
+      <ScriptonShell screen="slate" active="slate" vp={vp} onBack={onBack} onNav={onNav} topbar={{ scriptScoped: false }}>
+        <ScriptOnLibrary {...common} embedded />
+      </ScriptonShell>
       <input ref={fileRef} type="file" accept=".pdf,.fdx,.fountain,.txt,.docx" style={{ display: 'none' }} onChange={(e) => doImport(e.target.files?.[0])} />
       {binOpen && (
         <div onClick={() => setBinOpen(false)} dir={dir} style={{ position: 'fixed', inset: 0, zIndex: 72, background: 'rgba(6,7,10,0.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, fontFamily: 'var(--sx-body)' }}>

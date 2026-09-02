@@ -6,7 +6,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { productionApi } from '@/lib/api';
-import { SxRail } from '@/components/scripton/ScriptOnStudio';
+import { SxRail } from '@/components/scripton/shared/sx';
 import { useLocale } from '@/lib/i18n';
 
 type Pkg = any;

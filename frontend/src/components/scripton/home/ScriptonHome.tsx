@@ -11,7 +11,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { masterScriptApi, productionApi } from '@/lib/api';
 import { pickScriptonProject } from '@/components/scripton/useScriptonProject';
-import { SxRail } from '@/components/scripton/ScriptOnStudio';
+import { SxRail } from '@/components/scripton/shared/sx';
 import { useViewport } from '@/components/scripton/useViewport';
 import { useLocale } from '@/lib/i18n';
 import { useScriptonBack } from '@/components/scripton/useScriptonBack';

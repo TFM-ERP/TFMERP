@@ -7,7 +7,7 @@
  * degrades when the kernel is inert.
  */
 import { useState } from 'react';
-import { SxRail } from '@/components/scripton/ScriptOnStudio';
+import { SxRail } from '@/components/scripton/shared/sx';
 import { useLocale } from '@/lib/i18n';
 import ScriptonTopBar from '@/components/scripton/topbar/ScriptonTopBar';
 import ScriptonShell from '@/components/scripton/ScriptonShell';

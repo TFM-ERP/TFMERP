@@ -120,6 +120,13 @@ export class ProtectedExportService {
     return `<div class="rp-ft" aria-hidden="true">${esc(this.fill(tpl, vars))}</div>`;
   }
 
+  // Puppeteer native footer — rendered in the RESERVED bottom page margin on every page (never over text).
+  private footerTemplate(cfg: any, vars: Record<string, string>): string {
+    if (!cfg.traceFooterEnabled) return '';
+    const tpl = cfg.traceFooterTemplate || '{copy_id} · {recipient_name} · {export_date} · Confidential';
+    return `<div style="width:100%;box-sizing:border-box;padding:0 14mm;font-family:Arial,Helvetica,sans-serif;font-size:7pt;color:#666;text-align:center;">${esc(this.fill(tpl, vars))}</div>`;
+  }
+
   private noticeLayer(cfg: any, noticeBody: string, vars: Record<string, string>): string {
     if (!cfg.noticeRequired || !noticeBody) return '';
     const body = esc(this.fill(noticeBody, vars)).replace(/\n/g, '<br>');
@@ -137,14 +144,19 @@ export class ProtectedExportService {
       '.rp-wm{position:fixed;inset:0;z-index:9990;pointer-events:none;display:flex;align-items:center;justify-content:center;overflow:hidden}',
       everyPage ? '' : '.rp-wm{position:absolute}',
       '.rp-wm-rep{display:block}',
-      '.rp-wm-box{text-align:center;white-space:nowrap}',
-      '.rp-wm-1{font:700 46pt/1.1 Arial,Helvetica,sans-serif;color:#000;letter-spacing:.02em}',
+      '.rp-wm-box{text-align:center;white-space:normal;max-width:150mm;line-height:1.12}',
+      '.rp-wm-1{font:700 40pt/1.12 Arial,Helvetica,sans-serif;color:#000;letter-spacing:.02em;overflow-wrap:break-word}',
       '.rp-wm-2{font:700 13pt/1.3 Arial,Helvetica,sans-serif;color:#000;margin-top:.4em}',
       '.rp-ft{position:fixed;left:0;right:0;bottom:6mm;z-index:9991;pointer-events:none;font:8.5pt/1.3 Arial,Helvetica,sans-serif;color:#333;text-align:center;letter-spacing:.02em}',
       '.rp-cover{break-after:page;page-break-after:always;min-height:calc(297mm - 44mm);display:flex;align-items:center;justify-content:center}',
       '.rp-cover-inner{max-width:6.2in;font:10.5pt/1.55 Arial,Helvetica,sans-serif;color:#1d1d1b;text-align:left}',
       '.rp-banner{border:1.5px solid #b91c1c;background:#fff5f5;color:#7f1d1d;padding:10px 14px;margin:0 0 14px;font:9pt/1.45 Arial,Helvetica,sans-serif;break-inside:avoid}',
       '.rp-banner-bottom{margin:14px 0 0}',
+      // The title page sets `min-height: calc(297mm - 44mm)` so it fills a page on its own. With a
+      // banner above it that no longer fits, so the title block spilled onto a second page — a
+      // notice page, then an orphaned half-title. Under a banner the title sizes to its content and
+      // the two share one page, which is what a review copy should look like.
+      '.rp-banner ~ .uvp-page{min-height:0;justify-content:flex-start;padding-top:10mm}',
     ].filter(Boolean).join('');
   }
 
@@ -155,7 +167,7 @@ export class ProtectedExportService {
     const css = '<style>' + this.protectionCss(cfg) + '</style>';
     if (html.includes('</head>')) html = html.replace('</head>', css + '</head>');
     else html = css + html;
-    const layers = this.noticeLayer(cfg, noticeBody, vars) + this.watermarkLayer(cfg, vars) + this.footerLayer(cfg, vars);
+    const layers = this.noticeLayer(cfg, noticeBody, vars) + this.watermarkLayer(cfg, vars); // trace footer is drawn in the reserved page margin (renderPdf), never over the script text
     if (html.includes('<body>')) html = html.replace('<body>', '<body>' + layers);
     else html = layers + html;
     return html;
@@ -270,7 +282,10 @@ export class ProtectedExportService {
     let pdf: Buffer;
     try {
       const protectedHtml = this.injectProtection(input.baseHtml, cfg, copyId, recipient, noticeBody, meta);
-      pdf = await this.scripton.renderPdf(protectedHtml);
+      const footerHtml = this.footerTemplate(cfg, this.buildVars(copyId, recipient, meta, cfg.recipientEmailDisplay || 'masked'));
+      const ar = String(input.lang || '') === 'ar';
+      const margin = ar ? { top: '22mm', right: '32mm', bottom: '16mm', left: '25mm' } : { top: '22mm', right: '25mm', bottom: '16mm', left: '32mm' };
+      pdf = await this.scripton.renderPdf(protectedHtml, footerHtml ? { footerHtml, margin } : undefined);
     } catch (e: any) {
       await this.rp.recordExport({
         projectId: input.projectId, scriptDocumentId: input.scriptDocumentId, revisionId: input.revisionId,

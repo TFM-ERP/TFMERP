@@ -6,20 +6,17 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { productionApi } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
-import { SxRail, SX_CSS } from '@/components/scripton/ScriptOnStudio';
 import { pickScriptonProject, resolveScriptonProjectId } from '@/components/scripton/useScriptonProject';
 import { useViewport } from '@/components/scripton/useViewport';
 import { useScriptonBack } from '@/components/scripton/useScriptonBack';
-import { useScriptonShellFlag } from '@/components/scripton/osShellFlag';
 import ScriptonCanon from '@/components/scripton/canon/ScriptonCanon';
 import type { Fact } from '@/components/scripton/canon/scripton-canon.logic';
 
 export default function ScriptOnCanonPage() {
   const router = useRouter();
-  const { dir, t } = useLocale();
+  const { t } = useLocale();
   const vp = useViewport();
   const onBack = useScriptonBack();
-  const flag = useScriptonShellFlag();
   const [facts, setFacts] = useState<Fact[] | null>(null);
   const [title, setTitle] = useState('ScriptON');
   const [revLabel, setRevLabel] = useState('WHITE');
@@ -67,33 +64,11 @@ export default function ScriptOnCanonPage() {
     flash(`${k[0].toUpperCase() + k.slice(1)} ${t('is a later screen in the build order.')}`);
   };
 
-  if (flag === 'new') {
-    return (
-      <ScriptonCanon
-        title={title} revisionLabel={revLabel} revisionColor={revColor}
-        facts={facts || []} versionLabel={revLabel} loading={facts === null}
-        onNav={onNav} onBack={onBack} toast={toast} vp={vp}
-      />
-    );
-  }
-
-  // ── old fallback — the previous stub ──
   return (
-    <>
-      <style dangerouslySetInnerHTML={{ __html: SX_CSS }} />
-      <div className="sx" dir={dir} style={{ position: 'fixed', inset: 0, zIndex: 50 }}>
-        <div className="top"><div className="tl"><div className="logo" onClick={onBack} title="Back to FilmOS">TFM</div><div className="proj">Living Canon</div></div></div>
-        <div className="body">
-          <SxRail active="canon" />
-          <div className="main"><div className="content" style={{ padding: '40px 48px' }}>
-            <div className="phead">
-              <div className="meta" style={{ marginBottom: 8 }}>ScriptON · Canon</div>
-              <h1 style={{ fontSize: 28, fontWeight: 700, color: 'var(--cream)', marginBottom: 12 }}>Living Canon</h1>
-              <div className="sub" style={{ color: 'var(--mute)', fontSize: 14, maxWidth: 520 }}>The Canon workspace UI is coming soon.</div>
-            </div>
-          </div></div>
-        </div>
-      </div>
-    </>
+    <ScriptonCanon
+      title={title} revisionLabel={revLabel} revisionColor={revColor}
+      facts={facts || []} versionLabel={revLabel} loading={facts === null}
+      onNav={onNav} onBack={onBack} toast={toast} vp={vp}
+    />
   );
 }

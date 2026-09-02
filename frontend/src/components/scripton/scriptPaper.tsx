@@ -70,9 +70,20 @@ export function formatScreenplay(raw: string, _lang?: string): Tok[] {
   const CUEEXT = /\((?:CONT'D|CONTD|V\.?O\.?|O\.?S\.?|O\.?C\.?|SUBTITLE|PRELAP|FILTERED|ON PHONE)\)/ig;
   const tokens: Tok[] = [];
   let inSpeech = false;
+  // Consecutive source lines of the SAME element are ONE block, joined with a space.
+  //
+  // 'action' used to be missing from this list, so every source line became its own
+  // <p class="uvp-action"> — and both the print CSS (margin:0 0 1em) and tokLines() below charge a
+  // blank line per action BLOCK. The result was a blank line after every LINE instead of between
+  // paragraphs: ~24 blocks on a page whose geometry holds 55 lines, which is what rendered a
+  // 168-page script as a 303-page PDF.
+  //
+  // This cannot swallow a real paragraph break: a blank source line never reaches push() — it emits
+  // its own 'gap' token at the top of the loop — so beats separated by a blank line stay separate.
+  // What it does merge is a paragraph the model hard-wrapped mid-sentence, which is exactly right.
   const push = (type: string, text: string) => {
     const last = tokens[tokens.length - 1];
-    if (last && last.type === type && (type === 'dialogue' || type === 'paren')) last.text += ' ' + text;
+    if (last && last.type === type && (type === 'dialogue' || type === 'paren' || type === 'action')) last.text += ' ' + text;
     else tokens.push({ type, text });
   };
   const s = lines.map((l) => l.trim());
@@ -131,7 +142,9 @@ function tokLines(t: Tok): number {
     case 'paren': return Math.max(1, Math.ceil(len / 24));
     case 'dialogue': return Math.max(1, Math.ceil(len / 36)) + 0.6;
     case 'trans': case 'fadein': return 1.8;
-    case 'gap': return 0.85;
+    // 0, not 0.85: the blank line after a paragraph is already charged by that paragraph's own
+    // '+1' below. Counting it here too is the same double-count the print CSS had.
+    case 'gap': return 0;
     default: return 1;
   }
 }
@@ -154,21 +167,21 @@ export const SCRIPT_PAPER_CSS = `
 .uvp-stack{display:flex;flex-direction:column;align-items:center;gap:26px}
 /* Screen sheet — measured from Figma node 7:14 (the Write paper). Courier Prime 12.5px, 22px line
    rhythm, cream #f7f4ec, fixed-indent cues/dialogue (industry standard — not centred), 6px radius. */
-.uvp-a4{width:620px;min-height:877px;background:#f7f4ec;color:#23231f;font-family:"Courier Prime","Courier New",Courier,monospace;font-size:12.5px;line-height:22px;border:1px solid rgba(255,255,255,.12);border-radius:6px;box-shadow:0 30px 60px -18px rgba(0,0,0,.55);padding:40px 62px 48px 48px;box-sizing:border-box;position:relative}
+.uvp-a4{width:620px;min-height:913px;background:#f7f4ec;color:#23231f;font-family:"Courier Prime","Courier New",Courier,monospace;font-size:12.5px;line-height:15px;border:1px solid rgba(255,255,255,.12);border-radius:6px;box-shadow:0 30px 60px -18px rgba(0,0,0,.55);padding:40px 62px 48px 48px;box-sizing:border-box;position:relative}
 .uvp-a4 .uvp-pageno{position:absolute;top:15px;right:48px;font-size:11px;color:#6b727d}
 .uvp-el{white-space:pre-wrap;word-wrap:break-word}
 .uvp-slug{display:flex;justify-content:space-between;gap:14px;font-weight:700;text-transform:uppercase;margin:0}
 .uvp-a4 > .uvp-slug:first-child,.uvp-a4 > .uvp-pageno + .uvp-slug{margin-top:0}
-.uvp-scene-gap{margin-top:22px}
+.uvp-scene-gap{margin-top:15px}
 .uvp-action{margin:0;max-width:510px}
-.uvp-cue{margin:22px 0 0 19.6ch}
+.uvp-cue{margin:15px 0 0 19.6ch}
 .uvp-paren{margin:0 0 0 16ch}
 .uvp-parn{display:inline-block;max-width:30ch;font-style:italic;color:#3a3a36}
-.uvp-dialogue{margin:0 0 22px 13.5ch}
+.uvp-dialogue{margin:0 0 15px 13.5ch}
 .uvp-dlgt{display:inline-block;max-width:44ch;white-space:pre-wrap;word-wrap:break-word}
-.uvp-trans{text-align:right;font-weight:700;margin:22px 0}
-.uvp-fadein{font-weight:700;margin:0 0 22px}
-.uvp-gap{height:22px}
+.uvp-trans{text-align:right;font-weight:700;margin:15px 0}
+.uvp-fadein{font-weight:700;margin:0 0 15px}
+.uvp-gap{height:15px}
 .uvp-tp{display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center}
 .uvp-tp .uvp-tt{font-size:17pt;font-weight:700;text-transform:uppercase;letter-spacing:1.5px}
 .uvp-tp .uvp-ts{margin-top:.5em;font-size:12pt}
@@ -324,12 +337,26 @@ export function buildScriptPrintHtml(text: string, title: string, info?: any): s
     + '.uvp-slug{display:flex;justify-content:space-between;gap:14px;font-weight:700;text-transform:uppercase;margin:0 0 1em;break-inside:avoid}'
     + '.uvp-scene-gap{margin-top:1.5em}'
     + '.uvp-action{margin:0 0 1em;' + (ar ? 'text-align:right' : '') + '}'
-    + '.uvp-cue{text-align:center;font-weight:700;letter-spacing:.04em;margin:1em 0 0;break-after:avoid}'
-    + '.uvp-paren{text-align:center;font-style:italic;color:#3a3a36;max-width:' + (ar ? '52%' : '42%') + ';margin:0 auto;break-before:avoid}'
-    + '.uvp-dialogue{text-align:center;max-width:' + (ar ? '58%' : '48%') + ';margin:0 auto 1em}'
+    // Dialogue is INDENTED, not centred. Screenplay dialogue sits in a fixed left-aligned column;
+    // `text-align:center` + `margin:0 auto` produced the ragged centred blocks in the export and made
+    // every dialogue row ~29 characters instead of 44 — which is why a page held 1,150 characters
+    // where a real 12pt Courier page holds ~1,800. The ch values match this file's own SCREEN rules
+    // (cue 19.6ch / dialogue 13.5ch+44ch / paren 16ch) so print and screen finally agree.
+    + (ar
+        ? '.uvp-cue{text-align:center;font-weight:700;letter-spacing:.04em;margin:1em 0 0;break-after:avoid}'
+          + '.uvp-paren{text-align:center;font-style:italic;color:#3a3a36;max-width:52%;margin:0 auto;break-before:avoid}'
+          + '.uvp-dialogue{text-align:center;max-width:58%;margin:0 auto 1em}'
+        : '.uvp-cue{font-weight:700;letter-spacing:.04em;margin:1em 0 0 19.6ch;break-after:avoid}'
+          + '.uvp-paren{font-style:italic;color:#3a3a36;max-width:25ch;margin:0 0 0 16ch;break-before:avoid}'
+          + '.uvp-dialogue{max-width:44ch;margin:0 0 1em 13.5ch}')
     + '.uvp-trans{text-align:' + (ar ? 'left' : 'right') + ';font-weight:700;margin:1em 0}'
     + '.uvp-fadein{font-weight:700;margin:0 0 1em}'
-    + '.uvp-gap{height:1em}'
+    // A blank source line adds NO height of its own in print: every block already carries
+    // `margin-bottom: 1em`, which IS the blank line between paragraphs. This spacer used to add a
+    // second 1em on top — two blank lines where a screenplay uses one — and a real box between two
+    // margined siblings also stops their margins collapsing. Measured on the MINUTEMEN export: ~2.02
+    // lines per gap instead of 1, which is most of why a 144-page script rendered as 294 pages.
+    + '.uvp-gap{height:0}'
     + '.uvp-page{break-after:page;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;min-height:calc(297mm - 44mm)}'
     + '.uvp-tt{font-size:17pt;font-weight:700;text-transform:uppercase;letter-spacing:1.5px}.uvp-ts{margin-top:.5em;font-size:12pt}.uvp-tl{margin-top:1.4em;max-width:5in;font-size:11pt;font-style:italic;line-height:1.5;color:#444}.uvp-tf{margin-top:2.4em;font-size:11pt;color:#555}';
   return '<!doctype html><html lang="' + lang + '" dir="' + (ar ? 'rtl' : 'ltr') + '"><head><meta charset="utf-8"><title>' + escHtml(i.docTitle || title || 'Script') + '</title>'

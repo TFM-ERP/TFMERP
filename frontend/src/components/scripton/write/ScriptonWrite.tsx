@@ -7,7 +7,7 @@
  * mockup (scripon-v4-revision-pass.html) + Figma 1:2.
  */
 import { useMemo, useRef, useState } from 'react';
-import { SxRail } from '@/components/scripton/ScriptOnStudio';
+import { SxRail } from '@/components/scripton/shared/sx';
 import { ScriptPaper } from '@/components/scripton/scriptPaper';
 import ScriptonTopBar from '@/components/scripton/topbar/ScriptonTopBar';
 import ScriptonShell from '@/components/scripton/ScriptonShell';
@@ -132,7 +132,7 @@ export type WriteProps = {
   title: string; revisionLabel: string; revisionColor: string;
   scenes: SxScene[]; activeId?: string; onSelectScene: (id: string) => void;
   pageCount?: number | string; loading?: boolean; sample?: boolean;
-  stagedSceneIds?: string[]; pass?: PassVM | null; scriptId?: string;
+  stagedSceneIds?: string[]; pass?: PassVM | null; scriptId?: string; scriptScoped?: boolean;
   onNav: (k: string) => void; onBack: () => void; onRender?: () => void; onPassAction?: (k: string) => void;
   onStage?: (change: any) => Promise<{ ok: boolean; conflict?: string }>;
   toast?: string | null; vp: 'mobile' | 'tablet' | 'desktop';
@@ -221,7 +221,7 @@ export default function ScriptonWrite(props: WriteProps) {
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
-      <ScriptonShell screen="write" active="write" vp={props.vp} onBack={props.onBack} onNav={props.onNav} topbar={{ scriptId: props.scriptId }} overlay={props.toast ? <div className="toast">{props.toast}</div> : null}>
+      <ScriptonShell screen="write" active="write" vp={props.vp} onBack={props.onBack} onNav={props.onNav} topbar={{ scriptId: props.scriptId, scriptScoped: props.scriptScoped }} overlay={props.toast ? <div className="toast">{props.toast}</div> : null}>
           <div className="main">
             {/* Scene-nav strip lives INSIDE the main column so the rail runs full-height under the
                 top bar — identical chrome to every screen (was a strip between bar and body). */}

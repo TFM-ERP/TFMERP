@@ -5,10 +5,12 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { productionApi } from '@/lib/api';
-import { SxRail } from '@/components/scripton/ScriptOnStudio';
+import { SxRail } from '@/components/scripton/shared/sx';
+import { markScriptonGenerating, clearScriptonGenerating } from '@/components/scripton/useScriptonGenerating';
 import { ScriptPaper, buildScriptPrintHtml } from '@/components/scripton/scriptPaper';
 import { downloadScriptPdf } from '@/components/scripton/scriptPdf';
 import ProtectedExportDialog, { ProtectedExportTarget } from '@/components/scripton/ProtectedExportDialog';
+import ScriptDrafts, { type DraftRow } from '@/components/scripton/ScriptDrafts';
 import { useLocale, getLocale } from '@/lib/i18n';
 
 type Pg = { page: number; text: string };
@@ -34,6 +36,24 @@ function printScript(text: string, title: string, info?: any): void {
   setTimeout(go, 1000);
 }
 
+/** Keep only what the drafts panel renders. getDocument hands back whole revisions; holding eight
+ *  103-page `pageText` blobs in component state to draw a list is pure waste. */
+function toDraftRow(r: any): DraftRow {
+  return {
+    id: String(r.id),
+    revisionLabel: r.revisionLabel ?? null,
+    revisionColor: r.revisionColor ?? null,
+    colorCode: r.colorCode ?? null,
+    revisionRound: typeof r.revisionRound === 'number' ? r.revisionRound : null,
+    pageCount: typeof r.pageCount === 'number' ? r.pageCount : null,
+    changeSummary: r.changeSummary ?? null,
+    supersedesId: r.supersedesId ?? null,
+    isLocked: !!r.isLocked,
+    createdAt: r.createdAt ?? null,
+    revisionDate: r.revisionDate ?? null,
+  };
+}
+
 export default function ScriptOnScriptPage() {
   const router = useRouter();
   const { locale, dir, t } = useLocale();
@@ -55,8 +75,16 @@ export default function ScriptOnScriptPage() {
   const [genStat, setGenStat] = useState<string>('');
   const [genMode, setGenMode] = useState<'extend' | 'rewrite' | null>(null);
   const [genHidden, setGenHidden] = useState(false);
+  const [cancelling, setCancelling] = useState(false);   // stop requested, waiting for the scene in flight
   const [protReq, setProtReq] = useState(false);
   const [protOpen, setProtOpen] = useState(false);
+  // DRAFT HISTORY. getDocument already returns every revision of this script; the reader used to pick
+  // activeRevisionId and discard the rest, which is why a rewrite looked like an overwrite.
+  const [drafts, setDrafts] = useState<DraftRow[]>([]);
+  const [activeRevId, setActiveRevId] = useState('');
+  const [draftsOpen, setDraftsOpen] = useState(false);
+  const [draftBusy, setDraftBusy] = useState<string | null>(null);
+  const [draftMsg, setDraftMsg] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -72,6 +100,7 @@ export default function ScriptOnScriptPage() {
           const doc: any = dr.data || {};
           docTitle = doc.title || '';
           const revs: any[] = Array.isArray(doc.revisions) ? doc.revisions : [];
+          if (alive) { setDrafts(revs.map(toDraftRow)); setActiveRevId(doc.activeRevisionId || ''); }
           revId = doc.activeRevisionId || (revs[0] && revs[0].id) || '';
         }
         if (!revId) { if (alive) { setErr('Script not found — generate it from the build in ScriptON Studio first.'); setLoading(false); } return; }
@@ -109,16 +138,81 @@ export default function ScriptOnScriptPage() {
     })();
   }, []);
 
+  // ── Draft history ───────────────────────────────────────────────────────────
+  /** Re-read the revision list. Called after a generation lands so the new draft appears without a reload. */
+  const refreshDrafts = async (id?: string) => {
+    const d = id || docId;
+    if (!d) return;
+    try {
+      const dr: any = await productionApi.script.getDocument(d);
+      const doc: any = dr.data || {};
+      const revs: any[] = Array.isArray(doc.revisions) ? doc.revisions : [];
+      setDrafts(revs.map(toDraftRow));
+      setActiveRevId(doc.activeRevisionId || '');
+    } catch { /* the list stays as it was — never block the reader on it */ }
+  };
+
+  /** Fetch one revision's pages and put them on screen. No busy-guard and no messaging of its own —
+   *  it is the shared body of "read this draft" and "make this draft current", and the second calls
+   *  it while it already holds the busy flag. Returns false if the draft could not be read. */
+  const showRevision = async (id: string): Promise<boolean> => {
+    try {
+      const rv: any = await productionApi.script.getRevision(id);
+      const d: any = rv.data || {};
+      const pt: any[] = Array.isArray(d.pageText) ? d.pageText : [];
+      const mapped: Pg[] = pt.length
+        ? pt.map((pp: any, idx: number) => ({ page: pp.page || idx + 1, text: String(pp.text || '') }))
+        : [{ page: 1, text: '(This draft has no page text.)' }];
+      setPages(mapped);
+      setText(mapped.map((pp) => pp.text).join('\n'));
+      setRevId(id);
+      setRevLabel(d.revisionLabel || 'WHITE');
+      setInfo((prev: any) => ({ ...(prev || {}), revLabel: d.revisionLabel || 'White Draft' }));
+      setErr(null);
+      setCovWarn(null);
+      return true;
+    } catch { return false; }
+  };
+
+  /** Read any draft. Read-only: which draft is CURRENT is a separate, explicit act. */
+  const openDraft = async (id: string) => {
+    if (!id || draftBusy) return;
+    setDraftBusy(id); setDraftMsg(null);
+    const ok = await showRevision(id);
+    setDraftBusy(null);
+    if (!ok) { setDraftMsg(t('Could not open that draft.')); return; }
+    setDraftMsg(id === activeRevId ? null : t('Reading an earlier draft. It is not the current one — use “Make current” to switch.'));
+  };
+
+  /** Switch which draft the rest of the system reads. Additive: no draft is deleted or rewritten,
+   *  and every protected export stays bound to the revision it was produced from. */
+  const makeCurrent = async (id: string) => {
+    if (!id || !docId || draftBusy) return;
+    setDraftBusy(id); setDraftMsg(null);
+    try {
+      await productionApi.script.setActive(docId, id);
+      setActiveRevId(id);
+      if (revId !== id) await showRevision(id);
+      await refreshDrafts();
+      const row = drafts.find((r) => r.id === id);
+      setDraftMsg((row?.revisionLabel || t('That draft')) + ' ' + t('is now the current draft.'));
+    } catch (e: any) {
+      setDraftMsg(e?.response?.data?.message || t('Could not switch the current draft.'));
+    } finally { setDraftBusy(null); }
+  };
+
   // A failed/stuck feature write leaves a sentinel page — offer a one-click re-run that polls until real scenes land.
   const looksUnfinished = /being written, scene by scene|did not finish|Regenerating…/i.test(text || '');
   const doRegen = async (mode: 'extend' | 'rewrite' = 'extend') => {
     if (!docId || regening) return;
     // Non-destructive: keep the current pages on screen while it works. The backend writes a NEW revision and only
     // swaps it in when DONE, so a failed/short run never wipes the script. Extend = keep pages + write missing scenes.
-    setRegening(true); setCovWarn(null); setGenErr(null); setGenHidden(false); setGenMode(mode); setGenPct(null); setGenStat(t('Starting…'));
+    setRegening(true); setCovWarn(null); setGenErr(null); setGenHidden(false); setGenMode(mode); setGenPct(null); setCancelling(false); setGenStat(t('Starting…'));
+    // Remember the run OUTSIDE this screen, so the rail can show it from anywhere in ScriptON —
+    // and so "Continue in background" stops meaning "the generation disappears".
+    markScriptonGenerating(docId);
     try { await productionApi.scripton.development.regenerateFeature(docId, mode); }
     catch (e: any) { setRegening(false); setGenErr(e?.response?.data?.message || t('Could not start generation — check AI Engines & Routing.')); return; }
-    const started = Date.now();
     // Refresh the visible text as scenes land, and keep polling the progress endpoint until it is actually DONE —
     // not just until the first incremental save (the old bug made a full regen look "finished" after ~3 scenes).
     const refreshText = async () => {
@@ -126,27 +220,115 @@ export default function ScriptOnScriptPage() {
         const dr: any = await productionApi.script.getDocument(docId);
         const d: any = dr.data || {}; const revs: any[] = Array.isArray(d.revisions) ? d.revisions : [];
         const rid = d.activeRevisionId || (revs[0] && revs[0].id);
-        if (rid) { const rv: any = await productionApi.script.getRevision(rid); const pt: any[] = Array.isArray(rv.data?.pageText) ? rv.data.pageText : []; const joined = pt.map((p: any) => String(p.text || '')).join('\n'); if (joined) setText(joined); }
+        if (rid) {
+          const rv: any = await productionApi.script.getRevision(rid);
+          const pt: any[] = Array.isArray(rv.data?.pageText) ? rv.data.pageText : [];
+          const joined = pt.map((p: any) => String(p.text || '')).join('\n');
+          if (joined) {
+            setText(joined);
+            setPages(pt.map((p: any, idx: number) => ({ page: p.page || idx + 1, text: String(p.text || '') })));
+            // The pages on screen now belong to `rid`. Say so, or the header keeps naming the revision
+            // we were reading before the run and the "earlier draft" chip reports a false mismatch.
+            setRevId(rid);
+            if (rv.data?.revisionLabel) setRevLabel(rv.data.revisionLabel);
+          }
+        }
       } catch { /* keep polling */ }
     };
+    // Phase-aware stall guard — the same rule onPromoteScript uses in /scripton/studio/page.tsx.
+    // What was here before was a flat wall clock (`Date.now() - started > 600000`) that declared a
+    // timeout ten minutes in regardless of what the backend was doing. A feature rewrite is ~110-140
+    // scenes at ~15-25s each — 30 to 50 minutes — so that cap fired on EVERY full-length run while the
+    // backend was still writing happily. And this poll has no cancel: giving up only stops the watching,
+    // so the user saw "timed out" for a job that then finished unseen, and a second click would start a
+    // duplicate concurrent run on the same document. Watch the backend heartbeat instead:
+    //   * PLANNING maps the whole scene list in ONE long AI call, so no counter can move — never a stall.
+    //   * While WRITING, lastActivityAt advances on every scene; only a genuinely cold heartbeat is a stall.
+    //   * A dead or restarting backend is caught separately by the unbroken-failure window below.
+    const STALL_MS = 420000;   // 7 min of a cold heartbeat while WRITING — one scene's retries + failover can be slow but alive
+    const LOST_MS = 60000;     // 1 min of unbroken poll failures — long enough to ride out a backend rebuild/restart
     let lastSt: any = {};
-    const poll = setInterval(async () => {
+    let lastBeat: any = -1;
+    let lastChange = Date.now();
+    let errSince = 0;
+    let poll: ReturnType<typeof setInterval> | null = null;
+    const stop = (msg: string | null) => {
+      if (poll) clearInterval(poll);
+      poll = null;
+      setRegening(false);
+      setCancelling(false);
+      if (msg) setGenErr(msg);
+      // The rail badge exists to tell someone who WALKED AWAY that the draft landed. If the overlay
+      // is on screen they have already been told, so clear it; if it was minimised, leave it beating
+      // until they come back and click it. The functional updater reads the live value without
+      // changing it — `genHidden` captured in this closure would be stale by now.
+      setGenHidden((hidden) => { if (!hidden) clearScriptonGenerating(); return hidden; });
+      // However the run ended — clean, failed or cancelled — it left a draft on file. Re-read the list
+      // so it is visible immediately, rather than after a page reload.
+      void refreshDrafts();
+    };
+    poll = setInterval(async () => {
       let finished = false;
       try {
-        const pr: any = await productionApi.scripton.development.scriptProgress(docId); lastSt = pr.data || {};
-        const total = Number(lastSt.total) || 0; const done = Number(lastSt.done) || 0;
-        setGenPct(total > 0 ? Math.min(99, Math.round((done / total) * 100)) : null);
-        setGenStat(total > 0 ? (t('Writing scene') + ' ' + done + ' / ' + total) : (lastSt.pageCount ? (lastSt.pageCount + ' ' + t('pages so far')) : t('Planning the full arc…')));
-        if (lastSt.status === 'DONE' || lastSt.status === 'ERROR') finished = true;
-      } catch { /* progress unknown — keep polling */ }
+        const pr: any = await productionApi.scripton.development.scriptProgress(docId);
+        lastSt = pr.data || {};
+        errSince = 0;
+        const total = Number(lastSt.total) || 0;
+        const done = Number(lastSt.done) || 0;
+        const pageCount = Number(lastSt.pageCount) || 0;
+        // The backend sets phase explicitly; the `done === 0` clause only covers an older payload with no phase.
+        const planning = lastSt.phase === 'PLANNING' || (lastSt.status === 'GENERATING' && done === 0 && !lastSt.phase);
+        const beat = lastSt.lastActivityAt || done;   // advances whenever the backend is alive (planning passes + each scene)
+        if (beat !== lastBeat) { lastBeat = beat; lastChange = Date.now(); }
+        // Indeterminate spinner while planning — a percentage against a scene total nothing has started yet reads as a stuck 0%.
+        setGenPct(planning || total <= 0 ? null : Math.min(99, Math.round((done / total) * 100)));
+        setGenStat(planning
+          ? t(lastSt.note || 'Planning the scenes — this can take a few minutes on long scripts.')
+          : total > 0
+            ? (t('Writing scene') + ' ' + Math.min(done + 1, total) + ' ' + t('of') + ' ' + total + (pageCount ? ' · ' + pageCount + ' ' + t('pages') : ''))
+            : (pageCount ? (pageCount + ' ' + t('pages so far')) : t('Planning the full arc…')));
+        if (lastSt.status === 'DONE' || lastSt.status === 'ERROR' || lastSt.status === 'CANCELLED') finished = true;
+        else if (!planning && Date.now() - lastChange > STALL_MS) {
+          await refreshText();
+          stop(t('Generation stalled — no progress for several minutes. Your current pages are safe. Check your engine in AI Engines & Routing, then try again.'));
+          return;
+        }
+      } catch {
+        // Progress unknown — the backend may be mid-restart. Keep polling; only give up once the failures
+        // have run unbroken for LOST_MS. A single failed poll must never end a 40-minute run.
+        if (!errSince) errSince = Date.now();
+        if (Date.now() - errSince > LOST_MS) {
+          await refreshText();
+          stop(t('Lost contact with the generation service. Your current pages are safe — reload the page to see whether the draft landed.'));
+          return;
+        }
+      }
       await refreshText();
-      if (finished || Date.now() - started > 600000) {
-        clearInterval(poll); setRegening(false);
-        if (lastSt.status === 'ERROR') setGenErr(lastSt.error || t('Generation failed — see AI Engines & Routing.'));
-        else if (lastSt.status !== 'DONE') setGenErr(t('Generation timed out — try again, or check AI Engines & Routing.'));
-        else { setGenPct(100); setCovWarn(lastSt && lastSt.coverage === 'SHORT' ? (lastSt.coverageNote || t('This draft may not reach the planned ending — consider regenerating.')) : null); }
+      if (finished) {
+        if (lastSt.status === 'ERROR') { stop(lastSt.error || t('Generation failed — see AI Engines & Routing.')); return; }
+        // A stop the operator asked for is not a failure: report what was written and leave the
+        // current script exactly as it was. The partial draft stays in the revisions list.
+        if (lastSt.status === 'CANCELLED') { stop(lastSt.note || t('Generation stopped. Your current script is unchanged.')); return; }
+        stop(null);
+        setGenPct(100);
+        setCovWarn(lastSt && lastSt.coverage === 'SHORT' ? (lastSt.coverageNote || t('This draft may not reach the planned ending — consider regenerating.')) : null);
       }
     }, 3000);
+  };
+
+  // Stop a running generation. Cooperative on the backend: the scene in flight finishes first, so the
+  // button reports "Stopping…" rather than pretending the run ended the instant it is pressed. The
+  // poll keeps running until the backend reports CANCELLED, which is what actually ends the overlay.
+  const doCancel = async () => {
+    if (!docId || cancelling) return;
+    setCancelling(true);
+    setGenStat(t('Stopping after the current scene…'));
+    try {
+      await productionApi.scripton.development.cancelFeature(docId);
+    } catch (e: any) {
+      setCancelling(false);
+      setGenErr(e?.response?.data?.message || t('Could not stop the generation — it is still running.'));
+    }
   };
 
   // Download a real .pdf directly (no OS print dialog). Arabic / load failure falls back to the print document.
@@ -221,8 +403,19 @@ export default function ScriptOnScriptPage() {
           <button onClick={() => router.push('/scripton/library')} style={{ background: '#1b1e25', color: '#9aa1ab', border: '1px solid rgba(255,255,255,.1)', borderRadius: 9, padding: '7px 12px', fontSize: 12.5, cursor: 'pointer' }}>{dir === 'rtl' ? '→' : '←'} {t('Library')}</button>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 700, color: '#F3ECDD', fontSize: 15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</div>
-            <div style={{ fontSize: 11.5, color: '#6b727d' }}>{revLabel} &middot; A4</div>
+            <div style={{ fontSize: 11.5, color: '#6b727d', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span>{revLabel} &middot; A4</span>
+              {revId && activeRevId && revId !== activeRevId
+                ? <span title={t('You are reading an earlier draft.')} style={{ fontSize: 9, fontWeight: 800, letterSpacing: .6, textTransform: 'uppercase', color: '#E6D2A2', background: 'rgba(198,164,99,.16)', border: '1px solid rgba(198,164,99,.42)', borderRadius: 5, padding: '1px 6px' }}>{t('earlier draft')}</span>
+                : null}
+            </div>
           </div>
+          {docId && drafts.length ? (
+            <button onClick={() => { setDraftMsg(null); setDraftsOpen(true); }} title={t('Every draft of this script — read or restore any of them')} style={{ background: '#1b1e25', color: '#9aa1ab', border: '1px solid rgba(255,255,255,.1)', borderRadius: 9, padding: '7px 12px', fontSize: 12.5, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+              <span aria-hidden="true">&#9776;</span>{t('Drafts')}
+              <span style={{ fontSize: 10.5, fontWeight: 800, color: '#E6D2A2', background: 'rgba(198,164,99,.14)', border: '1px solid rgba(198,164,99,.35)', borderRadius: 999, padding: '0 6px', lineHeight: '15px' }}>{drafts.length}</span>
+            </button>
+          ) : null}
           {docId ? <button onClick={() => router.push('/scripton/dialect?doc=' + docId)} style={{ background: '#1b1e25', color: '#9aa1ab', border: '1px solid rgba(255,255,255,.1)', borderRadius: 9, padding: '7px 12px', fontSize: 12.5, cursor: 'pointer' }} title="Dialect fidelity & exemplar bank">⌖ {t('Dialect')}</button> : null}
           {looksUnfinished ? <button onClick={() => doRegen('rewrite')} disabled={regening} style={{ background: regening ? '#3a2f1a' : '#5b3d12', color: '#E6D2A2', border: '1px solid rgba(198,164,99,.5)', borderRadius: 9, padding: '8px 12px', fontSize: 12.5, fontWeight: 700, cursor: regening ? 'default' : 'pointer' }} title="Re-run the scene-by-scene feature writer for this script">{regening ? ('⟳ ' + t('Regenerating…')) : ('⟳ ' + t('Retry generation'))}</button> : null}
           {docId && !looksUnfinished ? <button onClick={() => doRegen('extend')} disabled={regening} style={{ background: '#1b1e25', color: '#E6D2A2', border: '1px solid rgba(198,164,99,.4)', borderRadius: 9, padding: '7px 12px', fontSize: 12.5, fontWeight: 700, cursor: regening ? 'default' : 'pointer' }} title="Keep every existing page and write the missing scenes through the ending (preserves your draft)">{regening ? ('⟳ ' + t('Working…')) : ('⟳ ' + t('Complete the script'))}</button> : null}
@@ -249,6 +442,17 @@ export default function ScriptOnScriptPage() {
         </div>
       </div>
       <ProtectedExportDialog open={protOpen} onClose={() => setProtOpen(false)} target={exportTarget} />
+      <ScriptDrafts
+        open={draftsOpen}
+        drafts={drafts}
+        activeId={activeRevId}
+        readingId={revId}
+        busyId={draftBusy}
+        message={draftMsg}
+        onRead={openDraft}
+        onMakeCurrent={makeCurrent}
+        onClose={() => setDraftsOpen(false)}
+      />
 
       {/* Cinematic generation overlay — live % from the backend genProgress poll. */}
       {regening && !genHidden ? (
@@ -269,7 +473,10 @@ export default function ScriptOnScriptPage() {
             <div style={{ fontSize: 15, fontWeight: 700, color: '#F3ECDD', marginTop: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</div>
             <div style={{ fontSize: 12.5, color: '#9aa1ab', marginTop: 6, minHeight: 18 }}>{genStat || t('Working…')}</div>
             <div style={{ fontSize: 11, color: '#6b727d', marginTop: 14, lineHeight: 1.5 }}>{t('Your current pages stay until the new draft is ready.')}</div>
-            <button onClick={() => setGenHidden(true)} style={{ marginTop: 16, background: '#1b1e25', color: '#9aa1ab', border: '1px solid rgba(255,255,255,.12)', borderRadius: 9, padding: '8px 14px', fontSize: 12, cursor: 'pointer' }}>{t('Continue in background')}</button>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 16, flexWrap: 'wrap' }}>
+              <button onClick={() => setGenHidden(true)} style={{ background: '#1b1e25', color: '#9aa1ab', border: '1px solid rgba(255,255,255,.12)', borderRadius: 9, padding: '8px 14px', fontSize: 12, cursor: 'pointer' }}>{t('Continue in background')}</button>
+              <button onClick={doCancel} disabled={cancelling} title={t('The scene being written now will finish first.')} style={{ background: cancelling ? '#1b1e25' : '#241211', color: cancelling ? '#6b727d' : '#f2b8b4', border: '1px solid ' + (cancelling ? 'rgba(255,255,255,.12)' : 'rgba(229,99,95,.5)'), borderRadius: 9, padding: '8px 14px', fontSize: 12, cursor: cancelling ? 'default' : 'pointer' }}>{cancelling ? t('Stopping…') : t('Stop generating')}</button>
+            </div>
           </div>
         </div>
       ) : null}

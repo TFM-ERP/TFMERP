@@ -16,7 +16,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { productionApi } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
-import { SxRail, cleanStageText, type SxLadder, type SxSpine } from '@/components/scripton/ScriptOnStudio';
+import { SxRail, cleanStageText, type SxLadder, type SxSpine } from '@/components/scripton/shared/sx';
 import { ScriptPaper } from '@/components/scripton/scriptPaper';
 import VideoRenderPanel from '@/components/scripton/VideoRenderPanel';
 import CohesiveEpisodePanel from '@/components/scripton/CohesiveEpisodePanel';

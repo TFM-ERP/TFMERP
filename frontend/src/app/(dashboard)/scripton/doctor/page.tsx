@@ -5,9 +5,7 @@ import { useRouter } from 'next/navigation';
 import { productionApi } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
 import { pickScriptonProject, resolveScriptonProjectId } from '@/components/scripton/useScriptonProject';
-import ScriptOnDoctor, { SxGauge, SxCoverage, SxDiag, SxPt, SxTab } from '@/components/scripton/ScriptOnDoctor';
-import ScriptOnDoctorTablet from '@/components/scripton/ScriptOnDoctorTablet';
-import ScriptOnDoctorMobile from '@/components/scripton/ScriptOnDoctorMobile';
+import type { SxGauge, SxCoverage, SxDiag, SxPt, SxTab } from '@/components/scripton/ScriptOnDoctor';
 import { useViewport } from '@/components/scripton/useViewport';
 import ScriptOnBudgetFit from '@/components/scripton/ScriptOnBudgetFit';
 import ScriptOnRewriteSlate from '@/components/scripton/ScriptOnRewriteSlate';
@@ -16,7 +14,6 @@ import ScriptOnCompsDeck from '@/components/scripton/ScriptOnCompsDeck';
 import ScriptOnPackagePanel from '@/components/scripton/ScriptOnPackagePanel';
 import ScriptOnFormatPanel from '@/components/scripton/ScriptOnFormatPanel';
 import { useScriptonBack } from '@/components/scripton/useScriptonBack';
-import { useScriptonShellFlag } from '@/components/scripton/osShellFlag';
 import ScriptonDoctor from '@/components/scripton/doctor/ScriptonDoctor';
 
 const GRADE: Record<string, { v: string; c: string; p: number }> = {
@@ -87,7 +84,6 @@ export default function ScriptOnDoctorPage() {
   const [gauges, setGauges] = useState<SxGauge[]>(NEUTRAL_GAUGES);
   const [cov, setCov] = useState<SxCoverage>(null);
   const [covRaw, setCovRaw] = useState<any | null>(null); // raw latestCoverage for the new single-canvas
-  const flag = useScriptonShellFlag();
   const [actHealth, setActHealth] = useState(SAMPLE_ACT);
   const [tab, setTab] = useState<SxTab>('Coverage');
   const [covLoading, setCovLoading] = useState(false);
@@ -216,8 +212,7 @@ export default function ScriptOnDoctorPage() {
     );
   }
   const common = { title, revisionLabel: revLabel, revisionColor: revColor, meta: t('Doctor · grounded in your pages'), gauges, activeTab: tab, onTab: setTab, coverage: cov, covLoading, onGenerate: generate, diagnostics: diag, diagLoading, onRunDiag: runDiag, actHealth, onAction, onNav, onBack, analyticsNode, notesNode, toast };
-  const oldBody = vp === 'mobile' ? <ScriptOnDoctorMobile {...common} /> : vp === 'tablet' ? <ScriptOnDoctorTablet {...common} /> : <ScriptOnDoctor {...common} />;
-  // New single-canvas Doctor (Figma 38:2) under the shell flag; `old` keeps the tabbed Doctor.
+  // Legacy tabbed Doctor (desktop/tablet/mobile) retired — the new single-canvas Doctor is the only body.
   const newBody = (
     <ScriptonDoctor
       title={title} revisionLabel={revLabel} revisionColor={revColor}
@@ -229,6 +224,6 @@ export default function ScriptOnDoctorPage() {
       toast={toast} vp={vp}
     />
   );
-  const body = flag === 'new' ? newBody : oldBody;
+  const body = newBody;
   return (<>{body}{surface === 'budgetfit' && activeRev?.id && (<ScriptOnBudgetFit projectId={projectId!} revisionId={activeRev.id} onClose={() => setSurface(null)} />)}{surface === 'rewrite' && activeRev?.id && (<ScriptOnRewriteSlate projectId={projectId!} revisionId={activeRev.id} initialKind={rwKind} onClose={() => setSurface(null)} />)}{surface === 'history' && projectId && (<ScriptOnCoverageHistory projectId={projectId} onOpen={(r: any) => { setCovRaw(r || null); setCov(buildCoverage(r)); setGauges(buildGauges(r)); setActHealth(MUTED_ACT); setTab('Coverage'); setSurface(null); }} onClose={() => setSurface(null)} />)}{surface === 'comps' && projectId && (<ScriptOnCompsDeck projectId={projectId} onClose={() => setSurface(null)} />)}{surface === 'package' && projectId && (<ScriptOnPackagePanel projectId={projectId} onClose={() => setSurface(null)} />)}{surface === 'format' && projectId && (<ScriptOnFormatPanel projectId={projectId} onClose={() => setSurface(null)} />)}</>);
 }

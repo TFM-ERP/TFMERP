@@ -5,9 +5,7 @@ import { useRouter } from 'next/navigation';
 import { productionApi } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
 import { pickScriptonProject } from '@/components/scripton/useScriptonProject';
-import ScriptOnReports, { SxReport, SxPreview } from '@/components/scripton/ScriptOnReports';
-import ScriptOnReportsTablet from '@/components/scripton/ScriptOnReportsTablet';
-import ScriptOnReportsMobile from '@/components/scripton/ScriptOnReportsMobile';
+import ScriptonReports, { SxReport, SxPreview } from '@/components/scripton/reports/ScriptonReports';
 import { useViewport } from '@/components/scripton/useViewport';
 import { useScriptonBack } from '@/components/scripton/useScriptonBack';
 
@@ -127,8 +125,7 @@ export default function ScriptOnReportsPage() {
     flash(`${k[0].toUpperCase() + k.slice(1)} ${t('is a later screen in the build order.')}`);
   };
 
-  const RC: any = vp === 'mobile' ? ScriptOnReportsMobile : vp === 'tablet' ? ScriptOnReportsTablet : ScriptOnReports;
-  return <RC title={title} meta={meta} filters={filters} activeFilter={activeFilter} onFilter={setActiveFilter}
+  return <ScriptonReports title={title} vp={vp} meta={meta} filters={filters} activeFilter={activeFilter} onFilter={setActiveFilter}
     reports={shown} activeKey={active?.key} onSelect={setActiveKey} preview={preview}
     onExport={onExport} onAction={onAction} onNav={onNav} onBack={onBack} toast={toast} />;
 }

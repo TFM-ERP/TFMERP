@@ -7,7 +7,7 @@
  * panel + timeline are computed with resolveCanonAt (mirrors the kernel).
  */
 import { useState } from 'react';
-import { SxRail } from '@/components/scripton/ScriptOnStudio';
+import { SxRail } from '@/components/scripton/shared/sx';
 import { useLocale } from '@/lib/i18n';
 import ScriptonTopBar from '@/components/scripton/topbar/ScriptonTopBar';
 import ScriptonShell from '@/components/scripton/ScriptonShell';
@@ -128,7 +128,7 @@ export default function ScriptonCanon(props: CanonProps) {
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
-      <ScriptonShell screen="canon" active="canon" vp={props.vp} onBack={props.onBack} onNav={props.onNav} overlay={props.toast ? <div className="toast">{props.toast}</div> : null}>
+      <ScriptonShell screen="canon" active="canon" vp={props.vp} onBack={props.onBack} onNav={props.onNav} topbar={{ scriptScoped: false }} overlay={props.toast ? <div className="toast">{props.toast}</div> : null}>
           <div className="main"><div className="content">
             <div className="phead">
               <h1>{t('Canon')}</h1>

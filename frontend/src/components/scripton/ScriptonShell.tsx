@@ -17,7 +17,7 @@
 import type { ReactNode } from 'react';
 import { useLocale } from '@/lib/i18n';
 import ScriptonTopBar, { type ScriptonTopBarProps } from './topbar/ScriptonTopBar';
-import { SxRail } from './ScriptOnStudio';
+import { SxRail } from './shared/sx';
 
 export type ScriptonShellProps = {
   screen: string;                                    // CSS modifier + identity, e.g. 'canon' | 'vers' | 'develop'

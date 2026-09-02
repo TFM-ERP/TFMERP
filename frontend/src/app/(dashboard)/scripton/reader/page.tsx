@@ -9,13 +9,8 @@ import { useRouter } from 'next/navigation';
 import { productionApi , approvalsApi } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
 import { pickScriptonProject, resolveScriptonProjectId } from '@/components/scripton/useScriptonProject';
-import ScriptOnReader, { SxScene, SxSceneRead, SxTab } from '@/components/scripton/ScriptOnReader';
-import ScriptOnBudgetFit from '@/components/scripton/ScriptOnBudgetFit';
-import ScriptOnRewriteSlate from '@/components/scripton/ScriptOnRewriteSlate';
-import ScriptOnReaderTablet from '@/components/scripton/ScriptOnReaderTablet';
-import ScriptOnReaderMobile from '@/components/scripton/ScriptOnReaderMobile';
+import type { SxScene, SxSceneRead, SxTab } from '@/components/scripton/ScriptOnReader';
 import { useViewport } from '@/components/scripton/useViewport';
-import { useScriptonShellFlag } from '@/components/scripton/osShellFlag';
 import { useScriptonBack } from '@/components/scripton/useScriptonBack';
 import { useScriptonMode } from '@/components/scripton/useScriptonMode';
 import ScriptonWrite, { type PassVM } from '@/components/scripton/write/ScriptonWrite';
@@ -36,7 +31,6 @@ export default function ScriptOnWorkspace() {
   const router = useRouter();
   const { t } = useLocale();
   const vp = useViewport();
-  const flag = useScriptonShellFlag();
   const onBackOs = useScriptonBack();
   const mode = useScriptonMode();
   const onNav = (k: string) => { if (k === 'home') return router.push('/scripton'); if (k === 'library') return router.push('/scripton/library'); if (k === 'coverage') return router.push('/scripton/coverage'); if (k !== 'reader') return onAction(k); };
@@ -214,71 +208,39 @@ export default function ScriptOnWorkspace() {
     flash(msgs[a] || t('Coming soon.'));
   };
 
-  // Write (Slice 1) — the canvas + Story Spine, under the new shell flag.
-  if (flag === 'new') {
-    const stagedNums = new Set((passVM?.changes || []).map((c) => Number(c.sceneNumber)));
-    const stagedIds = filtered.filter((s) => stagedNums.has(Number(s.sceneNumber))).map((s) => s.id);
-    return (
-      <ScriptonWrite
-        title={title} revisionLabel={revLabel} revisionColor={revColor}
-        scenes={filtered} activeId={active?.id} onSelectScene={selectScene}
-        pageCount={pageCount} loading={loading} sample={sample} stagedSceneIds={stagedIds} pass={passVM} scriptId={docId}
-        onNav={onNav} onBack={onBackOs}
-        onRender={async () => {
-          const passId = passVM?.passId;
-          if (!passId) { flash(t('Stage a change to start a Revision Pass first.')); return; }
-          flash(t('Rendering the new draft…'));
-          try {
-            // Render = commit: applies the pass → new BuildVersion (V+1), extracts→
-            // verifies canon (writes CanonFacts, supersedes the changed scenes' own
-            // prior facts), writes a DecisionRecord. Non-destructive — the base draft
-            // stays immutable. On success the pass closes, so it clears from the panel.
-            await productionApi.scripton.renderPass(passId, { projectId });
-            // Land on the Render→Compare view (Versions workspace) — what the commit did.
-            router.push('/scripton/revisions?pass=' + encodeURIComponent(passId));
-          } catch (e: any) {
-            flash(e?.response?.data?.message || t('Render failed — backend on :3001?'));
-          }
-        }}
-        onPassAction={(k) => flash(k === 'save' ? t('Pass saved.') : t('Ships with the next slice.'))}
-        onStage={async (change) => {
-          if (!docId) return { ok: false, conflict: t('No script bound.') };
-          try {
-            const r: any = await productionApi.scripton.stageChange({ scriptId: docId, ...change });
-            if (r.data?.conflict) return { ok: false, conflict: r.data.conflict };
-            try { const pp: any = await productionApi.scripton.revisionPass(docId); setPassVM(toPassVM(pp.data)); } catch { /* */ }
-            flash(t('Change staged — continuity held.'));
-            return { ok: true };
-          } catch (e: any) { return { ok: false, conflict: e?.response?.data?.message || t('Stage failed — backend on :3001?') }; }
-        }}
-        toast={toast} vp={vp}
-      />
-    );
-  }
-
+  // Write — the canvas + Story Spine (always the new OS; legacy Reader desktop/tablet/mobile retired).
+  const stagedNums = new Set((passVM?.changes || []).map((c) => Number(c.sceneNumber)));
+  const stagedIds = filtered.filter((s) => stagedNums.has(Number(s.sceneNumber))).map((s) => s.id);
   return (
-    <>
-      {vp === 'mobile' ? (
-        <ScriptOnReaderMobile projectTitle={title} revisionLabel={revLabel} sceneCount={totalScenes} scenes={filtered} activeId={active?.id} sceneRead={sceneRead} onAction={onAction} onRun={runDiagnostics} onNav={onNav} onBack={() => router.push('/scripton')} />
-      ) : vp === 'tablet' ? (
-        <ScriptOnReaderTablet projectTitle={title} revisionLabel={revLabel} revisionColor={revColor} sceneCount={totalScenes} scenes={filtered} activeId={active?.id} onSelectScene={selectScene} sceneRead={sceneRead} reading={reading} onAction={onAction} onRun={runDiagnostics} onNav={onNav} onBack={() => router.push('/scripton')} />
-      ) : (
-      <ScriptOnReader
-        projectTitle={title} revisionLabel={revLabel} revisionColor={revColor}
-        pageCount={pageCount} sceneCount={totalScenes} updated={updated}
-        scenes={filtered} activeId={active?.id} onSelectScene={selectScene} search={search} onSearch={setSearch}
-        sceneRead={sceneRead} reading={reading}
-        activeTab={tab} onTab={setTab} revisions={revisions}
-        onAction={onAction} onRun={runDiagnostics} onBack={() => router.push('/scripton')} onLibrary={() => router.push('/scripton/library')}
-        toast={toast}
-      />
-      )}
-      {surface === 'budgetfit' && activeRev?.id && (
-        <ScriptOnBudgetFit projectId={projectId!} revisionId={activeRev.id} onClose={() => setSurface(null)} />
-      )}
-      {surface === 'rewrite' && activeRev?.id && (
-        <ScriptOnRewriteSlate projectId={projectId!} revisionId={activeRev.id} onClose={() => setSurface(null)} />
-      )}
-    </>
+    <ScriptonWrite
+      title={title} revisionLabel={revLabel} revisionColor={revColor}
+      scenes={filtered} activeId={active?.id} onSelectScene={selectScene}
+      pageCount={pageCount} loading={loading} sample={sample} stagedSceneIds={stagedIds} pass={passVM} scriptId={docId}
+      scriptScoped={!!docParam}
+      onNav={onNav} onBack={onBackOs}
+      onRender={async () => {
+        const passId = passVM?.passId;
+        if (!passId) { flash(t('Stage a change to start a Revision Pass first.')); return; }
+        flash(t('Rendering the new draft…'));
+        try {
+          await productionApi.scripton.renderPass(passId, { projectId });
+          router.push('/scripton/revisions?pass=' + encodeURIComponent(passId));
+        } catch (e: any) {
+          flash(e?.response?.data?.message || t('Render failed — backend on :3001?'));
+        }
+      }}
+      onPassAction={(k) => flash(k === 'save' ? t('Pass saved.') : t('Ships with the next slice.'))}
+      onStage={async (change) => {
+        if (!docId) return { ok: false, conflict: t('No script bound.') };
+        try {
+          const r: any = await productionApi.scripton.stageChange({ scriptId: docId, ...change });
+          if (r.data?.conflict) return { ok: false, conflict: r.data.conflict };
+          try { const pp: any = await productionApi.scripton.revisionPass(docId); setPassVM(toPassVM(pp.data)); } catch { /* */ }
+          flash(t('Change staged — continuity held.'));
+          return { ok: true };
+        } catch (e: any) { return { ok: false, conflict: e?.response?.data?.message || t('Stage failed — backend on :3001?') }; }
+      }}
+      toast={toast} vp={vp}
+    />
   );
 }

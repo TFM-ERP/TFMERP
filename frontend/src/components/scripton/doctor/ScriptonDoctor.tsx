@@ -7,7 +7,7 @@
  * Presentational only — fed by the existing doctor/page.tsx wiring + modals.
  * Kernel-only bits (conflict detector, "after staged pass" arc) degrade.
  */
-import { SxRail } from '@/components/scripton/ScriptOnStudio';
+import { SxRail } from '@/components/scripton/shared/sx';
 import { useLocale } from '@/lib/i18n';
 import ScriptonTopBar from '@/components/scripton/topbar/ScriptonTopBar';
 import ScriptonShell from '@/components/scripton/ScriptonShell';
@@ -146,7 +146,7 @@ export default function ScriptonDoctor(props: DoctorCanvasProps) {
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
-      <ScriptonShell screen="doctor" active="doctor" vp={props.vp} onBack={props.onBack} overlay={props.toast ? <div className="toast">{props.toast}</div> : null}>
+      <ScriptonShell screen="doctor" active="doctor" vp={props.vp} onBack={props.onBack} topbar={{ scriptScoped: false }} overlay={props.toast ? <div className="toast">{props.toast}</div> : null}>
           <div className="main"><div className="content">
             <div className="phead">
               <h1>{t('Doctor')}</h1>

@@ -5,9 +5,8 @@ import { useRouter } from 'next/navigation';
 import { productionApi, approvalsApi } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
 import { resolveScriptonProjectId } from '@/components/scripton/useScriptonProject';
-import ScriptOnStudio, { SxLadder, SxSpine, SxDirection, SxEpisode } from '@/components/scripton/ScriptOnStudio';
-import ScriptOnStudioTablet from '@/components/scripton/ScriptOnStudioTablet';
-import ScriptOnStudioMobile from '@/components/scripton/ScriptOnStudioMobile';
+import ScriptOnStudio from '@/components/scripton/ScriptOnStudio';
+import type { SxLadder, SxSpine, SxDirection, SxEpisode } from '@/components/scripton/shared/sx';
 import ScriptOnIntake from '@/components/scripton/ScriptOnIntake';
 import ScriptOnBuildsPanel from '@/components/scripton/ScriptOnBuildsPanel';
 import ScriptOnBuildScreen from '@/components/scripton/ScriptOnBuildScreen';
@@ -308,7 +307,7 @@ export default function StudioPage() {
       </ScriptonShell>
     );
   }
-  const RC: any = vp === 'mobile' ? ScriptOnStudioMobile : vp === 'tablet' ? ScriptOnStudioTablet : ScriptOnStudio;
+  const RC: any = ScriptOnStudio; // desktop-only OS — the tablet/mobile studio twins are retired
   return (<><RC osNew={osNew} title={title} meta={t('Studio · seed → script')} mode={mode} onTab={onTab} showDevelop={mode === 'develop' || !!buildIdRef.current} ladder={ladder} spine={spine} comps={COMPS} note={t('Doctor: keep every stage true to the approved spine.')} adaptResult={adaptResult} formatResult={formatResult} formatTarget={formatTarget} busy={busy} genBusy={genBusy}
     onNav={onNav} onBack={onBack} onAction={onAction} onAdapt={onAdapt} onFormat={onFormat} onPick={onPickDirection} onRegenerate={onRegenerate} onSwitchVersion={onSwitchVersion} onPromote={onPromote} onFramework={onFramework} onRead={onRead} onBranch={onBranch} onPromoteScript={onPromoteScript} reads={reads} toast={toast} />{mode === 'adapt' && projectId ? <ScriptOnIntake projectId={projectId} busy={genBusy === 'LOGLINE'} onBegin={onIntakeBegin} onClose={() => setMode('develop')} /> : null}{mode === 'builds' && projectId ? <ScriptOnBuildsPanel osNew={osNew} projectId={projectId} onClose={() => { if (buildIdRef.current) setMode('develop'); else router.push('/home'); }} onNewBuild={() => setMode('adapt')} railGap={vp === 'mobile' || vp === 'tablet' ? 0 : 74} /> : null}{building ? <ScriptOnBuildScreen title={buildName} items={buildItems} status={buildStatus} error={buildError} progress={buildProgress} actions={buildActions} directions={buildDirections} onPick={onBuildPick} onRegen={onBuildRegen} onContinue={() => { try { if (projectId) window.localStorage.removeItem('scripon.dir.' + projectId); } catch { } setBuilding(false); setBuildActions(null); setBuildProgress(null); setMode('develop'); }} /> : null}
     {(buildIdRef.current && mode === 'develop') ? (

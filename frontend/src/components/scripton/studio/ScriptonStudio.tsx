@@ -7,7 +7,7 @@
  * old embedded 74px rail/fixed overlay — the OS rail comes from the shell.
  */
 import { useState, useEffect } from 'react';
-import { SxRail } from '@/components/scripton/ScriptOnStudio';
+import { SxRail } from '@/components/scripton/shared/sx';
 import ReviewProtectionPanel from '@/components/scripton/ReviewProtectionPanel';
 import { useLocale } from '@/lib/i18n';
 import ScriptonTopBar from '@/components/scripton/topbar/ScriptonTopBar';

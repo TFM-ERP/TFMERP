@@ -6,7 +6,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { productionApi } from '@/lib/api';
-import { SxRail, SX_CSS } from '@/components/scripton/ScriptOnStudio';
+import { SxRail, SX_CSS } from '@/components/scripton/shared/sx';
 import { AR_DIALECTS } from '@/components/scripton/dialects';
 import { useLocale } from '@/lib/i18n';
 import { useScriptonBack } from '@/components/scripton/useScriptonBack';

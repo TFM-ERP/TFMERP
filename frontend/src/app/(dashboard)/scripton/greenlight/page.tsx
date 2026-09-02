@@ -4,9 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { productionApi } from '@/lib/api';
 import { pickScriptonProject } from '@/components/scripton/useScriptonProject';
-import ScriptOnGreenlight, { SxComp, SxFcast, SxRoi, SxDecision } from '@/components/scripton/ScriptOnGreenlight';
-import ScriptOnGreenlightTablet from '@/components/scripton/ScriptOnGreenlightTablet';
-import ScriptOnGreenlightMobile from '@/components/scripton/ScriptOnGreenlightMobile';
+import ScriptonGreenlight, { SxComp, SxFcast, SxRoi, SxDecision } from '@/components/scripton/greenlight/ScriptonGreenlight';
 import { useViewport } from '@/components/scripton/useViewport';
 import { useLocale } from '@/lib/i18n';
 import { useScriptonBack } from '@/components/scripton/useScriptonBack';
@@ -122,6 +120,5 @@ export default function GreenlightPage() {
     flash(t('Coming soon.'));
   };
 
-  const RC: any = vp === 'mobile' ? ScriptOnGreenlightMobile : vp === 'tablet' ? ScriptOnGreenlightTablet : ScriptOnGreenlight;
-  return <RC title={title} meta={`${t('Greenlight')} · ${t('market & decision')}`} mode={mode} onTab={onTab} comps={comps} forecast={forecast} prob={prob} roi={roi} prescription={prescription} decision={decision} onNav={onNav} onBack={onBack} onAction={onAction} toast={toast} />;
+  return <ScriptonGreenlight title={title} vp={vp} mode={mode} onTab={onTab} comps={comps} forecast={forecast} prob={prob} roi={roi} prescription={prescription} decision={decision} onNav={onNav} onBack={onBack} onAction={onAction} toast={toast} />;
 }

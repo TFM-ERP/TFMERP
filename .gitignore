@@ -83,3 +83,10 @@ backend/uploads/
 *.exe
 cloudflared.exe
 frontend/cloudflared.exe
+
+backend/tools/_*.json
+backend/tools/_*.csv
+backend/tools/import-data.json
+backend/tools/attach-manifest.json
+backend/prisma/schema.prisma.backup-*
+.claude/

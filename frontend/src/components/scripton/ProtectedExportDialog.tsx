@@ -109,6 +109,7 @@ export default function ProtectedExportDialog({ open, onClose, target }: { open:
         else if (status === 501) msg = t('The PDF renderer is not ready on the server.');
         else if (code === 'PROTECTION_FAILED' || status === 502) msg = t('Protected render failed and an unprotected fallback is blocked. Nothing was downloaded.');
       }
+      if (!msg && !(e && e.response)) msg = t('Couldn’t reach the server (it may be restarting) — please try again in a moment.');
       setErr(msg || t('Protected export failed. Please try again.'));
     } finally { setBusy(false); }
   };

@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { AiService } from '../../ai/ai.service';
 import { CanonService } from './canon/canon.service';
@@ -7,10 +7,38 @@ import { LORE_SEED } from './lore-seed.data';
 import { knowledgeDirective, stageLadderFor, normalizeFamily } from './knowledge';
 import { parseScenes } from '../script/scene-parse.util';
 import { seriesSceneCount } from './series-scene-count.util';
+import {
+  planFeatureLength, applyPageWeights, lineBudgetFor, snapPageWeight, countVisualLines,
+  expansionCandidates, isLengthComplete, isLengthOver, completionRatio,
+  remainingBudgetScale, LINES_PER_PAGE, planSliceBudget, planSliceInstruction,
+  type FeatureLengthPlan, type LineBudget,
+} from './feature-length.util';
+import {
+  classifyLine, nextInSpeech, checkScene, checkDraftContinuity, checkPlanCast, stripExitedCast,
+  collectExits, unavailableLine, dedupeScenes, repairInstruction, summariseContinuity,
+  exitsAsCanonFacts, findNameDrift, canonicaliseNames, splitCast, trimToSentence,
+  classifyScript, normaliseCharacterName,
+  splitAtSecondDocument,
+  type LineKind, type CastExit, type ContinuityFinding,
+  checkSceneIntegrity, sceneDefectInstruction, shortenSlugLocation,
+  findTimeTokens, checkStatedTimeOrder,
+  findMetaCommentary, stripMetaCommentary,
+  collectWrittenDeaths, writtenDeathsAsExits,
+  checkFixedAttributes,
+  type SceneDefect, type TimeToken,
+} from './continuity.util';
+import {
+  createRegistry, registerEntity, resolveEntity, allForms, auditLedger, ledgerFindingInstruction,
+  isTransitPlace, slugSaysContinuous,
+  type EntityRegistry, type StateFact, type PlaceObservation,
+} from './entity-registry.util';
+import { mapAiFactsToCore } from './canon/canon-map.util';
+import type { CanonFactCore } from './canon/canon.types';
 import { buildPackageDocModel } from './package-docx.util';
 import { packDocx } from './package-docx.renderer';
 import { LEVER_KEYS, resolveLever } from './intake-levers.util';
 import { resolveCollabMode } from './collab-mode.util';
+import { isProviderExhausted, isStubRunaway, isHalt, ScriptGenerationHalted, STUB_STREAK_ABORT, HaltKind } from './provider-health.util';
 
 // Placeholder a scene falls back to when the AI returns no prose. Shared so the
 // generators can DETECT a wholesale-stub run (the all-"(The scene continues.)" bug)
@@ -24,6 +52,15 @@ const SCENE_STUB = '(The scene continues.)';
  */
 @Injectable()
 export class ScripOnService {
+  /**
+   * Generation-path logger. This service swallows failure by design — nearly every DB call is
+   * `.catch(() => null)` and the AI calls fall through on error — which is deliberate (a broken
+   * canon table must not 500 the Doctor) but means a real fault reads to the user as "empty result".
+   * Everything on the generate/render path now says so out loud. Logging only: no control flow here
+   * depends on it, so a logger failure can never change what the pipeline does.
+   */
+  private readonly log = new Logger(ScripOnService.name);
+  private why(e: any): string { return String((e && (e.message || e)) || 'unknown').replace(/\s+/g, ' ').slice(0, 300); }
   constructor(private prisma: PrismaService, private ai: AiService, private canon: CanonService) {}
 
   private async resolveRevision(opts: any): Promise<{ revisionId: string; projectId: string; documentId?: string; title?: string }> {
@@ -286,8 +323,11 @@ export class ScripOnService {
       const tail = scenes.slice(-3).map((s) => '- ' + (s.sceneNumber != null ? s.sceneNumber + ' ' : '') + String(s.slugline || s.description || '')).join('\n');
       try { last = await RUN('\nYou have already mapped ' + scenes.length + ' scenes, ending with:\n' + tail + '\nContinue the scene list from the NEXT scene through the FINAL scene (the ending/cliffhanger) — do NOT repeat any earlier scene. Return ONLY JSON {scenes:[...]} for the REMAINING scenes only.'); } catch { break; }
       const more = parse(last); if (!more.length) break;
-      scenes = scenes.concat(more);
-      if (scenes.length <= before) break; // a pass added nothing → stop
+      const d = dedupeScenes(scenes.concat(more));
+      if (d.dropped.length) this.log.warn('scene outline: continuation pass ' + passes + ' repeated '
+        + d.dropped.length + ' scene(s) already mapped — dropped.');
+      scenes = d.scenes;
+      if (scenes.length <= before) break; // a pass added nothing new → stop
     }
 
     scenes = scenes.map((s, i) => ({ ...s, sceneNumber: i + 1 })); // clean sequential numbering across concatenated passes
@@ -746,6 +786,129 @@ export class ScripOnService {
     const warning = (arr.length && truncated(last)) ? (kind + ' outline may be incomplete — still truncating after ' + passes + ' continuation pass(es) (' + arr.length + ' items). Re-run.') : undefined;
     return { arr, passes, warning };
   }
+  /**
+   * Measured duration per stage, in seconds — taken from real AiRun latencies on this install, not
+   * guessed. The ladder previously told every stage "this can take a minute or two"; DRAFT actually
+   * runs ~7 minutes because it is a single 25,000-token generation (roughly ten times the output of
+   * any other stage). Telling the truth is half the fix.
+   */
+  private static readonly STAGE_ETA_SEC: Record<string, number> = {
+    LOGLINE: 5, PREMISE: 15, THESIS: 20, SYNOPSIS: 30, STORY_ENGINE: 30, COVERAGE: 30,
+    RIGHTS_PLAN: 30, RESEARCH_PLAN: 40, INTERVIEW_OUTLINE: 60,
+    STEP_OUTLINE: 90, TREATMENT: 90, BEATS: 90, SCENES: 130,
+    BEAT_ENGINE: 150, SHOT_LIST: 150, VIDEO_PROMPT: 150,
+    SEASON_ARC: 180, EPISODE_MAP: 180, PAPER_EDIT: 180, NARRATION: 180,
+    DRAFT: 420,
+  };
+
+  /**
+   * In-flight ladder generations, keyed project:build:kind.
+   *
+   * WHY: generateStage() is synchronous and DRAFT takes ~7 minutes, so the ladder held one blocking
+   * HTTP request open for that whole time with no heartbeat — a working generation and a dead one
+   * looked identical, and any proxy, tunnel, sleep or backend restart killed the client's view of a
+   * run that was actually succeeding. The work was never lost (the StageVersion is persisted before
+   * generateStage returns) but the UI only discovered it on a manual refresh.
+   *
+   * This mirrors the feature writer's genProgress: start the work, return a handle, poll for the
+   * result. Same caveat too — in-memory, so a restart loses the handle (not the work). Persisting it
+   * is the same fix as persisting genProgress and they should land together.
+   */
+  private stageJobs = new Map<string, {
+    key: string; kind: string; projectId: string; buildId?: string | null;
+    status: 'RUNNING' | 'DONE' | 'ERROR'; startedAt: number; finishedAt?: number;
+    elapsedSec: number; estimateSec: number; versionId?: string; versionN?: number;
+    warning?: string; error?: string;
+  }>();
+
+  private stageJobKey(projectId: string, buildId: any, kind: string): string {
+    return String(projectId) + ':' + String(buildId || '') + ':' + String(kind || '').toUpperCase();
+  }
+
+  /** Drop finished jobs older than 10 minutes so the map cannot grow without bound. */
+  private pruneStageJobs(): void {
+    const cutoff = Date.now() - 10 * 60 * 1000;
+    for (const [k, j] of this.stageJobs) {
+      if (j.status !== 'RUNNING' && (j.finishedAt || 0) < cutoff) this.stageJobs.delete(k);
+    }
+  }
+
+  /**
+   * Start a ladder stage in the background and return a handle immediately. Re-requesting a stage
+   * that is already running returns the SAME job rather than starting a second generation — a
+   * double-click on Generate used to buy two 7-minute Anthropic calls.
+   */
+  async startStage(opts: any, userId?: string) {
+    const projectId = String(opts?.projectId || '');
+    const kind = String(opts?.kind || '').toUpperCase();
+    if (!projectId || !kind) throw new BadRequestException('A project and a stage are required.');
+    this.pruneStageJobs();
+    const key = this.stageJobKey(projectId, opts?.buildId, kind);
+    const running = this.stageJobs.get(key);
+    if (running && running.status === 'RUNNING') {
+      this.log.log('startStage: ' + kind + ' already running for ' + key + ' — returning the existing job.');
+      return this.stageJob(key);
+    }
+    const estimateSec = ScripOnService.STAGE_ETA_SEC[kind] || 60;
+    const job = {
+      key, kind, projectId, buildId: opts?.buildId || null,
+      status: 'RUNNING' as const, startedAt: Date.now(), elapsedSec: 0, estimateSec,
+    };
+    this.stageJobs.set(key, job);
+    this.log.log('startStage: ' + kind + ' for project ' + projectId + ' — running in the background, ETA ~' + estimateSec + 's.');
+    // Fire and forget. generateStage persists the StageVersion itself, so the result survives even
+    // if this handle is lost; the poll below is only how the client learns about it.
+    void this.generateStage(opts, userId)
+      .then((created: any) => {
+        const j = this.stageJobs.get(key);
+        if (!j) return;
+        j.status = 'DONE'; j.finishedAt = Date.now();
+        j.elapsedSec = Math.round((j.finishedAt - j.startedAt) / 1000);
+        j.versionId = created && created.id; j.versionN = created && created.n;
+        if (created && created.warning) j.warning = String(created.warning);
+        this.log.log('startStage: ' + kind + ' DONE in ' + j.elapsedSec + 's (estimate was ' + estimateSec + 's) — version ' + j.versionId + '.');
+      })
+      .catch((e: any) => {
+        const j = this.stageJobs.get(key);
+        const msg = this.why(e);
+        if (j) { j.status = 'ERROR'; j.finishedAt = Date.now(); j.elapsedSec = Math.round((j.finishedAt - j.startedAt) / 1000); j.error = msg; }
+        this.log.error('startStage: ' + kind + ' FAILED for project ' + projectId + ' after ' + (j ? j.elapsedSec : '?') + 's — ' + msg);
+      });
+    return this.stageJob(key);
+  }
+
+  /**
+   * Poll a stage job. `elapsedSec` and `progressPct` are computed on read so the client can render a
+   * live bar without the server pushing anything. progressPct is an ESTIMATE against the measured
+   * ETA — it is capped at 95% while RUNNING so it never claims to be finished before it is.
+   */
+  stageJob(key: string) {
+    const j = this.stageJobs.get(String(key || ''));
+    if (!j) return { key, status: 'UNKNOWN', elapsedSec: 0, estimateSec: 0, progressPct: 0 };
+    const elapsedSec = j.status === 'RUNNING' ? Math.round((Date.now() - j.startedAt) / 1000) : j.elapsedSec;
+    const progressPct = j.status === 'DONE' ? 100
+      : j.status === 'ERROR' ? 0
+      : Math.min(95, Math.round((elapsedSec / Math.max(1, j.estimateSec)) * 100));
+    return {
+      key: j.key, kind: j.kind, status: j.status, elapsedSec, estimateSec: j.estimateSec, progressPct,
+      versionId: j.versionId || null, versionN: j.versionN || null,
+      warning: j.warning || null, error: j.error || null,
+      overdue: j.status === 'RUNNING' && elapsedSec > j.estimateSec * 2,
+    };
+  }
+
+  /** Every in-flight or recently finished job for a project — lets the ladder restore state on reload. */
+  stageJobsFor(projectId: string, buildId?: string) {
+    this.pruneStageJobs();
+    const out: any[] = [];
+    for (const j of this.stageJobs.values()) {
+      if (j.projectId !== String(projectId)) continue;
+      if (buildId && String(j.buildId || '') !== String(buildId)) continue;
+      out.push(this.stageJob(j.key));
+    }
+    return out;
+  }
+
   async generateStage(opts: any, userId?: string) {
 
     const projectId = String(opts?.projectId || '');
@@ -1035,19 +1198,153 @@ export class ScripOnService {
   }
 
   // ── Production hand-off: hierarchical, scene-by-scene feature generation (async + live progress). ──
-  private genProgress = new Map<string, { status: string; done: number; total: number; pageCount: number; error?: string; coverage?: string; coverageNote?: string; phase?: string; lastActivityAt?: number; note?: string; scenesPerEp?: number; seasonScenes?: number }>();
+  /**
+   * Why the last scene-plan call failed, so an empty plan can name its real cause.
+   *
+   * planScenes swallows the router error into a log line and returns []. The caller then threw "the
+   * AI engine did not answer in time" whatever had actually happened — and on 2 Sep that sentence
+   * was printed over "Your credit balance is too low", sending the operator to look for a timeout
+   * that did not exist. Keyed by project, because two builds can plan at the same time.
+   */
+  private planFailure = new Map<string, { message: string; terminal: boolean }>();
+
+  private genProgress = new Map<string, { status: string; done: number; total: number; pageCount: number; error?: string; coverage?: string; coverageNote?: string; phase?: string; lastActivityAt?: number; note?: string; cancelRequested?: boolean; scenesPerEp?: number; seasonScenes?: number; targetPages?: number | null; targetMinutes?: number | null; completionPct?: number }>();
 
   scriptProgress(documentId: string) {
     return this.genProgress.get(documentId) || { status: 'UNKNOWN', done: 0, total: 0, pageCount: 0 };
   }
 
-  // Page estimate by VISUAL lines (action wraps ~58 chars) at ~55 lines/page — realistic screenplay paging.
+  /**
+   * Ask a running generation to stop.
+   *
+   * Cooperative, not forceful: this raises a flag that the scene loops check between scenes. The AI
+   * call already in flight is allowed to finish (aborting it would mean plumbing an AbortController
+   * through AiService into the provider layer), so a cancel lands within one scene — a few seconds
+   * normally, up to the 120s scene timeout at worst. During PLANNING the whole scene map is one long
+   * call, so a cancel there waits for it to return (up to ~4 minutes) before taking effect.
+   *
+   * Nothing is destroyed. saveRev has been persisting pages into the NEW revision as they land, and
+   * the old revision stays active exactly as it does on failure — so the part that was written is
+   * still in the revisions list, simply not promoted.
+   *
+   * Returns whether a live run was actually found, so the UI can tell "stopped" from "already over".
+   */
+  cancelGeneration(documentId: string): { cancelled: boolean; status: string; done: number; total: number } {
+    const p = this.genProgress.get(documentId);
+    if (!p || p.status !== 'GENERATING') {
+      return { cancelled: false, status: (p && p.status) || 'UNKNOWN', done: (p && p.done) || 0, total: (p && p.total) || 0 };
+    }
+    p.cancelRequested = true;
+    p.note = 'Stopping after the current scene…';
+    p.lastActivityAt = Date.now();
+    this.log.log('cancelGeneration: stop requested for script ' + documentId + ' at scene ' + p.done + '/' + p.total + '.');
+    return { cancelled: true, status: p.status, done: p.done, total: p.total };
+  }
+
+  /** True once the operator has asked this run to stop. Checked between scenes, never mid-call. */
+  private cancelled(documentId: string): boolean {
+    return !!this.genProgress.get(documentId)?.cancelRequested;
+  }
+
+  /** Common landing for a stopped run: mark it, log it, leave the old revision active. */
+  private finishCancelled(documentId: string, done: number, total: number, pageCount: number): void {
+    const p = this.genProgress.get(documentId);
+    if (p) {
+      p.status = 'CANCELLED';
+      p.done = done; p.pageCount = pageCount;
+      // Says only what is true from the reader's side: the script they open is untouched, and the
+      // partial was persisted rather than thrown away. There is no revisions browser to send them to.
+      p.note = 'Stopped at scene ' + done + ' of ' + total + '. Your current script is unchanged, and the ' + pageCount + ' pages written so far have been saved, not discarded.';
+      p.lastActivityAt = Date.now();
+    }
+    this.log.log('generation CANCELLED for script ' + documentId + ' at scene ' + done + '/' + total + ' (' + pageCount + ' pages written, revision NOT activated).');
+  }
+
+  /**
+   * Page estimate, element-aware.
+   *
+   * This used to charge every line `ceil(len / 58)` and fit 55 of them, which treats a centred
+   * dialogue line (max-width 48%, ~36 chars in print) as if it ran the full action measure — so
+   * dialogue-heavy pages came out short. It also ignored the blank line that follows every paragraph.
+   *
+   * The costs below are the SAME ones the renderer uses in scriptPaper.tsx `tokLines()`, so the page
+   * count the generator reports and the page count the reader shows come from one model. Both are
+   * approximations of the print CSS, which is the real authority.
+   *
+   * Consecutive action (or dialogue) lines are costed as ONE paragraph, not one each. Charging the
+   * paragraph's trailing blank line per LINE is the same error that rendered a 168-page script as a
+   * 303-page PDF.
+   *
+   * PAGE_BUDGET — CALIBRATED AGAINST A REAL RENDER, NOT GUESSED.
+   *
+   * 48 agreed with the on-screen reader but disagreed with the PDF by 27%, and the PDF is what a
+   * screenplay actually IS. The 31 Aug MINUTEMEN draft exported to 103 sheets — 102 script pages
+   * plus the title page — while paginate() called it 131. That false 131 was filed as coverage
+   * 'LONG' at 125% with a note claiming 128 minutes of screen time, for a draft that had landed on
+   * its 105-page target. The generator was lying about its own output.
+   *
+   * Fitted on that draft, two independent criteria agree on 61:
+   *
+   *   budget   pages   mean chars/page   pages inside the 900-1,100 band
+   *     48      131          837                    19%
+   *     58      108         1016                    43%
+   *     60      104         1055                    49%
+   *     61      102         1075                    48%     <- matches the render exactly
+   *     62      101         1086                    45%
+   *
+   * 900-1,100 characters is the verified density of a 12pt Courier screenplay page; at 48 the pages
+   * were only ~840 characters, i.e. visibly under-filled. 61 hits the rendered page count on the
+   * nose AND puts the median page inside the band.
+   *
+   * VALIDATED on a second, independent script (1 Sep). Jason Quick: paginate() 99, protected export
+   * 100 sheets. MINUTEMEN: paginate() 102, protected export 103. Both within one page, on scripts with
+   * very different texture — 35 scenes at 2.3 pages each versus 126 at 0.8. The constant generalises.
+   *
+   * MEASURE AGAINST THE PROTECTED EXPORT, NOT A BROWSER PRINT. The two produce different documents from
+   * the same script: the protected export sets a 60-character measure (p95 = 59 chars, the industry
+   * width for 12pt Courier at a 1.5in/1in margin), while a browser print-to-PDF of the reader page came
+   * back at 81 characters — a third more per line, which collapsed a 100-page script to 81 sheets. If a
+   * future fixture disagrees with paginate(), check the line width of the PDF before touching this.
+   *
+   * KNOWN, SEPARATE: the on-screen reader re-paginates by live measurement and showed 134 pages for
+   * this same 103-sheet script. Screen and print geometry disagree by ~30%, so the reader's page
+   * count is still wrong even after this fix. That is a scriptPaper.tsx CSS issue, not this one.
+   */
+  private static readonly PAGE_BUDGET = 61;
   private paginate(text: string): { page: number; text: string }[] {
     const lines = String(text || '').replace(/\r/g, '').split('\n');
-    const per = 55; const pages: { page: number; text: string }[] = [];
+    const per = ScripOnService.PAGE_BUDGET; const pages: { page: number; text: string }[] = [];
+    // Line classification moved to continuity.util so the page count and the continuity checker can
+    // never disagree about what a line is. `cost` below stays here — it is page geometry, not
+    // classification, and nothing outside pagination has any use for it. Behaviour is unchanged:
+    // PAGE_BUDGET was calibrated against exactly these rules and a shifted page count is a regression.
+    type Kind = LineKind;
+    const classify = classifyLine;
+    // Cost one line, given whether it CONTINUES the paragraph above it (a continuation pays only for
+    // its own wrapped lines; the paragraph's trailing blank was already charged by its first line).
+    const cost = (kind: Kind, len: number, continues: boolean): number => {
+      switch (kind) {
+        // 0, not 0.85 — the blank line that follows a paragraph is already charged by that
+        // paragraph's own trailing unit below. Charging it twice is exactly the bug the print CSS
+        // had with `.uvp-gap{height:1em}` on top of `margin-bottom:1em`.
+        case 'blank': return 0;
+        case 'slug': return Math.max(1, Math.ceil(len / 56)) + 1.6;
+        case 'trans': return 1.8;
+        case 'cue': return 1.6;
+        case 'paren': return Math.max(1, Math.ceil(len / 24));
+        case 'dialogue': return Math.max(1, Math.ceil(len / 36)) + (continues ? 0 : 0.6);
+        default: return Math.max(1, Math.ceil(len / 56)) + (continues ? 0 : 1);
+      }
+    };
     let cur: string[] = []; let count = 0;
+    let inSpeech = false; let prevKind: Kind | null = null;
     for (const ln of lines) {
-      const vis = Math.max(1, Math.ceil((ln.length || 1) / 58));
+      const t = ln.trim();
+      const kind = classify(t, inSpeech);
+      inSpeech = nextInSpeech(kind, inSpeech);
+      const continues = (kind === 'action' || kind === 'dialogue') && prevKind === kind;
+      const vis = cost(kind, t.length || 1, continues);
+      prevKind = kind;
       if (count + vis > per && cur.length) { pages.push({ page: pages.length + 1, text: cur.join('\n') }); cur = []; count = 0; }
       cur.push(ln); count += vis;
     }
@@ -1058,7 +1355,7 @@ export class ScripOnService {
 
   // Render finished print HTML → a real A4 PDF via headless Chromium (server-side). Used for Arabic
   // (and any) one-click download where client-side pdf-lib can't shape the glyphs. Graceful if puppeteer absent.
-  async renderPdf(html: string): Promise<Buffer> {
+  async renderPdf(html: string, opts?: { footerHtml?: string; headerHtml?: string; margin?: { top?: string; right?: string; bottom?: string; left?: string } }): Promise<Buffer> {
     if (!html || typeof html !== 'string') throw new BadRequestException('html is required');
     const pkg = 'pup' + 'peteer';
     let mod: any = null;
@@ -1095,7 +1392,20 @@ export class ScripOnService {
       try { await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 20000 }); } catch { /* render whatever parsed */ }
       // Give webfonts a bounded chance (max ~2.5s), then proceed regardless; Arabic still shapes via system fallback.
       try { await page.evaluate('new Promise(function(res){var d=(document.fonts&&document.fonts.ready)||Promise.resolve();Promise.race([d,new Promise(function(r){setTimeout(r,2500);})]).then(function(){res();});})'); } catch { /* */ }
-      const pdf = await page.pdf({ format: 'A4', printBackground: true, preferCSSPageSize: true });
+      // Repeating footer/header (protected export) render in RESERVED page margins via Chromium's
+      // native header/footer — so they can never overlap the script text. Otherwise honour @page.
+      const hf = !!(opts && (opts.footerHtml || opts.headerHtml));
+      const pdfOpts: any = { format: 'A4', printBackground: true };
+      if (hf) {
+        const m = (opts && opts.margin) || {};
+        pdfOpts.displayHeaderFooter = true;
+        pdfOpts.headerTemplate = (opts && opts.headerHtml) || '<span></span>';
+        pdfOpts.footerTemplate = (opts && opts.footerHtml) || '<span></span>';
+        pdfOpts.margin = { top: m.top || '22mm', right: m.right || '25mm', bottom: m.bottom || '16mm', left: m.left || '25mm' };
+      } else {
+        pdfOpts.preferCSSPageSize = true;
+      }
+      const pdf = await page.pdf(pdfOpts);
       return Buffer.from(pdf);
     } finally { try { await browser.close(); } catch { /* */ } }
   }
@@ -1112,13 +1422,17 @@ export class ScripOnService {
     if (ar) {
       const ieR = String(sc.intExt || '').toLowerCase();
       const ie = /ext|خارج/.test(ieR) ? (/int|داخل/.test(ieR) ? 'داخلي/خارجي' : 'خارجي') : 'داخلي';
-      const loc = String(sc.location || sc.setName || sc.where || 'الموقع').replace(/\s+/g, ' ').trim().slice(0, 60) || 'الموقع';
+      const loc = shortenSlugLocation(String(sc.location || sc.setName || sc.where || 'الموقع'), 60) || 'الموقع';
       const dnR = String(sc.dayNight || sc.dn || '').toLowerCase();
       const dn = /night|ليل/.test(dnR) ? 'ليل' : /dawn|فجر/.test(dnR) ? 'فجر' : /dusk|evening|غروب|مساء/.test(dnR) ? 'مساء' : /morning|صباح/.test(dnR) ? 'صباح' : 'نهار';
       return ie + ' - ' + loc + ' - ' + dn;
     }
     const ie = (String(sc.intExt || 'INT').toUpperCase().match(/INT\/EXT|I\/E|EXT|INT/) || ['INT'])[0].replace('I/E', 'INT/EXT');
-    const loc = String(sc.location || sc.setName || sc.where || 'LOCATION').toUpperCase().replace(/\s+/g, ' ').trim().slice(0, 48) || 'LOCATION';
+    // WAS: .slice(0, 48) — a hard cut that removed the tail of the location and then appended
+    // ' - DAY' to the stump, so "MACRAE BARN — TRAINING SPACE (FLASHBACK, SIX YEARS AGO)"
+    // shipped as "...(FLASHBACK, SIX YEA - DAY" and "RS AGO)" existed nowhere in the document.
+    // Forty-one of the 1 Sep draft's 139 headings were damaged by this one expression.
+    const loc = shortenSlugLocation(String(sc.location || sc.setName || sc.where || 'LOCATION').toUpperCase()) || 'LOCATION';
     const dn = (String(sc.dayNight || sc.dn || 'DAY').toUpperCase().match(/DAWN|DUSK|MIDDAY|NOON|AFTERNOON|MORNING|EVENING|NIGHT|CONTINUOUS|LATER|DAY/) || ['DAY'])[0];
     return ie + '. ' + loc + ' - ' + dn;
   }
@@ -1183,78 +1497,1005 @@ export class ScripOnService {
   // the climax AND resolution, never stopping mid-story. Tolerant JSON parse + a continuation pass if it comes short.
   // `episode` (#45): map ONE pilot episode at the format's per-episode scene density instead of a
   // full feature — so a series targets its real per-episode volume, not the 55-90 feature band.
-  private async planScenes(ctx: string, projectId: string, spine = '', target = 55, episode = false, onBeat?: () => void): Promise<any[]> {
-    const lo = episode ? target : Math.max(50, target); const hi = episode ? target + 6 : Math.max(70, target + 18);
+  private async planScenes(ctx: string, projectId: string, spine = '', target = 55, episode = false, onBeat?: () => void, plan?: FeatureLengthPlan | null): Promise<any[]> {
+    this.planFailure.delete(projectId);   // this run's verdict only — never last run's
+    // The band the planner is asked for. It used to be floored at 50-70 regardless of the film's real
+    // length; it now tracks the page budget, so a 105-page feature asks for ~110 scenes, not ~60.
+    const lo = episode ? target : Math.max(24, target); const hi = episode ? target + 6 : target + Math.max(8, Math.round(target * 0.12));
+    // Per-scene page allocation. Without it every scene comes back the same size, and a feature made of
+    // uniform scenes is neither a feature nor readable.
+    const weightRule = plan
+      ? ' Also give every scene a "pageWeight" — the screenplay pages it should occupy, one of 0.25, 0.5, 1, 1.5, 2 or 3. Most scenes are 1. Use 0.25-0.5 for cutaways, beats and quick intercuts; 2-3 ONLY for genuine set pieces or the climax. The pageWeight values across all scenes MUST add up to about '
+        + plan.targetPages + ' (the film is a ' + plan.targetPages + '-page feature, roughly ' + plan.targetMinutes + ' minutes).'
+      : '';
     const sys = episode
-      ? 'You are a screenwriter mapping the FIRST EPISODE (the pilot) of a series into ' + lo + '-' + hi + ' scenes. Open the series, establish the world / lead characters / central engine, and END on the episode hook or cliffhanger. Use the OPENING movement of the developed outline only — do NOT compress the whole season, and do NOT resolve the season arc. Return ONLY JSON {scenes:[{intExt, location, dayNight, brief, characters}]} — intExt is INT or EXT; dayNight DAY or NIGHT; brief = 1-2 sentences of what happens; characters = comma list. No prose outside the JSON.'
-      : 'You are a screenwriter mapping a DEVELOPED story into a COMPLETE feature scene list for a ~100-120 page, 3-act script. Faithfully expand the GIVEN OUTLINE / BEAT MAP into ' + lo + '-' + hi + ' scenes that cover the ENTIRE story IN ORDER — from the opening beat through the midpoint, the climax AND the final resolution. EVERY numbered beat in the outline MUST be represented (1-3 scenes each), and the LAST few scenes MUST dramatise the final beats (the climax and ending). Never stop in the middle of the story. Return ONLY JSON {scenes:[{intExt, location, dayNight, brief, characters}]} — intExt is INT or EXT; dayNight DAY or NIGHT; brief = 1-2 sentences of what happens; characters = comma list. No prose outside the JSON.';
+      ? 'You are a screenwriter mapping the FIRST EPISODE (the pilot) of a series into ' + lo + '-' + hi + ' scenes. Open the series, establish the world / lead characters / central engine, and END on the episode hook or cliffhanger. Use the OPENING movement of the developed outline only — do NOT compress the whole season, and do NOT resolve the season arc. Return ONLY JSON {scenes:[{intExt, location, dayNight, brief, characters, exits, pageWeight}]} — intExt is INT or EXT; dayNight DAY or NIGHT; brief = 1-2 sentences of what happens; characters = comma list; exits = ONLY the characters who DIE or leave the story permanently in this scene, as [{name, how}] (omit the field entirely otherwise) - getting this right is what stops a murdered character answering a telephone eighty pages later, so do not guess and do not list a character who merely walks out of the room; No prose outside the JSON.' + weightRule
+      : 'You are a screenwriter mapping a DEVELOPED story into a COMPLETE feature scene list for a ' + (plan ? plan.targetPages : 105) + '-page, 3-act script. Faithfully expand the GIVEN OUTLINE / BEAT MAP into ' + lo + '-' + hi + ' scenes that cover the ENTIRE story IN ORDER — from the opening beat through the midpoint, the climax AND the final resolution. EVERY numbered beat in the outline MUST be represented (1-3 scenes each), and the LAST few scenes MUST dramatise the final beats (the climax and ending). A real feature of this length runs to this many scenes — do NOT compress it into fewer, longer ones, and never stop in the middle of the story. Return ONLY JSON {scenes:[{intExt, location, dayNight, brief, characters, exits, pageWeight}]} — intExt is INT or EXT; dayNight DAY or NIGHT; brief = 1-2 sentences of what happens; characters = comma list; exits = ONLY the characters who DIE or leave the story permanently in this scene, as [{name, how}] (omit the field entirely otherwise) - getting this right is what stops a murdered character answering a telephone eighty pages later, so do not guess and do not list a character who merely walks out of the room; No prose outside the JSON.' + weightRule;
     const base = (extra: string) => ctx + (spine ? '\n\n' + (episode ? 'DEVELOPED OUTLINE (dramatise its OPENING as the pilot episode):\n' : 'FULL DEVELOPED OUTLINE TO COVER (expand every beat, in order, all the way to the end):\n') + spine : '') + extra;
     const parse = (r: any): any[] => {
       let arr: any[] = (r && r.json && Array.isArray(r.json.scenes)) ? r.json.scenes : [];
       if (!arr.length && r && typeof r.text === 'string') { try { const m = r.text.match(/\{[\s\S]*\}/); if (m) { const j = JSON.parse(m[0]); if (Array.isArray(j.scenes)) arr = j.scenes; } } catch { /* */ } }
-      return arr.map((s: any) => ({ intExt: s.intExt, location: s.location, dayNight: s.dayNight, brief: String(s.brief || ''), characters: Array.isArray(s.characters) ? s.characters.join(', ') : String(s.characters || '') }));
+      return arr.map((s: any) => ({ intExt: s.intExt, location: s.location, dayNight: s.dayNight, brief: String(s.brief || ''), characters: Array.isArray(s.characters) ? s.characters.join(', ') : String(s.characters || ''), exits: Array.isArray(s.exits) ? s.exits : (s.exits ? [s.exits] : undefined), pageWeight: s.pageWeight }));
     };
+    /**
+     * Scenes asked for per planning call.
+     *
+     * One call cannot map a feature. On 1 Sep this asked for all 131 scenes at once, ran past the
+     * 230-second ceiling, retried, ran past it again, and returned NOTHING — whereupon the writer
+     * silently fell back to a stale 35-card SCENES stage and spent forty minutes producing a thin,
+     * exit-less, un-gated draft. Forty scenes finishes comfortably inside the timeout, a failed pass
+     * costs one slice instead of the whole plan, and the continuation loop below — which had never
+     * once been reached, because it is gated on scenes.length — finally does the work it was written for.
+     */
+    const PLAN_CHUNK = 40;
+    // Page target the slice budget reports against. Zero for a series pilot, which has no page plan;
+    // planSliceInstruction drops the page clause rather than printing "0 pages".
+    const planPages = plan ? plan.targetPages : 0;
+    /** Pages the map accounts for so far, from the planner's own pageWeights. */
+    const pagesMapped = (list: any[]) => list.reduce((a: number, x: any) => a + snapPageWeight(x && x.pageWeight), 0);
+    const firstSlice = planSliceBudget(0, lo, PLAN_CHUNK, 0, planPages);
     let scenes: any[] = [];
-    onBeat?.(); // planning heartbeat — this single call can run minutes on a long story
+    onBeat?.(); // planning heartbeat — a slice still takes a minute or two on a long story
     try {
-      const r: any = await this.ai.run({ task: 'scripton.feature.plan', system: sys, user: base(episode ? '\nMap the PILOT episode now (' + lo + '-' + hi + ' scenes), ending on the episode cliffhanger.' : '\nMap the FULL story now (' + lo + '-' + hi + ' scenes), ending on the final beat.'), maxTokens: 15000, timeoutMs: 230000, projectId, refType: 'Project', refId: projectId });
-      scenes = parse(r);
-    } catch { /* fall through */ }
+      const r: any = await this.ai.run({ task: 'scripton.feature.plan', system: sys, user: base(episode
+          ? '\nMap the PILOT episode now (' + lo + '-' + hi + ' scenes), ending on the episode cliffhanger.'
+          : '\nMap the FIRST ' + firstSlice.ask + ' scenes now, in order from the opening beat. The finished map will run to '
+            + lo + '-' + hi + ' scenes in total.\n' + planSliceInstruction(firstSlice)
+            + '\nReturn ONLY JSON {scenes:[...]}.'), maxTokens: 15000, timeoutMs: 230000, projectId, refType: 'Project', refId: projectId });
+      scenes = dedupeScenes(parse(r)).scenes;
+      if (!scenes.length) {
+        this.log.warn('planScenes: the model returned no parseable scenes on the first pass (project ' + projectId + ') — the draft will fall back to the existing SCENES cards.');
+        this.planFailure.set(projectId, { message: 'the engine answered, but returned nothing that parsed as a scene list.', terminal: false });
+      }
+    } catch (e) {
+      // The scene map is the spine of the whole feature. Losing it silently is how a run ends up
+      // writing whatever stale SCENES stage happens to exist, at the wrong length.
+      this.log.error('planScenes: first pass FAILED for project ' + projectId + ' — ' + this.why(e));
+      this.planFailure.set(projectId, { message: this.why(e), terminal: isProviderExhausted(e) });
+    }
     // Continuation passes: a single call truncates at the token cap, so keep extending (from the last 3 scenes) until
     // the map reaches feature length AND the final beat — or a pass stops adding scenes — or we hit the ceiling.
     let passes = 0;
-    while (spine && scenes.length && scenes.length < lo && passes < 5) {
+    // A single unproductive pass used to end this loop outright, so a planner that stalled once
+    // returned a third of a story and the run wrote it. Jason Quick came back with 35 scenes against
+    // a target of 131 that way. Two consecutive empty passes now, not one.
+    let barren = 0;
+    // Passes raised with the slice size: 131 scenes at 40 a call is four calls, and a model that
+    // returns short slices needs a few more. Each is cheap now, so the ceiling is generous.
+    while (spine && scenes.length && scenes.length < lo && passes < 8 && barren < 2) {
       passes++; onBeat?.(); const before = scenes.length;
       try {
+        // The continuation used to be shown THREE briefs and told not to repeat itself, which is not
+        // an instruction anything can follow. It now sees every scene it has mapped, as numbered
+        // headings — about 30 characters each, so a 130-scene map costs ~4k characters once per pass.
+        // That is what the courthouse climax written three times actually cost us.
+        const mapped = scenes.map((s: any, k: number) => (k + 1) + '. ' + this.slugOf(s)).join('\n');
         const tail = scenes.slice(-3).map((s: any) => '- ' + String(s.brief || '')).join('\n');
-        const cont: any = await this.ai.run({ task: 'scripton.feature.plan', system: sys, user: base('\nYou have already mapped ' + scenes.length + ' scenes, ending with:\n' + tail + (episode ? '\nContinue the SAME pilot episode toward ~' + lo + ' scenes, ending on the episode cliffhanger — do NOT repeat earlier scenes. Return ONLY JSON {scenes:[...]} for the REMAINING scenes.' : '\nContinue the scene map from the NEXT beat through the FINAL beat (climax + resolution) — do NOT repeat earlier scenes. Return ONLY JSON {scenes:[...]} for the REMAINING scenes.')), maxTokens: 15000, timeoutMs: 230000, projectId, refType: 'Project', refId: projectId });
-        const more = parse(cont); if (more.length) scenes = scenes.concat(more);
-      } catch { /* */ }
-      if (scenes.length <= before) break;
+        // The slice budget, not a bare scene count. The old ask ended with "if the climax falls inside
+        // this slice, dramatise it and stop there" — an invitation the planner accepted on slice two,
+        // wrapping a 131-scene film up in 80 and then going barren because the story was over. Only
+        // the slice that reaches the target may end the film now; every earlier one is told to stop
+        // mid-story. `barren` feeds in as `stalled` so an empty pass provokes a correction instead of
+        // quietly counting down to giving up.
+        const slice = planSliceBudget(scenes.length, lo, PLAN_CHUNK, pagesMapped(scenes), planPages);
+        const cont: any = await this.ai.run({ task: 'scripton.feature.plan', system: sys, user: base('\nYou have already mapped these ' + scenes.length + ' scenes:\n' + mapped + '\n\nThe last three, in full:\n' + tail
+          + (episode
+            ? '\nContinue the SAME pilot episode toward ~' + lo + ' scenes, ending on the episode cliffhanger — do NOT repeat earlier scenes. Return ONLY JSON {scenes:[...]} for the REMAINING scenes.'
+            : '\nContinue from scene ' + slice.from + '. Return the NEXT ' + slice.ask + ' scenes only, in order, and do NOT repeat any scene listed above.\n'
+              + planSliceInstruction(slice, barren > 0)
+              + '\nReturn ONLY JSON {scenes:[...]}.')), maxTokens: 15000, timeoutMs: 230000, projectId, refType: 'Project', refId: projectId });
+        const more = parse(cont);
+        if (more.length) {
+          const d = dedupeScenes(scenes.concat(more));
+          if (d.dropped.length) this.log.warn('planScenes: continuation pass ' + passes + ' returned '
+            + d.dropped.length + ' scene(s) the map already had — dropped before they could be written.');
+          scenes = d.scenes;
+        }
+      } catch (e) { this.log.warn('planScenes: continuation pass ' + passes + ' failed at ' + scenes.length + '/' + lo + ' scenes — ' + this.why(e)); }
+      barren = scenes.length <= before ? barren + 1 : 0;
     }
-    return scenes.slice(0, 100);
+    // The old hard cap of 100 truncated any feature denser than a drama — an action script plans ~130.
+    if (plan && scenes.length < Math.round(plan.targetScenes * 0.7)) {
+      // A short plan is not a short film — the live budget controller stretches whatever it is given
+      // to fill the page target, so 80 scenes over 105 pages is 1.31 pages per scene where the plan
+      // wanted 0.80. Report the shape, because that is the number a reader will feel.
+      const perScene = scenes.length > 0 ? (plan.targetPages / scenes.length).toFixed(2) : 'n/a';
+      this.log.warn('planScenes: planned only ' + scenes.length + ' scenes against a target of ' + plan.targetScenes
+        + ' (' + plan.targetPages + ' pages, genre ' + plan.genreKey + ') after ' + passes + ' continuation pass(es)'
+        + ' — that is ' + perScene + ' pages per scene against a planned '
+        + (plan.targetScenes > 0 ? (plan.targetPages / plan.targetScenes).toFixed(2) : 'n/a')
+        + '. Checking whether the ending survived.');
+    }
+
+    // Apply the runaway cap BEFORE the ending gate, not after it. Capping last meant the gate could
+    // verify a 190-scene plan and then hand back its first 171 — decapitating the very ending it had
+    // just checked. The gate now sees exactly the plan that will be written, and the scenes its repair
+    // adds are kept rather than re-trimmed: the cap exists to catch a runaway planner, and overshooting
+    // it by a few scenes is a smaller failure than losing the climax. Page count is unaffected either
+    // way — the live budget controller scales each scene to the remaining page allowance.
+    const hardCap = plan ? plan.planCap : 100;
+    if (scenes.length > hardCap) {
+      this.log.warn('planScenes: planner returned ' + scenes.length + ' scenes against a cap of ' + hardCap + ' — trimming to the cap before the ending check.');
+      scenes = scenes.slice(0, hardCap);
+    }
+
+    // ── THE ENDING GATE ────────────────────────────────────────────────────────────────────────
+    // A screenplay missing its climax is worth nothing, however well the rest is written. Both test
+    // scripts filed at ~95% of page target with the outline's final beats undramatised: MINUTEMEN
+    // "skips the dramatised climax beats", Jason Quick "never dramatising the outlined climax".
+    //
+    // The old design only caught this AFTER every scene was written and paid for (verifyEnding), and
+    // did nothing with the verdict but write a label. Checking the PLAN costs one small call before
+    // 35-130 expensive ones, and a repair that NAMES the missing beats works where "continue the scene
+    // map" did not — the planner has been told twice, in the system prompt, that the last scenes must
+    // dramatise the ending, and ignored it both times. Telling it what is missing is a different ask.
+    if (spine && scenes.length && !episode) {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const tail = scenes.slice(-6).map((x: any, i: number) => (scenes.length - 6 + i + 1) + '. ' + String(x.brief || '')).join('\n');
+        const verdict = await this.verifyPlanEnding(spine, tail, projectId);
+        if (verdict.complete) break;
+        this.log.warn('planScenes: the plan does NOT reach the outline\'s ending (attempt ' + (attempt + 1) + '/2)'
+          + (verdict.missing.length ? ' — missing: ' + verdict.missing.join('; ') : '') + '. Repairing.');
+        onBeat?.();
+        try {
+          const askFor = verdict.missing.length
+            ? 'These beats from the outline are NOT covered by the plan:\n- ' + verdict.missing.join('\n- ')
+            : 'The plan stops before the outline\'s climax and resolution.';
+          const fix: any = await this.ai.run({
+            task: 'scripton.feature.plan', system: sys,
+            user: base('\nThe scene map so far ends with:\n' + tail + '\n\n' + askFor
+              + '\n\nAdd ONLY the scenes still needed to dramatise those final beats, in order, through the climax AND the resolution.'
+              + ' Do NOT repeat or restate any scene already mapped. Return ONLY JSON {scenes:[...]} for the MISSING scenes.'),
+            maxTokens: 15000, timeoutMs: 230000, projectId, refType: 'Project', refId: projectId,
+          });
+          const more = parse(fix);
+          if (!more.length) { this.log.warn('planScenes: ending repair returned no scenes on attempt ' + (attempt + 1) + '.'); continue; }
+          // Without this dedupe the repair pass is a duplicate-climax machine: whenever the ending
+          // check false-negatives on a plan that already reaches its ending, "add the scenes still
+          // needed" adds a second one — and it gets two attempts.
+          const d = dedupeScenes(scenes.concat(more));
+          if (d.dropped.length) this.log.warn('planScenes: ending repair returned ' + d.dropped.length
+            + ' scene(s) the plan already had — dropped.');
+          const added = d.scenes.length - scenes.length;
+          scenes = d.scenes;
+          if (added <= 0) { this.log.warn('planScenes: ending repair added nothing new on attempt ' + (attempt + 1) + '.'); continue; }
+          this.log.log('planScenes: ending repair added ' + added + ' scenes — plan now ' + scenes.length + '.');
+        } catch (e) {
+          this.log.warn('planScenes: ending repair failed on attempt ' + (attempt + 1) + ' — ' + this.why(e));
+        }
+      }
+      // Last check. Failing HERE costs three planning calls; failing after the write costs the whole
+      // run, and hands over a headless script that reads as finished.
+      const finalTail = scenes.slice(-6).map((x: any) => '- ' + String(x.brief || '')).join('\n');
+      const last = await this.verifyPlanEnding(spine, finalTail, projectId);
+      if (!last.complete) {
+        // Actionable half FIRST, missing beats LAST: the caller's catch truncates at 200 characters, and
+        // the fixed sentence is 195 — so a long beat list is what gets cut, never the instruction.
+        throw new Error('The scene map does not reach the story\'s ending, so nothing was written — your current script is untouched.'
+          + ' Try Generate again, or open the outline and check that its final beats are written out.'
+          + (last.missing.length ? ' Missing: ' + last.missing.slice(0, 3).join('; ') : ''));
+      }
+    }
+    return scenes;
+  }
+
+  // Ending gate, plan-side twin of verifyEnding(). Same tolerant contract: any failure of the CHECK
+  // itself assumes complete, so an AI outage can never block a run — only a confident "no" does.
+  private async verifyPlanEnding(spine: string, planTail: string, projectId: string): Promise<{ complete: boolean; missing: string[]; note: string }> {
+    if (!spine || !planTail) return { complete: true, missing: [], note: '' };
+    try {
+      const sys = 'You check whether a SCENE MAP covers the ending of a developed outline. You are given the OUTLINE (its final beats are the intended climax and resolution) and the LAST scenes of the scene map. Decide whether those scenes dramatise the outline\'s final beats. Return ONLY JSON {complete: true|false, missing: ["short beat name", ...], note: "one short sentence"} — list in "missing" only outline beats that the scene map does not cover, at most 4.';
+      const user = 'OUTLINE (its ending = the final beats):\n' + spine.slice(-3000)
+        + '\n\nLAST SCENES OF THE SCENE MAP:\n' + planTail.slice(-2000)
+        + '\n\nDoes the scene map reach the outline\'s climax AND resolution?';
+      const r: any = await this.ai.run({ task: 'scripton.feature.coverage', system: sys, user, maxTokens: 400, timeoutMs: 60000, projectId, refType: 'Project', refId: projectId });
+      let j: any = (r && r.json) || null;
+      if (!j && r && typeof r.text === 'string') { try { const m = r.text.match(/\{[\s\S]*\}/); if (m) j = JSON.parse(m[0]); } catch { /* */ } }
+      if (j && typeof j.complete === 'boolean') {
+        const missing = Array.isArray(j.missing) ? j.missing.map((x: any) => String(x).slice(0, 120)).slice(0, 4) : [];
+        return { complete: j.complete, missing, note: trimToSentence(j.note, 240) };
+      }
+      this.log.warn('verifyPlanEnding: no usable verdict — assuming the plan reaches the ending (fail-open).');
+    } catch (e) {
+      this.log.warn('verifyPlanEnding: check failed, assuming complete — ' + this.why(e));
+    }
+    return { complete: true, missing: [], note: '' };
   }
 
   // Coverage guard: did the finished script actually reach the outline's FINAL beats (climax + resolution)?
   // One small, tolerant AI check — any failure assumes complete, so it never raises a false alarm.
-  private async verifyEnding(spine: string, scriptTail: string, projectId: string): Promise<{ complete: boolean; note: string }> {
+  private async verifyEnding(spine: string, scriptTail: string, projectId: string, tailChars = 3000): Promise<{ complete: boolean; note: string }> {
     if (!spine || !scriptTail) return { complete: true, note: '' };
     try {
       const sys = 'You verify whether a screenplay reached its planned ENDING. Given a developed OUTLINE (whose FINAL beats are the intended climax and resolution) and the LAST pages of the generated script, decide whether the script actually dramatises those final beats. Return ONLY JSON {complete: true|false, note: "one short sentence"}.';
-      const user = 'OUTLINE (its ending = the final beats):\n' + spine.slice(-3000) + '\n\nLAST PAGES OF THE GENERATED SCRIPT:\n' + scriptTail.slice(-3000) + '\n\nDoes the script reach the outline\'s final beats (the climax and resolution)?';
+      const user = 'OUTLINE (its ending = the final beats):\n' + spine.slice(-3000) + '\n\nLAST PAGES OF THE GENERATED SCRIPT:\n' + scriptTail.slice(-tailChars) + '\n\nDoes the script reach the outline\'s final beats (the climax and resolution)?';
       const r: any = await this.ai.run({ task: 'scripton.feature.coverage', system: sys, user, maxTokens: 300, timeoutMs: 60000, projectId, refType: 'Project', refId: projectId });
       let j: any = (r && r.json) || null;
       if (!j && r && typeof r.text === 'string') { try { const m = r.text.match(/\{[\s\S]*\}/); if (m) j = JSON.parse(m[0]); } catch { /* */ } }
-      if (j && typeof j.complete === 'boolean') return { complete: j.complete, note: String(j.note || '').slice(0, 200) };
-    } catch { /* */ }
+      // Trimmed at a sentence, not a flat character count: this note is now shown to a writer as the
+      // reason a finished draft was rejected, and the 200-char cut produced "...through a Baltimore
+      // freight terminal using." on screen. See trimToSentence.
+      if (j && typeof j.complete === 'boolean') return { complete: j.complete, note: trimToSentence(j.note, 240) };
+      this.log.warn('verifyEnding: no usable verdict returned — assuming the ending is complete (fail-open).');
+    } catch (e) {
+      // Fail-open by design: a failed check must never raise a false alarm on a good script. But an
+      // always-failing check means the coverage flag is meaningless, which is worth knowing.
+      this.log.warn('verifyEnding: check failed, assuming complete — ' + this.why(e));
+    }
     return { complete: true, note: '' };
   }
 
   // Write ONE full scene (action + dialogue) — slug line is supplied, so the model focuses on dramatising.
-  private async writeScene(ctx: string, sc: any, header: string, storySoFar: string, prevTail: string, projectId: string): Promise<string> {
-    const sys = 'You are a professional screenwriter writing ONE scene of a feature film in industry-standard FINAL DRAFT format. Present-tense action lines; dialogue formatted as a centred UPPERCASE CHARACTER cue on its own line, an optional (parenthetical), then the spoken line beneath; use (V.O.)/(O.S.)/(CONT\'D) where apt. Give the scene real emotion, subtext and conflict, and a small turn. Write it IN FULL - about 1.5 to 2.5 pages - never a summary or outline. Do NOT write the scene heading/slug line (it is already provided) and do NOT add a scene number. Output ONLY the scene text.';
-    const user = ctx + (storySoFar ? '\n\nSTORY SO FAR (continuity - do not repeat):' + storySoFar : '') + (prevTail ? '\n\nPREVIOUS SCENE ENDED WITH (continue naturally, do not repeat):\n' + prevTail : '') + '\n\nSCENE HEADING (already set, do not rewrite): ' + header + '\nWHAT HAPPENS: ' + (sc.brief || 'Advance the story with conflict and a turn.') + (sc.characters ? '\nCHARACTERS PRESENT: ' + sc.characters : '') + '\n\nWrite this scene in full now.';
-    const clean = (raw: string) => raw
+  /**
+   * Normalise one scene of model output into screenplay text.
+   *
+   * Shared by the writer and the continuity repair pass: a repair that skipped any of these would
+   * reintroduce, into an already-good scene, exactly the defects the writer strips out.
+   */
+  private cleanSceneText(raw: string): string {
+    const cleaned = String(raw || '')
       .replace(/^```[a-z]*\s*/i, '').replace(/```\s*$/i, '').trim()
+      // The model occasionally emits markdown emphasis, which reached the page raw: a real draft
+      // shipped `*(quietly)* I know.` under a MERCER cue. Screenplays have no markdown — strip it.
+      .replace(/\*\*([^*\n]+?)\*\*/g, '$1')
+      .replace(/(?<!\*)\*(?!\*)([^*\n]+?)\*(?!\*)/g, '$1')
+      // A parenthetical belongs on its own line above the speech. When it arrives inline —
+      // "(quietly) I know." — the renderer classifies the WHOLE line as a parenthetical and the
+      // dialogue disappears into italics. Split it back out.
+      .replace(/^[ \t]*(\([^)\n]{1,40}\))[ \t]+(\S.*)$/gmu, '$1\n$2')
       .replace(/^\s*\d*\s*(INT|EXT|INT\.?\/EXT|I\/E)[.\s][^\n]*\n?/i, '').trim()
       .replace(/^\s*(?:\d+\s+)?(?:مشهد|المشهد|داخلي|خارجي)[^\n]*\n?/u, '').trim()   // strip a leading Arabic slug the model may add on top of ours
-      .replace(/^[ \t]*[-–—_=]{2,}[ \t]*$/gmu, '').replace(/\n{3,}/g, '\n\n').trim();   // drop "---" separator lines
+      .replace(/^[ \t]*[-–—_=]{2,}[ \t]*$/gmu, '').replace(/\n{3,}/g, '\n\n').trim()   // drop "---" separator lines
+      // A screenplay has ONE "FADE OUT.", at the very end, and the caller appends it. The 1 Sep draft
+      // carried three more, closing individual scenes — harmless on the page but wrong, and enough to
+      // make a second-document check fire on good scenes. Trailing only: a transition with a scene
+      // after it is contamination, and findSecondDocument owns that.
+      .replace(/\n\s*#{0,6}\s*(FADE\s+OUT|THE END)[.:]?\s*$/i, '').trim();
+    // THE MACHINE SHOWING THROUGH THE PAGE. "Word count: approximately 66" was printed on page 2 of
+    // a delivered draft — the model reporting on the scene instead of writing it. Removed here
+    // rather than flagged for a rewrite: the removal is certain and free, and the integrity gate
+    // re-reads the result, so a scene that was NOTHING but meta still fails as EMPTY_BODY.
+    const stripped = stripMetaCommentary(cleaned);
+    if (stripped !== cleaned) {
+      this.log.warn('cleanSceneText: dropped model meta-commentary — ' + findMetaCommentary(cleaned).join(' | '));
+    }
+    return stripped;
+  }
+
+  /**
+   * Everything the development ladder holds, UNTRUNCATED — for the one pass that needs the whole
+   * document rather than a prefix.
+   *
+   * buildFeatureCtx caps the treatment at 2,600 characters because it rides on all 130 scene prompts.
+   * That cap is right for a repeated prefix and disastrous as the only reading: a 66,000-character
+   * design document reaches the scene writer as its first two sections. This is read ONCE, so it does
+   * not cap the same way.
+   */
+  private async fullSourceFor(projectId: string, stages: any[]): Promise<string> {
+    const bodyOf = (k: string) => { const x: any = stages.find((y: any) => y.kind === k); return String((x && x.current && x.current.body) || ''); };
+    const intake: any = await (this.prisma as any).intakeProfile.findUnique({ where: { projectId } }).catch(() => null);
+    return [
+      String((intake && intake.sourceText) || ''),
+      bodyOf('LOGLINE'), bodyOf('SYNOPSIS'), bodyOf('TREATMENT'), bodyOf('BEATS'), bodyOf('STEP_OUTLINE'),
+    ].filter(Boolean).join('\n\n').slice(0, 60000);
+  }
+
+  /**
+   * Extract the story's CANON once per generation: the handful of facts a scene could get wrong.
+   *
+   * The 1 Sep draft named its protagonist Jason Andrew Quick and later Jason Richard Quick, and put
+   * him in the water for four minutes in one scene and twenty-two in another. Neither is a writing
+   * failure — nothing ever told the writer either fact. One call here, carried on every scene prompt,
+   * is the cheapest fix available and the same one DOC measured: state the constraint while drafting
+   * instead of hunting violations afterwards.
+   *
+   * Fail-open. A canon that could not be extracted must never stop a generation — it only makes the
+   * draft as good as it was yesterday.
+   */
+  private async extractCanon(projectId: string, stages: any[]): Promise<CanonFactCore[]> {
+    try {
+      const src = await this.fullSourceFor(projectId, stages);
+      if (src.length < 400) return [];
+      const sys = 'You are building the CANON for a screenplay going into production: the hard facts the script'
+        + ' must never contradict. Return ONLY JSON {facts:[{kind,subject,predicate,object,statement}]}.'
+        + ' kind is one of CHARACTER|WORLD|LORE|TIMELINE|RELATIONSHIP|PLOT. subject = the entity, upper-case.'
+        + ' predicate = a short relation such as full_name|age|relation_to|occupation|duration|owns|located_in.'
+        + ' object = the value. statement = one sentence a writer can read. Include ONLY facts the material'
+        + ' actually STATES and that a scene could plausibly get wrong: full names exactly as written, ages,'
+        + ' family and professional relationships (who is whose sister, father, employer), how long things'
+        + ' took, dates and years, and place / company / vessel names. Do NOT invent or infer anything: a'
+        + ' missing fact is harmless, an invented one is a bug. At most 30 facts. No text outside the JSON.';
+      const r: any = await this.ai.run({ task: 'scripton.feature.canon', system: sys, user: 'DEVELOPMENT MATERIAL:\n' + src, maxTokens: 2400, timeoutMs: 180000, projectId, refType: 'Project', refId: projectId });
+      let j: any = (r && r.json) || null;
+      if (!j && r && typeof r.text === 'string') { try { const m = r.text.match(/\{[\s\S]*\}/); if (m) j = JSON.parse(m[0]); } catch { /* */ } }
+      // mapAiFactsToCore is the canon module's own normaliser — reused rather than reimplemented, so
+      // source facts are shaped exactly like the ones a render pass extracts. Anchored at story order 0
+      // with no source scene: these are true from the first page, and belong to no single scene.
+      const facts = mapAiFactsToCore((j && j.facts) || [], { id: '', order: 0 }).slice(0, 30);
+      this.log.log('extractCanon: ' + facts.length + ' fixed fact(s) from ' + src.length + ' characters of source material.');
+      return facts;
+    } catch (e) {
+      this.log.warn('extractCanon: failed — continuing without a canon block. ' + this.why(e));
+      return [];
+    }
+  }
+
+  /**
+   * Rewrite ONE scene to clear a continuity constraint, preserving everything else.
+   *
+   * Temperature is well below the writer's 0.85: this is a correction, not an invention, and every
+   * degree of freedom here is a chance to lose a scene that was already working.
+   */
+  private async repairScene(ctx: string, sc: any, header: string, prevTail: string, projectId: string, budget: LineBudget, instruction: string, current: string, canon = ''): Promise<string> {
+    const sys = 'You are a professional screenwriter REVISING one scene of a finished screenplay to correct a'
+      + ' continuity error. Return the corrected scene in the same industry-standard format: present-tense'
+      + ' action; dialogue = a centred UPPERCASE CHARACTER cue on its own line, an optional (parenthetical),'
+      + ' then the line. Preserve everything that is not the error — the same beats, the same turn, the same'
+      + ' location, roughly the same length. Do NOT write the scene heading and do NOT add a scene number.'
+      + ' Output ONLY the corrected scene text.';
+    const user = ctx
+      + (canon ? '\n\n' + canon : '')
+      + '\n\nSCENE HEADING (already set, do not rewrite): ' + header
+      + '\nWHAT THIS SCENE IS FOR: ' + String((sc && sc.brief) || 'Advance the story with conflict and a turn.')
+      + (prevTail ? '\n\nPREVIOUS SCENE ENDED WITH (continue naturally):\n' + prevTail : '')
+      + '\n\n' + instruction
+      + '\n\nTHE SCENE AS WRITTEN:\n' + current
+      + '\n\nRewrite it now, corrected.';
+    try {
+      const r: any = await this.ai.run({ task: 'scripton.feature.repair', system: sys, user, maxTokens: budget.maxTokens, temperature: 0.6, timeoutMs: 120000, projectId, refType: 'Project', refId: projectId });
+      const fixed = this.cleanSceneText(String((r && r.text) || ''));
+      // A repair can start a second document exactly as a first draft can, and this one is handed
+      // the scene as written — which is a document boundary in the prompt itself.
+      const cut = splitAtSecondDocument(fixed);
+      if (cut.problem) {
+        this.log.warn('repairScene: the rewrite of "' + header + '" carried a second document ('
+          + cut.problem.kind + ') — ' + (cut.keep ? 'trimmed it off.' : 'rejecting the rewrite.'));
+        return cut.keep ? cut.kept : '';
+      }
+      return fixed;
+    } catch (e) {
+      this.log.warn('repairScene: rewrite failed for "' + header + '" — ' + this.why(e));
+      return '';
+    }
+  }
+
+  /** Never spend a whole run's budget repairing. Past this, the residue is reported instead. */
+  private static readonly MAX_CONTINUITY_REPAIRS = 25;
+
+  /**
+   * THE FINAL VERIFICATION PASS — deterministic detection, targeted repair, deterministic re-check.
+   *
+   * The shape matters more than the checks. Detection contains no model: the plan declares who exits
+   * and when, the classifier extracts who actually speaks, and membership is not a judgement call.
+   * Repair is the only model call, it is given the exact violated constraint, and the SAME rule that
+   * flagged the scene decides whether the rewrite survives. That is the external feedback the
+   * self-correction literature says a repair loop needs; without it, the measured result is that
+   * models asked to fix their own work sometimes make it worse.
+   *
+   * Monotonic by construction: a rewrite is kept only if it clears the check AND did not gut the
+   * scene to do it. Otherwise the original stands. A draft with a known flaw beats a draft quietly
+   * replaced by something worse.
+   *
+   * `startIdx` is where newly-written scenes begin — 0 for a fresh generation, the resume point for
+   * an extend, whose out[0] holds all the pre-existing pages as one blob. Scenes before it are not
+   * checked: they were written by an earlier run and are not this run's to rewrite.
+   */
+  /**
+   * MECHANISM D — seed the registry and the state ledger from the PLAN, before a word is written.
+   *
+   * The plan is the only place in this pipeline that declares a change instead of describing one.
+   * Its `exits` field says who leaves the story and when, which is a life fact with a real
+   * `validFrom` — the exact anchor `canon-verify.util.ts` records as its missing input ("without a
+   * declared change point, a death at scene 30 is indistinguishable from a resurrection").
+   *
+   * Two things come out of this and both are used below: a closed vocabulary of every proper noun
+   * the film is allowed to contain, which is what the label-leak rule matches against; and a
+   * ledger the whole-draft audit can run on at the end.
+   */
+  /** How many times each character cue actually speaks, read off the written pages.
+   *  This is what turns "one entity, several aliases" into "one entity, several SPOKEN cues" —
+   *  an alias nobody speaks under is a synonym, not a split identity. */
+  /**
+   * MECHANISM D · THE ONE MODEL CALL, AT PLAN TIME.
+   *
+   * Three of the ledger's dimensions cannot be derived from the plan's own fields. `knows` is who
+   * learns what and when; `open` is a promise the story makes; `region` is the judgement that
+   * "ATLANTIC WATERS OFF SKERRY ISLAND, NOVA SCOTIA" and "EXT. FERRY SLIP, SKERRY ISLAND" are the
+   * same place. None of those is lexical, so a model supplies them — once, over the plan's briefs,
+   * before a single scene is written.
+   *
+   * WHY PLAN TIME AND NOT AFTER. DOC measured +22.5% plot coherence from moving this burden to
+   * planning rather than editing afterwards, and ConWriter's transition operators — preconditions,
+   * postconditions, and a memory that holds UNRESOLVED FUTURE CONSTRAINTS — cut consistency error
+   * density 78% while output length went UP. The Mercy is precisely an unresolved future
+   * constraint: a named vessel with a sailing day, established at scene 83 and never mentioned
+   * again in 103 pages. Nothing can notice that after the fact except a reader.
+   *
+   * WHAT THIS CALL IS NOT ALLOWED TO DO. It proposes facts. It never repairs, never renames, and
+   * never registers a person it invented: a `who` that does not resolve to an entity already in the
+   * registry is dropped on the floor. That is the "Vale Man" rule — a repair may move a name toward
+   * a form the project knows and may never mint one. A vessel or object under `opens` IS registered,
+   * because declaring a new plot object is a different act from correcting an existing name.
+   *
+   * Fail-open in every direction. A refusal, a timeout or unparseable JSON costs the ledger its
+   * knowledge and geography dimensions and costs the run nothing at all.
+   */
+  private async extractPlanState(
+    scenes: any[], reg: EntityRegistry, projectId: string,
+  ): Promise<{ facts: StateFact[]; places: PlaceObservation[]; transit: Set<number> }> {
+    const empty = { facts: [] as StateFact[], places: [] as PlaceObservation[], transit: new Set<number>() };
+    const list = Array.isArray(scenes) ? scenes : [];
+    if (!list.length) return empty;
+
+    const cast = Array.from(new Set(
+      Array.from(reg.entities.values())
+        .filter((e) => e.kind === 'PERSON' && !e.mergedInto)
+        .flatMap((e) => allForms(reg, e.id)),
+    )).slice(0, 120);
+    if (!cast.length) return empty;
+
+    const sys = 'You are a script supervisor reading a scene plan, not a writer. Return ONLY JSON: '
+      + '{"scenes":[{"n":<scene number>,"region":"<city, island or country — NOT a room>",'
+      + '"elapsed":"CONTINUOUS"|"SAME_DAY"|"LATER","travel":true|false,"recalled":true|false,'
+      + '"learns":[{"who":"<EXACT NAME FROM THE CAST LIST>","fact":"<SHORT STABLE UPPERCASE KEY>"}],'
+      + '"opens":[{"name":"<the thing named>","kind":"VESSEL"|"OBJECT"|"ORG"|"TIME_ANCHOR","promise":"<the constraint stated>"}],'
+      + '"closes":["<name of a thing established earlier and settled here>"]}]}\n'
+      + 'RULES. "who" MUST be copied exactly from the CAST list — never invent a person, never abbreviate one. '
+      + 'A scene with no discovery returns an empty "learns". '
+      + '"fact" is a short key like FATHER_BUILT_THE_NETWORK, and the SAME discovery in two scenes MUST use the SAME key — that is the entire point of the field. '
+      + '"opens" is ONLY for a named thing carrying a stated constraint: a vessel with a sailing day, a hearing with a date, a deadline. It is not for every prop. '
+      + '"travel" is true when the scene SHOWS someone departing, arriving or journeying. '
+      + '"recalled" is true for a flashback, dream, memory or archive/news footage. '
+      + 'No prose outside the JSON.';
+
+    const facts: StateFact[] = [];
+    const places: PlaceObservation[] = [];
+    const transit = new Set<number>();
+    const openedAt = new Map<string, StateFact>();
+    let recordedAt = 0;
+    const CHUNK = 50;
+
+    for (let start = 0; start < list.length; start += CHUNK) {
+      const slice = list.slice(start, start + CHUNK);
+      const lines = slice.map((sc: any, k: number) => {
+        const n = start + k + 1;
+        return n + '. ' + this.slugOf(sc || {}) + ' | ' + String((sc && sc.brief) || '').slice(0, 220)
+          + ' | cast: ' + splitCast(sc && sc.characters).join(', ');
+      }).join('\n');
+      const user = 'CAST (the only names you may use):\n' + cast.join(', ')
+        + '\n\nSCENES ' + (start + 1) + '-' + (start + slice.length) + ':\n' + lines;
+      let rows: any[] = [];
+      try {
+        const r: any = await this.ai.run({
+          task: 'scripton.feature.plan', system: sys, user,
+          maxTokens: 16000, timeoutMs: 180000, projectId, refType: 'Project', refId: projectId,
+        });
+        const parsed = JSON.parse(String((r && r.text) || '{}').replace(/^[^{]*/, '').replace(/[^}]*$/, ''));
+        rows = Array.isArray(parsed && parsed.scenes) ? parsed.scenes : [];
+      } catch (e: any) {
+        this.log.warn('extractPlanState: scenes ' + (start + 1) + '-' + (start + slice.length)
+          + ' returned nothing usable — the ledger loses knowledge and geography for this span. ' + this.why(e));
+        continue;
+      }
+
+      for (const row of rows) {
+        const n = Number(row && row.n);
+        if (!Number.isFinite(n) || n < 1 || n > list.length) continue;
+        const sc = list[n - 1] || {};
+        const heading = this.slugOf(sc);
+        const recalled = row.recalled === true;
+        if (row.travel === true || isTransitPlace(heading)) transit.add(n);
+
+        if (row.region) {
+          places.push({
+            entityId: '', scene: n, region: String(row.region).slice(0, 60),
+            elapsed: slugSaysContinuous(heading) ? 'CONTINUOUS'
+              : (['CONTINUOUS', 'SAME_DAY', 'LATER'].indexOf(String(row.elapsed)) >= 0 ? row.elapsed : 'UNKNOWN'),
+            recalled,
+          });
+        }
+
+        for (const l of (Array.isArray(row.learns) ? row.learns : [])) {
+          const id = resolveEntity(reg, l && l.who, n, 'PERSON');
+          const key = String((l && l.fact) || '').replace(/\s+/g, '_').toUpperCase().slice(0, 80);
+          // A name the registry does not already hold is dropped. It is not registered by inference.
+          if (!id || !key) continue;
+          facts.push({ entityId: id, dimension: 'knows', value: key, validFrom: n, validTo: null, recordedAt: ++recordedAt, sourceScene: n });
+        }
+
+        if (recalled) continue;   // a promise made inside a memory is not a promise the film owes
+
+        for (const o of (Array.isArray(row.opens) ? row.opens : [])) {
+          const name = String((o && o.name) || '').trim();
+          const promise = String((o && o.promise) || '').trim();
+          if (!name || !promise) continue;
+          const kind = (['VESSEL', 'OBJECT', 'ORG', 'TIME_ANCHOR'].indexOf(String(o.kind)) >= 0 ? o.kind : 'OBJECT');
+          const id = registerEntity(reg, kind as any, name, { at: n });
+          if (!id || openedAt.has(id)) continue;
+          const f: StateFact = {
+            entityId: id, dimension: 'open', value: promise.slice(0, 120),
+            validFrom: n, validTo: null, recordedAt: ++recordedAt, sourceScene: n, statement: promise.slice(0, 160),
+          };
+          openedAt.set(id, f);
+          facts.push(f);
+        }
+        for (const c of (Array.isArray(row.closes) ? row.closes : [])) {
+          const id = resolveEntity(reg, c, n);
+          const open = id ? openedAt.get(id) : null;
+          if (open && open.validTo == null && n > open.validFrom) open.validTo = n;
+        }
+      }
+    }
+
+    // A region observation belongs to every character present in that scene.
+    const expanded: PlaceObservation[] = [];
+    for (const p of places) {
+      const sc = list[p.scene - 1] || {};
+      for (const raw of splitCast(sc.characters)) {
+        const id = resolveEntity(reg, raw, p.scene, 'PERSON');
+        if (id) expanded.push({ ...p, entityId: id });
+      }
+    }
+    this.log.log('extractPlanState: ' + facts.filter((f) => f.dimension === 'knows').length + ' knowledge fact(s), '
+      + facts.filter((f) => f.dimension === 'open').length + ' open promise(s), '
+      + expanded.length + ' place observation(s), ' + transit.size + ' travel beat(s).');
+    return { facts, places: expanded, transit };
+  }
+
+  private cueCounts(view: { heading: string; text: string }[]): Map<string, number> {
+    const out = new Map<string, number>();
+    for (const v of (view || [])) {
+      if (!v || !v.text) continue;
+      for (const line of classifyScript(v.text)) {
+        if (line.kind !== 'cue') continue;
+        const name = normaliseCharacterName(line.text);
+        if (!name) continue;
+        out.set(name, (out.get(name) || 0) + 1);
+      }
+    }
+    return out;
+  }
+
+  private buildEntityLedger(scenes: any[], exits: CastExit[]): { reg: EntityRegistry; facts: StateFact[] } {
+    const reg = createRegistry();
+    const facts: StateFact[] = [];
+    let recordedAt = 0;
+    const list = Array.isArray(scenes) ? scenes : [];
+
+    for (let i = 0; i < list.length; i++) {
+      const sc = list[i] || {};
+      for (const raw of splitCast(sc.characters)) {
+        const id = registerEntity(reg, 'PERSON', raw);
+        if (!id) continue;
+        // A person is alive from their first scene until something in the plan says otherwise.
+        if (!facts.some((f) => f.entityId === id && f.dimension === 'life')) {
+          facts.push({ entityId: id, dimension: 'life', value: 'ALIVE', validFrom: 0, validTo: null, recordedAt: ++recordedAt, sourceScene: i + 1 });
+        }
+      }
+      const place = String(sc.location || sc.setName || sc.where || '').trim();
+      if (place) registerEntity(reg, 'PLACE', place);
+    }
+
+    for (const e of (Array.isArray(exits) ? exits : [])) {
+      if (!e || !e.name) continue;
+      const id = registerEntity(reg, 'PERSON', e.name);
+      if (!id) continue;
+      // The window opens the scene AFTER the exit, exactly as `unavailableAt` does — a character
+      // may play their own death. Only a death is a LIFE change; walking out of the story is not.
+      const dies = /kill|die|died|dead|death|shot|murder|drown|execut|assassinat/i.test(String(e.how || ''));
+      facts.push({
+        entityId: id,
+        dimension: dies ? 'life' : 'place',
+        value: dies ? 'DEAD' : 'GONE',
+        validFrom: (Number(e.scene) || 0) + 1,
+        validTo: null,
+        recordedAt: ++recordedAt,
+        sourceScene: (Number(e.scene) || 0) + 1,
+        statement: String(e.how || '').slice(0, 120) || undefined,
+      });
+    }
+    return { reg, facts };
+  }
+
+  private async verifyAndRepair(
+    docId: string, out: string[], scenes: any[], exits: CastExit[], facts: CanonFactCore[],
+    ctx: string, projectId: string, ar: boolean, startIdx: number, setP: (patch: any) => void,
+    ledger?: { reg: EntityRegistry; facts: StateFact[]; places?: PlaceObservation[]; transit?: Set<number> },
+  ): Promise<{ found: number; repaired: number; residue: ContinuityFinding[] }> {
+    const slot = (i: number) => i - startIdx + 1;
+    const headOf = (i: number) => (i + 1) + '  ' + this.slugOf(scenes[i] || {}, ar);
+    const view = () => scenes.map((_: any, i: number) => ({ heading: headOf(i), text: i < startIdx ? '' : String(out[slot(i)] || '') }));
+    const tracked = Array.from(new Set(
+      scenes.flatMap((sc: any) => splitCast(sc && sc.characters)).concat(exits.map((e) => e.name)),
+    ));
+    const sweep = () => checkDraftContinuity(view(), exits).concat(findNameDrift(view(), tracked, facts));
+
+    setP({ phase: 'VERIFYING', note: 'Final checks — continuity.' });
+    const findings = sweep();
+    const found = findings.length;
+    if (!found) {
+      this.log.log('verifyAndRepair: continuity clean across ' + (scenes.length - startIdx) + ' written scene(s) — '
+        + exits.length + ' exit(s) and ' + tracked.length + ' name(s) tracked.');
+      setP({ note: '' });
+      return { found: 0, repaired: 0, residue: [] };
+    }
+    this.log.warn('verifyAndRepair: ' + found + ' continuity issue(s) — '
+      + findings.slice(0, 8).map((f) => 'sc ' + (f.sceneIndex + 1) + ' ' + f.kind).join('; '));
+    setP({ phase: 'REPAIRING', note: found + ' continuity issue' + (found === 1 ? '' : 's') + ' found — repairing.' });
+
+    let repaired = 0;
+    for (const f of findings.slice(0, ScripOnService.MAX_CONTINUITY_REPAIRS)) {
+      if (this.cancelled(docId)) break;
+      const i = f.sceneIndex;
+      const sc = scenes[i];
+      if (!sc || i < startIdx) continue;
+      const header = headOf(i);
+      const current = String(out[slot(i)] || '');
+      if (!current) continue;
+
+      // A name is a substitution, not a rewrite. Sending a four-character correction to a language
+      // model would risk an entire working scene to fix a middle name.
+      if (f.kind === 'NAME_DRIFT') {
+        // CONFIRMED LIKE EVERY OTHER REPAIR. This branch used to substitute and move on, on the
+        // argument that "a name is a substitution, not a rewrite" — which is true, and was beside
+        // the point. On 1 Sep it rewrote "Vale Meridian" to "Vale Man" twenty times, in prose AND
+        // in every scene heading, and nothing downstream noticed. An unverified edit is not a safe
+        // edit because it is small; it is an unobserved one.
+        const bodyOnly = current.startsWith(header) ? current.slice(header.length).replace(/^\n+/, '') : current;
+        const fixedBody = canonicaliseNames(bodyOnly, f.names.slice(1), f.names[0]);
+        if (fixedBody === bodyOnly) { setP({ note: 'Repairing continuity — ' + repaired + ' of ' + found + ' fixed.' }); continue; }
+        const candidate = current.startsWith(header) ? header + '\n\n' + fixedBody : fixedBody;
+        // A name correction changes a handful of words. Anything larger is not a name correction.
+        const wasW = (bodyOnly.match(/\S+/g) || []).length;
+        const nowW = (fixedBody.match(/\S+/g) || []).length;
+        const reshaped = wasW > 0 && Math.abs(nowW - wasW) > Math.max(6, wasW * 0.1);
+        // And the check has to actually be cleared — re-run the same sweep on the corrected scene.
+        const stillDrifting = findNameDrift(
+          [{ heading: header, text: candidate }], tracked, facts,
+        ).length > 0;
+        if (reshaped || stillDrifting) {
+          this.log.warn('verifyAndRepair: REJECTED the name correction in scene ' + (i + 1)
+            + (reshaped ? ' — it changed ' + wasW + ' words to ' + nowW + '.' : ' — the drift is still there afterwards.'));
+          setP({ note: 'Repairing continuity — ' + repaired + ' of ' + found + ' fixed.' });
+          continue;
+        }
+        out[slot(i)] = candidate; repaired++;
+        this.log.log('verifyAndRepair: scene ' + (i + 1) + ' — name corrected to ' + f.names[0] + '.');
+        setP({ note: 'Repairing continuity — ' + repaired + ' of ' + found + ' fixed.' });
+        continue;
+      }
+
+      const bodyNow = current.startsWith(header) ? current.slice(header.length).replace(/^\n+/, '') : current;
+      const prevTail = String(out[Math.max(0, slot(i) - 1)] || '').slice(-700);
+      const budget = lineBudgetFor(snapPageWeight(sc.pageWeight));
+      const fixed = await this.repairScene(ctx, sc, header, prevTail, projectId, budget, repairInstruction(f, exits), bodyNow, await this.canon.directiveFor(docId, i));
+      setP({ note: 'Repairing continuity — ' + repaired + ' of ' + found + ' fixed.' });
+      if (!fixed || fixed === SCENE_STUB) continue;
+      const stillWrong = checkScene(i, header, header + '\n\n' + fixed, exits).length > 0;
+      const wasWords = (bodyNow.match(/\S+/g) || []).length;
+      const nowWords = (fixed.match(/\S+/g) || []).length;
+      const gutted = wasWords > 0 && nowWords < wasWords * 0.5;
+      if (stillWrong || gutted) {
+        this.log.warn('verifyAndRepair: REJECTED the rewrite of scene ' + (i + 1)
+          + (stillWrong ? ' — it still violates the constraint.' : ' — it cut the scene from ' + wasWords + ' to ' + nowWords + ' words.'));
+        continue;
+      }
+      out[slot(i)] = header + '\n\n' + fixed;
+      repaired++;
+      setP({ note: 'Repairing continuity — ' + repaired + ' of ' + found + ' fixed.' });
+    }
+
+    const residue = sweep();
+    this.log.log('verifyAndRepair: ' + repaired + ' of ' + found + ' repaired, ' + residue.length + ' unresolved.');
+
+    // MECHANISM D — the whole-draft ledger audit. REPORTED, never repaired.
+    //
+    // A life-state contradiction is not a scene that came back wrong; it is two scenes that cannot
+    // both be true, and deciding which one survives is a writer's call about the story. Sending
+    // either of them to a model to be "fixed" would pick one at random and destroy the other — the
+    // exact failure the Vale Man bug taught. So this names the contradiction, quotes both scenes,
+    // and stops there.
+    try {
+      const led = ledger || this.buildEntityLedger(scenes, exits);
+      const found2 = auditLedger(led.reg, led.facts, scenes.length, {
+        cueCounts: this.cueCounts(view()),
+        places: (led as any).places || [],
+        transitScenes: (led as any).transit || [],
+      });
+      if (found2.length) {
+        this.log.warn('ledger: ' + found2.length + ' identity/state finding(s) across the draft —');
+        for (const f of found2.slice(0, 20)) this.log.warn('  [' + f.kind + '] ' + ledgerFindingInstruction(f));
+      } else {
+        this.log.log('ledger: identity and state are consistent across ' + scenes.length + ' scene(s).');
+      }
+    } catch (e: any) {
+      // The ledger is a report. It must never be able to fail a run that produced a script.
+      this.log.warn('ledger: audit skipped — ' + this.why(e));
+    }
+
+    // DEATHS THE WRITER INVENTED. Every exit this system knows comes from the PLAN. On 1 Sep the
+    // plan said KANE @ 129, the writer killed him in scene 116 on its own initiative, and he spoke
+    // through the whole of 117 — invisible to every check, because nothing reads a death out of the
+    // written prose. This reads it.
+    //
+    // REPORTED ONLY, AND DELIBERATELY NOT FED FORWARD. Feeding a written death into
+    // `unavailableLine` would strike that character out of every later scene's prompt, so one false
+    // positive costs a living lead the third act. The detector is timid by construction — action
+    // lines, present tense, a closed predicate list, no hedged sentence, never in flashback — but
+    // timid is not the same as proven, and PLACE_JUMP is the standing lesson about shipping an
+    // unproven rule with teeth. Run it against real drafts first; when it reports nothing false,
+    // promoting it is one line at the scene loop.
+    try {
+      const invented = collectWrittenDeaths(view(), tracked);
+      const newExits = writtenDeathsAsExits(invented, exits);
+      if (newExits.length) {
+        this.log.warn('writtenDeaths: ' + newExits.length + ' character(s) die in the prose that the plan never declared —');
+        for (const d of invented.filter((x) => newExits.some((n) => n.name === x.name))) {
+          this.log.warn('  ' + d.name + ' — scene ' + (d.sceneIndex + 1) + ' ("' + d.evidence + '")');
+        }
+        const after = checkDraftContinuity(view(), newExits);
+        if (after.length) {
+          this.log.warn('writtenDeaths: ' + after.length + ' scene(s) contradict a death written on the page —');
+          for (const f of after.slice(0, 20)) this.log.warn('  [' + f.kind + '] ' + f.detail);
+        } else {
+          this.log.log('writtenDeaths: no scene contradicts them — the deaths are simply undeclared, not broken.');
+        }
+      }
+    } catch (e: any) {
+      this.log.warn('writtenDeaths: check skipped — ' + this.why(e));
+    }
+
+    // FIXED ATTRIBUTES. The ledger's six dimensions — life, place, physical, knows, holds, open —
+    // are all about what a character DOES or where they ARE. None of them covers what a character
+    // irreducibly IS, which is why Daria Kane could be written with female pronouns through most of
+    // a draft and male pronouns through the rest with nothing objecting. Pronouns are the first
+    // extractor; the signature that turned from A.Q. into R. Quick is the next one, and plugs into
+    // the same verdict.
+    //
+    // Reported, like everything else in this block. A pronoun is a one-word fix a writer makes in
+    // seconds once they are told where to look — sending the scene to a model to be rewritten would
+    // risk a page of prose to save a keystroke.
+    try {
+      const attrs = checkFixedAttributes(view(), tracked);
+      if (attrs.length) {
+        this.log.warn('fixedAttributes: ' + attrs.length + ' character(s) change a fixed property mid-draft —');
+        for (const a of attrs.slice(0, 20)) this.log.warn('  [' + a.kind + '/' + a.attribute + '] ' + a.detail + ' e.g. "' + a.evidence + '"');
+      }
+    } catch (e: any) {
+      this.log.warn('fixedAttributes: check skipped — ' + this.why(e));
+    }
+
+    setP({ note: '' });
+    return { found, repaired, residue };
+  }
+
+  private async writeScene(ctx: string, sc: any, header: string, storySoFar: string, prevTail: string, projectId: string, budget?: LineBudget, unavailable = '', canon = '', canonNames?: Iterable<string>): Promise<string> {
+    // The length instruction used to read "MUST fit on ONE page — roughly 8 to 16 short lines", which is
+    // self-contradictory: a 12pt Courier page is 55 lines (the same 55 paginate() counts). Every scene
+    // therefore came back at about a fifth of a page, and 60 of them made a 16-page "feature". The budget
+    // is now computed from the scene's own pageWeight, so a cutaway stays short and a set piece can breathe.
+    const b = budget || lineBudgetFor(sc && sc.pageWeight);
+    const pageWord = b.pages === 1 ? 'ONE full page' : (b.pages < 1 ? ('about ' + b.pages + ' of a page') : ('about ' + b.pages + ' pages'));
+    // Instruct in WORDS. Asking for a LINE count missed by ~50% on every scene, because line breaks
+    // depend on wrapping the model cannot see; word count is something it can actually track.
+    const lengthRule = 'LENGTH IS STRICT AND MEASURED: this scene must run ' + pageWord + ' of a screenplay — '
+      + 'approximately ' + b.wordsAsk + ' WORDS, and it must NOT exceed ' + b.wordsMax + ' words. '
+      + '(For reference that is roughly ' + b.target + ' lines including blank ones.) Count as you write and stop when you reach the target. '
+      + (b.pages <= 0.5
+          ? 'This is a SHORT beat: one image or one exchange, in and out. Do not develop it.'
+          : 'Fill the space with real dramatic content — action beats, behaviour, dialogue that turns. Do NOT pad with description.')
+      + ' Running OVER ' + b.wordsMax + ' words is a failure — it makes the finished screenplay too long to be a feature. '
+      + 'Coming in far under is also a failure. If the material wants more room than this, cut it to fit instead.'
+      // Density, not style. The 31 Aug draft opened with FOURTEEN consecutive description paragraphs
+      // before a human did anything — every line of it good, the stack of them unreadable. The fix is
+      // NOT to ban atmosphere (a script is READ before it is shot, and mood on the page is the point);
+      // it is to stop atmosphere from queueing up. Scoped to scenes that actually have people in them,
+      // so an establishing sequence with no cast is left alone.
+      + (sc.characters
+          ? ' PACING: characters are present in this scene, so at most THREE description paragraphs may'
+            + ' pass before one of them acts, moves or speaks. Atmosphere is welcome — stacked atmosphere'
+            + ' is not. Let an image land on its own line, then cut to a person.'
+          : ' PACING: no characters are listed for this scene, so it is an establishing beat — keep it to'
+            + ' a handful of images and get out.')
+      // The model was hard-wrapping mid-sentence, which the renderer then read as a paragraph break.
+      // The renderer now rejoins those, but a paragraph that arrives as one line is simply correct.
+      + ' FORMATTING: write each action paragraph and each character\'s speech as ONE continuous line —'
+      + ' do NOT insert line breaks inside a paragraph to wrap it. Separate paragraphs and beats with a'
+      + ' single blank line. The page layout does its own wrapping.';
+    const sys = 'You are a professional screenwriter writing ONE scene of a feature film in industry-standard FINAL DRAFT format. Present-tense action; dialogue = a centred UPPERCASE CHARACTER cue on its own line, an optional (parenthetical), then the line; use (V.O.)/(O.S.)/(CONT\'D) where apt. Land real emotion, subtext, conflict and one turn. ' + lengthRule + ' Write in fragments and single-line action beats (only what the camera sees); keep dialogue clipped and oblique — no speeches, no exposition dumps, no small talk. Enter on the last possible moment and cut on the turn. No novelistic prose, no unfilmable inner thoughts, no restating the heading. Do NOT write the scene heading/slug line (it is already provided) and do NOT add a scene number. Output ONLY the scene text.';
+    // Two blocks the writer never had. `canon` is the same handful of fixed facts on every scene —
+    // full names, durations, relationships — because a 130-scene feature is 130 independent calls and
+    // nothing else carries a fact from the scene that set it to the scene that contradicted it.
+    // `unavailable` names who is dead or gone, which is what stops a murdered mentor answering the
+    // telephone thirty scenes later. Both are small enough to ride on every prompt, and with prompt
+    // caching they are a cache read after the first scene.
+    const user = ctx
+      + (canon ? '\n\n' + canon : '')
+      + (storySoFar ? '\n\nSTORY SO FAR (continuity - do not repeat):' + storySoFar : '')
+      + (prevTail ? '\n\nPREVIOUS SCENE ENDED WITH (continue naturally, do not repeat):\n' + prevTail : '')
+      + '\n\nSCENE HEADING (already set, do not rewrite): ' + header
+      + '\nWHAT HAPPENS: ' + (sc.brief || 'Advance the story with conflict and a turn.')
+      + (sc.characters ? '\nCHARACTERS PRESENT: ' + sc.characters : '')
+      + (unavailable
+          ? '\nALREADY GONE - dead or departed by this point in the story: ' + unavailable
+            + '. They CANNOT appear in this scene, speak, telephone, message or be met. The living may'
+            + ' still name them, remember them, grieve them or argue about them.'
+          : '')
+      + '\nTARGET LENGTH: ' + b.target + ' lines (' + b.pages + ' page' + (b.pages === 1 ? '' : 's') + ').\n\nWrite this scene in full now.';
+    const clean = (raw: string) => this.cleanSceneText(raw);
+    // What the last attempt got wrong, in words, appended to the next attempt's prompt.
+    //
+    // The gate used to detect a broken scene and retry the IDENTICAL request, which asks the model
+    // to be luckier rather than to fix anything. Naming the defect is what makes the retry a
+    // repair — and because the same deterministic check re-runs on the result, it is a repair that
+    // confirms itself, which is the rule the "Vale Man" bug was written to enforce.
+    let lastDefect = '';
     // Retry transient failures (timeout / rate-limit / empty return) before falling
     // back to the stub — a whole run of stubs is the bug we are hardening against.
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        const r: any = await this.ai.run({ task: 'scripton.feature.scene', system: sys, user, maxTokens: 8000, temperature: 0.85, timeoutMs: 120000, projectId, refType: 'Project', refId: projectId });
-        const txt = clean(String((r && r.text) || ''));
-        if (txt) return txt;
-      } catch { /* transient — retry */ }
+        // maxTokens here is a RUNAWAY GUARD, not the length control — see CAP_HEADROOM in
+        // lineBudgetFor. Length is controlled by wordsAsk (the budget divided by the model's measured
+        // delivery factor), so the scene lands on target and closes itself. Never tighten this cap to
+        // shorten a scene: max_tokens stops the stream mid-word, which files a truncated scene.
+        const attemptUser = lastDefect
+          ? user + '\n\nTHE PREVIOUS ATTEMPT AT THIS SCENE WAS REJECTED. ' + lastDefect
+            + '\nWrite the scene again, in full, complete to its last line.'
+          : user;
+        const r: any = await this.ai.run({ task: 'scripton.feature.scene', system: sys, user: attemptUser, maxTokens: b.maxTokens, temperature: 0.85, timeoutMs: 120000, projectId, refType: 'Project', refId: projectId });
+        let txt = clean(String((r && r.text) || ''));
+        // ONE SCENE, ONE STORY. On 1 Sep a single return carried the Jason/Sophie scene followed by
+        // two pages of THE TRUMAN SHOW, markdown headings and all, and it shipped in the PDF. The
+        // split keeps the scene when what survives is still a scene, and throws the whole answer
+        // away when it is not — a truncation is a repair, so it is confirmed before it is kept.
+        if (txt) {
+          // The surviving text has to be a plausible scene on this scene's OWN terms, so the floor
+          // comes from the word budget rather than from a flat proportion.
+          const cut = splitAtSecondDocument(txt, Math.max(40, Math.round(b.wordsAsk * 0.4)));
+          if (cut.problem) {
+            const words = (cut.dropped.match(/\S+/g) || []).length;
+            if (cut.keep) {
+              this.log.warn('writeScene: "' + header + '" came back with a SECOND DOCUMENT ('
+                + cut.problem.kind + ' at "' + cut.problem.line + '") — dropped ' + words
+                + ' foreign word(s) and kept the scene.');
+              txt = cut.kept;
+            } else {
+              this.log.warn('writeScene: "' + header + '" came back with a SECOND DOCUMENT ('
+                + cut.problem.kind + ' at "' + cut.problem.line + '") and too little of the scene'
+                + ' survived it — discarding the whole answer (attempt ' + (attempt + 1) + '/3).');
+              continue;
+            }
+          }
+        }
+        // MECHANISM C — INTEGRITY GATE. A scene that stops mid-word, or that promises itself
+        // instead of being written, is not a scene. On 1 Sep five of them shipped inside a
+        // 103-page protected PDF: three cut mid-sentence ("...thrashing, l", "But he stops
+        // breath", "...the door swing shut") and two whose entire body was "(The scene
+        // continues.)". mostlyStub() could not have caught them — five of 139 is a healthy run.
+        // The check needs no model and no other scene, so it costs nothing to run every time.
+        if (txt) {
+          const defects = checkSceneIntegrity(0, header, txt, canonNames);
+          if (defects.length) {
+            const worst = defects[0];
+            if (attempt < 2) {
+              lastDefect = sceneDefectInstruction(worst);
+              this.log.warn('writeScene: "' + header + '" failed the integrity gate ('
+                + worst.kind + ': "' + worst.detail + '") — naming the fault and retrying (attempt '
+                + (attempt + 1) + '/3).');
+              continue;
+            }
+            // Last attempt. Keep the prose — a scene that stops one clause early is worth far
+            // more than a stub — but say exactly what is wrong so the repair pass and the
+            // export gate both see it, and so it can never be mistaken for a finished scene.
+            this.log.error('writeScene: "' + header + '" STILL fails the integrity gate after 3 '
+              + 'attempts (' + defects.map((d) => d.kind + ': "' + d.detail + '"').join('; ')
+              + ') — filing it flagged. ' + sceneDefectInstruction(worst));
+          }
+        }
+        if (txt) {
+          // CALIBRATION DATA. DELIVERY_FACTOR is currently inferred from run totals because nothing
+          // recorded what each scene was asked for. One line per scene fixes that: grep 'scene.len'
+          // from a finished run, group by w=, and set the factor (or a curve) from real numbers.
+          const delivered = (txt.match(/\S+/g) || []).length;
+          this.log.log('scene.len w=' + b.pages + ' ask=' + b.wordsAsk + ' budget=' + b.wordsBudget
+            + ' got=' + delivered + ' ratio=' + (b.wordsAsk > 0 ? (delivered / b.wordsAsk).toFixed(2) : 'n/a')
+            + ' | ' + header.slice(0, 48));
+          return txt;
+        }
+        this.log.warn('writeScene: empty text returned for "' + header + '" (attempt ' + (attempt + 1) + '/3).');
+      } catch (e) {
+        // TERMINAL vs TRANSIENT. A retry is a bet that the next call differs from the last one.
+        // Against a timeout or a rate limit that bet is good. Against an empty wallet it is not a
+        // bet at all: on 1 Sep the router answered "out of credit/quota" for every provider and this
+        // loop spent sixty-three doomed requests turning the last twenty-one scenes — the whole
+        // third act — into stubs, after which the run filed itself DONE. Unwind instead, and let the
+        // caller keep the 116 scenes that are real.
+        if (isProviderExhausted(e)) {
+          this.log.error('writeScene: HALTING at "' + header + '" — every AI provider refused for a reason no retry can fix. ' + this.why(e));
+          throw new ScriptGenerationHalted('PROVIDER_EXHAUSTED', this.why(e));
+        }
+        this.log.warn('writeScene: attempt ' + (attempt + 1) + '/3 failed for "' + header + '" — ' + this.why(e));
+      }
     }
+    // Three failures. The caller counts stubs and fails the run wholesale past 50%, but a handful of
+    // stubs slips through into a filed draft — so name every one.
+    this.log.error('writeScene: GAVE UP on "' + header + '" after 3 attempts — filing a stub.');
     return SCENE_STUB;
   }
 
-  // Half-or-more scenes stubbed = the AI never returned prose (a transient outage),
-  // not a real draft. Used to fail the run instead of silently filing stubs as DONE.
+  // Half-or-more scenes stubbed = the AI never returned prose across the whole run. Kept as a
+  // BACKSTOP only. It is the wrong shape for the failure that actually happened: twenty-one dead
+  // scenes at the end of a 139-scene draft is 15%, and 15% passes this gate cleanly. What sees that
+  // run is the consecutive-stub guard (isStubRunaway) in the scene loops, which trips at five.
+  /**
+   * The one sentence the operator reads when a run produces nothing.
+   *
+   * It has to be true. "The AI engine did not answer in time" is a diagnosis, and printing it over
+   * an empty balance costs an evening looking at timeouts and network settings. A terminal failure
+   * is also told plainly that retrying is pointless — otherwise the button invites exactly that.
+   */
+  private whyThePlanWasEmpty(projectId: string): string {
+    const f = this.planFailure.get(projectId);
+    const tail = ' Nothing was written and your current script is untouched.';
+    if (!f) {
+      return 'The scene planner returned no scenes — the AI engine did not answer in time.' + tail
+        + ' Check AI Engines & Routing, then run Generate again.';
+    }
+    if (f.terminal) {
+      return 'The scene planner could not run — ' + f.message + tail
+        + ' This is NOT a timeout and running Generate again will not help:'
+        + ' fix the provider in AI Engines & Routing (top up the credit, or route planning to an engine that has quota), then try again.';
+    }
+    return 'The scene planner returned no scenes — ' + f.message + tail
+      + ' Check AI Engines & Routing, then run Generate again.';
+  }
+
   private mostlyStub(stubs: number, total: number): boolean {
     return total > 0 && stubs / total >= 0.5;
+  }
+
+  // Drop the trailing stubs a halted run leaves behind, so the saved partial ends on real prose
+  // rather than on four repetitions of "(The scene continues.)". `floor` protects an extend run's
+  // out[0], which holds the entire pre-existing draft and must never be popped.
+  private trimTrailingStubs(out: string[], floor: number): string[] {
+    while (out.length > floor && String(out[out.length - 1]).endsWith(SCENE_STUB)) out.pop();
+    return out;
+  }
+
+  /**
+   * Landing for a run stopped part-way ON PURPOSE — the providers are gone, or the writer has
+   * stopped returning prose.
+   *
+   * ERROR, not DONE, for the reason spelled out on failHeadlessDraft: DONE is an action, not a
+   * label. It swaps the new revision over the user's working script and materialises its scenes
+   * onto the board. Neither may happen for a draft that stops at scene 116 of 139.
+   *
+   * And like failHeadlessDraft — unlike failStubRun, and unlike the catch-all at the bottom of
+   * generateFeatureAsync — the pages already written are NOT overwritten with an apology. That
+   * prose cost real money and is worth reading; it stays on its own revision row, visible in the
+   * Drafts panel, while the user's current script is left exactly as it was.
+   */
+  private failPartialRun(docId: string, kind: HaltKind, written: number, total: number, pageCount: number, detail: string): void {
+    const why = String(detail || '').trim().replace(/\.+$/, '');
+    const cause = kind === 'PROVIDER_EXHAUSTED'
+      ? 'no AI provider would accept the request, for a reason retrying cannot fix — an empty balance, a spend cap, or a bad key'
+      : 'the writer stopped returning prose — ' + STUB_STREAK_ABORT + ' scenes in a row came back empty';
+    const fix = kind === 'PROVIDER_EXHAUSTED'
+      ? 'Top up or fix the provider in AI Engines & Routing, then run Full rewrite.'
+      : 'Check AI Engines & Routing, then run Full rewrite.';
+    const p = this.genProgress.get(docId);
+    if (p) {
+      p.status = 'ERROR';
+      p.coverage = 'SHORT';
+      p.done = written;
+      p.pageCount = pageCount;
+      p.error = 'Generation stopped at scene ' + written + ' of ' + total + ' — ' + cause
+        + (why ? ' (' + why + ')' : '') + '. It was NOT filed as your script and your current pages are untouched. '
+        + 'The ' + pageCount + ' pages already written have been saved as a draft, not discarded. ' + fix;
+      p.lastActivityAt = Date.now();
+    }
+    this.log.error('failPartialRun[' + kind + ']: script ' + docId + ' stopped after ' + written + ' of ' + total
+      + ' scenes (' + pageCount + ' pages saved) — filed as ERROR, revision NOT activated.' + (why ? ' Cause: ' + why : ''));
   }
 
   // Mark a wholesale-stub generation as ERROR (not DONE) and replace the partial stub
@@ -1264,12 +2505,115 @@ export class ScripOnService {
     const p = this.genProgress.get(docId);
     if (p) { p.status = 'ERROR'; p.error = `Scene generation returned no prose for ${stubs} of ${total} scenes.`; }
     const text = 'FADE IN:\n\n(Scene generation did not return prose — ' + stubs + ' of ' + total + ' scenes came back empty. The draft was NOT filed as complete. Open the build in ScripON Studio and run "Generate script" again.)';
-    await (this.prisma as any).scriptRevision.update({ where: { id: revId }, data: { pageText: [{ page: 1, text }], pageCount: 1 } }).catch(() => {});
+    this.log.error('failStubRun: scene generation returned no prose for ' + stubs + ' of ' + total + ' scenes — the run is marked ERROR and NOT filed as complete.');
+    await (this.prisma as any).scriptRevision.update({ where: { id: revId }, data: { pageText: [{ page: 1, text }], pageCount: 1 } }).catch((e: any) => { this.log.error('failStubRun: could not write the placeholder to revision ' + revId + '. ' + this.why(e)); });
+  }
+
+  /**
+   * Landing for a draft that stopped before the outline's final beats.
+   *
+   * Why this is an ERROR and not a DONE carrying a SHORT badge: DONE is not a label, it is an action.
+   * The regenerate call site swaps the new revision over the user's working script on `status === 'DONE'`,
+   * and generateScriptAsync materialises its scenes onto the board on the same condition. A script with
+   * no ending must trigger neither. Length misses are different in kind and still file as DONE — short
+   * is recoverable by extending, long by trimming, and both are readable meanwhile. A missing climax and
+   * resolution is recoverable by neither, because there is no story to read.
+   *
+   * Unlike failStubRun, the written pages are deliberately NOT overwritten with a placeholder: this prose
+   * is real and worth reading. Every page stays exactly as saved on its revision row — the same contract
+   * as a cancel, reached by a different route.
+   */
+  private failHeadlessDraft(docId: string, pageCount: number, sceneCount: number, coverageNote: string, reason: string, retry: string): void {
+    const why = String(reason || '').trim().replace(/\.+$/, '');
+    const p = this.genProgress.get(docId);
+    if (p) {
+      p.status = 'ERROR';
+      p.coverage = 'SHORT';
+      p.done = sceneCount;
+      p.pageCount = pageCount;
+      p.coverageNote = coverageNote || '';
+      p.error = 'The draft stops before the story reaches its ending'
+        + (why ? ' — ' + why : '')
+        + '. It was not filed as your script — your current pages are untouched, and the ' + pageCount + ' pages that were written have been saved, not discarded. Run ' + retry + ' again to write through to the climax and resolution.';
+      p.lastActivityAt = Date.now();
+    }
+    this.log.error('failHeadlessDraft: script ' + docId + ' wrote ' + sceneCount + ' scenes over ' + pageCount
+      + ' pages but did NOT reach the outline\'s final beats — filed as ERROR, revision NOT activated.'
+      + (why ? ' Verdict: ' + why : ''));
+  }
+
+  /**
+   * Length gate + expansion. A draft can reach the outline's final beat and still be half a feature —
+   * that is exactly the failure this whole budget exists to catch, and `verifyEnding` cannot see it
+   * because the ending is present. So: measure the real page count, and while the draft is short,
+   * rewrite the scenes that came in furthest UNDER their page allocation at a bigger budget. Scenes
+   * that already hit their mark are left alone — a short draft is short because specific scenes
+   * underdelivered, not because every scene needs to grow.
+   *
+   * `out[0]` is 'FADE IN:', so scene i lives at out[i + 1]. Bounded to two passes and 24 scenes each
+   * so a stubborn model cannot spin here forever.
+   */
+  private async expandShortScenes(
+    docId: string,
+    out: string[], scenes: any[], ctx: string, projectId: string, ar: boolean,
+    plan: FeatureLengthPlan,
+    setP: (patch: any) => void,
+    // An expansion is a rewrite, so it needs the same continuity state the first draft had —
+    // otherwise the pass that lengthens a short scene is free to resurrect somebody in it.
+    exits: CastExit[],
+    save: (draft: string[]) => Promise<number>,
+  ): Promise<{ pages: number; expanded: number }> {
+    const OFFSET = 1; // out[0] === 'FADE IN:'
+    let pages = await save(out);
+    let expanded = 0;
+    let halted = false;   // set when the writer goes away mid-sweep; see the catch below
+    for (let pass = 0; pass < 2; pass++) {
+      if (this.cancelled(docId)) break;
+      if (isLengthComplete(pages, plan.targetPages)) break;
+      const written = scenes.map((sc: any, i: number) => ({ text: String(out[i + OFFSET] || ''), pageWeight: sc && sc.pageWeight }));
+      const candidates = expansionCandidates(written, 24);
+      if (!candidates.length) break;
+      setP({
+        phase: 'EXPANDING',
+        note: 'Draft is ' + pages + ' of ~' + plan.targetPages + ' pages — expanding ' + candidates.length + ' short scenes.',
+      });
+      for (const c of candidates) {
+        if (this.cancelled(docId)) break;
+        const sc = scenes[c.index];
+        if (!sc) continue;
+        const header = (c.index + 1) + '  ' + this.slugOf(sc, ar);
+        // Ask for half a page more than the original allocation, capped at the largest allowed weight.
+        const bumped = lineBudgetFor(Math.min(3, snapPageWeight(sc.pageWeight) * 1.5));
+        const prevTail = String(out[c.index] || '').slice(-700);
+        let body = '';
+        try {
+          body = await this.writeScene(ctx, sc, header, '', prevTail, projectId, bumped, unavailableLine(exits, c.index), await this.canon.directiveFor(docId, c.index));
+        } catch (e) {
+          // The same outage the scene loop guards. Expansion is optional work — abandon the sweep
+          // rather than spend another forty doomed requests; the draft stands exactly as written.
+          if (isHalt(e)) { this.log.warn('expandShortScenes: halted mid-pass — ' + this.why(e)); halted = true; break; }
+          this.log.warn('expandShortScenes: rewrite failed for scene ' + (c.index + 1) + ' — ' + this.why(e)); body = '';
+        }
+        // Only accept a rewrite that is genuinely longer — never trade a good scene for a shorter one.
+        if (body && body !== SCENE_STUB && countVisualLines(body) > c.wrote) {
+          out[c.index + OFFSET] = header + '\n\n' + body;
+          expanded++;
+        }
+        setP({ note: 'Expanding short scenes — ' + expanded + ' rewritten.' });
+      }
+      pages = await save(out);
+      this.log.log('expandShortScenes: pass ' + (pass + 1) + ' rewrote ' + expanded + ' scenes — draft now ' + pages + ' of ~' + plan.targetPages + ' pages.');
+      if (halted) break;
+    }
+    if (!isLengthComplete(pages, plan.targetPages)) {
+      this.log.warn('expandShortScenes: draft still short at ' + pages + ' of ~' + plan.targetPages + ' pages after expansion.');
+    }
+    return { pages, expanded };
   }
 
   private async generateFeatureAsync(docId: string, revId: string, projectId: string, stages: any[], existing: any[]): Promise<void> {
     try {
-      const bRow: any = await (this.prisma as any).developmentBuild.findFirst({ where: { linkedScriptId: docId } }).catch(() => null);
+      const bRow: any = await (this.prisma as any).developmentBuild.findFirst({ where: { linkedScriptId: docId } }).catch((e: any) => { this.log.warn('build lookup failed for script ' + docId + ' — falling back to an empty brief. ' + this.why(e)); return null; });
       const featBrief = (bRow && bRow.brief) || {};
       const featDirective = [await this.langDirective(featBrief), knowledgeDirective(featBrief)].filter(Boolean).join('\n');
       const ctx = await this.buildFeatureCtx(projectId, stages, featDirective);
@@ -1286,30 +2630,142 @@ export class ScripOnService {
       // #45: a SERIES targets its per-episode scene density (the pilot episode), not the feature band.
       const isSeries = ['TV_SERIES', 'LIMITED'].indexOf(String(featBrief.projectType || '').toUpperCase()) >= 0;
       const ssc = isSeries ? seriesSceneCount(featBrief.episodes, featBrief.minutesPerEp) : null;
-      const target = ssc ? ssc.scenesPerEp : Math.min(90, Math.max(55, beatN ? Math.round(beatN * 1.5) : 60));
+      // Feature length is budgeted from PAGES, not from a beat multiplier. The old
+      // `Math.min(90, Math.max(55, beatN * 1.5))` defaulted to 60 scenes and capped at 90 — below the
+      // average produced feature — and combined with the old per-scene length target it produced a
+      // ~16-page document. beatN is now only a floor: every beat still has to be dramatised.
+      const lenPlan: FeatureLengthPlan | null = ssc ? null : planFeatureLength(featBrief, beatN);
+      const target = ssc ? ssc.scenesPerEp : (lenPlan as FeatureLengthPlan).targetScenes;
       // Heartbeat while PLANNING (planScenes runs minutes before the first scene is written, so the
       // page counter can't move — the frontend stall guard must watch this, not just `done`).
       const beat = () => { const p = this.genProgress.get(docId); if (p) { p.phase = 'PLANNING'; p.lastActivityAt = Date.now(); } };
-      const planned = await this.planScenes(ctx, projectId, spine, target, !!ssc, beat);
+      const planned = await this.planScenes(ctx, projectId, spine, target, !!ssc, beat, lenPlan);
+      // An EMPTY plan is a planner failure, and writing a script from whatever happens to be lying in
+      // the SCENES stage is not a recovery — it is how a timed-out planning call became a 95-page draft
+      // with no page weights, no exits, no continuity gate and no error message. A SHORT plan may still
+      // legitimately defer to richer developed cards; a plan of zero never can.
+      if (!planned.length && !ssc) {
+        throw new Error(this.whyThePlanWasEmpty(projectId));
+      }
       // Series: use the planned pilot at episode density (don't let a full-season SCENES stage override it).
       let scenes: any[] = ssc ? planned : ((planned.length >= (existing ? existing.length : 0)) ? planned : existing);
       if (!scenes || !scenes.length) scenes = (existing && existing.length) ? existing : planned;
+      // Normalise the per-scene page allocations so they add up to the page target. The planner is asked
+      // for them, but models drift on arithmetic across a hundred items, so the totals are rescaled here
+      // rather than trusted. A reused SCENES stage has no weights at all and gets a sane default.
+      if (lenPlan && scenes.length) scenes = applyPageWeights(scenes, lenPlan.targetPages);
+      // ── CONTINUITY STATE ──────────────────────────────────────────────────────────────────
+      // Two things the writer has never had. `exits` says who is dead or gone and from which scene,
+      // so a murdered mentor cannot answer a telephone thirty scenes later — and, expressed as canon
+      // facts, it is the anchor `canon-verify.util.ts` records as its missing input: without a declared
+      // change point, a death at scene 30 is indistinguishable from a resurrection. The canon directive
+      // is the rest — full names, durations, relationships — resolved to each scene's story point by
+      // `resolveCanonAt` rather than sent flat to all 130.
+      const exits: CastExit[] = collectExits(scenes);
+      // MECHANISM D — the closed vocabulary, built from the plan before the first scene is written.
+      // Without it `checkSceneIntegrity`'s label-leak rule has no cast to match against and stays
+      // silent, which is how YOUNG JASON became a passport, a police booking and an access log.
+      const ledgerSeed = (() => {
+        try { return this.buildEntityLedger(scenes, exits); }
+        catch { return { reg: createRegistry(), facts: [] as StateFact[] }; }
+      })();
+      const castVocab = new Set<string>();
+      for (const e of ledgerSeed.reg.entities.values()) {
+        if (e.kind !== 'PERSON' || e.mergedInto) continue;
+        for (const f of allForms(ledgerSeed.reg, e.id)) castVocab.add(f);
+      }
+      // The one model call. Knowledge, promises and geography — the three dimensions the plan's own
+      // fields cannot carry. It mutates `ledgerSeed.reg` by registering the vessels and objects the
+      // story declares, which is why it runs before the writer starts rather than beside it.
+      const planState = await this.extractPlanState(scenes, ledgerSeed.reg, projectId)
+        .catch((e: any) => { this.log.warn('extractPlanState: skipped — ' + this.why(e)); return { facts: [] as StateFact[], places: [] as PlaceObservation[], transit: new Set<number>() }; });
+      const ledger = { reg: ledgerSeed.reg, facts: ledgerSeed.facts.concat(planState.facts), places: planState.places, transit: planState.transit };
+      if (exits.length) {
+        const planIssues = checkPlanCast(scenes, exits);
+        const strip = stripExitedCast(scenes, exits);
+        scenes = strip.scenes;
+        if (planIssues.length) this.log.warn('generateFeatureAsync: the plan itself lists characters who have already left the story in '
+          + planIssues.length + ' scene(s) — ' + strip.removed + ' cast entries removed before writing.');
+        this.log.log('generateFeatureAsync: tracking ' + exits.length + ' cast exit(s) — '
+          + exits.map((e) => e.name + ' @ ' + (e.scene + 1)).join(', '));
+      }
+      // Still PLANNING as far as the UI is concerned — this is one call that can run a couple of
+      // minutes on a long document, and a silent gap reads as a hang. The overlay never stall-checks
+      // during PLANNING, so the heartbeat is what keeps the message honest rather than what keeps it alive.
+      const beatCanon = this.genProgress.get(docId);
+      if (beatCanon) { beatCanon.phase = 'PLANNING'; beatCanon.note = 'Reading the source for the story\'s fixed facts — names, dates, relationships.'; beatCanon.lastActivityAt = Date.now(); }
+      // Everything goes into the canon graph in ./canon rather than a parallel store: it is bi-temporal,
+      // so `resolveCanonAt` answers "what is true at scene N" without any special-casing here, and
+      // `persistFacts` stamps a monotonic recordedAt so a rerun's facts supersede the previous run's.
+      const canonFacts: CanonFactCore[] = exitsAsCanonFacts(exits).concat(await this.extractCanon(projectId, stages));
+      if (canonFacts.length) await this.canon.persistFacts(docId, canonFacts).catch((e: any) => this.log.warn('persistFacts failed — the draft continues without stored canon. ' + this.why(e)));
       const setP = (patch: any) => { const p = this.genProgress.get(docId); if (p) Object.assign(p, patch, { lastActivityAt: Date.now() }); };
-      const saveRev = async (pages: any[]) => { await (this.prisma as any).scriptRevision.update({ where: { id: revId }, data: { pageText: pages, pageCount: pages.length } }).catch(() => {}); };
+      const saveRev = async (pages: any[]) => { await (this.prisma as any).scriptRevision.update({ where: { id: revId }, data: { pageText: pages, pageCount: pages.length } }).catch((e: any) => { this.log.error('saveRev: could NOT persist ' + pages.length + ' pages to revision ' + revId + ' — generated work is being lost. ' + this.why(e)); }); };
       if (!scenes.length) {
         const bodyOf = (k: string) => { const x: any = stages.find((y: any) => y.kind === k); return String((x && x.current && x.current.body) || ''); };
         const pages = this.paginate(this.ensureSluglines(bodyOf('DRAFT')) || 'No developed material to expand into a feature yet.');
         await saveRev(pages); setP({ status: 'DONE', total: pages.length, done: pages.length, pageCount: pages.length });
         return;
       }
-      setP({ total: scenes.length, phase: 'WRITING', note: '' });
+      setP({
+        total: scenes.length, phase: 'WRITING', note: '',
+        targetPages: lenPlan ? lenPlan.targetPages : null,
+        targetMinutes: lenPlan ? lenPlan.targetMinutes : null,
+      });
       const out: string[] = ['FADE IN:'];
-      let storySoFar = ''; let prevTail = ''; let stubs = 0;
+      let storySoFar = ''; let prevTail = ''; let stubs = 0; let streak = 0;
+      // Live page budget. Allocating up front and trusting the model does not hold — it ran ~50% over
+      // on every scene, so a 105-page plan was heading for 190. After each scene we re-derive the
+      // remaining allowance from what is ACTUALLY on the page and scale the next scene to fit.
+      const plannedTotal = scenes.reduce((a: number, x: any) => a + snapPageWeight(x && x.pageWeight), 0);
+      let plannedSoFar = 0;
+      let linesSoFar = 1; // 'FADE IN:'
       for (let i = 0; i < scenes.length; i++) {
+        // Cooperative cancel — checked between scenes so a stop never truncates one mid-write.
+        if (this.cancelled(docId)) {
+          const pages = this.paginate(out.join('\n\n'));
+          await saveRev(pages);
+          this.finishCancelled(docId, i, scenes.length, pages.length);
+          return;
+        }
         const sc = scenes[i];
         const header = (i + 1) + '  ' + this.slugOf(sc, ar);
-        const body = await this.writeScene(ctx, sc, header, storySoFar.slice(-1600), prevTail.slice(-700), projectId);
-        if (body === SCENE_STUB) stubs++;
+        const baseWeight = snapPageWeight(sc && sc.pageWeight);
+        const scale = lenPlan
+          ? remainingBudgetScale((lenPlan as FeatureLengthPlan).targetPages, linesSoFar / LINES_PER_PAGE, plannedTotal - plannedSoFar)
+          : 1;
+        const budget = lineBudgetFor(baseWeight * scale);
+        let body: string;
+        try {
+          body = await this.writeScene(ctx, sc, header, storySoFar.slice(-1600), prevTail.slice(-700), projectId, budget, unavailableLine(exits, i), await this.canon.directiveFor(docId, i), castVocab);
+        } catch (e) {
+          // Only a deliberate halt lands here; anything else is a real crash and belongs to the
+          // catch-all below, which is allowed to replace pageText because there is nothing to keep.
+          if (!isHalt(e)) throw e;
+          const pages = this.paginate(this.trimTrailingStubs(out, 0).join('\n\n'));
+          await saveRev(pages);
+          this.failPartialRun(docId, e.kind, i, scenes.length, pages.length, e.message);
+          return;
+        }
+        if (body === SCENE_STUB) { stubs++; streak++; } else streak = 0;
+        // A RUNAWAY, NOT BAD LUCK. An empty return is ordinary and local — seven scenes came back
+        // empty on 1 Sep and every one recovered on its own second or third attempt. Five in a row
+        // is fifteen consecutive failed requests, which is not this scene being difficult; it is the
+        // writer being gone. Stop, keep what is real, and say so.
+        if (isStubRunaway(streak)) {
+          const pages = this.paginate(this.trimTrailingStubs(out, 0).join('\n\n'));
+          await saveRev(pages);
+          this.failPartialRun(docId, 'STUB_STREAK', i + 1 - streak, scenes.length, pages.length, streak + ' consecutive empty scenes');
+          return;
+        }
+        plannedSoFar += baseWeight;
+        linesSoFar += countVisualLines(header + '\n\n' + body) + 2; // +2 for the blank-line join
+        if (lenPlan && i > 0 && i % 25 === 0) {
+          const lp = lenPlan as FeatureLengthPlan;
+          this.log.log('generateFeatureAsync: scene ' + (i + 1) + '/' + scenes.length + ' — '
+            + Math.round(linesSoFar / LINES_PER_PAGE) + ' pages of ~' + lp.targetPages
+            + ' (planned ' + Math.round(plannedSoFar) + ') · budget scale ' + scale.toFixed(2) + '.');
+        }
         out.push(header + '\n\n' + body);
         prevTail = body.slice(-700);
         storySoFar = (storySoFar + '\n' + (i + 1) + '. ' + String(sc.brief || '').slice(0, 150)).slice(-2400);
@@ -1320,20 +2776,79 @@ export class ScripOnService {
       // did not actually write prose (transient outage). Do NOT file an all-stub script as
       // DONE — mark ERROR so the bridge skips it and (on regenerate) the old draft survives.
       if (this.mostlyStub(stubs, scenes.length)) { await this.failStubRun(docId, revId, stubs, scenes.length); return; }
+      // LENGTH GATE. Reaching the final beat is not the same as being a feature: the old configuration
+      // could hit the ending at 16 pages and file DONE. Measure, and expand the scenes that came in
+      // short before anything is called complete.
+      let expandedCount = 0;
+      if (lenPlan) {
+        const res = await this.expandShortScenes(docId, out, scenes, ctx, projectId, ar, lenPlan, setP, exits, async (draft: string[]) => {
+          const pg = this.paginate(draft.join('\n\n') + '\n\nFADE OUT.');
+          await saveRev(pg);
+          setP({ pageCount: pg.length });
+          return pg.length;
+        });
+        expandedCount = res.expanded;
+      }
+      // ── FINAL VERIFICATION PASS ───────────────────────────────────────────────────────────
+      // Runs after expansion (which rewrites scenes and can reintroduce a fault) and before anything
+      // is filed. Deterministic detection, targeted repair, deterministic re-check.
+      const contin = await this.verifyAndRepair(docId, out, scenes, exits, canonFacts, ctx, projectId, ar, 0, setP, ledger);
+      const continNote = (exits.length || contin.found) ? summariseContinuity(contin.found, contin.repaired, contin.residue) : '';
+
       out.push('FADE OUT.');
       const pages = this.paginate(out.join('\n\n'));
       await saveRev(pages);
       if (ssc) {
         // #45: a series build delivers the PILOT episode at its per-episode density; the full season
         // is episodes × per-ep. Don't run the feature ending-check (the pilot ends on a cliffhanger).
-        setP({ status: 'DONE', done: scenes.length, pageCount: pages.length, coverage: 'COMPLETE', scenesPerEp: ssc.scenesPerEp, seasonScenes: ssc.seasonScenes, coverageNote: 'Pilot episode: ' + scenes.length + ' scenes at ~' + featBrief.minutesPerEp + ' min/ep · full season ≈ ' + ssc.seasonScenes + ' scenes (' + ssc.episodes + ' ep × ' + ssc.scenesPerEp + ').' });
+        setP({ status: 'DONE', done: scenes.length, pageCount: pages.length, coverage: 'COMPLETE', scenesPerEp: ssc.scenesPerEp, seasonScenes: ssc.seasonScenes, coverageNote: 'Pilot episode: ' + scenes.length + ' scenes at ~' + featBrief.minutesPerEp + ' min/ep · full season ≈ ' + ssc.seasonScenes + ' scenes (' + ssc.episodes + ' ep × ' + ssc.scenesPerEp + ').' + (continNote ? ' · ' + continNote : '') });
       } else {
-        // Belt-and-suspenders: confirm the finished feature actually reaches the outline's ending; flag it if not.
-        const cov = await this.verifyEnding(spine, out.slice(-4).join('\n\n'), projectId);
-        setP({ status: 'DONE', done: scenes.length, pageCount: pages.length, coverage: cov.complete ? 'COMPLETE' : 'SHORT', coverageNote: cov.note });
+        // Two independent completeness checks, because they fail independently: verifyEnding asks whether
+        // the story ARRIVED, the length gate asks whether the film is FEATURE-LENGTH. A draft can pass
+        // either one alone and still not be deliverable.
+        let cov = await this.verifyEnding(spine, out.slice(-4).join('\n\n'), projectId);
+        // Second look before an incomplete verdict is allowed to fail the whole run. The first pass reads
+        // 3,000 characters of tail; one long closing scene can push the resolution out of that window, and
+        // a single false 'incomplete' would now throw away a finished script. Only a verdict that survives
+        // a wider read is acted on — one extra cheap call, and only on the failure path.
+        if (!cov.complete) {
+          const wider = await this.verifyEnding(spine, out.slice(-8).join('\n\n'), projectId, 6000);
+          if (wider.complete) this.log.warn('generateFeatureAsync: the ending check disagreed with itself — the 3k-tail read said incomplete, the 6k-tail read said complete. Taking the wider read.');
+          cov = wider.complete ? wider : { complete: false, note: wider.note || cov.note };
+        }
+        const lp = lenPlan as FeatureLengthPlan;
+        // Two bounds, not one. The gate used to test only "is it long enough", so a 190-page draft
+        // filed as COMPLETE — a script that overshoots the feature band is no more deliverable than
+        // one that undershoots it.
+        const tooShort = !!lenPlan && !isLengthComplete(pages.length, lp.targetPages);
+        const tooLong = !!lenPlan && isLengthOver(pages.length, lp.targetPages);
+        const pct = lenPlan ? Math.round(completionRatio(pages.length, lp.targetPages) * 100) : 100;
+        const notes: string[] = [];
+        if (cov.note) notes.push(cov.note);
+        if (continNote) notes.push(continNote);
+        if (lenPlan) {
+          notes.push(pages.length + ' of ~' + lp.targetPages + ' pages (' + pct + '%) · ≈ '
+            + Math.round(pages.length / lp.pagesPerMinute) + ' min · ' + scenes.length + ' scenes'
+            + (expandedCount ? ' · ' + expandedCount + ' scenes expanded' : ''));
+          if (tooShort) notes.push('Short of feature length — run Regenerate (extend) to keep building, or lower the page target.');
+          if (tooLong) notes.push('Longer than a feature — ' + Math.round(pages.length / lp.pagesPerMinute) + ' minutes of screen time. Trim scenes, or raise the page target if this length is intended.');
+          if (tooLong) this.log.warn('generateFeatureAsync: draft is OVER length — ' + pages.length + ' pages against a target of ' + lp.targetPages + '.');
+        }
+        // ENDING GATE, post-write twin of the plan-side gate in planScenes. The plan gate stops a headless
+        // scene map before a single scene is paid for; this one catches the case where the plan promised an
+        // ending and the writing never arrived at it. Either way the run does not become the user's script.
+        if (!cov.complete) { this.failHeadlessDraft(docId, pages.length, scenes.length, notes.join(' · '), cov.note, 'Generate script'); return; }
+        setP({
+          status: 'DONE', done: scenes.length, pageCount: pages.length,
+          coverage: (!tooShort && !tooLong) ? 'COMPLETE' : tooLong ? 'LONG' : 'SHORT',
+          coverageNote: notes.join(' · '),
+          targetPages: lenPlan ? lp.targetPages : null,
+          completionPct: pct,
+        });
       }
     } catch (e: any) {
       const msg = String((e && e.message) || e).slice(0, 200);
+      this.log.error('generateFeatureAsync: run FAILED for script ' + docId + ' — ' + this.why(e), (e && e.stack) || undefined);
       const p = this.genProgress.get(docId); if (p) { p.status = 'ERROR'; p.error = msg; }
       // Don't leave the misleading "being written…" placeholder forever — write an honest, actionable message.
       try { await (this.prisma as any).scriptRevision.update({ where: { id: revId }, data: { pageText: [{ page: 1, text: 'FADE IN:\n\n(The automatic feature generation did not finish:\n' + msg + '\n\nOpen this build in ScripON Studio and run "Generate script" again, or press Retry.)' }], pageCount: 1 } }); } catch { /* */ }
@@ -1342,9 +2857,15 @@ export class ScripOnService {
 
   // Dispatch the production hand-off writer by FORMAT: feature/series → scene-by-scene; vertical → episode-by-episode; documentary → narration.
   private async generateScriptAsync(docId: string, revId: string, projectId: string, stages: any[], existing: any[]): Promise<void> {
-    const bRow: any = await (this.prisma as any).developmentBuild.findFirst({ where: { linkedScriptId: docId } }).catch(() => null);
+    const bRow: any = await (this.prisma as any).developmentBuild.findFirst({ where: { linkedScriptId: docId } }).catch((e: any) => { this.log.warn('build lookup failed for script ' + docId + ' — falling back to an empty brief. ' + this.why(e)); return null; });
     const brief = (bRow && bRow.brief) || {};
     const fam = normalizeFamily(brief);
+    // The single most useful line in the log: which writer ran, and whether the brief actually arrived.
+    // An empty brief silently defaults the genre profile AND the page target — see feature-length.util.
+    this.log.log('generateScriptAsync: script ' + docId + ' · family ' + fam
+      + ' · brief ' + (bRow ? (Object.keys(brief || {}).length + ' fields') : 'MISSING (no DevelopmentBuild linked)')
+      + ' · genres ' + JSON.stringify((brief && brief.genres) || null)
+      + ' · targetPages ' + ((brief && (brief.targetPages ?? brief.length)) ?? 'not set'));
     if (fam === 'VERTICAL') await this.generateVerticalAsync(docId, revId, projectId, stages, brief);
     else if (fam === 'DOCUMENTARY') await this.generateDocumentaryAsync(docId, revId, projectId, stages, brief);
     else await this.generateFeatureAsync(docId, revId, projectId, stages, existing);
@@ -1370,12 +2891,19 @@ export class ScripOnService {
       const rev: any = await (this.prisma as any).scriptRevision.findUnique({ where: { id: revisionId }, select: { pageText: true } });
       const pageText: any = rev && rev.pageText;
       const pages: string[] = Array.isArray(pageText) ? pageText.map((p: any) => String((p && p.text) || '')) : [];
-      if (!pages.length) return 0;
+      if (!pages.length) { this.log.warn('materialiseScenes: revision ' + revisionId + ' has no pageText — nothing to parse.'); return 0; }
       const scenes = parseScenes(pages);
-      if (!scenes.length) return 0;
+      if (!scenes.length) { this.log.warn('materialiseScenes: parsed 0 scenes from ' + pages.length + ' pages of revision ' + revisionId + ' — sluglines are probably not in a recognised format.'); return 0; }
       await (this.prisma as any).scriptScene.createMany({ data: scenes.map((s, i) => ({ revisionId, projectId, sortOrder: i, ...s })) });
+      this.log.log('materialiseScenes: wrote ' + scenes.length + ' ScriptScene rows for revision ' + revisionId + '.');
       return scenes.length;
-    } catch { return 0; }
+    } catch (e) {
+      // Returning 0 here is indistinguishable from "nothing to do" — and this is the bridge that makes
+      // a developed script visible in Reader / Doctor / Room at all. Silence here reads to the user as
+      // "the script generated but is empty".
+      this.log.error('materialiseScenes: FAILED for revision ' + revisionId + ' — the script will render with no scenes. ' + this.why(e));
+      return 0;
+    }
   }
 
   // Parse an EPISODE_MAP / BEAT_ENGINE prose body into ordered episode descriptors.
@@ -1400,7 +2928,7 @@ export class ScripOnService {
       if (!eps.length) eps = Array.from({ length: 12 }, (_, i) => ({ n: i + 1, title: '', text: '' }));
       const N = Math.min(eps.length, 15);   // the free-block deliverable: the first 10-15 episodes
       const setP = (patch: any) => { const p = this.genProgress.get(docId); if (p) Object.assign(p, patch); };
-      const saveRev = async (pages: any[]) => { await (this.prisma as any).scriptRevision.update({ where: { id: revId }, data: { pageText: pages, pageCount: pages.length } }).catch(() => {}); };
+      const saveRev = async (pages: any[]) => { await (this.prisma as any).scriptRevision.update({ where: { id: revId }, data: { pageText: pages, pageCount: pages.length } }).catch((e: any) => { this.log.error('saveRev: could NOT persist ' + pages.length + ' pages to revision ' + revId + ' — generated work is being lost. ' + this.why(e)); }); };
       setP({ total: N });
       const out: string[] = []; let soFar = '';
       for (let i = 0; i < N; i++) {
@@ -1434,7 +2962,7 @@ export class ScripOnService {
       const dir = [await this.langDirective(brief), knowledgeDirective(brief)].filter(Boolean).join('\n');
       const bodyOf = (k: string) => { const x: any = stages.find((y: any) => y.kind === k); return String((x && x.current && x.current.body) || ''); };
       const setP = (patch: any) => { const p = this.genProgress.get(docId); if (p) Object.assign(p, patch); };
-      const saveRev = async (pages: any[]) => { await (this.prisma as any).scriptRevision.update({ where: { id: revId }, data: { pageText: pages, pageCount: pages.length } }).catch(() => {}); };
+      const saveRev = async (pages: any[]) => { await (this.prisma as any).scriptRevision.update({ where: { id: revId }, data: { pageText: pages, pageCount: pages.length } }).catch((e: any) => { this.log.error('saveRev: could NOT persist ' + pages.length + ' pages to revision ' + revId + ' — generated work is being lost. ' + this.why(e)); }); };
       setP({ total: 1 });
       let script = bodyOf('NARRATION').trim();   // if NARRATION was already developed, that IS the script
       if (!script) {
@@ -1457,9 +2985,41 @@ export class ScripOnService {
   // active when generation reaches DONE — a failed/short run never destroys the existing pages (the OLD revision stays
   // active throughout). mode 'extend' (default): keep all existing pages, write ONLY the scenes beyond where the script
   // stopped (through the finale) and append. mode 'rewrite': re-plan and re-write the whole feature from the outline.
+  /**
+   * How long a run may go silent before a new request is allowed to replace it.
+   *
+   * `lastActivityAt` is stamped on every scene, every planning pass and every repair, so a healthy
+   * run touches it constantly. The only gap that approaches this is a single planning call at its
+   * 230-second ceiling. Ten minutes is therefore "the process is wedged", not "the run is slow" —
+   * and generous enough that a working run is never interrupted by an impatient second click.
+   */
+  private static readonly RUN_LOCK_MS = 10 * 60 * 1000;
+
   async regenerateFeature(docId: string, userId?: string, mode: 'extend' | 'rewrite' = 'extend') {
     const doc: any = await (this.prisma as any).scriptDocument.findUnique({ where: { id: docId } }).catch(() => null);
     if (!doc) throw new BadRequestException('Script not found.');
+    // ONE RUN PER SCRIPT.
+    //
+    // A second click while a generation was in flight used to start an entire parallel run against
+    // the same document: two writers stamping the same genProgress entry, two planning calls
+    // competing for the same provider, and the loser throwing "the scene planner returned no
+    // scenes" as a toast on top of a run that was working perfectly. On 1 Sep that happened twice
+    // in one evening and both times it read as the run having failed.
+    //
+    // The second request is not an error and must not be reported as one — the writer asked for a
+    // generation and there is one. Hand back the run already in flight and let the UI attach to it.
+    const live = this.genProgress.get(docId);
+    if (live && live.status === 'GENERATING' && !live.cancelRequested
+        && Date.now() - (live.lastActivityAt || 0) < ScripOnService.RUN_LOCK_MS) {
+      this.log.warn('regenerateFeature: script ' + docId + ' is already generating ('
+        + (live.phase || 'RUNNING') + ', ' + live.done + '/' + live.total
+        + ') — refusing to start a second run and returning the one in flight.');
+      return {
+        documentId: docId, revisionId: null, total: live.total,
+        mode: mode === 'rewrite' ? 'rewrite' : 'extend',
+        alreadyRunning: true, phase: live.phase || null, done: live.done, pageCount: live.pageCount,
+      };
+    }
     const oldRev: any = doc.activeRevisionId ? await (this.prisma as any).scriptRevision.findUnique({ where: { id: doc.activeRevisionId } }).catch(() => null) : null;
     const existingPages: any[] = (oldRev && Array.isArray(oldRev.pageText)) ? oldRev.pageText : [];
     const build: any = await (this.prisma as any).developmentBuild.findFirst({ where: { linkedScriptId: doc.id } }).catch(() => null);
@@ -1470,7 +3030,10 @@ export class ScripOnService {
     const seed = doExtend ? existingPages : [{ page: 1, text: 'FADE IN:\n\nGenerating…' }];
     const regDefs = await this.scriptonDefs();
     const newRev: any = await (this.prisma as any).scriptRevision.create({ data: { documentId: doc.id, revisionLabel: doExtend ? 'White Draft (extended)' : 'White Draft (rewrite)', pdfUrl: '', pageCount: seed.length, pageText: seed, revisionColor: 'WHITE', colorCode: regDefs.revisionColor || null, uploadedById: userId || null } });
-    const estTotal = existing.length >= 20 ? existing.length : 60;
+    // The initial progress total the UI shows. 60 was the old short-film default; size it from the
+    // build's own page budget so the bar is honest from the first poll.
+    const regPlan = planFeatureLength((build && build.brief) || {}, this.countBeats(stages));
+    const estTotal = Math.max(existing.length, regPlan.targetScenes);
     this.genProgress.set(doc.id, { status: 'GENERATING', phase: 'PLANNING', lastActivityAt: Date.now(), note: 'Planning the scenes — this can take a few minutes on long scripts.', done: doExtend ? existingPages.length : 0, total: estTotal, pageCount: existingPages.length });
     const run = doExtend
       ? this.extendFeatureAsync(doc.id, newRev.id, doc.projectId, stages, existing, existingPages)
@@ -1490,7 +3053,7 @@ export class ScripOnService {
   // EXTEND: keep every existing page, plan the FULL arc, write ONLY the scenes beyond where the script stopped, append.
   private async extendFeatureAsync(docId: string, revId: string, projectId: string, stages: any[], existing: any[], existingPages: any[]): Promise<void> {
     try {
-      const bRow: any = await (this.prisma as any).developmentBuild.findFirst({ where: { linkedScriptId: docId } }).catch(() => null);
+      const bRow: any = await (this.prisma as any).developmentBuild.findFirst({ where: { linkedScriptId: docId } }).catch((e: any) => { this.log.warn('build lookup failed for script ' + docId + ' — falling back to an empty brief. ' + this.why(e)); return null; });
       const featBrief = (bRow && bRow.brief) || {};
       const featDirective = [await this.langDirective(featBrief), knowledgeDirective(featBrief)].filter(Boolean).join('\n');
       const ctx = await this.buildFeatureCtx(projectId, stages, featDirective);
@@ -1500,28 +3063,117 @@ export class ScripOnService {
       // #45: a series extends only to its per-episode pilot density, not the feature band.
       const isSeries = ['TV_SERIES', 'LIMITED'].indexOf(String(featBrief.projectType || '').toUpperCase()) >= 0;
       const ssc = isSeries ? seriesSceneCount(featBrief.episodes, featBrief.minutesPerEp) : null;
-      const target = ssc ? ssc.scenesPerEp : Math.min(90, Math.max(55, beatN ? Math.round(beatN * 1.5) : 60));
+      // Same page budget as a fresh generation — an extend that re-planned at 60 scenes would cap the
+      // finished script at the very length this fix exists to escape.
+      const lenPlan: FeatureLengthPlan | null = ssc ? null : planFeatureLength(featBrief, beatN);
+      const target = ssc ? ssc.scenesPerEp : (lenPlan as FeatureLengthPlan).targetScenes;
       const beat = () => { const p = this.genProgress.get(docId); if (p) { p.phase = 'PLANNING'; p.lastActivityAt = Date.now(); } };
-      const planned = await this.planScenes(ctx, projectId, spine, target, !!ssc, beat);
-      const scenes: any[] = ssc ? planned : ((planned.length >= existing.length) ? planned : existing);
+      const planned = await this.planScenes(ctx, projectId, spine, target, !!ssc, beat, lenPlan);
+      // An EMPTY plan is a planner failure, and writing a script from whatever happens to be lying in
+      // the SCENES stage is not a recovery — it is how a timed-out planning call became a 95-page draft
+      // with no page weights, no exits, no continuity gate and no error message. A SHORT plan may still
+      // legitimately defer to richer developed cards; a plan of zero never can.
+      if (!planned.length && !ssc) {
+        throw new Error(this.whyThePlanWasEmpty(projectId));
+      }
+      let scenes: any[] = ssc ? planned : ((planned.length >= existing.length) ? planned : existing);
+      if (lenPlan && scenes.length) scenes = applyPageWeights(scenes, lenPlan.targetPages);
+      // Same continuity state as a fresh run — an extend writes real scenes and can resurrect
+      // somebody just as easily. See generateFeatureAsync for why these two exist.
+      const exits: CastExit[] = collectExits(scenes);
+      // MECHANISM D — the closed vocabulary, built from the plan before the first scene is written.
+      // Without it `checkSceneIntegrity`'s label-leak rule has no cast to match against and stays
+      // silent, which is how YOUNG JASON became a passport, a police booking and an access log.
+      const ledgerSeed = (() => {
+        try { return this.buildEntityLedger(scenes, exits); }
+        catch { return { reg: createRegistry(), facts: [] as StateFact[] }; }
+      })();
+      const castVocab = new Set<string>();
+      for (const e of ledgerSeed.reg.entities.values()) {
+        if (e.kind !== 'PERSON' || e.mergedInto) continue;
+        for (const f of allForms(ledgerSeed.reg, e.id)) castVocab.add(f);
+      }
+      // The one model call. Knowledge, promises and geography — the three dimensions the plan's own
+      // fields cannot carry. It mutates `ledgerSeed.reg` by registering the vessels and objects the
+      // story declares, which is why it runs before the writer starts rather than beside it.
+      const planState = await this.extractPlanState(scenes, ledgerSeed.reg, projectId)
+        .catch((e: any) => { this.log.warn('extractPlanState: skipped — ' + this.why(e)); return { facts: [] as StateFact[], places: [] as PlaceObservation[], transit: new Set<number>() }; });
+      const ledger = { reg: ledgerSeed.reg, facts: ledgerSeed.facts.concat(planState.facts), places: planState.places, transit: planState.transit };
+      if (exits.length) {
+        const strip = stripExitedCast(scenes, exits);
+        scenes = strip.scenes;
+        this.log.log('extendFeatureAsync: tracking ' + exits.length + ' cast exit(s); '
+          + strip.removed + ' impossible cast entries removed before writing.');
+      }
+      // Still PLANNING as far as the UI is concerned — this is one call that can run a couple of
+      // minutes on a long document, and a silent gap reads as a hang. The overlay never stall-checks
+      // during PLANNING, so the heartbeat is what keeps the message honest rather than what keeps it alive.
+      const beatCanon = this.genProgress.get(docId);
+      if (beatCanon) { beatCanon.phase = 'PLANNING'; beatCanon.note = 'Reading the source for the story\'s fixed facts — names, dates, relationships.'; beatCanon.lastActivityAt = Date.now(); }
+      // Everything goes into the canon graph in ./canon rather than a parallel store: it is bi-temporal,
+      // so `resolveCanonAt` answers "what is true at scene N" without any special-casing here, and
+      // `persistFacts` stamps a monotonic recordedAt so a rerun's facts supersede the previous run's.
+      const canonFacts: CanonFactCore[] = exitsAsCanonFacts(exits).concat(await this.extractCanon(projectId, stages));
+      if (canonFacts.length) await this.canon.persistFacts(docId, canonFacts).catch((e: any) => this.log.warn('persistFacts failed — the draft continues without stored canon. ' + this.why(e)));
       const setP = (patch: any) => { const p = this.genProgress.get(docId); if (p) Object.assign(p, patch, { lastActivityAt: Date.now() }); };
-      const saveRev = async (pages: any[]) => { await (this.prisma as any).scriptRevision.update({ where: { id: revId }, data: { pageText: pages, pageCount: pages.length } }).catch(() => {}); };
+      const saveRev = async (pages: any[]) => { await (this.prisma as any).scriptRevision.update({ where: { id: revId }, data: { pageText: pages, pageCount: pages.length } }).catch((e: any) => { this.log.error('saveRev: could NOT persist ' + pages.length + ' pages to revision ' + revId + ' — generated work is being lost. ' + this.why(e)); }); };
       // How many scenes does the existing script already contain? Numbered headers "N␠␠SLUG"; fall back to a page-based estimate.
       const existingText = (existingPages || []).map((p: any) => String(p.text || '')).join('\n');
       const haveN = (existingText.match(/^\s*\d+\s{2,}\S/gmu) || []).length || Math.max(1, Math.round((existingPages.length || 1) / 1.7));
       const startIdx = Math.min(haveN, scenes.length);
       if (startIdx >= scenes.length) { setP({ status: 'DONE', done: scenes.length, total: scenes.length, pageCount: existingPages.length, coverage: 'COMPLETE', coverageNote: 'Script already covers the full planned scene list.' }); return; }
-      setP({ total: scenes.length, done: startIdx, phase: 'WRITING', note: '' });
+      setP({
+        total: scenes.length, done: startIdx, phase: 'WRITING', note: '',
+        targetPages: lenPlan ? lenPlan.targetPages : null,
+        targetMinutes: lenPlan ? lenPlan.targetMinutes : null,
+      });
       // Trim a trailing FADE OUT (EN or AR) so new scenes append seamlessly, then keep numbering from where it left off.
       const baseText = existingText.replace(/\n*FADE OUT\.?\s*$/i, '').replace(/\n*اختفاء تدريجي[.،]?\s*$/u, '').trimEnd();
       const out: string[] = [baseText];
-      let storySoFar = baseText.slice(-2000); let prevTail = baseText.slice(-700); let stubs = 0;
+      let storySoFar = baseText.slice(-2000); let prevTail = baseText.slice(-700); let stubs = 0; let streak = 0;
       const newCount = scenes.length - startIdx;
+      // Same controller as a fresh run, seeded with the pages the existing draft already occupies —
+      // an extend that ignores them would blow straight past the page target.
+      const plannedTotal = scenes.reduce((a: number, x: any) => a + snapPageWeight(x && x.pageWeight), 0);
+      let plannedSoFar = scenes.slice(0, startIdx).reduce((a: number, x: any) => a + snapPageWeight(x && x.pageWeight), 0);
+      let linesSoFar = (existingPages.length || 0) * LINES_PER_PAGE;
       for (let i = startIdx; i < scenes.length; i++) {
+        if (this.cancelled(docId)) {
+          const pages = this.paginate(out.join('\n\n'));
+          await saveRev(pages);
+          this.finishCancelled(docId, i, scenes.length, pages.length);
+          return;
+        }
         const sc = scenes[i];
         const header = (i + 1) + '  ' + this.slugOf(sc, ar);
-        const body = await this.writeScene(ctx, sc, header, storySoFar.slice(-1600), prevTail.slice(-700), projectId);
-        if (body === SCENE_STUB) stubs++;
+        const baseWeight = snapPageWeight(sc && sc.pageWeight);
+        const scale = lenPlan
+          ? remainingBudgetScale((lenPlan as FeatureLengthPlan).targetPages, linesSoFar / LINES_PER_PAGE, plannedTotal - plannedSoFar)
+          : 1;
+        let body: string;
+        try {
+          body = await this.writeScene(ctx, sc, header, storySoFar.slice(-1600), prevTail.slice(-700), projectId, lineBudgetFor(baseWeight * scale), unavailableLine(exits, i), await this.canon.directiveFor(docId, i), castVocab);
+        } catch (e) {
+          if (!isHalt(e)) throw e;
+          // Floor 1: out[0] is the ENTIRE pre-existing draft, which must survive the trim.
+          const pages = this.paginate(this.trimTrailingStubs(out, 1).join('\n\n'));
+          await saveRev(pages);
+          this.failPartialRun(docId, e.kind, i, scenes.length, pages.length, e.message);
+          return;
+        }
+        if (body === SCENE_STUB) { stubs++; streak++; } else streak = 0;
+        // A RUNAWAY, NOT BAD LUCK. An empty return is ordinary and local — seven scenes came back
+        // empty on 1 Sep and every one recovered on its own second or third attempt. Five in a row
+        // is fifteen consecutive failed requests, which is not this scene being difficult; it is the
+        // writer being gone. Stop, keep what is real, and say so.
+        if (isStubRunaway(streak)) {
+          const pages = this.paginate(this.trimTrailingStubs(out, 1).join('\n\n'));
+          await saveRev(pages);
+          this.failPartialRun(docId, 'STUB_STREAK', i + 1 - streak, scenes.length, pages.length, streak + ' consecutive empty scenes');
+          return;
+        }
+        plannedSoFar += baseWeight;
+        linesSoFar += countVisualLines(header + '\n\n' + body) + 2;
         out.push(header + '\n\n' + body);
         prevTail = body.slice(-700);
         storySoFar = (storySoFar + '\n' + (i + 1) + '. ' + String(sc.brief || '').slice(0, 150)).slice(-2400);
@@ -1530,17 +3182,52 @@ export class ScripOnService {
       }
       // Wholesale failure on the NEW scenes → don't file the extend as DONE (old draft stays active).
       if (this.mostlyStub(stubs, newCount)) { await this.failStubRun(docId, revId, stubs, newCount); return; }
+      // Only the scenes THIS run wrote are checked — out[0] holds every pre-existing page as one blob,
+      // and rewriting an earlier run's work is not this run's business.
+      const contin = await this.verifyAndRepair(docId, out, scenes, exits, canonFacts, ctx, projectId, ar, startIdx, setP, ledger);
+      const continNote = (exits.length || contin.found) ? summariseContinuity(contin.found, contin.repaired, contin.residue) : '';
       out.push('FADE OUT.');
       const pages = this.paginate(out.join('\n\n'));
       await saveRev(pages);
       if (ssc) {
-        setP({ status: 'DONE', done: scenes.length, pageCount: pages.length, coverage: 'COMPLETE', scenesPerEp: ssc.scenesPerEp, seasonScenes: ssc.seasonScenes, coverageNote: 'Pilot episode: ' + scenes.length + ' scenes at ~' + featBrief.minutesPerEp + ' min/ep · full season ≈ ' + ssc.seasonScenes + ' scenes (' + ssc.episodes + ' ep × ' + ssc.scenesPerEp + ').' });
+        setP({ status: 'DONE', done: scenes.length, pageCount: pages.length, coverage: 'COMPLETE', scenesPerEp: ssc.scenesPerEp, seasonScenes: ssc.seasonScenes, coverageNote: 'Pilot episode: ' + scenes.length + ' scenes at ~' + featBrief.minutesPerEp + ' min/ep · full season ≈ ' + ssc.seasonScenes + ' scenes (' + ssc.episodes + ' ep × ' + ssc.scenesPerEp + ').' + (continNote ? ' · ' + continNote : '') });
       } else {
-        const cov = await this.verifyEnding(spine, out.slice(-4).join('\n\n'), projectId);
-        setP({ status: 'DONE', done: scenes.length, pageCount: pages.length, coverage: cov.complete ? 'COMPLETE' : 'SHORT', coverageNote: cov.note });
+        // An extend writes every scene from where the draft stopped to the end of the plan, so a headless
+        // result here is not 'still in progress' — it is a plan that reached the ending and writing
+        // that did not. Same confirmation, same gate as a fresh run.
+        let cov = await this.verifyEnding(spine, out.slice(-4).join('\n\n'), projectId);
+        if (!cov.complete) {
+          const wider = await this.verifyEnding(spine, out.slice(-8).join('\n\n'), projectId, 6000);
+          if (wider.complete) this.log.warn('extendFeatureAsync: the ending check disagreed with itself — the 3k-tail read said incomplete, the 6k-tail read said complete. Taking the wider read.');
+          cov = wider.complete ? wider : { complete: false, note: wider.note || cov.note };
+        }
+        const lp = lenPlan as FeatureLengthPlan;
+        const tooShort = !!lenPlan && !isLengthComplete(pages.length, lp.targetPages);
+        const tooLong = !!lenPlan && isLengthOver(pages.length, lp.targetPages);
+        const pct = lenPlan ? Math.round(completionRatio(pages.length, lp.targetPages) * 100) : 100;
+        const notes: string[] = [];
+        if (cov.note) notes.push(cov.note);
+        if (continNote) notes.push(continNote);
+        if (lenPlan) {
+          notes.push(pages.length + ' of ~' + lp.targetPages + ' pages (' + pct + '%) · ≈ '
+            + Math.round(pages.length / lp.pagesPerMinute) + ' min · ' + scenes.length + ' scenes');
+          if (tooShort) notes.push('Still short of feature length — extend again to keep building.');
+          if (tooLong) notes.push('Longer than a feature — trim scenes, or raise the page target if this length is intended.');
+        }
+        // Not filed as DONE, so the extended revision is not swapped in and the shorter draft the user
+        // already has stays active. The new pages are persisted on the revision, not discarded.
+        if (!cov.complete) { this.failHeadlessDraft(docId, pages.length, scenes.length, notes.join(' · '), cov.note, 'Regenerate (extend)'); return; }
+        setP({
+          status: 'DONE', done: scenes.length, pageCount: pages.length,
+          coverage: (!tooShort && !tooLong) ? 'COMPLETE' : tooLong ? 'LONG' : 'SHORT',
+          coverageNote: notes.join(' · '),
+          targetPages: lenPlan ? lp.targetPages : null,
+          completionPct: pct,
+        });
       }
     } catch (e: any) {
       const msg = String((e && e.message) || e).slice(0, 200);
+      this.log.error('extendFeatureAsync: extend FAILED for script ' + docId + ' — ' + this.why(e), (e && e.stack) || undefined);
       const p = this.genProgress.get(docId); if (p) { p.status = 'ERROR'; p.error = msg; }
       // Non-destructive: leave the new revision as-is and DO NOT swap — the caller only activates it on DONE, so the old pages survive.
     }
@@ -1559,7 +3246,10 @@ export class ScripOnService {
     // Prefer the build's own name ("Try") for the document title — not a truncated logline.
     const title = ((bld && bld.name && !/^untitled/i.test(String(bld.name))) ? String(bld.name) : (v.title && !/^draft|^developed/i.test(v.title) ? v.title : (fromLog || 'Developed feature'))).slice(0, 80);
     const existing = this.sceneCards(stages);
-    const estTotal = existing.length >= 20 ? existing.length : 45;
+    // 45 was a short-film estimate. Size the progress bar from the build's real page budget so the
+    // writer sees the true scene count from the first poll rather than a total that doubles mid-run.
+    const promotePlan = planFeatureLength((bld && bld.brief) || {}, this.countBeats(stages));
+    const estTotal = Math.max(existing.length, promotePlan.targetScenes);
     const verId = stage.buildId ? await this.activeVersionId(stage.buildId) : null;
     const promoteDefs = await this.scriptonDefs();
     const doc: any = await (this.prisma as any).scriptDocument.create({ data: { projectId: stage.projectId, title, kind: 'SCRIPT', createdById: userId || null, buildVersionId: verId } });

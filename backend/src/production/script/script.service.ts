@@ -39,10 +39,28 @@ export class ScriptService {
     });
   }
 
+  /**
+   * The document plus its full draft history — METADATA ONLY on the revisions.
+   *
+   * This used to `include` whole revisions, which meant every caller pulled every draft's complete
+   * `pageText` (the entire screenplay, as JSON) on every load. Eight 103-page drafts is megabytes on
+   * the wire to render a list nobody had built yet. No caller reads page text from here — the reader
+   * and the drafts panel both fetch it per-revision through `getRevision` — so the payload is scoped
+   * to exactly the fields a draft list needs. Add a field here rather than dropping the select.
+   */
   async getDocument(id: string) {
     const doc = await this.prisma.scriptDocument.findUnique({
       where: { id },
-      include: { revisions: { orderBy: { createdAt: 'desc' } } },
+      include: {
+        revisions: {
+          orderBy: { createdAt: 'desc' },
+          select: {
+            id: true, revisionLabel: true, colorCode: true, revisionColor: true, revisionRound: true,
+            revisionDate: true, pageCount: true, changeSummary: true, supersedesId: true,
+            isLocked: true, lockedAt: true, pdfUrl: true, uploadedById: true, createdAt: true,
+          },
+        },
+      },
     });
     if (!doc) throw new NotFoundException('Script document not found.');
     return doc;

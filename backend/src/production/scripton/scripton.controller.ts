@@ -42,7 +42,18 @@ export class ScripOnController {
   @Post('market-forecast/:projectId') @RequirePermission('production', 2) marketForecast(@Param('projectId') projectId: string, @Body() body: any) { return this.service.marketForecast({ projectId, ...(body || {}) }); }
   @Post('greenlight-decision/:projectId') @RequirePermission('production', 2) greenlightDecision(@Param('projectId') projectId: string, @Body() body: any) { return this.service.greenlightDecision({ projectId, ...(body || {}) }); }
   @Get('development/pipeline/:projectId') devPipeline(@Param('projectId') projectId: string, @Query('buildId') buildId?: string) { return this.service.pipeline(projectId, buildId); }
+  // Synchronous generation. Kept as-is so nothing that already calls it breaks, but the ladder should
+  // use the async pair below: DRAFT is a single 25,000-token call that runs ~7 minutes, and holding an
+  // HTTP request open that long means any proxy, tunnel or sleep loses the client's view of a run that
+  // is actually succeeding.
   @Post('development/generate/:projectId') @RequirePermission('production', 2) devGenerate(@Param('projectId') projectId: string, @Body() body: any, @Req() req: any) { return this.service.generateStage({ projectId, ...(body || {}) }, req?.user?.id); }
+  // Start a stage in the background and get a job handle back immediately. Re-requesting a stage that
+  // is already running returns the same job instead of paying for a second generation.
+  @Post('development/generate-async/:projectId') @RequirePermission('production', 2) devGenerateAsync(@Param('projectId') projectId: string, @Body() body: any, @Req() req: any) { return this.service.startStage({ projectId, ...(body || {}) }, req?.user?.id); }
+  // Poll one job by key, or list everything in flight for a project so the ladder can restore state
+  // after a reload without waiting for a stage to finish.
+  @Get('development/stage-job') devStageJob(@Query('key') key: string) { return this.service.stageJob(key); }
+  @Get('development/stage-jobs/:projectId') devStageJobs(@Param('projectId') projectId: string, @Query('buildId') buildId?: string) { return this.service.stageJobsFor(projectId, buildId); }
   @Post('development/version/:stageId/set') @RequirePermission('production', 2) devSetVersion(@Param('stageId') stageId: string, @Body() body: any) { return this.service.setStageVersion(stageId, body?.versionId); }
   @Post('development/version/:versionId/duplicate') @RequirePermission('production', 2) devDuplicate(@Param('versionId') versionId: string, @Body() body: any, @Req() req: any) { return this.service.duplicateVersion(versionId, req?.user?.id, body?.label); }
   @Post('development/version/:versionId/status') @RequirePermission('production', 2) devStatus(@Param('versionId') versionId: string, @Body() body: any) { return this.service.promoteVersion(versionId, body?.status); }
@@ -50,6 +61,8 @@ export class ScripOnController {
   @Post('development/version/:versionId/read') @RequirePermission('production', 1) devRead(@Param('versionId') versionId: string) { return this.service.stageRead(versionId); }
   @Post('development/version/:versionId/promote-to-script') @RequirePermission('production', 2) devPromoteScript(@Param('versionId') versionId: string, @Req() req: any) { return this.service.promoteToScript(versionId, req?.user?.id); }
   @Post('development/script/:docId/regenerate') @RequirePermission('production', 2) devRegenerateFeature(@Param('docId') docId: string, @Body() body: any, @Req() req: any) { return this.service.regenerateFeature(docId, req?.user?.id, body?.mode === 'rewrite' ? 'rewrite' : 'extend'); }
+  /** Stop a running generation. Cooperative: it lands after the scene in flight, and never activates the partial revision. */
+  @Post('development/script/:docId/cancel') @RequirePermission('production', 2) devCancelFeature(@Param('docId') docId: string) { return this.service.cancelGeneration(docId); }
   @Get('development/package') devPackage(@Query('docId') docId?: string, @Query('projectId') projectId?: string, @Query('buildId') buildId?: string) { return this.service.developmentPackage({ docId, projectId, buildId }); }
   @Post('development/package/docx') @RequirePermission('production', 1)
   async devPackageDocx(@Body() body: any, @Res() res: any) {
