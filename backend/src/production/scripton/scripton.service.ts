@@ -43,6 +43,9 @@ import { packDocx } from './package-docx.renderer';
 import { LEVER_KEYS, resolveLever } from './intake-levers.util';
 import { resolveCollabMode } from './collab-mode.util';
 import { isProviderExhausted, isStubRunaway, isHalt, ScriptGenerationHalted, STUB_STREAK_ABORT, HaltKind } from './provider-health.util';
+import { htmlToText as htmlToTextUtil, extractText, uploadBasename, assembleCorpus, canReuseExtraction, kindOf, kindFromContentType, MAX_REMOTE_BYTES } from './source-ingest.util';
+import { readFile } from 'fs/promises';
+import { join, resolve, sep } from 'path';
 
 // Placeholder a scene falls back to when the AI returns no prose. Shared so the
 // generators can DETECT a wholesale-stub run (the all-"(The scene continues.)" bug)
@@ -343,8 +346,20 @@ export class ScripOnService {
 
   /** P6 — Adaptation slate: book/source -> THREE distinct screen-adaptation directions, grounded in the supplied source. Proposal only. */
   async adapt(opts: any) {
-    const source = String(opts?.sourceText || opts?.source || '');
-    if (source.trim().length < 40) throw new BadRequestException('Paste a synopsis or excerpt of the source work to adapt (a few sentences minimum).');
+    // The gate reads the MATERIALISED corpus. It used to read opts.sourceText alone, which was the
+    // paste boxes only — so a build with two uploaded files failed here saying "paste a synopsis".
+    const fromSources = Array.isArray(opts?.sources)
+      ? opts.sources.map((s: any) => String((s && s.text) || '')).filter((t: string) => t.trim()).join('\n\n')
+      : '';
+    // `||` short-circuits: a typed synopsis ALONE used to hide any uploaded files from this gate
+    // entirely. Concatenate both, and — like adaptOne just below — fall back to the MATERIALISED
+    // corpus already on the IntakeProfile when neither opts field carries enough on its own.
+    let source = [String(opts?.sourceText || opts?.source || ''), fromSources].filter((t) => t.trim()).join('\n\n');
+    if (source.trim().length < 40 && opts?.projectId) {
+      const i: any = await (this.prisma as any).intakeProfile.findUnique({ where: { projectId: opts.projectId } }).catch(() => null);
+      source = String((i && i.sourceText) || '') || source;
+    }
+    if (source.trim().length < 40) throw new BadRequestException('Add a synopsis, a file or a link to the source work (a few sentences minimum).');
     const targetFormat = String(opts?.targetFormat || 'feature');
     const system = 'You are a development executive proposing how to adapt a literary or source work for the screen. From the supplied source, propose THREE distinct adaptation directions, labelled in order FAITHFUL, RECONCEIVED, REINVENTION (faithful to bold reinvention). For each: a short evocative TITLE (3-6 words, e.g. "The Forge of the Legend"), a logline, what to keep, what to change or compress or cut, the tone, and the chief adaptation risk. Return ONLY JSON {directions:[{label, title, logline, keep, change, tone, risk}]}. Ground everything in the source provided. No text outside the JSON.';
     const user = 'TARGET FORMAT: ' + targetFormat + '\nSOURCE:\n' + source.slice(0, 12000);
@@ -1069,8 +1084,90 @@ export class ScripOnService {
   // The promoted levers (LEVER_KEYS: scriptVariety/dialogueRegister/accents/styleMix/conflict/conflictId/
   // politicalArc) now have typed columns, so they ARE persisted here; reads still fall back to brief.
   private static readonly INTAKE_COLS = ['mode', 'sourceText', 'sourceUrl', 'sourceFileUrl', 'realBased', 'realityLevel', 'researchSubject', 'researchAmount', 'genres', 'tone', 'fantasyOn', 'fantasyType', 'mythicalElements', 'mythologyCulture', 'blendLevel', 'format', 'language', 'country', 'rating', 'length', 'comps', 'spine', 'constraints', 'researchScope', 'researchDepth', 'blendLayers', 'treatment', 'settingPlace', 'settingEra', 'settingWorld', 'cultureEra', 'sensitivityTier', 'guardrails', 'projectIntent', 'budgetTier', 'sourceKind', 'buildId', 'sources', 'projectType', 'episodes', 'minutesPerEp', 'seasons', 'loreSelections', 'loreDensity', 'lorePolicy', 'researchNotes', 'characterBible', ...LEVER_KEYS];
+
+  /**
+   * TURN EVERY SUBMITTED SOURCE INTO TEXT.
+   *
+   * The defect this fixes: ScriptOnIntake built its aggregate from paste boxes only
+   * (`[f.sourceText].concat(pastes)`), so uploaded files and URLs were carried as URL strings that
+   * nothing ever opened. A build with two PDFs and an empty paste box reached the adapt gate with an
+   * empty source and was told to "paste a synopsis" — and when pushed through, invented a story.
+   *
+   * Runs at intake save, so every existing consumer (adapt, the ladder, sourceMat, the canon
+   * extractor) sees real material without being changed.
+   *
+   * NEVER FATAL. A source that cannot be read is recorded with a note naming it, and the others go on.
+   */
+  private async materialiseSources(data: any, projectId?: string): Promise<any> {
+    if (!data || !Array.isArray(data.sources) || !data.sources.length) return data;
+    const uploadsDir = resolve(join(process.cwd(), 'uploads'));
+
+    // I3: every intake save used to re-parse every file and re-fetch every URL, serially, through an
+    // 8s-per-source timeout — so editing one unrelated field with several sources attached redid all
+    // of that work on every save. Load what's already on record once, up front, and skip re-extracting
+    // any source whose value hasn't changed since (canReuseExtraction is deliberately conservative:
+    // no previous record, no positional match, or empty incoming text all fall through to re-extract).
+    let prevSources: any[] = [];
+    if (projectId) {
+      try {
+        const existing: any = await (this.prisma as any).intakeProfile.findUnique({ where: { projectId }, select: { sources: true } });
+        prevSources = Array.isArray(existing?.sources) ? existing.sources : [];
+      } catch { prevSources = []; }
+    }
+
+    const out: any[] = [];
+    for (let idx = 0; idx < data.sources.length; idx++) {
+      const s = data.sources[idx];
+      const src: any = { ...(s || {}) };
+      if (canReuseExtraction(src, prevSources[idx])) {
+        src.chars = String(src.text || '').length;
+        out.push(src);
+        continue;
+      }
+      try {
+        if (src.kind === 'paste') {
+          src.text = String(src.value || '');
+        } else if (src.kind === 'url') {
+          const r: any = await this.ingestUrl(String(src.value || ''));
+          src.text = String((r && r.text) || '');
+          if (r && r.title && !src.name) src.name = r.title;
+        } else if (src.kind === 'file') {
+          const base = uploadBasename(src.value);
+          const full = base ? resolve(join(uploadsDir, base)) : null;
+          if (!full || (full !== uploadsDir && !full.startsWith(uploadsDir + sep))) {
+            src.text = ''; src.note = 'this file could not be located';
+          } else {
+            const bytes = await readFile(full);
+            // Type dispatch must key off the STORED name (`base`, e.g. "<uuid>.pdf") — a
+            // client-supplied display name with no extension ("My Novel") would otherwise make a
+            // real PDF decode as junk. `src.name` stays for the warning line below, unaffected.
+            const ex = await extractText(bytes, base);
+            src.text = ex.text;
+            if (ex.note) src.note = ex.note;
+          }
+        } else {
+          src.note = 'this source kind is not recognised';
+        }
+      } catch (e: any) {
+        src.text = '';
+        src.note = 'could not be read — ' + this.why(e);
+      }
+      src.chars = String(src.text || '').length;
+      out.push(src);
+    }
+    const unreadable = out.filter((s) => s.note).map((s) => (s.name || s.kind) + ': ' + s.note);
+    if (unreadable.length) this.log.warn('materialiseSources: ' + unreadable.length + ' source(s) could not be read — ' + unreadable.join(' · '));
+    // The main paste box (data.sourceText) is a field separate from the extra paste boxes among
+    // `out` — assembleCorpus folds it in explicitly so it survives alongside any files/URLs instead
+    // of being silently dropped whenever a file source produces non-empty text of its own.
+    const corpus = assembleCorpus(out, data.sourceText);
+    this.log.log('materialiseSources: ' + out.length + ' source(s), ' + corpus.length + ' chars of material.');
+    return { ...data, sources: out, sourceText: corpus || String(data.sourceText || '') };
+  }
+
   async saveIntake(projectId: string, data: any) {
-    const d: any = {}; for (const k of ScripOnService.INTAKE_COLS) { if (data && data[k] !== undefined) d[k] = data[k]; }
+    const materialised = await this.materialiseSources(data, projectId);
+    const d: any = {}; for (const k of ScripOnService.INTAKE_COLS) { if (materialised && materialised[k] !== undefined) d[k] = materialised[k]; }
     return (this.prisma as any).intakeProfile.upsert({ where: { projectId }, create: { projectId, ...d }, update: d });
   }
 
@@ -3923,15 +4020,9 @@ export class ScripOnService {
     if (p[0] >= 224) return true;
     return false;
   }
+  /** Delegates to source-ingest.util. Kept as a method so ingestHtml and ingestUrl are untouched. */
   private htmlToText(html: string, max = 40000): { title: string; text: string } {
-    const h = String(html || '');
-    const tm = h.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
-    const title = tm ? tm[1].replace(/\s+/g, ' ').trim().slice(0, 200) : '';
-    let body = h.replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ').replace(/<!--[\s\S]*?-->/g, ' ');
-    body = body.replace(/<(br|\/p|\/div|\/h[1-6]|\/li)[^>]*>/gi, '\n').replace(/<[^>]+>/g, ' ');
-    body = body.replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&').replace(/&lt;/gi, '<').replace(/&gt;/gi, '>').replace(/&quot;/gi, '"').replace(/&#39;/gi, "'");
-    body = body.replace(/[ \t]+/g, ' ').replace(/\n\s*\n\s*\n+/g, '\n\n').trim();
-    return { title, text: body.slice(0, max) };
+    return htmlToTextUtil(html, max);
   }
   async ingestHtml(html: string) {
     const r = this.htmlToText(html);
@@ -3950,12 +4041,47 @@ export class ScripOnService {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 8000);
     try {
-      const res: any = await fetch(u, { redirect: 'error', signal: ctrl.signal, headers: { 'User-Agent': 'ScripON-Ingest/1.0', Accept: 'text/html,text/plain' } } as any);
+      const res: any = await fetch(u, { redirect: 'error', signal: ctrl.signal, headers: { 'User-Agent': 'ScripON-Ingest/1.0', Accept: 'text/html,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document' } } as any);
       const ct = String(res.headers.get('content-type') || '');
-      if (!/text\/html|text\/plain|application\/xhtml/i.test(ct)) throw new BadRequestException('That URL did not return readable text.');
-      const raw = await res.text();
-      const r = this.htmlToText(raw.slice(0, 2500000));
-      return { source: 'url', url: u, title: r.title, text: r.text, chars: r.text.length };
+
+      // NO COMPRESSED BODIES. Content-Length describes the WIRE bytes; undici decompresses after
+      // that header is read, so the size cap below gates the wrong number entirely. Measured: a
+      // response declaring 498 KB with Content-Encoding: gzip expanded to 500 MB and took RSS from
+      // 61 MB to 1.6 GB — and the 8s abort bounds TIME, not memory, so a multi-GB allocation lands
+      // before any byteLength check can run. undici only decompresses when this header says to (it
+      // does not sniff magic bytes), so refusing the header closes the amplification for BOTH
+      // branches below, including the textual one that predates this method's document support.
+      const enc = String(res.headers.get('content-encoding') || '').trim().toLowerCase();
+      if (enc && enc !== 'identity') throw new BadRequestException('That URL returned a compressed response, which cannot be read safely.');
+
+      // TEXTUAL — unchanged, byte for byte. ingestHtml and the /ingest endpoint have always taken
+      // this path and its 40000-char htmlToText default is calibrated for a web page. Nothing here
+      // moves; the document branch below is purely additive.
+      if (/text\/html|text\/plain|application\/xhtml/i.test(ct)) {
+        const raw = await res.text();
+        const r = this.htmlToText(raw.slice(0, 2500000));
+        return { source: 'url', url: u, title: r.title, text: r.text, chars: r.text.length };
+      }
+
+      // DOCUMENTS. A link to a hosted PDF or Word file used to be refused as "not readable text",
+      // which was true of the old code and false of the user's intention. Content-Type decides when
+      // it is specific; the URL's own extension decides when the server says octet-stream — which is
+      // how a .fdx arrives, since nothing serves Final Draft with a meaningful type.
+      const byType = kindFromContentType(ct);
+      const kind = byType !== 'unknown' ? byType : kindOf(parsed.pathname || '');
+      if (kind !== 'pdf' && kind !== 'docx' && kind !== 'fdx') {
+        throw new BadRequestException('That URL did not return readable text.');
+      }
+      // Cap on the DECLARED size first so an oversized file is refused before it is pulled into
+      // memory, then on the real bytes because Content-Length is a claim, not a guarantee.
+      const limitMb = Math.round(MAX_REMOTE_BYTES / (1024 * 1024));
+      const declared = Number(res.headers.get('content-length') || 0);
+      if (isFinite(declared) && declared > MAX_REMOTE_BYTES) throw new BadRequestException('That file is larger than ' + limitMb + ' MB.');
+      const ab: ArrayBuffer = await res.arrayBuffer();
+      if (ab.byteLength > MAX_REMOTE_BYTES) throw new BadRequestException('That file is larger than ' + limitMb + ' MB.');
+      const ex = await extractText(Buffer.from(ab), String(parsed.pathname || 'source'), kind);
+      if (!ex.chars) throw new BadRequestException('That URL returned a file that could not be read — ' + (ex.note || 'no readable text.'));
+      return { source: 'url', url: u, title: '', text: ex.text, chars: ex.chars };
     } catch (e: any) {
       if (e instanceof BadRequestException) throw e;
       throw new BadRequestException('Could not fetch that URL (redirects blocked; size and time limits apply).');
