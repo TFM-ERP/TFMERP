@@ -117,10 +117,10 @@ export const COUNTRY_ERA_TIMELINES: Record<string, { label: string; ar: string }
   Egypt: [
     { label: 'Pharaonic', ar: 'فرعوني' }, { label: 'Ptolemaic / Greco-Roman', ar: 'بطلمي/يوناني-روماني' },
     { label: 'Coptic', ar: 'قبطي' }, { label: 'Arab-Islamic', ar: 'عربي-إسلامي' },
-    { label: 'Ottoman', ar: 'عثماني' }, { label: 'Modern Egyptian', ar: 'مصري حديث' },
+    { label: 'Ottoman', ar: 'عثماني' }, { label: 'British occupation', ar: 'الاحتلال البريطاني' }, { label: 'Modern Egyptian', ar: 'مصري حديث' },
   ],
   Iraq: [
-    { label: 'Sumer / Akkad / Babylon', ar: 'سومر/أكد/بابل' }, { label: 'Abbasid Baghdad', ar: 'بغداد العباسية' },
+    { label: 'Sumer / Akkad / Babylon', ar: 'سومر/أكد/بابل' }, { label: 'Abbasid Baghdad', ar: 'بغداد العباسية' }, { label: 'Ottoman Iraq', ar: 'العراق العثماني' }, { label: 'British Mandate', ar: 'الانتداب البريطاني' },
     { label: 'Modern Iraq', ar: 'العراق الحديث' },
   ],
   Greece: [
@@ -138,27 +138,38 @@ export const COUNTRY_ERA_TIMELINES: Record<string, { label: string; ar: string }
     { label: 'Heian', ar: 'هييآن' }, { label: 'Edo / Tokugawa', ar: 'إيدو/توكوغاوا' }, { label: 'Modern Japan', ar: 'اليابان الحديثة' },
   ],
   'Saudi Arabia': [
-    { label: 'Pre-Islamic Arabia (Jāhiliyya)', ar: 'الجاهلية' }, { label: 'Early Islamic Hijaz', ar: 'الحجاز الإسلامي المبكر' },
-    { label: 'Saudi states (Diriyah onward)', ar: 'الدولة السعودية' }, { label: 'Modern Saudi Arabia', ar: 'السعودية الحديثة' },
+    { label: 'Pre-Islamic Arabia (Jāhiliyya)', ar: 'الجاهلية' },
+    { label: 'Early Islamic Hijaz', ar: 'الحجاز الإسلامي المبكر' },
+    { label: 'Ottoman Hejaz & al-Hasa', ar: 'الحجاز والأحساء العثمانية' },
+    { label: 'First Saudi State (Diriyah)', ar: 'الدولة السعودية الأولى (الدرعية)' },
+    { label: 'Second Saudi State (Nejd)', ar: 'الدولة السعودية الثانية (نجد)' },
+    { label: 'Unification (Ibn Saud)', ar: 'التوحيد (الملك عبدالعزيز)' },
+    { label: 'Modern Saudi Arabia', ar: 'السعودية الحديثة' },
   ],
   Yemen: [
-    { label: 'Sabaean / Himyarite', ar: 'سبأ وحِمْيَر' }, { label: 'Islamic Yemen (Rasulid / Zaydi)', ar: 'اليمن الإسلامي' }, { label: 'Modern Yemen', ar: 'اليمن الحديث' },
+    { label: 'Sabaean / Himyarite', ar: 'سبأ وحِمْيَر' },
+    { label: 'Islamic Yemen (Rasulid / Zaydi)', ar: 'اليمن الإسلامي' },
+    { label: 'First Ottoman Yemen', ar: 'اليمن العثماني الأول' },
+    { label: 'Qasimid Yemen (independent Zaydi)', ar: 'الدولة القاسمية (اليمن الزيدي المستقل)' },
+    { label: 'Second Ottoman Yemen', ar: 'اليمن العثماني الثاني' },
+    { label: 'British Aden', ar: 'عدن البريطانية' },
+    { label: 'Modern Yemen', ar: 'اليمن الحديث' },
   ],
   UAE: [
-    { label: 'Magan (Bronze Age)', ar: 'مَجان' }, { label: 'Islamic era', ar: 'العصر الإسلامي' },
-    { label: 'Trucial States (pearling)', ar: 'الإمارات المتصالحة' }, { label: 'Modern UAE', ar: 'الإمارات الحديثة' },
+    { label: 'Magan (Bronze Age)', ar: 'مَجان' }, { label: 'Islamic era', ar: 'العصر الإسلامي' }, { label: 'Portuguese era', ar: 'العصر البرتغالي' },
+    { label: 'Trucial States (British protection)', ar: 'الإمارات المتصالحة (الحماية البريطانية)' }, { label: 'Modern UAE', ar: 'الإمارات الحديثة' },
   ],
   Qatar: [
-    { label: 'Pearling / Bedouin Qatar', ar: 'قطر قبل النفط' }, { label: 'Modern Qatar', ar: 'قطر الحديثة' },
+    { label: 'Pearling / Bedouin Qatar', ar: 'قطر قبل النفط' }, { label: 'Ottoman Qatar', ar: 'قطر العثمانية' }, { label: 'British protection', ar: 'الحماية البريطانية' }, { label: 'Modern Qatar', ar: 'قطر الحديثة' },
   ],
   Kuwait: [
-    { label: 'Pre-oil Kuwait (Bani Utub, pearling/trade)', ar: 'الكويت قبل النفط' }, { label: 'Modern Kuwait', ar: 'الكويت الحديثة' },
+    { label: 'Pre-oil Kuwait (Bani Utub, pearling/trade)', ar: 'الكويت قبل النفط' }, { label: 'British protection', ar: 'الحماية البريطانية' }, { label: 'Modern Kuwait', ar: 'الكويت الحديثة' },
   ],
   Bahrain: [
-    { label: 'Dilmun (Bronze Age)', ar: 'دلمون' }, { label: 'Islamic Bahrain', ar: 'البحرين الإسلامية' }, { label: 'Modern Bahrain', ar: 'البحرين الحديثة' },
+    { label: 'Dilmun (Bronze Age)', ar: 'دلمون' }, { label: 'Islamic Bahrain', ar: 'البحرين الإسلامية' }, { label: 'Portuguese Bahrain', ar: 'البحرين البرتغالية' }, { label: 'Safavid / Persian Bahrain', ar: 'البحرين الصفوية (الفارسية)' }, { label: 'British protection', ar: 'الحماية البريطانية' }, { label: 'Modern Bahrain', ar: 'البحرين الحديثة' },
   ],
   Oman: [
-    { label: 'Magan (copper kingdom)', ar: 'مَجان' }, { label: 'Ibadi Imamate', ar: 'الإمامة الإباضية' },
+    { label: 'Magan (copper kingdom)', ar: 'مَجان' }, { label: 'Ibadi Imamate', ar: 'الإمامة الإباضية' }, { label: 'Portuguese Muscat', ar: 'مسقط البرتغالية' },
     { label: 'Omani Empire (Zanzibar)', ar: 'الإمبراطورية العُمانية' }, { label: 'Modern Oman', ar: 'عُمان الحديثة' },
   ],
   Syria: [
@@ -170,15 +181,24 @@ export const COUNTRY_ERA_TIMELINES: Record<string, { label: string; ar: string }
     { label: 'French Mandate', ar: 'الانتداب الفرنسي' }, { label: 'Modern Lebanon', ar: 'لبنان الحديث' },
   ],
   Jordan: [
-    { label: 'Nabataean (Petra)', ar: 'الأنباط' }, { label: 'Islamic era', ar: 'العصر الإسلامي' }, { label: 'Modern Jordan', ar: 'الأردن الحديث' },
+    { label: 'Nabataean (Petra)', ar: 'الأنباط' }, { label: 'Islamic era', ar: 'العصر الإسلامي' }, { label: 'British Mandate (Transjordan)', ar: 'الانتداب البريطاني (شرق الأردن)' }, { label: 'Modern Jordan', ar: 'الأردن الحديث' },
   ],
   Palestine: [
-    { label: 'Canaanite / Philistine antiquity', ar: 'كنعان' }, { label: 'Islamic Jerusalem', ar: 'القدس الإسلامية' },
-    { label: 'Ottoman / British Mandate', ar: 'الانتداب' }, { label: 'Modern Palestine', ar: 'فلسطين الحديثة' },
+    { label: 'Canaanite / Philistine antiquity', ar: 'كنعان' },
+    { label: 'Roman Judea', ar: 'يهودا الرومانية' },
+    { label: 'Syria Palaestina / Byzantine', ar: 'سوريا فلسطين / البيزنطية' },
+    { label: 'Islamic Palestine (Jund Filasṭīn)', ar: 'فلسطين الإسلامية (جند فلسطين)' },
+    { label: 'Crusader Kingdom of Jerusalem', ar: 'مملكة بيت المقدس الصليبية' },
+    { label: 'Mamluk Palestine', ar: 'فلسطين المملوكية' },
+    { label: 'Ottoman Palestine', ar: 'فلسطين العثمانية' },
+    { label: 'British Mandate', ar: 'الانتداب البريطاني' },
+    { label: 'Nakba and after', ar: 'النكبة وما بعدها' },
+    { label: 'Occupation (1967– )', ar: 'الاحتلال (1967 –)' },
+    { label: 'Modern Palestine', ar: 'فلسطين الحديثة' },
   ],
   Morocco: [
     { label: 'Amazigh / Mauretania', ar: 'موريطنية الأمازيغية' }, { label: 'Idrisid (Islamization)', ar: 'الأدارسة' },
-    { label: 'Almoravid / Almohad', ar: 'المرابطون والموحدون' }, { label: 'Modern Morocco', ar: 'المغرب الحديث' },
+    { label: 'Almoravid / Almohad', ar: 'المرابطون والموحدون' }, { label: 'French / Spanish Protectorate', ar: 'الحماية الفرنسية والإسبانية' }, { label: 'Modern Morocco', ar: 'المغرب الحديث' },
   ],
   Algeria: [
     { label: 'Numidia / Carthage-Rome', ar: 'نوميديا' }, { label: 'Ottoman Regency of Algiers', ar: 'الإيالة العثمانية' },

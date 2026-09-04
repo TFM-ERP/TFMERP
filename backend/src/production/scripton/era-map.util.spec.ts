@@ -3,14 +3,14 @@ import { strict as assert } from 'node:assert';
 import { createHash } from 'node:crypto';
 import { COUNTRY_ERA_YEARS, ERA_BANDS } from './era-map.util';
 
-test('the inventory is the whole inventory - 91 rows, 26 countries, and the flag counts', () => {
-  assert.equal(COUNTRY_ERA_YEARS.length, 91);
+test('the inventory is the whole inventory - 118 rows, 26 countries, and the flag counts', () => {
+  assert.equal(COUNTRY_ERA_YEARS.length, 118);
   assert.equal(new Set(COUNTRY_ERA_YEARS.map((r) => r.country)).size, 26);
   assert.equal(ERA_BANDS.length, 9);
   const n = (f: string) => COUNTRY_ERA_YEARS.filter((r) => r.flag === f).length;
-  assert.equal(n(''), 41);
-  assert.equal(n('disputed'), 22);
-  assert.equal(n('unsound'), 28);
+  assert.equal(n(''), 57);
+  assert.equal(n('disputed'), 35);
+  assert.equal(n('unsound'), 26);
 });
 
 test('every row is orderly and every row says where it came from', () => {
@@ -40,7 +40,7 @@ test('the sourced rows are pinned, so no row can drift without someone deciding 
   const fingerprint = createHash('sha256').update(
     COUNTRY_ERA_YEARS.map((r) => [r.country, r.label, r.start, r.end, r.flag].join('|')).join('\n'),
   ).digest('hex').slice(0, 16);
-  assert.equal(fingerprint, 'd0342a83b37a9606');
+  assert.equal(fingerprint, 'ee8f14314b2c65a8');
 });
 
 import * as map from './era-map.util';
@@ -127,7 +127,9 @@ test('an era offset is days from the frozen storyYear, and a refused row gives n
 });
 
 test('the map is ONE-DIRECTIONAL - asserting the absence of a year to era lookup IS the test', () => {
-  // The era list is a creative menu, not a calendar: 34 gaps and 2 overlaps across the 91 rows.
+  // The era list is a creative menu, not a calendar: 33 gaps and 11 overlaps across the 118 rows.
+  // The occupying-power rows nest inside the civilisational ones by design, which is most of the
+  // overlap count and the strongest reason this direction must stay the only one.
   // A year -> era lookup would be undefined across the gaps and ambiguous across the overlaps, so
   // this module must never grow one. Adding it would otherwise fail silently for most years.
   const exported = Object.keys(map).filter((k) => typeof (map as any)[k] === 'function');
@@ -159,8 +161,8 @@ test('the gaps the one-directional rule exists for are really there', () => {
       if (start < prevEnd - 25) overlaps++;
     }
   }
-  assert.equal(gaps, 34);
-  assert.equal(overlaps, 2);
+  assert.equal(gaps, 33);
+  assert.equal(overlaps, 11);
 });
 
 test('a row with no sourced start refuses for THAT reason, not the generic one', () => {
@@ -188,4 +190,32 @@ test('a junk storyYear refuses, rather than quietly reporting the present', () =
   assert.equal(eraOffsetForEra('Japan', 'Edo / Tokugawa', null as any, 2026), null);
   // and the real thing still works
   assert.equal(eraOffsetForEra('Japan', 'Edo / Tokugawa', 1745, 2026), -3653);
+});
+
+test('every Palestine era that reaches the present says the land is occupied', () => {
+  // A writer who picks "Modern Palestine" for a story set now must be told, and so must a writer
+  // who picks the occupation row itself. One selectable era named "Occupation" is not a marking -
+  // it only speaks to whoever already chose it. This asserts the disclosure over the SET of rows
+  // that reach the present, so a row added later cannot quietly arrive without one.
+  const open = COUNTRY_ERA_YEARS.filter((r) => r.country === 'Palestine' && r.end === null);
+  assert.ok(open.length >= 2, 'expected the open-ended Palestine rows to exist');
+  for (const r of open) {
+    assert.match(String(r.standing), /remain under occupation/, r.label + ': no standing disclosure');
+    assert.match(anchorYearForEra('Palestine', r.label, 2026).note, /remain under occupation/, r.label + ': the verdict drops it');
+  }
+  // and it rides on top of the flag note rather than replacing it
+  const v = anchorYearForEra('Palestine', 'Occupation (1967\u2013 )', 2026);
+  assert.match(v.note, /that boundary is disputed/);
+  assert.equal(v.status, 'ok');
+  // a closed historical row carries nothing extra
+  assert.equal(anchorYearForEra('Palestine', 'Crusader Kingdom of Jerusalem', 2026).note, '');
+});
+
+test('the standing disclosure survives a REFUSAL, because it is not about the dates', () => {
+  // withStanding is wired into all four returns. If it were only on the happy path, flagging a row
+  // unsound would silently delete its disclosure - the exact case where the user is being asked to
+  // supply a year and most needs the context.
+  const rows = COUNTRY_ERA_YEARS.filter((r) => r.standing);
+  assert.ok(rows.length > 0);
+  for (const r of rows) assert.ok(String(r.standing).trim().length > 20, r.label + ': empty standing');
 });
