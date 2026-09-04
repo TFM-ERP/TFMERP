@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useExitGuard } from './useExitGuard';
-import { uploadFile, productionApi } from '@/lib/api';
+import { uploadFile, productionApi, api } from '@/lib/api';
 import { useViewport } from './useViewport';
 import { ENDING_TYPES } from './endingTypes';
 import { useLocale } from '@/lib/i18n';
@@ -158,7 +158,295 @@ export default function ScriptOnIntake({ projectId, busy, onBegin, onClose }: { 
   const [openEl, setOpenEl] = useState<any>(null);
   const vp = useViewport(); const narrow = vp !== 'desktop';
 
-  const set = (k: string, v: any) => setF((p: any) => ({ ...p, [k]: v }));
+  // Every field the user has interacted with, whether or not they left a value in it. Clearing a
+  // field is a decision too, and an analysis landing afterwards must not undo it.
+  const touchedRef = useRef<Set<string>>(new Set());
+  const set = (k: string, v: any) => { touchedRef.current.add(k); setF((p: any) => ({ ...p, [k]: v })); };
+
+  // ---- Source-aware Brief pre-fill -------------------------------------------------------------
+  // The backend does the risky half: it reads the material, and validates every value it gets back
+  // against the option lists THIS component sends it, so a value the pickers cannot display never
+  // arrives. What is left here is the merge, and its two rules: a field the user has touched is
+  // never written, and a field that already holds a value is left alone.
+  const [recBusy, setRecBusy] = useState(false);
+  const [recDone, setRecDone] = useState<any>(null);
+  const [recApplied, setRecApplied] = useState<any[]>([]);
+  const [recWhy, setRecWhy] = useState(false);
+  const [recPct, setRecPct] = useState(0);
+  const [recSecs, setRecSecs] = useState(0);
+  const recRanRef = useRef<string>('');
+  /**
+   * The committed form. `runRecommend` waits ~35s on the network, by which time the `f` captured in
+   * its closure is stale, which is why the merge used to run inside a setF updater. It cannot: React
+   * defers an updater to the render phase, so anything the updater collects is still empty on the
+   * next line. Updated after every commit, this ref lets the merge be computed as a plain function
+   * whose result is both set AND counted — see the note in runRecommend.
+   */
+  const fRef = useRef<any>(null);
+  const recStartRef = useRef<number>(0);
+  const recEstRef = useRef<number>(30000);
+
+  /**
+   * The read takes 30-45 seconds on a real brief and the backend reports nothing until it finishes,
+   * so there is no true percentage to show. This is an ESTIMATE against elapsed time and it says so:
+   * it climbs to 95% and stops, and if the work outlives the estimate the copy changes rather than
+   * the bar lying about being nearly done. A progress bar that reaches 100% and then keeps spinning
+   * is worse than no bar at all.
+   */
+  useEffect(() => {
+    if (!recBusy) return;
+    const id = setInterval(() => {
+      const ms = Date.now() - (recStartRef.current || Date.now());
+      setRecSecs(Math.floor(ms / 1000));
+      setRecPct(Math.min(95, Math.round((ms / Math.max(1, recEstRef.current)) * 95)));
+    }, 250);
+    return () => clearInterval(id);
+  }, [recBusy]);
+
+  /**
+   * Fields that ship FULL rather than empty, so holding a value proves nothing about the user.
+   * `researchScope` arrives with all six lanes on and the panel says "ON BY DEFAULT" — if presence
+   * protected it, the analysis could never narrow it, which is the whole point of reading it.
+   * Only touchedRef protects these, which is right: a lane is theirs once they have clicked it.
+   */
+  const REC_PREFILLED = new Set<string>(['researchScope']);
+
+  /**
+   * The strength styleToggle() seeds on a click — the middle of the 0..4 STYLE_STRENGTH scale.
+   * An analysis that chooses a style must seed the same value, or the slider row renders blank
+   * beneath a chip that looks chosen.
+   */
+  const STYLE_DEFAULT_STRENGTH = 2;
+
+  useEffect(() => { fRef.current = f; }, [f]);
+
+  const recHasValue = (form: any, field: string): boolean => {
+    if (REC_PREFILLED.has(field)) return false;
+    const [a1, b1] = field.split('.');
+    const v = b1 ? (form && form[a1] ? form[a1][b1] : undefined) : (form ? form[a1] : undefined);
+    if (v == null) return false;
+    if (Array.isArray(v)) return v.length > 0;
+    if (typeof v === 'string') return v.trim().length > 0;
+    if (typeof v === 'number') return true;
+    if (typeof v === 'boolean') return false;
+    return true;
+  };
+  const recSet = (form: any, field: string, value: any): any => {
+    const [a1, b1] = field.split('.');
+    if (!b1) return { ...form, [a1]: value };
+    return { ...form, [a1]: { ...(form[a1] && typeof form[a1] === 'object' ? form[a1] : {}), [b1]: value } };
+  };
+
+  /**
+   * The option lists, sent WITH the request so the backend can only ever answer with something these
+   * pickers can actually show.
+   *
+   * These are the CREATIVE DNA fields — baseGenres, blendLayers, tones, moods — not `genres` and
+   * `tone`. Those two are computed by reDna() below from these, so filling them shows the user
+   * nothing and is overwritten by their next click. That is why the first version of this appeared
+   * to do nothing at all.
+   */
+  const recOptions = () => ({
+    baseGenres: BASE_GENRES.map((x: any) => x.label),
+    blendLayers: BLEND_LAYERS.map((x: any) => x.label),
+    tones: TONES.map((x: any) => x.label),
+    moods: MOODS.map((x: any) => x.label),
+    treatment: TREATMENTS.map((x: any) => x.label),
+    projectType: PTYPES.map((x) => x[0]),
+    language: LANGUAGES,
+    country: MARKETS,
+    rating: RATINGS,
+    loreDensity: DSTOPS,
+    framework: FRAMEWORK_INFO.map((x) => x.id),
+    // STYLE & VOICE and ENDING are stored as IDS, not labels — `styles` holds style-pack ids and
+    // spine.endingIds holds ending ids. Send the ids, and send the human names as hints below, so
+    // nothing has to be mapped back on either side.
+    styles: STYLE_PACKS.map((x: any) => x.id),
+    endings: ENDING_TYPES.map((x: any) => x.id),
+    // Every sub-genre the picker could offer across all base genres. Which of them actually appear
+    // depends on the base genres the SAME analysis is choosing, so the list has to be the union
+    // here and is narrowed to what the chosen genres really offer when the answer is applied.
+    subgenres: allSubsFor(BASE_GENRES.map((x: any) => x.label)),
+    // The six research lanes, by key. Not every story needs all six.
+    researchScope: SCOPE.map((x) => x[0]),
+  });
+
+  /**
+   * Human names for the lists that travel as ids. Prompt-side only — the value the analysis must
+   * copy is still the id, so an id list and a readable list can never drift apart.
+   */
+  const recHints = () => ({
+    styles: STYLE_PACKS.map((x: any) => x.id + ' = ' + x.label).join(' · '),
+    endings: ENDING_TYPES.map((x: any) => x.id + ' = ' + x.label).join(' · '),
+    researchScope: SCOPE.map((x) => x[0] + ' = ' + x[1]).join(' · '),
+  });
+
+  const runRecommend = async () => {
+    if (!projectId) return;
+    const payload = {
+      options: recOptions(),
+      hints: recHints(),
+      sourceText: [f.sourceText].concat(pastes).filter((x) => x && String(x).trim()).join('\n\n'),
+      // The MAIN paste box travels as a source of its own, not only inside `sourceText`.
+      // `ScriptOnIntake.begin()` has always pre-aggregated it into sourceText while the EXTRA paste
+      // boxes went into sources[] — two paths for one kind of material, and every bug in this area
+      // has come from that split: ① silently dropped the main box, ② leaked a quarantined body
+      // through the aggregate. It also made the paste-only request the one shape with no source
+      // rows at all, so it got no report chips and skipped the whole materialise path.
+      // assembleCorpus already folds a paste box that sits inside a source, so nothing duplicates.
+      sources: ([] as any[])
+        .concat((f.sourceText && String(f.sourceText).trim())
+          ? [{ kind: 'paste', name: t('Pasted text'), value: String(f.sourceText) }] : [])
+        .concat(pastes.filter((x) => x && x.trim()).map((v) => ({ kind: 'paste', value: v })))
+        .concat(urls.filter((u) => u && u.trim()).map((v) => ({ kind: 'url', value: v })))
+        .concat(files.map((x) => ({ kind: 'file', name: x.name, value: x.url }))),
+    };
+    if (!payload.sources.length && !payload.sourceText.trim()) return;
+    const key = JSON.stringify(payload.sources) + '|' + payload.sourceText.length;
+    if (recRanRef.current === key) return;   // the same material twice is the same answer
+    recRanRef.current = key;
+    // Measured on real material: two files of ~47,000 characters took ~35s end to end. Files carry
+    // the cost (each is opened, decoded and read), so they drive the estimate; pasted text is cheap.
+    recEstRef.current = 12000 + (payload.sources.length * 12000) + Math.min(15000, payload.sourceText.length * 0.25);
+    recStartRef.current = Date.now();
+    setRecPct(0); setRecSecs(0);
+    setRecBusy(true); setRecDone(null);
+    try {
+      const res: any = await api.post('/production/scripton/recommend-brief/' + encodeURIComponent(projectId), payload);
+      const data = (res && res.data) || {};
+      const fields: any[] = Array.isArray(data.fields) ? data.fields : [];
+      const landed: any[] = [];
+      {
+        // THE BANNER BUG (3 Sep): this block used to be the body of `setF((prev) => ...)`, and
+        // `landed.length` was read on the line after it. React does not run an updater there — it
+        // defers it to the render phase — so the count was read while still zero and the banner
+        // said "Nothing in your material matched a setting" over a form the analysis had just
+        // filled. It intermittently looked right only because React evaluates an updater EAGERLY
+        // when the update queue happens to be empty; once the progress timer started ticking
+        // setRecSecs every second the queue never was, and it failed every time.
+        //
+        // The fix is not a bigger updater. It is that a merge which must also be REPORTED has to be
+        // a plain function of the current form: compute it, set it, count it.
+        let next = fRef.current || f;
+        // `subgenres` is held back to a second pass: which sub-genres the picker offers depends on
+        // the base genres THIS SAME analysis is choosing, and the reply arrives in whatever order
+        // the model wrote it.
+        let subsRow: any = null;
+        for (const r of fields) {
+          if (!r || !r.field) continue;
+          if (touchedRef.current.has(r.field)) continue;   // the user got there first
+          if (recHasValue(next, r.field)) continue;        // a resumed draft is not overwritten
+          if (r.field === 'subgenres') { subsRow = r; continue; }
+          if (r.field === 'styles') {
+            // Choosing a style pack without a strength leaves the slider row blank. styleToggle()
+            // seeds 2 on a click; an analysis has to do the same or the panel is half-filled.
+            const ids: string[] = Array.isArray(r.value) ? r.value : [];
+            if (!ids.length) continue;
+            const mix: any = { ...(next.styleMix || {}) };
+            for (const id of ids) if (mix[id] == null) mix[id] = STYLE_DEFAULT_STRENGTH;
+            next = { ...next, styles: ids, styleMix: mix };
+            landed.push(r);
+            continue;
+          }
+          next = recSet(next, r.field, r.value);
+          if (r.field === 'spine.endingIds') {
+            // spine.ending is COMPOSED from the ids by composeEnding() — the brief and the climax
+            // both read the composed string, so choosing ids without recomposing changes nothing
+            // downstream however lit up the chips look.
+            const sp: any = { ...(next.spine || {}) };
+            sp.ending = composeEnding(Array.isArray(r.value) ? r.value : [], sp.endingCustom);
+            next = { ...next, spine: sp };
+          }
+          landed.push(r);
+        }
+        if (subsRow && !touchedRef.current.has('subMix')) {
+          // The form has no `subgenres` field at all — the picker stores subMix, an object of
+          // presence/intensity pairs, and reDna derives the singular `subgenre` from its keys.
+          // A sub-genre outside what the chosen base genres offer would set a value with no chip
+          // to show it, so it is dropped rather than stored invisibly.
+          const offered = allSubsFor(Array.isArray(next.baseGenres) ? next.baseGenres : []);
+          const keep = (Array.isArray(subsRow.value) ? subsRow.value : [])
+            .filter((x: string) => offered.indexOf(x) >= 0);
+          if (keep.length && !Object.keys(next.subMix || {}).length) {
+            const mix: any = { ...(next.subMix || {}) };
+            for (const sg of keep) if (!mix[sg]) mix[sg] = { p: 2, ii: 2 };
+            next = { ...next, subMix: mix };
+            landed.push({ ...subsRow, value: keep });
+          }
+        }
+        // The Creative DNA fields feed derived ones — reDna recomputes `genres` from baseGenres plus
+        // blendLayers, `tone` from tones plus moods, `subgenre` from subMix, and cultureEra and
+        // settingPlace from settingCountry. Without this the chips light up but every downstream
+        // consumer still sees the empty values the form started with.
+        if (landed.length) setF(reDna(next));
+      }
+      setRecPct(100);
+      setRecApplied(landed);
+      setRecDone({ ...data, landed: landed.length });
+    } catch (e: any) {
+      // Fail open: the Brief is exactly what it would have been with no analysis at all.
+      setRecDone({ fields: [], sources: [], note: t('The material could not be analysed.') });
+    } finally { setRecBusy(false); }
+  };
+
+  const undoRecommend = () => {
+    setF((prev: any) => {
+      let next = prev;
+      let cleared = 0;
+      for (const r of recApplied) {
+        if (r.field === 'subgenres') {
+          // Remove only the sub-genres this analysis added; anything the user has since ticked
+          // stays, and so does any strength they moved.
+          const mix: any = { ...(next.subMix || {}) };
+          let hit = 0;
+          for (const sg of (Array.isArray(r.value) ? r.value : [])) {
+            const cfg: any = mix[sg];
+            if (cfg && cfg.p === 2 && cfg.ii === 2) { delete mix[sg]; hit++; }
+          }
+          if (hit) { next = { ...next, subMix: mix }; cleared++; }
+          continue;
+        }
+        if (r.field === 'styles') {
+          const ids: string[] = Array.isArray(r.value) ? r.value : [];
+          const cur: string[] = Array.isArray(next.styles) ? next.styles : [];
+          if (cur.length !== ids.length || !cur.every((v, i) => v === ids[i])) continue;
+          const mix: any = { ...(next.styleMix || {}) };
+          for (const id of ids) if (mix[id] === STYLE_DEFAULT_STRENGTH) delete mix[id];
+          next = { ...next, styles: [], styleMix: mix };
+          cleared++;
+          continue;
+        }
+        if (r.field === 'researchScope') {
+          // Undo restores the DEFAULT, which for these lanes is every one of them on — clearing to
+          // an empty object would leave the build with no research at all, which nobody chose.
+          const want: any = (r.value && typeof r.value === 'object') ? r.value : {};
+          const cur: any = (next.researchScope && typeof next.researchScope === 'object') ? next.researchScope : {};
+          const untouched = Object.keys(want).every((k) => !!want[k] === !!cur[k]);
+          if (!untouched) continue;                         // they have re-clicked a lane — theirs now
+          const back: any = {};
+          for (const k of Object.keys(want)) back[k] = true;
+          next = { ...next, researchScope: back };
+          cleared++;
+          continue;
+        }
+        const [a1, b1] = String(r.field).split('.');
+        const cur = b1 ? (next[a1] ? next[a1][b1] : undefined) : next[a1];
+        const same = Array.isArray(r.value) && Array.isArray(cur)
+          ? (cur.length === r.value.length && cur.every((v: any, i: number) => v === r.value[i]))
+          : cur === r.value;
+        if (!same) continue;                                // the user has since edited it — theirs now
+        next = recSet(next, r.field, Array.isArray(r.value) ? [] : (typeof r.value === 'number' ? null : ''));
+        if (r.field === 'spine.endingIds') {
+          const sp: any = { ...(next.spine || {}) };
+          sp.ending = composeEnding([], sp.endingCustom);
+          next = { ...next, spine: sp };
+        }
+        cleared++;
+      }
+      return cleared ? reDna(next) : next;
+    });
+    setRecApplied([]); setRecDone(null); setRecWhy(false);
+  };
   // Apply a series-type preset → fill episodes / min-per-ep / seasons + marketKey from the template.
   const applyPreset = (s: SeriesPreset) => setF((p: any) => ({ ...p, seriesPreset: s.key, marketKey: (s.key === 'VERTICAL' && locale === 'ar') ? 'MENA' : s.marketKey, episodes: s.episodes, minutesPerEp: s.minutesPerEp, seasons: s.seasons }));
   // Editing any episode/duration field means the template no longer matches → Custom (and let the backend infer market).
@@ -191,6 +479,9 @@ export default function ScriptOnIntake({ projectId, busy, onBegin, onClose }: { 
   const onFile = async (file?: File | null) => { if (!file) return; setUpl(t('Uploading...')); try { const up = await uploadFile(file); setFiles((a) => [...a, { name: up.originalName || 'file', url: up.url }]); setUpl(''); } catch { setUpl(t('Upload failed')); } };
 
   useEffect(() => { if (f.mode === 'ORIGINAL') setStep(2); }, [f.mode]);
+  // Reaching the Brief starts the read — by the Next button or by switching to From scratch, which
+  // jumps here. runRecommend guards itself against running twice on the same material.
+  useEffect(() => { if (step === 2) { runRecommend(); } }, [step]);
   // Seed lazily on mount (avoids SSR hydration mismatch from Math.random in initial state).
   useEffect(() => { setF((p: any) => (p.seed ? p : { ...p, seed: Math.floor(Math.random() * 1000000) })); }, []);
   // When a series format is chosen, default the type-preset by locale/market so the first view is
@@ -260,7 +551,11 @@ export default function ScriptOnIntake({ projectId, busy, onBegin, onClose }: { 
     const framework = f.framework || smartFramework(f.projectType, f.genres);
     // Keep the draft here. It is cleared by the Studio ONLY once the build truly succeeds (directions generated),
     // so a mid-build failure (AI/credits/network) leaves the form intact and the user can return to Adapt & Build and Resume.
-    onBegin({ ...f, targetPages: (f.projectType === 'MOVIE' && f.targetPages) ? Number(f.targetPages) : null, episodes: (isSeries || f.projectType === 'VERTICAL_AI_VIDEO') ? f.episodes : null, minutesPerEp: isSeries ? f.minutesPerEp : null, seasons: isSeries ? f.seasons : null, framework, sourceText: aggregate, sources, sourceUrl: urls[0] || '', sourceFileUrl: files[0] ? files[0].url : '' });
+    // The label rides in the build payload like every other brief field, so it lands in
+    // developmentBuild.brief and the script page reads it back from getPackage(). Trimmed here
+    // rather than at every reader: an all-spaces label must print as nothing, not as a blank line.
+    const versionLabel = String(f.versionLabel || '').trim();
+    onBegin({ ...f, versionLabel, targetPages: (f.projectType === 'MOVIE' && f.targetPages) ? Number(f.targetPages) : null, episodes: (isSeries || f.projectType === 'VERTICAL_AI_VIDEO') ? f.episodes : null, minutesPerEp: isSeries ? f.minutesPerEp : null, seasons: isSeries ? f.seasons : null, framework, sourceText: aggregate, sources, sourceUrl: urls[0] || '', sourceFileUrl: files[0] ? files[0].url : '' });
   };
 
   const band: React.CSSProperties = { border: '1px solid ' + C.hair, borderRadius: 14, padding: 16, marginBottom: 12, background: C.band };
@@ -311,6 +606,26 @@ export default function ScriptOnIntake({ projectId, busy, onBegin, onClose }: { 
         </div>
 
         <div style={{ marginBottom: 14 }}><div style={lab}>{t('Project / build title')} <span style={{ color: C.red }}>*</span></div><input value={f.name || ''} onChange={(e) => set('name', e.target.value)} placeholder={t('Name this build - e.g. Antara, mythic cut')} style={{ ...field, fontSize: 15, fontWeight: 600, borderColor: (f.name && String(f.name).trim()) ? undefined : 'rgba(229,99,95,.6)' }} />{!(f.name && String(f.name).trim()) ? <div style={{ fontSize: 11, color: C.red, marginTop: 5 }}>{t('Required — name your build so you can find and reopen it on the Builds board.')}</div> : null}</div>
+        {/*
+          VERSION LABEL — free text, and deliberately NOT tied to anything that already numbers itself.
+          Three things in ScripON are called a version: the per-build version list, the WGA revision
+          colours (White/Blue/Pink) that `revLabel` carries onto the title page, and this. This one is
+          the writer's own name for the draft — "v2", "Director's pass", "Post-notes" — so that two
+          builds of Jason Quick are told apart on the page, not only in the Builds board.
+          Optional by design: an empty label prints nothing anywhere, rather than printing a blank line.
+        */}
+        <div style={{ marginBottom: 14 }}>
+          <div style={lab}>{t('Version / draft label')} <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, color: C.mut, marginInlineStart: 8 }}>{t('OPTIONAL')}</span></div>
+          <input
+            value={f.versionLabel || ''}
+            onChange={(e) => set('versionLabel', e.target.value.slice(0, 60))}
+            placeholder={t('e.g. v2, Director\'s pass, Post-notes — printed under the title')}
+            style={{ ...field, fontSize: 14 }}
+          />
+          <div style={{ fontSize: 11, color: C.faint, marginTop: 5 }}>
+            {t('Appears under the title on the script PDF, and on every page of a protected copy. Leave empty for none.')}
+          </div>
+        </div>
         <div style={{ display: 'inline-flex', background: '#171a20', border: '1px solid ' + C.hair, borderRadius: 10, padding: 3, gap: 2, marginBottom: 14 }}>
           {[['ADAPT', 'Adapt material'], ['ORIGINAL', 'From scratch']].map(([k, l]) => (
             <span key={k} onClick={() => { set('mode', k); setStep(k === 'ORIGINAL' ? 2 : 1); }} style={{ fontSize: 12, fontWeight: 600, color: f.mode === k ? C.gold2 : C.mut, background: f.mode === k ? 'rgba(198,164,99,.16)' : 'transparent', padding: '5px 12px', borderRadius: 8, cursor: 'pointer' }}>{t(l)}</span>
@@ -355,6 +670,64 @@ export default function ScriptOnIntake({ projectId, busy, onBegin, onClose }: { 
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: narrow ? '1fr' : '1fr 300px', gap: 14 }}>
             <div>
+              {(recBusy || recDone) ? (
+                <div style={{ marginBottom: 12, borderRadius: 11, padding: '10px 13px', border: '1px solid ' + (recBusy ? C.hair : 'rgba(198,164,99,.45)'), background: recBusy ? '#171a20' : 'rgba(198,164,99,.10)' }}>
+                  {recBusy ? (
+                    <div>
+                      <style>{'@keyframes scriptonRecSweep{0%{transform:translateX(-100%)}100%{transform:translateX(320%)}}'}</style>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
+                        <span style={{ fontSize: 12.5, color: C.mut }}>
+                          {recSecs > Math.round(recEstRef.current / 1000)
+                            ? t('Still reading - larger material takes longer.')
+                            : t('Reading your material to fill this in...')}
+                        </span>
+                        <span style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 11, color: C.faint, whiteSpace: 'nowrap' }}>
+                          {recPct}% · {recSecs}s
+                        </span>
+                      </div>
+                      <div style={{ position: 'relative', height: 4, borderRadius: 4, background: 'rgba(255,255,255,.07)', overflow: 'hidden', marginTop: 8 }}>
+                        <div style={{ height: '100%', width: recPct + '%', borderRadius: 4, background: 'linear-gradient(90deg,' + C.gold + ',' + C.gold2 + ')', transition: 'width .25s linear' }} />
+                        {/* The sweep is the honest part: it keeps moving even when the estimate has
+                            stalled, so the panel reads as working rather than as frozen. */}
+                        <div style={{ position: 'absolute', inset: 0, width: '30%', background: 'linear-gradient(90deg,transparent,rgba(255,255,255,.13),transparent)', animation: 'scriptonRecSweep 1.5s ease-in-out infinite' }} />
+                      </div>
+                      <div style={{ fontSize: 10.5, color: C.faint, marginTop: 6 }}>
+                        {t('Estimated - the read finishes when it finishes. You can keep filling the form meanwhile.')}
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <div style={{ display: 'flex', gap: 10, alignItems: 'baseline', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 12.5, fontWeight: 700, color: C.gold2 }}>
+                          {recDone && recDone.landed ? (recDone.landed + ' ' + t('settings filled from your material')) : t('Nothing in your material matched a setting')}
+                        </span>
+                        {recDone && recDone.landed ? <span onClick={() => setRecWhy(!recWhy)} style={{ fontSize: 11.5, color: C.mut, cursor: 'pointer', textDecoration: 'underline' }}>{recWhy ? t('Hide') : t('See why')}</span> : null}
+                        {recDone && recDone.landed ? <span onClick={undoRecommend} style={{ fontSize: 11.5, color: C.mut, cursor: 'pointer', textDecoration: 'underline' }}>{t('Undo all')}</span> : null}
+                      </div>
+                      <div style={{ fontSize: 11, color: C.faint, marginTop: 4 }}>{t('Everything here is a suggestion - change anything, and anything left empty is yours to choose.')}</div>
+                      {recDone && recDone.note ? <div style={{ fontSize: 11.5, color: C.mut, marginTop: 5 }}>{recDone.note}</div> : null}
+                      {Array.isArray(recDone && recDone.sources) && recDone.sources.length ? (
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 7 }}>
+                          {recDone.sources.map((x: any, i: number) => (
+                            <span key={i} style={{ fontSize: 10.5, borderRadius: 8, padding: '3px 8px', border: '1px solid ' + C.hair, color: x.note ? C.red : C.green }}>
+                              {x.name}{x.note ? ' - ' + x.note : ' - ' + Number(x.chars || 0).toLocaleString() + ' ' + t('characters read')}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
+                      {recWhy && Array.isArray(recApplied) && recApplied.length ? (
+                        <div style={{ marginTop: 8, borderTop: '1px solid ' + C.hair, paddingTop: 7 }}>
+                          {recApplied.map((r: any, i: number) => (
+                            <div key={i} style={{ fontSize: 11, color: C.mut, marginTop: 3 }}>
+                              <b style={{ color: C.gold2 }}>{r.field}</b> = {Array.isArray(r.value) ? r.value.join(', ') : String(r.value)} - {r.why}
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
+                </div>
+              ) : null}
               {f.mode !== 'ORIGINAL' ? <div style={{ marginBottom: 10 }}><span onClick={() => setStep(1)} style={{ fontSize: 12, color: C.mut, border: '1px solid ' + C.hair, borderRadius: 9, padding: '6px 11px', cursor: 'pointer' }}>{dir === 'rtl' ? '>' : '<'} {t('Back to source')}</span></div> : null}
 
               <div style={bandLit}>

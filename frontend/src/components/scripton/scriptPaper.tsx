@@ -184,6 +184,7 @@ export const SCRIPT_PAPER_CSS = `
 .uvp-gap{height:15px}
 .uvp-tp{display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center}
 .uvp-tp .uvp-tt{font-size:17pt;font-weight:700;text-transform:uppercase;letter-spacing:1.5px}
+.uvp-tp .uvp-tv{margin-top:.45em;font-size:12pt;font-weight:700;letter-spacing:.5px;color:#555}
 .uvp-tp .uvp-ts{margin-top:.5em;font-size:12pt}
 .uvp-tp .uvp-tl{margin-top:1.4em;max-width:5in;font-size:11pt;font-style:italic;line-height:1.5;color:#444}
 .uvp-tp .uvp-tf{margin-top:2.4em;font-size:11pt;color:#555}
@@ -319,7 +320,12 @@ export function buildScriptPrintHtml(text: string, title: string, info?: any): s
   const approxPages = Math.max(1, Math.round(toks.reduce((n, t) => n + tokLines(t), 0) / PAGE_BUDGET));
   const sub = [i.projectType, Array.isArray(i.genres) ? i.genres.join(', ') : i.genres].filter(Boolean).join('  ·  ');
   const foot = [i.revLabel, i.date].filter(Boolean).join('   ·   ');
+  // The writer's own draft label, directly under the title. Distinct from `revLabel` in `foot`
+  // below, which is the WGA revision colour — two builds of one film share a revision colour and
+  // are told apart by THIS. Empty prints nothing at all, never an empty line.
+  const ver = String(i.versionLabel || '').trim();
   const tp = '<section class="uvp-page uvp-tp' + arCls + '"><div class="uvp-tt">' + escHtml(title || 'Untitled') + '</div>'
+    + (ver ? '<div class="uvp-tv">' + escHtml(ver) + '</div>' : '')
     + (sub ? '<div class="uvp-ts">' + escHtml(sub) + '</div>' : '')
     + (i.logline ? '<div class="uvp-tl">' + escHtml(i.logline) + '</div>' : '')
     + '<div class="uvp-tf">' + escHtml(foot) + '<br>' + escHtml(i.org || (ar ? 'FilmOS · سكريبت أون — الصُنّاع' : 'FilmOS · ScriptON — The Film Makers FZ LLC')) + '</div></section>';
@@ -374,7 +380,7 @@ export function buildScriptPrintHtml(text: string, title: string, info?: any): s
     // lines per gap instead of 1, which is most of why a 144-page script rendered as 294 pages.
     + '.uvp-gap{height:0}'
     + '.uvp-page{break-after:page;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;min-height:calc(297mm - 44mm)}'
-    + '.uvp-tt{font-size:17pt;font-weight:700;text-transform:uppercase;letter-spacing:1.5px}.uvp-ts{margin-top:.5em;font-size:12pt}.uvp-tl{margin-top:1.4em;max-width:5in;font-size:11pt;font-style:italic;line-height:1.5;color:#444}.uvp-tf{margin-top:2.4em;font-size:11pt;color:#555}';
+    + '.uvp-tt{font-size:17pt;font-weight:700;text-transform:uppercase;letter-spacing:1.5px}.uvp-tv{margin-top:.45em;font-size:12pt;font-weight:700;letter-spacing:.5px;color:#555}.uvp-ts{margin-top:.5em;font-size:12pt}.uvp-tl{margin-top:1.4em;max-width:5in;font-size:11pt;font-style:italic;line-height:1.5;color:#444}.uvp-tf{margin-top:2.4em;font-size:11pt;color:#555}';
   return '<!doctype html><html lang="' + lang + '" dir="' + (ar ? 'rtl' : 'ltr') + '"><head><meta charset="utf-8"><title>' + escHtml(i.docTitle || title || 'Script') + '</title>'
     + '<style>' + printCss + '</style></head><body>' + tp + flow
     + '<div hidden data-pages="' + approxPages + '"></div></body></html>';

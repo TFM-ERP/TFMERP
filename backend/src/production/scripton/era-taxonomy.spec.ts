@@ -35,9 +35,18 @@ test('every era row is a label the form actually offers, and every label has a r
   const offered = new Set<string>();
   let country = '';
   for (const line of block.split('\n')) {
-    const c = /^\s*'?([A-Za-z][A-Za-z ]*?)'?:\s*\[/.exec(line);
-    if (c) country = c[1].trim();
-    for (const m of line.matchAll(/\{ label: '(.*?)', ar:/g)) if (country) offered.add(`${country} | ${m[1]}`);
+    // The key may be quoted and may contain anything a country name contains - a slash in
+    // 'Iran / Persia', parentheses in 'Mesopotamia (ancient)', and one day an accent or an
+    // apostrophe. An ASCII-letters-only key silently DROPPED such a country, so its rows showed up
+    // as orphans and its real drift showed up as nothing. Anchor on the bracket, not the alphabet.
+    const c = /^\s*(?:'([^']+)'|([A-Za-z][A-Za-z ]*?))\s*:\s*\[/.exec(line);
+    if (c) country = (c[1] !== undefined ? c[1] : c[2]).trim();
+    // A label may legally contain an escaped apostrophe - "Babylon (Hammurabi\\'s Empire)" - and the
+    // file stores it escaped while COUNTRY_ERA_YEARS holds the real character. Match the escape and
+    // unescape it, or every such row reads as drift in BOTH directions at once.
+    for (const m of line.matchAll(/\{ label: '((?:[^'\\]|\\.)*)', ar:/g)) {
+      if (country) offered.add(`${country} | ${m[1].replace(/\\'/g, "'")}`);
+    }
   }
   const mapped = new Set(COUNTRY_ERA_YEARS.map((r) => `${r.country} | ${r.label}`));
 
@@ -46,7 +55,7 @@ test('every era row is a label the form actually offers, and every label has a r
   // itself. Comparing sizes against the source collections (not a literal) catches that without
   // hardcoding a total that would need bumping every time a country's timeline grows.
   assert.equal(mapped.size, COUNTRY_ERA_YEARS.length, 'COUNTRY_ERA_YEARS has two rows with the same country+label — they are indistinguishable to findEraRow');
-  assert.equal(offered.size, [...block.matchAll(/\{ label: '(.*?)', ar:/g)].length, 'the taxonomy offers two identical country+label pairs — they are indistinguishable in the form');
+  assert.equal(offered.size, [...block.matchAll(/\{ label: '(?:[^'\\]|\\.)*', ar:/g)].length, 'the taxonomy offers two identical country+label pairs — they are indistinguishable in the form');
 
   const unmapped = [...offered].filter((k) => !mapped.has(k));
   const orphaned = [...mapped].filter((k) => !offered.has(k));

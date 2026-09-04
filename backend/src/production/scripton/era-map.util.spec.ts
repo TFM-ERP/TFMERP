@@ -3,14 +3,14 @@ import { strict as assert } from 'node:assert';
 import { createHash } from 'node:crypto';
 import { COUNTRY_ERA_YEARS, ERA_BANDS } from './era-map.util';
 
-test('the inventory is the whole inventory - 118 rows, 26 countries, and the flag counts', () => {
-  assert.equal(COUNTRY_ERA_YEARS.length, 118);
-  assert.equal(new Set(COUNTRY_ERA_YEARS.map((r) => r.country)).size, 26);
+test('the inventory is the whole inventory - 250 rows, 41 countries, and the flag counts', () => {
+  assert.equal(COUNTRY_ERA_YEARS.length, 250);
+  assert.equal(new Set(COUNTRY_ERA_YEARS.map((r) => r.country)).size, 41);
   assert.equal(ERA_BANDS.length, 9);
   const n = (f: string) => COUNTRY_ERA_YEARS.filter((r) => r.flag === f).length;
-  assert.equal(n(''), 57);
-  assert.equal(n('disputed'), 35);
-  assert.equal(n('unsound'), 26);
+  assert.equal(n(''), 136);
+  assert.equal(n('disputed'), 84);
+  assert.equal(n('unsound'), 30);
 });
 
 test('every row is orderly and every row says where it came from', () => {
@@ -40,7 +40,7 @@ test('the sourced rows are pinned, so no row can drift without someone deciding 
   const fingerprint = createHash('sha256').update(
     COUNTRY_ERA_YEARS.map((r) => [r.country, r.label, r.start, r.end, r.flag].join('|')).join('\n'),
   ).digest('hex').slice(0, 16);
-  assert.equal(fingerprint, 'ee8f14314b2c65a8');
+  assert.equal(fingerprint, '96b365947b180c9c');
 });
 
 import * as map from './era-map.util';
@@ -63,7 +63,7 @@ test('a clean row anchors silently', () => {
 
 test('a disputed row anchors AND discloses', () => {
   const v = anchorYearForEra('Britain', 'Modern Britain', 2026);
-  assert.equal(v.year, 1888);
+  assert.equal(v.year, 2026);   // open-ended: the present, not the midpoint of 1750..2026
   assert.match(v.note, /disputed/);
 });
 
@@ -76,9 +76,19 @@ test('an unsound row REFUSES the year and says why - the refusal is the feature'
   assert.equal(anchorYearForEra('Palestine', 'Ottoman / British Mandate', 2026).year, null);
 });
 
-test('an open-ended modern row closes on the caller present, so it never goes stale', () => {
-  assert.equal(anchorYearForEra('Egypt', 'Modern Egyptian', 2026).year, 1916);
-  assert.equal(anchorYearForEra('Egypt', 'Modern Egyptian', 2126).year, 1966);
+test('an open-ended row anchors AT the present; a CLOSED one still takes its midpoint', () => {
+  // `end: null` means "through to the story's own present", so choosing it IS choosing now. Taking
+  // the midpoint of founding..now answered a 250-year span with its centre - "Modern Britain" gave
+  // 1888 and "Modern United States" 1901, a century out on the commonest choice in the menu. The
+  // two cases are different and are now treated differently. Both halves are asserted here: delete
+  // either branch and this fails.
+  assert.equal(anchorYearForEra('Egypt', 'Modern Egyptian', 2026).year, 2026);
+  assert.equal(anchorYearForEra('Egypt', 'Modern Egyptian', 2126).year, 2126);
+  assert.equal(anchorYearForEra('UAE', 'Modern UAE', 2026).year, 2026);
+  // and the closed rows are untouched by it
+  assert.equal(anchorYearForEra('Japan', 'Edo / Tokugawa', 2026).year, 1735);
+  assert.equal(anchorYearForEra('Egypt', 'Pharaonic', 2026).year, -1715);
+  assert.equal(anchorYearForEra('UAE', 'Trucial States (British protection)', 2026).year, 1896);
 });
 
 test('a label the map does not know MISSES - a supported state, never a guess', () => {
@@ -114,8 +124,12 @@ test('the generic bands anchor, and the forward ones are offsets from the presen
 });
 
 test('BC prints by 1 - astronomicalYear, because there is no year zero', () => {
+  // The STORED value is astronomical, matching the tokenizer: 332 BC is -331, 1 BC is 0. The map
+  // used to store plain negation (-332 for 332 BC) while this printer applied the astronomical
+  // correction anyway, so every BC row printed a year early - Salamis as 481 BC, Actium as 31 BC.
+  // Two spellings of one concept, which is the defect class this whole axis exists to remove.
   const pharaonic = findEraRow('Egypt', 'Pharaonic')!;
-  assert.equal(describeRange(pharaonic, 2026), '3101 BC–333 BC');
+  assert.equal(describeRange(pharaonic, 2026), '3100 BC–332 BC');
   const modern = findEraRow('Egypt', 'Modern Egyptian')!;
   assert.equal(describeRange(modern, 2026), '1805–2026');
 });
@@ -127,7 +141,7 @@ test('an era offset is days from the frozen storyYear, and a refused row gives n
 });
 
 test('the map is ONE-DIRECTIONAL - asserting the absence of a year to era lookup IS the test', () => {
-  // The era list is a creative menu, not a calendar: 33 gaps and 11 overlaps across the 118 rows.
+  // The era list is a creative menu, not a calendar: 42 gaps and 30 overlaps across the 250 rows.
   // The occupying-power rows nest inside the civilisational ones by design, which is most of the
   // overlap count and the strongest reason this direction must stay the only one.
   // A year -> era lookup would be undefined across the gaps and ambiguous across the overlaps, so
@@ -144,7 +158,7 @@ test('the gaps the one-directional rule exists for are really there', () => {
   const uae = map.COUNTRY_ERA_YEARS.filter((r) => r.country === 'UAE').sort((a, b) => (a.start ?? 0) - (b.start ?? 0));
   const magan = uae.find((r) => r.label === 'Magan (Bronze Age)')!;
   const islamic = uae.find((r) => r.label === 'Islamic era')!;
-  assert.equal((islamic.start as number) - (magan.end as number), 2430);
+  assert.equal((islamic.start as number) - (magan.end as number), 2429);
 
   let gaps = 0, overlaps = 0;
   const byCountry = new Map<string, typeof map.COUNTRY_ERA_YEARS>();
@@ -161,8 +175,8 @@ test('the gaps the one-directional rule exists for are really there', () => {
       if (start < prevEnd - 25) overlaps++;
     }
   }
-  assert.equal(gaps, 33);
-  assert.equal(overlaps, 11);
+  assert.equal(gaps, 42);
+  assert.equal(overlaps, 30);
 });
 
 test('a row with no sourced start refuses for THAT reason, not the generic one', () => {

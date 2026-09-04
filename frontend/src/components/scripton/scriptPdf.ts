@@ -80,6 +80,12 @@ export async function downloadScriptPdf(text: string, title: string, info?: any)
   const ttl = String(title || 'Untitled').toUpperCase();
   const sub = [info && info.projectType, info && (Array.isArray(info.genres) ? info.genres.join(', ') : info.genres)].filter(Boolean).join('   ·   ');
   let ty = H / 2 + 60; const tw = bold.widthOfTextAtSize(ttl, 20); page.drawText(ttl, { x: centerX - tw / 2, y: ty, size: 20, font: bold }); ty -= 28;
+  // The writer's draft label, directly under the title — kept identical to buildScriptPrintHtml's
+  // .uvp-tv line, because these two renderers produce the SAME title page by different routes
+  // (vector here for Latin, HTML there for Arabic and for every protected copy). If one grows a
+  // line the other has not, a protected copy stops matching the download it came from.
+  const ver = String((info && info.versionLabel) || '').trim();
+  if (ver) { const vw = bold.widthOfTextAtSize(ver, 12); page.drawText(ver, { x: centerX - vw / 2, y: ty, size: 12, font: bold, color: PDFLib.rgb(0.33, 0.33, 0.31) }); ty -= 24; }
   if (sub) { const sw = font.widthOfTextAtSize(sub, 12); page.drawText(sub, { x: centerX - sw / 2, y: ty, size: 12, font }); ty -= 22; }
   const foot = [info && info.revLabel, info && info.date].filter(Boolean).join('   ·   ');
   if (foot) { const fw = font.widthOfTextAtSize(foot, 11); page.drawText(foot, { x: centerX - fw / 2, y: H / 2 - 80, size: 11, font, color: PDFLib.rgb(0.33, 0.33, 0.31) }); }
