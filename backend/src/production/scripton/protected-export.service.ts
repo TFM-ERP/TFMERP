@@ -114,16 +114,32 @@ export class ProtectedExportService {
       + `</div></div>`;
   }
 
+  /**
+   * The trace-footer default, in ONE place — footerLayer and footerTemplate render the same line in
+   * two different ways (screen layer / reserved print margin) and used to hold their own copies of
+   * this string, so a change to one silently disagreed with the other.
+   *
+   * The version is added only when there IS one. Substituting an empty {script_version} would leave
+   * a stray " ·  · " in the middle of every page's footer, and the fill() helper has no concept of
+   * an empty segment — so the choice is made here, where the value is known, rather than by
+   * inventing a collapse rule that would apply to this placeholder and no other.
+   */
+  private defaultFooterTpl(vars: Record<string, string>): string {
+    return String(vars.script_version || '').trim()
+      ? '{copy_id} · {recipient_name} · {script_version} · {export_date} · Confidential'
+      : '{copy_id} · {recipient_name} · {export_date} · Confidential';
+  }
+
   private footerLayer(cfg: any, vars: Record<string, string>): string {
     if (!cfg.traceFooterEnabled) return '';
-    const tpl = cfg.traceFooterTemplate || '{copy_id} · {recipient_name} · {export_date} · Confidential';
+    const tpl = cfg.traceFooterTemplate || this.defaultFooterTpl(vars);
     return `<div class="rp-ft" aria-hidden="true">${esc(this.fill(tpl, vars))}</div>`;
   }
 
   // Puppeteer native footer — rendered in the RESERVED bottom page margin on every page (never over text).
   private footerTemplate(cfg: any, vars: Record<string, string>): string {
     if (!cfg.traceFooterEnabled) return '';
-    const tpl = cfg.traceFooterTemplate || '{copy_id} · {recipient_name} · {export_date} · Confidential';
+    const tpl = cfg.traceFooterTemplate || this.defaultFooterTpl(vars);
     return `<div style="width:100%;box-sizing:border-box;padding:0 14mm;font-family:Arial,Helvetica,sans-serif;font-size:7pt;color:#666;text-align:center;">${esc(this.fill(tpl, vars))}</div>`;
   }
 

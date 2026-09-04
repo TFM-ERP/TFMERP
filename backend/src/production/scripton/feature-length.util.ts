@@ -175,66 +175,182 @@ export const MIN_ASK_WORDS = 45;
  */
 export const MIN_SCENE_TOKENS = 160;
 
+/** Where a profile's `sceneDensity` came from. Never let a constant ship without one. */
+export type Provenance = 'measured' | 'derived' | 'default';
+
 export interface GenreLengthProfile {
   key: string;
-  /** Scenes per page. Measured: 1.04 overall, ~1.25 action, ~0.93 comedy. */
+  /** Scenes per page. See `provenance` — only four of these were ever measured. */
   sceneDensity: number;
   /** Pages per minute of screen time. Measured mean 1.1 (a page runs ~55 seconds). */
   pagesPerMinute: number;
   /** Page target when the brief does not state one. */
   defaultPages: number;
+  /** measured = a corpus says so. derived = inherited wholesale from `parent`. */
+  provenance: Provenance;
+  /** The measured genre this one takes its density from. Empty when measured. */
+  parent: string;
+  /** The citation, for the settings UI and for audit. A constant must be able to say where it came from. */
+  source: string;
 }
 
 /**
- * Genre profiles. sceneDensity and pagesPerMinute are derived from published analyses of produced
- * screenplays; defaultPages is the genre's typical length. Genres not listed fall back to DEFAULT.
+ * Genre profiles — one for every genre the intake offers, and each one able to say where it came from.
  *
- * defaultPages USED TO BE 105 for ACTION, THRILLER, DRAMA, ROMANCE and MUSICAL alike, which is how
- * two unrelated films — MINUTEMEN (thriller) and JASON QUICK — were handed the identical target and
- * delivered 103 and 100 pages. The intake collects no length for a MOVIE, so every one of those
- * builds fell through briefTargetPages to this number. Spread now, so an untouched build at least
- * varies by genre.
+ * ONLY FOUR ARE MEASURED. ScriptBase (Gorinski & Lapata, NAACL 2015, Figure 2) publishes exactly four
+ * genres over 1,276 produced films: Drama 79.77 scenes (n=665), Thriller 91.84 (n=451), Comedy 66.13
+ * (n=378), Action 101.82 (n=288). There is no fifth row. Stephen Follows' 12,309-script corpus is
+ * spec, not produced, and publishes only endpoints in public. No corpus anywhere gives scene counts
+ * for Western, Adventure, Mystery, Family, Animation, Sport, Disaster, Survival, Coming-of-age,
+ * Superhero, Psychological or Road movie.
  *
- * The spread is the SMALLER half of that fix. Two thrillers still share a default, correctly — the
- * real repair is that the intake now asks, and an explicit targetPages always wins over this table.
+ * So every unmeasured genre INHERITS A MEASURED PARENT'S DENSITY EXACTLY. No interpolated midpoints:
+ * the previous table carried six invented decimals (horror 1.06, fantasy/sci-fi 1.10, romance 0.98,
+ * musical 1.00) that no corpus supports and no one could audit, and twelve genres had no profile at
+ * all and silently collected the generic fallback. A mapping that is wrong is now corrected by
+ * changing a PARENT, not by inventing a number — and `blendProfiles` (artifact §03, not built) is
+ * what will eventually express the hybrids properly.
+ *
+ * `pagesPerMinute` and `defaultPages` are deliberately UNCHANGED for every genre that already had
+ * them. Note also what the research says about length: across those same four measured genres, scene
+ * count spreads 54% (66.1 → 101.8) while script length spreads only 5% (4,255 → 4,485 lines). Length
+ * is close to genre-independent; scene count is not. Our defaultPages spread of 98–115 is therefore
+ * the weaker half of this table and is a separate, open question.
  */
+const SB = 'ScriptBase 1,276 produced films (Gorinski & Lapata, NAACL 2015, Fig. 2)';
 const GENRE_PROFILES: GenreLengthProfile[] = [
-  { key: 'ACTION', sceneDensity: 1.25, pagesPerMinute: 0.99, defaultPages: 102 },
-  { key: 'THRILLER', sceneDensity: 1.15, pagesPerMinute: 1.02, defaultPages: 100 },
-  { key: 'COMEDY', sceneDensity: 0.93, pagesPerMinute: 1.15, defaultPages: 106 },
-  { key: 'DRAMA', sceneDensity: 1.04, pagesPerMinute: 1.12, defaultPages: 108 },
-  { key: 'HORROR', sceneDensity: 1.06, pagesPerMinute: 1.05, defaultPages: 98 },
-  { key: 'HISTORICAL', sceneDensity: 1.04, pagesPerMinute: 1.10, defaultPages: 110 },
-  { key: 'ROMANCE', sceneDensity: 0.98, pagesPerMinute: 1.12, defaultPages: 100 },
-  { key: 'FANTASY', sceneDensity: 1.10, pagesPerMinute: 1.05, defaultPages: 110 },
-  { key: 'SCIFI', sceneDensity: 1.10, pagesPerMinute: 1.05, defaultPages: 110 },
-  { key: 'MUSICAL', sceneDensity: 1.00, pagesPerMinute: 0.90, defaultPages: 105 },
+  // ---- ACTION family -------------------------------------------------------------------------
+  { key: 'SUPERHERO', sceneDensity: 1.25, pagesPerMinute: 0.99, defaultPages: 110, provenance: 'derived', parent: 'ACTION', source: 'no corpus; inherits ACTION' },
+  { key: 'MARTIAL_ARTS', sceneDensity: 1.25, pagesPerMinute: 0.99, defaultPages: 100, provenance: 'derived', parent: 'ACTION', source: 'no corpus; inherits ACTION' },
+  { key: 'HEIST', sceneDensity: 1.25, pagesPerMinute: 0.99, defaultPages: 102, provenance: 'derived', parent: 'ACTION', source: 'no corpus; inherits ACTION' },
+  { key: 'WAR', sceneDensity: 1.25, pagesPerMinute: 0.99, defaultPages: 110, provenance: 'derived', parent: 'ACTION', source: 'no corpus; inherits ACTION' },
+  { key: 'DISASTER', sceneDensity: 1.25, pagesPerMinute: 0.99, defaultPages: 105, provenance: 'derived', parent: 'ACTION', source: 'no corpus; inherits ACTION' },
+  { key: 'ADVENTURE', sceneDensity: 1.25, pagesPerMinute: 0.99, defaultPages: 105, provenance: 'derived', parent: 'ACTION', source: 'no corpus; inherits ACTION' },
+  { key: 'ACTION', sceneDensity: 1.25, pagesPerMinute: 0.99, defaultPages: 102, provenance: 'measured', parent: '', source: SB + ': 101.82 scenes, n=288 — replicated by Follows spec corpus (131.2), both corpora put Action highest' },
+  // ---- THRILLER family -----------------------------------------------------------------------
+  { key: 'SLASHER', sceneDensity: 1.15, pagesPerMinute: 1.05, defaultPages: 95, provenance: 'derived', parent: 'THRILLER', source: 'no corpus; inherits THRILLER' },
+  { key: 'FILM_NOIR', sceneDensity: 1.15, pagesPerMinute: 1.02, defaultPages: 100, provenance: 'derived', parent: 'THRILLER', source: 'no corpus; inherits THRILLER' },
+  { key: 'SPY', sceneDensity: 1.15, pagesPerMinute: 1.02, defaultPages: 105, provenance: 'derived', parent: 'THRILLER', source: 'no corpus; inherits THRILLER' },
+  { key: 'CRIME', sceneDensity: 1.15, pagesPerMinute: 1.02, defaultPages: 100, provenance: 'derived', parent: 'THRILLER', source: 'no corpus; inherits THRILLER' },
+  { key: 'MYSTERY', sceneDensity: 1.15, pagesPerMinute: 1.02, defaultPages: 100, provenance: 'derived', parent: 'THRILLER', source: 'no corpus; inherits THRILLER' },
+  { key: 'HORROR', sceneDensity: 1.15, pagesPerMinute: 1.05, defaultPages: 98, provenance: 'derived', parent: 'THRILLER', source: 'density inherits THRILLER; PAGES measured — Follows 12,309 spec scripts, 98.6, the shortest of any genre' },
+  { key: 'PSYCHOLOGICAL', sceneDensity: 1.15, pagesPerMinute: 1.02, defaultPages: 105, provenance: 'derived', parent: 'THRILLER', source: 'no corpus; inherits THRILLER' },
+  { key: 'THRILLER', sceneDensity: 1.15, pagesPerMinute: 1.02, defaultPages: 100, provenance: 'measured', parent: '', source: SB + ': 91.84 scenes, n=451' },
+  // ---- DRAMA family --------------------------------------------------------------------------
+  { key: 'SURVIVAL', sceneDensity: 1.04, pagesPerMinute: 1.12, defaultPages: 100, provenance: 'derived', parent: 'DRAMA', source: 'no corpus; inherits DRAMA' },
+  { key: 'COMING_OF_AGE', sceneDensity: 1.04, pagesPerMinute: 1.12, defaultPages: 100, provenance: 'derived', parent: 'DRAMA', source: 'no corpus; inherits DRAMA' },
+  { key: 'ROAD_MOVIE', sceneDensity: 1.04, pagesPerMinute: 1.12, defaultPages: 100, provenance: 'derived', parent: 'DRAMA', source: 'no corpus; inherits DRAMA' },
+  { key: 'SPORT', sceneDensity: 1.04, pagesPerMinute: 1.12, defaultPages: 105, provenance: 'derived', parent: 'DRAMA', source: 'no corpus; inherits DRAMA' },
+  { key: 'WESTERN', sceneDensity: 1.04, pagesPerMinute: 1.12, defaultPages: 105, provenance: 'derived', parent: 'DRAMA', source: 'no scene-count corpus; inherits DRAMA. Follows measures Western as the most exterior genre (64.4%), which is a shooting fact, not a length one' },
+  { key: 'BIOPIC', sceneDensity: 1.04, pagesPerMinute: 1.10, defaultPages: 110, provenance: 'derived', parent: 'DRAMA', source: 'no corpus; inherits DRAMA' },
+  { key: 'EPIC', sceneDensity: 1.04, pagesPerMinute: 1.10, defaultPages: 115, provenance: 'derived', parent: 'DRAMA', source: 'no corpus; inherits DRAMA. Pages at the top of the band is craft convention, not measurement' },
+  { key: 'HISTORICAL', sceneDensity: 1.04, pagesPerMinute: 1.10, defaultPages: 110, provenance: 'derived', parent: 'DRAMA', source: 'no corpus; inherits DRAMA. Follows measures Historical as the most populated (45.7 speaking roles) and least nocturnal (28.9% night)' },
+  { key: 'DRAMA', sceneDensity: 1.04, pagesPerMinute: 1.12, defaultPages: 108, provenance: 'measured', parent: '', source: SB + ': 79.77 scenes, n=665 — the largest sample in the corpus' },
+  // ---- SPECULATIVE ---------------------------------------------------------------------------
+  // Both inherit ACTION and both are the WEAKEST assignments in this table: the genre spans 2001 and
+  // Star Wars, and one density cannot be right for both. blendProfiles is the fix, not a new number.
+  { key: 'SCIFI', sceneDensity: 1.25, pagesPerMinute: 1.05, defaultPages: 110, provenance: 'derived', parent: 'ACTION', source: 'no corpus; inherits ACTION — WEAK, the genre spans set-piece and chamber film alike' },
+  { key: 'FANTASY', sceneDensity: 1.25, pagesPerMinute: 1.05, defaultPages: 110, provenance: 'derived', parent: 'ACTION', source: 'no corpus; inherits ACTION — WEAK, the genre spans set-piece and chamber film alike' },
+  // ---- COMEDY family -------------------------------------------------------------------------
+  { key: 'MUSICAL', sceneDensity: 0.93, pagesPerMinute: 0.90, defaultPages: 105, provenance: 'derived', parent: 'COMEDY', source: 'no corpus; inherits COMEDY' },
+  { key: 'ANIMATION', sceneDensity: 0.93, pagesPerMinute: 1.15, defaultPages: 95, provenance: 'derived', parent: 'COMEDY', source: 'no corpus; inherits COMEDY' },
+  { key: 'FAMILY', sceneDensity: 0.93, pagesPerMinute: 1.15, defaultPages: 100, provenance: 'derived', parent: 'COMEDY', source: 'no corpus; inherits COMEDY' },
+  { key: 'SATIRE', sceneDensity: 0.93, pagesPerMinute: 1.15, defaultPages: 106, provenance: 'derived', parent: 'COMEDY', source: 'no corpus; inherits COMEDY' },
+  { key: 'COMEDY', sceneDensity: 0.93, pagesPerMinute: 1.15, defaultPages: 106, provenance: 'measured', parent: '', source: SB + ': 66.13 scenes, n=378 — replicated by Follows (98.5). BOTH corpora put Comedy LOWEST, which kills the "action and comedy are the fast-cutting genres" folklore' },
+  // ---- ROMANCE (after COMEDY: "romantic comedy" is a comedy, and reaches COMEDY first) ---------
+  { key: 'ROMANCE', sceneDensity: 1.04, pagesPerMinute: 1.12, defaultPages: 100, provenance: 'derived', parent: 'DRAMA', source: 'no corpus; inherits DRAMA' },
 ];
 
 export const DEFAULT_GENRE_PROFILE: GenreLengthProfile = {
   key: 'DEFAULT', sceneDensity: 1.04, pagesPerMinute: 1.10, defaultPages: DEFAULT_TARGET_PAGES,
+  provenance: 'default', parent: 'DRAMA',
+  source: 'the corpus-wide baseline — Follows 110 scenes over a 106-page median gives 1.04 exactly',
 };
 
-/** Keywords that map free-text genre labels (English or Arabic) onto a profile key. */
-const GENRE_KEYWORDS: Array<[string, string[]]> = [
-  ['ACTION', ['action', 'war', 'martial', 'heist', 'اكشن', 'أكشن', 'حرب']],
-  ['THRILLER', ['thriller', 'crime', 'noir', 'spy', 'suspense', 'اثارة', 'إثارة', 'جريمة']],
-  ['COMEDY', ['comedy', 'comic', 'sitcom', 'satire', 'كوميدي', 'كوميديا']],
-  ['HORROR', ['horror', 'slasher', 'supernatural horror', 'رعب']],
-  ['HISTORICAL', ['historical', 'history', 'period', 'epic', 'biopic', 'تاريخي', 'ملحمي', 'سيرة']],
-  ['ROMANCE', ['romance', 'romantic', 'رومانسي', 'رومانسية']],
-  ['FANTASY', ['fantasy', 'mythic', 'mythological', 'fairy', 'خيال', 'أسطوري', 'اسطوري']],
-  ['SCIFI', ['sci-fi', 'scifi', 'science fiction', 'خيال علمي']],
-  ['MUSICAL', ['musical', 'موسيقي', 'استعراضي']],
-  ['DRAMA', ['drama', 'dramatic', 'دراما', 'درامي']],
-];
+/** Every profile, for the settings UI and for tests that assert the table's own coherence. */
+export function genreProfiles(): GenreLengthProfile[] { return GENRE_PROFILES.slice(); }
+
+/**
+ * The scene counts ScriptBase actually published, and the sample behind each.
+ *
+ * Four genres. That is the entire published table (Gorinski & Lapata, NAACL 2015, Fig. 2) over 1,276
+ * produced films. They are reported RAW, against the corpus's own ~110-page average, rather than
+ * rescaled to our page target — a rescaled figure looks like a measurement and is an arithmetic
+ * result, and this table's whole purpose is that a reader can tell those apart.
+ */
+export const MEASURED_CORPUS_SCENES: Record<string, { scenes: number; sample: number }> = {
+  ACTION: { scenes: 101.82, sample: 288 },
+  THRILLER: { scenes: 91.84, sample: 451 },
+  DRAMA: { scenes: 79.77, sample: 665 },
+  COMEDY: { scenes: 66.13, sample: 378 },
+};
+/** The page average the ScriptBase figures above sit on. Stated so nobody has to guess the basis. */
+export const MEASURED_CORPUS_PAGES = 110;
+
+export interface GenreProfileRow {
+  key: string;
+  /** The picker's own label — 'Sci-fi' rather than 'SCIFI'. */
+  label: string;
+  sceneDensity: number;
+  defaultPages: number;
+  /** Scenes this genre's own page default buys, at the given texture. The ceiling, not a quota. */
+  scenes: number;
+  /** What that means to a reader: how long the average scene runs. */
+  pagesPerScene: number;
+  pagesPerMinute: number;
+  /** Approximate screen time at this genre's page default. */
+  minutes: number;
+  provenance: Provenance;
+  parent: string;
+  source: string;
+  /** The published corpus figure, raw, or null where none exists — which is most of them. */
+  corpusScenes: number | null;
+  corpusSample: number | null;
+}
+
+const GENRE_LABELS: Record<string, string> = {
+  SCIFI: 'Sci-fi', FILM_NOIR: 'Film-noir', COMING_OF_AGE: 'Coming-of-age',
+  ROAD_MOVIE: 'Road movie', MARTIAL_ARTS: 'Martial arts',
+};
+function labelFor(key: string): string {
+  if (GENRE_LABELS[key]) return GENRE_LABELS[key];
+  return key.charAt(0) + key.slice(1).toLowerCase();
+}
+
+/**
+ * The whole genre table, computed — for the settings panel, and so a writer can see what a genre
+ * choice actually does to their build before they make it.
+ *
+ * Every row can say where its density came from. That is the point of the table: six of these
+ * numbers used to be interpolated midpoints no corpus supported, and twelve genres had no profile at
+ * all. A constant that cannot say where it came from is a constant nobody can audit.
+ */
+export function genreProfileTable(texture: Texture = 'PRODUCED'): GenreProfileRow[] {
+  return GENRE_PROFILES.map((p) => {
+    const corpus = MEASURED_CORPUS_SCENES[p.key];
+    return {
+      key: p.key,
+      label: labelFor(p.key),
+      sceneDensity: p.sceneDensity,
+      defaultPages: p.defaultPages,
+      scenes: sceneCeilingFor(p.defaultPages, p.sceneDensity, texture),
+      pagesPerScene: Math.round(pagesPerSceneFloor(p.sceneDensity, texture) * 100) / 100,
+      pagesPerMinute: p.pagesPerMinute,
+      minutes: Math.round(p.defaultPages / (p.pagesPerMinute || 1)),
+      provenance: p.provenance,
+      parent: p.parent,
+      source: p.source,
+      corpusScenes: corpus ? corpus.scenes : null,
+      corpusSample: corpus ? corpus.sample : null,
+    };
+  });
+}
 
 function clamp(n: number, lo: number, hi: number): number {
   if (!isFinite(n)) return lo;
   return Math.min(hi, Math.max(lo, n));
 }
 
-/** Pull every genre-ish string off a build brief, lowercased. Handles the Json `genres` array. */
 export function briefGenreTerms(brief: any): string[] {
   const out: string[] = [];
   const push = (v: any) => {
@@ -249,19 +365,76 @@ export function briefGenreTerms(brief: any): string[] {
 }
 
 /**
- * Which length profile governs this brief. The FIRST matching keyword wins, scanning profiles in
- * declaration order, so a "historical action epic" resolves to ACTION (its scene volume dominates
- * the page maths) rather than to whichever term happened to be typed first.
+ * Keyword aliases, keyed by profile. Scanned in GENRE_PROFILES order, so a sub-genre always sits
+ * ahead of its parent and wins: "slasher" reaches SLASHER before HORROR, "heist thriller" reaches
+ * HEIST before THRILLER. A genre with no entry here is still matched by its own key (see
+ * `keyForm`), which is what makes every one of the intake's thirty-two options resolvable.
+ *
+ * The separator variants are not decoration. "Rom-Com", "Sci-Fi" and "Coming-of-age" are exactly
+ * what the picker sends, and before this list every one of them matched NOTHING and collected the
+ * generic fallback.
+ */
+const GENRE_ALIASES: Record<string, string[]> = {
+  SUPERHERO: ['superhero', 'super hero', 'comic book movie'],
+  MARTIAL_ARTS: ['martial art', 'martial-art', 'martialarts', 'kung fu', 'wuxia', 'فنون قتالية'],
+  HEIST: ['heist', 'caper'],
+  WAR: ['war', 'wartime', 'حرب'],
+  DISASTER: ['disaster'],
+  ADVENTURE: ['adventure', 'مغامرة'],
+  ACTION: ['action', 'اكشن', 'أكشن'],
+  SLASHER: ['slasher'],
+  FILM_NOIR: ['film noir', 'film-noir', 'filmnoir', 'noir'],
+  SPY: ['spy', 'espionage', 'تجسس'],
+  CRIME: ['crime', 'gangster', 'جريمة'],
+  MYSTERY: ['mystery', 'whodunit', 'detective', 'غموض'],
+  HORROR: ['horror', 'رعب'],
+  PSYCHOLOGICAL: ['psychological'],
+  THRILLER: ['thriller', 'suspense', 'اثارة', 'إثارة'],
+  SURVIVAL: ['survival'],
+  COMING_OF_AGE: ['coming of age', 'coming-of-age', 'comingofage'],
+  ROAD_MOVIE: ['road movie', 'road-movie', 'roadmovie', 'road trip'],
+  SPORT: ['sport', 'رياضي'],
+  WESTERN: ['western'],
+  BIOPIC: ['biopic', 'biographical', 'سيرة'],
+  EPIC: ['epic', 'ملحمي'],
+  HISTORICAL: ['historical', 'history', 'period', 'تاريخي'],
+  DRAMA: ['drama', 'dramatic', 'دراما', 'درامي'],
+  SCIFI: ['sci-fi', 'scifi', 'sci fi', 'science fiction', 'خيال علمي'],
+  FANTASY: ['fantasy', 'mythic', 'mythological', 'fairy', 'خيال', 'أسطوري', 'اسطوري'],
+  MUSICAL: ['musical', 'موسيقي', 'استعراضي'],
+  ANIMATION: ['animation', 'animated', 'anime', 'رسوم متحركة'],
+  FAMILY: ['family', 'عائلي'],
+  SATIRE: ['satire', 'satirical'],
+  COMEDY: ['comedy', 'comic', 'sitcom', 'rom-com', 'romcom', 'rom com', 'كوميدي', 'كوميديا'],
+  ROMANCE: ['romance', 'romantic', 'رومانسي', 'رومانسية'],
+};
+
+/** "Coming-of-age" and "Sci-fi" become COMING_OF_AGE and SCI_FI — the picker's label, as a key. */
+function keyForm(term: any): string {
+  return String(term == null ? '' : term).trim().toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_|_$/g, '');
+}
+
+/**
+ * Which length profile governs this brief.
+ *
+ * Profiles are scanned in declaration order and the first that matches wins, so precedence is a
+ * property of the table you can read top to bottom rather than of the order the user happened to
+ * tick boxes in. Each profile matches on its own key (so every intake option resolves exactly) or on
+ * any of its aliases (so free text in `tone` and `subGenre` still lands somewhere sensible).
+ *
+ * ONE genre still wins outright and the rest are discarded — which is why Jason Quick, tagged
+ * ["Action","Drama","Thriller"], is planned purely as an action film. `blendProfiles` (artifact §03)
+ * is the fix and is not built.
  */
 export function resolveGenreProfile(brief: any): GenreLengthProfile {
   const terms = briefGenreTerms(brief);
   if (!terms.length) return DEFAULT_GENRE_PROFILE;
   const hay = terms.join(' | ');
-  for (const [key, words] of GENRE_KEYWORDS) {
-    if (words.some((w) => hay.includes(w))) {
-      const p = GENRE_PROFILES.find((g) => g.key === key);
-      if (p) return p;
-    }
+  const keys = terms.map(keyForm);
+  for (const p of GENRE_PROFILES) {
+    if (keys.indexOf(p.key) >= 0) return p;
+    const words = GENRE_ALIASES[p.key];
+    if (words && words.some((w) => hay.includes(w))) return p;
   }
   return DEFAULT_GENRE_PROFILE;
 }

@@ -1,4 +1,5 @@
 import { yearsToDays } from './era.util';
+import { roundHalfAwayFromZero } from './era-days.util';
 
 /**
  * ERA -> YEAR — what year a named period means, and when to refuse to say.
@@ -190,9 +191,16 @@ export const COUNTRY_ERA_YEARS: EraRow[] = [
 
 /** The same half-away-from-zero rule `yearsToDays` uses, so a boundary year cannot land on two
  *  different anchors depending on which code path computed it. */
+/**
+ * NON-FINITE INPUT NOW YIELDS 0, WHICH IS A CHANGE. Before the rounding rule was shared, this
+ * function had no finiteness guard and propagated NaN; it now inherits roundHalfAwayFromZero's
+ * guard and returns 0. Zero is year 0 — a confident answer — so this function is NOT the place
+ * that refuses. `anchorYearForEra` screens `presentYear` with Number.isFinite before it ever gets
+ * here, and start/end come from the typed table, so no caller can reach it with junk. Any FUTURE
+ * caller must screen its own inputs rather than reading a 0 as an anchor.
+ */
 export function midpointYear(start: number, end: number): number {
-  const m = (start + end) / 2;
-  return m < 0 ? -Math.round(-m) : Math.round(m);
+  return roundHalfAwayFromZero((start + end) / 2);
 }
 
 export interface AnchorVerdict {

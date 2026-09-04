@@ -44,6 +44,8 @@ import { LEVER_KEYS, resolveLever } from './intake-levers.util';
 import { resolveCollabMode } from './collab-mode.util';
 import { isProviderExhausted, isStubRunaway, isHalt, ScriptGenerationHalted, STUB_STREAK_ABORT, HaltKind } from './provider-health.util';
 import { htmlToText as htmlToTextUtil, extractText, uploadBasename, assembleCorpus, canReuseExtraction, kindOf, kindFromContentType, MAX_REMOTE_BYTES } from './source-ingest.util';
+import { segmentPassages, batchPassages, applyVerdicts, buildSourceBible, passageBody, residualPaste, SourceDoc, Passage, SourceBible } from './source-classify.util';
+import { coerceRecommendations, recommendableFields, salvageRows, FIELD_SPECS, Recommendation } from './brief-recommend.util';
 import { readFile } from 'fs/promises';
 import { join, resolve, sep } from 'path';
 
@@ -1165,6 +1167,371 @@ export class ScripOnService {
     return { ...data, sources: out, sourceText: corpus || String(data.sourceText || '') };
   }
 
+  /**
+   * The per-build Source Bible cache. In-memory and per-process, deliberately: a build needs the
+   * bible two or three times, and a restart mid-build is already a bigger problem than a lost
+   * cache — the same reasoning `genProgress` runs on. Nothing is persisted in ②; ④ adds that when
+   * the Brief page needs the evidence across a page load.
+   */
+  private readonly sourceBibles = new Map<string, { key: string; bible: SourceBible }>();
+
+  /**
+   * A cheap fingerprint of the corpus. Not a hash for security — a cache key that changes when the
+   * material changes. Sampling every 97th character plus the total length is enough to catch an
+   * edit, and costs nothing on a 300 KB corpus.
+   */
+  private static corpusKey(docs: SourceDoc[]): string {
+    let h = 5381;
+    let n = 0;
+    for (const d of docs) {
+      const t = String(d.text || '');
+      n += t.length;
+      for (let i = 0; i < t.length; i += 97) h = (((h << 5) + h) ^ t.charCodeAt(i)) >>> 0;
+    }
+    return docs.length + ':' + n + ':' + h.toString(36);
+  }
+
+  /**
+   * The documents a build has, in a stable order.
+   *
+   * `paste` is the assembled corpus on `sourceText`, which after ① already contains the main paste
+   * box AND every source's text. It therefore OVERLAPS the extra-paste-box source records. That is
+   * deliberate and harmless: the overlapping passages classify identically and the distiller
+   * deduplicates them. The clean fix — the intake form sending the main box as its own `kind:'paste'`
+   * source instead of pre-merging (`ScriptOnIntake.tsx:253`) — belongs to (4), where that form is
+   * already being changed. (2) must not need a frontend release to ship.
+   */
+  private sourceDocsFrom(intake: any): SourceDoc[] {
+    const docs: SourceDoc[] = [];
+    const sources: any[] = Array.isArray(intake && intake.sources) ? intake.sources : [];
+    const pasted = residualPaste(intake && intake.sourceText, sources);
+    if (pasted.trim()) docs.push({ id: 'paste', name: 'Pasted text', text: pasted });
+    for (let i = 0; i < sources.length; i++) {
+      const s: any = sources[i] || {};
+      const text = String(s.text || '');
+      if (!text.trim()) continue;
+      docs.push({ id: String(i), name: String(s.name || s.kind || ('source ' + (i + 1))), text });
+    }
+    return docs;
+  }
+
+  /**
+   * One classification call for one batch of passages from ONE document.
+   *
+   * The pass returns a role, subjects and a number. It does NOT summarise, rewrite or extract facts,
+   * and nothing it emits is ever shown to a writer — which is why a hallucination here degrades into
+   * a mis-sorted paragraph instead of contaminated prose.
+   */
+  private async classifyBatch(projectId: string, docs: SourceDoc[], batch: Passage[]): Promise<any[]> {
+    if (!batch.length) return [];
+    const docId = String(batch[0].docId);
+    let name = docId;
+    for (const d of docs) if (d.id === docId) { name = d.name; break; }
+    const sys = 'You are sorting a filmmaker\'s submitted material before a screenplay is written from it.'
+      + ' For EACH passage return exactly one role. Return ONLY JSON {passages:[{id,role,subjects,confidence}]}.'
+      + '\nCANON - the story itself: treatment, outline, acts, plot, characters, relationships, setting,'
+      + ' world rules, existing script pages. The film is MADE of this.'
+      + '\nRESEARCH - factual or historical information about the real world. It informs the film; it is'
+      + ' not the film.'
+      + '\nREFERENCE - another work cited as a comparison or an example: a comp title, a scene from'
+      + ' another film, "make it feel like X". Its text will never be used.'
+      + '\nINSTRUCTION - a COMMAND ABOUT THE SCRIPT rather than material in it: "make the ending'
+      + ' ambiguous", "keep it under twenty speaking roles", "no drone shots, we cannot afford them".'
+      + ' If a passage tells the writer what to DO, it is INSTRUCTION and never CANON.'
+      + '\nsubjects = up to 6 proper nouns or topic keys, each {name, kind} with kind one of'
+      + ' CHARACTER|PLACE|RULE|EVENT|OTHER. confidence = 0..1.'
+      + ' Do NOT summarise, rewrite or quote the passages. Return every id you were given, and no others.';
+    // No quarantine is passed: nothing has a role yet, so nothing can be quarantined yet. This is the
+    // one place passageBody is called on an unclassified passage, and it is correct here.
+    const user = 'DOCUMENT: ' + name + '\n\n'
+      + batch.map((p) => '[' + p.id + ']\n' + passageBody(docs, p)).join('\n\n');
+    const r: any = await this.ai.json({
+      task: 'scripton.source.classify', system: sys, user,
+      maxTokens: 2000, timeoutMs: 90000, projectId, refType: 'Project', refId: projectId,
+    });
+    return Array.isArray(r && r.passages) ? r.passages : [];
+  }
+
+  /**
+   * Classify this build's material and distil the Source Bible.
+   *
+   * REPORT-ONLY in (2): the result is logged and cached, and no consumer reads it until (3). Until a
+   * real build's log shows the roles are right on real material, none should - a classifier that
+   * called your treatment a reference would be strictly worse than no classifier.
+   *
+   * FAIL-OPEN at every level. One batch failing costs that batch; all of them failing costs nothing
+   * at all, because an unclassified corpus behaves exactly as it does today.
+   */
+  private async sourceBibleFor(projectId: string): Promise<SourceBible | null> {
+    if (!projectId) return null;
+    try {
+      const intake: any = await (this.prisma as any).intakeProfile
+        .findUnique({ where: { projectId }, select: { sourceText: true, sources: true } })
+        .catch(() => null);
+      const docs = this.sourceDocsFrom(intake);
+      if (!docs.length) return null;
+
+      const key = ScripOnService.corpusKey(docs);
+      const hit = this.sourceBibles.get(projectId);
+      if (hit && hit.key === key) return hit.bible;
+
+      const passages = segmentPassages(docs);
+      const batches = batchPassages(passages);
+      const verdicts: any[] = [];
+      let failed = 0;
+      for (const batch of batches) {
+        try {
+          const one = await this.classifyBatch(projectId, docs, batch);
+          for (const v of one) verdicts.push(v);
+        } catch (e) {
+          failed++;
+          this.log.warn('classify: a batch failed; its passages stay unclassified - ' + this.why(e));
+        }
+      }
+      const stored = applyVerdicts(passages, verdicts);
+      const bible = buildSourceBible(docs, stored);
+      this.log.log('sourceBible: ' + docs.length + ' doc(s), ' + passages.length + ' passage(s), '
+        + batches.length + ' call(s)' + (failed ? ' (' + failed + ' failed)' : '') + ' - '
+        + Object.keys(bible.counts).map((k) => k.toLowerCase() + ' ' + bible.counts[k]).join(' | ')
+        + (bible.references.length ? ' - QUARANTINED: ' + bible.references.map((r) => r.doc).join(', ') : '')
+        + (bible.instructions.length ? ' - ' + bible.instructions.length + ' instruction(s)' : ''));
+      this.sourceBibles.set(projectId, { key, bible });
+      return bible;
+    } catch (e) {
+      this.log.warn('sourceBible: failed - continuing with the corpus unclassified. ' + this.why(e));
+      return null;
+    }
+  }
+
+  /** Material shorter than this says nothing worth pre-filling a form with. */
+  private static readonly MIN_ANALYSE_CHARS = 200;
+  /** What one analysis reads. The same ceiling fullSourceFor uses — a form is not a screenplay. */
+  private static readonly MAX_ANALYSE_CHARS = 60000;
+
+  /**
+   * Read the attached material and pre-select the Brief.
+   *
+   * Runs when the user leaves the Work-source step, BEFORE anything is saved — so the sources arrive
+   * in the request rather than off the intake row, and are materialised here through the same path a
+   * save would use. Nothing is written; this is a read that returns suggestions.
+   *
+   * The form sends its OWN option lists with the request, and brief-recommend.util validates every
+   * value against them. A value the picker cannot display can never come back, and the lists are not
+   * duplicated on this side where they could drift.
+   *
+   * FAIL-OPEN. A failed analysis returns an empty field list and the Brief opens exactly as it would
+   * have without one — every field the user's own to fill.
+   */
+  async recommendBrief(projectId: string, body: any) {
+    const t0 = Date.now();
+    const options: Record<string, string[]> = (body && body.options && typeof body.options === 'object') ? body.options : {};
+    // Some option lists are IDS the form stores, not the words a reader thinks in — style packs and
+    // ending types especially. `hints` carries the human rendering for the prompt only; the value the
+    // model must copy is still the id, so nothing has to be mapped back on either side.
+    const hints: Record<string, string> = (body && body.hints && typeof body.hints === 'object') ? body.hints : {};
+    let sources: any[] = [];
+    let corpus = '';
+    try {
+      const materialised: any = await this.materialiseSources(
+        { sources: Array.isArray(body && body.sources) ? body.sources : [], sourceText: (body && body.sourceText) || '' },
+        undefined,
+      );
+      sources = Array.isArray(materialised && materialised.sources) ? materialised.sources : [];
+      corpus = String((materialised && materialised.sourceText) || '');
+    } catch (e) {
+      this.log.warn('recommendBrief: could not read the attached material — ' + this.why(e));
+      return { fields: [], sources: [], chars: 0, note: 'The attached material could not be read.' };
+    }
+    // Report every source by name whether or not it was readable. This is the only place a user ever
+    // finds out that a scanned PDF gave nothing — a backend log is not a user interface.
+    const report = sources.map((x: any) => ({
+      name: String((x && (x.name || x.kind)) || 'source'),
+      chars: Number((x && x.chars) || 0),
+      note: (x && x.note) ? String(x.note) : undefined,
+    }));
+
+    // ALWAYS log, before any early return. A paste-only request used to produce no log line at all:
+    // `materialiseSources` returns early when `sources` is empty, and its log sits after that
+    // return, so the entire pasted-text path was invisible. "It reads files but not pasted text"
+    // was therefore unanswerable from the log — which is the actual defect, ahead of whatever
+    // caused it. The opening characters are here because a corpus of the right LENGTH can still be
+    // the wrong TEXT, and that distinction has cost this feature two debugging rounds already.
+    this.log.log('recommendBrief: ' + report.length + ' source(s), ' + corpus.length + ' chars'
+      + (corpus.trim()
+        ? ' — opens: ' + JSON.stringify(corpus.slice(0, 140))
+        : ' — NO MATERIAL REACHED THE ANALYSIS (the request carried none)'));
+
+    if (corpus.trim().length < ScripOnService.MIN_ANALYSE_CHARS) {
+      return { fields: [], sources: report, chars: corpus.length, note: 'Not enough material to suggest anything from.' };
+    }
+
+    const optsFor = (f: string): string[] => {
+      const spec = FIELD_SPECS[f];
+      const key = (spec && spec.options) || f;
+      const v = options[key];
+      return Array.isArray(v) ? v.filter((x) => typeof x === 'string' && x.trim()) : [];
+    };
+    const enumFields = recommendableFields().filter((f) => {
+      const k = FIELD_SPECS[f].kind;
+      return (k === 'enum' || k === 'enumList' || k === 'flags') && optsFor(f).length > 0;
+    });
+    const freeFields = recommendableFields().filter((f) => {
+      const k = FIELD_SPECS[f].kind;
+      return k === 'text' || k === 'textList' || k === 'number';
+    });
+    if (!enumFields.length && !freeFields.length) return { fields: [], sources: report, chars: corpus.length };
+
+    // READ AND JUDGE — do not transcribe.
+    //
+    // The first version of this prompt said "return a field ONLY when the material actually EVIDENCES
+    // it; do NOT infer". That is why it filled nothing: a 47,000-character creative brief is prose,
+    // and it never says "genre: Thriller, tone: Grounded". The model obeyed and returned an empty
+    // answer to a form it could have filled completely. A reader who will only repeat words already
+    // on the page is not reading.
+    //
+    // The line that matters is NOT stated-versus-inferred. It is grounded-in-this-material versus
+    // invented-from-convention, and `why` is what enforces it: an interpretation that can point at
+    // the material is a judgement, and one that can only point at what such projects usually look
+    // like is a guess. The option lists still do the rest of the work — a judgement can only ever
+    // land on a value the picker actually offers.
+    const sys = 'You are a development executive reading a filmmaker\'s material in order to fill in a'
+      + ' project brief. Return ONLY JSON {fields:[{field,value,why}]}.'
+      + '\nYou are READING, not transcribing. The material will almost never name its own genre, tone,'
+      + ' mood, era or rating — work them out the way a reader would, from what actually happens in it:'
+      + '\n· a missile-silo procedural on a countdown is a Thriller, even if the word never appears;'
+      + '\n· sustained threat and deaths on the page is an adult rating, even if rating is never discussed;'
+      + '\n· a story whose duty log is dated 1987 is set in 1987, and in that country.'
+      + '\nFill in every field the material gives you a basis to judge. Nine well-founded fields are far'
+      + ' more use than two literal ones.'
+      + '\nOMIT a field only when the material gives you NO basis at all. An omitted field is left empty'
+      + ' for the user to choose, which is correct and never a failure. What you must never do is answer'
+      + ' from convention alone — from what a project like this usually looks like. Every field needs a'
+      + ' basis in THIS material.'
+      + '\n"why" is REQUIRED on every field: one short sentence naming what in the material led you'
+      + ' there. An interpretation is fine ("reads as a thriller — a countdown, a locked room, and a'
+      + ' chain of command that can kill"), but it must point at the material, never at convention.'
+      + ' A field without one is discarded.'
+      + '\nORCHESTRATION — the last part of the job is deciding what this particular story needs.'
+      + ' `researchScope` is six research lanes and they arrive ALL ON. Not every story needs all six:'
+      + ' switch on only the lanes this material actually calls for and leave the rest out.'
+      + '\n· real people, a real place or a real event on the page needs `subject`;'
+      + '\n· an invented world with its own rules needs `mythology`, and usually not `subject`;'
+      + '\n· a story that names or leans on other films needs `craft`; a market-positioned pitch needs `comps`;'
+      + '\n· regulated, religious, political or rights-sensitive material needs `legal`.'
+      + '\nIf the material needs all six, say all six. Never return an empty list — that would switch'
+      + ' research off altogether, which is not yours to decide.'
+      + '\nRESTRAINT — three fields are CRAFT CHOICES, not facts about the material, and they are the'
+      + ' writer\'s to make: `styles` (how the script is written), `spine.endingIds` (how it lands) and'
+      + ' `subgenres`. Fill one ONLY when the material makes the choice for you — when it describes'
+      + ' its own texture, states how it ends, or is plainly built on a sub-genre. If the material'
+      + ' merely permits a choice, OMIT it. An unasked-for style is a note the writer has to undo.'
+      + '\nFor any field listed with options, "value" MUST be copied EXACTLY from that field\'s option'
+      + ' list — a value outside the list is discarded, so copy one or omit the field. Where an option'
+      + ' list is ids with a description underneath, copy the ID.'
+      + '\nNo text outside the JSON.';
+    const user = 'Read the material at the end, then fill in what you can judge from it.\n\nFIELDS WITH FIXED OPTIONS — copy the value exactly:\n'
+      + enumFields.map((f) => {
+        const spec = FIELD_SPECS[f];
+        const key = (spec && spec.options) || f;
+        const shape = spec.kind === 'enumList' ? ' (array, up to ' + (spec.maxItems || 4) + ')'
+          : (spec.kind === 'flags'
+            ? ' (array — list ONLY the ones this story needs; every one you leave out is switched OFF)'
+            : '');
+        return '· ' + f + shape
+          + ' — one of: ' + optsFor(f).join(' | ')
+          + (hints[key] ? '\n    ' + hints[key] : '');
+      }).join('\n')
+      + '\n\nFREE-TEXT AND NUMERIC FIELDS:\n'
+      + freeFields.map((f) => {
+        const spec = FIELD_SPECS[f];
+        if (spec.kind === 'number') return '· ' + f + ' — a number between ' + spec.min + ' and ' + spec.maxNum;
+        return '· ' + f + (spec.kind === 'textList' ? ' (array, up to ' + (spec.maxItems || 6) + ')' : '')
+          + ' — short text, under ' + spec.max + ' characters';
+      }).join('\n')
+      + '\n\nTHE MATERIAL:\n' + corpus.slice(0, ScripOnService.MAX_ANALYSE_CHARS);
+
+    let raw: any = null;
+    // `ai.json()` returns ONLY the parsed object and throws the reply text away, so a model that
+    // answers with something unparseable is indistinguishable from a model that answers nothing:
+    // both arrive here as null. `ai.run()` returns { text, json } — same call, same cost, but the
+    // reply survives long enough to be reported. This is the third time in this feature that a
+    // silent path has cost a debugging round.
+    let replyText = '';
+    try {
+      const r: any = await this.ai.run({
+        // OUTPUT BUDGET, MEASURED — not picked.
+        //
+        // 2500 was an invented number and it silently capped the feature: on 3 Sep a reply came
+        // back 2,786 characters long, cut off mid-word inside the fifteenth row, and every field
+        // was discarded. The arithmetic it should have had:
+        //   · the reply carried 14 complete rows in 2,786 chars  →  ~199 chars per row
+        //   · recommendableFields() is 33 fields                 →  ~6,570 chars for a full answer
+        //   · 2,786 chars against a 2,500-token grant            →  ~1.1 chars per token on this
+        //     path, far below the ~3.5 plain JSON would give, so the provider is spending a large
+        //     part of the grant on something other than visible text (thinking tokens, which this
+        //     codebase already handles for Gemini elsewhere)
+        //   · 6,570 chars at that observed ratio                 →  ~6,000 tokens
+        //
+        // 6000 also crosses ai.service's streaming threshold, which is correct rather than
+        // incidental: a 33-field answer IS a long generation, and streaming is what that threshold
+        // exists to switch on. If the field list grows, redo the division above — do not nudge
+        // this number. salvageRows() below is the independent second protection.
+        task: 'scripton.brief.recommend', system: sys, user, maxTokens: 6000, timeoutMs: 120000,
+        projectId, refType: 'Project', refId: projectId,
+      });
+      raw = r ? r.json : null;
+      replyText = String((r && r.text) || '');
+    } catch (e) {
+      this.log.warn('recommendBrief: the analysis failed — the Brief opens empty. ' + this.why(e));
+      return { fields: [], sources: report, chars: corpus.length, note: 'The material could not be analysed.' };
+    }
+
+    // A reply the parser rejected is not necessarily a reply with nothing in it. Recover the rows
+    // that completed and put them through exactly the same gates — the option lists and the reason
+    // rule still decide what survives, so salvaging can never admit a value a clean parse would
+    // have refused. It only stops a cut-off tail from costing the whole answer.
+    if (!raw && replyText) {
+      const rescued = salvageRows(replyText);
+      if (rescued.length) {
+        this.log.warn('recommendBrief: the reply was cut off — ' + rescued.length
+          + ' complete row(s) recovered from ' + replyText.length + ' chars.');
+        raw = { fields: rescued };
+      }
+    }
+
+    const fields: Recommendation[] = coerceRecommendations(raw, options);
+    this.log.log('recommendBrief: ' + report.length + ' source(s), ' + corpus.length + ' chars -> '
+      + fields.length + ' field(s) in ' + (Date.now() - t0) + 'ms'
+      + (fields.length ? ' — ' + fields.map((f) => f.field).join(', ') : '')
+      + (report.some((r) => r.note) ? ' | unreadable: ' + report.filter((r) => r.note).map((r) => r.name).join(', ') : ''));
+
+    // Zero kept is a real outcome — the material may simply evidence nothing. But it is ALSO what a
+    // malformed reply, an unparsed body and a wrong field vocabulary all look like from outside, and
+    // those are indistinguishable without saying what actually came back. So when nothing survives,
+    // say what arrived and which gate ate it. Diagnosis, not decoration: this is the difference
+    // between "the analysis found nothing" and "the analysis has never once worked".
+    if (!fields.length) {
+      const rows: any[] = Array.isArray(raw) ? raw : (raw && Array.isArray(raw.fields) ? raw.fields : []);
+      const keys = (raw && typeof raw === 'object') ? Object.keys(raw).slice(0, 12).join(',') : String(typeof raw);
+      const named = rows.map((r: any) => String((r && r.field) || '?')).slice(0, 24).join(', ');
+      const known = rows.filter((r: any) => r && FIELD_SPECS[String(r.field)]).length;
+      const withWhy = rows.filter((r: any) => r && String(r.why || '').trim().length >= 12).length;
+      this.log.warn('recommendBrief: NOTHING KEPT. reply keys=[' + keys + '] rows=' + rows.length
+        + ' known-field=' + known + ' with-reason=' + withWhy
+        + ' optionLists=[' + Object.keys(options).map((k) => k + ':' + (Array.isArray(options[k]) ? options[k].length : 0)).join(' ') + ']'
+        + (rows.length ? ' fieldsReturned=' + named : '')
+        + (rows.length ? '' : ' rawSample=' + JSON.stringify(raw).slice(0, 400))
+        // THE REPLY ITSELF. `raw` being null means extractJson could not parse the text — it does
+        // not say why. The HEAD shows whether the model answered in JSON at all (a refusal, an
+        // apology or a prose answer is obvious immediately); the TAIL shows whether it was cut off
+        // mid-object, which is the signature of the output cap and nothing else.
+        + (raw ? '' : ' | UNPARSED REPLY ' + replyText.length + ' chars'
+          + ' head=' + JSON.stringify(replyText.slice(0, 220))
+          + ' tail=' + JSON.stringify(replyText.slice(-140))));
+    }
+    return { fields, sources: report, chars: corpus.length };
+  }
+
   async saveIntake(projectId: string, data: any) {
     const materialised = await this.materialiseSources(data, projectId);
     const d: any = {}; for (const k of ScripOnService.INTAKE_COLS) { if (materialised && materialised[k] !== undefined) d[k] = materialised[k]; }
@@ -1947,6 +2314,11 @@ export class ScripOnService {
    */
   private async extractCanon(projectId: string, stages: any[]): Promise<CanonFactCore[]> {
     try {
+      // ② runs REPORT-ONLY here: classify the material and log what it found, while the extractor
+      // keeps reading the unchanged corpus below. This is the call site ③ will flip — fullSourceFor
+      // becomes bible.canonText — but not until a real build's log shows the roles are right on real
+      // material. A classifier that called a treatment a reference would be worse than none.
+      await this.sourceBibleFor(projectId).catch(() => null);
       const src = await this.fullSourceFor(projectId, stages);
       if (src.length < 400) return [];
       const sys = 'You are building the CANON for a screenplay going into production: the hard facts the script'

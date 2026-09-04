@@ -180,6 +180,17 @@ test('the plausible band disambiguates a BARE number - a marked era needs no gua
   assert.equal(parseYear('3000', 2026), null);
 });
 
+test('the plausible band tests the WRITTEN SHAPE too, not the value alone', () => {
+  // Found unpinned by the break sweep: drop the four-digit shape test and all 295 still passed,
+  // because every case in the suite that reaches the band is already written as four digits. The
+  // band ALONE asks only "is this value between 1000 and 2999" - and a word numeral or a
+  // comma-grouped count both answer yes while naming no year whatsoever.
+  assert.equal(parseYear('two thousand', 2026), null);   // without the shape test: -9497
+  assert.equal(parseYear('1,500', 2026), null);          // without the shape test: -192122
+  // A year genuinely written as four digits is untouched, so this refuses only the wrong shapes.
+  assert.deepEqual(parseYear('1994', 2026), { from: -11688, to: -11688 });
+});
+
 import { sweepEras } from './era.util';
 
 test('the sweep finds every stratum in a real passage, in order', () => {
@@ -221,17 +232,62 @@ test('material with no temporal language yields nothing — the commonest case c
   assert.deepEqual(sweepEras(null as any, 2026), []);
 });
 
+test('a non-finite storyYear dates NOTHING rather than collapsing the timeline onto today', () => {
+  // Found unpinned by the break sweep: neutralise the finiteness guard around the year loop and
+  // all 295 still passed. Without it every bare year is dated at yearsToDays(year - NaN), which
+  // the rounding helper resolves to 0 - so 1994 and 2001 BOTH land on offset 0, the story's
+  // present day. A build that lost its storyYear would silently date its whole timeline to today,
+  // which is the collapse-to-present-day class this plan's predecessor raised as CRITICAL.
+  assert.deepEqual(sweepEras('We open in 1994, and again in 2001.', NaN), []);
+  // With a real storyYear the same material still yields both years, so the guard refuses only
+  // the unusable input rather than suppressing the feature.
+  const ok = sweepEras('We open in 1994, and again in 2001.', 2026);
+  assert.equal(ok.length, 2);
+  assert.deepEqual(ok[0].offset, { from: -11688, to: -11688 });
+  assert.deepEqual(ok[1].offset, { from: -9131, to: -9131 });
+});
+
 test('an overlapping bare year is dropped, and the phrase that contains it wins', () => {
-  // PHRASE_RE's number token accepts digits, so the whole range matches as one phrase — while
-  // YEAR_RE also matches the bare 1994 inside it, because what follows is " to", not a unit word.
-  // This is the only shape in the suite where two hits genuinely overlap, and it pins BOTH guards:
-  // drop the overlap check and 1994 is counted a second time, one moment becoming two timelines;
-  // scan years before phrases and the range is swallowed whole, leaving an offset sixty times off.
+  // What this pins NOW: the phrase grammar reads "1994 to 2000 years ago" as ONE range measured
+  // from the present, rather than as the bare year 1994 followed by something else. The number
+  // token accepting digits is what lets the range start at a four-digit numeral at all.
+  //
+  // What it NO LONGER pins, despite the rationale it carried until this review: the two sweepEras
+  // guards. That rationale named PHRASE_RE and YEAR_RE, two interpolated regexes this branch
+  // deleted when it moved to the tokenizer, and under the token grammar this input reaches neither
+  // guard - its bare "1994" has no year cue in front of it, so matchYears returns [] here and no
+  // overlap is ever proposed. The assertions below are still correct and stay frozen; they simply
+  // no longer exercise the overlap check or the phrase-before-year ordering.
+  //
+  // Those two guards are pinned instead by 'a CUED year inside an accepted phrase is dropped, and
+  // phrases are placed first' below, which adds the cue that makes the two proposals collide.
   const hits = sweepEras('1994 to 2000 years ago the ice retreated.', 2026);
   assert.equal(hits.length, 1);
   assert.equal(hits[0].text, '1994 to 2000 years ago');
   assert.equal(hits[0].start, 0);
   assert.equal(hits[0].end, 22);
+  assert.deepEqual(hits[0].offset, { from: -730500, to: -728309 });
+});
+
+test('a CUED year inside an accepted phrase is dropped, and phrases are placed first', () => {
+  // The test above no longer reaches either sweepEras guard. Under the token grammar its bare
+  // "1994" has no year cue in front of it, so matchYears returns [] for that input and nothing
+  // ever overlaps - the two guards it was written to pin became unreachable from it.
+  //
+  // Adding the cue is what makes the two proposals genuinely collide: for this input
+  // matchPhrases offers "1994 to 2000 years ago" at [3,25) and matchYears offers 1994 at [3,7).
+  const hits = sweepEras('in 1994 to 2000 years ago', 2026);
+
+  // THE OVERLAP CHECK (era.util.ts, inside `take`). Drop it and 1994 is emitted a SECOND time as
+  // a cued year at -11688: two strata for one moment, which raises a conflict deterministically
+  // before generation rather than surfacing as drift.
+  assert.equal(hits.length, 1);
+
+  // THE LOOP ORDERING (phrases before years). Run the year loop first and the bare year wins the
+  // span, the range is swallowed whole, and the only surviving offset is -11688 - about 62x off.
+  assert.equal(hits[0].text, '1994 to 2000 years ago');
+  assert.equal(hits[0].start, 3);
+  assert.equal(hits[0].end, 25);
   assert.deepEqual(hits[0].offset, { from: -730500, to: -728309 });
 });
 
@@ -361,4 +417,16 @@ test('a bare four-digit number is only a year when something says so', () => {
   assert.equal(sweepEras('It cost 1500 dollars, and in 1994 he left.', 2026).length, 1);
   assert.equal(sweepEras('circa 1650 the city fell', 2026)[0].text, '1650');
   assert.equal(sweepEras('500 BC was long ago', 2026)[0].text, '500 BC');   // an era mark needs no cue
+});
+
+test('a phrase must start where the head starts, or the head is narration and refuses', () => {
+  // parseEraPhrase is handed ONE phrase, not a passage. If the match begins somewhere inside the
+  // string, the caller passed narration and the reading is not about the head at all - so it
+  // refuses. Without the start check it answers confidently about a substring it was never asked
+  // about, which is the same wrong-year class the sweep exists to prevent. Found unpinned by the
+  // break sweep, row 20; sweepEras is the function that finds a phrase INSIDE prose.
+  assert.equal(parseEraPhrase('foo seven years ago'), null);
+  assert.equal(parseEraPhrase('Jason vanished about seven years ago'), null);
+  assert.deepEqual(parseEraPhrase('seven years ago'), { from: -2557, to: -2557 });
+  assert.deepEqual(parseEraPhrase('  seven years ago'), { from: -2557, to: -2557 });
 });

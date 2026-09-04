@@ -3,6 +3,7 @@ import { strict as assert } from 'node:assert';
 import {
   LINES_PER_PAGE, PAGE_WEIGHTS, DEFAULT_TARGET_PAGES, MIN_TARGET_PAGES, MAX_TARGET_PAGES,
   resolveGenreProfile, briefTargetPages, planFeatureLength, snapPageWeight, applyPageWeights,
+  genreProfiles, DEFAULT_GENRE_PROFILE, GenreLengthProfile, genreProfileTable, MEASURED_CORPUS_SCENES, MEASURED_CORPUS_PAGES,
   lineBudgetFor, countVisualLines, completionRatio, isLengthComplete, expansionCandidates,
   FORMAT_BANDS, resolveFormatBand, resolveTexture, effectiveSceneDensity, pagesPerSceneFloor,
   sceneCeilingFor, PRODUCED_TEXTURE_FACTOR, MIN_PLANNED_SCENES,
@@ -481,4 +482,182 @@ test('texture defaults to PRODUCED and only SPEC by name', () => {
   assert.equal(resolveTexture({ texture: 'spec' }), 'SPEC');
   assert.equal(resolveTexture({ texture: 'PRODUCED' }), 'PRODUCED');
   assert.equal(resolveTexture({ texture: 'anything else' }), 'PRODUCED');
+});
+
+// ---------------------------------------------------------------------------------------------
+// THE 32-GENRE TABLE — every genre the intake offers, and every constant able to cite itself
+// ---------------------------------------------------------------------------------------------
+
+/** Verbatim from ScriptOnIntake.tsx:13. If the picker changes, this test is the thing that notices. */
+const INTAKE_GENRES = ['Action', 'Adventure', 'Comedy', 'Drama', 'Romance', 'Thriller', 'Horror', 'Sci-fi',
+  'Fantasy', 'Mystery', 'Crime', 'War', 'Western', 'Historical', 'Epic', 'Biopic', 'Musical', 'Family',
+  'Animation', 'Sport', 'Film-noir', 'Disaster', 'Survival', 'Coming-of-age', 'Spy', 'Heist', 'Superhero',
+  'Psychological', 'Satire', 'Road movie', 'Martial arts', 'Slasher'];
+
+test('THE DEFECT: every genre the picker offers now has a profile — twelve used to fall through', () => {
+  // Adventure, Mystery, Western, Family, Animation, Sport, Disaster, Survival, Coming-of-age,
+  // Superhero, Psychological and Road movie all collected the generic 1.04/105 fallback, because
+  // no keyword matched them. "Rom-Com" and "Sci-Fi" matched nothing at all.
+  const fell: string[] = [];
+  for (const g of INTAKE_GENRES) {
+    if (resolveGenreProfile({ genres: [g] }).key === 'DEFAULT') fell.push(g);
+  }
+  assert.deepEqual(fell, [], 'these genres still collect the generic fallback: ' + fell.join(', '));
+  assert.equal(INTAKE_GENRES.length, 32);
+});
+
+test('the separator spellings a user actually types resolve, rather than matching nothing', () => {
+  assert.equal(resolveGenreProfile({ genres: ['Sci-fi'] }).key, 'SCIFI');
+  assert.equal(resolveGenreProfile({ genres: ['Sci-Fi'] }).key, 'SCIFI');
+  assert.equal(resolveGenreProfile({ genres: ['science fiction'] }).key, 'SCIFI');
+  assert.equal(resolveGenreProfile({ genres: ['Coming-of-age'] }).key, 'COMING_OF_AGE');
+  assert.equal(resolveGenreProfile({ genres: ['coming of age'] }).key, 'COMING_OF_AGE');
+  assert.equal(resolveGenreProfile({ genres: ['Film-noir'] }).key, 'FILM_NOIR');
+  assert.equal(resolveGenreProfile({ genres: ['Road movie'] }).key, 'ROAD_MOVIE');
+  assert.equal(resolveGenreProfile({ genres: ['Martial arts'] }).key, 'MARTIAL_ARTS');
+  assert.equal(resolveGenreProfile({ genres: ['Superhero'] }).key, 'SUPERHERO');
+});
+
+test('a sub-genre reaches its own profile before its parent swallows it', () => {
+  assert.equal(resolveGenreProfile({ genres: ['Slasher'] }).key, 'SLASHER');
+  assert.equal(resolveGenreProfile({ genres: ['Heist'] }).key, 'HEIST');
+  assert.equal(resolveGenreProfile({ genres: ['Spy'] }).key, 'SPY');
+  assert.equal(resolveGenreProfile({ genres: ['Crime'] }).key, 'CRIME');
+  assert.equal(resolveGenreProfile({ genres: ['Satire'] }).key, 'SATIRE');
+  assert.equal(resolveGenreProfile({ genres: ['Epic'] }).key, 'EPIC');
+  assert.equal(resolveGenreProfile({ genres: ['Biopic'] }).key, 'BIOPIC');
+});
+
+test('EVERY derived density equals its parent EXACTLY — no invented midpoints survive', () => {
+  const byKey = new Map(genreProfiles().map((p) => [p.key, p]));
+  const offenders: string[] = [];
+  for (const p of genreProfiles()) {
+    if (p.provenance !== 'derived') continue;
+    const parent = byKey.get(p.parent);
+    assert.ok(parent, p.key + ' names a parent that does not exist: ' + p.parent);
+    assert.equal((parent as GenreLengthProfile).provenance, 'measured',
+      p.key + ' inherits from ' + p.parent + ', which is not itself measured');
+    if (p.sceneDensity !== (parent as GenreLengthProfile).sceneDensity) {
+      offenders.push(p.key + ' ' + p.sceneDensity + ' vs ' + p.parent + ' ' + (parent as GenreLengthProfile).sceneDensity);
+    }
+  }
+  assert.deepEqual(offenders, [], 'interpolated densities are back: ' + offenders.join(' · '));
+});
+
+test('the four measured densities are the ScriptBase figures, and nothing else claims to be measured', () => {
+  const measured = genreProfiles().filter((p) => p.provenance === 'measured');
+  assert.deepEqual(measured.map((p) => p.key).sort(), ['ACTION', 'COMEDY', 'DRAMA', 'THRILLER']);
+  const d = new Map(measured.map((p) => [p.key, p.sceneDensity]));
+  // ScriptBase over a 106-page median: 101.82/106 = 1.25 · 91.84/106 = 1.15 · 79.77 -> 1.04 · 66.13 -> 0.93
+  assert.equal(d.get('ACTION'), 1.25);
+  assert.equal(d.get('THRILLER'), 1.15);
+  assert.equal(d.get('DRAMA'), 1.04);
+  assert.equal(d.get('COMEDY'), 0.93);
+});
+
+test('a constant that cannot say where it came from does not ship', () => {
+  for (const p of genreProfiles().concat([DEFAULT_GENRE_PROFILE])) {
+    assert.ok(['measured', 'derived', 'default'].indexOf(p.provenance) >= 0, p.key + ' has no provenance');
+    assert.ok(p.source && p.source.trim().length > 20, p.key + ' has no usable source line');
+    if (p.provenance === 'measured') assert.equal(p.parent, '', p.key + ' is measured and must have no parent');
+    else assert.ok(p.parent, p.key + ' is not measured and must name a parent');
+  }
+});
+
+test('every profile in the table is internally coherent and inside the feature band', () => {
+  const seen = new Set<string>();
+  for (const p of genreProfiles()) {
+    assert.ok(!seen.has(p.key), 'duplicate profile key: ' + p.key);
+    seen.add(p.key);
+    assert.ok(p.defaultPages >= MIN_TARGET_PAGES && p.defaultPages <= MAX_TARGET_PAGES, p.key + ' pages ' + p.defaultPages);
+    assert.ok(p.sceneDensity > 0.5 && p.sceneDensity < 2, p.key + ' density ' + p.sceneDensity);
+    assert.ok(p.pagesPerMinute > 0.5 && p.pagesPerMinute < 2, p.key + ' ppm ' + p.pagesPerMinute);
+    assert.ok(sceneCeilingFor(p.defaultPages, p.sceneDensity, 'PRODUCED') >= MIN_PLANNED_SCENES, p.key);
+  }
+  assert.equal(seen.size, 32, 'the table must cover all 32 intake genres, found ' + seen.size);
+});
+
+test('the six interpolated densities are gone, and each moved to its parent', () => {
+  // What they were before this table, and what no corpus ever supported:
+  //   HORROR 1.06 · FANTASY 1.10 · SCIFI 1.10 · ROMANCE 0.98 · MUSICAL 1.00 · HISTORICAL 1.04
+  const k = (key: string) => genreProfiles().find((p) => p.key === key) as GenreLengthProfile;
+  assert.equal(k('HORROR').sceneDensity, 1.15);      // was 1.06 -> THRILLER
+  assert.equal(k('FANTASY').sceneDensity, 1.25);     // was 1.10 -> ACTION
+  assert.equal(k('SCIFI').sceneDensity, 1.25);       // was 1.10 -> ACTION
+  assert.equal(k('ROMANCE').sceneDensity, 1.04);     // was 0.98 -> DRAMA
+  assert.equal(k('MUSICAL').sceneDensity, 0.93);     // was 1.00 -> COMEDY
+  assert.equal(k('HISTORICAL').sceneDensity, 1.04);  // unchanged, but now says it inherits DRAMA
+});
+
+test('page defaults were deliberately NOT touched for any genre that already had one', () => {
+  const k = (key: string) => (genreProfiles().find((p) => p.key === key) as GenreLengthProfile).defaultPages;
+  assert.equal(k('ACTION'), 102);
+  assert.equal(k('THRILLER'), 100);
+  assert.equal(k('DRAMA'), 108);
+  assert.equal(k('COMEDY'), 106);
+  assert.equal(k('HORROR'), 98);
+  assert.equal(k('HISTORICAL'), 110);
+  assert.equal(k('ROMANCE'), 100);
+  assert.equal(k('FANTASY'), 110);
+  assert.equal(k('SCIFI'), 110);
+  assert.equal(k('MUSICAL'), 105);
+});
+
+test('"romantic comedy" is still a comedy, and a bare "Romance" is still a romance', () => {
+  assert.equal(resolveGenreProfile({ genres: ['Romantic Comedy'] }).key, 'COMEDY');
+  assert.equal(resolveGenreProfile({ genres: ['Romance'] }).key, 'ROMANCE');
+  // "Rom-Com" matched NOTHING before this table and collected the generic fallback.
+  assert.notEqual(resolveGenreProfile({ genres: ['Rom-Com'] }).key, 'DEFAULT');
+});
+
+test('ONE genre still wins outright — which is the case for blendProfiles, recorded as a test', () => {
+  // Jason Quick is tagged ["Action","Drama","Thriller"] and is planned purely as an action film.
+  const p = resolveGenreProfile({ genres: ['Action', 'Drama', 'Thriller'] });
+  assert.equal(p.key, 'ACTION');
+  assert.equal(p.sceneDensity, 1.25);
+  // A blended profile would land between 1.25 and 1.04. Nothing does that yet, and this test is
+  // here so that when blendProfiles ships, the change is visible rather than silent.
+});
+
+test('the genre table is renderable — every row carries what a settings panel needs to show', () => {
+  const rows = genreProfileTable();
+  assert.equal(rows.length, 32);
+  for (const r of rows) {
+    assert.ok(r.label && r.label.trim(), r.key + ' has no display label');
+    assert.ok(r.scenes >= MIN_PLANNED_SCENES, r.key + ' scenes ' + r.scenes);
+    assert.ok(r.pagesPerScene > 0.5 && r.pagesPerScene < 3, r.key + ' pages/scene ' + r.pagesPerScene);
+    assert.ok(r.minutes > 40 && r.minutes < 200, r.key + ' minutes ' + r.minutes);
+    assert.ok(r.source && r.source.length > 20, r.key + ' has no source line');
+    // The whole point of the panel: a row can always say whether its number was measured.
+    assert.ok(['measured', 'derived'].indexOf(r.provenance) >= 0, r.key);
+    if (r.provenance === 'measured') { assert.ok(r.corpusScenes, r.key + ' claims measured with no corpus figure'); }
+    else { assert.equal(r.corpusScenes, null, r.key + ' is derived and must not show a corpus figure'); }
+  }
+});
+
+test('the picker labels round-trip — a row can be matched back to the genre the user clicked', () => {
+  const rows = genreProfileTable();
+  for (const r of rows) assert.equal(resolveGenreProfile({ genres: [r.label] }).key, r.key, r.label);
+});
+
+test('only the four measured genres carry a corpus figure, and it is the published one', () => {
+  const rows = genreProfileTable();
+  const withCorpus = rows.filter((r) => r.corpusScenes != null);
+  assert.deepEqual(withCorpus.map((r) => r.key).sort(), ['ACTION', 'COMEDY', 'DRAMA', 'THRILLER']);
+  const by = new Map(withCorpus.map((r) => [r.key, r]));
+  assert.equal(by.get('ACTION')!.corpusScenes, 101.82);
+  assert.equal(by.get('ACTION')!.corpusSample, 288);
+  assert.equal(by.get('DRAMA')!.corpusSample, 665);
+  assert.equal(MEASURED_CORPUS_PAGES, 110, 'the page basis must be stated, not implied');
+});
+
+test('SPEC texture changes the scene counts and nothing else about the table', () => {
+  const produced = genreProfileTable('PRODUCED');
+  const spec = genreProfileTable('SPEC');
+  for (let i = 0; i < produced.length; i++) {
+    assert.equal(spec[i].key, produced[i].key);
+    assert.equal(spec[i].defaultPages, produced[i].defaultPages);
+    assert.equal(spec[i].provenance, produced[i].provenance);
+    assert.ok(spec[i].scenes > produced[i].scenes, produced[i].key + ' spec should plan MORE scenes');
+  }
 });

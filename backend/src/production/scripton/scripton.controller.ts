@@ -36,6 +36,8 @@ export class ScripOnController {
   @Post('rating/:projectId') @RequirePermission('production', 2) rating(@Param('projectId') projectId: string, @Body() body: any) { return this.service.rating({ projectId, ...(body || {}) }); }
   @Post('culture-screen/:projectId') @RequirePermission('production', 2) cultureScreen(@Param('projectId') projectId: string, @Body() body: any) { return this.service.cultureScreen({ projectId, ...(body || {}) }); }
   @Post('develop/:projectId') @RequirePermission('production', 2) develop(@Param('projectId') projectId: string, @Body() body: any) { return this.service.develop({ projectId, ...(body || {}) }); }
+  /** Read the attached material and pre-select the Brief. Returns suggestions; writes nothing. */
+  @Post('recommend-brief/:projectId') @RequirePermission('production', 2) recommendBrief(@Param('projectId') projectId: string, @Body() body: any) { return this.service.recommendBrief(projectId, body || {}); }
   @Post('adapt/:projectId') @RequirePermission('production', 2) adapt(@Param('projectId') projectId: string, @Body() body: any) { return this.service.adapt({ projectId, ...(body || {}) }); }
   @Post('adapt-one/:projectId') @RequirePermission('production', 2) adaptOne(@Param('projectId') projectId: string, @Body() body: any) { return this.service.adaptOne({ projectId, ...(body || {}) }); }
   @Post('format-convert/:projectId') @RequirePermission('production', 2) formatConvert(@Param('projectId') projectId: string, @Body() body: any) { return this.service.formatConvert({ projectId, ...(body || {}) }); }

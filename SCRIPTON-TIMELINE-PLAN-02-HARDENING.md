@@ -10,7 +10,15 @@
 
 **Source of truth:** `SCRIPTON-TIMELINE-SPEC.md` at the repo root, and the carried-findings list at the end of Plan 01's execution.
 
-**Status of the code below:** the entire port was written and RUN before this document was assembled. **All 39 era tests pass unchanged**, 280 across the scripton directory, `tsc --strict` clean, and the taxonomy guard was verified to fail when a label is renamed. The code blocks are copied out of the files that passed.
+**Status of the code below:** the entire port was written and RUN before this document was assembled. **All 39 era tests pass unchanged**, 282 across the scripton directory, `tsc --strict` clean, and the taxonomy guard was verified to fail when a label is renamed. The code blocks are copied out of the files that passed.
+
+> **Baseline note, added after the plan was committed.** The era map grew from 91 rows to **118**
+> in a separate change the user requested (the occupying-power eras: Portuguese, Ottoman, British,
+> Safavid, Crusader, plus the Palestine, Yemen and Saudi periodisation, and a new optional
+> `EraRow.standing` disclosure field). Task 6's taxonomy guard iterates the rows and hardcodes no
+> count, so it is unaffected in substance — but it must pass against **118** rows in both
+> directions, and `era-map.util.spec.ts` now holds **21** tests rather than 17. The scripton
+> baseline this plan builds on is therefore **282**, not 280.
 
 ## Global Constraints
 
@@ -35,7 +43,6 @@
 | `backend/src/production/scripton/era-map.util.ts` | **MODIFIED.** `midpointYear` stops hand-copying the rounding rule. |
 
 ---
-
 ### Task 1: Move the day arithmetic out, so the tokenizer does not import its own importer
 
 **Files:**
@@ -876,9 +883,6 @@ git -C C:\Projects\TFM-System add backend/src/production/scripton/era.util.ts
 ```bash
 git -C C:\Projects\TFM-System commit -m "refactor(scripton): the phrase matcher walks tokens, and fourteen regexes go"
 ```
-
----
-
 ### Task 5: The tokenizer's own tests — including two defects it found
 
 **Files:**
@@ -1089,7 +1093,7 @@ cd C:\Projects\TFM-System\backend
 node --require ts-node/register --test "src/production/scripton/*.spec.ts"
 ```
 
-Expected: 291 tests, `# fail 0`. The era suite must be untouched by the article fix; if one of its 39 breaks, stop and report.
+Expected: 293 tests, `# fail 0`. The era suite must be untouched by the article fix; if one of its 39 breaks, stop and report.
 
 - [ ] **Step 5: Commit**
 
@@ -1261,7 +1265,7 @@ cd C:\Projects\TFM-System\backend
 node --require ts-node/register --test "src/production/scripton/*.spec.ts"
 ```
 
-Expected: 291 tests, `# fail 0`. Both existing rounding tests — the decade ties in `era.util.spec.ts` and `midpointYear(1940, 1979) === 1960` in `era-map.util.spec.ts` — must still pass; they are now testing the same function.
+Expected: 294 tests, `# fail 0`. Both existing rounding tests — the decade ties in `era.util.spec.ts` and `midpointYear(1940, 1979) === 1960` in `era-map.util.spec.ts` — must still pass; they are now testing the same function.
 
 - [ ] **Step 4: Type-check**
 
@@ -1284,9 +1288,6 @@ git -C C:\Projects\TFM-System add backend/src/production/scripton/era-days.util.
 ```bash
 git -C C:\Projects\TFM-System commit -m "refactor(scripton): one rounding rule, shared, instead of a comment promising two agree"
 ```
-
----
-
 ### Task 8: Prove the tests would notice if the grammar were broken
 
 **Files:**
@@ -1346,7 +1347,7 @@ cd C:\Projects\TFM-System\backend
 npm run test:unit
 ```
 
-Expected: the pre-existing count plus 12 — 11 tokenizer tests and the taxonomy guard — with `# fail 0`. The 39 era tests, the 17 era-map tests and the 28 age tests must be unchanged in both count and result.
+Expected: 294 — the pre-existing 282 plus 12, being 11 tokenizer tests and the taxonomy guard — with `# fail 0`. The 39 era tests, the 21 era-map tests and the 30 age tests must be unchanged in both count and result.
 
 - [ ] **Step 4: Type-check every module under strict**
 
@@ -1394,7 +1395,7 @@ git -C C:\Projects\TFM-System commit --allow-empty -m "test(scripton): the token
 
 - [ ] Three new files, two modified. `era.util.ts` is smaller than before.
 - [ ] All 39 era tests pass **with no assertion edited** — the contract of the whole port.
-- [ ] 291 tests across the scripton directory, `# fail 0`.
+- [ ] 294 tests across the scripton directory, `# fail 0`.
 - [ ] `tsc --strict` clean on all five modules.
 - [ ] All 25 deliberate breaks tried, all 25 caught.
 - [ ] The taxonomy guard demonstrated to fail on a renamed label, and the rename reverted.
