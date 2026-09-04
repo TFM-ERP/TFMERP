@@ -703,6 +703,12 @@ traveller meeting himself — is *expressible*, because age is keyed by appearan
 character. The design permits it; v1 does not check it. An undeclared duplicate is the natural next
 finding and is deliberately deferred.
 
+There is one limit, and it is a property of the input rather than of the model. **A stated age ON a
+duplicated scene is unreadable**: the script says *"JASON, 34"* and there are two Jasons in the room,
+one of whom is fourteen, so nothing in the page says which. Both appearances refuse — no age, and no
+finding, because the author has not contradicted himself. With the age stated anywhere else, both
+selves are carried independently and the expressibility claim holds in full.
+
 **Two co-equal eras are not travel.** *The Godfather Part II* intercuts two periods and nobody moves
 between them. Nobody is a traveller, every step is LIVED, and ages follow era exactly as before — a
 stated 65 at era 0 and a stated 25 at era −40 agree, and disagreeing by more than a year is the drift
