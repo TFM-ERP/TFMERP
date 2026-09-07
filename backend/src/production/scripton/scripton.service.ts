@@ -3,6 +3,7 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { AiService } from '../../ai/ai.service';
 import { explainEmptyDraft, truncationWarning, stoppedAtCeiling, usageSummary } from '../../ai/empty-output.util';
 import type { EffortLevel } from '../../ai/providers';
+import { buildShortKey, sourceFingerprint, versionLabel } from './build-identity.util';
 import { CanonService } from './canon/canon.service';
 import { computeFacts, parseJsonArray } from './scripton.util';
 import { LORE_SEED } from './lore-seed.data';
@@ -4607,11 +4608,46 @@ export class ScripOnService {
   }
 
   // ── Named development builds (standalone; promoted into a project on maturity) ──
+  /**
+   * The builds list, with enough identity on each row to tell two of them apart.
+   *
+   * WHY: three builds here are called "Jason Quick" and carry 4,066 / 44,733 / 66,128 characters of
+   * DIFFERENT source with different casts, and on 7 Sep both a person and an audit worked from the
+   * wrong one because the cards differed only by "6d ago" and "7d ago". Six more are all "MINUTEMEN"
+   * over byte-identical source, where nothing content-derived can help — hence the short key.
+   * See build-identity.util.ts for which parts are MEASURED convention and which are our choice.
+   *
+   * It also stops shipping the SOURCE to the browser. This used to be a bare findMany with no
+   * select, so every row carried its whole brief — 66 KB of screenplay source per build, 100 builds
+   * a page, to render a name and a status. The panel reads six fields and never touched it.
+   */
   async listBuilds(projectId?: string, bin?: boolean) {
     await this.purgeExpiredBuilds();
     const where: any = projectId ? { OR: [{ projectId }, { linkedProjectId: projectId }] } : {};
     where.deletedAt = bin ? { not: null } : null;
-    return (this.prisma as any).developmentBuild.findMany({ where, orderBy: bin ? { deletedAt: 'desc' } : { updatedAt: 'desc' }, take: 100 }).catch(() => []);
+    const rows: any[] = await (this.prisma as any).developmentBuild.findMany({
+      where, orderBy: bin ? { deletedAt: 'desc' } : { updatedAt: 'desc' }, take: 100,
+      select: { id: true, name: true, status: true, createdAt: true, updatedAt: true, deletedAt: true,
+        projectId: true, linkedProjectId: true, linkedScriptId: true, promotedVersionId: true,
+        activeVersionId: true, brief: true },
+    }).catch(() => []);
+    if (!rows.length) return [];
+    const versions: any[] = await (this.prisma as any).buildVersion.findMany({
+      where: { buildId: { in: rows.map((r) => r.id) } }, select: { id: true, buildId: true, n: true },
+    }).catch(() => []);
+    const byBuild = new Map<string, any[]>();
+    for (const v of versions) { const a = byBuild.get(v.buildId) || []; a.push(v); byBuild.set(v.buildId, a); }
+    return rows.map((r) => {
+      const mine = byBuild.get(r.id) || [];
+      const active = mine.find((v) => v.id === r.activeVersionId);
+      const { brief, ...rest } = r;                       // the source stays on the server
+      return {
+        ...rest,
+        shortKey: buildShortKey(r.name, r.id),
+        source: sourceFingerprint(brief && brief.sourceText),
+        version: versionLabel(active ? active.n : null, mine.length),
+      };
+    });
   }
   async purgeExpiredBuilds() {
     const cutoff = new Date(Date.now() - 30 * 86400000);
