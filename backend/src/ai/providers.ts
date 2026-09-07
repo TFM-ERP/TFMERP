@@ -32,6 +32,21 @@ export interface ProviderResult {
   text: string;
   usage: { input_tokens?: number; output_tokens?: number };
   raw: any;
+  /**
+   * Why the model stopped: Anthropic's `stop_reason` ("end_turn" | "max_tokens" | "tool_use" |
+   * "refusal" | ...) or the OpenAI-compatible `finish_reason` ("stop" | "length" | ...).
+   *
+   * It is here because without it a caller cannot tell the difference between a model that finished
+   * and a model that was CUT OFF, and those two need opposite handling. `raw` could not answer it:
+   * on the streaming path raw is replaced by `{ streamed, events }` and the reason was thrown away
+   * with the event list. Optional, so every existing construction site stays valid and a provider
+   * that reports nothing simply leaves it undefined.
+   */
+  stopReason?: string;
+  /** A `thinking` block was present in the response. Anthropic-only, and the reason an empty `text`
+   *  can be explained rather than merely reported: on a model that thinks by default, reasoning is
+   *  billed against the same max_tokens as the prose and its blocks come back with empty text. */
+  sawThinking?: boolean;
 }
 
 export class ProviderError extends Error {
@@ -115,33 +130,48 @@ async function httpJson(url: string, headers: any, body: any, timeoutMs: number,
   return await res.json();
 }
 
-/** Pure reducer: fold the sequence of Anthropic SSE event objects into normalized {text, usage}. Exported for unit tests. */
-export function reduceAnthropicEvents(events: any[]): { text: string; usage: { input_tokens?: number; output_tokens?: number } } {
+/** Pure reducer: fold the sequence of Anthropic SSE event objects into normalized {text, usage}. Exported for unit tests.
+ *  `thinking` blocks are deliberately NOT folded into `text` — they are not the answer — but the fact that one appeared
+ *  IS reported, because a response made only of thinking is the difference between "the model said nothing" and "the
+ *  model spent the entire ceiling reasoning and never got to the answer". */
+export function reduceAnthropicEvents(events: any[]): { text: string; usage: { input_tokens?: number; output_tokens?: number }; stopReason?: string; sawThinking?: boolean } {
   let text = '';
   let input_tokens: number | undefined;
   let output_tokens: number | undefined;
+  let stopReason: string | undefined;
+  let sawThinking = false;
   for (const e of events) {
     if (!e || typeof e !== 'object') continue;
     if (e.type === 'message_start') { const u = e.message && e.message.usage; if (u) { if (typeof u.input_tokens === 'number') input_tokens = u.input_tokens; if (typeof u.output_tokens === 'number') output_tokens = u.output_tokens; } }
+    else if (e.type === 'content_block_start' && e.content_block && e.content_block.type === 'thinking') { sawThinking = true; }
     else if (e.type === 'content_block_delta' && e.delta && e.delta.type === 'text_delta') { text += String(e.delta.text || ''); }
-    else if (e.type === 'message_delta' && e.usage && typeof e.usage.output_tokens === 'number') { output_tokens = e.usage.output_tokens; }
+    else if (e.type === 'content_block_delta' && e.delta && e.delta.type === 'thinking_delta') { sawThinking = true; }
+    else if (e.type === 'message_delta') {
+      // stop_reason rides on message_delta.delta and usage on message_delta.usage — read them
+      // INDEPENDENTLY. Guarding the whole branch on usage (as this did) dropped the stop reason of any
+      // provider that sends the two separately, which is the one field that says "you were cut off".
+      if (e.usage && typeof e.usage.output_tokens === 'number') output_tokens = e.usage.output_tokens;
+      if (e.delta && e.delta.stop_reason) stopReason = String(e.delta.stop_reason);
+    }
   }
-  return { text, usage: { input_tokens, output_tokens } };
+  return { text, usage: { input_tokens, output_tokens }, stopReason, sawThinking };
 }
 
 /** Pure reducer: fold OpenAI-compatible streaming chunks (deepseek/gemini/openrouter/local) into normalized {text, usage}. Exported for unit tests. */
-export function reduceOpenAiChunks(chunks: any[]): { text: string; usage: { input_tokens?: number; output_tokens?: number } } {
+export function reduceOpenAiChunks(chunks: any[]): { text: string; usage: { input_tokens?: number; output_tokens?: number }; stopReason?: string } {
   let text = '';
   let input_tokens: number | undefined;
   let output_tokens: number | undefined;
+  let stopReason: string | undefined;
   for (const c of chunks) {
     if (!c || typeof c !== 'object') continue;
     const choice = Array.isArray(c.choices) ? c.choices[0] : null;
     const piece = choice && choice.delta && choice.delta.content;
     if (typeof piece === 'string') text += piece;
+    if (choice && choice.finish_reason) stopReason = String(choice.finish_reason); // "length" is this family's "max_tokens"
     if (c.usage) { if (typeof c.usage.prompt_tokens === 'number') input_tokens = c.usage.prompt_tokens; if (typeof c.usage.completion_tokens === 'number') output_tokens = c.usage.completion_tokens; }
   }
-  return { text, usage: { input_tokens, output_tokens } };
+  return { text, usage: { input_tokens, output_tokens }, stopReason };
 }
 
 // Stream an LLM completion over SSE, accumulating server-side. overallMs caps the whole stream; idleMs resets on
@@ -169,8 +199,8 @@ async function httpStream(url: string, headers: any, body: any, provider: LlmPro
   if (!res.body || typeof res.body.getReader !== 'function') {
     clearAll();
     const data = await res.json().catch(() => null);
-    if (provider === 'anthropic') { const blocks = Array.isArray(data?.content) ? data.content : []; const tb = blocks.find((c: any) => c?.type === 'text'); return { text: String((tb && tb.text) || '').trim(), usage: { input_tokens: data?.usage?.input_tokens, output_tokens: data?.usage?.output_tokens }, raw: data }; }
-    const ch = Array.isArray(data?.choices) ? data.choices[0] : null; const u = data?.usage || {}; return { text: String(ch?.message?.content || '').trim(), usage: { input_tokens: u.prompt_tokens, output_tokens: u.completion_tokens }, raw: data };
+    if (provider === 'anthropic') { const blocks = Array.isArray(data?.content) ? data.content : []; const tb = blocks.find((c: any) => c?.type === 'text'); return { text: String((tb && tb.text) || '').trim(), usage: { input_tokens: data?.usage?.input_tokens, output_tokens: data?.usage?.output_tokens }, raw: data, stopReason: data?.stop_reason, sawThinking: blocks.some((c: any) => c?.type === 'thinking') }; }
+    const ch = Array.isArray(data?.choices) ? data.choices[0] : null; const u = data?.usage || {}; return { text: String(ch?.message?.content || '').trim(), usage: { input_tokens: u.prompt_tokens, output_tokens: u.completion_tokens }, raw: data, stopReason: ch?.finish_reason };
   }
 
   const reader = res.body.getReader();
@@ -204,8 +234,8 @@ async function httpStream(url: string, headers: any, body: any, provider: LlmPro
     throw new ProviderError(provider, aborted ? 'TIMEOUT' : 'NETWORK', String((e && e.message) || e).slice(0, 200));
   }
   clearAll();
-  const folded = provider === 'anthropic' ? reduceAnthropicEvents(events) : reduceOpenAiChunks(events);
-  return { text: String(folded.text || '').trim(), usage: folded.usage, raw: { streamed: true, events: events.length } };
+  const folded: any = provider === 'anthropic' ? reduceAnthropicEvents(events) : reduceOpenAiChunks(events);
+  return { text: String(folded.text || '').trim(), usage: folded.usage, raw: { streamed: true, events: events.length }, stopReason: folded.stopReason, sawThinking: folded.sawThinking };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────
@@ -310,7 +340,7 @@ export async function callProvider(call: ProviderCall): Promise<ProviderResult> 
       const blocks = Array.isArray(data?.content) ? data.content : [];
       const t = blocks.find((c: any) => c?.type === 'text');
       const text = String((t && t.text) || data?.content?.[0]?.text || '').trim();
-      return { text, usage: { input_tokens: data?.usage?.input_tokens, output_tokens: data?.usage?.output_tokens }, raw: data };
+      return { text, usage: { input_tokens: data?.usage?.input_tokens, output_tokens: data?.usage?.output_tokens }, raw: data, stopReason: data?.stop_reason, sawThinking: blocks.some((c: any) => c?.type === 'thinking') };
     };
     return sendAdaptingTemperature('anthropic', call.model, wantsTemperature, send);
   }
@@ -345,7 +375,7 @@ export async function callProvider(call: ProviderCall): Promise<ProviderResult> 
     const choice = Array.isArray(data?.choices) ? data.choices[0] : null;
     const text = String(choice?.message?.content || '').trim();
     const u = data?.usage || {};
-    return { text, usage: { input_tokens: u.prompt_tokens, output_tokens: u.completion_tokens }, raw: data };
+    return { text, usage: { input_tokens: u.prompt_tokens, output_tokens: u.completion_tokens }, raw: data, stopReason: choice?.finish_reason };
   };
   return sendAdaptingTemperature(call.provider, call.model, wantsTemperature, send);
 }

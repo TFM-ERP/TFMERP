@@ -4,6 +4,7 @@ import {
   redactSecrets, isValidEngineKey,
   isTemperatureRejection, rejectsTemperature, noteTemperatureRejected, resetTemperatureMemory,
   callProvider, ProviderError,
+  reduceAnthropicEvents, reduceOpenAiChunks,
 } from './providers';
 
 // A synthetic key of the exact shape that leaked. Never put a real one in a test.
@@ -239,4 +240,65 @@ test('no other provider is sent the parameter', async () => {
     await callProvider({ provider: 'anthropic', model: 'claude-opus-4-8', apiKey: 'x', user: 'u' });
     assert.equal('reasoning_effort' in anth.sent[0], false);
   } finally { anth.restore(); }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// THE STREAM THAT FOLDS TO NOTHING
+//
+// claude-opus-5 reasons by default, that reasoning is billed against the same max_tokens as the
+// prose, and with the default display its thinking blocks carry no text. Spend the whole ceiling
+// thinking and the stream contains real events, a real token count, and not one character of
+// answer. The reducer must fold that to empty text AND report why — reporting only the emptiness
+// is what made six SYNOPSIS runs look like an unexplained "empty draft".
+
+test('a thinking-only stream folds to empty text and says it was cut off at the ceiling', () => {
+  const folded = reduceAnthropicEvents([
+    { type: 'message_start', message: { usage: { input_tokens: 1924, output_tokens: 0 } } },
+    { type: 'content_block_start', index: 0, content_block: { type: 'thinking', thinking: '' } },
+    { type: 'content_block_delta', index: 0, delta: { type: 'thinking_delta', thinking: '' } },
+    { type: 'message_delta', delta: { stop_reason: 'max_tokens' }, usage: { output_tokens: 2400 } },
+  ]);
+  assert.equal(folded.text, '', 'thinking is not the answer and must never be folded into the prose');
+  assert.equal(folded.stopReason, 'max_tokens', 'without this the caller cannot tell empty from cut off');
+  assert.equal(folded.sawThinking, true, 'this is what turns "returned nothing" into "spent it all reasoning"');
+  assert.equal(folded.usage.output_tokens, 2400);
+  assert.equal(folded.usage.input_tokens, 1924);
+});
+
+test('the stop reason survives a message_delta that carries no usage', () => {
+  // The old reducer read stop_reason only inside `if (e.usage)`, so this event was skipped whole.
+  const folded = reduceAnthropicEvents([
+    { type: 'content_block_delta', delta: { type: 'text_delta', text: 'half a synopsis' } },
+    { type: 'message_delta', delta: { stop_reason: 'max_tokens' } },
+  ]);
+  assert.equal(folded.stopReason, 'max_tokens');
+  assert.equal(folded.text, 'half a synopsis');
+});
+
+test('a normal completed stream is unchanged — text folded, end_turn reported, no thinking claimed', () => {
+  const folded = reduceAnthropicEvents([
+    { type: 'message_start', message: { usage: { input_tokens: 10, output_tokens: 0 } } },
+    { type: 'content_block_delta', delta: { type: 'text_delta', text: 'A synopsis. ' } },
+    { type: 'content_block_delta', delta: { type: 'text_delta', text: 'It ends.' } },
+    { type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: { output_tokens: 42 } },
+  ]);
+  assert.equal(folded.text, 'A synopsis. It ends.');
+  assert.equal(folded.stopReason, 'end_turn');
+  assert.equal(folded.sawThinking, false);
+});
+
+test('the OpenAI-compatible reducer reports "length" — that family spells max_tokens differently', () => {
+  const folded = reduceOpenAiChunks([
+    { choices: [{ delta: { content: 'cut' } }] },
+    { choices: [{ delta: {}, finish_reason: 'length' }], usage: { prompt_tokens: 5, completion_tokens: 300 } },
+  ]);
+  assert.equal(folded.text, 'cut');
+  assert.equal(folded.stopReason, 'length');
+  assert.equal(folded.usage.output_tokens, 300);
+});
+
+test('junk in the event list still cannot throw — this runs on the failure path', () => {
+  const folded = reduceAnthropicEvents([null, 'nonsense', 42, {}, { type: 'message_delta' }] as any);
+  assert.equal(folded.text, '');
+  assert.equal(folded.stopReason, undefined);
 });

@@ -1,11 +1,12 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { LlmRoutingService, DEFAULT_ANTHROPIC_MODEL, isRetiredModel } from './llm-routing.service';
 import { callProvider, isExhausting, redactSecrets, ProviderErrorKind } from './providers';
+import { usageSummary, stoppedAtCeiling } from './empty-output.util';
 
 export interface AiRunOpts { task: string; system: string; user: string; projectId?: string | null; refType?: string | null; refId?: string | null; maxTokens?: number; model?: string; temperature?: number; timeoutMs?: number; idleTimeoutMs?: number; stream?: boolean; budgetMs?: number; }
 export interface AiRawOpts { task: string; system?: string; messages: any[]; tools?: any[]; toolChoice?: any; beta?: string; projectId?: string | null; refType?: string | null; refId?: string | null; maxTokens?: number; model?: string; temperature?: number; timeoutMs?: number; }
-export interface AiResult { text: string; json: any; model: string; usage: any; runId?: string; provider?: string; }
+export interface AiResult { text: string; json: any; model: string; usage: any; runId?: string; provider?: string; stopReason?: string; sawThinking?: boolean; }
 export interface AiRawResult { data: any; text: string; toolUse: any[]; usage: any; model: string; runId?: string; }
 
 /**
@@ -22,6 +23,7 @@ export interface AiRawResult { data: any; text: string; toolUse: any[]; usage: a
  */
 @Injectable()
 export class AiService {
+  private readonly log = new Logger(AiService.name);
   constructor(private prisma: PrismaService, private routing: LlmRoutingService) {}
 
   /** Legacy sync accessor for the default Anthropic model (callers that read .model).
@@ -81,7 +83,18 @@ export class AiService {
         try {
           const r = await callProvider({ provider: plan.provider, model, apiKey: plan.apiKey, baseUrl: plan.baseUrl, system: opts.system, user: opts.user, maxTokens: opts.maxTokens, temperature: opts.temperature, timeoutMs: opts.timeoutMs, idleTimeoutMs: opts.idleTimeoutMs, stream: wantStream });
           await this.finish(runId, { input_tokens: r.usage.input_tokens, output_tokens: r.usage.output_tokens }, r.text, Date.now() - started);
-          return { text: r.text, json: this.extractJson(r.text), model, usage: r.usage, runId, provider: plan.provider };
+          // A SUCCESSFUL CALL THAT RETURNED NO TEXT IS NOT A SUCCESS, AND IT IS LOGGED HERE — ONCE,
+          // FOR EVERY CALLER. This is the gateway every model call in the platform passes through, so
+          // a stage, a scene writer and a coverage pass all get the warning without each having to
+          // ask for it. Silence here is what let claude-opus-5 burn a full ceiling on reasoning and
+          // report success to six consecutive SYNOPSIS runs (see empty-output.util.ts).
+          if (!String(r.text || '').trim()) {
+            this.log.warn(opts.task + ': the provider reported success but returned NO TEXT — '
+              + usageSummary({ inputTokens: r.usage?.input_tokens, outputTokens: r.usage?.output_tokens, maxTokens: opts.maxTokens, stopReason: r.stopReason, model, provider: plan.provider })
+              + (r.sawThinking ? '. The response carried reasoning only.' : '')
+              + (stoppedAtCeiling({ outputTokens: r.usage?.output_tokens, maxTokens: opts.maxTokens, stopReason: r.stopReason }) ? ' The ceiling is too low for this model.' : ''));
+          }
+          return { text: r.text, json: this.extractJson(r.text), model, usage: r.usage, runId, provider: plan.provider, stopReason: r.stopReason, sawThinking: r.sawThinking };
         } catch (e: any) {
           lastErr = e;
           sawFailure = true;

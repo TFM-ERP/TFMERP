@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { AiService } from '../../ai/ai.service';
+import { explainEmptyDraft, truncationWarning, stoppedAtCeiling, usageSummary } from '../../ai/empty-output.util';
 import { CanonService } from './canon/canon.service';
 import { computeFacts, parseJsonArray } from './scripton.util';
 import { LORE_SEED } from './lore-seed.data';
@@ -1184,7 +1185,25 @@ export class ScripOnService {
     if (/^[\[{][\s\S]*"(output|scenes|steps|beats)"\s*:/.test(body)) { try { const j: any = JSON.parse(body); const re = flat(j.output ?? j).trim(); if (re) body = re; } catch { /* leave as-is */ } }
     if (/^[\[{]/.test(body.trim()) && kind !== 'VIDEO_PROMPT') { const sv = this.salvageProse(body); if (sv) body = sv; }
     if (!body) body = stripFence(String((res && res.text) || '').trim());
-    if (!body) throw new BadRequestException('The model returned an empty draft for ' + kind + '. Try again - the prompt may be too long or the model was rate-limited.');
+    // A CAPPED PROSE STAGE HAS EXACTLY TWO PERMITTED OUTCOMES, AND "EMPTY DRAFT" IS NEITHER.
+    //
+    // Either we salvaged a draft off the partial response — in which case the version carries a
+    // written warning that it may be incomplete, the same way a truncated SCENES outline already
+    // does — or we fail with the real reason and the measured numbers. The old throw here did
+    // neither: it blamed prompt length and rate limiting for a response that was cut off at a
+    // ceiling the provider had happily reported as a success, and six SYNOPSIS runs died behind it
+    // saying nothing useful. recoverStage/extendStageArray only ever covered the array stages
+    // (BEATS/SCENES/STEP_OUTLINE); this is the prose half of that guarantee.
+    const capFacts = {
+      text: String((res && res.text) || ''),
+      inputTokens: res?.usage?.input_tokens, outputTokens: res?.usage?.output_tokens, maxTokens: cap,
+      stopReason: res?.stopReason, sawThinking: res?.sawThinking, model: res?.model, provider: res?.provider,
+    };
+    if (!body) throw new BadRequestException(explainEmptyDraft(kind, capFacts));
+    if (!ARRKEY[kind] && !data.warning && stoppedAtCeiling(capFacts)) {
+      data.warning = truncationWarning(kind, capFacts);   // persisted, so a salvaged partial is never silent
+      this.log.warn('generateStage ' + kind + ': ' + data.warning);
+    }
     const created: any = await (this.prisma as any).stageVersion.create({ data: { stageId: stage.id, n, title: kind.charAt(0) + kind.slice(1).toLowerCase().replace('_', ' ') + ' V' + n, body, data: Object.keys(data).length ? data : undefined, framework: opts?.framework || null, colorCode: this.WHEEL[(n - 1) % this.WHEEL.length], status: 'DRAFT', createdById: userId || null } });
     await (this.prisma as any).developmentStage.update({ where: { id: stage.id }, data: { currentVersionId: created.id } }).catch(() => {});
     if (kind === 'SCENES') { void this.generateCharacterBible(projectId, userId, opts?.buildId).catch(() => {}); }   // auto character breakdown the moment scenes land
