@@ -1898,21 +1898,28 @@ export class ScripOnService {
     // instruction can be ignored, which is precisely why the deterministic check belongs on the
     // board separately. But a role that is never stated cannot be honoured OR checked, and today it
     // is never stated.
-    if (Array.isArray(i.characterBible) && i.characterBible.length) {
-      const cast = i.characterBible.filter((c: any) => c && (c.name || c.role));
-      const lead = cast.find((c: any) => /protagonist|^lead$/i.test(String(c.role || '')));
-      if (cast.length) {
-        parts.push('CAST AND ROLES (declared for this project — these assignments are FIXED; do NOT re-cast,'
-          + ' re-role, or promote a supporting character to lead):');
-        for (const c of cast.slice(0, 20)) {
-          parts.push('· ' + String(c.name || 'Unnamed') + ' — ' + String(c.role || 'supporting').toUpperCase()
-            + (c.age ? ' (' + c.age + ')' : ''));
-        }
-        if (lead) parts.push('THE PROTAGONIST IS ' + String(lead.name).toUpperCase() + '. This is whose story it'
-          + ' is: they carry the POV and the spine, they are present through the ending, and no other character'
-          + ' may take that position. Killing or sidelining them is a rewrite of the project, not a story choice.');
-      }
-    }
+    // THE CAST BLOCK IS DELIBERATELY NOT HERE. DO NOT RE-ADD IT UNTIL THE BIBLE IS REBUILT.
+    //
+    // It was added, briefly, to carry the declared protagonist into the brief — characterBible has
+    // an explicit role per character and reached no prompt. The intent was right and the source was
+    // poisoned, which measurement showed within one generation:
+    //
+    //   PRYOR  is in the bible as "Antagonist". It appears ZERO times in the 66,128-character
+    //          source. It was invented by SCENES V1 on 1 Sep 04:44 — by the blind ladder, before
+    //          any source had ever reached a prompt.
+    //   DELRAY is in the bible as "Authority". Also zero occurrences in the source. The source's
+    //          federal prosecutor is someone else entirely.
+    //
+    // generateCharacterBible builds the bible from this.pipeline() STAGE BODIES, never from the
+    // source. So every name the blind ladder invented was promoted to a stored fact, and injecting
+    // that as "these assignments are FIXED" made a fabrication authoritative: the first sighted
+    // synopsis had the invented Pryor killing the mentor and the invented Delray driving the
+    // investigation. That is §21 laundering, and this block was the pump.
+    //
+    // The precondition for restoring it is not a better prompt. It is a bible rebuilt from source
+    // material — at which point the declaration is worth carrying and worth CHECKING. Until then a
+    // stage is better off reading the source and the canon facts, which are extracted from source
+    // and nothing else, and which correctly supplied the real names the excerpt did not reach.
     if (i.constraints && typeof i.constraints === 'object') { const c: any = i.constraints; const cs = [c.budget ? ('budget ' + c.budget) : null, c.maxLocations ? ('max ' + c.maxLocations + ' locations') : null, c.castSize ? ('cast ' + c.castSize) : null].filter(Boolean); if (cs.length) parts.push('Keep it filmable: ' + cs.join(', ') + '.'); }
     if (i.treatment) parts.push('Narrative treatment/style: ' + i.treatment + '.');
     if (Array.isArray(i.blendLayers) && i.blendLayers.length) parts.push('Blend layers over the base genre: ' + i.blendLayers.join(', ') + '.');
