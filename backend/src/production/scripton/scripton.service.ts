@@ -2563,12 +2563,31 @@ export class ScripOnService {
         + ' long things took, dates and years, and place / company / vessel names. Do NOT invent or infer'
         + ' anything: a missing fact is harmless, an invented one is a bug. At most 30 facts. No text outside'
         + ' the JSON.';
-      const r: any = await this.ai.run({ task: 'scripton.develop.canon', system: sys, user: 'SOURCE MATERIAL:\n' + src.slice(0, 60000), maxTokens: 2400, timeoutMs: 180000, projectId, refType: 'Project', refId: projectId });
+      // 8,000, not 2,400. This call asks for up to 30 structured facts as JSON, and on a model that
+      // reasons by default the reasoning is billed against this same ceiling — the 2,400 here was the
+      // identical ceiling that produced six textless SYNOPSIS runs on 7 Sep. It matters more here than
+      // it does on a prose stage, because THIS PATH FAILS OPEN: the catch below returns [], and an
+      // empty facts list is indistinguishable from "the source states nothing worth pinning". The
+      // ladder then writes from an EXCERPT with no fixed facts to anchor it, which is precisely the
+      // §21 circularity this function exists to prevent — a synopsis inventing what the source says,
+      // then becoming the truth later stages are checked against. That is how "Jason Vane" got in.
+      const r: any = await this.ai.run({ task: 'scripton.develop.canon', system: sys, user: 'SOURCE MATERIAL:\n' + src.slice(0, 60000), maxTokens: 8000, timeoutMs: 300000, projectId, refType: 'Project', refId: projectId });
       let j: any = (r && r.json) || null;
       if (!j && r && typeof r.text === 'string') { try { const m = r.text.match(/\{[\s\S]*\}/); if (m) j = JSON.parse(m[0]); } catch { /* */ } }
       const facts = mapAiFactsToCore((j && j.facts) || [], { id: '', order: 0 }).slice(0, 30);
       this.sourceCanonCache.set(projectId, { key, facts });
-      this.log.log('sourceCanonFor: ' + facts.length + ' fixed fact(s) from ' + src.length + ' characters of SOURCE (stage bodies deliberately excluded).');
+      // ZERO FACTS IS NOT A NORMAL OUTCOME AND IS NO LONGER LOGGED AS ONE. It used to print at log
+      // level next to every healthy run, so the one time it mattered it read like routine chatter.
+      if (!facts.length) {
+        this.log.warn('sourceCanonFor: NO fixed facts extracted from ' + src.length + ' characters of source — '
+          + usageSummary({ inputTokens: r?.usage?.input_tokens, outputTokens: r?.usage?.output_tokens, maxTokens: 8000, stopReason: r?.stopReason, model: r?.model, provider: r?.provider })
+          + '. Every stage built on an excerpt now runs with nothing anchoring it to the source (§21). '
+          + (stoppedAtCeiling({ outputTokens: r?.usage?.output_tokens, maxTokens: 8000, stopReason: r?.stopReason })
+            ? 'The call was cut off at its ceiling — raise it.'
+            : 'The model returned no usable facts JSON.'));
+      } else {
+        this.log.log('sourceCanonFor: ' + facts.length + ' fixed fact(s) from ' + src.length + ' characters of SOURCE (stage bodies deliberately excluded).');
+      }
       return facts;
     } catch (e) {
       this.log.warn('sourceCanonFor: failed - the ladder continues without a facts block. ' + this.why(e));
