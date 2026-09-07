@@ -55,3 +55,22 @@ export function revisionLabel(key: string | null | undefined, round = 0): string
 export function revisionWheel(): { key: string; label: string; hex: string }[] {
   return REV_WHEEL.map((c) => ({ key: c.key, label: revisionLabel(c.key, 0), hex: c.hex }));
 }
+
+/**
+ * THE HEX FOR A COLOUR, DERIVED — never stored.
+ *
+ * ScriptRevision.colorCode used to hold a copy of this, and the copy was wrong on 38 of 40 rows:
+ * 32 of them carried #5b8def (the UI's --blue) against a revisionColor of WHITE, because three
+ * creation sites read a ScripON default setting confusingly named `revisionColor` that actually
+ * holds a hex, while hard-coding the colour KEY to 'WHITE'. A stored presentation value competing
+ * with the key that owns it can only ever drift; deriving it cannot.
+ *
+ * Unknown or missing keys fall back to WHITE rather than to a colour that means something else —
+ * a wrong colour on a script revision is a misidentified draft, which is what the wheel exists to
+ * prevent.
+ */
+export function revisionHex(key?: string | null): string {
+  const k = String(key || '').toUpperCase();
+  const found = REV_WHEEL.find((c) => c.key === k);
+  return (found || REV_WHEEL[0]).hex;
+}

@@ -9,6 +9,7 @@ import { computeFacts, parseJsonArray } from './scripton.util';
 import { LORE_SEED } from './lore-seed.data';
 import { knowledgeDirective, stageLadderFor, normalizeFamily } from './knowledge';
 import { parseScenes } from '../script/scene-parse.util';
+import { revisionLabel } from '../script/revision-wheel.util';
 import { seriesSceneCount } from './series-scene-count.util';
 import { SCENE_SYSTEM_PROMPT, sceneLengthRule } from './scene-prompt.util';
 import {
@@ -199,7 +200,7 @@ export class ScripOnService {
     const text = await this.ai.complete({ task: 'scripton.applyBudgetFit', system, user, maxTokens: 6000, projectId: r.projectId, refType: 'ScriptRevision', refId: r.revisionId });
     const arr = this.parseArray(text);
     if (!arr.length) throw new BadRequestException('Could not produce a revised scene list — try a different option.');
-    const newRev: any = await (this.prisma as any).scriptRevision.create({ data: { documentId: r.documentId, revisionLabel: ('Budget-fit: ' + (variant.label || 'Option')).slice(0, 60), pdfUrl: srcRev.pdfUrl || '', pageCount: srcRev.pageCount || 0, revisionColor: 'GREEN', supersedesId: r.revisionId, changeSummary: String(variant.approach || 'Budget-fit pass').slice(0, 240) } });
+    const newRev: any = await (this.prisma as any).scriptRevision.create({ data: { documentId: r.documentId, revisionLabel: revisionLabel('GREEN', 0), pdfUrl: srcRev.pdfUrl || '', pageCount: srcRev.pageCount || 0, revisionColor: 'GREEN', supersedesId: r.revisionId, changeSummary: ('Budget-fit: ' + (variant.label || 'Option') + ' - ' + String(variant.approach || 'pass')).slice(0, 240) } });
     const rows = arr.slice(0, 400).map((s: any, i: number) => ({ revisionId: newRev.id, projectId: r.projectId || null, sceneNumber: String(s.sceneNumber || (i + 1)), slugline: s.slugline ? String(s.slugline).slice(0, 300) : null, intExt: s.intExt ? String(s.intExt).slice(0, 12) : null, dayNight: s.dayNight ? String(s.dayNight).slice(0, 12) : null, setName: s.setName ? String(s.setName).slice(0, 160) : null, description: s.description ? String(s.description).slice(0, 600) : null, pages: (s.pages != null && !isNaN(Number(s.pages))) ? Number(s.pages) : null, pageStart: 1, pageEnd: 1, sortOrder: i }));
     try { await (this.prisma as any).scriptScene.createMany({ data: rows }); } catch (e: any) { throw new BadRequestException('Branch created but scene write failed: ' + String(e?.message || e).slice(0, 160)); }
     const before = this.facts(src); const after = this.facts(arr);
@@ -248,7 +249,7 @@ export class ScripOnService {
     if (!arr.length) throw new BadRequestException('Could not produce a revised scene list — try a different approach.');
     const prefixMap: Record<string, string> = { tighten: 'Tighten', punchup: 'Punch-up', genre: 'Genre', ending: 'Ending', humour: 'Humour', intensity: 'Intensity' };
     const prefix = prefixMap[kind] || 'Rewrite';
-    const newRev: any = await (this.prisma as any).scriptRevision.create({ data: { documentId: r.documentId, revisionLabel: (prefix + ': ' + (variant.label || 'Option')).slice(0, 60), pdfUrl: srcRev.pdfUrl || '', pageCount: srcRev.pageCount || 0, revisionColor: 'GREEN', supersedesId: r.revisionId, changeSummary: String(variant.approach || (prefix + ' pass')).slice(0, 240) } });
+    const newRev: any = await (this.prisma as any).scriptRevision.create({ data: { documentId: r.documentId, revisionLabel: revisionLabel('GREEN', 0), pdfUrl: srcRev.pdfUrl || '', pageCount: srcRev.pageCount || 0, revisionColor: 'GREEN', supersedesId: r.revisionId, changeSummary: (prefix + ': ' + (variant.label || 'Option') + ' - ' + String(variant.approach || 'pass')).slice(0, 240) } });
     const rows = arr.slice(0, 400).map((s: any, i: number) => ({ revisionId: newRev.id, projectId: r.projectId || null, sceneNumber: String(s.sceneNumber || (i + 1)), slugline: s.slugline ? String(s.slugline).slice(0, 300) : null, intExt: s.intExt ? String(s.intExt).slice(0, 12) : null, dayNight: s.dayNight ? String(s.dayNight).slice(0, 12) : null, setName: s.setName ? String(s.setName).slice(0, 160) : null, description: s.description ? String(s.description).slice(0, 600) : null, pages: (s.pages != null && !isNaN(Number(s.pages))) ? Number(s.pages) : null, pageStart: 1, pageEnd: 1, sortOrder: i }));
     try { await (this.prisma as any).scriptScene.createMany({ data: rows }); } catch (e: any) { throw new BadRequestException('Branch created but scene write failed: ' + String(e?.message || e).slice(0, 160)); }
     const before = this.facts(src); const after = this.facts(arr);
@@ -4168,7 +4169,7 @@ export class ScripOnService {
     // A fresh revision to write into; the OLD revision stays active until the new one finishes (non-destructive).
     const seed = doExtend ? existingPages : [{ page: 1, text: 'FADE IN:\n\nGenerating…' }];
     const regDefs = await this.scriptonDefs();
-    const newRev: any = await (this.prisma as any).scriptRevision.create({ data: { documentId: doc.id, revisionLabel: doExtend ? 'White Draft (extended)' : 'White Draft (rewrite)', pdfUrl: '', pageCount: seed.length, pageText: seed, revisionColor: 'WHITE', colorCode: regDefs.revisionColor || null, uploadedById: userId || null } });
+    const newRev: any = await (this.prisma as any).scriptRevision.create({ data: { documentId: doc.id, revisionLabel: revisionLabel('WHITE', 0), changeSummary: doExtend ? 'Extended' : 'Rewrite', pdfUrl: '', pageCount: seed.length, pageText: seed, revisionColor: 'WHITE', uploadedById: userId || null } });
     // The initial progress total the UI shows. 60 was the old short-film default; size it from the
     // build's own page budget so the bar is honest from the first poll.
     const regPlan = planFeatureLength((build && build.brief) || {}, this.countBeats(stages));
@@ -4412,7 +4413,7 @@ export class ScripOnService {
     const verId = stage.buildId ? await this.activeVersionId(stage.buildId) : null;
     const promoteDefs = await this.scriptonDefs();
     const doc: any = await (this.prisma as any).scriptDocument.create({ data: { projectId: stage.projectId, title, kind: 'SCRIPT', createdById: userId || null, buildVersionId: verId } });
-    const rev: any = await (this.prisma as any).scriptRevision.create({ data: { documentId: doc.id, revisionLabel: 'White Draft (developed)', pdfUrl: '', pageCount: 0, pageText: [{ page: 1, text: 'FADE IN:\n\nYour feature is being written, scene by scene...' }], revisionColor: 'WHITE', colorCode: promoteDefs.revisionColor || null, uploadedById: userId || null } });
+    const rev: any = await (this.prisma as any).scriptRevision.create({ data: { documentId: doc.id, revisionLabel: revisionLabel('WHITE', 0), changeSummary: 'Developed', pdfUrl: '', pageCount: 0, pageText: [{ page: 1, text: 'FADE IN:\n\nYour feature is being written, scene by scene...' }], revisionColor: 'WHITE', uploadedById: userId || null } });
     await (this.prisma as any).scriptDocument.update({ where: { id: doc.id }, data: { activeRevisionId: rev.id } }).catch(() => {});
     await (this.prisma as any).stageVersion.update({ where: { id: versionId }, data: { status: 'LOCKED' } }).catch(() => {});
     // Generating the Library script links the doc to the build — it does NOT "promote to production".
@@ -4822,7 +4823,7 @@ export class ScripOnService {
     // ── File the WHITE master revision under the target project ──
     const promBuildDefs = await this.scriptonDefs();
     const doc: any = await (this.prisma as any).scriptDocument.create({ data: { projectId, title: title.slice(0, 80), kind: 'SCRIPT', createdById: userId || null } });
-    const rev: any = await (this.prisma as any).scriptRevision.create({ data: { documentId: doc.id, revisionLabel: 'White Draft', pdfUrl: '', pageCount, pageText, revisionColor: 'WHITE', colorCode: promBuildDefs.revisionColor || null, uploadedById: userId || null } });
+    const rev: any = await (this.prisma as any).scriptRevision.create({ data: { documentId: doc.id, revisionLabel: revisionLabel('WHITE', 0), pdfUrl: '', pageCount, pageText, revisionColor: 'WHITE', uploadedById: userId || null } });
     await (this.prisma as any).scriptDocument.update({ where: { id: doc.id }, data: { activeRevisionId: rev.id } }).catch(() => {});
     if (versionId) await (this.prisma as any).stageVersion.update({ where: { id: versionId }, data: { status: 'LOCKED' } }).catch(() => {});
     if (build) await (this.prisma as any).developmentBuild.update({ where: { id: build.id }, data: { status: 'PROMOTED', linkedProjectId: projectId, linkedScriptId: build.linkedScriptId || doc.id, promotedVersionId: versionId || build.promotedVersionId || null, promotedAt: new Date() } }).catch(() => {});

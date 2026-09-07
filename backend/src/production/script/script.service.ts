@@ -7,27 +7,45 @@ import { PrismaService } from '../../common/prisma/prisma.service';
  * sluglines into ScriptScene rows (the outline + the FK target for later annotations / lining).
  */
 // WGA revision colour wheel (auto-advances on each new revision; round 1 = 'Double …')
-import { nextRevisionColor, revisionLabel } from './revision-wheel.util';
+import { nextRevisionColor, revisionLabel, revisionHex } from './revision-wheel.util';
 import { parseScenes as parseScenesUtil } from './scene-parse.util';
 @Injectable()
 export class ScriptService {
   constructor(private prisma: PrismaService) {}
 
   // ── Documents ────────────────────────────────────────────────────────────────
-  list(projectId: string) {
+  /**
+   * Attach the DERIVED revision identity and never the stored one. colorCode is deliberately absent
+   * from every payload: a column nothing writes but readers can still reach is exactly how a
+   * competing copy comes back. The column survives (dropping it is a migration) and is unreachable.
+   */
+  private withRevisionIdentity(doc: any): any {
+    if (!doc) return doc;
+    const revisions = (doc.revisions || []).map((r: any) => ({
+      id: r.id, revisionLabel: r.revisionLabel, pageCount: r.pageCount, createdAt: r.createdAt,
+      revisionColor: r.revisionColor || null, revisionRound: r.revisionRound || 0,
+      slug: revisionLabel(r.revisionColor, r.revisionRound || 0),
+      hex: revisionHex(r.revisionColor),
+    }));
+    return { ...doc, revisions };
+  }
+
+  async list(projectId: string) {
     void this.purgeExpiredDocs();
-    return this.prisma.scriptDocument.findMany({
+    const docs = await this.prisma.scriptDocument.findMany({
       where: { projectId, deletedAt: null } as any,
       orderBy: { createdAt: 'desc' },
-      include: { revisions: { orderBy: { createdAt: 'desc' }, select: { id: true, revisionLabel: true, colorCode: true, pageCount: true, createdAt: true } } },
+      include: { revisions: { orderBy: { createdAt: 'desc' }, select: { id: true, revisionLabel: true, revisionColor: true, revisionRound: true, pageCount: true, createdAt: true } } },
     });
+    return docs.map((d: any) => this.withRevisionIdentity(d));
   }
   async purgeExpiredDocs() {
     const cutoff = new Date(Date.now() - 30 * 86400000);
     await (this.prisma as any).scriptDocument.deleteMany({ where: { deletedAt: { lt: cutoff } } }).catch(() => {});
   }
-  binList(projectId: string) {
-    return (this.prisma as any).scriptDocument.findMany({ where: { projectId, deletedAt: { not: null } }, orderBy: { deletedAt: 'desc' }, include: { revisions: { orderBy: { createdAt: 'desc' }, select: { id: true, revisionLabel: true, colorCode: true, pageCount: true, createdAt: true } } } }).catch(() => []);
+  async binList(projectId: string) {
+    const docs = await (this.prisma as any).scriptDocument.findMany({ where: { projectId, deletedAt: { not: null } }, orderBy: { deletedAt: 'desc' }, include: { revisions: { orderBy: { createdAt: 'desc' }, select: { id: true, revisionLabel: true, revisionColor: true, revisionRound: true, pageCount: true, createdAt: true } } } }).catch(() => []);
+    return (docs || []).map((d: any) => this.withRevisionIdentity(d));
   }
   async trashDocument(id: string) { await (this.prisma as any).scriptDocument.update({ where: { id }, data: { deletedAt: new Date() } }).catch(() => {}); return { ok: true }; }
   async restoreDocument(id: string) { await (this.prisma as any).scriptDocument.update({ where: { id }, data: { deletedAt: null } }).catch(() => {}); return { ok: true }; }
@@ -55,7 +73,7 @@ export class ScriptService {
         revisions: {
           orderBy: { createdAt: 'desc' },
           select: {
-            id: true, revisionLabel: true, colorCode: true, revisionColor: true, revisionRound: true,
+            id: true, revisionLabel: true, revisionColor: true, revisionRound: true,
             revisionDate: true, pageCount: true, changeSummary: true, supersedesId: true,
             isLocked: true, lockedAt: true, pdfUrl: true, uploadedById: true, createdAt: true,
           },
@@ -83,7 +101,6 @@ export class ScriptService {
       data: {
         documentId,
         revisionLabel: body?.revisionLabel || 'Draft',
-        colorCode: body?.colorCode || null,
         pdfUrl: parsed.viewPdfUrl || fileUrl,
         pageCount: pages.length,
         pageText: pages.map((text, i) => ({ page: i + 1, text })),
@@ -106,7 +123,7 @@ export class ScriptService {
       const prior: any = await px.scriptRevision.findFirst({ where: { documentId, id: { not: revision.id } }, orderBy: { createdAt: 'desc' } });
       const col = nextRevisionColor(prior?.revisionColor ?? null, prior?.revisionRound || 0);
       const round = col.round;
-      await px.scriptRevision.update({ where: { id: revision.id }, data: { revisionColor: col.key, colorCode: body?.colorCode || col.hex, revisionRound: round, revisionDate: new Date(), supersedesId: prior?.id || null } });
+      await px.scriptRevision.update({ where: { id: revision.id }, data: { revisionColor: col.key, revisionRound: round, revisionDate: new Date(), supersedesId: prior?.id || null } });
       if (prior) {
         const priorScenes: any[] = await this.prisma.scriptScene.findMany({ where: { revisionId: prior.id }, select: { sceneNumber: true, slugline: true } });
         const priorMap = new Map(priorScenes.map((s) => [String(s.sceneNumber || '').toUpperCase(), s.slugline || '']));
@@ -135,7 +152,10 @@ export class ScriptService {
     // The slug travels WITH the revision so no caller has to reassemble it — the frontend cannot
     // import revision-wheel.util, and a second implementation of the naming is the defect this work
     // exists to remove.
-    return { ...full, slug: revisionLabel(full.revisionColor, full.revisionRound || 0) };
+    // colorCode is stripped, not merely unwritten: `full` is the raw row, so spreading it would hand
+    // every reader the stale stored hex again — which is exactly how a competing copy comes back.
+    const { colorCode: _stored, ...safe } = full as any;
+    return { ...safe, slug: revisionLabel(full.revisionColor, full.revisionRound || 0), hex: revisionHex(full.revisionColor) };
   }
 
   /** Self-heal revisions uploaded before FDX→PDF conversion existed: generate the
@@ -209,11 +229,11 @@ export class ScriptService {
     return {
       hasScript: true,
       document: { id: doc.id, title: doc.title },
-      revision: rev ? { id: rev.id, label: rev.revisionLabel, color: (rev as any).revisionColor || null, colorCode: rev.colorCode || null, isLocked: !!(rev as any).isLocked, round: (rev as any).revisionRound || 0, pageCount: rev.pageCount,
+      revision: rev ? { id: rev.id, label: rev.revisionLabel, color: (rev as any).revisionColor || null, hex: revisionHex((rev as any).revisionColor), isLocked: !!(rev as any).isLocked, round: (rev as any).revisionRound || 0, pageCount: rev.pageCount,
         // The industry identifier, assembled where the wheel lives. COLOUR + ROUND is MEASURED
         // convention; the date completes the slug and is rendered beside it, never inside it.
         slug: revisionLabel((rev as any).revisionColor, (rev as any).revisionRound || 0), revisionDate: (rev as any).revisionDate || rev.createdAt } : null,
-      revisions: revs.map((r: any) => ({ id: r.id, label: r.revisionLabel, color: (r as any).revisionColor || null, isLocked: !!(r as any).isLocked, active: r.id === doc.activeRevisionId, createdAt: r.createdAt, slug: revisionLabel((r as any).revisionColor, (r as any).revisionRound || 0), revisionDate: (r as any).revisionDate || r.createdAt, pageCount: r.pageCount })),
+      revisions: revs.map((r: any) => ({ id: r.id, label: r.revisionLabel, color: (r as any).revisionColor || null, isLocked: !!(r as any).isLocked, active: r.id === doc.activeRevisionId, createdAt: r.createdAt, slug: revisionLabel((r as any).revisionColor, (r as any).revisionRound || 0), hex: revisionHex((r as any).revisionColor), revisionDate: (r as any).revisionDate || r.createdAt, pageCount: r.pageCount })),
       counts: { scenes: scenes.length, strips: strips.length, linked, unlinked: Math.max(0, scenes.length - linked), brokenDown, changed, elementsOnScenes, elementsTotal, budgetMapped, castingCalls },
       modules,
     };

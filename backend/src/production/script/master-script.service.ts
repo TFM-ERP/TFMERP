@@ -109,7 +109,6 @@ export class MasterScriptService {
       data: {
         documentId,
         revisionLabel: mrev.revisionLabel,
-        colorCode: mrev.colorCode || null,
         pdfUrl: mrev.pdfUrl,
         pageCount: mrev.pageCount,
         pageText: mrev.pageText ?? null,
@@ -182,7 +181,7 @@ export class MasterScriptService {
         writer: body?.writer || null, status: 'ACTIVE', createdById: userId || null,
         revisions: {
           create: {
-            revisionLabel: active.revisionLabel, colorCode: active.colorCode || null, pdfUrl: active.pdfUrl,
+            revisionLabel: active.revisionLabel, pdfUrl: active.pdfUrl,
             pageCount: active.pageCount, pageText: active.pageText ?? null, uploadedById: userId || null,
             scenes: scenes.map((s) => ({
               sceneNumber: s.sceneNumber, slugline: s.slugline, intExt: s.intExt, dayNight: s.dayNight,
