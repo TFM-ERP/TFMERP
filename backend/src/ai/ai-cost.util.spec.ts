@@ -3,6 +3,7 @@ import { strict as assert } from 'node:assert';
 import {
   totalInputTokens, totalTokens, runCostUsd, cacheDidEngage,
   MODEL_RATES, CACHE_READ_MULTIPLIER, CACHE_WRITE_5M_MULTIPLIER,
+  trackPrefixCache, emptyStreak, PREFIX_BUST_AFTER,
 } from './ai-cost.util';
 
 // A cached scene call: the 2,892-token story context served from cache, a small uncached remainder.
@@ -85,4 +86,65 @@ test('junk in, a number out — this runs on the reporting path', () => {
     assert.ok(totalTokens(bad as any) >= 0, 'never negative');
   }
   assert.equal(runCostUsd('claude-opus-5', {}), 0);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// THE EXPENSIVE FAILURE
+//
+// A prefix that is written every call and never read costs 1.25x instead of 1x - worse than not
+// caching, and slower. cacheDidEngage cannot see it (read || write passes), which is exactly how a
+// per-scene rule concatenated into the system prompt went unnoticed: `ctx` was byte-identical, the
+// prefix ABOVE it was not, and every response looked like caching working.
+
+const WRITE_ONLY = { cacheReadTokens: 0, cacheCreationTokens: 2892 };
+const READ = { cacheReadTokens: 2892, cacheCreationTokens: 0 };
+
+/** Drive a sequence of calls through the tracker; return every warning it raised. */
+function runCalls(seq: Array<{ cacheReadTokens: number; cacheCreationTokens: number }>) {
+  let streak = emptyStreak(); const warns: number[] = [];
+  seq.forEach((t, i) => { const r = trackPrefixCache(streak, t); streak = r.next; if (r.warn) warns.push(i); });
+  return { streak, warns };
+}
+
+test('THE GUARD MUST FAIL IN THE EXPENSIVE DIRECTION: write-every-call, read-never, warns', () => {
+  const { warns, streak } = runCalls([WRITE_ONLY, WRITE_ONLY, WRITE_ONLY, WRITE_ONLY]);
+  assert.ok(warns.length > 0, 'a busting prefix must be reported, not silently paid for');
+  assert.equal(warns[0], PREFIX_BUST_AFTER - 1, 'it fires as soon as the pattern is established');
+  assert.equal(streak.reads, 0);
+  assert.equal(streak.writes, 4);
+});
+
+test('the FIRST call of a run writes and reads nothing — that is correct and must not warn', () => {
+  const { warns } = runCalls([WRITE_ONLY]);
+  assert.equal(warns.length, 0, 'one write is a run starting, not a bug');
+  assert.equal(runCalls([WRITE_ONLY, WRITE_ONLY]).warns.length, 0, 'nor is two, on a retry');
+});
+
+test('a healthy run — one write then reads — never warns, however long it goes on', () => {
+  const { warns, streak } = runCalls([WRITE_ONLY, READ, READ, READ, READ, READ, READ, READ, READ, READ]);
+  assert.equal(warns.length, 0);
+  assert.equal(streak.writes, 1);
+  assert.equal(streak.reads, 9);
+});
+
+test('a single read anywhere clears the suspicion — the prefix demonstrably survives', () => {
+  assert.equal(runCalls([WRITE_ONLY, WRITE_ONLY, READ, WRITE_ONLY, WRITE_ONLY, WRITE_ONLY]).warns.length, 0,
+    'reads prove the prefix holds; occasional re-writes are TTL expiry, not busting');
+});
+
+test('it warns ONCE, then stops — a busted path reports itself and does not shout', () => {
+  const { warns } = runCalls(Array(20).fill(WRITE_ONLY));
+  assert.equal(warns.length, 1, 'one warning per key, not one per scene');
+});
+
+test('a path that caches nothing at all does not trip the busting warning', () => {
+  // Both counters zero is the CHEAP failure, and cacheDidEngage already names it.
+  const { warns } = runCalls(Array(10).fill({ cacheReadTokens: 0, cacheCreationTokens: 0 }));
+  assert.equal(warns.length, 0, 'no writes means no money is being wasted on writes');
+});
+
+test('junk in, a streak out — this runs on every cached call', () => {
+  assert.doesNotThrow(() => trackPrefixCache(undefined, null));
+  assert.doesNotThrow(() => trackPrefixCache(undefined, { cacheReadTokens: NaN } as any));
+  assert.equal(trackPrefixCache(undefined, {}).next.calls, 1);
 });

@@ -91,16 +91,57 @@ export function runCostUsd(model: string, r?: RunTokens | null, ttl: '5m' | '1h'
 }
 
 /**
- * Did a call that ASKED for caching actually get it?
+ * Did a call that ASKED for caching get ANYTHING at all?
  *
- * Returns null when the question does not apply (no prefix was sent). Otherwise false means the
- * request carried a breakpoint and the provider reported neither a read nor a write — the silent
- * failure mode: a prefix under the model's minimum cacheable length is simply not cached, with no
- * error and no warning. The first call of a run legitimately reports a write and no read; it is
- * BOTH being zero that means nothing happened.
+ * Returns null when the question does not apply (no prefix was sent). False means the request
+ * carried a breakpoint and the provider reported neither a read nor a write — a prefix under the
+ * model's minimum cacheable length, silently not cached.
+ *
+ * THIS ONLY CATCHES THE CHEAP FAILURE. It is `read || write`, so a call that writes a fresh entry
+ * every single time and never reads one passes it — and that is the EXPENSIVE failure: the prefix
+ * is billed at 1.25x instead of 1x, so caching costs more than not caching and is slower. Detecting
+ * that needs history across calls, which is what trackPrefixCache below is for.
  */
 export function cacheDidEngage(askedForCache: boolean, r?: RunTokens | null): boolean | null {
   if (!askedForCache) return null;
   const t = r || {};
   return num(t.cacheReadTokens) > 0 || num(t.cacheCreationTokens) > 0;
+}
+
+/** Running tally of how a cached path is behaving, per task+project. */
+export interface CacheStreak { calls: number; writes: number; reads: number; warned: boolean }
+
+/** How many writes with no read before we call it busted. One write is the first call of a run and
+ *  is correct. Three, with nothing ever read back, is not a run starting — it is a prefix changing. */
+export const PREFIX_BUST_AFTER = 3;
+
+export function emptyStreak(): CacheStreak { return { calls: 0, writes: 0, reads: 0, warned: false }; }
+
+/**
+ * THE GUARD THAT CAN FAIL IN THE EXPENSIVE DIRECTION.
+ *
+ * A cache prefix only pays off if it is written once and read thereafter. If anything above it in
+ * the prefix — tools, then system, then earlier message blocks — differs between calls, every call
+ * writes a new entry and reads none, and the bill goes UP. That is what happened when the per-scene
+ * length rule was concatenated into the system prompt: `ctx` was byte-identical, the prefix above it
+ * was not, and nothing in the response distinguished it from caching working perfectly.
+ *
+ * So the signal is not a single call, it is the shape over several: sustained writes with zero reads.
+ * Warns once per key, so a busted path reports itself and then stops shouting.
+ */
+export function trackPrefixCache(prev: CacheStreak | undefined, r?: RunTokens | null): { next: CacheStreak; warn: boolean } {
+  const p = prev || emptyStreak();
+  const t = r || {};
+  const wrote = num(t.cacheCreationTokens) > 0;
+  const read = num(t.cacheReadTokens) > 0;
+  const next: CacheStreak = {
+    calls: p.calls + 1,
+    writes: p.writes + (wrote ? 1 : 0),
+    reads: p.reads + (read ? 1 : 0),
+    warned: p.warned,
+  };
+  const busting = next.reads === 0 && next.writes >= PREFIX_BUST_AFTER;
+  const warn = busting && !p.warned;
+  if (warn) next.warned = true;
+  return { next, warn };
 }

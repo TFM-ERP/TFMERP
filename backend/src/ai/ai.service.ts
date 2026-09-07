@@ -3,7 +3,7 @@ import { PrismaService } from '../common/prisma/prisma.service';
 import { LlmRoutingService, DEFAULT_ANTHROPIC_MODEL, isRetiredModel } from './llm-routing.service';
 import { callProvider, isExhausting, redactSecrets, ProviderErrorKind, EffortLevel } from './providers';
 import { usageSummary, stoppedAtCeiling } from './empty-output.util';
-import { cacheDidEngage } from './ai-cost.util';
+import { cacheDidEngage, trackPrefixCache, CacheStreak } from './ai-cost.util';
 
 export interface AiRunOpts { task: string; system: string; user: string; projectId?: string | null; refType?: string | null; refId?: string | null; maxTokens?: number; model?: string; temperature?: number; timeoutMs?: number; idleTimeoutMs?: number; stream?: boolean; budgetMs?: number; effort?: EffortLevel; cachePrefix?: string; }
 export interface AiRawOpts { task: string; system?: string; messages: any[]; tools?: any[]; toolChoice?: any; beta?: string; projectId?: string | null; refType?: string | null; refId?: string | null; maxTokens?: number; model?: string; temperature?: number; timeoutMs?: number; }
@@ -41,6 +41,9 @@ export class AiService {
   }
 
   // ── Provider cooldown (in-memory; clears on restart) ─────────────────────────
+  /** Per task+project cache behaviour, so a prefix that writes every call and never reads can be
+   *  seen at all. In memory, cleared on restart, bounded — the same lifetime as the cooldown map. */
+  private cacheStreaks = new Map<string, CacheStreak>();
   private cooldown = new Map<string, number>();
   private isCooling(p: string): boolean { const until = this.cooldown.get(p); return !!until && until > Date.now(); }
   private cool(p: string, kind: ProviderErrorKind) { const mins = kind === 'RATE' ? 1 : 10; this.cooldown.set(p, Date.now() + mins * 60 * 1000); }
@@ -88,12 +91,33 @@ export class AiService {
           // (512 tokens on Opus 5) is simply not cached — no error, no warning, and a bill that
           // looks exactly like a cache that is working. The first call of a run legitimately shows
           // a write and no read; it is BOTH counters being zero that means nothing happened.
-          if (cacheDidEngage(!!opts.cachePrefix, {
-            cacheReadTokens: r.usage?.cache_read_input_tokens, cacheCreationTokens: r.usage?.cache_creation_input_tokens,
-          }) === false) {
+          const cacheTokens = { cacheReadTokens: r.usage?.cache_read_input_tokens, cacheCreationTokens: r.usage?.cache_creation_input_tokens };
+          if (cacheDidEngage(!!opts.cachePrefix, cacheTokens) === false) {
             this.log.warn(opts.task + ': a cache breakpoint was sent but the provider reported NEITHER a read'
               + ' nor a write — the prefix is probably under this model\'s minimum cacheable length, so it is'
               + ' silently not being cached. Prefix ' + (opts.cachePrefix || '').length + ' characters.');
+          }
+          // AND THE EXPENSIVE FAILURE, WHICH THE CHECK ABOVE CANNOT SEE. Writing a fresh entry on
+          // every call and never reading one passes `read || write` while costing 1.25x instead of
+          // 1x — worse than not caching, and slower. It means something ABOVE the breakpoint differs
+          // per call (tools, then system, then earlier blocks), which is exactly what a per-scene
+          // rule concatenated into the system prompt does. Keyed by task+project rather than by the
+          // prefix's own fingerprint: if the prefix itself is what varies, a fingerprint key would
+          // start a fresh streak every call and never notice.
+          if (opts.cachePrefix) {
+            const key = opts.task + ':' + String(opts.projectId || '');
+            const { next, warn } = trackPrefixCache(this.cacheStreaks.get(key), cacheTokens);
+            if (this.cacheStreaks.size > 200 && !this.cacheStreaks.has(key)) {
+              this.cacheStreaks.delete(this.cacheStreaks.keys().next().value as string); // bounded; oldest out
+            }
+            this.cacheStreaks.set(key, next);
+            if (warn) {
+              this.log.warn(opts.task + ': THE CACHE PREFIX IS BUSTING — ' + next.writes + ' cache writes and'
+                + ' ZERO reads across ' + next.calls + ' calls. Every call is paying 1.25x to write an entry'
+                + ' nothing ever reads, which costs MORE than not caching and is slower. Something above the'
+                + ' breakpoint differs per call: check that the system prompt and anything before the'
+                + ' breakpoint are byte-identical between calls.');
+            }
           }
           // A SUCCESSFUL CALL THAT RETURNED NO TEXT IS NOT A SUCCESS, AND IT IS LOGGED HERE — ONCE,
           // FOR EVERY CALLER. This is the gateway every model call in the platform passes through, so

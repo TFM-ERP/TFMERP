@@ -9,6 +9,7 @@ import { LORE_SEED } from './lore-seed.data';
 import { knowledgeDirective, stageLadderFor, normalizeFamily } from './knowledge';
 import { parseScenes } from '../script/scene-parse.util';
 import { seriesSceneCount } from './series-scene-count.util';
+import { SCENE_SYSTEM_PROMPT, sceneLengthRule } from './scene-prompt.util';
 import {
   planFeatureLength, applyPageWeights, lineBudgetFor, snapPageWeight, countVisualLines,
   expansionCandidates, isLengthComplete, isLengthOver, completionRatio,
@@ -3303,34 +3304,12 @@ export class ScripOnService {
     // therefore came back at about a fifth of a page, and 60 of them made a 16-page "feature". The budget
     // is now computed from the scene's own pageWeight, so a cutaway stays short and a set piece can breathe.
     const b = budget || lineBudgetFor(sc && sc.pageWeight);
-    const pageWord = b.pages === 1 ? 'ONE full page' : (b.pages < 1 ? ('about ' + b.pages + ' of a page') : ('about ' + b.pages + ' pages'));
-    // Instruct in WORDS. Asking for a LINE count missed by ~50% on every scene, because line breaks
-    // depend on wrapping the model cannot see; word count is something it can actually track.
-    const lengthRule = 'LENGTH IS STRICT AND MEASURED: this scene must run ' + pageWord + ' of a screenplay — '
-      + 'approximately ' + b.wordsAsk + ' WORDS, and it must NOT exceed ' + b.wordsMax + ' words. '
-      + '(For reference that is roughly ' + b.target + ' lines including blank ones.) Count as you write and stop when you reach the target. '
-      + (b.pages <= 0.5
-          ? 'This is a SHORT beat: one image or one exchange, in and out. Do not develop it.'
-          : 'Fill the space with real dramatic content — action beats, behaviour, dialogue that turns. Do NOT pad with description.')
-      + ' Running OVER ' + b.wordsMax + ' words is a failure — it makes the finished screenplay too long to be a feature. '
-      + 'Coming in far under is also a failure. If the material wants more room than this, cut it to fit instead.'
-      // Density, not style. The 31 Aug draft opened with FOURTEEN consecutive description paragraphs
-      // before a human did anything — every line of it good, the stack of them unreadable. The fix is
-      // NOT to ban atmosphere (a script is READ before it is shot, and mood on the page is the point);
-      // it is to stop atmosphere from queueing up. Scoped to scenes that actually have people in them,
-      // so an establishing sequence with no cast is left alone.
-      + (sc.characters
-          ? ' PACING: characters are present in this scene, so at most THREE description paragraphs may'
-            + ' pass before one of them acts, moves or speaks. Atmosphere is welcome — stacked atmosphere'
-            + ' is not. Let an image land on its own line, then cut to a person.'
-          : ' PACING: no characters are listed for this scene, so it is an establishing beat — keep it to'
-            + ' a handful of images and get out.')
-      // The model was hard-wrapping mid-sentence, which the renderer then read as a paragraph break.
-      // The renderer now rejoins those, but a paragraph that arrives as one line is simply correct.
-      + ' FORMATTING: write each action paragraph and each character\'s speech as ONE continuous line —'
-      + ' do NOT insert line breaks inside a paragraph to wrap it. Separate paragraphs and beats with a'
-      + ' single blank line. The page layout does its own wrapping.';
-    const sys = 'You are a professional screenwriter writing ONE scene of a feature film in industry-standard FINAL DRAFT format. Present-tense action; dialogue = a centred UPPERCASE CHARACTER cue on its own line, an optional (parenthetical), then the line; use (V.O.)/(O.S.)/(CONT\'D) where apt. Land real emotion, subtext, conflict and one turn. ' + lengthRule + ' Write in fragments and single-line action beats (only what the camera sees); keep dialogue clipped and oblique — no speeches, no exposition dumps, no small talk. Enter on the last possible moment and cut on the turn. No novelistic prose, no unfilmable inner thoughts, no restating the heading. Do NOT write the scene heading/slug line (it is already provided) and do NOT add a scene number. Output ONLY the scene text.';
+    // The per-scene length + pacing rule now travels in the USER payload (see the cache-prefix
+    // note in scene-prompt.util.ts): concatenated into `system` it changed on every scene, and
+    // system sits ABOVE messages in the cache prefix hierarchy, so it invalidated the
+    // story-context breakpoint below it on every single call.
+    const lengthRule = sceneLengthRule(b, sc.characters);
+    const sys = SCENE_SYSTEM_PROMPT;
     // Two blocks the writer never had. `canon` is the same handful of fixed facts on every scene —
     // full names, durations, relationships — because a 130-scene feature is 130 independent calls and
     // nothing else carries a fact from the scene that set it to the scene that contradicted it.
@@ -3366,7 +3345,9 @@ export class ScripOnService {
       // Telling the writer what is true costs one line; recovering it from the prose afterwards has
       // failed three times running.
       + (spine ? '\n' + spine : '')
-      + '\nTARGET LENGTH: ' + b.target + ' lines (' + b.pages + ' page' + (b.pages === 1 ? '' : 's') + ').\n\nWrite this scene in full now.';
+      + '\nTARGET LENGTH: ' + b.target + ' lines (' + b.pages + ' page' + (b.pages === 1 ? '' : 's') + ').'
+      + '\n\n' + lengthRule
+      + '\n\nWrite this scene in full now.';
     const clean = (raw: string) => this.cleanSceneText(raw);
     // What the last attempt got wrong, in words, appended to the next attempt's prompt.
     //
