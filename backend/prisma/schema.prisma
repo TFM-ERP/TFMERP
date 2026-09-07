@@ -47,6 +47,11 @@ enum Activity {
   RENTAL
   PRODUCTION
   BOTH
+
+  PRODUCTION_SERVICE
+  BOOK_DESIGN
+  WEB_DESIGN
+  EVENTS
 }
 
 enum UserRole {
@@ -657,6 +662,13 @@ model Invoice {
   booking  RentalBooking? @relation("BookingInvoices", fields: [bookingId], references: [id])
   bookingId String?
 
+  // --- invoice import (added by patch-schema-invoice-import.js) ---
+  lpoReference       String?  // client's LPO number - the award proof
+  lpoDocumentUrl     String?
+  sourceQuotationRef String?  // the TFMQ number this invoice came from
+  // --- end invoice import ---
+
+
   @@map("invoices")
 }
 
@@ -748,6 +760,36 @@ model Expense {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // --- invoice import (added by patch-schema-invoice-import.js) ---
+  invoiceNumber   String?     // the supplier's own invoice number
+  invoiceDate     DateTime?   // date on the supplier's document
+  dueDate         DateTime?
+  sourceUrl       String?     // Gmail thread link or local file path
+  sourceRef       String?     // e.g. "gmail:19fc3101e9aa6cfc"
+
+  importSource    ImportSource @default(MANUAL)
+  importBatchId   String?      // groups one scheduled or bulk run
+  importedAt      DateTime?
+  reviewedById    String?      // who confirmed or rejected it
+  reviewedAt      DateTime?
+  rejectionReason String?
+  // --- end invoice import ---
+
+  // --- original currency (added by patch-schema-fx.js) ---
+  originalAmount      Decimal?  @db.Decimal(15, 2)
+  originalVatAmount   Decimal?  @db.Decimal(15, 2)
+  originalTotalAmount Decimal?  @db.Decimal(15, 2)
+  originalCurrency    Currency?
+  fxRateToBase        Decimal?  @db.Decimal(14, 6)
+  fxRateSource        String?
+  fxConvertedAt       DateTime?
+  // --- end original currency ---
+
+
+  @@unique([supplierId, invoiceNumber])
+  @@index([importSource, status])
+
 
   @@map("expenses")
 }
@@ -9208,4 +9250,49 @@ model VideoRoutingPolicy {
   @@unique([scope, projectId, capability])
   @@index([projectId])
   @@map("video_routing_policies")
+}
+
+enum ImportSource {
+  MANUAL           // typed into the UI
+  SCHEDULED_GMAIL  // filed by the daily invoice task
+  DOCUMENT_OCR     // uploaded document, read by OCR
+  BULK_IMPORT      // one-off backfill script
+}
+
+enum AttachmentEntity {
+  INVOICE
+  EXPENSE
+  PAYMENT
+  PURCHASE_ORDER
+  QUOTATION
+  CREDIT_NOTE
+}
+enum DocumentKind {
+  SOURCE      // the document as it arrived — a supplier PDF, a scan, an email
+  GENERATED   // something this system produced, e.g. a rendered invoice PDF
+  SUPPORTING  // an LPO, a delivery note, a proof of payment
+}
+
+model DocumentAttachment {
+  id           String           @id @default(cuid())
+  entityType   AttachmentEntity
+  entityId     String
+  kind         DocumentKind   @default(SOURCE)
+
+  name         String                     // what to show the user
+  provider     String           @default("UPLOAD") // UPLOAD | GMAIL | LOCAL_PATH | LINK
+  url          String                     // /uploads/<file>, a Gmail thread URL, or a path
+  mimeType     String?
+  sizeBytes    Int?
+
+  sourceRef    String?                    // e.g. "gmail:19fc3101e9aa6cfc"
+  notes        String?
+
+  uploadedById String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@index([entityType, entityId])
+  @@index([sourceRef])
+  @@map("document_attachments")
 }
