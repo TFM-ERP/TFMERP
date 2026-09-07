@@ -28,6 +28,10 @@ const CSS = `
 .bld .spill{font-size:10px;font-weight:800;letter-spacing:.4px;padding:4px 9px;border-radius:999px}
 .bld .spill.draft{background:rgba(154,161,171,.16);color:var(--mute)}.bld .spill.review{background:rgba(91,141,239,.16);color:#a9c4f7}.bld .spill.greenlit{background:rgba(87,179,104,.16);color:var(--green)}.bld .spill.promoted{background:rgba(198,164,99,.18);color:var(--gold2)}
 .bld .when{font-size:11px;color:var(--faint)}
+.bld .ident{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:11px;color:var(--faint);margin-top:3px;line-height:1.5}
+.bld .ident .k{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;letter-spacing:.3px;color:var(--mute);background:rgba(154,161,171,.12);border-radius:5px;padding:1px 5px}
+.bld .ident .sep{opacity:.45}
+.bld .ident .nosrc{color:#e5635f;font-weight:600}
 .bld .nm{font-size:17px;font-weight:800;color:var(--cream)}
 .bld .ladder{display:flex;align-items:center;gap:4px}.bld .ladder .d{flex:1;height:5px;border-radius:3px;background:#23262e}.bld .ladder .d.on{background:var(--gold)}
 .bld .ft{display:flex;align-items:center;gap:8px;border-top:1px solid var(--hair);padding-top:11px;margin-top:auto}
@@ -50,6 +54,13 @@ const CSS = `
 `;
 const SPILL: Record<string, string> = { DRAFT: 'draft', REVIEW: 'review', GREENLIT: 'greenlit', PROMOTED: 'promoted' };
 const DOTS: Record<string, number> = { DRAFT: 2, REVIEW: 4, GREENLIT: 6, PROMOTED: 8 };
+// ABSOLUTE, BECAUSE A RELATIVE DATE IS NOT AN IDENTIFIER.
+// Three builds here are called "Jason Quick"; their cards differed only by "6d ago" and "7d ago",
+// and both a person and an audit picked the wrong one. That is the same reason a revision slug
+// carries a real date. Month names are spelled out rather than left to the locale, which renders
+// "Sept" in some ICU versions and "Sep" in others — a card identifier should not drift with a runtime.
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const onDate = (d?: string) => { if (!d) return ''; const x = new Date(d); return isNaN(+x) ? '' : x.getDate() + ' ' + MONTHS[x.getMonth()] + ' ' + x.getFullYear(); };
 const ago = (d?: string) => { if (!d) return ''; const ms = Date.now() - new Date(d).getTime(); const h = Math.floor(ms / 3.6e6); return h < 1 ? 'just now' : h < 24 ? h + 'h ago' : Math.floor(h / 24) + 'd ago'; };
 const SAMPLE = [
   { id: 'b1', name: 'Antara — mythic cut', status: 'GREENLIT', updatedAt: null, linkedProjectId: null },
@@ -128,6 +139,15 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
                 <div key={b.id} className="bc">
                   <div className="r1"><span className={'spill ' + (SPILL[st] || 'draft')} title={(st !== 'PROMOTED' && !bin && !isDemo(b)) ? t('Click to advance: Draft \u2192 Review \u2192 Greenlit') : (st === 'PROMOTED' ? t('Promoted to production') : '')} onClick={() => { if (st !== 'PROMOTED' && !bin && !isDemo(b)) cycleStatus(b); }} style={{ cursor: (st !== 'PROMOTED' && !bin && !isDemo(b)) ? 'pointer' : 'default' }}>{st}</span><span className="when">{ago(b.updatedAt) || t('saved')}</span></div>
                   <div className="nm">{b.name}</div>
+                  {/* Line 2 — what tells this build from the one above it. Key is OUR CHOICE (no
+                      industry convention exists for a development container); the source fingerprint
+                      is what makes "different foundation" visible at a glance. */}
+                  <div className="ident">
+                    {b.shortKey ? <span className="k" title={t('Build key')}>{b.shortKey}</span> : null}
+                    {b.createdAt ? <><span className="sep">·</span><span title={t('created') + ' ' + ago(b.createdAt)}>{onDate(b.createdAt)}</span></> : null}
+                    {b.source ? <><span className="sep">·</span><span className={b.source.empty ? 'nosrc' : ''} title={b.source.empty ? t('This build has no source material. Stages generated from it are written from the brief alone.') : t('source size and content fingerprint')}>{b.source.label}</span></> : null}
+                    {b.version ? <><span className="sep">·</span><span>{b.version}</span></> : null}
+                  </div>
                   <div className="ladder">{[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (<span key={i} className={'d' + (i < dots ? ' on' : '')} />))}</div>
                   <div className="ft">
                     {bin ? (<>
