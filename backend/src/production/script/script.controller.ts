@@ -8,6 +8,7 @@ import { ScriptService } from './script.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../permissions/permissions.guard';
 import { RequirePermission } from '../../permissions/require-permission.decorator';
+import { revisionWheel } from './revision-wheel.util';
 
 const UPLOAD_DIR = join(process.cwd(), 'uploads');
 const pdfUpload = {
@@ -34,6 +35,13 @@ export class ScriptController {
   @Post('document/:id/restore') @RequirePermission('production', 2) restoreDoc(@Param('id') id: string) { return this.service.restoreDocument(id); }
   @Get('document/:id') getDocument(@Param('id') id: string) { return this.service.getDocument(id); }
   @Get('revision/:id') getRevision(@Param('id') id: string) { return this.service.getRevision(id); }
+
+  // THE COLOUR WHEEL, SERVED FROM ITS ONE OWNER.
+  // The WGA sequence lived twice: here, where revisions are assigned from it, and again as a
+  // hard-coded nine-colour pastel list in ScriptHubPanel.tsx which was missing TAN and carried
+  // different hexes — so a manually-picked colour overwrote the canonical one on its way in.
+  // Two copies of one convention is the defect shape; the frontend now reads this.
+  @Get('revision-wheel') revisionWheel() { return { wheel: revisionWheel() }; }
 
   @Post('project/:projectId') @RequirePermission('production', 2)
   createDocument(@Param('projectId') projectId: string, @Body() b: any, @Req() req: any) {
