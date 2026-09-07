@@ -113,3 +113,36 @@ test('the precedence the card depends on: typed label first, count only as fallb
   assert.equal(pick('', 2, 3), 'V2 of 3', 'empty box falls through to the count');
   assert.equal(pick(null, null, 0), '—', 'nothing typed and nothing counted still overstates nothing');
 });
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// NON-LATIN NAMES
+//
+// The split was [^A-Za-z0-9]+, which discards every Arabic letter — so داس and عنترة both fell to
+// the "B-" fallback and every Arabic-titled build shared a prefix. This product writes Arabic
+// screenplays; عنترة is one of the eleven builds recovered from the orphan inventory.
+
+test('Arabic names produce Arabic initials, not the fallback', () => {
+  assert.match(buildShortKey('داس', 'id-das'), /^د-[0-9A-F]{6}$/);
+  assert.match(buildShortKey('عنترة', 'id-antara'), /^ع-[0-9A-F]{6}$/);
+  assert.notEqual(buildShortKey('داس', 'a').split('-')[0], 'B', 'the old behaviour');
+});
+
+test('multi-word non-Latin names take one initial per word, up to three', () => {
+  assert.equal(buildShortKey('عنترة بن شداد', 'x').split('-')[0], 'عبش');
+});
+
+test('Latin behaviour is unchanged', () => {
+  assert.match(buildShortKey('Jason Quick', 'cmti694l6'), /^JQ-[0-9A-F]{6}$/);
+  assert.match(buildShortKey('The Key', 'x'), /^TK-/);
+  assert.match(buildShortKey('MINUTEMEN', 'y'), /^M-/);
+});
+
+test('mixed scripts and digits still work', () => {
+  assert.match(buildShortKey('داس 2', 'x'), /^د2-/);
+  assert.match(buildShortKey('Das "The Movie"', 'x'), /^DTM-/);
+});
+
+test('a name with no letters at all still yields a key', () => {
+  assert.match(buildShortKey('!!! ---', 'x'), /^B-/);
+  assert.match(buildShortKey('🎬', 'x'), /^B-/, 'an emoji is not a letter');
+});

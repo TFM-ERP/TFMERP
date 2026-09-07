@@ -39,9 +39,14 @@ const hex6 = (n: number): string => n.toString(16).toUpperCase().padStart(8, '0'
  * that two builds in one project will not collide.
  */
 export function buildShortKey(name?: string | null, id?: string | null): string {
+  // UNICODE-AWARE, because this product writes Arabic screenplays. Splitting on [^A-Za-z0-9] threw
+  // away every non-Latin letter, so "داس" and "عنترة" — one of the eleven builds just recovered —
+  // both collapsed to the fallback "B-", making every Arabic-titled build share a prefix. \p{L} keeps
+  // letters in any script; spreading the word takes a whole code point rather than half a surrogate
+  // pair. Arabic is caseless, so toUpperCase is simply a no-op there rather than a corruption.
   const initials = String(name || '')
-    .split(/[^A-Za-z0-9]+/).filter(Boolean).slice(0, 3)
-    .map((w) => w[0].toUpperCase()).join('') || 'B';
+    .split(/[^\p{L}\p{N}]+/u).filter(Boolean).slice(0, 3)
+    .map((w) => [...w][0].toUpperCase()).join('') || 'B';
   return initials + '-' + hex6(fnv1a(String(id || name || '')));
 }
 
