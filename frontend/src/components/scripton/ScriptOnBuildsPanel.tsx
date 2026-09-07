@@ -32,6 +32,11 @@ const CSS = `
 .bld .ident .k{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;letter-spacing:.3px;color:var(--mute);background:rgba(154,161,171,.12);border-radius:5px;padding:1px 5px}
 .bld .ident .sep{opacity:.45}
 .bld .ident .nosrc{color:#e5635f;font-weight:600}
+.bld .bc.skel{gap:10px;justify-content:flex-start}
+.bld .sk{background:linear-gradient(90deg,rgba(154,161,171,.10) 25%,rgba(154,161,171,.18) 37%,rgba(154,161,171,.10) 63%);background-size:400% 100%;animation:bldsk 1.4s ease infinite;border-radius:6px}
+.bld .sk-r1{height:14px;width:38%}.bld .sk-nm{height:18px;width:70%}.bld .sk-id{height:11px;width:88%}.bld .sk-ft{height:12px;width:46%;margin-top:auto}
+@keyframes bldsk{0%{background-position:100% 50%}100%{background-position:0 50%}}
+.bld .bc.empty{justify-content:center;align-items:flex-start;border-style:dashed}
 .bld .nm{font-size:17px;font-weight:800;color:var(--cream)}
 .bld .ladder{display:flex;align-items:center;gap:4px}.bld .ladder .d{flex:1;height:5px;border-radius:3px;background:#23262e}.bld .ladder .d.on{background:var(--gold)}
 .bld .ft{display:flex;align-items:center;gap:8px;border-top:1px solid var(--hair);padding-top:11px;margin-top:auto}
@@ -69,7 +74,7 @@ const SAMPLE = [
   { id: 'b4', name: 'Oryx — pilot', status: 'DRAFT', updatedAt: null, linkedProjectId: null },
 ];
 
-export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, railGap = 0, osNew = false, embedded = false }: { projectId: string | null; onClose: () => void; onNewBuild?: () => void; railGap?: number; osNew?: boolean; embedded?: boolean }) {
+export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, railGap = 0, osNew = false, embedded = false, demo = false }: { projectId: string | null; onClose: () => void; onNewBuild?: () => void; railGap?: number; osNew?: boolean; embedded?: boolean; demo?: boolean }) {
   const { dir, t } = useLocale();
   const [builds, setBuilds] = useState<any[] | null>(null);
   const [projects, setProjects] = useState<any[]>([]);
@@ -119,8 +124,22 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
     return () => { alive = false; };
   }, [projectId]);
 
-  const list = bin ? (Array.isArray(builds) ? builds : []) : ((builds && builds.length) ? builds : (builds === null ? SAMPLE : []));
+  // SAMPLE NEVER RENDERS FOR A REAL USER. It used to fill in whenever `builds` was null, which meant
+  // "not fetched yet" — so any session where projectId did not resolve showed four invented builds
+  // (Antara / The Pulpit / Sand & Glass / Oryx) and NONE of the writer's own, permanently, with no
+  // error and nothing to retry. A fake board is worse than an empty one: an empty board is obviously
+  // waiting, a populated one looks like an answer. null now renders as nothing, and SAMPLE is
+  // reachable only behind the explicit `demo` prop.
+  // THREE STATES, NOT TWO. `builds === null` means NOT FETCHED YET and used to render SAMPLE — four
+  // invented builds (Antara / The Pulpit / Sand & Glass / Oryx) shown as if they were the writer's
+  // own. On any session where projectId never resolved that fake board was permanent, with no error
+  // and nothing to retry, and the names could collide with real work so a fake card and a missing
+  // one looked identical. A populated board looks like an answer; only an empty one looks like a
+  // question. SAMPLE is now reachable solely through the explicit `demo` prop, which nothing passes.
+  const loading = builds === null && !demo;
+  const list = Array.isArray(builds) ? builds : (demo ? SAMPLE : []);
   const shown = list.filter((b) => filter === 'All' || String(b.status || 'DRAFT').toUpperCase() === filter.toUpperCase());
+  const isEmpty = !loading && shown.length === 0;
 
   const openBuild = (id: string) => { if (typeof window !== 'undefined') window.location.assign('/scripton/studio?build=' + id); };
   const openScript = (docId: string) => { if (docId && typeof window !== 'undefined') window.location.assign('/scripton/script?doc=' + docId); };
@@ -154,6 +173,18 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
             <div className="phead"><h1>{t('Builds')}</h1><div className="sub">{t('Name, save and switch development builds. Open loads a build into Studio; promote a finished build into a project.')}</div></div>
             <div className="tbar">{(bin ? [] : ['All', 'Draft', 'Review', 'Greenlit', 'Promoted']).map((c) => (<span key={c} className={'chip' + (filter === c ? ' on' : '')} onClick={() => setFilter(c)}>{t(c)}</span>))}<span style={{ marginLeft: 'auto', display: 'inline-flex', background: '#15181e', border: '1px solid var(--hair)', borderRadius: 9, padding: 3, gap: 2 }}><span onClick={() => switchBin(false)} style={{ fontSize: 12, fontWeight: 600, padding: '5px 12px', borderRadius: 7, cursor: 'pointer', color: !bin ? 'var(--gold2)' : 'var(--mute)', background: !bin ? 'rgba(198,164,99,.16)' : 'transparent' }}>{t('Active')}</span><span onClick={() => switchBin(true)} style={{ fontSize: 12, fontWeight: 600, padding: '5px 12px', borderRadius: 7, cursor: 'pointer', color: bin ? 'var(--gold2)' : 'var(--mute)', background: bin ? 'rgba(198,164,99,.16)' : 'transparent' }}>✖ {t('Bin')}</span></span></div>
             <div className="grid">
+              {/* Loading: skeletons, so the board reads as "fetching" and never as "your work is gone". */}
+              {loading ? [0, 1, 2].map((i) => (
+                <div key={'sk' + i} className="bc skel" aria-hidden>
+                  <div className="sk sk-r1" /><div className="sk sk-nm" /><div className="sk sk-id" /><div className="sk sk-ft" />
+                </div>
+              )) : null}
+              {isEmpty ? (
+                <div className="bc empty">
+                  <div className="nm">{bin ? t('The bin is empty.') : t('No builds yet.')}</div>
+                  <div className="ident">{bin ? t('Deleted builds appear here for 30 days.') : t('Start one with New build — it will appear here.')}</div>
+                </div>
+              ) : null}
               {shown.map((b) => { const st = String(b.status || 'DRAFT').toUpperCase(); const dots = DOTS[st] || 2; return (
                 <div key={b.id} className="bc">
                   <div className="r1"><span className={'spill ' + (SPILL[st] || 'draft')} title={(st !== 'PROMOTED' && !bin && !isDemo(b)) ? t('Click to advance: Draft \u2192 Review \u2192 Greenlit') : (st === 'PROMOTED' ? t('Promoted to production') : '')} onClick={() => { if (st !== 'PROMOTED' && !bin && !isDemo(b)) cycleStatus(b); }} style={{ cursor: (st !== 'PROMOTED' && !bin && !isDemo(b)) ? 'pointer' : 'default' }}>{st}</span><span className="when">{ago(b.updatedAt) || t('saved')}</span></div>
