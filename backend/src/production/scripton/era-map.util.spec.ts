@@ -3,14 +3,14 @@ import { strict as assert } from 'node:assert';
 import { createHash } from 'node:crypto';
 import { COUNTRY_ERA_YEARS, ERA_BANDS } from './era-map.util';
 
-test('the inventory is the whole inventory - 250 rows, 41 countries, and the flag counts', () => {
-  assert.equal(COUNTRY_ERA_YEARS.length, 250);
+test('the inventory is the whole inventory - 279 rows, 41 countries, and the flag counts', () => {
+  assert.equal(COUNTRY_ERA_YEARS.length, 279);
   assert.equal(new Set(COUNTRY_ERA_YEARS.map((r) => r.country)).size, 41);
   assert.equal(ERA_BANDS.length, 9);
   const n = (f: string) => COUNTRY_ERA_YEARS.filter((r) => r.flag === f).length;
-  assert.equal(n(''), 136);
-  assert.equal(n('disputed'), 84);
-  assert.equal(n('unsound'), 30);
+  assert.equal(n(''), 143);
+  assert.equal(n('disputed'), 97);
+  assert.equal(n('unsound'), 39);
 });
 
 test('every row is orderly and every row says where it came from', () => {
@@ -40,7 +40,7 @@ test('the sourced rows are pinned, so no row can drift without someone deciding 
   const fingerprint = createHash('sha256').update(
     COUNTRY_ERA_YEARS.map((r) => [r.country, r.label, r.start, r.end, r.flag].join('|')).join('\n'),
   ).digest('hex').slice(0, 16);
-  assert.equal(fingerprint, '96b365947b180c9c');
+  assert.equal(fingerprint, 'e0d8dfacc9891ae8');
 });
 
 import * as map from './era-map.util';
@@ -141,7 +141,7 @@ test('an era offset is days from the frozen storyYear, and a refused row gives n
 });
 
 test('the map is ONE-DIRECTIONAL - asserting the absence of a year to era lookup IS the test', () => {
-  // The era list is a creative menu, not a calendar: 42 gaps and 30 overlaps across the 250 rows.
+  // The era list is a creative menu, not a calendar: 35 gaps and 34 overlaps across the 279 rows.
   // The occupying-power rows nest inside the civilisational ones by design, which is most of the
   // overlap count and the strongest reason this direction must stay the only one.
   // A year -> era lookup would be undefined across the gaps and ambiguous across the overlaps, so
@@ -175,8 +175,8 @@ test('the gaps the one-directional rule exists for are really there', () => {
       if (start < prevEnd - 25) overlaps++;
     }
   }
-  assert.equal(gaps, 42);
-  assert.equal(overlaps, 30);
+  assert.equal(gaps, 35);
+  assert.equal(overlaps, 34);
 });
 
 test('a row with no sourced start refuses for THAT reason, not the generic one', () => {

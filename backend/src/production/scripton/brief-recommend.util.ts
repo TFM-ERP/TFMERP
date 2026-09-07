@@ -296,6 +296,126 @@ export function matchOption(value: any, options: string[] | null | undefined): s
 }
 
 /**
+ * ONE PLACE THAT KNOWS WHAT A KIND MEANS.
+ *
+ * There are six kinds, and their behaviour used to be spelled in FIVE places: the coercion chain,
+ * `hasUserValue`'s flags exemption, undo's equality comparison, undo's flags restore, and undo's
+ * `empty` ternary. `flags` alone was named in four of them. Adding a seventh kind meant editing
+ * four spots that had to stay isomorphic BY HAND — the same defect shape that put five interpolated
+ * regexes in the era parser, and the same fix: declare each kind once, in a table, and let every
+ * call site read it.
+ *
+ * A kind that is missing an entry here is caught by a test rather than by a screenplay.
+ */
+interface KindOps {
+  /** A model's raw value to a form value. Returns null to DROP it — never a nearest guess. */
+  coerce(raw: any, spec: FieldSpec, opts: Record<string, string[]>, field: string): any;
+  /** Is the value in the form still the one the analysis wrote? Decided by DECLARED kind, not by
+   *  the runtime shape that happened to arrive. */
+  equals(cur: any, applied: any): boolean;
+  /** What undo puts back. `applied` is what the analysis wrote, which `flags` needs to know. */
+  emptyValue(spec: FieldSpec, applied: any): any;
+  /** Can a value ALREADY IN THE FORM protect the field from being written, or only `touched`?
+   *  False for a kind whose populated state is a shipped default rather than a user decision. */
+  presenceProtects: boolean;
+}
+
+const sameList = (a: any, b: any): boolean =>
+  Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((v, i) => v === b[i]);
+
+const pickList = (raw: any, cap: number, map: (v: any) => string | null): string[] | null => {
+  const list = Array.isArray(raw) ? raw : [raw];
+  const picked: string[] = [];
+  for (const v of list) {
+    const m = map(v);
+    if (m && picked.indexOf(m) < 0) picked.push(m);
+    if (picked.length >= cap) break;
+  }
+  return picked.length ? picked : null;
+};
+
+const KINDS: Record<FieldKind, KindOps> = {
+  enum: {
+    coerce: (raw, spec, opts, field) => matchOption(raw, opts[spec.options || field]),
+    equals: (cur, applied) => cur === applied,
+    emptyValue: () => '',
+    presenceProtects: true,
+  },
+  enumList: {
+    coerce: (raw, spec, opts, field) =>
+      pickList(raw, spec.maxItems || 4, (v) => matchOption(v, opts[spec.options || field])),
+    equals: sameList,
+    emptyValue: () => [],
+    presenceProtects: true,
+  },
+  text: {
+    coerce: (raw, spec) => tidy(raw, spec.max || 200) || null,
+    equals: (cur, applied) => cur === applied,
+    emptyValue: () => '',
+    presenceProtects: true,
+  },
+  textList: {
+    coerce: (raw, spec) => pickList(raw, spec.maxItems || 6, (v) => tidy(v, spec.max || 120) || null),
+    equals: sameList,
+    emptyValue: () => [],
+    presenceProtects: true,
+  },
+  flags: {
+    coerce: (raw, spec, opts, field) => {
+      const keys = (opts[spec.options || field] || []).filter((k) => typeof k === 'string' && k.trim());
+      const wanted = new Set<string>();
+      if (keys.length) {
+        if (Array.isArray(raw)) {
+          for (const v of raw) { const m = matchOption(v, keys); if (m) wanted.add(m); }
+        } else if (raw && typeof raw === 'object') {
+          // {subject:true, comps:false} — a shape models return as readily as a list.
+          for (const k of Object.keys(raw)) { if (!(raw as any)[k]) continue; const m = matchOption(k, keys); if (m) wanted.add(m); }
+        } else {
+          const m = matchOption(raw, keys); if (m) wanted.add(m);
+        }
+      }
+      // Every lane off is not a narrowing, it is a disable, and nobody asked for that. Dropped, so
+      // the panel keeps the on-by-default state it would have had without an analysis at all.
+      if (!wanted.size) return null;
+      const o: Record<string, boolean> = {};
+      for (const k of keys) o[k] = wanted.has(k);
+      return o;
+    },
+    // Lane by lane. The form rebuilds this object on every render, so reference equality would
+    // report "the user changed it" on a form nobody has touched.
+    equals: (cur, applied) => {
+      const a = (applied && typeof applied === 'object') ? applied : {};
+      const b = (cur && typeof cur === 'object') ? cur : null;
+      return !!b && Object.keys(a).length === Object.keys(b).length
+        && Object.keys(a).every((k) => !!(a as any)[k] === !!(b as any)[k]);
+    },
+    // Undo restores the DEFAULT, which for these lanes is every one of them ON — not an empty
+    // object, which would silently leave the story with no research at all.
+    emptyValue: (_spec, applied) => {
+      const back: Record<string, boolean> = {};
+      for (const k of Object.keys((applied && typeof applied === 'object') ? applied : {})) back[k] = true;
+      return back;
+    },
+    // A flags field ships fully switched ON. That is a default, not a decision, so presence can
+    // never protect it; only `touched` can, which is right — the user has to have clicked a lane.
+    presenceProtects: false,
+  },
+  number: {
+    // Out of range is DROPPED, not clamped. A clamped guess reads as a measurement.
+    coerce: (raw, spec) => {
+      const n = Number(raw);
+      return (isFinite(n) && n >= (spec.min as number) && n <= (spec.maxNum as number)) ? n : null;
+    },
+    equals: (cur, applied) => cur === applied,
+    emptyValue: () => null,
+    presenceProtects: true,
+  },
+};
+
+/** Every kind the field table uses, for the test that pins the two in step. */
+export const DECLARED_KINDS = Object.keys(KINDS) as FieldKind[];
+
+/**
  * Turn a model reply into recommendations the form can safely receive.
  *
  * `options` is the form's own lists, sent with the request. `raw` is whatever the model returned.
@@ -319,53 +439,10 @@ export function coerceRecommendations(
     const why = tidy(r.why != null ? r.why : (r as any).reason, MAX_WHY_CHARS);
     if (why.length < MIN_WHY_CHARS) continue;
 
-    let value: any = null;
-    if (spec.kind === 'enum') {
-      value = matchOption(r.value, opts[spec.options || field]);
-    } else if (spec.kind === 'enumList') {
-      const list = Array.isArray(r.value) ? r.value : [r.value];
-      const picked: string[] = [];
-      for (const v of list) {
-        const m = matchOption(v, opts[spec.options || field]);
-        if (m && picked.indexOf(m) < 0) picked.push(m);
-        if (picked.length >= (spec.maxItems || 4)) break;
-      }
-      value = picked.length ? picked : null;
-    } else if (spec.kind === 'text') {
-      const t = tidy(r.value, spec.max || 200);
-      value = t ? t : null;
-    } else if (spec.kind === 'textList') {
-      const list = Array.isArray(r.value) ? r.value : [r.value];
-      const picked: string[] = [];
-      for (const v of list) {
-        const t = tidy(v, spec.max || 120);
-        if (t && picked.indexOf(t) < 0) picked.push(t);
-        if (picked.length >= (spec.maxItems || 6)) break;
-      }
-      value = picked.length ? picked : null;
-    } else if (spec.kind === 'flags') {
-      const keys = (opts[spec.options || field] || []).filter((k) => typeof k === 'string' && k.trim());
-      const wanted = new Set<string>();
-      if (keys.length) {
-        const rv: any = r.value;
-        if (Array.isArray(rv)) {
-          for (const v of rv) { const m = matchOption(v, keys); if (m) wanted.add(m); }
-        } else if (rv && typeof rv === 'object') {
-          // {subject:true, comps:false} — a shape models return as readily as a list.
-          for (const k of Object.keys(rv)) { if (!(rv as any)[k]) continue; const m = matchOption(k, keys); if (m) wanted.add(m); }
-        } else {
-          const m = matchOption(rv, keys); if (m) wanted.add(m);
-        }
-      }
-      // Every lane off is not a narrowing, it is a disable, and nobody asked for that. Dropped, so
-      // the panel keeps the on-by-default state it would have had without an analysis at all.
-      if (!wanted.size) value = null;
-      else { const o: Record<string, boolean> = {}; for (const k of keys) o[k] = wanted.has(k); value = o; }
-    } else if (spec.kind === 'number') {
-      const n = Number(r.value);
-      // Out of range is DROPPED, not clamped. A clamped guess reads as a measurement.
-      value = (isFinite(n) && n >= (spec.min as number) && n <= (spec.maxNum as number)) ? n : null;
-    }
+    // A kind with no entry DROPS, exactly as the old if/else chain did by falling through with
+    // `value` still null. This module never throws, and a spec table can be edited by hand.
+    const ops = KINDS[spec.kind];
+    const value = ops ? ops.coerce(r.value, spec, opts, field) : null;
     if (value === null) continue;
     seen.add(field);
     out.push({ field, value, why });
@@ -390,10 +467,10 @@ function setPath<T>(form: T, field: string, value: any): T {
 
 /** A field the user has genuinely filled in. Empty string, empty array and null are all "untouched". */
 export function hasUserValue(form: any, field: string): boolean {
-  // A 'flags' field ships fully switched ON — that is a default, not a decision, exactly like the
-  // checkbox case below. Presence can therefore never protect it; only `touched` can, which is
-  // right: the user has to have actually clicked a lane for their choice to be theirs.
-  if (FIELD_SPECS[field] && FIELD_SPECS[field].kind === 'flags') return false;
+  // Whether a value already in the form can protect the field is a property OF THE KIND, declared
+  // once in KINDS. A flags field ships fully on, which is a default rather than a decision.
+  const spec = FIELD_SPECS[field];
+  if (spec && KINDS[spec.kind] && !KINDS[spec.kind].presenceProtects) return false;
   const v = getPath(form, field);
   if (v == null) return false;
   if (Array.isArray(v)) return v.length > 0;
@@ -448,30 +525,9 @@ export function undoRecommendations<T extends Record<string, any>>(
     const spec = FIELD_SPECS[r.field];
     if (!spec) continue;
     const cur = getPath(next, r.field);
-    let same: boolean;
-    if (spec.kind === 'flags') {
-      // Compare lane by lane. The form rebuilds this object on every render, so reference equality
-      // would report "the user changed it" on a form nobody has touched.
-      const a = (r.value && typeof r.value === 'object') ? r.value : {};
-      const b = (cur && typeof cur === 'object') ? cur : null;
-      same = !!b && Object.keys(a).length === Object.keys(b).length
-        && Object.keys(a).every((k) => !!(a as any)[k] === !!(b as any)[k]);
-    } else if (Array.isArray(r.value) && Array.isArray(cur)) {
-      same = cur.length === r.value.length && cur.every((v: any, i: number) => v === r.value[i]);
-    } else {
-      same = cur === r.value;
-    }
-    if (!same) continue;
-    if (spec.kind === 'flags') {
-      // Undo restores the DEFAULT, which for these lanes is every one of them on — not an empty
-      // object, which would silently leave the story with no research at all.
-      const back: Record<string, boolean> = {};
-      for (const k of Object.keys((r.value && typeof r.value === 'object') ? r.value : {})) back[k] = true;
-      next = setPath(next, r.field, back);
-      continue;
-    }
-    const empty = (spec.kind === 'enumList' || spec.kind === 'textList') ? [] : (spec.kind === 'number' ? null : '');
-    next = setPath(next, r.field, empty);
+    const ops = KINDS[spec.kind];
+    if (!ops || !ops.equals(cur, r.value)) continue;
+    next = setPath(next, r.field, ops.emptyValue(spec, r.value));
   }
   return next;
 }

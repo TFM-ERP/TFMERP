@@ -1,9 +1,9 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
-import { LlmRoutingService } from './llm-routing.service';
-import { callProvider, isExhausting, ProviderErrorKind } from './providers';
+import { LlmRoutingService, DEFAULT_ANTHROPIC_MODEL, isRetiredModel } from './llm-routing.service';
+import { callProvider, isExhausting, redactSecrets, ProviderErrorKind } from './providers';
 
-export interface AiRunOpts { task: string; system: string; user: string; projectId?: string | null; refType?: string | null; refId?: string | null; maxTokens?: number; model?: string; temperature?: number; timeoutMs?: number; idleTimeoutMs?: number; stream?: boolean; }
+export interface AiRunOpts { task: string; system: string; user: string; projectId?: string | null; refType?: string | null; refId?: string | null; maxTokens?: number; model?: string; temperature?: number; timeoutMs?: number; idleTimeoutMs?: number; stream?: boolean; budgetMs?: number; }
 export interface AiRawOpts { task: string; system?: string; messages: any[]; tools?: any[]; toolChoice?: any; beta?: string; projectId?: string | null; refType?: string | null; refId?: string | null; maxTokens?: number; model?: string; temperature?: number; timeoutMs?: number; }
 export interface AiResult { text: string; json: any; model: string; usage: any; runId?: string; provider?: string; }
 export interface AiRawResult { data: any; text: string; toolUse: any[]; usage: any; model: string; runId?: string; }
@@ -24,8 +24,18 @@ export interface AiRawResult { data: any; text: string; toolUse: any[]; usage: a
 export class AiService {
   constructor(private prisma: PrismaService, private routing: LlmRoutingService) {}
 
-  /** Legacy: the default Anthropic model (used by raw() + callers that read .model). */
-  get model(): string { return process.env.LABOR_AI_MODEL || process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20241022'; }
+  /** Legacy sync accessor for the default Anthropic model (callers that read .model).
+   *  The old hard-coded fallback here was claude-3-5-sonnet-20241022, which Anthropic RETIRED on
+   *  28 Oct 2025 — with no env override set, every raw() call died on model-not-found, and because
+   *  that classifies as BAD_REQUEST (non-transient) there was no retry and no failover. A retired
+   *  env value is now ignored the same way. raw() itself prefers the DB-configured model; see
+   *  LlmRoutingService.anthropicModel(). */
+  get model(): string {
+    for (const c of [process.env.LABOR_AI_MODEL, process.env.ANTHROPIC_MODEL]) {
+      if (c && !isRetiredModel(c)) return c;
+    }
+    return DEFAULT_ANTHROPIC_MODEL;
+  }
 
   // ── Provider cooldown (in-memory; clears on restart) ─────────────────────────
   private cooldown = new Map<string, number>();
@@ -40,7 +50,7 @@ export class AiService {
     const cooling = ready.filter((p) => this.isCooling(p.provider));
     const attempt = [...hot, ...cooling]; // cooled providers are DEPRIORITIZED, never excluded — a refilled/recovered provider is still retried when the others fail
     if (!attempt.length) throw new BadRequestException('AI is not configured. Add a provider key (e.g. ANTHROPIC_API_KEY) or a Local server URL (LOCAL_LLM_SERVER_URL) in the backend .env, then enable it in Engines & Routing.');
-    const reason = (k: string) => k === 'CREDIT' ? 'out of credit/quota' : k === 'RATE' ? 'rate-limited' : k === 'AUTH' ? 'bad or missing key' : k === 'TIMEOUT' ? 'timed out' : k === 'NETWORK' ? 'unreachable' : k === 'SERVER' ? 'provider error' : 'failed';
+    const reason = (k: string) => k === 'CREDIT' ? 'out of credit/quota' : k === 'RATE' ? 'rate-limited' : k === 'AUTH' ? 'bad or missing key' : k === 'MODEL' ? 'model not available on this provider' : k === 'TIMEOUT' ? 'timed out' : k === 'NETWORK' ? 'unreachable' : k === 'SERVER' ? 'provider error' : 'failed';
     // Stream long generations by default — any big-output or long-timeout call streams (server-side, idle-timeout
     // failover) so it can't hit the single-blocking-request wall; quick calls stay simple blocking requests. A caller
     // can always force it on/off via opts.stream.
@@ -48,6 +58,14 @@ export class AiService {
     // Transient classes can succeed on a second try; CREDIT/AUTH/BAD_REQUEST won't, so those never trigger an auto-retry.
     const TRANSIENT = new Set<ProviderErrorKind>(['TIMEOUT', 'SERVER', 'RATE', 'NETWORK']);
     const MAX_PASSES = 2; // at most one extra full sweep of the chain, and only when EVERY provider failed transiently
+    // Wall-clock ceiling for the WHOLE call. Without one, a chain of 5 providers at the 230s timeout
+    // planScenes uses, swept twice, can hold a single request open for ~38 minutes — and main.ts sets
+    // server.requestTimeout = 0, so nothing else cuts it off and the UI just spins. A provider that is
+    // already running keeps its own timeout; this only stops us STARTING another attempt past the
+    // budget. Callers can widen it via opts.budgetMs.
+    const t0 = Date.now();
+    const budgetMs = opts.budgetMs ?? Math.max(opts.timeoutMs ?? 200000, 60000) * 2;
+    const outOfTime = () => Date.now() - t0 > budgetMs;
     let tried: string[] = [];
     let lastErr: any;
     for (let pass = 0; pass < MAX_PASSES; pass++) {
@@ -55,6 +73,7 @@ export class AiService {
       let sawFailure = false;
       let allTransient = true;
       for (const plan of attempt) {
+        if (outOfTime()) { tried.push('(stopped after ' + Math.round((Date.now() - t0) / 1000) + 's — overall time budget reached)'); break; }
         // opts.model is a legacy Anthropic-model override; honor it only on the Anthropic attempt.
         const model = (opts.model && plan.provider === 'anthropic') ? opts.model : plan.model;
         const runId = await this.begin({ task: opts.task, provider: plan.provider, model, projectId: opts.projectId, refType: opts.refType, refId: opts.refId, promptChars: (opts.system || '').length + (opts.user || '').length });
@@ -68,15 +87,25 @@ export class AiService {
           sawFailure = true;
           const kind: ProviderErrorKind = e?.kind || 'UNKNOWN';
           if (!TRANSIENT.has(kind)) allTransient = false;
-          const detail = (kind === 'BAD_REQUEST' || kind === 'SERVER' || kind === 'UNKNOWN') ? (': ' + String(e?.message || '').replace(/\s+/g, ' ').slice(0, 140)) : '';
-          tried.push(plan.key + ' (' + reason(kind) + detail + ')');
-          await this.fail(runId, '[' + plan.provider + ':' + kind + '] ' + String(e?.message || e).slice(0, 300));
+          // THE PROVIDER'S OWN WORDS, ALWAYS. CREDIT and AUTH used to be excluded here to keep the
+          // message tidy — and on 1 Sep that tidiness cost an evening: three runs died reporting
+          // "out of credit/quota" while the Anthropic console showed $19.88 of API credit on the same
+          // key and workspace. The classifier matches loosely on purpose (a body containing
+          // "insufficient" or "billing" is enough), so a spend limit, a model-access restriction, a
+          // permissions problem and an empty balance all print identically. A TERMINAL failure is
+          // precisely when the operator needs the raw sentence, not our summary of it. Redacted at
+          // the throw site below, like everything else in this message.
+          const detail = ': ' + String(e?.message || '').replace(/\s+/g, ' ').slice(0, 220);
+          tried.push(plan.key + ' (' + reason(kind) + ' — ' + model + detail + ')');
+          // Redacted before it is stored: an AiRun row is read back by the UI and exported in support
+          // bundles, so a credential that reaches it outlives the request that produced it.
+          await this.fail(runId, redactSecrets('[' + plan.provider + ':' + kind + '] ' + String(e?.message || e).slice(0, 300)));
           if (isExhausting(kind)) this.cool(plan.provider, kind);
           // fall through to the next provider in the chain
         }
       }
       // Every provider failed this sweep. If they ALL failed on a transient condition, wait briefly and sweep once more.
-      if (pass < MAX_PASSES - 1 && sawFailure && allTransient) { await new Promise((res) => setTimeout(res, 1500)); continue; }
+      if (pass < MAX_PASSES - 1 && sawFailure && allTransient && !outOfTime()) { await new Promise((res) => setTimeout(res, 1500)); continue; }
       break;
     }
     // Nothing succeeded — return an actionable, per-provider breakdown.
@@ -84,8 +113,14 @@ export class AiService {
     const parts: string[] = [];
     if (tried.length) parts.push('Tried — ' + tried.join('; ') + '.');
     if (offline.length) parts.push('Not enabled (add a key in Engines & Routing, or a server URL for Local): ' + offline.join(', ') + '.');
-    if (attempt.some((p) => p.provider === 'local') && lastErr?.kind === 'NETWORK') parts.push('Your Local engine looks offline — start Ollama / LM Studio, or fix LOCAL_LLM_SERVER_URL.');
-    throw new BadRequestException(('No AI provider could complete the request. ' + parts.join(' ')).trim());
+    const localPlan = chain.find((p) => p.provider === 'local');
+    if (localPlan?.modelMissing) parts.push('Your Local engine is running but does not have the model "' + localPlan.model + '" — run:  ollama pull ' + localPlan.model + '  (or pick a model it already has in Engines & Routing).');
+    else if (localPlan?.unreachable || (attempt.some((p) => p.provider === 'local') && lastErr?.kind === 'NETWORK')) parts.push('Your Local engine looks offline — start Ollama / LM Studio, or fix LOCAL_LLM_SERVER_URL.');
+    // Redacted at the single point where every routing failure becomes a message. The engine list
+    // above is database content, and on 1 Sep one of its rows was a pasted .env line containing a
+    // live Anthropic key — printed to the operator's terminal and into the log they were tailing.
+    // See redactSecrets in providers.ts.
+    throw new BadRequestException(redactSecrets(('No AI provider could complete the request. ' + parts.join(' ')).trim()));
   }
   async complete(opts: AiRunOpts): Promise<string> { return (await this.run(opts)).text; }
   async json<T = any>(opts: AiRunOpts): Promise<T | null> { return (await this.run(opts)).json as T | null; }
@@ -94,7 +129,10 @@ export class AiService {
   async raw(opts: AiRawOpts): Promise<AiRawResult> {
     if (!process.env.ANTHROPIC_API_KEY) throw new BadRequestException('Vision/tool calls use Anthropic — set ANTHROPIC_API_KEY in the backend .env.');
     if (typeof fetch === 'undefined') throw new BadRequestException('AI needs Node 18+ on the backend (global fetch is missing).');
-    const model = opts.model || this.model;
+    // raw() is Anthropic-only with NO failover, so the model must be one that is actually served.
+    // Prefer the engine row's configured model (what the operator picked in Engines & Routing),
+    // then a non-retired env override, then the shared default.
+    const model = opts.model || await this.routing.anthropicModel();
     let promptChars = 0; try { promptChars = (opts.system || '').length + JSON.stringify(opts.messages || []).length; } catch { promptChars = 0; }
     const runId = await this.begin({ task: opts.task, provider: 'anthropic', model, projectId: opts.projectId, refType: opts.refType, refId: opts.refId, promptChars });
     const body: any = { model, max_tokens: opts.maxTokens || 1500, temperature: opts.temperature, system: opts.system, messages: opts.messages };

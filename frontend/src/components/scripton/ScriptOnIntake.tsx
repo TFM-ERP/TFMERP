@@ -663,7 +663,7 @@ export default function ScriptOnIntake({ projectId, busy, onBegin, onClose }: { 
                   <span style={{ ...chip(false), borderStyle: 'dashed' }} onClick={() => setUrls((a) => [...a, ''])}>{t('+ Add website / URL')}</span>
                   {upl ? <span style={{ fontSize: 11.5, color: C.green }}>{upl}</span> : null}
                 </div>
-                <div style={{ fontSize: 10.5, color: C.faint, marginTop: 8 }}>{t('Accepts PDF, FDX, Fountain, Word, EPUB, HTML - one file or many.')}</div>
+                <div style={{ fontSize: 10.5, color: C.faint, marginTop: 8 }}>{t('Accepts PDF, Word, Final Draft, Fountain, HTML, text and Markdown - one file or many.')}</div>
               </div>
             <button disabled={!projectId || !(f.name && String(f.name).trim())} onClick={() => setStep(2)} style={{ width: '100%', height: 46, border: 'none', borderRadius: 12, background: 'linear-gradient(180deg,' + C.gold2 + ',' + C.gold + ')', color: C.ink, fontWeight: 800, fontSize: 14, cursor: 'pointer', opacity: (projectId && f.name && String(f.name).trim()) ? 1 : 0.6 }}>{(f.name && String(f.name).trim()) ? (t('Next - Brief') + ' ' + (dir === 'rtl' ? '<' : '>')) : t('Name your build to continue')}</button>
           </div>

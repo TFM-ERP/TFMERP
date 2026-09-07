@@ -10,7 +10,7 @@ import {
   isLengthOver, remainingBudgetScale, WORDS_PER_PAGE,
   TOKENS_PER_WORD, CAP_HEADROOM, MIN_SCENE_TOKENS, OBSERVED_OVERRUN,
   DELIVERY_FACTOR, MIN_ASK_WORDS,
-  planSliceBudget, planSliceInstruction, MIN_PLAN_SLICE,
+  planSliceBudget, planSliceInstruction, MIN_PLAN_SLICE, blendProfiles,
 } from './feature-length.util';
 
 test('genre resolution falls back cleanly and reads the Json genres array', () => {
@@ -19,8 +19,16 @@ test('genre resolution falls back cleanly and reads the Json genres array', () =
   assert.equal(resolveGenreProfile({ genres: ['Comedy'] }).key, 'COMEDY');
   assert.equal(resolveGenreProfile({ genre: 'psychological horror' }).key, 'HORROR');
   assert.equal(resolveGenreProfile({ genres: ['تاريخي'] }).key, 'HISTORICAL');
-  // action wins over historical in a "historical action epic" — scene volume drives the page maths
-  assert.equal(resolveGenreProfile({ genres: ['Historical', 'Action'] }).key, 'ACTION');
+  // THIS ASSERTION CHANGED MEANING WHEN blendProfiles SHIPPED, and the change is the point.
+  // It used to read ACTION, because the scan returned the first row in TABLE ORDER and ACTION sits
+  // above HISTORICAL. But reDna computes genres = [...baseGenres, ...blendLayers], so the first
+  // entry is the base the writer actually chose, and here that is Historical. The old rationale -
+  // "scene volume drives the page maths" - is now served by the BLEND rather than by the key:
+  // density rises from Historical's 1.04 toward Action's 1.25 instead of erasing the base outright.
+  const hist = resolveGenreProfile({ genres: ['Historical', 'Action'] });
+  assert.equal(hist.key, 'HISTORICAL');
+  assert.equal(hist.sceneDensity, 1.15);
+  assert.ok(hist.sceneDensity > 1.04 && hist.sceneDensity < 1.25, 'the action layer must pull it up, not replace it');
 });
 
 test('target pages are read from pages, minutes or a free-text length', () => {
@@ -610,14 +618,63 @@ test('"romantic comedy" is still a comedy, and a bare "Romance" is still a roman
   assert.notEqual(resolveGenreProfile({ genres: ['Rom-Com'] }).key, 'DEFAULT');
 });
 
-test('ONE genre still wins outright — which is the case for blendProfiles, recorded as a test', () => {
-  // Jason Quick is tagged ["Action","Drama","Thriller"] and is planned purely as an action film.
+test('A BLEND LANDS HALFWAY BETWEEN THE BASE AND THE CENTRE OF ITS LAYERS', () => {
+  // This test used to record the DEFECT: Jason Quick, tagged Action / Drama / Thriller, was planned
+  // purely as an action film at 1.25, because the scan returned the first row in table order and
+  // the writer's other two genres were discarded. Its own comment said "a blended profile would
+  // land between 1.25 and 1.04", and this is that.
   const p = resolveGenreProfile({ genres: ['Action', 'Drama', 'Thriller'] });
-  assert.equal(p.key, 'ACTION');
-  assert.equal(p.sceneDensity, 1.25);
-  // A blended profile would land between 1.25 and 1.04. Nothing does that yet, and this test is
-  // here so that when blendProfiles ships, the change is visible rather than silent.
+  assert.equal(p.key, 'ACTION');                 // the base still names the profile
+  assert.equal(p.provenance, 'blended');
+  assert.deepEqual(p.blendOf, ['ACTION', 'DRAMA', 'THRILLER']);
+  assert.equal(p.sceneDensity, 1.17);
+  assert.ok(p.sceneDensity > 1.04 && p.sceneDensity < 1.25);
+  assert.match(p.source, /halfway between the base and the centre of its layers/);
+
+  // The rule is one sentence, so it can be checked by hand: base 1.25, layers centre at
+  // (1.04 + 1.25) / 2 = 1.145, blend = (1.25 + 1.145) / 2 = 1.1975 -> 1.20. Thriller inherits
+  // ACTION, which is why the centre sits high. Assert the arithmetic, not just the outcome.
+  const two = resolveGenreProfile({ baseGenre: 'Sci-Fi', blendLayers: ['Drama'] });
+  assert.equal(two.sceneDensity, 1.15);          // (1.25 + 1.04) / 2, and SCIFI's own note calls
+  assert.deepEqual(two.blendOf, ['SCIFI', 'DRAMA']);   // its inherited 1.25 the weakest in the table
+
+  // HOWEVER MANY LAYERS ARE ADDED they can never move the story more than half the distance from
+  // its base — the base carries weight equal to their number. This is what stops a long tag list
+  // from walking a film's texture away from the genre it actually is.
+  const many = resolveGenreProfile({ baseGenre: 'Comedy', blendLayers: ['Action', 'Action', 'Action'] });
+  assert.ok(many.sceneDensity <= (0.93 + 1.25) / 2 + 0.005, 'a blend cannot travel past halfway');
 });
+
+test('a SINGLE-genre brief is untouched by blending, by identity', () => {
+  // The blast radius of this feature must be exactly the multi-genre case. A brief naming one genre
+  // gets the TABLE ROW ITSELF back, not a copy, so nothing about single-genre behaviour can drift.
+  const table = genreProfileTable();
+  for (const key of ['ACTION', 'COMEDY', 'DRAMA', 'HORROR']) {
+    const p = resolveGenreProfile({ genres: [key] });
+    assert.equal(p.key, key);
+    assert.notEqual(p.provenance, 'blended');
+    assert.equal(p.blendOf, undefined);
+    assert.equal(p.sceneDensity, table.find((r: any) => r.key === key)!.sceneDensity);
+  }
+});
+
+test('blendProfiles never throws, and a layer equal to the base is not a layer', () => {
+  const action = resolveGenreProfile({ genres: ['Action'] });
+  assert.equal(blendProfiles(action, []), action);                       // identity, not a copy
+  assert.equal(blendProfiles(action, null as any), action);
+  assert.equal(blendProfiles(action, [action]).sceneDensity, 1.25);      // itself is no layer
+  assert.equal(blendProfiles(null as any, []).key, 'DEFAULT');
+  assert.equal(blendProfiles(action, [{} as any]).sceneDensity, 1.25);   // junk layer ignored
+  // A duplicate layer counts ONCE. Note what this does and does not protect: the centroid of
+  // [Drama, Drama] is Drama, so the density is identical either way and an assertion on it would
+  // pass with the guard deleted — a test that proves nothing. What the guard really protects is
+  // `blendOf`, which has to be able to NAME the ingredients, and naming Drama twice is wrong.
+  const once = resolveGenreProfile({ baseGenre: 'Action', blendLayers: ['Drama'] });
+  const twice = resolveGenreProfile({ baseGenre: 'Action', blendLayers: ['Drama', 'Drama'] });
+  assert.equal(once.sceneDensity, twice.sceneDensity);
+  assert.deepEqual(twice.blendOf, ['ACTION', 'DRAMA']);
+});
+
 
 test('the genre table is renderable — every row carries what a settings panel needs to show', () => {
   const rows = genreProfileTable();

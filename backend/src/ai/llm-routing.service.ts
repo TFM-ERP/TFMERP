@@ -19,10 +19,34 @@ export interface ProviderPlan {
   baseUrl?: string;
   enabled: boolean;
   tier: string;
-  usable: boolean; // enabled AND has a credential (or a Local server URL)
+  usable: boolean; // enabled AND has a credential (or a REACHABLE Local server)
+  unreachable?: boolean; // local only: configured, but nothing answered on its base URL
+  modelMissing?: boolean; // local only: server is up, but it has not pulled this model
 }
 
 const CAPABILITIES = ['LLM_DEFAULT', 'BREAKDOWN', 'DRAFTING', 'POLISH', 'LEGAL'];
+
+/**
+ * Single source of truth for the Anthropic model used whenever no engine row and no env var
+ * supplies one. AiService imports this too, so the gateway and the switchboard can never drift
+ * onto different defaults.
+ */
+export const DEFAULT_ANTHROPIC_MODEL = 'claude-sonnet-4-6';
+
+/**
+ * Model ids the provider no longer serves. A call against one fails with model-not-found, which
+ * classify() reads as BAD_REQUEST — a NON-transient class, so there is no retry and no failover
+ * and the whole request dies. Any engine row still pinned to a retired id is migrated forward on
+ * boot, and toPlan() refuses to hand one to a provider.
+ * Only add an id here once its retirement is CONFIRMED: a live model listed here would be
+ * silently swapped out from under the operator's choice.
+ */
+export const RETIRED_MODELS: ReadonlySet<string> = new Set<string>([
+  'claude-3-5-sonnet-20241022', // Anthropic retired this on 28 Oct 2025
+]);
+
+/** Is this model id one the provider has stopped serving? Empty/absent counts as "no model set". */
+export function isRetiredModel(id?: string | null): boolean { return !!id && RETIRED_MODELS.has(String(id)); }
 const PROVIDERS: LlmProvider[] = ['anthropic', 'deepseek', 'gemini', 'openrouter', 'local'];
 
 /** Built-in provider catalog — what each is for + sane default models + priority. */
@@ -36,7 +60,10 @@ export const LLM_PROVIDER_DEFAULTS: Array<{
       { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6 — balanced', hint: 'Best price/quality for drafting + long output', tier: 'paid' },
       { id: 'claude-opus-4-8', label: 'Claude Opus 4.8 — most capable', hint: 'Highest quality; premium price — best for final polish', tier: 'paid' },
       { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5 — fast/cheap', hint: 'Quick, low-cost tasks', tier: 'paid' },
-      { id: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet (legacy)', hint: 'Older; 8192-token output cap', tier: 'paid' },
+      { id: 'claude-sonnet-5', label: 'Claude Sonnet 5 — newest balanced', hint: 'Current Sonnet generation', tier: 'paid' },
+      { id: 'claude-opus-5', label: 'Claude Opus 5 — newest, most capable', hint: 'Current Opus generation; premium price', tier: 'paid' },
+      // claude-3-5-sonnet-20241022 removed: Anthropic retired it on 28 Oct 2025 and it now fails.
+      // It survives only in RETIRED_MODELS, so a row still pinned to it is migrated forward on boot.
     ] },
   { key: 'DEEPSEEK', provider: 'deepseek', displayName: 'DeepSeek', credentialRef: 'DEEPSEEK_API_KEY', tier: 'PAID', defaultModel: 'deepseek-v4-flash', priority: 20,
     models: [
@@ -106,13 +133,18 @@ export class LlmRoutingService implements OnModuleInit {
         fallbackChain: engines.map((e: any) => e.id), projectOverrideAllowed: false, userMayOverride: false,
       } });
     }
-    // Idempotent refresh: keep existing engines' model catalogs current (so the UI dropdown shows the latest
-    // models), and migrate the prior seed default (claude-3-5-sonnet) forward without touching user choices.
+    // Idempotent refresh: keep existing engines' model catalogs current (so the UI dropdown shows the
+    // latest models) and migrate any row pinned to a RETIRED model forward — without overwriting the
+    // operator's own choices.
     for (const d of LLM_PROVIDER_DEFAULTS) {
       const ex = await (this.prisma as any).llmEngine.findUnique({ where: { key: d.key } }).catch(() => null);
       if (!ex) continue;
-      const patch: any = { models: d.models as any, credentialRef: d.credentialRef }; // repair the env-var mapping (fixes a "no key" row whose credentialRef drifted)
-      if (!ex.defaultModel || ex.defaultModel === 'claude-3-5-sonnet-20241022') patch.defaultModel = d.defaultModel;
+      const patch: any = { models: d.models as any };
+      // Only fill in a MISSING credentialRef. Overwriting it unconditionally silently reverted any
+      // env-var mapping set in the Engines & Routing UI on every single restart.
+      if (!ex.credentialRef && d.credentialRef) patch.credentialRef = d.credentialRef;
+      // A blank or retired model is not a user choice worth preserving — it is a dead engine.
+      if (!ex.defaultModel || isRetiredModel(ex.defaultModel)) patch.defaultModel = d.defaultModel;
       await (this.prisma as any).llmEngine.update({ where: { id: ex.id }, data: patch }).catch(() => {});
     }
     return this.listEngines();
@@ -145,8 +177,78 @@ export class LlmRoutingService implements OnModuleInit {
   capabilityForTask(_task?: string): string { return 'LLM_DEFAULT'; }
 
   private fallbackModel(provider: LlmProvider): string {
+    if (provider === 'anthropic') return DEFAULT_ANTHROPIC_MODEL;
     const d = LLM_PROVIDER_DEFAULTS.find((x) => x.provider === provider);
     return d?.defaultModel || 'gpt-4o-mini';
+  }
+
+  // ── Local-engine reachability (cached) ───────────────────────────────────────
+  /**
+   * A Local engine counts as "configured" the moment it has a base URL — which says nothing about
+   * whether a server is actually listening there. Local is seeded ENABLED with a default localhost
+   * URL, so without this probe the chain always contains one "usable" provider: the actionable
+   * "AI is not configured" message can never fire, and every failing call burns a doomed attempt on
+   * a dead port (on Railway there is no Ollama on 127.0.0.1 at all).
+   * Cached for 60s and re-probed after, so starting Ollama recovers without a backend restart.
+   */
+  private localProbe: { at: number; url: string; ok: boolean; models: string[] } | null = null;
+  private async probeLocal(baseUrl?: string): Promise<{ ok: boolean; models: string[] }> {
+    const url = String(baseUrl || '');
+    if (!url) return { ok: false, models: [] };
+    const c = this.localProbe;
+    if (c && c.url === url && Date.now() - c.at < 60_000) return { ok: c.ok, models: c.models };
+    let ok = false; let models: string[] = [];
+    if (typeof fetch !== 'undefined') {
+      const AC: any = (globalThis as any).AbortController;
+      const ctrl: any = typeof AC !== 'undefined' ? new AC() : null;
+      const timer: any = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch { /* noop */ } }, 1200) : null;
+      try {
+        const r: any = await fetch(url.replace(/\/+$/, '') + '/models', { signal: ctrl ? ctrl.signal : undefined } as any);
+        ok = !!r && r.status < 500; // any answer at all means something is listening
+        if (ok) {
+          const j: any = await r.json().catch(() => null);
+          const rows: any[] = Array.isArray(j?.data) ? j.data : (Array.isArray(j?.models) ? j.models : []);
+          models = rows.map((m: any) => String(m?.id || m?.name || '')).filter(Boolean);
+        }
+      } catch { ok = false; } finally { if (timer) clearTimeout(timer); }
+    }
+    this.localProbe = { at: Date.now(), url, ok, models };
+    return { ok, models };
+  }
+
+  /**
+   * Demote a Local engine that cannot actually serve the call, so it stops occupying a chain slot
+   * and the operator is told which of the two problems they have:
+   *   - nothing listening on the base URL  → unreachable
+   *   - listening, but the model was never pulled → modelMissing
+   * The second one is real: the seeded default is `llama3.1`, and an Ollama install without that
+   * tag answers every request with "model 'llama3.1' not found".
+   */
+  private async withLocalReachability(plans: ProviderPlan[]): Promise<ProviderPlan[]> {
+    const local = plans.find((p) => p.provider === 'local' && p.usable);
+    if (!local) return plans;
+    const probe = await this.probeLocal(local.baseUrl);
+    if (!probe.ok) { local.usable = false; local.unreachable = true; return plans; }
+    // Ollama reports tags ("llama3.1:latest"); match on the bare name too. An empty list means the
+    // server did not tell us what it has — assume it can serve, rather than falsely demoting it.
+    const has = (want: string) => probe.models.some((m) => m === want || m.split(':')[0] === want.split(':')[0]);
+    if (probe.models.length && local.model && !has(local.model)) { local.usable = false; local.modelMissing = true; }
+    return plans;
+  }
+
+  /**
+   * The Anthropic model raw() (vision / forced tool-use) should use: the engine row's configured
+   * model when it is set and still served, then the env override, then the shared default.
+   * raw() is Anthropic-only with NO failover, so a retired id here kills the call outright —
+   * this must never return one.
+   */
+  async anthropicModel(): Promise<string> {
+    let row: any = null;
+    try { row = await (this.prisma as any).llmEngine.findUnique({ where: { key: 'ANTHROPIC' } }); } catch { row = null; }
+    for (const c of [row?.defaultModel, process.env.LABOR_AI_MODEL, process.env.ANTHROPIC_MODEL]) {
+      if (c && !isRetiredModel(c)) return String(c);
+    }
+    return DEFAULT_ANTHROPIC_MODEL;
   }
 
   private toPlan(e: any): ProviderPlan | null {
@@ -159,9 +261,10 @@ export class LlmRoutingService implements OnModuleInit {
     // switchboard, e.g. a higher-output Sonnet/Opus) over the seeded default, so output limits match what worked.
     // The engine's defaultModel (set in the Engines & Routing UI) is the master switch; the ANTHROPIC_MODEL env
     // is only a fallback when no model is set on the engine row.
-    const model = e?.defaultModel
-      || (provider === 'anthropic' ? (process.env.LABOR_AI_MODEL || process.env.ANTHROPIC_MODEL) : undefined)
-      || this.fallbackModel(provider);
+    // A retired id is treated as "no model set" at every level, so a stale row or a stale env var
+    // falls through to the current default instead of hard-failing the call with model-not-found.
+    const envModel = provider === 'anthropic' ? (process.env.LABOR_AI_MODEL || process.env.ANTHROPIC_MODEL) : undefined;
+    const model = [e?.defaultModel, envModel].find((m) => m && !isRetiredModel(m)) || this.fallbackModel(provider);
     return {
       engineId: e?.id || '', key: e?.key || provider.toUpperCase(), provider,
       model, apiKey, baseUrl,
@@ -177,7 +280,8 @@ export class LlmRoutingService implements OnModuleInit {
       const baseUrl = provider === 'local' ? (process.env.LOCAL_LLM_SERVER_URL || d.baseUrl) : undefined;
       const hasCred = provider === 'local' ? !!baseUrl : !!apiKey;
       const enabled = provider === 'anthropic' || provider === 'local' ? true : !!apiKey;
-      const model = provider === 'anthropic' ? (process.env.LABOR_AI_MODEL || process.env.ANTHROPIC_MODEL || d.defaultModel) : d.defaultModel;
+      const envModel = provider === 'anthropic' ? (process.env.LABOR_AI_MODEL || process.env.ANTHROPIC_MODEL) : undefined;
+      const model = (envModel && !isRetiredModel(envModel)) ? envModel : d.defaultModel;
       return { engineId: '', key: d.key, provider, model, apiKey, baseUrl, enabled, tier: d.tier, usable: enabled && hasCred };
     });
   }
@@ -195,14 +299,15 @@ export class LlmRoutingService implements OnModuleInit {
         if (proj && (policy?.projectOverrideAllowed || proj.projectOverrideAllowed)) policy = proj;
       }
     } catch { engines = []; policy = null; }
-    if (!engines.length) return this.defaultChain();
+    if (!engines.length) return this.withLocalReachability(this.defaultChain());
     const byId = new Map<string, any>(engines.map((e: any) => [e.id, e]));
     const chain: string[] = Array.isArray(policy?.fallbackChain) ? policy.fallbackChain : [];
     const ordered: any[] = [];
     for (const id of chain) { const e = byId.get(id); if (e) ordered.push(e); }
     const inChain = new Set(ordered.map((e) => e.id));
     const rest = engines.filter((e: any) => !inChain.has(e.id)).sort((a: any, b: any) => (a.priority ?? 100) - (b.priority ?? 100));
-    return [...ordered, ...rest].map((e) => this.toPlan(e)).filter((p): p is ProviderPlan => !!p);
+    const plans = [...ordered, ...rest].map((e) => this.toPlan(e)).filter((p): p is ProviderPlan => !!p);
+    return this.withLocalReachability(plans);
   }
 
   /** Non-secret view of the resolved chain for the admin/health UI. */
@@ -213,6 +318,8 @@ export class LlmRoutingService implements OnModuleInit {
       providers: chain.map((p) => ({
         key: p.key, provider: p.provider, model: p.model, tier: p.tier,
         enabled: p.enabled, usable: p.usable,
+        unreachable: !!p.unreachable, // local: has a URL, but nothing answered on it
+        modelMissing: !!p.modelMissing, // local: server is up, but this model was never pulled
         hasCredential: p.provider === 'local' ? !!p.baseUrl : !!p.apiKey,
       })),
     };

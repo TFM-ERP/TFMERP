@@ -176,7 +176,7 @@ export const MIN_ASK_WORDS = 45;
 export const MIN_SCENE_TOKENS = 160;
 
 /** Where a profile's `sceneDensity` came from. Never let a constant ship without one. */
-export type Provenance = 'measured' | 'derived' | 'default';
+export type Provenance = 'measured' | 'derived' | 'default' | 'blended';
 
 export interface GenreLengthProfile {
   key: string;
@@ -192,6 +192,9 @@ export interface GenreLengthProfile {
   parent: string;
   /** The citation, for the settings UI and for audit. A constant must be able to say where it came from. */
   source: string;
+  /** Present only on a BLENDED profile: the keys it was built from, base first. A blend has to be
+   *  able to name its ingredients for the same reason a constant has to name its source. */
+  blendOf?: string[];
 }
 
 /**
@@ -414,6 +417,85 @@ function keyForm(term: any): string {
   return String(term == null ? '' : term).trim().toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_|_$/g, '');
 }
 
+/** Two decimals, matching the precision every figure in the table is written to. */
+const dp2 = (n: number): number => Math.round(n * 100) / 100;
+
+/**
+ * BLEND A BASE GENRE WITH ITS LAYERS.
+ *
+ * The intake models a story as ONE base genre plus any number of blend layers - the noun the story
+ * IS, and what is laid over it. `resolveGenreProfile` used to ignore that entirely: it scanned the
+ * table and returned the FIRST row whose alias appeared anywhere in the brief, so TABLE ORDER
+ * decided, not the writer. Jason Quick, tagged Action / Drama / Thriller, was planned purely as an
+ * action film at 1.25 scenes per page, and a Drama with a Comedy layer was planned as whichever of
+ * the two happened to sit higher in the table.
+ *
+ * THE RULE, and it is one sentence so it can be audited: A BLEND LANDS HALFWAY BETWEEN THE BASE AND
+ * THE CENTRE OF ITS LAYERS. The base carries weight equal to the number of layers, each layer
+ * carries one, so however many layers are added they can never move the story more than half the
+ * distance from its base. No invented decimal: the only number here is a half, and it is stated.
+ *
+ * ONLY `sceneDensity` BLENDS. `pagesPerMinute` and `defaultPages` are deliberately left at the
+ * base's values, because this file already says they were "deliberately UNCHANGED for every genre
+ * that already had them" - they are craft conventions about length, not measurements about texture,
+ * and scene density is the figure the table itself calls its weakest.
+ *
+ * With no layers this returns the base row UNCHANGED, by identity - so every single-genre brief
+ * behaves exactly as it did.
+ *
+ * PURE. NEVER THROWS.
+ */
+export function blendProfiles(base: GenreLengthProfile, layers: GenreLengthProfile[]): GenreLengthProfile {
+  if (!base) return DEFAULT_GENRE_PROFILE;
+  const use = (Array.isArray(layers) ? layers : [])
+    .filter((l) => l && typeof l.sceneDensity === 'number' && isFinite(l.sceneDensity) && l.key !== base.key);
+  if (!use.length) return base;
+  const centre = use.reduce((t, l) => t + l.sceneDensity, 0) / use.length;
+  const blended = dp2((base.sceneDensity + centre) / 2);
+  const names = use.map((l) => l.key);
+  return {
+    ...base,
+    sceneDensity: blended,
+    provenance: 'blended',
+    blendOf: [base.key, ...names],
+    source: base.key + ' base at ' + base.sceneDensity + ', layered with ' + names.join(' + ')
+      + ' (centre ' + dp2(centre) + '); a blend lands halfway between the base and the centre of its layers',
+  };
+}
+
+/**
+ * The base genre and its layers, as the intake models them.
+ *
+ * `reDna()` computes `genres = [...baseGenres, ...blendLayers]`, so in the legacy flat array the
+ * FIRST entry is the base and the rest are layers - a real convention, not a guess. An explicit
+ * `baseGenre` / `blendLayers` pair wins over it when the brief carries one.
+ */
+export function briefGenreParts(brief: any): { base: string | null; layers: string[] } {
+  if (!brief || typeof brief !== 'object') return { base: null, layers: [] };
+  const one = (v: any): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
+  const many = (v: any): string[] => (Array.isArray(v) ? v.filter((x) => typeof x === 'string' && x.trim()).map((x) => x.trim()) : []);
+  let base = one(brief.baseGenre) || many(brief.baseGenres)[0] || null;
+  let layers = many(brief.blendLayers);
+  if (!base) {
+    const flat = many(brief.genres);
+    if (flat.length) { base = flat[0]; if (!layers.length) layers = flat.slice(1); }
+  }
+  return { base, layers };
+}
+
+/** The table row a single genre term resolves to, or null when nothing matches. */
+function profileForTerm(term: string): GenreLengthProfile | null {
+  const t = String(term == null ? '' : term).trim().toLowerCase();
+  if (!t) return null;
+  const key = keyForm(t);
+  for (const p of GENRE_PROFILES) {
+    if (p.key === key) return p;
+    const words = GENRE_ALIASES[p.key];
+    if (words && words.some((w) => t.includes(w))) return p;
+  }
+  return null;
+}
+
 /**
  * Which length profile governs this brief.
  *
@@ -427,6 +509,18 @@ function keyForm(term: any): string {
  * is the fix and is not built.
  */
 export function resolveGenreProfile(brief: any): GenreLengthProfile {
+  const { base, layers } = briefGenreParts(brief);
+  const baseProfile = base ? profileForTerm(base) : null;
+  if (baseProfile) {
+    const layerProfiles: GenreLengthProfile[] = [];
+    for (const l of layers) {
+      const lp = profileForTerm(l);
+      if (lp && lp.key !== baseProfile.key && !layerProfiles.some((x) => x.key === lp.key)) layerProfiles.push(lp);
+    }
+    return blendProfiles(baseProfile, layerProfiles);
+  }
+  // No usable base: fall back to the old whole-brief scan, which also reads subGenre, tone and
+  // projectIntent. A brief that names a genre only in its tone still lands somewhere sensible.
   const terms = briefGenreTerms(brief);
   if (!terms.length) return DEFAULT_GENRE_PROFILE;
   const hay = terms.join(' | ');
@@ -438,6 +532,7 @@ export function resolveGenreProfile(brief: any): GenreLengthProfile {
   }
   return DEFAULT_GENRE_PROFILE;
 }
+
 
 export interface FeatureLengthPlan {
   genreKey: string;

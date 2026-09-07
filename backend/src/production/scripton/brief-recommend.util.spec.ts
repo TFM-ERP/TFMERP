@@ -3,7 +3,7 @@ import { strict as assert } from 'node:assert';
 import {
   matchOption, coerceRecommendations, applyRecommendations, undoRecommendations,
   hasUserValue, explainRecommendations, recommendableFields, canonicalField, rowsFrom,
-  FIELD_SPECS, MIN_WHY_CHARS, MAX_RECOMMENDATIONS, Recommendation, salvageRows,
+  FIELD_SPECS, MIN_WHY_CHARS, MAX_RECOMMENDATIONS, Recommendation, salvageRows, DECLARED_KINDS,
 } from './brief-recommend.util';
 
 /**
@@ -605,4 +605,24 @@ test('salvageRows is fail-safe on junk and never throws', () => {
   for (const junk of ['', '   ', 'no json here at all', '}}}{{{', '{"fields":', null, undefined]) {
     assert.deepEqual(salvageRows(junk as any), [], JSON.stringify(junk));
   }
+});
+
+test('every kind the field table uses is declared, so a seventh cannot arrive half-wired', () => {
+  // Before the KINDS table, what a kind MEANT was spelled in five places - coercion, the presence
+  // exemption, undo's equality, undo's restore, and undo's empty ternary - and `flags` was named in
+  // four of them. Adding a kind meant editing four spots that had to stay isomorphic by hand, with
+  // nothing to catch a miss. This is that catch: a kind used by any field must be fully declared.
+  const used = new Set(Object.values(FIELD_SPECS).map((s: any) => s.kind));
+  const declared = new Set(DECLARED_KINDS);
+  const undeclared = [...used].filter((k) => !declared.has(k as any));
+  assert.deepEqual(undeclared, [], 'a field uses a kind KINDS does not declare: ' + undeclared.join(', '));
+  assert.ok(used.size >= 4, 'expected the field table to exercise several kinds');
+});
+
+test('an unrecognised kind DROPS rather than throwing, which is how __proto__ stays harmless', () => {
+  // FIELD_SPECS['__proto__'] resolves to Object.prototype - truthy, with an undefined `kind`. The
+  // old if/else chain fell through and left the value null; a bare table lookup threw instead. This
+  // module never throws, so the lookup is guarded and the value is dropped.
+  const out = coerceRecommendations({ fields: [rec('__proto__', 'x'), rec('baseGenres', ['Drama'])] }, OPTS);
+  assert.deepEqual(out.map((r) => r.field), ['baseGenres']);
 });

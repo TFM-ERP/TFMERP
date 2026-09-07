@@ -11,7 +11,8 @@ import {
   planFeatureLength, applyPageWeights, lineBudgetFor, snapPageWeight, countVisualLines,
   expansionCandidates, isLengthComplete, isLengthOver, completionRatio,
   remainingBudgetScale, LINES_PER_PAGE, planSliceBudget, planSliceInstruction, MIN_PLANNED_SCENES,
-  type FeatureLengthPlan, type LineBudget,
+  genreProfileTable,
+  type FeatureLengthPlan, type LineBudget, type GenreOverride, type GenreProfileRow,
 } from './feature-length.util';
 import {
   classifyLine, nextInSpeech, checkScene, checkDraftContinuity, checkPlanCast, stripExitedCast,
@@ -37,7 +38,9 @@ import {
   type EntityRegistry, type StateFact, type PlaceObservation,
 } from './entity-registry.util';
 import { mapAiFactsToCore } from './canon/canon-map.util';
+import { canonDirective } from './canon/canon-inject.util';
 import type { CanonFactCore } from './canon/canon.types';
+import { excerptSource, sourceMaterialBlock, SOURCE_EXCERPT_CHARS } from './source-excerpt.util';
 import { buildPackageDocModel } from './package-docx.util';
 import { packDocx } from './package-docx.renderer';
 import { LEVER_KEYS, resolveLever } from './intake-levers.util';
@@ -46,6 +49,8 @@ import { isProviderExhausted, isStubRunaway, isHalt, ScriptGenerationHalted, STU
 import { htmlToText as htmlToTextUtil, extractText, uploadBasename, assembleCorpus, canReuseExtraction, kindOf, kindFromContentType, MAX_REMOTE_BYTES } from './source-ingest.util';
 import { segmentPassages, batchPassages, applyVerdicts, buildSourceBible, passageBody, residualPaste, SourceDoc, Passage, SourceBible } from './source-classify.util';
 import { coerceRecommendations, recommendableFields, salvageRows, FIELD_SPECS, Recommendation } from './brief-recommend.util';
+import { verdictFor, abandonedMessage } from './stage-jobs.util';
+import { buildSetList, setListBrief } from './set-list.util';
 import { readFile } from 'fs/promises';
 import { join, resolve, sep } from 'path';
 
@@ -846,11 +851,40 @@ export class ScripOnService {
     return String(projectId) + ':' + String(buildId || '') + ':' + String(kind || '').toUpperCase();
   }
 
-  /** Drop finished jobs older than 10 minutes so the map cannot grow without bound. */
+  /**
+   * Sweep the job map: drop finished jobs past their readable window, and FAIL jobs that are still
+   * marked RUNNING long after any plausible completion.
+   *
+   * The second half is the repair. The old rule was `status !== 'RUNNING' && finishedAt < cutoff`,
+   * which never collected a running job at any age - so one generation that never settled left a
+   * RUNNING entry in this map forever, and `startStage` returns the existing handle whenever it finds
+   * one. That stage became permanently unclickable: no error, no warning, no new version, just a
+   * valid-looking response describing work that was not happening. Only a restart cleared it, because
+   * the map is in memory, which is why it presented as intermittence rather than as a lock.
+   *
+   * AN ABANDONED JOB IS MARKED ERROR, NOT DELETED. Deleting it would unblock the stage and say
+   * nothing; the writer would click Generate and never learn that the previous run died. Marking it
+   * ERROR unblocks the stage (the RUNNING guard stops matching), tells the poller exactly what
+   * happened, and lets the normal 10-minute window collect the row afterwards. A silent lock becomes
+   * a visible failure, which is the whole point.
+   *
+   * The thresholds live in stage-jobs.util.ts with their own tests, and are deliberately generous:
+   * reaping a LIVE run would let the next click start a second expensive generation, which is the
+   * exact thing the RUNNING guard exists to prevent.
+   */
   private pruneStageJobs(): void {
-    const cutoff = Date.now() - 10 * 60 * 1000;
+    const now = Date.now();
     for (const [k, j] of this.stageJobs) {
-      if (j.status !== 'RUNNING' && (j.finishedAt || 0) < cutoff) this.stageJobs.delete(k);
+      const verdict = verdictFor(j, now);
+      if (verdict === 'expired') { this.stageJobs.delete(k); continue; }
+      if (verdict !== 'abandoned') continue;
+      j.status = 'ERROR';
+      j.finishedAt = now;
+      j.elapsedSec = Math.round((now - j.startedAt) / 1000);
+      j.error = abandonedMessage(j.kind, j.startedAt, now);
+      this.log.error('pruneStageJobs: ' + j.kind + ' for ' + j.projectId + ' never settled after '
+        + j.elapsedSec + 's - marking ERROR so the stage is not blocked. The model call almost'
+        + ' certainly hung; check that this stage passes a timeoutMs.');
     }
   }
 
@@ -943,8 +977,23 @@ export class ScripOnService {
     const priorStage: any = idx > 0 ? stages.find((s: any) => s.kind === ladder[idx - 1]) : null;
     const priorApproved: any = priorStage ? ((priorStage.versions || []).find((v: any) => v.status === 'APPROVED' || v.status === 'LOCKED') || priorStage.current) : null;
     const intakeRow: any = await (this.prisma as any).intakeProfile.findUnique({ where: { projectId } }).catch(() => null);
-    const sourceMat = String(opts?.seed || (intakeRow && intakeRow.sourceText) || '').slice(0, 6000);
-    const srcBlock = (sourceMat && ['LOGLINE', 'SYNOPSIS', 'TREATMENT', 'BEATS', 'PREMISE', 'STORY_ENGINE', 'SEASON_ARC', 'THESIS'].indexOf(kind) >= 0) ? ('\nSOURCE MATERIAL (the work to adapt - stay faithful to it unless the brief overrides):\n' + sourceMat) : '';
+    // ── The 6,000-character cap, and the two things that now travel with it ──────────────────────
+    // The cap stays: 44,733 characters against eight ladder stages and then 130 scene calls is an
+    // enormous bill for material mostly irrelevant to any one call. What changes is that the model
+    // is no longer left to complete the missing 87% from imagination. It gets the FIXED FACTS
+    // extracted from the whole document, and it is TOLD the source below is an excerpt.
+    //
+    // The facts come from sourceCanonFor, which reads the source and NOTHING ELSE. Using
+    // extractCanon here would read the stage bodies too - and a synopsis written from this very
+    // excerpt is exactly the document that must not be allowed to define the truth it was supposed
+    // to be checked against. That circularity is how "Jason Vane" became canon (§21).
+    const wantsSource = ['LOGLINE', 'SYNOPSIS', 'TREATMENT', 'BEATS', 'PREMISE', 'STORY_ENGINE', 'SEASON_ARC', 'THESIS'].indexOf(kind) >= 0;
+    const rawSource = String(opts?.seed || (intakeRow && intakeRow.sourceText) || '');
+    const excerpt = excerptSource(rawSource, SOURCE_EXCERPT_CHARS);
+    // at 0: source facts are anchored at story order 0 by mapAiFactsToCore, so all of them are live.
+    const sourceFacts = wantsSource && excerpt.truncated ? await this.sourceCanonFor(projectId, rawSource) : [];
+    const srcBlock = wantsSource ? sourceMaterialBlock(canonDirective(sourceFacts, { at: 0, max: 30 }), excerpt) : '';
+    if (wantsSource && excerpt.truncated) this.log.log('generateStage ' + kind + ': source is an excerpt - ' + excerpt.sent + ' of ' + excerpt.total + ' characters, with ' + sourceFacts.length + ' fixed fact(s) carried alongside it.');
     const research = String((intakeRow && intakeRow.researchNotes) || '').slice(0, 4000);
     const researchBlock = research ? ('\nRESEARCH FINDINGS (authentic facts, period & cultural detail to honour):\n' + research) : '';
     const earlier = stages.filter((s: any) => ladder.indexOf(s.kind) >= 0 && ladder.indexOf(s.kind) < idx).sort((a: any, b: any) => ladder.indexOf(a.kind) - ladder.indexOf(b.kind));
@@ -972,7 +1021,15 @@ export class ScripOnService {
     const heavy = HEAVY.indexOf(kind) >= 0;
     // Keep the per-stage ceiling (25k for the long stages); opts.maxTokens only overrides for tests.
     const cap = Number(opts?.maxTokens) > 0 ? Number(opts.maxTokens) : (MAXTOK[kind] || 3000);
-    const res: any = await this.ai.run({ task: 'scripton.develop.' + kind.toLowerCase(), system: brief.system, user, maxTokens: cap, stream: heavy, timeoutMs: heavy ? 600000 : undefined, idleTimeoutMs: heavy ? 120000 : undefined, projectId, refType: 'Project', refId: projectId }); const ai: any = (res && res.json) || {};
+    // EVERY stage gets a timeout, not just the heavy ones. The light stages used to pass `undefined`,
+    // which is what turned a stalled provider into a promise that never settled - the caller's job sat
+    // at RUNNING forever and blocked that stage until the backend restarted (see pruneStageJobs). A
+    // light stage's budget is derived from its own measured ETA rather than typed as a literal, so it
+    // cannot drift away from STAGE_ETA_SEC, and it is floored at 2 minutes because the fastest stage
+    // here has a 5-second ETA and a merely slow provider must not be cut off.
+    const etaSec = ScripOnService.STAGE_ETA_SEC[kind] || 60;
+    const callTimeoutMs = heavy ? 600000 : Math.max(120000, etaSec * 4000);
+    const res: any = await this.ai.run({ task: 'scripton.develop.' + kind.toLowerCase(), system: brief.system, user, maxTokens: cap, stream: heavy, timeoutMs: callTimeoutMs, idleTimeoutMs: heavy ? 120000 : undefined, projectId, refType: 'Project', refId: projectId }); const ai: any = (res && res.json) || {};
     if (kind === 'BEATS' && !Array.isArray(ai.beats)) { const r = this.recoverStage(String((res && res.text) || '')); if (r.beats) ai.beats = r.beats; }
     if (kind === 'SCENES' && !Array.isArray(ai.scenes)) { const r = this.recoverStage(String((res && res.text) || '')); if (r.scenes) ai.scenes = r.scenes; }
     if (kind === 'STEP_OUTLINE' && !Array.isArray(ai.steps)) { const r = this.recoverStage(String((res && res.text) || '')); if (r.steps) ai.steps = r.steps; }
@@ -1538,13 +1595,64 @@ export class ScripOnService {
     return (this.prisma as any).intakeProfile.upsert({ where: { projectId }, create: { projectId, ...d }, update: d });
   }
 
-  /** ScriptON Settings read model: project name + locale + collab mode + defaults. */
+  /**
+   * Read a stored genre-override list back into the shape `genreProfileTable` accepts.
+   *
+   * Everything here came out of a JSON column, which means it came from a database that a previous
+   * version of this code - or a hand-edited row - could have written anything into. So each entry is
+   * rebuilt field by field rather than cast: a key that is not a non-empty string is dropped, a
+   * numeric field that is not a finite positive number is dropped rather than passed through as NaN,
+   * and an entry left with nothing but its key is dropped entirely because it would produce an
+   * `overridden` provenance badge over an unchanged number - a lie about the audit trail.
+   *
+   * The BAND is not checked here on purpose. `applyGenreOverrides` owns that rule and REFUSES a value
+   * outside it; duplicating the bounds in a second place is how the two drift apart.
+   */
+  private static readGenreOverrides(raw: any): GenreOverride[] {
+    if (!Array.isArray(raw)) return [];
+    const out: GenreOverride[] = [];
+    const seen = new Set<string>();
+    for (const item of raw) {
+      if (!item || typeof item !== 'object') continue;
+      const key = typeof item.key === 'string' ? item.key.trim().toUpperCase() : '';
+      if (!key || seen.has(key)) continue;
+      const entry: GenreOverride = { key };
+      let touched = false;
+      for (const field of ['sceneDensity', 'pagesPerMinute', 'defaultPages'] as const) {
+        const v = (item as any)[field];
+        if (typeof v === 'number' && isFinite(v) && v > 0) { (entry as any)[field] = v; touched = true; }
+      }
+      if (!touched) continue;
+      if (typeof item.note === 'string' && item.note.trim()) entry.note = item.note.trim().slice(0, 500);
+      seen.add(key);
+      out.push(entry);
+    }
+    return out;
+  }
+
+  /**
+   * ScriptON Settings read model: project name + locale + collab mode + defaults.
+   *
+   * `genreProfiles` is DERIVED, never stored. What the database holds is only the override list; the
+   * table itself lives in feature-length.util.ts and is read-only there. Sending the resolved rows
+   * means the settings screen never has to carry a second copy of the genre table - and can never
+   * show one that has drifted from the one the planner actually uses.
+   */
   async getScriptonSettings(projectId: string) {
     const pid = projectId || (await this.scriponWorkspace())?.id;
-    if (!pid) return { name: '', language: null, collabMode: 'AUTO', defaults: {} };
+    if (!pid) return { name: '', language: null, collabMode: 'AUTO', defaults: {}, genreProfiles: genreProfileTable('PRODUCED', []) as GenreProfileRow[] };
     const proj: any = await (this.prisma as any).productionProject.findUnique({ where: { id: pid }, select: { title: true } }).catch(() => null);
     const ip: any = await (this.prisma as any).intakeProfile.findUnique({ where: { projectId: pid }, select: { language: true, collabMode: true, scriptonDefaults: true } }).catch(() => null);
-    return { projectId: pid, name: proj?.title || '', language: ip?.language || null, collabMode: String(ip?.collabMode || 'AUTO').toUpperCase(), defaults: ip?.scriptonDefaults || {} };
+    const defaults: any = ip?.scriptonDefaults || {};
+    const genreOverrides = ScripOnService.readGenreOverrides(defaults.genreOverrides);
+    return {
+      projectId: pid,
+      name: proj?.title || '',
+      language: ip?.language || null,
+      collabMode: String(ip?.collabMode || 'AUTO').toUpperCase(),
+      defaults: { ...defaults, genreOverrides },
+      genreProfiles: genreProfileTable('PRODUCED', genreOverrides) as GenreProfileRow[],
+    };
   }
 
   /** Persist ScriptON settings. name → project; locale/collabMode/defaults → IntakeProfile (upsert). */
@@ -1557,7 +1665,15 @@ export class ScripOnService {
     const data: any = {};
     if (typeof body?.language === 'string') data.language = body.language;
     if (typeof body?.collabMode === 'string') data.collabMode = String(body.collabMode).toUpperCase();
-    if (body?.defaults && typeof body.defaults === 'object') data.scriptonDefaults = body.defaults;
+    if (body?.defaults && typeof body.defaults === 'object') {
+      // The column is replaced wholesale, so the override list is normalised on the way IN as well as
+      // on the way out. A caller that never touched genres sends the list it read back unchanged and
+      // it survives; a caller that sends rubbish gets it dropped here rather than at read time, when
+      // there would be no one left to tell.
+      const incoming: any = { ...body.defaults };
+      if (incoming.genreOverrides !== undefined) incoming.genreOverrides = ScripOnService.readGenreOverrides(incoming.genreOverrides);
+      data.scriptonDefaults = incoming;
+    }
     if (Object.keys(data).length) {
       await (this.prisma as any).intakeProfile.upsert({ where: { projectId: pid }, create: { projectId: pid, ...data }, update: data }).catch(() => {});
     }
@@ -2312,6 +2428,58 @@ export class ScripOnService {
    * Fail-open. A canon that could not be extracted must never stop a generation — it only makes the
    * draft as good as it was yesterday.
    */
+  /**
+   * Facts extracted from the SOURCE MATERIAL ALONE, for the development ladder.
+   *
+   * WHY THIS IS NOT extractCanon. extractCanon reads fullSourceFor, which is the source PLUS the
+   * bodies of LOGLINE, SYNOPSIS, TREATMENT, BEATS and STEP_OUTLINE. That is correct at feature
+   * time - by then those stages are the story. It is exactly wrong DURING the ladder, and §21 of
+   * the findings document records why: a synopsis written from a 6,000-character excerpt renamed
+   * the protagonist, and fullSourceFor then read that synopsis back as evidence, so the invented
+   * name entered the canon ledger as a stated full_name and every downstream mechanism enforced it
+   * rigorously. Feeding stage bodies to the thing that is supposed to protect the stages would
+   * launder the invention into fact. So this reads intake.sourceText and nothing else.
+   *
+   * Cached per project on a cheap hash of the source, because the ladder has eight stages and this
+   * must cost one call per document, not one per stage. The hash means editing the source re-runs
+   * it; a restart re-runs it too, which is the right trade for an in-memory map.
+   *
+   * FAIL-OPEN, like extractCanon. No facts is yesterday's behaviour; a thrown error would be worse
+   * than the bug being fixed.
+   */
+  private sourceCanonCache = new Map<string, { key: string; facts: CanonFactCore[] }>();
+
+  private async sourceCanonFor(projectId: string, sourceText: string): Promise<CanonFactCore[]> {
+    const src = String(sourceText || '');
+    if (src.length < 400) return [];
+    // Length plus a sampled fingerprint: enough to notice an edit, and it never copies the document.
+    const key = src.length + ':' + src.slice(0, 120) + '|' + src.slice(Math.floor(src.length / 2), Math.floor(src.length / 2) + 120) + '|' + src.slice(-120);
+    const hit = this.sourceCanonCache.get(projectId);
+    if (hit && hit.key === key) return hit.facts;
+    try {
+      const sys = 'You are building the CANON for a screenplay going into production: the hard facts the script'
+        + ' must never contradict. Return ONLY JSON {facts:[{kind,subject,predicate,object,statement}]}.'
+        + ' kind is one of CHARACTER|WORLD|LORE|TIMELINE|RELATIONSHIP|PLOT. subject = the entity, upper-case.'
+        + ' predicate = a short relation such as full_name|age|relation_to|occupation|duration|owns|located_in.'
+        + ' object = the value. statement = one sentence a writer can read. Include ONLY facts the material'
+        + ' actually STATES and that a later writer could plausibly get wrong: full names exactly as written,'
+        + ' ages, family and professional relationships (who is whose sister, father, employer, mentor), how'
+        + ' long things took, dates and years, and place / company / vessel names. Do NOT invent or infer'
+        + ' anything: a missing fact is harmless, an invented one is a bug. At most 30 facts. No text outside'
+        + ' the JSON.';
+      const r: any = await this.ai.run({ task: 'scripton.develop.canon', system: sys, user: 'SOURCE MATERIAL:\n' + src.slice(0, 60000), maxTokens: 2400, timeoutMs: 180000, projectId, refType: 'Project', refId: projectId });
+      let j: any = (r && r.json) || null;
+      if (!j && r && typeof r.text === 'string') { try { const m = r.text.match(/\{[\s\S]*\}/); if (m) j = JSON.parse(m[0]); } catch { /* */ } }
+      const facts = mapAiFactsToCore((j && j.facts) || [], { id: '', order: 0 }).slice(0, 30);
+      this.sourceCanonCache.set(projectId, { key, facts });
+      this.log.log('sourceCanonFor: ' + facts.length + ' fixed fact(s) from ' + src.length + ' characters of SOURCE (stage bodies deliberately excluded).');
+      return facts;
+    } catch (e) {
+      this.log.warn('sourceCanonFor: failed - the ladder continues without a facts block. ' + this.why(e));
+      return [];
+    }
+  }
+
   private async extractCanon(projectId: string, stages: any[]): Promise<CanonFactCore[]> {
     try {
       // ② runs REPORT-ONLY here: classify the material and log what it found, while the extractor
@@ -4484,10 +4652,17 @@ export class ScripOnService {
   // C4 — world/location/era look-board PLAN (no faces, no performers): descriptors + search queries; image binding is a later pass.
   async lookboardPlan(opts: any, userId?: string) {
     const r = await this.resolveRevision(opts);
-    const scenes: any[] = await (this.prisma as any).scriptScene.findMany({ where: { revisionId: r.revisionId }, orderBy: { sortOrder: 'asc' }, select: { slugline: true, setName: true } }).catch(() => []);
+    const scenes: any[] = await (this.prisma as any).scriptScene.findMany({ where: { revisionId: r.revisionId }, orderBy: { sortOrder: 'asc' }, select: { sceneNumber: true, slugline: true, setName: true, intExt: true, dayNight: true, pages: true } }).catch(() => []);
     const intake: any = await (this.prisma as any).intakeProfile.findUnique({ where: { projectId: r.projectId } }).catch(() => null);
     const setCtx = intake ? ['era ' + (intake.settingEra || ''), 'culture ' + (intake.cultureEra || ''), 'tone ' + (intake.tone || '')].filter((x) => x.length > 6).join(' | ') : '';
-    const locs = Array.from(new Set(scenes.map((sc) => sc.setName || (sc.slugline || '').replace(/^(INT|EXT)[^A-Za-z]*/i, '')).filter(Boolean))).slice(0, 30).join('; ');
+    // A SET IS ONE LOCATION. Time of day is an attribute of it, never a second place: EXT. HARBOUR -
+    // DAY and EXT. HARBOUR - NIGHT are one harbour an art director dresses once and lights twice, and
+    // the board wants both times told about the one place. The line that used to be here stripped the
+    // INT/EXT prefix and nothing else, so it sent that harbour in twice, spent two of its thirty slots
+    // on it, and then truncated in script order - dropping the back of the film rather than the sets
+    // it spends least time in. buildSetList collapses on the set, keeps I/E and TOD as attributes, and
+    // setListBrief orders by pages and says out loud when the cap fired.
+    const locs = setListBrief(buildSetList(scenes as any), { limit: 30 });
     const system = 'You are an art director assembling a look-board for a film. Return ONLY JSON {boards:[{kind, caption, query}]} of 8-14 items. kind = LOCATION|WORLD|ERA|PALETTE|MOOD. caption = one phrase describing the visual reference. query = 3-6 search words for a stock-photo search. NEVER reference faces, actors, or specific people — locations, architecture, landscape, textures, colour, light only. No text outside the JSON.';
     const user = 'SETTING: ' + (setCtx || 'contemporary') + '\nKEY LOCATIONS: ' + (locs || 'n/a');
     const ai: any = (await this.ai.json({ task: 'scripton.lookboardPlan', system, user, maxTokens: 1500, projectId: r.projectId, refType: 'ScriptRevision', refId: r.revisionId })) || {};
