@@ -50,7 +50,7 @@ export default function ScriptOnBreakdownPage() {
   const [cats, setCats] = useState<Cat[]>(SAMPLE);
   const [title, setTitle] = useState('Midnight Run');
   const [revLabel, setRevLabel] = useState('BLUE · v4');
-  const [revColor, setRevColor] = useState('#5b8def');
+  const [revColor, setRevColor] = useState('#ffffff');
   const [activeLens, setActiveLens] = useState('cast');
   const [activeName, setActiveName] = useState<string | undefined>(undefined);
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -80,7 +80,7 @@ export default function ScriptOnBreakdownPage() {
           const docs = Array.isArray(dr.data) ? dr.data : (dr.data?.items ?? []);
           const doc = docs[0];
           const rev = doc?.revisions?.find((r: any) => r.id === doc.activeRevisionId) || doc?.revisions?.[0];
-          if (rev) { setRevLabel(rev.revisionLabel || 'CURRENT'); setRevColor(rev.colorCode || '#5b8def'); }
+          if (rev) { setRevLabel(rev.revisionLabel || 'CURRENT'); setRevColor(rev.hex || '#ffffff'); }
         } catch { /* keep */ }
       } catch { /* keep sample */ }
     })();

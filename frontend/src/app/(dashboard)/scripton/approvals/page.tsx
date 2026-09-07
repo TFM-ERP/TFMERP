@@ -13,7 +13,7 @@ import { useLocale } from '@/lib/i18n';
 import { useScriptonBack } from '@/components/scripton/useScriptonBack';
 const initials = (s: string) => String(s || '?').split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase();
 const ago = (d?: string) => { if (!d) return ''; const ms = Date.now() - new Date(d).getTime(); const h = Math.floor(ms / 3.6e6); if (h < 1) return 'now'; if (h < 24) return h + 'h'; return Math.floor(h / 24) + 'd'; };
-const COLOR: Record<string, string> = { PENDING: '#5b8def', APPROVED: '#57b368', REJECTED: '#e0a23b' };
+const COLOR: Record<string, string> = { PENDING: 'var(--blue)', APPROVED: '#57b368', REJECTED: '#e0a23b' };
 
 export default function ScriptOnApprovalsPage() {
   const router = useRouter();
@@ -32,7 +32,7 @@ export default function ScriptOnApprovalsPage() {
   ];
   const [title, setTitle] = useState('Midnight Run');
   const [chainRev, setChainRev] = useState('Blue v4');
-  const [chainColor, setChainColor] = useState('#5b8def');
+  const [chainColor, setChainColor] = useState('#ffffff');
   const [projectId, setProjectId] = useState<string | null>(null);
   const [revId, setRevId] = useState<string | undefined>(undefined);
   const [reqs, setReqs] = useState<any[] | null>(null);
@@ -55,7 +55,7 @@ export default function ScriptOnApprovalsPage() {
         const doc = docs[0]; const rev = doc?.revisions?.find((r: any) => r.id === doc.activeRevisionId) || doc?.revisions?.[0];
         if (!alive) return;
         setTitle(proj.name || proj.title || 'Project');
-        if (rev) { setChainRev(rev.revisionLabel || 'Current'); setChainColor(rev.colorCode || '#5b8def'); }
+        if (rev) { setChainRev(rev.revisionLabel || 'Current'); setChainColor(rev.hex || '#ffffff'); }
         setProjectId(proj.id); if (rev) setRevId(rev.id);
         await loadReqs(proj.id);
       } catch { /* keep sample */ }

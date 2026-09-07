@@ -49,7 +49,7 @@ export default function ScriptOnNotesPage() {
         const docs = Array.isArray(dr.data) ? dr.data : (dr.data?.items ?? []);
         if (alive) setTitle(docs[0]?.title || proj.name || proj.title || 'ScriptON');
         const revId = docs[0]?.activeRevisionId || docs[0]?.revisions?.[0]?.id; if (!revId) return;
-        try { const rv: any = await productionApi.script.getRevision(revId); if (alive && rv.data) { setRevLabel(rv.data.revisionLabel || 'WHITE'); setRevColor(rv.data.colorCode || '#cfd3da'); } } catch { /* */ }
+        try { const rv: any = await productionApi.script.getRevision(revId); if (alive && rv.data) { setRevLabel(rv.data.revisionLabel || 'WHITE'); setRevColor(rv.data.hex || '#ffffff'); } } catch { /* */ }
         const an: any = await productionApi.scriptAnnotations.list(revId).catch(() => null);
         const list: any[] = Array.isArray(an?.data) ? an.data : (an?.data?.items ?? an?.data?.annotations ?? []);
         if (alive) setRawAnn(list);

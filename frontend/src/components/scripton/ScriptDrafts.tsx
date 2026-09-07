@@ -17,7 +17,7 @@ export type DraftRow = {
   id: string;
   revisionLabel?: string | null;
   revisionColor?: string | null;
-  colorCode?: string | null;
+  hex?: string | null;   // DERIVED by the backend from revisionColor — never a stored value
   revisionRound?: number | null;
   pageCount?: number | null;
   changeSummary?: string | null;
@@ -27,15 +27,21 @@ export type DraftRow = {
   revisionDate?: string | null;
 };
 
-/** The WGA wheel, mirrored from backend/src/production/script/revision-wheel.util.ts, so a row with
- *  no stored `colorCode` (legacy drafts predate the stamp) still shows the right chip. */
+/** LAST-RESORT MIRROR of backend/src/production/script/revision-wheel.util.ts, for a row that
+ *  arrives without a derived hex. It must never diverge from that file — it is a fallback, not a
+ *  second opinion. The backend now derives the hex from revisionColor on every payload, so this
+ *  should not normally be reached. */
 const WHEEL_HEX: Record<string, string> = {
   WHITE: '#ffffff', BLUE: '#9ec5ff', PINK: '#ffc0cb', YELLOW: '#fff27a', GREEN: '#b6e7a0',
   GOLDENROD: '#e7c84e', BUFF: '#f3e4c0', SALMON: '#ff9e80', CHERRY: '#d6444a', TAN: '#d8c39a',
 };
 
 function dotColor(r: DraftRow): string {
-  const hex = String(r.colorCode || '').trim();
+  // THE KEY OWNS THE COLOUR. This used to prefer a STORED hex over the revisionColor beside it,
+  // which is precisely how 32 rows rendered #5b8def (the UI's --blue) on drafts whose colour was
+  // WHITE. The backend now derives `hex` from the wheel that assigns the key, so a derived value is
+  // trusted and a free hex is no longer accepted from anywhere.
+  const hex = String(r.hex || '').trim();
   if (/^#[0-9a-f]{3,8}$/i.test(hex)) return hex;
   const key = String(r.revisionColor || '').trim().toUpperCase();
   return WHEEL_HEX[key] || '#8d939c';

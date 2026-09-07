@@ -41,7 +41,7 @@ export default function ScriptOnCanonPage() {
         if (!doc) { if (alive) setFacts([]); return; }
         if (alive) setTitle(doc.title || proj.name || 'ScriptON');
         const rid = doc.activeRevisionId || doc.revisions?.[0]?.id;
-        if (rid) { try { const rv: any = await productionApi.script.getRevision(rid); if (alive && rv.data) { setRevLabel(rv.data.revisionLabel || 'WHITE'); setRevColor(rv.data.colorCode || '#cfd3da'); } } catch { /* */ } }
+        if (rid) { try { const rv: any = await productionApi.script.getRevision(rid); if (alive && rv.data) { setRevLabel(rv.data.revisionLabel || 'WHITE'); setRevColor(rv.data.hex || '#ffffff'); } } catch { /* */ } }
         try {
           const cr: any = await productionApi.scripton.canon(doc.id);
           if (alive) setFacts(Array.isArray(cr.data) ? cr.data : []);

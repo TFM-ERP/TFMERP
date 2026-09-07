@@ -43,7 +43,7 @@ function toDraftRow(r: any): DraftRow {
     id: String(r.id),
     revisionLabel: r.revisionLabel ?? null,
     revisionColor: r.revisionColor ?? null,
-    colorCode: r.colorCode ?? null,
+    hex: r.hex ?? null,
     revisionRound: typeof r.revisionRound === 'number' ? r.revisionRound : null,
     pageCount: typeof r.pageCount === 'number' ? r.pageCount : null,
     changeSummary: r.changeSummary ?? null,
@@ -140,7 +140,10 @@ export default function ScriptOnScriptPage() {
           try {
             const pk: any = await productionApi.scripton.development.getPackage({ docId: docParam });
             const pd: any = pk.data || {}; const br: any = pd.brief || {}; const cov: any = pd.coverage || {};
-            info2 = { ...baseInfo, projectType: br.projectType || null, genres: Array.isArray(br.genres) ? br.genres : null, logline: cov.logline || (pd.stages && pd.stages.LOGLINE && pd.stages.LOGLINE.body) || null };
+            // versionLabel is the writer's own draft name, typed at intake and stored in the build's
+            // brief. It is NOT revLabel: that is the WGA revision colour, which two builds of the same
+            // film share. This is what tells those two builds apart on the page.
+            info2 = { ...baseInfo, versionLabel: String(br.versionLabel || '').trim(), projectType: br.projectType || null, genres: Array.isArray(br.genres) ? br.genres : null, logline: cov.logline || (pd.stages && pd.stages.LOGLINE && pd.stages.LOGLINE.body) || null };
             if (alive) setInfo(info2);
           } catch { /* keep baseInfo */ }
         }
@@ -403,7 +406,11 @@ export default function ScriptOnScriptPage() {
     getBaseHtml: () => buildScriptPrintHtml(text, title, { ...(info || {}), lang: isAr ? 'ar' : getLocale() }),
     docTitle: fileBaseName(),
     lang: isAr ? 'ar' : 'en',
-    meta: { projectTitle: title, scriptTitle: title, scriptVersion: revLabel, exportedBy: '' },
+    // {script_version} already prints on the notice cover page and now on the trace footer. It used
+    // to carry revLabel alone — the revision colour — which cannot distinguish two builds of one
+    // film. Carrying BOTH keeps the colour a production reader expects and adds the draft label that
+    // identifies the build, without inventing a second placeholder for templates to learn.
+    meta: { projectTitle: title, scriptTitle: title, scriptVersion: [String((info || {}).versionLabel || '').trim(), revLabel].filter(Boolean).join(' · '), exportedBy: '' },
   };
 
   return (

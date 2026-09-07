@@ -80,7 +80,7 @@ export default function ScriptOnDoctorPage() {
   // yet" state (driven by covRaw), not invented grades.
   const [title, setTitle] = useState('');
   const [revLabel, setRevLabel] = useState('');
-  const [revColor, setRevColor] = useState('#5b8def');
+  const [revColor, setRevColor] = useState('#ffffff');
   const [gauges, setGauges] = useState<SxGauge[]>(NEUTRAL_GAUGES);
   const [cov, setCov] = useState<SxCoverage>(null);
   const [covRaw, setCovRaw] = useState<any | null>(null); // raw latestCoverage for the new single-canvas
@@ -120,7 +120,7 @@ export default function ScriptOnDoctorPage() {
         let nData: any[] = []; try { const nn: any = await productionApi.scripton.notes(proj.id); nData = Array.isArray(nn.data) ? nn.data : []; } catch { /* */ }
         if (!alive) return;
         setProjectId(proj.id); setTitle(doc?.title || proj.name || proj.title || 'Script');
-        if (rev) { setRevLabel(rev.revisionLabel || 'CURRENT'); setRevColor(rev.colorCode || '#5b8def'); }
+        if (rev) { setRevLabel(rev.revisionLabel || 'CURRENT'); setRevColor(rev.hex || '#ffffff'); }
         setActHealth(MUTED_ACT);
         setCovRaw(c || null);
         if (c) { setCov(buildCoverage(c)); setGauges(buildGauges(c)); } else { setCov(null); setGauges(NEUTRAL_GAUGES); }

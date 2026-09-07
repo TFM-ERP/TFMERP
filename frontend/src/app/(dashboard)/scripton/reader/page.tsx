@@ -40,7 +40,7 @@ export default function ScriptOnWorkspace() {
   const [scenes, setScenes] = useState<SxScene[]>([]);
   const [title, setTitle] = useState('');
   const [revLabel, setRevLabel] = useState('');
-  const [revColor, setRevColor] = useState('#5b8def');
+  const [revColor, setRevColor] = useState('#ffffff');
   const [pageCount, setPageCount] = useState<number | string>(0);
   const [totalScenes, setTotalScenes] = useState(0);
   const [updated, setUpdated] = useState('');
@@ -127,12 +127,12 @@ export default function ScriptOnWorkspace() {
         setScenes(sc);
         if (sc.length) setActiveId(sc[0].id);
         setRevLabel(rvData?.revisionLabel || doc.activeRevisionLabel || 'DRAFT');
-        setRevColor(rvData?.colorCode || '#5b8def');
+        setRevColor(rvData?.hex || '#ffffff');
         setPageCount(rvData?.pageCount || sc.length);
         setTotalScenes(sc.length);
         setUpdated('');
         setActiveRev(rvData);
-        setRevisions((doc.revisions ?? []).map((r: any) => ({ id: r.id, label: r.revisionLabel || 'Revision', color: r.colorCode, date: r.createdAt ? new Date(r.createdAt).toLocaleDateString() : '' })));
+        setRevisions((doc.revisions ?? []).map((r: any) => ({ id: r.id, label: r.revisionLabel || 'Revision', color: r.hex, date: r.createdAt ? new Date(r.createdAt).toLocaleDateString() : '' })));
       } catch { if (!bound) applyDemo(); }
       finally { if (alive) setLoading(false); }
     })();

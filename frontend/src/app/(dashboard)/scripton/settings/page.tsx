@@ -86,7 +86,7 @@ export default function ScriptOnSettingsPage() {
             const d = rv.data || {};
             const pt: any[] = Array.isArray(d.pageText) ? d.pageText : [];
             const joined = pt.map((p: any) => String(p.text || '')).join('\n');
-            if (alive) { setText(joined); setRevLabel(d.revisionLabel || 'WHITE'); setRevColor(d.colorCode || '#cfd3da'); setInfo({ projectTitle: proj.name, scriptTitle: doc.title, scriptVersion: d.revisionLabel }); }
+            if (alive) { setText(joined); setRevLabel(d.revisionLabel || 'WHITE'); setRevColor(d.hex || '#ffffff'); setInfo({ projectTitle: proj.name, scriptTitle: doc.title, scriptVersion: d.revisionLabel }); }
           } catch { /* no parsed revision text */ }
         }
       } catch { /* keep neutral */ }

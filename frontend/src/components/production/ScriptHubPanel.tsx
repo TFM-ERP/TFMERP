@@ -572,7 +572,7 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
                   slug comes from the backend wheel so the round is named — SECOND BLUE, not a second BLUE. */}
               <h3 className="text-sm text-slate-800" style={{ fontWeight: 650 }}>Pages — {activeRev.slug || activeRev.revisionLabel}</h3>
               <span className="text-[11px] text-slate-400">{[activeRev.slug || activeRev.revisionLabel, onDate(activeRev.revisionDate || activeRev.createdAt), (activeRev.pageCount != null ? activeRev.pageCount + ' pp' : '')].filter(Boolean).join(' · ')} · {activeRev.scenes?.length || 0} scenes · {annos.length} notes</span>
-              <Chip tone="slate"><span className="inline-block w-2 h-2 rounded-full me-1" style={{ background: activeRev.colorCode || '#e2e8f0' }} />{activeRev.revisionLabel}</Chip>
+              <Chip tone="slate"><span className="inline-block w-2 h-2 rounded-full me-1" style={{ background: activeRev.hex || '#ffffff' }} />{activeRev.revisionLabel}</Chip>
               {orphans.length > 0 && <Chip tone="risk">{orphans.length} orphan{orphans.length === 1 ? '' : 's'}</Chip>}
             </div>
             <div className="p-3">
@@ -885,7 +885,7 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
                     {d.revisions?.[0] && <> · latest {d.revisions[0].revisionLabel}</>}</span>
                 </button>
                 <div className="flex items-center gap-1.5">
-                  {(d.revisions || []).slice(0, 5).map((rv: any) => <span key={rv.id} title={rv.revisionLabel} className="son-dot" style={{ width: 12, height: 12, border: '1px solid var(--son-border)', background: rv.colorCode || 'var(--son-surface-2)' }} />)}
+                  {(d.revisions || []).slice(0, 5).map((rv: any) => <span key={rv.id} title={rv.revisionLabel} className="son-dot" style={{ width: 12, height: 12, border: '1px solid var(--son-border)', background: rv.hex || 'var(--son-surface-2)' }} />)}
                 </div>
                 <button onClick={() => removeDoc(d.id)} className="son-faint" style={{ background: 'none', border: 0, cursor: 'pointer' }}><Trash2 size={14} /></button>
               </div>
