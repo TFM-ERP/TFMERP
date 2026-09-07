@@ -176,7 +176,7 @@ export const MIN_ASK_WORDS = 45;
 export const MIN_SCENE_TOKENS = 160;
 
 /** Where a profile's `sceneDensity` came from. Never let a constant ship without one. */
-export type Provenance = 'measured' | 'derived' | 'default' | 'blended';
+export type Provenance = 'measured' | 'derived' | 'default' | 'blended' | 'overridden';
 
 export interface GenreLengthProfile {
   key: string;
@@ -195,6 +195,21 @@ export interface GenreLengthProfile {
   /** Present only on a BLENDED profile: the keys it was built from, base first. A blend has to be
    *  able to name its ingredients for the same reason a constant has to name its source. */
   blendOf?: string[];
+  /** Present only on an OVERRIDDEN profile: exactly what the table said before a human changed it.
+   *  THE TABLE IS NEVER EDITED. An override sits on top and carries the original with it, so the
+   *  citation stays attached to the number it actually describes and a reset is always possible. */
+  overrodeFrom?: { sceneDensity: number; pagesPerMinute: number; defaultPages: number; provenance: Provenance; source: string };
+}
+
+/** A human's change to one genre row. Every field optional — override only what you mean to. */
+export interface GenreOverride {
+  key: string;
+  sceneDensity?: number;
+  pagesPerMinute?: number;
+  defaultPages?: number;
+  /** Why. Optional, and the panel should ask for it — an unexplained override is the thing this
+   *  whole provenance scheme exists to prevent. */
+  note?: string;
 }
 
 /**
@@ -309,6 +324,13 @@ export interface GenreProfileRow {
   /** The published corpus figure, raw, or null where none exists — which is most of them. */
   corpusScenes: number | null;
   corpusSample: number | null;
+  /**
+   * What the TABLE said, present only on a row an override moved. This is what makes the override a
+   * layer rather than an edit: the settings panel renders the live figure in the box and the table's
+   * own figure underneath it, so nobody has to trust that Reset will find something to restore.
+   * Absent on every unoverridden row - an absent field reads as "nothing was covered up".
+   */
+  overrodeFrom?: { sceneDensity: number; pagesPerMinute: number; defaultPages: number; provenance: Provenance; source: string };
 }
 
 const GENRE_LABELS: Record<string, string> = {
@@ -328,8 +350,9 @@ function labelFor(key: string): string {
  * numbers used to be interpolated midpoints no corpus supported, and twelve genres had no profile at
  * all. A constant that cannot say where it came from is a constant nobody can audit.
  */
-export function genreProfileTable(texture: Texture = 'PRODUCED'): GenreProfileRow[] {
-  return GENRE_PROFILES.map((p) => {
+export function genreProfileTable(texture: Texture = 'PRODUCED', overrides?: GenreOverride[] | null): GenreProfileRow[] {
+  return GENRE_PROFILES.map((row) => {
+    const p = applyGenreOverrides(row, overrides);
     const corpus = MEASURED_CORPUS_SCENES[p.key];
     return {
       key: p.key,
@@ -345,6 +368,10 @@ export function genreProfileTable(texture: Texture = 'PRODUCED'): GenreProfileRo
       source: p.source,
       corpusScenes: corpus ? corpus.scenes : null,
       corpusSample: corpus ? corpus.sample : null,
+      // Carried through verbatim, never reconstructed. `applyGenreOverrides` is the only thing that
+      // sets it, and it sets it from the untouched table row - so what a reader sees under the box is
+      // the table, not a second opinion about the table.
+      ...(p.overrodeFrom ? { overrodeFrom: p.overrodeFrom } : {}),
     };
   });
 }
@@ -464,6 +491,73 @@ export function blendProfiles(base: GenreLengthProfile, layers: GenreLengthProfi
 }
 
 /**
+ * THE ACCEPTABLE RANGE FOR AN OVERRIDE, derived from the table rather than invented.
+ *
+ * Half the lowest value the table carries to twice the highest. A number outside that is not a
+ * craft decision, it is a typo — 12 scenes per page is not a thriller, it is a mistake — and this
+ * file drops what it cannot believe rather than clamping it, because a clamped guess reads as a
+ * measurement. Computed from GENRE_PROFILES, so it can never drift away from the table it bounds.
+ */
+const overrideBand = (pick: (p: GenreLengthProfile) => number): { lo: number; hi: number } => {
+  const vals = GENRE_PROFILES.map(pick).filter((v) => typeof v === 'number' && isFinite(v) && v > 0);
+  return { lo: Math.min(...vals) / 2, hi: Math.max(...vals) * 2 };
+};
+const DENSITY_BAND = overrideBand((p) => p.sceneDensity);
+const PPM_BAND = overrideBand((p) => p.pagesPerMinute);
+const PAGES_BAND = overrideBand((p) => p.defaultPages);
+
+const inBand = (v: any, b: { lo: number; hi: number }): boolean =>
+  typeof v === 'number' && isFinite(v) && v >= b.lo && v <= b.hi;
+
+/**
+ * Lay a human's override over a profile.
+ *
+ * THE TABLE IS READ-ONLY AND STAYS READ-ONLY. `measured` rows carry a corpus citation - DRAMA's is
+ * "79.77 scenes, n=665" - and editing the number under a citation turns that citation into a lie.
+ * So an override never mutates a row: it produces a new profile whose provenance is 'overridden',
+ * whose `overrodeFrom` carries exactly what the table said, and whose source names both.
+ *
+ * A field outside the acceptable band is DROPPED, not clamped. A field not mentioned is untouched.
+ * With nothing usable to apply, the profile comes back UNCHANGED BY IDENTITY.
+ *
+ * PURE. NEVER THROWS.
+ */
+export function applyGenreOverrides(
+  profile: GenreLengthProfile,
+  overrides: GenreOverride[] | null | undefined,
+): GenreLengthProfile {
+  if (!profile) return DEFAULT_GENRE_PROFILE;
+  const list = Array.isArray(overrides) ? overrides : [];
+  const o = list.filter((x) => x && typeof x.key === 'string' && keyForm(x.key) === profile.key).pop();
+  if (!o) return profile;
+
+  const took: string[] = [];
+  const next: any = { ...profile };
+  if (inBand(o.sceneDensity, DENSITY_BAND) && o.sceneDensity !== profile.sceneDensity) {
+    next.sceneDensity = o.sceneDensity; took.push('scene density ' + profile.sceneDensity + ' -> ' + o.sceneDensity);
+  }
+  if (inBand(o.pagesPerMinute, PPM_BAND) && o.pagesPerMinute !== profile.pagesPerMinute) {
+    next.pagesPerMinute = o.pagesPerMinute; took.push('pages per minute ' + profile.pagesPerMinute + ' -> ' + o.pagesPerMinute);
+  }
+  if (inBand(o.defaultPages, PAGES_BAND) && o.defaultPages !== profile.defaultPages) {
+    next.defaultPages = Math.round(o.defaultPages as number); took.push('default pages ' + profile.defaultPages + ' -> ' + Math.round(o.defaultPages as number));
+  }
+  if (!took.length) return profile;
+
+  next.provenance = 'overridden';
+  next.overrodeFrom = {
+    sceneDensity: profile.sceneDensity,
+    pagesPerMinute: profile.pagesPerMinute,
+    defaultPages: profile.defaultPages,
+    provenance: profile.provenance,
+    source: profile.source,
+  };
+  const why = typeof o.note === 'string' && o.note.trim() ? ' - "' + o.note.trim().slice(0, 160) + '"' : '';
+  next.source = 'Overridden by hand: ' + took.join(', ') + why + '. The table still says: ' + profile.source;
+  return next as GenreLengthProfile;
+}
+
+/**
  * The base genre and its layers, as the intake models them.
  *
  * `reDna()` computes `genres = [...baseGenres, ...blendLayers]`, so in the legacy flat array the
@@ -517,7 +611,7 @@ export function resolveGenreProfile(brief: any): GenreLengthProfile {
       const lp = profileForTerm(l);
       if (lp && lp.key !== baseProfile.key && !layerProfiles.some((x) => x.key === lp.key)) layerProfiles.push(lp);
     }
-    return blendProfiles(baseProfile, layerProfiles);
+    return applyGenreOverrides(blendProfiles(baseProfile, layerProfiles), brief && brief.genreOverrides);
   }
   // No usable base: fall back to the old whole-brief scan, which also reads subGenre, tone and
   // projectIntent. A brief that names a genre only in its tone still lands somewhere sensible.
@@ -526,9 +620,9 @@ export function resolveGenreProfile(brief: any): GenreLengthProfile {
   const hay = terms.join(' | ');
   const keys = terms.map(keyForm);
   for (const p of GENRE_PROFILES) {
-    if (keys.indexOf(p.key) >= 0) return p;
+    if (keys.indexOf(p.key) >= 0) return applyGenreOverrides(p, brief && brief.genreOverrides);
     const words = GENRE_ALIASES[p.key];
-    if (words && words.some((w) => hay.includes(w))) return p;
+    if (words && words.some((w) => hay.includes(w))) return applyGenreOverrides(p, brief && brief.genreOverrides);
   }
   return DEFAULT_GENRE_PROFILE;
 }

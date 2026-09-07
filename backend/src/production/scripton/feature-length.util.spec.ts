@@ -10,7 +10,7 @@ import {
   isLengthOver, remainingBudgetScale, WORDS_PER_PAGE,
   TOKENS_PER_WORD, CAP_HEADROOM, MIN_SCENE_TOKENS, OBSERVED_OVERRUN,
   DELIVERY_FACTOR, MIN_ASK_WORDS,
-  planSliceBudget, planSliceInstruction, MIN_PLAN_SLICE, blendProfiles,
+  planSliceBudget, planSliceInstruction, MIN_PLAN_SLICE, blendProfiles, applyGenreOverrides,
 } from './feature-length.util';
 
 test('genre resolution falls back cleanly and reads the Json genres array', () => {
@@ -716,5 +716,89 @@ test('SPEC texture changes the scene counts and nothing else about the table', (
     assert.equal(spec[i].defaultPages, produced[i].defaultPages);
     assert.equal(spec[i].provenance, produced[i].provenance);
     assert.ok(spec[i].scenes > produced[i].scenes, produced[i].key + ' spec should plan MORE scenes');
+  }
+});
+
+// ---------------------------------------------------------------------------------------------
+// Overrides: the table is READ-ONLY, and a change sits on top of it
+// ---------------------------------------------------------------------------------------------
+
+test('AN OVERRIDE NEVER EDITS THE TABLE - it lays a new profile over it and carries the original', () => {
+  // DRAMA is a `measured` row and its source cites a real corpus. Editing the number under that
+  // citation would turn the citation into a lie, which is the exact failure this file's whole
+  // provenance scheme exists to prevent. So the override produces a NEW profile and brings the
+  // original with it: what was measured, and what a human changed it to, side by side.
+  const overrides = [{ key: 'DRAMA', sceneDensity: 1.15, note: 'our slate runs denser' }];
+  const p = resolveGenreProfile({ genres: ['Drama'], genreOverrides: overrides });
+  assert.equal(p.sceneDensity, 1.15);
+  assert.equal(p.provenance, 'overridden');
+  assert.equal(p.overrodeFrom!.sceneDensity, 1.04);
+  assert.equal(p.overrodeFrom!.provenance, 'measured');
+  assert.match(p.overrodeFrom!.source, /ScriptBase/);
+  assert.match(p.source, /Overridden by hand/);
+  assert.match(p.source, /our slate runs denser/);
+  assert.match(p.source, /The table still says/);
+
+  // AND THE TABLE ITSELF IS UNMOVED. Ask for it again with no overrides and it is what it was.
+  const clean = genreProfileTable().find((r: any) => r.key === 'DRAMA')!;
+  assert.equal(clean.sceneDensity, 1.04);
+  assert.equal(clean.provenance, 'measured');
+  // a second read of the same brief is stable too - nothing was mutated in place anywhere
+  assert.equal(resolveGenreProfile({ genres: ['Drama'] }).sceneDensity, 1.04);
+});
+
+test('a value outside the band is DROPPED, not clamped - and the band comes from the table', () => {
+  // The band is half the table's lowest to twice its highest, computed from GENRE_PROFILES so it
+  // can never drift away from what it bounds. 12 scenes per page is not a craft decision, it is a
+  // typo, and a clamped typo would read as a measurement.
+  const bad = (v: any) => resolveGenreProfile({ genres: ['Drama'], genreOverrides: [{ key: 'DRAMA', sceneDensity: v }] });
+  for (const v of [12, 0, -1, 0.1, NaN, Infinity, null, 'dense', {}]) {
+    assert.equal(bad(v).sceneDensity, 1.04, 'refused ' + String(v) + ' by falling back, not clamping');
+    assert.equal(bad(v).provenance, 'measured', 'a refused override must not mark the row overridden');
+  }
+  // inside the band it takes
+  assert.equal(bad(2.4).sceneDensity, 2.4);
+});
+
+test('an override lands ON TOP of a blend, and only on the genre it names', () => {
+  const overrides = [{ key: 'ACTION', sceneDensity: 1.4 }, { key: 'COMEDY', sceneDensity: 0.5 }];
+  const p = resolveGenreProfile({ genres: ['Action', 'Drama'], genreOverrides: overrides });
+  // blend first (1.25 + 1.04) / 2 = 1.145 -> 1.15, then the ACTION override replaces it outright
+  assert.equal(p.sceneDensity, 1.4);
+  assert.equal(p.provenance, 'overridden');
+  assert.deepEqual(p.blendOf, ['ACTION', 'DRAMA']);          // the blend is still on the record
+  assert.equal(p.overrodeFrom!.sceneDensity, 1.15);          // and what it overrode was the BLEND
+  // the COMEDY override in the same list touched nothing here
+  assert.equal(resolveGenreProfile({ genres: ['Horror'], genreOverrides: overrides }).provenance, 'derived');
+});
+
+test('applyGenreOverrides is fail-safe, and an unusable override returns the profile by IDENTITY', () => {
+  const drama = resolveGenreProfile({ genres: ['Drama'] });
+  assert.equal(applyGenreOverrides(drama, null), drama);
+  assert.equal(applyGenreOverrides(drama, []), drama);
+  assert.equal(applyGenreOverrides(drama, [{ key: 'ACTION', sceneDensity: 1.4 }]), drama);
+  assert.equal(applyGenreOverrides(drama, [{ key: 'DRAMA' }]), drama);                    // nothing to change
+  assert.equal(applyGenreOverrides(drama, [{ key: 'DRAMA', sceneDensity: 1.04 }]), drama); // same value is no change
+  assert.equal(applyGenreOverrides(drama, [null as any, undefined as any]), drama);
+  assert.equal(applyGenreOverrides(null as any, []).key, 'DEFAULT');
+  // the last override for a key wins, so a panel can append rather than reconcile
+  const twice = applyGenreOverrides(drama, [{ key: 'DRAMA', sceneDensity: 1.10 }, { key: 'DRAMA', sceneDensity: 1.20 }]);
+  assert.equal(twice.sceneDensity, 1.20);
+});
+
+test('genreProfileTable renders overrides for the panel WITHOUT touching the underlying table', () => {
+  const rows = genreProfileTable('PRODUCED', [{ key: 'DRAMA', defaultPages: 120, note: 'we run long' }]);
+  const drama = rows.find((r: any) => r.key === 'DRAMA')!;
+  assert.equal(drama.defaultPages, 120);
+  assert.equal(drama.provenance, 'overridden');
+  assert.match(drama.source, /The table still says/);
+  assert.equal(rows.length, 32);
+  // every other row is exactly what it was
+  const clean = genreProfileTable();
+  for (const r of rows) {
+    if (r.key === 'DRAMA') continue;
+    const c = clean.find((x: any) => x.key === r.key)!;
+    assert.equal(r.sceneDensity, c.sceneDensity, r.key + ' moved and should not have');
+    assert.equal(r.provenance, c.provenance, r.key + ' changed provenance and should not have');
   }
 });
