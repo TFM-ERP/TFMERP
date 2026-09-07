@@ -109,7 +109,7 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
   const isDemo = (b: any) => /^b\d$/.test(String(b && b.id));
   const switchBin = (v: boolean) => { setBin(v); setFilter('All'); if (projectId) load(projectId, v); };
   const doRestore = async (b: any) => { if (isDemo(b)) { flash(t('Demo build.')); return; } try { await productionApi.scripton.development.restoreBuild(b.id); flash(t('Restored.')); if (projectId) await load(projectId, true); } catch { flash(t('Could not restore.')); } };
-  const doConfirm = async () => { const b = confirm.b; const kind = confirm.kind; setConfirm(null); if (isDemo(b)) { flash(t('Demo build - connect a project.')); return; } try { if (kind === 'purge') { await productionApi.scripton.development.purgeBuild(b.id); flash(t('Deleted forever.')); } else { await productionApi.scripton.development.deleteBuild(b.id); flash(t('Moved to bin.')); } if (projectId) await load(projectId, bin); } catch { flash(t('Action failed.')); } };
+  const doConfirm = async () => { const b = confirm.b; const kind = confirm.kind; setConfirm(null); if (isDemo(b)) { flash(t('Demo build - connect a project.')); return; } try { if (kind === 'purge') { const r: any = await productionApi.scripton.development.purgeBuild(b.id); const d = r?.data?.purged || r?.purged; flash(d && d.chars ? (t('Deleted forever') + ' — ' + d.stageVersions + ' ' + t('draft(s)') + ', ' + Number(d.chars).toLocaleString() + ' ' + t('characters of writing.')) : t('Deleted forever.')); } else { await productionApi.scripton.development.deleteBuild(b.id); flash(t('Moved to bin.')); } if (projectId) await load(projectId, bin); } catch { flash(t('Action failed.')); } };
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -209,7 +209,7 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
           <div className="scrim" onClick={() => setConfirm(null)}>
             <div className="modal" style={{ width: 440 }} onClick={(e) => e.stopPropagation()}>
               <div className="mh"><span className="mt">{confirm.kind === 'purge' ? t('Delete forever?') : t('Move to bin?')}</span><span className="mx" onClick={() => setConfirm(null)}>✕</span></div>
-              <div className="msub" style={{ marginTop: 0 }}>{confirm.kind === 'purge' ? '“' + confirm.b.name + '”' + t(' will be permanently deleted. This cannot be undone.') : '“' + confirm.b.name + '”' + t(' moves to the bin and is permanently deleted after 30 days unless you restore it.')}</div>
+              <div className="msub" style={{ marginTop: 0 }}>{confirm.kind === 'purge' ? '“' + confirm.b.name + '”' + t(' will be permanently deleted, and so will every draft written in it — its ladder stages, synopses, treatments and beats. This cannot be undone.') : '“' + confirm.b.name + '”' + t(' moves to the bin and is permanently deleted after 30 days unless you restore it.')}</div>
               <div className="mfoot"><span className="btn ghost" onClick={() => setConfirm(null)}>{t('Cancel')}</span><span className="btn gold" style={confirm.kind === 'purge' ? { background: 'linear-gradient(180deg,#f08a86,#e5635f)', color: '#2a0f0e' } : {}} onClick={doConfirm}>{confirm.kind === 'purge' ? t('Delete forever') : t('Move to bin')}</span></div>
             </div>
           </div>

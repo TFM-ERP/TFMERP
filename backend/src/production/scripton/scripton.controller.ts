@@ -103,6 +103,9 @@ export class ScripOnController {
   @Post('builds/:id/delete') @RequirePermission('production', 2) buildDelete(@Param('id') id: string) { return this.service.deleteBuild(id); }
   @Post('builds/:id/restore') @RequirePermission('production', 2) buildRestore(@Param('id') id: string) { return this.service.restoreBuild(id); }
   @Post('builds/:id/purge') @RequirePermission('production', 2) buildPurge(@Param('id') id: string) { return this.service.purgeBuild(id); }
+  // The 30-day sweep, as an ACTION. It used to run inside GET builds, so opening the list destroyed
+  // any build binned more than 30 days earlier — silently, and with the writing left stranded.
+  @Post('builds/purge-expired') @RequirePermission('production', 3) buildsPurgeExpired() { return this.service.purgeExpiredBuilds(); }
   @Post('development/stage/:stageId/reset') @RequirePermission('production', 2) stageReset(@Param('stageId') stageId: string, @Body() body: any) { return this.service.resetStage(stageId, !!(body && body.cascade)); }
   @Post('development/version/:versionId/promote-build') @RequirePermission('production', 2) promoteBuild(@Param('versionId') versionId: string, @Body() body: any, @Req() req: any) { return this.service.promoteBuild({ versionId, ...(body || {}) }, req?.user?.id); }
   @Post('development/build/:buildId/promote') @RequirePermission('production', 2) promoteFromBuild(@Param('buildId') buildId: string, @Body() body: any, @Req() req: any) { return this.service.promoteBuild({ buildId, ...(body || {}) }, req?.user?.id); }

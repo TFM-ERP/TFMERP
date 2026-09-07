@@ -4622,7 +4622,10 @@ export class ScripOnService {
    * a page, to render a name and a status. The panel reads six fields and never touched it.
    */
   async listBuilds(projectId?: string, bin?: boolean) {
-    await this.purgeExpiredBuilds();
+    // NO SWEEP HERE. This used to call purgeExpiredBuilds() — a hard deleteMany — so merely LISTING
+    // the builds page permanently destroyed data, with no confirmation, no undo, and no way for a
+    // reader to know it had happened. A GET must not delete. The sweep is now an explicit action
+    // (POST builds/purge-expired); raising the 30-day window would have left that shape intact.
     const where: any = projectId ? { OR: [{ projectId }, { linkedProjectId: projectId }] } : {};
     where.deletedAt = bin ? { not: null } : null;
     const rows: any[] = await (this.prisma as any).developmentBuild.findMany({
@@ -4649,9 +4652,49 @@ export class ScripOnService {
       };
     });
   }
+  /**
+   * DELETE A BUILD AND EVERYTHING THAT HANGS OFF IT — the one place that does, so the scheduled
+   * sweep and the "Delete forever" button cannot disagree.
+   *
+   * NOTHING CASCADES IN THE DATABASE. Measured: zero foreign keys reference development_builds, and
+   * BuildVersion.buildId / DevelopmentStage.buildId are bare String columns with an index and no
+   * relation. So deleting the build row used to leave its stages and every draft written into them
+   * behind — 31,336 characters of synopsis, treatment and beats on one binned build alone — with no
+   * surviving product read path: pipeline() filters on { projectId, buildId }, and documentId is
+   * null on every ladder stage, so the reader and coverage doors do not reach them either. They
+   * were recoverable only by someone querying the database for an id nothing displays any more.
+   *
+   * Stranding writing is worse than deleting it: it consumes space, answers no query, and lets a
+   * product claim "permanently deleted" while the work quietly survives out of reach. So the
+   * children go with the parent, and the caller is told the count so the UI can say what it cost.
+   */
+  async purgeBuildsCascade(ids: string[]): Promise<{ builds: number; stages: number; stageVersions: number; versions: number; chars: number }> {
+    const out = { builds: 0, stages: 0, stageVersions: 0, versions: 0, chars: 0 };
+    if (!ids || !ids.length) return out;
+    const stages: any[] = await (this.prisma as any).developmentStage.findMany({ where: { buildId: { in: ids } }, select: { id: true } }).catch(() => []);
+    const stageIds = stages.map((s) => s.id);
+    if (stageIds.length) {
+      const sv: any[] = await (this.prisma as any).stageVersion.findMany({ where: { stageId: { in: stageIds } }, select: { body: true } }).catch(() => []);
+      out.stageVersions = sv.length;
+      out.chars = sv.reduce((n, v) => n + String(v.body || '').length, 0);
+      await (this.prisma as any).stageVersion.deleteMany({ where: { stageId: { in: stageIds } } }).catch(() => {});
+      await (this.prisma as any).developmentStage.deleteMany({ where: { id: { in: stageIds } } }).catch(() => {});
+      out.stages = stageIds.length;
+    }
+    const v = await (this.prisma as any).buildVersion.deleteMany({ where: { buildId: { in: ids } } }).catch(() => ({ count: 0 }));
+    out.versions = (v && v.count) || 0;
+    const b = await (this.prisma as any).developmentBuild.deleteMany({ where: { id: { in: ids } } }).catch(() => ({ count: 0 }));
+    out.builds = (b && b.count) || 0;
+    this.log.warn('purgeBuildsCascade: destroyed ' + out.builds + ' build(s), ' + out.stages + ' stage(s), '
+      + out.stageVersions + ' stage version(s) and ' + out.chars.toLocaleString() + ' characters of writing.');
+    return out;
+  }
+
+  /** The 30-day sweep. An EXPLICIT action now — never a side effect of reading the list. */
   async purgeExpiredBuilds() {
     const cutoff = new Date(Date.now() - 30 * 86400000);
-    await (this.prisma as any).developmentBuild.deleteMany({ where: { deletedAt: { lt: cutoff } } }).catch(() => {});
+    const due: any[] = await (this.prisma as any).developmentBuild.findMany({ where: { deletedAt: { lt: cutoff } }, select: { id: true } }).catch(() => []);
+    return this.purgeBuildsCascade(due.map((b) => b.id));
   }
   async createBuild(data: any) {
     const name = String((data && data.name) || 'Untitled build').slice(0, 120);
@@ -4710,9 +4753,12 @@ export class ScripOnService {
     await (this.prisma as any).developmentBuild.update({ where: { id }, data: { deletedAt: null } }).catch(() => {});
     return { ok: true };
   }
+  /** "Delete forever". Same cascade as the sweep — the two doors must agree, and this one has no
+   *  30-day wait in front of it. Returns what it destroyed so the UI can stop claiming a build row
+   *  is all that goes. */
   async purgeBuild(id: string) {
-    await (this.prisma as any).developmentBuild.delete({ where: { id } }).catch(() => {});
-    return { ok: true };
+    const purged = await this.purgeBuildsCascade([String(id)]);
+    return { ok: true, purged };
   }
 
   // Reset a development stage — clear its versions (and optionally everything downstream) so it regenerates clean.
