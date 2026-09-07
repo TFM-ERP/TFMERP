@@ -2,6 +2,7 @@ import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { AiService } from '../../ai/ai.service';
 import { explainEmptyDraft, truncationWarning, stoppedAtCeiling, usageSummary } from '../../ai/empty-output.util';
+import type { EffortLevel } from '../../ai/providers';
 import { CanonService } from './canon/canon.service';
 import { computeFacts, parseJsonArray } from './scripton.util';
 import { LORE_SEED } from './lore-seed.data';
@@ -819,6 +820,37 @@ export class ScripOnService {
    * runs ~7 minutes because it is a single 25,000-token generation (roughly ten times the output of
    * any other stage). Telling the truth is half the fix.
    */
+  /**
+   * How much REASONING each ladder stage may spend before it answers (output_config.effort).
+   *
+   * THIS IS A RELIABILITY CONTROL, NOT A COST CONTROL. The saving is under a dollar a script and is
+   * not the reason it exists; do not justify it that way. It exists because effort is the ONLY thing
+   * that bounds reasoning. max_tokens is a ceiling the model is not aware of, so raising it to 8,000
+   * stopped a stage being cut off mid-thought without limiting what it spends getting there — and a
+   * stage that spends its ENTIRE ceiling reasoning returns no text at all. That is not a degraded
+   * draft, it is no draft: 79 runs in this install, every one of them on a model that reasons by
+   * default, most of them scripton.feature.scene against small computed caps of 300-400 tokens.
+   *
+   * A short factual stage does not need to deliberate for 400 tokens to produce 60. Capping how much
+   * it may is what keeps the ceiling for the writing.
+   *
+   * The tiers:
+   *   low     short, factual, structural. A logline is a sentence; deliberating for 400 tokens to
+   *           produce 60 is the failure mode this exists to prevent.
+   *   medium  prose with real judgement in it, where the writing is longer than the thinking.
+   *   unset   THE DEFAULT (high), and deliberately so for DRAFT, SCENES, BEATS and the other heavy
+   *           stages: they are the product. Nothing here has been measured against output quality,
+   *           so the stages that write the screenplay keep the level they have always had.
+   *
+   * Also deliberately absent: the canon extraction. Lowering effort on the §21 guard to save well
+   * under a dollar would trade the accuracy of the fact list for pocket change, and a missed fact
+   * there is the circularity the whole path exists to prevent.
+   */
+  private static readonly STAGE_EFFORT: Record<string, EffortLevel> = {
+    LOGLINE: 'low', PREMISE: 'low', THESIS: 'low', COVERAGE: 'low', RESEARCH_PLAN: 'low', RIGHTS_PLAN: 'low',
+    SYNOPSIS: 'medium', TREATMENT: 'medium', STORY_ENGINE: 'medium',
+  };
+
   // SYNOPSIS is 67 because that is what the first run to actually FINISH took (7 Sep, 5,975 tokens,
   // 67.4s) once its ceiling was raised — the old 30 was the latency of a run that was being cut off
   // before it wrote anything. It is not cosmetic: callTimeoutMs is derived from this number, so an
@@ -1107,7 +1139,7 @@ export class ScripOnService {
     // light stages: callProvider reads it as `call.idleTimeoutMs || 120000`, so they inherit the same
     // 120s idle abort the heavy stages ask for by name.
     const streamed = heavy || cap >= 6000;
-    const res: any = await this.ai.run({ task: 'scripton.develop.' + kind.toLowerCase(), system: brief.system, user, maxTokens: cap, stream: streamed, timeoutMs: callTimeoutMs, idleTimeoutMs: heavy ? 120000 : undefined, projectId, refType: 'Project', refId: projectId }); const ai: any = (res && res.json) || {};
+    const res: any = await this.ai.run({ task: 'scripton.develop.' + kind.toLowerCase(), system: brief.system, user, maxTokens: cap, stream: streamed, timeoutMs: callTimeoutMs, idleTimeoutMs: heavy ? 120000 : undefined, effort: ScripOnService.STAGE_EFFORT[kind], projectId, refType: 'Project', refId: projectId }); const ai: any = (res && res.json) || {};
     if (kind === 'BEATS' && !Array.isArray(ai.beats)) { const r = this.recoverStage(String((res && res.text) || '')); if (r.beats) ai.beats = r.beats; }
     if (kind === 'SCENES' && !Array.isArray(ai.scenes)) { const r = this.recoverStage(String((res && res.text) || '')); if (r.scenes) ai.scenes = r.scenes; }
     if (kind === 'STEP_OUTLINE' && !Array.isArray(ai.steps)) { const r = this.recoverStage(String((res && res.text) || '')); if (r.steps) ai.steps = r.steps; }
@@ -3343,7 +3375,12 @@ export class ScripOnService {
           ? user + '\n\nTHE PREVIOUS ATTEMPT AT THIS SCENE WAS REJECTED. ' + lastDefect
             + '\nWrite the scene again, in full, complete to its last line.'
           : user;
-        const r: any = await this.ai.run({ task: 'scripton.feature.scene', system: sys, user: attemptUser, maxTokens: b.maxTokens, temperature: 0.85, timeoutMs: 120000, projectId, refType: 'Project', refId: projectId });
+        // effort: the scene budget is a LINE budget — b.maxTokens is computed per scene and lands
+        // around 300-400 tokens for a short one. On a model that reasons by default that is not a
+        // prose budget at all, and the AiRun table shows what happens: dozens of runs on this exact
+        // task spending the whole allowance thinking and returning an EMPTY scene (outputChars 0).
+        // Bounding the reasoning is what leaves the budget for the scene. Not a cost measure.
+        const r: any = await this.ai.run({ task: 'scripton.feature.scene', system: sys, user: attemptUser, maxTokens: b.maxTokens, temperature: 0.85, timeoutMs: 120000, effort: 'medium', projectId, refType: 'Project', refId: projectId });
         let txt = clean(String((r && r.text) || ''));
         // ONE SCENE, ONE STORY. On 1 Sep a single return carried the Jason/Sophie scene followed by
         // two pages of THE TRUMAN SHOW, markdown headings and all, and it shipped in the PDF. The

@@ -5,6 +5,7 @@ import {
   isTemperatureRejection, rejectsTemperature, noteTemperatureRejected, resetTemperatureMemory,
   callProvider, ProviderError,
   reduceAnthropicEvents, reduceOpenAiChunks,
+  isEffortRejection, rejectsEffort, noteEffortRejected, resetEffortMemory,
 } from './providers';
 
 // A synthetic key of the exact shape that leaked. Never put a real one in a test.
@@ -301,4 +302,105 @@ test('junk in the event list still cannot throw — this runs on the failure pat
   const folded = reduceAnthropicEvents([null, 'nonsense', 42, {}, { type: 'message_delta' }] as any);
   assert.equal(folded.text, '');
   assert.equal(folded.stopReason, undefined);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// EFFORT
+//
+// output_config.effort is the only thing that bounds reasoning: max_tokens is a ceiling the model
+// is not aware of. A stage that spends its whole ceiling thinking returns NO text - 79 runs did
+// exactly that here. These pin the plumbing and, more importantly, the adaptation: the field is
+// GA on 4.6-and-later models and rejected outright by the 4.5-era ones, so the call must survive
+// meeting one without a hard-coded model list.
+
+const EFFORT_400 = { ok: false, status: 400, body: { error: { message: 'output_config: Extra inputs are not permitted' } } };
+
+test('effort is sent as a top-level output_config field, not a header and not nested in the message', () => {
+  resetEffortMemory();
+  const net = stubFetch([PROSE]);
+  return callProvider({ provider: 'anthropic', model: 'claude-opus-5', apiKey: 'x', user: 'write', effort: 'medium' })
+    .then(() => {
+      assert.deepEqual(net.sent[0].output_config, { effort: 'medium' });
+      assert.equal('effort' in net.sent[0], false, 'it is not a top-level `effort`');
+    })
+    .finally(() => net.restore());
+});
+
+test('a model that refuses the field is retried once without it, and remembered', async () => {
+  resetEffortMemory();
+  const net = stubFetch([EFFORT_400, PROSE]);
+  try {
+    const r = await callProvider({ provider: 'anthropic', model: 'claude-haiku-4-5', apiKey: 'x', user: 'write', effort: 'low' });
+    assert.equal(r.text, 'The trawler lists. NORA grabs the rail.', 'the call still returns prose');
+    assert.equal(net.sent.length, 2, 'exactly one retry - never a loop');
+    assert.equal('output_config' in net.sent[1], false, 'the retry omits the field entirely');
+    assert.equal(net.sent[1].messages[0].content, 'write', 'and changes nothing else');
+    assert.equal(rejectsEffort('anthropic', 'claude-haiku-4-5'), true, 'remembered for the rest of the process');
+  } finally { net.restore(); }
+
+  const second = stubFetch([PROSE]);
+  try {
+    await callProvider({ provider: 'anthropic', model: 'claude-haiku-4-5', apiKey: 'x', user: 'again', effort: 'low' });
+    assert.equal(second.sent.length, 1, 'the second call does not re-buy the 400');
+    assert.equal('output_config' in second.sent[0], false);
+  } finally { second.restore(); }
+});
+
+test('temperature and effort adapt independently - a model refusing both still converges', async () => {
+  resetEffortMemory(); resetTemperatureMemory();
+  const net = stubFetch([EFFORT_400, REFUSAL, PROSE]);
+  try {
+    const r = await callProvider({ provider: 'anthropic', model: 'claude-opus-4-8', apiKey: 'x', user: 'write', temperature: 0.85, effort: 'medium' });
+    assert.equal(r.text, 'The trawler lists. NORA grabs the rail.');
+    assert.equal(net.sent.length, 3, 'at most one extra request per refused parameter');
+    assert.equal('output_config' in net.sent[2], false);
+    assert.equal('temperature' in net.sent[2], false);
+  } finally { net.restore(); }
+});
+
+test('a real bad request is not resent with a mutated body just because effort was in it', async () => {
+  resetEffortMemory();
+  const net = stubFetch([{ ok: false, status: 400, body: { error: { message: 'max_tokens: 200000 > 64000' } } }, PROSE]);
+  try {
+    await assert.rejects(
+      () => callProvider({ provider: 'anthropic', model: 'claude-opus-5', apiKey: 'x', user: 'write', effort: 'medium' }),
+      (e: any) => e.kind === 'BAD_REQUEST' && /max_tokens/.test(String(e.message)),
+    );
+    assert.equal(net.sent.length, 1, 'one request, one error');
+  } finally { net.restore(); }
+});
+
+test('the rejection matcher names the field or does not fire', () => {
+  const bad = (message: string) => new ProviderError('anthropic', 'BAD_REQUEST', message, 400);
+  assert.equal(isEffortRejection(bad('output_config: Extra inputs are not permitted')), true);
+  assert.equal(isEffortRejection(bad('effort is not supported for this model')), true);
+  assert.equal(isEffortRejection(bad('Unrecognized field output_config')), true);
+  // Must NOT fire: a genuine 400 that says nothing about effort would be resent with a changed body.
+  assert.equal(isEffortRejection(bad('max_tokens: 200000 > 64000, the maximum')), false);
+  assert.equal(isEffortRejection(bad('messages: at least one message is required')), false);
+  assert.equal(isEffortRejection(new ProviderError('anthropic', 'TIMEOUT', 'output_config not supported')), false, 'only a 400 counts');
+  assert.equal(isEffortRejection(null), false);
+});
+
+test('effort is Anthropic-only - no OpenAI-compatible provider is ever sent output_config', async () => {
+  resetEffortMemory();
+  for (const provider of ['deepseek', 'gemini', 'openrouter', 'local'] as const) {
+    const net = stubFetch([{ ok: true, status: 200, body: { choices: [{ message: { content: 'ok' } }], usage: {} } }]);
+    try {
+      await callProvider({ provider, model: 'm', apiKey: 'x', baseUrl: 'https://example.invalid', user: 'u', effort: 'low' });
+      assert.equal('output_config' in net.sent[0], false, provider + ' must not receive output_config');
+      assert.equal('effort' in net.sent[0], false, provider + ' must not receive a bare effort either');
+    } finally { net.restore(); }
+  }
+});
+
+test('a call that asks for no effort is untouched - the field never appears', async () => {
+  resetEffortMemory();
+  const net = stubFetch([PROSE]);
+  try {
+    await callProvider({ provider: 'anthropic', model: 'claude-opus-5', apiKey: 'x', user: 'write' });
+    assert.equal(net.sent.length, 1);
+    assert.equal('output_config' in net.sent[0], false);
+    assert.equal(noteEffortRejected as any instanceof Function, true, 'exported for the health view');
+  } finally { net.restore(); }
 });

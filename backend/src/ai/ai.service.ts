@@ -1,10 +1,10 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { LlmRoutingService, DEFAULT_ANTHROPIC_MODEL, isRetiredModel } from './llm-routing.service';
-import { callProvider, isExhausting, redactSecrets, ProviderErrorKind } from './providers';
+import { callProvider, isExhausting, redactSecrets, ProviderErrorKind, EffortLevel } from './providers';
 import { usageSummary, stoppedAtCeiling } from './empty-output.util';
 
-export interface AiRunOpts { task: string; system: string; user: string; projectId?: string | null; refType?: string | null; refId?: string | null; maxTokens?: number; model?: string; temperature?: number; timeoutMs?: number; idleTimeoutMs?: number; stream?: boolean; budgetMs?: number; }
+export interface AiRunOpts { task: string; system: string; user: string; projectId?: string | null; refType?: string | null; refId?: string | null; maxTokens?: number; model?: string; temperature?: number; timeoutMs?: number; idleTimeoutMs?: number; stream?: boolean; budgetMs?: number; effort?: EffortLevel; }
 export interface AiRawOpts { task: string; system?: string; messages: any[]; tools?: any[]; toolChoice?: any; beta?: string; projectId?: string | null; refType?: string | null; refId?: string | null; maxTokens?: number; model?: string; temperature?: number; timeoutMs?: number; }
 export interface AiResult { text: string; json: any; model: string; usage: any; runId?: string; provider?: string; stopReason?: string; sawThinking?: boolean; }
 export interface AiRawResult { data: any; text: string; toolUse: any[]; usage: any; model: string; runId?: string; }
@@ -81,7 +81,7 @@ export class AiService {
         const runId = await this.begin({ task: opts.task, provider: plan.provider, model, projectId: opts.projectId, refType: opts.refType, refId: opts.refId, promptChars: (opts.system || '').length + (opts.user || '').length });
         const started = Date.now();
         try {
-          const r = await callProvider({ provider: plan.provider, model, apiKey: plan.apiKey, baseUrl: plan.baseUrl, system: opts.system, user: opts.user, maxTokens: opts.maxTokens, temperature: opts.temperature, timeoutMs: opts.timeoutMs, idleTimeoutMs: opts.idleTimeoutMs, stream: wantStream });
+          const r = await callProvider({ provider: plan.provider, model, apiKey: plan.apiKey, baseUrl: plan.baseUrl, system: opts.system, user: opts.user, maxTokens: opts.maxTokens, temperature: opts.temperature, timeoutMs: opts.timeoutMs, idleTimeoutMs: opts.idleTimeoutMs, stream: wantStream, effort: opts.effort });
           await this.finish(runId, { input_tokens: r.usage.input_tokens, output_tokens: r.usage.output_tokens }, r.text, Date.now() - started);
           // A SUCCESSFUL CALL THAT RETURNED NO TEXT IS NOT A SUCCESS, AND IT IS LOGGED HERE — ONCE,
           // FOR EVERY CALLER. This is the gateway every model call in the platform passes through, so

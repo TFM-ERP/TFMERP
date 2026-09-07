@@ -26,7 +26,16 @@ export interface ProviderCall {
   idleTimeoutMs?: number; // streaming only: abort if no bytes arrive for this long - fast stall detection so we fail over quickly
   stream?: boolean; // stream the response server-side: keeps the connection live (no single long blocking request) and sidesteps the non-streaming long-request ceiling
   beta?: string; // anthropic only
+  /** Anthropic only: output_config.effort — how much reasoning the model spends before answering.
+   *  The ONLY thing that bounds thinking spend; max_tokens is a ceiling the model is not aware of
+   *  and does not limit reasoning. Omitted means the provider default ("high"). */
+  effort?: EffortLevel;
 }
+
+/** Anthropic effort levels, cheapest first. Not every model takes every level (xhigh arrived with
+ *  Opus 4.7, and the 4.5-era models reject the parameter outright) — which is handled the same way
+ *  temperature is: by listening to the provider's 400 rather than by keeping a model list here. */
+export type EffortLevel = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 
 export interface ProviderResult {
   text: string;
@@ -318,6 +327,75 @@ async function sendAdaptingTemperature(
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// EFFORT ADAPTATION
+//
+// Same problem as temperature, same answer. `output_config.effort` is GA on the 4.6-and-later
+// models and REJECTED by the 4.5-era ones, and which models are which changes with every release —
+// so there is no list here either. Send it, and if the provider says it will not take the field,
+// remember that and send once more without.
+//
+// This wraps the temperature adapter rather than merging with it. Merging would put four tested
+// behaviours (exactly one retry, never a loop, a real 400 still throws, a call that never asked for
+// the parameter is untouched) at risk to save a few lines. Nested, each adapter owns exactly one
+// parameter and the temperature path is byte-identical to what it was.
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+
+const EFFORT_REJECTED = new Set<string>();
+const effortKey = (provider: LlmProvider, model: string): string => provider + ':' + String(model || '');
+
+/** Has this provider/model already told us it will not take `output_config.effort`? */
+export function rejectsEffort(provider: LlmProvider, model: string): boolean {
+  return EFFORT_REJECTED.has(effortKey(provider, model));
+}
+
+/** Record that it did. Exported for the health view and the tests. */
+export function noteEffortRejected(provider: LlmProvider, model: string): void {
+  EFFORT_REJECTED.add(effortKey(provider, model));
+}
+
+/** Forget what has been learned about effort support. Test seam; also usable on a config change. */
+export function resetEffortMemory(): void { EFFORT_REJECTED.clear(); }
+
+/**
+ * Is this failure the provider refusing the effort FIELD, rather than the request?
+ *
+ * Narrower than it looks, and deliberately so. The message must be a 400, must NAME the field
+ * (`effort` or `output_config`), and must carry a refusal phrasing. A model that rejects the field
+ * without naming it will fail hard instead of adapting — that is the correct outcome. Widening the
+ * phrase list to catch it would mean resending a mutated body on unrelated 400s, which is exactly
+ * what the temperature comment above warns against: one clear error becoming two confusing ones.
+ *
+ * `extra inputs`/`not permitted`/`unexpected` are included because an unknown top-level field is
+ * usually rejected by schema validation rather than by a written-out deprecation notice.
+ */
+export function isEffortRejection(err: any): boolean {
+  if (!err || err.kind !== 'BAD_REQUEST') return false;
+  const m = String((err && err.message) || '').toLowerCase();
+  if (!m.includes('effort') && !m.includes('output_config')) return false;
+  return /deprecat|unsupported|not supported|does not support|no longer|unexpected|unrecogni[sz]ed|not permitted|extra input|unknown field|invalid/.test(m);
+}
+
+/**
+ * Send once with the effort field; if the provider refuses it, remember and send once without.
+ * Wraps whatever `send` does about temperature, so a call can adapt on both independently.
+ */
+async function sendAdaptingEffort(
+  provider: LlmProvider,
+  model: string,
+  wanted: boolean,
+  send: (withEffort: boolean) => Promise<ProviderResult>,
+): Promise<ProviderResult> {
+  const useEffort = wanted && !rejectsEffort(provider, model);
+  try {
+    return await send(useEffort);
+  } catch (e: any) {
+    if (!useEffort || !isEffortRejection(e)) throw e;
+    noteEffortRejected(provider, model);
+    return await send(false);
+  }
+}
+
 /** Execute one LLM completion against the given provider, normalized. Throws ProviderError. */
 export async function callProvider(call: ProviderCall): Promise<ProviderResult> {
   const timeoutMs = call.timeoutMs || 200000;
@@ -332,9 +410,12 @@ export async function callProvider(call: ProviderCall): Promise<ProviderResult> 
     const url = (call.baseUrl || 'https://api.anthropic.com').replace(/\/+$/, '') + '/v1/messages';
     // The body is rebuilt per attempt rather than mutated, so a retry inherits nothing from the
     // request the provider just rejected.
-    const send = async (withTemperature: boolean): Promise<ProviderResult> => {
+    const send = async (withTemperature: boolean, withEffort: boolean): Promise<ProviderResult> => {
       const body: any = { model: call.model, max_tokens: maxTokens, system: call.system, messages: [{ role: 'user', content: call.user }] };
       if (withTemperature) body.temperature = call.temperature;
+      // The one lever that bounds reasoning spend. GA — no beta header, and it is a top-level
+      // request field, not a header and not nested in the message.
+      if (withEffort && call.effort) body.output_config = { effort: call.effort };
       if (stream) { body.stream = true; return httpStream(url, headers, body, 'anthropic', { idleMs, overallMs: timeoutMs }); }
       const data = await httpJson(url, headers, body, timeoutMs, 'anthropic');
       const blocks = Array.isArray(data?.content) ? data.content : [];
@@ -342,7 +423,11 @@ export async function callProvider(call: ProviderCall): Promise<ProviderResult> 
       const text = String((t && t.text) || data?.content?.[0]?.text || '').trim();
       return { text, usage: { input_tokens: data?.usage?.input_tokens, output_tokens: data?.usage?.output_tokens }, raw: data, stopReason: data?.stop_reason, sawThinking: blocks.some((c: any) => c?.type === 'thinking') };
     };
-    return sendAdaptingTemperature('anthropic', call.model, wantsTemperature, send);
+    // Nested, outermost first: effort is dropped by the outer wrapper, temperature by the inner one,
+    // so a model that refuses both still converges in at most two extra requests and each retry is
+    // gated on its own narrow 400.
+    return sendAdaptingEffort('anthropic', call.model, !!call.effort, (withEffort) =>
+      sendAdaptingTemperature('anthropic', call.model, wantsTemperature, (withTemperature) => send(withTemperature, withEffort)));
   }
 
   // OpenAI-compatible: deepseek | gemini | openrouter | local
