@@ -102,7 +102,11 @@ export class ScripOnController {
   @Post('builds/:id/status') @RequirePermission('production', 2) buildStatus(@Param('id') id: string, @Body() body: any) { return this.service.setBuildStatus(id, body?.status); }
   @Post('builds/:id/delete') @RequirePermission('production', 2) buildDelete(@Param('id') id: string) { return this.service.deleteBuild(id); }
   @Post('builds/:id/restore') @RequirePermission('production', 2) buildRestore(@Param('id') id: string) { return this.service.restoreBuild(id); }
-  @Post('builds/:id/purge') @RequirePermission('production', 2) buildPurge(@Param('id') id: string) { return this.service.purgeBuild(id); }
+  // LEVEL 3. "Delete forever" now genuinely deletes forever: purgeBuildsCascade takes the stages,
+  // the stage versions and every draft written into them. It has no 30-day wait in front of it and
+  // no audit record behind it, so it sits with the other unrecoverable routes rather than beside
+  // `delete` (move to bin), which is reversible.
+  @Post('builds/:id/purge') @RequirePermission('production', 3) buildPurge(@Param('id') id: string) { return this.service.purgeBuild(id); }
   // The 30-day sweep, as an ACTION. It used to run inside GET builds, so opening the list destroyed
   // any build binned more than 30 days earlier — silently, and with the writing left stranded.
   @Post('builds/purge-expired') @RequirePermission('production', 3) buildsPurgeExpired() { return this.service.purgeExpiredBuilds(); }

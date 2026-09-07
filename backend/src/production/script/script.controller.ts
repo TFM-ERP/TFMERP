@@ -58,8 +58,16 @@ export class ScriptController {
   @Put('document/:id/active/:revisionId') @RequirePermission('production', 2)
   setActive(@Param('id') id: string, @Param('revisionId') revisionId: string) { return this.service.setActiveRevision(id, revisionId); }
 
-  @Delete('revision/:id') @RequirePermission('production', 2) removeRevision(@Param('id') id: string) { return this.service.removeRevision(id); }
-  @Delete('document/:id') @RequirePermission('production', 2) removeDocument(@Param('id') id: string) { return this.service.removeDocument(id); }
+  // LEVEL 3, NOT 2 — these are the only two routes in this controller with no undo.
+  //
+  // The FKs here genuinely cascade: deleting a script_documents row takes its revisions, and through
+  // them the scenes, coverage, bookmarks and annotation layers. There is no bin in front of either
+  // route and no audit record behind them. Leaving them at level 2 — the same level as `trash`, which
+  // is reversible — was the system asserting that a recoverable action and an unrecoverable one are
+  // equally consequential. They are not. The builds path erred the other way, deleting too little and
+  // stranding a million characters; this one deletes everything and leaves nothing to recover from.
+  @Delete('revision/:id') @RequirePermission('production', 3) removeRevision(@Param('id') id: string) { return this.service.removeRevision(id); }
+  @Delete('document/:id') @RequirePermission('production', 3) removeDocument(@Param('id') id: string) { return this.service.removeDocument(id); }
   // P0 script-spine — single-source projection status + revision metadata
   @Get('projection-status/:projectId') projectionStatus(@Param('projectId') projectId: string) { return this.service.projectionStatus(projectId); }
   @Put('revision/:id/meta') @RequirePermission('production', 2) setRevisionMeta(@Param('id') id: string, @Body() body: any) { return this.service.setRevisionMeta(id, body || {}); }
