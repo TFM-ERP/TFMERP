@@ -85,7 +85,26 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
   const tt = useRef<any>(null);
   const flash = (m: string) => { setToast(m); clearTimeout(tt.current); tt.current = setTimeout(() => setToast(null), 3200); };
 
-  const load = async (pid: string, b = false) => { try { const r: any = await productionApi.scripton.development.listBuilds(pid, b); setBuilds(Array.isArray(r.data) ? r.data : []); } catch { setBuilds([]); } };
+  // THE PANEL MOUNTS BEFORE projectId RESOLVES, and it used to call load('') in that gap — which hits
+  // `where = {}` on the server and renders EVERY build in the system, in every project, until the
+  // scoped response replaces them. That flash of other people's builds has been reported repeatedly.
+  // An unscoped call is now impossible from here: no pid, no request.
+  //
+  // The second half is ordering. Two loads can be in flight (mount, then projectId resolving, or a
+  // fast Active/Bin toggle) and the network decides which lands last. A token makes LAST ISSUED win
+  // rather than last arrived, so a stale response cannot overwrite a newer one.
+  const reqRef = useRef(0);
+  const mountedRef = useRef(true);
+  useEffect(() => () => { mountedRef.current = false; }, []);
+  const load = async (pid: string, b = false) => {
+    if (!pid) return;
+    const token = ++reqRef.current;
+    try {
+      const r: any = await productionApi.scripton.development.listBuilds(pid, b);
+      if (!mountedRef.current || token !== reqRef.current) return;
+      setBuilds(Array.isArray(r.data) ? r.data : []);
+    } catch { if (mountedRef.current && token === reqRef.current) setBuilds([]); }
+  };
   const daysLeft = (d?: string) => { if (!d) return 30; const ms = new Date(d).getTime() + 30 * 86400000 - Date.now(); return Math.max(0, Math.ceil(ms / 86400000)); };
   const isDemo = (b: any) => /^b\d$/.test(String(b && b.id));
   const switchBin = (v: boolean) => { setBin(v); setFilter('All'); if (projectId) load(projectId, v); };
@@ -95,7 +114,7 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
     let alive = true;
     (async () => {
       try { const pr: any = await productionApi.projects.list(); const ps = pr.data?.items ?? (Array.isArray(pr.data) ? pr.data : []); if (alive) setProjects(ps); } catch { /* */ }
-      if (projectId) { setDestProj(projectId); await load(projectId, false); } else { await load('', false); } // unscoped → show the whole build pool, not demo
+      if (projectId) { setDestProj(projectId); await load(projectId, false); }   // no else: an unscoped load renders every build in the system (see load)
     })();
     return () => { alive = false; };
   }, [projectId]);
@@ -143,10 +162,14 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
                       industry convention exists for a development container); the source fingerprint
                       is what makes "different foundation" visible at a glance. */}
                   <div className="ident">
-                    {b.shortKey ? <span className="k" title={t('Build key')}>{b.shortKey}</span> : null}
-                    {b.createdAt ? <><span className="sep">·</span><span title={t('created') + ' ' + ago(b.createdAt)}>{onDate(b.createdAt)}</span></> : null}
-                    {b.source ? <><span className="sep">·</span><span className={b.source.empty ? 'nosrc' : ''} title={b.source.empty ? t('This build has no source material. Stages generated from it are written from the brief alone.') : t('source size and content fingerprint')}>{b.source.label}</span></> : null}
-                    {b.version ? <><span className="sep">·</span><span>{b.version}</span></> : null}
+                    {/* JOINED, not prefixed. Prefixing each fragment with a separator leaves a dangling
+                        leading dot whenever the first field is absent — demo rows have no shortKey. */}
+                    {([
+                      b.shortKey ? <span key="k" className="k" title={t('Build key')}>{b.shortKey}</span> : null,
+                      b.createdAt ? <span key="d" title={t('created') + ' ' + ago(b.createdAt)}>{onDate(b.createdAt)}</span> : null,
+                      b.source ? <span key="s" className={b.source.empty ? 'nosrc' : ''} title={b.source.empty ? t('This build has no source material. Stages generated from it are written from the brief alone.') : t('source size and content fingerprint')}>{b.source.label}</span> : null,
+                      b.version ? <span key="v">{b.version}</span> : null,
+                    ].filter(Boolean)).flatMap((el, i) => (i ? [<span key={'sep' + i} className="sep">·</span>, el] : [el]))}
                   </div>
                   <div className="ladder">{[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (<span key={i} className={'d' + (i < dots ? ' on' : '')} />))}</div>
                   <div className="ft">
