@@ -7,7 +7,7 @@ import { PrismaService } from '../../common/prisma/prisma.service';
  * sluglines into ScriptScene rows (the outline + the FK target for later annotations / lining).
  */
 // WGA revision colour wheel (auto-advances on each new revision; round 1 = 'Double …')
-import { nextRevisionColor } from './revision-wheel.util';
+import { nextRevisionColor, revisionLabel } from './revision-wheel.util';
 import { parseScenes as parseScenesUtil } from './scene-parse.util';
 @Injectable()
 export class ScriptService {
@@ -131,7 +131,11 @@ export class ScriptService {
       include: { scenes: { orderBy: { sortOrder: 'asc' } } },
     });
     if (!rev) throw new NotFoundException('Revision not found.');
-    return (await this.upgradeFdxView(rev)) || rev;
+    const full: any = (await this.upgradeFdxView(rev)) || rev;
+    // The slug travels WITH the revision so no caller has to reassemble it — the frontend cannot
+    // import revision-wheel.util, and a second implementation of the naming is the defect this work
+    // exists to remove.
+    return { ...full, slug: revisionLabel(full.revisionColor, full.revisionRound || 0) };
   }
 
   /** Self-heal revisions uploaded before FDX→PDF conversion existed: generate the
@@ -205,8 +209,11 @@ export class ScriptService {
     return {
       hasScript: true,
       document: { id: doc.id, title: doc.title },
-      revision: rev ? { id: rev.id, label: rev.revisionLabel, color: (rev as any).revisionColor || null, colorCode: rev.colorCode || null, isLocked: !!(rev as any).isLocked, round: (rev as any).revisionRound || 0, pageCount: rev.pageCount } : null,
-      revisions: revs.map((r: any) => ({ id: r.id, label: r.revisionLabel, color: (r as any).revisionColor || null, isLocked: !!(r as any).isLocked, active: r.id === doc.activeRevisionId, createdAt: r.createdAt })),
+      revision: rev ? { id: rev.id, label: rev.revisionLabel, color: (rev as any).revisionColor || null, colorCode: rev.colorCode || null, isLocked: !!(rev as any).isLocked, round: (rev as any).revisionRound || 0, pageCount: rev.pageCount,
+        // The industry identifier, assembled where the wheel lives. COLOUR + ROUND is MEASURED
+        // convention; the date completes the slug and is rendered beside it, never inside it.
+        slug: revisionLabel((rev as any).revisionColor, (rev as any).revisionRound || 0), revisionDate: (rev as any).revisionDate || rev.createdAt } : null,
+      revisions: revs.map((r: any) => ({ id: r.id, label: r.revisionLabel, color: (r as any).revisionColor || null, isLocked: !!(r as any).isLocked, active: r.id === doc.activeRevisionId, createdAt: r.createdAt, slug: revisionLabel((r as any).revisionColor, (r as any).revisionRound || 0), revisionDate: (r as any).revisionDate || r.createdAt, pageCount: r.pageCount })),
       counts: { scenes: scenes.length, strips: strips.length, linked, unlinked: Math.max(0, scenes.length - linked), brokenDown, changed, elementsOnScenes, elementsTotal, budgetMapped, castingCalls },
       modules,
     };

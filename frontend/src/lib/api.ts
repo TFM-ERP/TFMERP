@@ -445,6 +445,9 @@ export const productionApi = {
     alignment: (projectId: string) => api.get(`/production/brief/alignment/${projectId}`),
     remove: (id: string) => api.delete(`/production/brief/${id}`),
   },
+  intel: {
+    get: (projectId: string, refresh?: boolean) => api.get(`/production/intel/${projectId}`, { params: refresh ? { refresh: 1 } : {} }),
+  },
   scripton: {
     workspace: () => api.get('/production/scripton/workspace'),
     latestCoverage: (projectId: string) => api.get(`/production/scripton/coverage/${projectId}`),
@@ -508,6 +511,7 @@ export const productionApi = {
       read: (versionId: string) => api.post(`/production/scripton/development/version/${versionId}/read`, {}),
       promoteToScript: (versionId: string) => api.post(`/production/scripton/development/version/${versionId}/promote-to-script`, {}),
       regenerateFeature: (docId: string, mode: 'extend' | 'rewrite' = 'extend') => api.post('/production/scripton/development/script/' + docId + '/regenerate', { mode }),
+      cancelFeature: (docId: string) => api.post('/production/scripton/development/script/' + docId + '/cancel', {}),
       listExemplars: (variety?: string) => api.get('/production/scripton/dialect/exemplars' + (variety ? ('?variety=' + encodeURIComponent(variety)) : '')),
       saveExemplar: (body: any) => api.post('/production/scripton/dialect/exemplars', body),
       deleteExemplar: (id: string) => api.post('/production/scripton/dialect/exemplars/' + id + '/delete', {}),
@@ -833,6 +837,9 @@ export const productionApi = {
     remove: (id: string) => api.delete(`/production/script/document/${id}`),
     getDocument: (id: string) => api.get(`/production/script/document/${id}`),
     getRevision: (id: string) => api.get(`/production/script/revision/${id}`),
+    // The WGA colour wheel, served from its one owner (backend revision-wheel.util.ts). The panel
+    // used to hard-code a nine-colour pastel copy of this and post its own hex back.
+    revisionWheel: () => api.get('/production/script/revision-wheel'),
     createDocument: (projectId: string, data: any) => api.post(`/production/script/project/${projectId}`, data),
     addRevision: (documentId: string, formData: FormData) => api.post(`/production/script/document/${documentId}/revision`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
     setActive: (documentId: string, revisionId: string) => api.put(`/production/script/document/${documentId}/active/${revisionId}`),

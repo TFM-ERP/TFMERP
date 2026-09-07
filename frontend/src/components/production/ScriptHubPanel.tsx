@@ -37,8 +37,16 @@ const TOOLS: { key: Tool; icon: any; label: string }[] = [
 ];
 
 const inp = 'rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm focus:border-slate-900 outline-none';
-const REV_PRESETS = ['White', 'Blue', 'Pink', 'Yellow', 'Green', 'Goldenrod', 'Buff', 'Salmon', 'Cherry'];
-const REV_COLOR: Record<string, string> = { White: '#e2e8f0', Blue: '#bfdbfe', Pink: '#fbcfe8', Yellow: '#fef08a', Green: '#bbf7d0', Goldenrod: '#fde68a', Buff: '#fed7aa', Salmon: '#fecaca', Cherry: '#fca5a5' };
+// THE COLOUR WHEEL IS NOT DEFINED HERE ANY MORE.
+// It lived twice: as this list, and as REV_WHEEL in backend/production/script/revision-wheel.util.ts,
+// which is what revisions are actually assigned from. This copy was a colour short (no TAN), used
+// different hexes, and posted its own colorCode back — so a manually picked colour overwrote the
+// canonical one on the way in. Two copies of one convention is the defect shape. The panel now reads
+// GET script/revision-wheel; the dates and labels it renders come from the same owner.
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+// ABSOLUTE. A revision slug carries a real date precisely because "two weeks ago" identifies nothing;
+// spelled out rather than left to toLocaleDateString, which renders Sept on some ICU builds and Sep on others.
+const onDate = (d?: string) => { if (!d) return ''; const x = new Date(d); return isNaN(+x) ? '' : x.getDate() + ' ' + MONTHS[x.getMonth()] + ' ' + x.getFullYear(); };
 
 export default function ScriptHubPanel({ projectId }: { projectId: string }) {
   const [docs, setDocs] = useState<any[]>([]);
@@ -49,6 +57,11 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
   const [activeRev, setActiveRev] = useState<any>(null); // full revision w/ scenes + pdfUrl
   const [uploading, setUploading] = useState(false);
   const [revLabel, setRevLabel] = useState('White');
+  const [wheel, setWheel] = useState<{ key: string; label: string; hex: string }[]>([]);
+  useEffect(() => { let live = true; productionApi.script.revisionWheel()
+    .then((r: any) => { if (live) setWheel(r?.data?.wheel || r?.wheel || []); })
+    .catch(() => { /* the picker stays empty rather than falling back to a second copy of the list */ });
+    return () => { live = false; }; }, []);
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Annotation state (D2)
@@ -371,7 +384,8 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
       const fd = new FormData();
       fd.append('file', file);
       fd.append('revisionLabel', revLabel);
-      fd.append('colorCode', REV_COLOR[revLabel] || '');
+      // colorCode is deliberately NOT sent: script.service prefers the caller's hex over the wheel's own
+      // (body?.colorCode || col.hex), so sending one here is what let this panel override the canonical colour.
       const r = await productionApi.script.addRevision(openDoc.id, fd);
       await openDocument(openDoc.id);
       setActiveRev(r.data);
@@ -426,7 +440,7 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
                   <div className="absolute end-0 z-50 mt-1 w-64 rounded-xl border border-slate-200 bg-white shadow-xl p-2 space-y-1.5">
                     <label className="block text-[10px] uppercase tracking-wide text-slate-400 px-1">Upload as</label>
                     <select className={`${inp} w-full`} value={revLabel} onChange={(e) => setRevLabel(e.target.value)}>
-                      {REV_PRESETS.map((c) => <option key={c} value={c}>{c} pages</option>)}
+                      {wheel.map((c) => <option key={c.key} value={c.label}>{c.label} pages</option>)}
                     </select>
                     {prevRevision() && <button className="flex items-center gap-2 w-full text-start text-xs px-2 py-1.5 rounded-lg hover:bg-slate-50 text-slate-700" onClick={() => { setMoreOpen(false); doTransfer(); }}><ArrowRightLeft size={13} /> Transfer notes from previous</button>}
                     {(openDoc.revisions?.length || 0) > 1 && (
@@ -554,8 +568,10 @@ export default function ScriptHubPanel({ projectId }: { projectId: string }) {
             {/* Same card shell as the Reader — header bar + padded body */}
             <div className="flex items-center gap-2 px-4 h-12 bg-white border-b border-slate-200">
               <FileText size={16} className="text-slate-700" />
-              <h3 className="text-sm text-slate-800" style={{ fontWeight: 650 }}>Pages — {activeRev.revisionLabel}</h3>
-              <span className="text-[11px] text-slate-400">{activeRev.pageCount} pages · {activeRev.scenes?.length || 0} scenes · {annos.length} notes</span>
+              {/* MEASURED convention: a script version is COLOUR + DATE ("BLUE REVISIONS 12/18/25").
+                  slug comes from the backend wheel so the round is named — SECOND BLUE, not a second BLUE. */}
+              <h3 className="text-sm text-slate-800" style={{ fontWeight: 650 }}>Pages — {activeRev.slug || activeRev.revisionLabel}</h3>
+              <span className="text-[11px] text-slate-400">{[activeRev.slug || activeRev.revisionLabel, onDate(activeRev.revisionDate || activeRev.createdAt), (activeRev.pageCount != null ? activeRev.pageCount + ' pp' : '')].filter(Boolean).join(' · ')} · {activeRev.scenes?.length || 0} scenes · {annos.length} notes</span>
               <Chip tone="slate"><span className="inline-block w-2 h-2 rounded-full me-1" style={{ background: activeRev.colorCode || '#e2e8f0' }} />{activeRev.revisionLabel}</Chip>
               {orphans.length > 0 && <Chip tone="risk">{orphans.length} orphan{orphans.length === 1 ? '' : 's'}</Chip>}
             </div>
