@@ -3337,7 +3337,19 @@ export class ScripOnService {
     // `unavailable` names who is dead or gone, which is what stops a murdered mentor answering the
     // telephone thirty scenes later. Both are small enough to ride on every prompt, and with prompt
     // caching they are a cache read after the first scene.
-    const user = ctx
+    // ctx IS THE CACHE PREFIX, AND THE ORDER BELOW IT IS LOAD-BEARING.
+    //
+    // Caching is a PREFIX match: the breakpoint sits at the end of ctx, so everything that varies
+    // between scenes has to stay after it. It already does — and it must remain so. Moving the canon
+    // directive, the story-so-far tail or the scene brief above ctx would change the cached prefix on
+    // every scene and the cache would never hit once, silently, with no error to notice.
+    //
+    // ctx is the right block because buildFeatureCtx is computed once per run and sent byte-identical
+    // to all ~130 scenes. Measured at ~2,892 tokens on a real project (8,935 characters at this
+    // install's 3.09 chars/token), comfortably over Opus 5's 512-token minimum — under that minimum a
+    // prefix is simply not cached, and nothing says so.
+    const cachePrefix = ctx;
+    const user = ''
       + (canon ? '\n\n' + canon : '')
       + (storySoFar ? '\n\nSTORY SO FAR (continuity - do not repeat):' + storySoFar : '')
       + (prevTail ? '\n\nPREVIOUS SCENE ENDED WITH (continue naturally, do not repeat):\n' + prevTail : '')
@@ -3380,7 +3392,7 @@ export class ScripOnService {
         // prose budget at all, and the AiRun table shows what happens: dozens of runs on this exact
         // task spending the whole allowance thinking and returning an EMPTY scene (outputChars 0).
         // Bounding the reasoning is what leaves the budget for the scene. Not a cost measure.
-        const r: any = await this.ai.run({ task: 'scripton.feature.scene', system: sys, user: attemptUser, maxTokens: b.maxTokens, temperature: 0.85, timeoutMs: 120000, effort: 'medium', projectId, refType: 'Project', refId: projectId });
+        const r: any = await this.ai.run({ task: 'scripton.feature.scene', system: sys, user: attemptUser, cachePrefix, maxTokens: b.maxTokens, temperature: 0.85, timeoutMs: 120000, effort: 'medium', projectId, refType: 'Project', refId: projectId });
         let txt = clean(String((r && r.text) || ''));
         // ONE SCENE, ONE STORY. On 1 Sep a single return carried the Jason/Sophie scene followed by
         // two pages of THE TRUMAN SHOW, markdown headings and all, and it shipped in the PDF. The

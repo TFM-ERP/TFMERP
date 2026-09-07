@@ -6,6 +6,7 @@ import {
   callProvider, ProviderError,
   reduceAnthropicEvents, reduceOpenAiChunks,
   isEffortRejection, rejectsEffort, noteEffortRejected, resetEffortMemory,
+  anthropicUsage,
 } from './providers';
 
 // A synthetic key of the exact shape that leaked. Never put a real one in a test.
@@ -403,4 +404,80 @@ test('a call that asks for no effort is untouched - the field never appears', as
     assert.equal('output_config' in net.sent[0], false);
     assert.equal(noteEffortRejected as any instanceof Function, true, 'exported for the health view');
   } finally { net.restore(); }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// PROMPT CACHING
+//
+// cache_control attaches to a content BLOCK, so a flat-string payload has nowhere to put a
+// breakpoint - splitting it is the whole refactor. Caching is a PREFIX match, so the static half
+// must come first and everything varying after it; a breakpoint on changing content never hits,
+// silently. These pin the request shape and the accounting that proves it worked.
+
+const CACHED = { ok: true, status: 200, body: { content: [{ type: 'text', text: 'INT. BOAT - DAY' }],
+  usage: { input_tokens: 400, output_tokens: 9, cache_read_input_tokens: 2892, cache_creation_input_tokens: 0 } } };
+
+test('a cachePrefix splits the payload into blocks and puts the breakpoint on the STATIC one', async () => {
+  const net = stubFetch([CACHED]);
+  try {
+    await callProvider({ provider: 'anthropic', model: 'claude-opus-5', apiKey: 'x',
+      cachePrefix: 'THE STORY CONTEXT', user: 'SCENE 12: they argue' });
+    const content = net.sent[0].messages[0].content;
+    assert.ok(Array.isArray(content), 'the payload must be blocks, not a flat string');
+    assert.equal(content.length, 2);
+    assert.equal(content[0].text, 'THE STORY CONTEXT', 'the static half comes FIRST - a prefix match');
+    assert.deepEqual(content[0].cache_control, { type: 'ephemeral' }, '5-minute TTL: refreshes free on reuse');
+    assert.equal(content[1].text, 'SCENE 12: they argue', 'the varying half sits after the breakpoint');
+    assert.equal('cache_control' in content[1], false, 'and carries no breakpoint of its own');
+  } finally { net.restore(); }
+});
+
+test('no cachePrefix means the request is shaped exactly as it always was', async () => {
+  const net = stubFetch([PROSE]);
+  try {
+    await callProvider({ provider: 'anthropic', model: 'claude-opus-5', apiKey: 'x', user: 'write' });
+    assert.equal(net.sent[0].messages[0].content, 'write', 'still a flat string for every other caller');
+  } finally { net.restore(); }
+});
+
+test('the cache counters are carried back, blocking path', async () => {
+  const net = stubFetch([CACHED]);
+  try {
+    const r = await callProvider({ provider: 'anthropic', model: 'claude-opus-5', apiKey: 'x', cachePrefix: 'ctx', user: 'u' });
+    assert.equal(r.usage.cache_read_input_tokens, 2892);
+    assert.equal(r.usage.cache_creation_input_tokens, 0);
+    assert.equal(r.usage.input_tokens, 400, 'and input_tokens stays the UNCACHED remainder, not the total');
+  } finally { net.restore(); }
+});
+
+test('the cache counters survive the stream - they arrive on message_start and nowhere else', () => {
+  const folded = reduceAnthropicEvents([
+    { type: 'message_start', message: { usage: { input_tokens: 400, output_tokens: 0,
+      cache_read_input_tokens: 2892, cache_creation_input_tokens: 0 } } },
+    { type: 'content_block_delta', delta: { type: 'text_delta', text: 'INT. BOAT - DAY' } },
+    { type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: { output_tokens: 9 } },
+  ]);
+  assert.equal(folded.usage.cache_read_input_tokens, 2892, 'dropped here = every streamed call looks uncached');
+  assert.equal(folded.usage.cache_creation_input_tokens, 0);
+  assert.equal(folded.usage.input_tokens, 400);
+  assert.equal(folded.usage.output_tokens, 9, 'the later message_delta still wins on output');
+});
+
+test('anthropicUsage carries all four counters and invents none', () => {
+  assert.deepEqual(anthropicUsage({ input_tokens: 1, output_tokens: 2, cache_read_input_tokens: 3, cache_creation_input_tokens: 4 }),
+    { input_tokens: 1, output_tokens: 2, cache_read_input_tokens: 3, cache_creation_input_tokens: 4 });
+  const empty = anthropicUsage(undefined);
+  assert.equal(empty.cache_read_input_tokens, undefined, 'absent stays absent - never coerced to 0');
+  assert.equal(empty.input_tokens, undefined);
+});
+
+test('caching is Anthropic-only - no OpenAI-compatible provider is sent a cache_control block', async () => {
+  for (const provider of ['deepseek', 'gemini', 'openrouter', 'local'] as const) {
+    const net = stubFetch([{ ok: true, status: 200, body: { choices: [{ message: { content: 'ok' } }], usage: {} } }]);
+    try {
+      await callProvider({ provider, model: 'm', apiKey: 'x', baseUrl: 'https://example.invalid', cachePrefix: 'ctx', user: 'u' });
+      const body = JSON.stringify(net.sent[0]);
+      assert.equal(body.includes('cache_control'), false, provider + ' must not receive cache_control');
+    } finally { net.restore(); }
+  }
 });

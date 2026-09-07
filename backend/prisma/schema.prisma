@@ -8643,7 +8643,24 @@ model AiRun {
   refId        String?
   promptChars  Int?
   outputChars  Int?
+  // WITH PROMPT CACHING, inputTokens IS NO LONGER THE INPUT.
+  //
+  // Anthropic reports input_tokens as the tokens AFTER the last cache breakpoint — the uncached
+  // remainder only. A cached call whose 2,892-token context was served from cache reports an
+  // input_tokens of a few hundred, and anything summing that column alone silently loses the rest.
+  // That matters here beyond tidiness: $4/script is the number this project was re-planned around,
+  // and engineStatus() bills a monthly cap off these columns.
+  //
+  //     true input = inputTokens + cacheReadTokens + cacheCreationTokens
+  //
+  // They are priced differently, which is the point of recording them apart: reads ~0.1x, a 5-minute
+  // write 1.25x, a 1-hour write 2x, the remainder 1x. See ai-cost.util.ts.
   inputTokens  Int?
+  /** Tokens served FROM the cache on this call (Anthropic cache_read_input_tokens). ~0.1x price. */
+  cacheReadTokens Int?
+  /** Tokens WRITTEN to the cache on this call (Anthropic cache_creation_input_tokens). 1.25x at the
+   *  5-minute TTL this codebase uses. Non-zero on the first call of a run, ~zero on the rest. */
+  cacheCreationTokens Int?
   outputTokens Int?
   latencyMs    Int?
   confidence   Decimal? @db.Decimal(5, 2)

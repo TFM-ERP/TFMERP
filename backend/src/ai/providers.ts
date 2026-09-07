@@ -26,6 +26,16 @@ export interface ProviderCall {
   idleTimeoutMs?: number; // streaming only: abort if no bytes arrive for this long - fast stall detection so we fail over quickly
   stream?: boolean; // stream the response server-side: keeps the connection live (no single long blocking request) and sidesteps the non-streaming long-request ceiling
   beta?: string; // anthropic only
+  /**
+   * Anthropic only: the STATIC leading part of the user payload, sent as its own content block with
+   * a cache breakpoint on it. Everything in `user` is appended after it and stays uncached.
+   *
+   * Caching is a PREFIX match, so the split is the whole design: the breakpoint has to sit on the
+   * last block that is byte-identical across calls. Put anything varying above it and it never hits.
+   * Omit it and the payload is sent exactly as before, as one flat string — no caller that does not
+   * ask for caching changes shape.
+   */
+  cachePrefix?: string;
   /** Anthropic only: output_config.effort — how much reasoning the model spends before answering.
    *  The ONLY thing that bounds thinking spend; max_tokens is a ceiling the model is not aware of
    *  and does not limit reasoning. Omitted means the provider default ("high"). */
@@ -39,7 +49,12 @@ export type EffortLevel = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 
 export interface ProviderResult {
   text: string;
-  usage: { input_tokens?: number; output_tokens?: number };
+  /**
+   * `input_tokens` IS NOT THE TOTAL INPUT once a cache breakpoint is in play — Anthropic reports it
+   * as the tokens after the last breakpoint. The true input is the sum of all three, and each part
+   * is billed at its own rate, which is why they are kept apart rather than added up here.
+   */
+  usage: { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number; cache_creation_input_tokens?: number };
   raw: any;
   /**
    * Why the model stopped: Anthropic's `stop_reason` ("end_turn" | "max_tokens" | "tool_use" |
@@ -139,19 +154,46 @@ async function httpJson(url: string, headers: any, body: any, timeoutMs: number,
   return await res.json();
 }
 
+/** Normalize an Anthropic usage object, carrying the two cache counters through unchanged.
+ *  Kept in one place because it is read from three: the blocking response, the non-streamable
+ *  fallback, and message_start on the stream — and a counter dropped on any one of them turns
+ *  "caching is working" into an unfalsifiable belief. */
+export function anthropicUsage(u: any): ProviderResult['usage'] {
+  return {
+    input_tokens: u?.input_tokens,
+    output_tokens: u?.output_tokens,
+    cache_read_input_tokens: u?.cache_read_input_tokens,
+    cache_creation_input_tokens: u?.cache_creation_input_tokens,
+  };
+}
+
 /** Pure reducer: fold the sequence of Anthropic SSE event objects into normalized {text, usage}. Exported for unit tests.
  *  `thinking` blocks are deliberately NOT folded into `text` — they are not the answer — but the fact that one appeared
  *  IS reported, because a response made only of thinking is the difference between "the model said nothing" and "the
  *  model spent the entire ceiling reasoning and never got to the answer". */
-export function reduceAnthropicEvents(events: any[]): { text: string; usage: { input_tokens?: number; output_tokens?: number }; stopReason?: string; sawThinking?: boolean } {
+export function reduceAnthropicEvents(events: any[]): { text: string; usage: ProviderResult['usage']; stopReason?: string; sawThinking?: boolean } {
   let text = '';
   let input_tokens: number | undefined;
   let output_tokens: number | undefined;
+  let cache_read_input_tokens: number | undefined;
+  let cache_creation_input_tokens: number | undefined;
   let stopReason: string | undefined;
   let sawThinking = false;
   for (const e of events) {
     if (!e || typeof e !== 'object') continue;
-    if (e.type === 'message_start') { const u = e.message && e.message.usage; if (u) { if (typeof u.input_tokens === 'number') input_tokens = u.input_tokens; if (typeof u.output_tokens === 'number') output_tokens = u.output_tokens; } }
+    // THE CACHE COUNTERS ARRIVE ONLY ON message_start, and nowhere else in the stream. Miss them
+    // here and a streamed call reports no cache activity whether or not caching happened — which is
+    // indistinguishable from caching being broken, and is exactly the "ship on the assumption"
+    // failure this whole change exists to avoid.
+    if (e.type === 'message_start') {
+      const u = e.message && e.message.usage;
+      if (u) {
+        if (typeof u.input_tokens === 'number') input_tokens = u.input_tokens;
+        if (typeof u.output_tokens === 'number') output_tokens = u.output_tokens;
+        if (typeof u.cache_read_input_tokens === 'number') cache_read_input_tokens = u.cache_read_input_tokens;
+        if (typeof u.cache_creation_input_tokens === 'number') cache_creation_input_tokens = u.cache_creation_input_tokens;
+      }
+    }
     else if (e.type === 'content_block_start' && e.content_block && e.content_block.type === 'thinking') { sawThinking = true; }
     else if (e.type === 'content_block_delta' && e.delta && e.delta.type === 'text_delta') { text += String(e.delta.text || ''); }
     else if (e.type === 'content_block_delta' && e.delta && e.delta.type === 'thinking_delta') { sawThinking = true; }
@@ -163,7 +205,7 @@ export function reduceAnthropicEvents(events: any[]): { text: string; usage: { i
       if (e.delta && e.delta.stop_reason) stopReason = String(e.delta.stop_reason);
     }
   }
-  return { text, usage: { input_tokens, output_tokens }, stopReason, sawThinking };
+  return { text, usage: { input_tokens, output_tokens, cache_read_input_tokens, cache_creation_input_tokens }, stopReason, sawThinking };
 }
 
 /** Pure reducer: fold OpenAI-compatible streaming chunks (deepseek/gemini/openrouter/local) into normalized {text, usage}. Exported for unit tests. */
@@ -208,7 +250,7 @@ async function httpStream(url: string, headers: any, body: any, provider: LlmPro
   if (!res.body || typeof res.body.getReader !== 'function') {
     clearAll();
     const data = await res.json().catch(() => null);
-    if (provider === 'anthropic') { const blocks = Array.isArray(data?.content) ? data.content : []; const tb = blocks.find((c: any) => c?.type === 'text'); return { text: String((tb && tb.text) || '').trim(), usage: { input_tokens: data?.usage?.input_tokens, output_tokens: data?.usage?.output_tokens }, raw: data, stopReason: data?.stop_reason, sawThinking: blocks.some((c: any) => c?.type === 'thinking') }; }
+    if (provider === 'anthropic') { const blocks = Array.isArray(data?.content) ? data.content : []; const tb = blocks.find((c: any) => c?.type === 'text'); return { text: String((tb && tb.text) || '').trim(), usage: anthropicUsage(data?.usage), raw: data, stopReason: data?.stop_reason, sawThinking: blocks.some((c: any) => c?.type === 'thinking') }; }
     const ch = Array.isArray(data?.choices) ? data.choices[0] : null; const u = data?.usage || {}; return { text: String(ch?.message?.content || '').trim(), usage: { input_tokens: u.prompt_tokens, output_tokens: u.completion_tokens }, raw: data, stopReason: ch?.finish_reason };
   }
 
@@ -411,7 +453,16 @@ export async function callProvider(call: ProviderCall): Promise<ProviderResult> 
     // The body is rebuilt per attempt rather than mutated, so a retry inherits nothing from the
     // request the provider just rejected.
     const send = async (withTemperature: boolean, withEffort: boolean): Promise<ProviderResult> => {
-      const body: any = { model: call.model, max_tokens: maxTokens, system: call.system, messages: [{ role: 'user', content: call.user }] };
+      // THE SPLIT THAT MAKES CACHING POSSIBLE. cache_control attaches to a content BLOCK, so a flat
+      // string payload has nowhere to put a breakpoint. With a prefix, the payload becomes two
+      // blocks and the breakpoint goes on the first — the static one. The 5-minute TTL is the
+      // default and the right one here: it refreshes free on every reuse, and this pipeline's
+      // consecutive calls are measurably well inside it (27 of 1,871 gaps exceeded 300s), so the
+      // 1-hour TTL's 2x write premium would be paid on every call to rescue 1.4% of them.
+      const content = call.cachePrefix
+        ? [{ type: 'text', text: call.cachePrefix, cache_control: { type: 'ephemeral' } }, { type: 'text', text: call.user }]
+        : call.user;
+      const body: any = { model: call.model, max_tokens: maxTokens, system: call.system, messages: [{ role: 'user', content }] };
       if (withTemperature) body.temperature = call.temperature;
       // The one lever that bounds reasoning spend. GA — no beta header, and it is a top-level
       // request field, not a header and not nested in the message.
@@ -421,7 +472,7 @@ export async function callProvider(call: ProviderCall): Promise<ProviderResult> 
       const blocks = Array.isArray(data?.content) ? data.content : [];
       const t = blocks.find((c: any) => c?.type === 'text');
       const text = String((t && t.text) || data?.content?.[0]?.text || '').trim();
-      return { text, usage: { input_tokens: data?.usage?.input_tokens, output_tokens: data?.usage?.output_tokens }, raw: data, stopReason: data?.stop_reason, sawThinking: blocks.some((c: any) => c?.type === 'thinking') };
+      return { text, usage: anthropicUsage(data?.usage), raw: data, stopReason: data?.stop_reason, sawThinking: blocks.some((c: any) => c?.type === 'thinking') };
     };
     // Nested, outermost first: effort is dropped by the outer wrapper, temperature by the inner one,
     // so a model that refuses both still converges in at most two extra requests and each retry is

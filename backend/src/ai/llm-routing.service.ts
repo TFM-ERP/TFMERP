@@ -337,8 +337,14 @@ export class LlmRoutingService implements OnModuleInit {
     };
     const since = new Date(); since.setDate(1); since.setHours(0, 0, 0, 0);
     try {
-      const agg = await (this.prisma as any).aiRun.aggregate({ _sum: { inputTokens: true, outputTokens: true }, _count: true, where: { provider: e.provider, createdAt: { gte: since } } });
-      out.tokensUsed = (agg?._sum?.inputTokens || 0) + (agg?._sum?.outputTokens || 0);
+      // THE CACHE COLUMNS BELONG IN THIS TOTAL. inputTokens is only the uncached remainder once a
+      // call carries a cache breakpoint, so summing the old two columns would make this meter drift
+      // DOWNWARD as caching starts working — under-reporting against a cap, on the very screen whose
+      // cap being set below the workload is what looked like an expensive pipeline. Cached tokens are
+      // cheaper, not absent; a token cap counts tokens, and the cost view prices them (ai-cost.util).
+      const agg = await (this.prisma as any).aiRun.aggregate({ _sum: { inputTokens: true, outputTokens: true, cacheReadTokens: true, cacheCreationTokens: true }, _count: true, where: { provider: e.provider, createdAt: { gte: since } } });
+      out.tokensUsed = (agg?._sum?.inputTokens || 0) + (agg?._sum?.outputTokens || 0)
+        + (agg?._sum?.cacheReadTokens || 0) + (agg?._sum?.cacheCreationTokens || 0);
       out.callsThisMonth = agg?._count || 0;
     } catch { out.tokensUsed = null; }
     // PLAN TYPE 3 — Ultimate free: suppress all counters.

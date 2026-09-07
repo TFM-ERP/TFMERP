@@ -3,8 +3,9 @@ import { PrismaService } from '../common/prisma/prisma.service';
 import { LlmRoutingService, DEFAULT_ANTHROPIC_MODEL, isRetiredModel } from './llm-routing.service';
 import { callProvider, isExhausting, redactSecrets, ProviderErrorKind, EffortLevel } from './providers';
 import { usageSummary, stoppedAtCeiling } from './empty-output.util';
+import { cacheDidEngage } from './ai-cost.util';
 
-export interface AiRunOpts { task: string; system: string; user: string; projectId?: string | null; refType?: string | null; refId?: string | null; maxTokens?: number; model?: string; temperature?: number; timeoutMs?: number; idleTimeoutMs?: number; stream?: boolean; budgetMs?: number; effort?: EffortLevel; }
+export interface AiRunOpts { task: string; system: string; user: string; projectId?: string | null; refType?: string | null; refId?: string | null; maxTokens?: number; model?: string; temperature?: number; timeoutMs?: number; idleTimeoutMs?: number; stream?: boolean; budgetMs?: number; effort?: EffortLevel; cachePrefix?: string; }
 export interface AiRawOpts { task: string; system?: string; messages: any[]; tools?: any[]; toolChoice?: any; beta?: string; projectId?: string | null; refType?: string | null; refId?: string | null; maxTokens?: number; model?: string; temperature?: number; timeoutMs?: number; }
 export interface AiResult { text: string; json: any; model: string; usage: any; runId?: string; provider?: string; stopReason?: string; sawThinking?: boolean; }
 export interface AiRawResult { data: any; text: string; toolUse: any[]; usage: any; model: string; runId?: string; }
@@ -78,11 +79,22 @@ export class AiService {
         if (outOfTime()) { tried.push('(stopped after ' + Math.round((Date.now() - t0) / 1000) + 's — overall time budget reached)'); break; }
         // opts.model is a legacy Anthropic-model override; honor it only on the Anthropic attempt.
         const model = (opts.model && plan.provider === 'anthropic') ? opts.model : plan.model;
-        const runId = await this.begin({ task: opts.task, provider: plan.provider, model, projectId: opts.projectId, refType: opts.refType, refId: opts.refId, promptChars: (opts.system || '').length + (opts.user || '').length });
+        const runId = await this.begin({ task: opts.task, provider: plan.provider, model, projectId: opts.projectId, refType: opts.refType, refId: opts.refId, promptChars: (opts.system || '').length + (opts.cachePrefix || '').length + (opts.user || '').length });
         const started = Date.now();
         try {
-          const r = await callProvider({ provider: plan.provider, model, apiKey: plan.apiKey, baseUrl: plan.baseUrl, system: opts.system, user: opts.user, maxTokens: opts.maxTokens, temperature: opts.temperature, timeoutMs: opts.timeoutMs, idleTimeoutMs: opts.idleTimeoutMs, stream: wantStream, effort: opts.effort });
-          await this.finish(runId, { input_tokens: r.usage.input_tokens, output_tokens: r.usage.output_tokens }, r.text, Date.now() - started);
+          const r = await callProvider({ provider: plan.provider, model, apiKey: plan.apiKey, baseUrl: plan.baseUrl, system: opts.system, user: opts.user, cachePrefix: opts.cachePrefix, maxTokens: opts.maxTokens, temperature: opts.temperature, timeoutMs: opts.timeoutMs, idleTimeoutMs: opts.idleTimeoutMs, stream: wantStream, effort: opts.effort });
+          await this.finish(runId, r.usage, r.text, Date.now() - started);
+          // CACHING IS VERIFIED, NOT ASSUMED. A prefix below the model's minimum cacheable length
+          // (512 tokens on Opus 5) is simply not cached — no error, no warning, and a bill that
+          // looks exactly like a cache that is working. The first call of a run legitimately shows
+          // a write and no read; it is BOTH counters being zero that means nothing happened.
+          if (cacheDidEngage(!!opts.cachePrefix, {
+            cacheReadTokens: r.usage?.cache_read_input_tokens, cacheCreationTokens: r.usage?.cache_creation_input_tokens,
+          }) === false) {
+            this.log.warn(opts.task + ': a cache breakpoint was sent but the provider reported NEITHER a read'
+              + ' nor a write — the prefix is probably under this model\'s minimum cacheable length, so it is'
+              + ' silently not being cached. Prefix ' + (opts.cachePrefix || '').length + ' characters.');
+          }
           // A SUCCESSFUL CALL THAT RETURNED NO TEXT IS NOT A SUCCESS, AND IT IS LOGGED HERE — ONCE,
           // FOR EVERY CALLER. This is the gateway every model call in the platform passes through, so
           // a stage, a scene writer and a coverage pass all get the warning without each having to
@@ -194,9 +206,13 @@ export class AiService {
   private async begin(o: { task: string; provider?: string; model: string; projectId?: string | null; refType?: string | null; refId?: string | null; promptChars?: number }): Promise<string | undefined> {
     try { const r: any = await (this.prisma as any).aiRun.create({ data: { task: o.task, model: o.model, provider: o.provider || null, status: 'RUNNING', projectId: o.projectId || null, refType: o.refType || null, refId: o.refId || null, promptChars: o.promptChars || 0 } }); return r?.id; } catch { return undefined; }
   }
+  /** Close out the audit row. The two cache counters are recorded ALONGSIDE inputTokens, never folded
+   *  into it: with a breakpoint in play input_tokens is only the uncached remainder, so a row that
+   *  added them together would lose the ability to price each part at its own rate — and reads cost a
+   *  tenth of writes. See ai-cost.util.ts for the arithmetic that depends on them staying apart. */
   private async finish(id: string | undefined, usage: any, text: string, ms: number): Promise<void> {
     if (!id) return;
-    try { await (this.prisma as any).aiRun.update({ where: { id }, data: { status: 'DONE', inputTokens: usage?.input_tokens ?? null, outputTokens: usage?.output_tokens ?? null, outputChars: (text || '').length, latencyMs: ms } }); } catch { /* logging never breaks the request */ }
+    try { await (this.prisma as any).aiRun.update({ where: { id }, data: { status: 'DONE', inputTokens: usage?.input_tokens ?? null, outputTokens: usage?.output_tokens ?? null, cacheReadTokens: usage?.cache_read_input_tokens ?? null, cacheCreationTokens: usage?.cache_creation_input_tokens ?? null, outputChars: (text || '').length, latencyMs: ms } }); } catch { /* logging never breaks the request */ }
   }
   private async fail(id: string | undefined, msg: string): Promise<void> {
     if (!id) return;
