@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { buildShortKey, sourceFingerprint, versionLabel } from './build-identity.util';
+import { buildShortKey, sourceFingerprint, versionCountLabel, draftLabel } from './build-identity.util';
 
 // The real collisions on this install, which are the acceptance test for the whole feature:
 //   3 x "Jason Quick"  — 4,066 / 44,733 / 66,128 chars of DIFFERENT source, different casts
@@ -58,20 +58,58 @@ test('AN EMPTY SOURCE IS NEVER BLANK — that state produced the wrong film', ()
 });
 
 test('version label states what it knows and nothing more', () => {
-  assert.equal(versionLabel(2, 3), 'V2 of 3');
-  assert.equal(versionLabel(1, 1), 'V1 of 1');
-  assert.equal(versionLabel(null, 0), '—', 'unversioned builds do not invent a V1');
-  assert.equal(versionLabel(0, 0), '—');
-  assert.equal(versionLabel(null, 3), '3 versions', 'versions exist but none is active');
-  assert.equal(versionLabel(null, 1), '1 version');
+  assert.equal(versionCountLabel(2, 3), 'V2 of 3');
+  assert.equal(versionCountLabel(1, 1), 'V1 of 1');
+  assert.equal(versionCountLabel(null, 0), '—', 'unversioned builds do not invent a V1');
+  assert.equal(versionCountLabel(0, 0), '—');
+  assert.equal(versionCountLabel(null, 3), '3 versions', 'versions exist but none is active');
+  assert.equal(versionCountLabel(null, 1), '1 version');
 });
 
 test('junk in, a card line out — this renders on every build in the list', () => {
   for (const bad of [null, undefined, '', 42 as any, {} as any]) {
     assert.ok(buildShortKey(bad as any, bad as any).length > 1);
     assert.doesNotThrow(() => sourceFingerprint(bad as any));
-    assert.doesNotThrow(() => versionLabel(bad as any, bad as any));
+    assert.doesNotThrow(() => versionCountLabel(bad as any, bad as any));
   }
   assert.match(buildShortKey('', 'abc'), /^B-/, 'a nameless build still gets a key');
   assert.match(buildShortKey('The Key', 'x'), /^TK-/, 'noise words are not stripped - initials are literal');
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// THE WRITER'S OWN LABEL beats the machine count
+//
+// Two things were called versionLabel: the free-text box in the intake ("Version / draft label",
+// landing on brief.versionLabel) and the function that counts BuildVersion rows. The card showed
+// the second. There are ZERO BuildVersion rows on all 18 builds, so every card printed an em dash
+// while the one label actually typed — "V 1.01", on the 44,733-character Jason Quick bible — went
+// nowhere at all.
+
+test('a typed label is taken as the writer wrote it', () => {
+  assert.equal(draftLabel('V 1.01'), 'V 1.01', 'the real value from the contested bible');
+  assert.equal(draftLabel("Director's pass"), "Director's pass");
+  assert.equal(draftLabel('  v2  '), 'v2', 'trimmed, because a stray space is not a name');
+});
+
+test('AN EMPTY BOX IS NOT A LABEL — one build has "" from typing then clearing', () => {
+  for (const bad of ['', '   ', null, undefined, 42, {}, []]) assert.equal(draftLabel(bad as any), '',
+    'must be falsy so it falls through to the count: ' + JSON.stringify(bad));
+});
+
+test('it honours the 60-character limit the input enforces', () => {
+  assert.equal(draftLabel('x'.repeat(200)).length, 60);
+});
+
+test('the two are now distinct functions and cannot be confused at a call site', () => {
+  assert.equal(draftLabel('V 1.01'), 'V 1.01');
+  assert.equal(versionCountLabel(null, 0), '—', 'the count still says nothing when there is nothing to say');
+  assert.notEqual(draftLabel('V 1.01'), versionCountLabel(1, 1), 'different questions, different answers');
+});
+
+test('the precedence the card depends on: typed label first, count only as fallback', () => {
+  const pick = (typed: unknown, n: number | null, total: number) => draftLabel(typed) || versionCountLabel(n, total);
+  assert.equal(pick('V 1.01', null, 0), 'V 1.01', 'his label wins even when there are no version rows');
+  assert.equal(pick('V 1.01', 2, 3), 'V 1.01', 'and even when there ARE');
+  assert.equal(pick('', 2, 3), 'V2 of 3', 'empty box falls through to the count');
+  assert.equal(pick(null, null, 0), '—', 'nothing typed and nothing counted still overstates nothing');
 });

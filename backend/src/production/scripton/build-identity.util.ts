@@ -79,11 +79,32 @@ export function sourceFingerprint(sourceText?: string | null): SourceFingerprint
 }
 
 /**
- * OUR CHOICE: "V2 of 3", or an em dash when the build has never been versioned.
+ * THE WRITER'S OWN DRAFT NAME, which beats any count we can derive.
+ *
+ * The intake has a "Version / draft label" box — free text, 60 characters, "v2", "Director's pass",
+ * "Post-notes" — and it lands on brief.versionLabel. It reached no card: the identity line showed a
+ * COUNT of BuildVersion rows instead, and there are zero of those on all 18 builds, so every card
+ * printed an em dash while the one label actually typed ("V 1.01", on the 44,733-character Jason
+ * Quick bible) went nowhere. Two different things were called versionLabel and the card showed the
+ * wrong one.
+ *
+ * An empty string counts as absent — the box was typed into and cleared on one build, and "" is not
+ * a label.
+ */
+export function draftLabel(typed?: unknown): string {
+  return typeof typed === 'string' ? typed.trim().slice(0, 60) : '';
+}
+
+/**
+ * OUR CHOICE: "V2 of 3", or an em dash when the build has never been versioned. The FALLBACK, used
+ * only when the writer left the box empty — renamed from versionLabel(), which collided with
+ * brief.versionLabel and is how the card came to show a machine count in place of his own name for
+ * the draft.
+ *
  * A dash is deliberate — "V1 of 1" on an unversioned build would invent a version that does not
  * exist, and this whole exercise is about cards that do not overstate what they know.
  */
-export function versionLabel(activeN?: number | null, total?: number | null): string {
+export function versionCountLabel(activeN?: number | null, total?: number | null): string {
   const n = Number(activeN) > 0 ? Math.floor(Number(activeN)) : 0;
   const t = Number(total) > 0 ? Math.floor(Number(total)) : 0;
   if (!t) return '—';

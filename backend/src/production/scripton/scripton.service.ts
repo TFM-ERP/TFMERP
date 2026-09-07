@@ -3,7 +3,7 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { AiService } from '../../ai/ai.service';
 import { explainEmptyDraft, truncationWarning, stoppedAtCeiling, usageSummary } from '../../ai/empty-output.util';
 import type { EffortLevel } from '../../ai/providers';
-import { buildShortKey, sourceFingerprint, versionLabel } from './build-identity.util';
+import { buildShortKey, sourceFingerprint, versionCountLabel, draftLabel } from './build-identity.util';
 import { CanonService } from './canon/canon.service';
 import { computeFacts, parseJsonArray } from './scripton.util';
 import { LORE_SEED } from './lore-seed.data';
@@ -4648,7 +4648,9 @@ export class ScripOnService {
         ...rest,
         shortKey: buildShortKey(r.name, r.id),
         source: sourceFingerprint(brief && brief.sourceText),
-        version: versionLabel(active ? active.n : null, mine.length),
+        // The writer's own draft name wins; the machine count is only the fallback. brief is loaded
+        // here for the source fingerprint anyway, so the label was one property away all along.
+        version: draftLabel(brief && brief.versionLabel) || versionCountLabel(active ? active.n : null, mine.length),
       };
     });
   }
