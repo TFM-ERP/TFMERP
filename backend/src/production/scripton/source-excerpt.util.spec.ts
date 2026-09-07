@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { excerptSource, excerptNote, sourceMaterialBlock, SOURCE_EXCERPT_CHARS, BOUNDARY_LOOKBACK } from './source-excerpt.util';
+import { excerptSource, excerptNote, sourceMaterialBlock, SOURCE_EXCERPT_CHARS, BOUNDARY_LOOKBACK, asSourceText } from './source-excerpt.util';
 
 // The real shape: a long design document whose front is titles and taglines, and whose surnames,
 // professions and relationships live thousands of characters further down.
@@ -130,4 +130,40 @@ test('BREAK SWEEP: making the cap silent again fails this suite', () => {
   assert.notEqual(excerptNote(ex), '', 'excerptNote went quiet on a truncated document');
   assert.ok(/EXCERPT/.test(block), 'the assembled block no longer admits to the cap');
   assert.ok(/NOT below/.test(block), 'it no longer says the rest is missing');
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// asSourceText — the guard between the two things called "seed"
+//
+// generateStage sourced from `opts.seed || intakeProfile.sourceText`. brief.seed on the build that
+// produced the 7 Sep synopsis is "964111": a RANDOMNESS seed. Six characters of digits standing in
+// for 44,733 characters of source, and undetectable downstream because a 6-char source does not
+// truncate, so the canon extraction never ran.
+
+test('a randomness seed is not source material, however it is dressed', () => {
+  assert.equal(asSourceText('964111'), '', 'the exact value from the build that failed');
+  assert.equal(asSourceText('355979'), '');
+  assert.equal(asSourceText('12345678901234567890123456789012345678901234567890'), '',
+    'digits are a seed at ANY length - it is the shape that disqualifies it, not the size');
+});
+
+test('a fragment too short to be source material is rejected', () => {
+  assert.equal(asSourceText('a boat sinks'), '');
+  assert.equal(asSourceText(''), '');
+  assert.equal(asSourceText('   '), '');
+});
+
+test('real source material passes through, trimmed', () => {
+  const real = 'Jason Quick returns to Cape Breton for his brother-in-law\'s funeral and finds the boat impounded.';
+  assert.equal(asSourceText('  ' + real + '  '), real);
+  assert.equal(asSourceText(real).length, real.length);
+});
+
+test('junk in, empty string out — it chains with || on the source path', () => {
+  for (const bad of [undefined, null, 42, {}, [], true]) assert.equal(asSourceText(bad as any), '');
+});
+
+test('a number embedded in real prose does not disqualify it', () => {
+  const s = '1985. The trawler MARY ANNE goes down off Scatarie with four aboard and one survivor.';
+  assert.equal(asSourceText(s), s, 'only a value that is ENTIRELY digits is a seed');
 });

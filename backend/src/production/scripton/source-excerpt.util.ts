@@ -129,3 +129,26 @@ export function sourceMaterialBlock(canonBlock: any, ex: SourceExcerpt | null | 
   }
   return parts.join('\n');
 }
+
+/**
+ * Is this value SOURCE MATERIAL, or is it something else wearing the same name?
+ *
+ * generateStage used to source from `opts.seed || intakeProfile.sourceText`. Two different things
+ * are called "seed" in this system: the seed TEXT of a SEED-mode project (a paragraph of premise),
+ * and `brief.seed` — a six-digit RANDOMNESS seed ("964111" on the build that produced the 7 Sep
+ * synopsis). The old expression let the second kind win and become the entire source material for
+ * a stage, and nothing downstream could tell the difference: a 6-character "source" does not
+ * truncate, so the canon extraction never ran and no fact was ever checked against it.
+ *
+ * So a candidate must look like prose to be treated as prose. A bare number is a seed, not a story;
+ * anything under a couple of sentences cannot be the source a ladder is meant to be faithful to.
+ * Returns the trimmed text, or '' — so it chains with || and an empty result is falsy.
+ */
+export const MIN_SOURCE_CHARS = 40;
+
+export function asSourceText(v: unknown): string {
+  const t = typeof v === 'string' ? v.trim() : '';
+  if (t.length < MIN_SOURCE_CHARS) return '';   // too short to be source material
+  if (/^\d+$/.test(t)) return '';               // a randomness seed, however long
+  return t;
+}

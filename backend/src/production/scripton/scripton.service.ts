@@ -43,7 +43,7 @@ import {
 import { mapAiFactsToCore } from './canon/canon-map.util';
 import { canonDirective } from './canon/canon-inject.util';
 import type { CanonFactCore } from './canon/canon.types';
-import { excerptSource, sourceMaterialBlock, SOURCE_EXCERPT_CHARS } from './source-excerpt.util';
+import { excerptSource, sourceMaterialBlock, asSourceText, SOURCE_EXCERPT_CHARS } from './source-excerpt.util';
 import { buildPackageDocModel } from './package-docx.util';
 import { packDocx } from './package-docx.renderer';
 import { LEVER_KEYS, resolveLever } from './intake-levers.util';
@@ -1027,7 +1027,31 @@ export class ScripOnService {
     // excerpt is exactly the document that must not be allowed to define the truth it was supposed
     // to be checked against. That circularity is how "Jason Vane" became canon (§21).
     const wantsSource = ['LOGLINE', 'SYNOPSIS', 'TREATMENT', 'BEATS', 'PREMISE', 'STORY_ENGINE', 'SEASON_ARC', 'THESIS'].indexOf(kind) >= 0;
-    const rawSource = String(opts?.seed || (intakeRow && intakeRow.sourceText) || '');
+    // THE LADDER WAS READING THE WRONG FIELD, AND SO IT WAS READING NOTHING.
+    //
+    // A build keeps its own source on the BUILD (brief.sourceText — 44,733 characters on the build
+    // that produced the 7 Sep synopsis). This line read intakeProfile.sourceText, which on that same
+    // project is ZERO characters. So every "wantsSource" stage was generated blind: no source, and —
+    // because sourceFacts is gated on excerpt.truncated below, and nothing truncates — no canon facts
+    // either. The §21 guard had nothing to guard and correctly said nothing. A protagonist named 146
+    // times in the source, first at character 65, never reached the model at all.
+    //
+    // Precedence, most specific first: a build-scoped generation must see the BUILD's own source.
+    // Falling back the other way round would let a stale project-level source silently outrank the
+    // build the writer is actually working in.
+    //
+    // opts.seed is LAST and guarded. It is not a second name for the source: `brief.seed` on this
+    // project is "964111", a six-digit RANDOMNESS seed, and this line used to let exactly that kind
+    // of value win and become the entire "source material" for the stage. asSourceText() rejects a
+    // bare number or a fragment too short to be source, so the two senses of "seed" cannot collide.
+    const buildRow: any = opts?.buildId ? await (this.prisma as any).developmentBuild.findUnique({ where: { id: String(opts.buildId) } }).catch(() => null) : null;
+    const rawSource = asSourceText(buildRow && buildRow.brief && buildRow.brief.sourceText)
+      || asSourceText(intakeRow && intakeRow.sourceText)
+      || asSourceText(opts?.seed)
+      || '';
+    if (wantsSource && !rawSource) this.log.warn('generateStage ' + kind + ': NO source material found for this'
+      + ' project — checked the build brief, the intake profile and the seed. Every stage from here is'
+      + ' being written from the brief alone, with nothing to be faithful to.');
     const excerpt = excerptSource(rawSource, SOURCE_EXCERPT_CHARS);
     // at 0: source facts are anchored at story order 0 by mapAiFactsToCore, so all of them are live.
     const sourceFacts = wantsSource && excerpt.truncated ? await this.sourceCanonFor(projectId, rawSource) : [];
@@ -1043,7 +1067,6 @@ export class ScripOnService {
     const framework = opts?.framework || (intakeRow && intakeRow.spine && intakeRow.spine.framework) || undefined;
     const brief = this.stageBrief(kind, framework);
     const steer = await this.intakeSteer(projectId);
-    const buildRow: any = opts?.buildId ? await (this.prisma as any).developmentBuild.findUnique({ where: { id: String(opts.buildId) } }).catch(() => null) : null;
     const langDir = await this.langDirective((buildRow && buildRow.brief) || intakeRow || {});
     const knowDir = knowledgeDirective((buildRow && buildRow.brief) || intakeRow || {});
     const knowBlock = knowDir ? ('\n\nFORMAT & WORLD ENGINE (honour precisely across this stage):\n' + knowDir) : '';
@@ -1862,6 +1885,34 @@ export class ScripOnService {
     const tgt = [i.format, i.language, i.country ? ('market ' + i.country) : null, i.rating ? ('rating ' + i.rating) : null, i.length].filter(Boolean);
     if (tgt.length) parts.push('Target: ' + tgt.join(' | ') + '.');
     if (i.spine && typeof i.spine === 'object') { const s: any = i.spine; const sp = [s.want ? ('want ' + s.want) : null, s.need ? ('need ' + s.need) : null, s.opposing ? ('opposing ' + s.opposing) : null, s.theme ? ('theme ' + s.theme) : null, s.ending ? ('ending ' + s.ending) : null].filter(Boolean); if (sp.length) parts.push('Spine: ' + sp.join('; ') + '.'); }
+    // THE CAST, AND WHO THE STORY IS ABOUT.
+    //
+    // characterBible has carried an explicit `role` per character all along — "Protagonist",
+    // "Mentor", "Antagonist" — and reached no prompt whatsoever. Its only readers were the character
+    // sheet and its own writer. On 7 Sep the generator cast the declared MENTOR (Callum MacRae) as
+    // the lead, killed the declared PROTAGONIST (Jason Quick) in act one for a survival suit, and
+    // never mentioned him again. Nothing was violated, because nothing had been said: the canon
+    // stores facts ABOUT people and nothing about whose story it is.
+    //
+    // This carries the declaration. It is not a guarantee — a stated role is an instruction, and an
+    // instruction can be ignored, which is precisely why the deterministic check belongs on the
+    // board separately. But a role that is never stated cannot be honoured OR checked, and today it
+    // is never stated.
+    if (Array.isArray(i.characterBible) && i.characterBible.length) {
+      const cast = i.characterBible.filter((c: any) => c && (c.name || c.role));
+      const lead = cast.find((c: any) => /protagonist|^lead$/i.test(String(c.role || '')));
+      if (cast.length) {
+        parts.push('CAST AND ROLES (declared for this project — these assignments are FIXED; do NOT re-cast,'
+          + ' re-role, or promote a supporting character to lead):');
+        for (const c of cast.slice(0, 20)) {
+          parts.push('· ' + String(c.name || 'Unnamed') + ' — ' + String(c.role || 'supporting').toUpperCase()
+            + (c.age ? ' (' + c.age + ')' : ''));
+        }
+        if (lead) parts.push('THE PROTAGONIST IS ' + String(lead.name).toUpperCase() + '. This is whose story it'
+          + ' is: they carry the POV and the spine, they are present through the ending, and no other character'
+          + ' may take that position. Killing or sidelining them is a rewrite of the project, not a story choice.');
+      }
+    }
     if (i.constraints && typeof i.constraints === 'object') { const c: any = i.constraints; const cs = [c.budget ? ('budget ' + c.budget) : null, c.maxLocations ? ('max ' + c.maxLocations + ' locations') : null, c.castSize ? ('cast ' + c.castSize) : null].filter(Boolean); if (cs.length) parts.push('Keep it filmable: ' + cs.join(', ') + '.'); }
     if (i.treatment) parts.push('Narrative treatment/style: ' + i.treatment + '.');
     if (Array.isArray(i.blendLayers) && i.blendLayers.length) parts.push('Blend layers over the base genre: ' + i.blendLayers.join(', ') + '.');
