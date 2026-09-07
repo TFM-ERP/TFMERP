@@ -818,8 +818,13 @@ export class ScripOnService {
    * runs ~7 minutes because it is a single 25,000-token generation (roughly ten times the output of
    * any other stage). Telling the truth is half the fix.
    */
+  // SYNOPSIS is 67 because that is what the first run to actually FINISH took (7 Sep, 5,975 tokens,
+  // 67.4s) once its ceiling was raised — the old 30 was the latency of a run that was being cut off
+  // before it wrote anything. It is not cosmetic: callTimeoutMs is derived from this number, so an
+  // ETA left at 30 would floor the raised stage at a 120s budget it now legitimately needs to exceed.
+  // The rest are untouched; one stage was measured, so one stage changes.
   private static readonly STAGE_ETA_SEC: Record<string, number> = {
-    LOGLINE: 5, PREMISE: 15, THESIS: 20, SYNOPSIS: 30, STORY_ENGINE: 30, COVERAGE: 30,
+    LOGLINE: 5, PREMISE: 15, THESIS: 20, SYNOPSIS: 67, STORY_ENGINE: 30, COVERAGE: 30,
     RIGHTS_PLAN: 30, RESEARCH_PLAN: 40, INTERVIEW_OUTLINE: 60,
     STEP_OUTLINE: 90, TREATMENT: 90, BEATS: 90, SCENES: 130,
     BEAT_ENGINE: 150, SHOT_LIST: 150, VIDEO_PROMPT: 150,
@@ -1016,7 +1021,53 @@ export class ScripOnService {
     // step outlines, season arcs) gets a 25,000-token ceiling, is STREAMED (no single long blocking request, and no
     // non-streaming long-request ceiling), and runs on a 600s overall + 120s idle budget — so a busy provider has time
     // to finish a big generation, while a true stall aborts in ~2 min and fails over to the next engine.
-    const MAXTOK: any = { LOGLINE: 600, SYNOPSIS: 2400, TREATMENT: 25000, BEATS: 25000, SCENES: 25000, STEP_OUTLINE: 25000, DRAFT: 25000, COVERAGE: 2000, SEASON_ARC: 25000, EPISODE_MAP: 25000, PREMISE: 2400, STORY_ENGINE: 3500, BEAT_ENGINE: 25000, THESIS: 2400, RESEARCH_PLAN: 4000, RIGHTS_PLAN: 3000, INTERVIEW_OUTLINE: 5000, PAPER_EDIT: 25000, NARRATION: 25000, SHOT_LIST: 25000, VIDEO_PROMPT: 25000 };
+    //
+    // WHY THE LIGHT STAGES ALL SIT AT ONE FLOOR NOW (measured 7 Sep, from AiRun).
+    //
+    // SYNOPSIS was capped at 2,400 and returned "empty draft" six times in a row. The cap was not
+    // merely tight — under claude-opus-5 it bought NOTHING. Opus 5 runs adaptive thinking BY DEFAULT
+    // (unlike Opus 4.8/4.7, where omitting the `thinking` parameter meant no thinking), that thinking
+    // is billed against the SAME max_tokens as the prose, and its default display is "omitted", so the
+    // thinking blocks come back with empty text. Spend the whole ceiling reasoning and the response
+    // contains no text block at all — not truncated prose, NO prose. The AiRun rows say it flatly:
+    // every one of those six logged outputTokens 2400 / outputChars 0. Across the whole table that
+    // signature — DONE, tokens spent, zero characters — appears 77 times and every single one is
+    // claude-opus-5; it is absent from 1,600 sonnet-4-6, 145 opus-4-8 and 22 gemini runs.
+    //
+    // So a light stage's ceiling is no longer "how long is this prose" — it is thinking + prose, and
+    // the thinking half is the larger and the less predictable. Measured need on opus-5: SYNOPSIS
+    // 4,051 output tokens (~2,700 of them thinking, for 4,851 characters of prose); LOGLINE ~490 for
+    // ~240 characters, having already blown its 600 twice. The floor below is those measured needs
+    // roughly doubled. It is a CEILING, NOT A TARGET — the model stops when the stage is done, so a
+    // generous floor on a short stage costs nothing and only stops the model being cut off mid-thought.
+    //
+    // The six stages with no opus-5 run yet (PREMISE, THESIS, RESEARCH_PLAN, RIGHTS_PLAN,
+    // INTERVIEW_OUTLINE, COVERAGE) get the same floor by that rule rather than a number each, because
+    // there is nothing to measure them against and inventing nine separate figures would be precision
+    // we have not earned. COVERAGE is not idle worry: it hit its old 2,000 in 3 of 11 runs on sonnet
+    // alone, before any thinking budget was added on top.
+    //
+    // NOTE WHAT THIS DOES NOT DO. max_tokens does not bound thinking — only `effort` / `thinking`
+    // does, and neither is sent anywhere in this codebase. This floor buys headroom; it does not stop
+    // a stage spending its whole budget reasoning. That is why the stage must also be able to SAY so
+    // when it happens (see generateStage's cap diagnosis) rather than reporting an empty draft.
+    // WHAT THIS FLOOR DOES NOT REACH — read before assuming a ceiling is safe because this one is.
+    //
+    // It governs the ladder stages in THIS table and nothing else. The same class of bug is still
+    // live everywhere else a ceiling is written as a literal, and there are ~34 of those in this file
+    // alone (300, 400, 1100, 1200, 1500, 1600, 2000, 2400, 2500, 3000, 3500 ...). Two worth naming:
+    //
+    //   • developStage() above keeps a SECOND MAXTOK table with `synopsis: 2000` — lower than the
+    //     2,400 that failed here. It currently has no callers; if one is ever added it inherits this
+    //     bug on day one.
+    //   • sourceCanonFor() asks for up to 30 canon facts and is the guard against the §21 source
+    //     circularity, so its ceiling is load-bearing in a way a prose stage's is not.
+    //
+    // The detection added alongside this (empty-output.util.ts, wired into ai.run) DOES cover all of
+    // them: any call that spends its ceiling without producing text now says so. That is the safety
+    // net. This floor is only the fix for the nine stages below.
+    const PROSE_FLOOR = 8000; // every non-HEAVY stage; thinking + prose, measured above
+    const MAXTOK: any = { LOGLINE: PROSE_FLOOR, SYNOPSIS: PROSE_FLOOR, TREATMENT: 25000, BEATS: 25000, SCENES: 25000, STEP_OUTLINE: 25000, DRAFT: 25000, COVERAGE: PROSE_FLOOR, SEASON_ARC: 25000, EPISODE_MAP: 25000, PREMISE: PROSE_FLOOR, STORY_ENGINE: PROSE_FLOOR, BEAT_ENGINE: 25000, THESIS: PROSE_FLOOR, RESEARCH_PLAN: PROSE_FLOOR, RIGHTS_PLAN: PROSE_FLOOR, INTERVIEW_OUTLINE: PROSE_FLOOR, PAPER_EDIT: 25000, NARRATION: 25000, SHOT_LIST: 25000, VIDEO_PROMPT: 25000 };
     const HEAVY = ['SCENES', 'STEP_OUTLINE', 'DRAFT', 'TREATMENT', 'BEATS', 'EPISODE_MAP', 'BEAT_ENGINE', 'PAPER_EDIT', 'NARRATION', 'SEASON_ARC', 'SHOT_LIST', 'VIDEO_PROMPT'];
     const heavy = HEAVY.indexOf(kind) >= 0;
     // Keep the per-stage ceiling (25k for the long stages); opts.maxTokens only overrides for tests.
@@ -1028,8 +1079,34 @@ export class ScripOnService {
     // cannot drift away from STAGE_ETA_SEC, and it is floored at 2 minutes because the fastest stage
     // here has a 5-second ETA and a merely slow provider must not be cut off.
     const etaSec = ScripOnService.STAGE_ETA_SEC[kind] || 60;
-    const callTimeoutMs = heavy ? 600000 : Math.max(120000, etaSec * 4000);
-    const res: any = await this.ai.run({ task: 'scripton.develop.' + kind.toLowerCase(), system: brief.system, user, maxTokens: cap, stream: heavy, timeoutMs: callTimeoutMs, idleTimeoutMs: heavy ? 120000 : undefined, projectId, refType: 'Project', refId: projectId }); const ai: any = (res && res.json) || {};
+    // THE BUDGET MUST COVER THE CEILING, NOT JUST THE TYPICAL RUN.
+    //
+    // `Math.max(120000, etaSec * 4000)` alone was safe while the light ceilings were 600-2,400 and
+    // became unsafe the moment they went to 8,000: LOGLINE (ETA 5s) and COVERAGE (ETA 30s) would sit
+    // behind a 120s budget while being ALLOWED to generate 8,000 tokens. Measured throughput on
+    // claude-opus-5 is ~60 output tokens/sec (4,051 tokens in 67.4s, 7 Sep, thinking included), so a
+    // stage that actually used its new ceiling needs ~133s and would have been cut off at 120 — and a
+    // timeout is a TIMEOUT error from the provider chain, which never reaches the cap diagnosis below.
+    // Raising the ceiling would have bought a different failure, not a fix.
+    //
+    // The ETAs are deliberately NOT inflated to compensate. STAGE_ETA_SEC is what the writer is shown
+    // and it is measured truth — a logline really does come back in about five seconds — so telling
+    // them it takes two minutes to widen a timeout would trade one honest number for a false one.
+    // The two concerns are separated instead: ETA describes the typical run, this floor covers the
+    // worst run the ceiling permits.
+    const OUT_TOK_PER_SEC = 60;                                  // measured, claude-opus-5, thinking included
+    const ceilingMs = (cap / OUT_TOK_PER_SEC) * 1000 * 2;        // 2x margin over the measured rate
+    const callTimeoutMs = heavy ? 600000 : Math.max(120000, etaSec * 4000, ceilingMs);
+    // STREAM ON THE CEILING, NOT ON THE LABEL. `stream: heavy` was passing an explicit `false` for
+    // every light stage, and an explicit false SUPPRESSES ai.run's own default (it streams anything
+    // asking for >= 6,000 tokens). That was harmless while the light ceilings were 600-2,400; with
+    // the floor raised to 8,000 it would have turned each of them into a single 8,000-token blocking
+    // request — precisely the wall the paragraph above says the heavy stages stream to avoid. Same
+    // 6,000 threshold as ai.run, so the two cannot drift apart. idleTimeoutMs stays undefined for the
+    // light stages: callProvider reads it as `call.idleTimeoutMs || 120000`, so they inherit the same
+    // 120s idle abort the heavy stages ask for by name.
+    const streamed = heavy || cap >= 6000;
+    const res: any = await this.ai.run({ task: 'scripton.develop.' + kind.toLowerCase(), system: brief.system, user, maxTokens: cap, stream: streamed, timeoutMs: callTimeoutMs, idleTimeoutMs: heavy ? 120000 : undefined, projectId, refType: 'Project', refId: projectId }); const ai: any = (res && res.json) || {};
     if (kind === 'BEATS' && !Array.isArray(ai.beats)) { const r = this.recoverStage(String((res && res.text) || '')); if (r.beats) ai.beats = r.beats; }
     if (kind === 'SCENES' && !Array.isArray(ai.scenes)) { const r = this.recoverStage(String((res && res.text) || '')); if (r.scenes) ai.scenes = r.scenes; }
     if (kind === 'STEP_OUTLINE' && !Array.isArray(ai.steps)) { const r = this.recoverStage(String((res && res.text) || '')); if (r.steps) ai.steps = r.steps; }
