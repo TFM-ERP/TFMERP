@@ -170,7 +170,8 @@ export default function ScriptOnIntake({ projectId, busy, onBegin, onClose }: { 
   // never written, and a field that already holds a value is left alone.
   const [recBusy, setRecBusy] = useState(false);
   const [recDone, setRecDone] = useState<any>(null);
-  // Endings the analysis SUGGESTS. Rendered as suggestions; only a click selects one.
+  // Endings the ANALYSIS chose. They are genuinely selected; this only marks them as its choice
+  // rather than his, and clears the moment he touches any ending.
   const [endSuggested, setEndSuggested] = useState<string[]>([]);
   const [recApplied, setRecApplied] = useState<any[]>([]);
   const [recWhy, setRecWhy] = useState(false);
@@ -318,7 +319,7 @@ export default function ScriptOnIntake({ projectId, busy, onBegin, onClose }: { 
       const data = (res && res.data) || {};
       const fields: any[] = Array.isArray(data.fields) ? data.fields : [];
       const landed: any[] = [];
-      let suggestedEnd: string[] | null = null;   // held aside, never applied
+      let aiEnd: string[] | null = null;   // what the analysis chose, so the chips can say so
       {
         // THE BANNER BUG (3 Sep): this block used to be the body of `setF((prev) => ...)`, and
         // `landed.length` was read on the line after it. React does not run an updater there — it
@@ -351,17 +352,29 @@ export default function ScriptOnIntake({ projectId, busy, onBegin, onClose }: { 
             landed.push(r);
             continue;
           }
-          // THE ENDING IS NOT AUTO-APPLIED. Every other field the analysis lands is a description of
-          // the material; the ending is a DECISION about the film, and it was being made for him —
-          // runRecommend fires on its own when step 2 opens (see the effect below), so chips lit up
-          // for endings he never chose and the composed string went into the brief behind him.
-          // Propose, never decide silently: the suggestion is held aside and rendered as a
-          // suggestion, and a click is what selects it. Same principle as the rest of this pass.
-          if (r.field === 'spine.endingIds') {
-            suggestedEnd = Array.isArray(r.value) ? r.value.filter((x: any) => typeof x === 'string') : [];
-            continue;                                    // NOT counted as landed — nothing was applied
-          }
           next = recSet(next, r.field, r.value);
+          if (r.field === 'spine.endingIds') {
+            // THE ANALYSIS PICKS, AND HE CHANGES IT IF HE DISAGREES. Its best one or two land as
+            // CHOSEN — the counter reads 1/2 or 2/2 on its own — because arriving at a considered
+            // starting point is the job, and a screen that recommends without choosing makes him do
+            // the work twice.
+            //
+            // The safeguard is not a click, it is VISIBILITY. These chips carry a "suggested" mark
+            // saying the choice is the analysis's and not yet his, and the mark clears the instant
+            // he touches any ending. A visible, reversible selection on a screen he is looking at is
+            // a suggestion; an invisible one written to a record is a decision — that is the line,
+            // and it is why this is legitimate where the SAMPLE board was not.
+            //
+            // spine.ending is COMPOSED from the ids: the brief and the climax both read the composed
+            // string, so choosing ids without recomposing changes nothing downstream however lit up
+            // the chips look.
+            const ids = Array.isArray(r.value) ? r.value.filter((x: any) => typeof x === 'string').slice(0, 2) : [];
+            const sp: any = { ...(next.spine || {}) };
+            sp.endingIds = ids;
+            sp.ending = composeEnding(ids, sp.endingCustom);
+            next = { ...next, spine: sp };
+            aiEnd = ids;
+          }
           landed.push(r);
         }
         if (subsRow && !touchedRef.current.has('subMix')) {
@@ -387,7 +400,7 @@ export default function ScriptOnIntake({ projectId, busy, onBegin, onClose }: { 
       }
       setRecPct(100);
       setRecApplied(landed);
-      if (suggestedEnd && suggestedEnd.length) setEndSuggested(suggestedEnd);
+      if (aiEnd && aiEnd.length) setEndSuggested(aiEnd);
       setRecDone({ ...data, landed: landed.length });
     } catch (e: any) {
       // Fail open: the Brief is exactly what it would have been with no analysis at all.
@@ -459,8 +472,8 @@ export default function ScriptOnIntake({ projectId, busy, onBegin, onClose }: { 
   const setManual = (k: string, v: number) => setF((p: any) => ({ ...p, [k]: v, seriesPreset: 'CUSTOM', marketKey: undefined }));
   const composeEnding = (ids: string[], custom?: string) => { const parts = ids.map((id) => { const en = ENDING_TYPES.find((x) => x.id === id); return en ? (en.label + ' \u2014 ' + en.desc) : id; }); if (custom && custom.trim()) parts.push('Custom: ' + custom.trim()); return parts.join('  +  '); };
   const endIds = (): string[] => ((f.spine && f.spine.endingIds) || []);
-  const toggleEnding = (id: string) => setF((p: any) => { const sp: any = { ...(p.spine || {}) }; const cur: string[] = (sp.endingIds || []).slice(); const k = cur.indexOf(id); if (k >= 0) cur.splice(k, 1); else { if (cur.length >= 2) return p; cur.push(id); } sp.endingIds = cur; sp.ending = composeEnding(cur, sp.endingCustom); return { ...p, spine: sp }; });
-  const setEndingCustom = (txt: string) => setF((p: any) => { const sp: any = { ...(p.spine || {}) }; sp.endingCustom = txt; sp.ending = composeEnding(sp.endingIds || [], txt); return { ...p, spine: sp }; });
+  const toggleEnding = (id: string) => { setEndSuggested([]); return setF((p: any) => { const sp: any = { ...(p.spine || {}) }; const cur: string[] = (sp.endingIds || []).slice(); const k = cur.indexOf(id); if (k >= 0) cur.splice(k, 1); else { if (cur.length >= 2) return p; cur.push(id); } sp.endingIds = cur; sp.ending = composeEnding(cur, sp.endingCustom); return { ...p, spine: sp }; }); };
+  const setEndingCustom = (txt: string) => { setEndSuggested([]); return setF((p: any) => { const sp: any = { ...(p.spine || {}) }; sp.endingCustom = txt; sp.ending = composeEnding(sp.endingIds || [], txt); return { ...p, spine: sp }; }); };
   const toggleArr = (k: string, v: string) => setF((p: any) => ({ ...p, [k]: (p[k] || []).includes(v) ? p[k].filter((x: string) => x !== v) : [...(p[k] || []), v] }));
   // ── Creative-DNA taxonomy (mirrors the knowledge engine; derives genres[]/tone + setting for back-compat & steering) ──
   const reDna = (n: any) => { const bg: string[] = (Array.isArray(n.baseGenres) && n.baseGenres.length ? n.baseGenres : (n.baseGenre ? [n.baseGenre] : [])).slice(0, 3); const subs = Object.keys(n.subMix || {}); return { ...n,
@@ -916,9 +929,9 @@ export default function ScriptOnIntake({ projectId, busy, onBegin, onClose }: { 
               </div>
 
               <div style={band} hidden={aiVid}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div style={bt}>{t('Ending')}</div><button type="button" onClick={() => setEndInfo((v) => !v)} title={t('What each ending means')} style={{ width: 18, height: 18, borderRadius: '50%', border: '1px solid ' + C.hair, background: endInfo ? 'rgba(198,164,99,.18)' : 'transparent', color: C.gold2, fontSize: 11, fontWeight: 800, fontStyle: 'italic', cursor: 'pointer', lineHeight: 1, display: 'grid', placeItems: 'center' }}>i</button><span style={{ marginInlineStart: 'auto', fontSize: 10, color: endIds().length >= 2 ? C.gold2 : C.faint, fontWeight: 700 }}>{endIds().length}/2 {t('chosen')}</span>{(endSuggested.length > 0 && endIds().length === 0) ? <span style={{ fontSize: 10, color: C.gold2, fontWeight: 600, marginInlineStart: 8 }}>{'✧ ' + t('suggested — click to choose')}</span> : null}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div style={bt}>{t('Ending')}</div><button type="button" onClick={() => setEndInfo((v) => !v)} title={t('What each ending means')} style={{ width: 18, height: 18, borderRadius: '50%', border: '1px solid ' + C.hair, background: endInfo ? 'rgba(198,164,99,.18)' : 'transparent', color: C.gold2, fontSize: 11, fontWeight: 800, fontStyle: 'italic', cursor: 'pointer', lineHeight: 1, display: 'grid', placeItems: 'center' }}>i</button><span style={{ marginInlineStart: 'auto', fontSize: 10, color: endIds().length >= 2 ? C.gold2 : C.faint, fontWeight: 700 }}>{endIds().length}/2 {t('chosen')}</span>{endSuggested.length > 0 ? <span style={{ fontSize: 10, color: C.gold2, fontWeight: 600, marginInlineStart: 8 }}>{t('chosen by the analysis — change if you disagree')}</span> : null}</div>
                 <div style={{ fontSize: 10.5, color: C.faint, margin: '6px 0 8px' }}>{t("How the story lands - pick up to two to blend (e.g. bittersweet + open / sequel hook). Written into the brief and honoured at the climax; same list as the Doctor's Re-engineer ending.")}</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>{ENDING_TYPES.map((en) => { const on = endIds().includes(en.id); /* SUGGESTED IS NOT SELECTED: a dashed gold outline says the analysis proposed it, and the count    above still reads 0/2 until he clicks. Propose, never decide silently. */ const sug = !on && endSuggested.includes(en.id); const full = !on && endIds().length >= 2; return <span key={en.id} onClick={() => toggleEnding(en.id)} title={(sug ? (t('Suggested by the analysis — click to choose it') + ' · ') : '') + (locale === 'ar' ? en.arDesc : en.desc)} style={{ ...chip(on), opacity: full ? 0.4 : 1, cursor: full ? 'not-allowed' : 'pointer', ...(sug ? { borderColor: 'rgba(198,164,99,.55)', borderStyle: 'dashed', color: C.gold2 } : {}) }}>{on ? '✓ ' : sug ? '✧ ' : ''}{locale === 'ar' ? en.ar : en.label}</span>; })}</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>{ENDING_TYPES.map((en) => { const on = endIds().includes(en.id); /* SELECTED, AND MARKED AS THE ANALYSIS'S CHOICE. `ai` chips are genuinely chosen — the counter    reads 1/2 or 2/2 — they simply say WHOSE choice they are until he touches one, at which point    the mark clears and every selection is his. Visible and reversible is what makes a pre-fill a    suggestion rather than a decision. */ const ai = on && endSuggested.includes(en.id); const full = !on && endIds().length >= 2; return <span key={en.id} onClick={() => toggleEnding(en.id)} title={(ai ? (t('Chosen by the analysis — click to remove, or pick another') + ' · ') : '') + (locale === 'ar' ? en.arDesc : en.desc)} style={{ ...chip(on), opacity: full ? 0.4 : 1, cursor: full ? 'not-allowed' : 'pointer', ...(ai ? { borderStyle: 'dashed' } : {}) }}>{on ? '✓ ' : ''}{locale === 'ar' ? en.ar : en.label}{ai ? <span style={{ marginInlineStart: 5, fontSize: 9, opacity: 0.85, fontWeight: 800, letterSpacing: '.4px' }}>{t('AI')}</span> : null}</span>; })}</div>
                 <input value={(f.spine && f.spine.endingCustom) || ''} onChange={(e) => setEndingCustom(e.target.value)} placeholder={t('Or add your own ending note, e.g. open ending hinting a sequel saga')} style={{ ...field, marginTop: 8 }} />
                 {endInfo ? (<div style={{ marginTop: 8, background: '#101218', border: '1px solid ' + C.hair, borderRadius: 10, padding: '10px 12px', display: 'grid', gap: 7, maxHeight: 240, overflow: 'auto' }}>{ENDING_TYPES.map((en) => (<div key={en.id} style={{ fontSize: 11, lineHeight: 1.45 }}><span style={{ color: C.gold2, fontWeight: 700 }}>{locale === 'ar' ? en.ar : en.label}</span><span style={{ color: C.faint }}>{' — ' + (locale === 'ar' ? en.arDesc : en.desc)}</span></div>))}</div>) : null}
               </div>
