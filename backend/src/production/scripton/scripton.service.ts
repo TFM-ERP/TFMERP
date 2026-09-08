@@ -377,9 +377,33 @@ export class ScripOnService {
     if (source.trim().length < 40) throw new BadRequestException('Add a synopsis, a file or a link to the source work (a few sentences minimum).');
     const targetFormat = String(opts?.targetFormat || 'feature');
     const system = 'You are a development executive proposing how to adapt a literary or source work for the screen. From the supplied source, propose THREE distinct adaptation directions, labelled in order FAITHFUL, RECONCEIVED, REINVENTION (faithful to bold reinvention). For each: a short evocative TITLE (3-6 words, e.g. "The Forge of the Legend"), a logline, what to keep, what to change or compress or cut, the tone, and the chief adaptation risk. Return ONLY JSON {directions:[{label, title, logline, keep, change, tone, risk}]}. Ground everything in the source provided. No text outside the JSON.';
-    const user = 'TARGET FORMAT: ' + targetFormat + '\nSOURCE:\n' + source.slice(0, 12000);
-    const ai: any = (await this.ai.json({ task: 'scripton.adapt', system, user, maxTokens: 3000, projectId: opts?.projectId, refType: 'Project', refId: opts?.projectId })) || {};
-    return { targetFormat, directions: Array.isArray(ai.directions) ? ai.directions : [] };
+    // 60,000, NOT 12,000. Measured: an enhanced bible of 105,179 characters had 12,000 of it - 11% -
+    // reaching the call that proposes the three directions the whole film forks from. The choice was
+    // being made from the opening tenth of the document.
+    const user = 'TARGET FORMAT: ' + targetFormat + '\nSOURCE:\n' + source.slice(0, 60000);
+    // 16,000, NOT 3,000 - and this is the THIRD time this ceiling shape has broken a screen tonight,
+    // after SYNOPSIS and the canon extraction. Measured: out=3000 exactly, which is what hitting a
+    // ceiling looks like in the ledger. Three directions of seven prose fields is a larger response
+    // than 3,000 tokens, and on a model that reasons by default the reasoning is billed against the
+    // same ceiling before a single character of JSON is written.
+    const ADAPT_MAXTOK = 16000;
+    const r: any = await this.ai.run({ task: 'scripton.adapt', system, user, maxTokens: ADAPT_MAXTOK, timeoutMs: 300000, projectId: opts?.projectId, refType: 'Project', refId: opts?.projectId });
+    let j: any = (r && r.json) || null;
+    if (!j && r && typeof r.text === 'string') { try { const m = r.text.match(/\{[\s\S]*\}/); if (m) j = JSON.parse(m[0]); } catch { /* */ } }
+    const directions = (j && Array.isArray(j.directions)) ? j.directions : [];
+    // AND IT SAYS WHY WHEN THERE ARE NONE. ai.json() returns only the parsed object, so a response
+    // cut off at its ceiling was indistinguishable from a model that legitimately proposed nothing:
+    // the screen showed 'Could not generate directions' with every step ticked and no reason
+    // anywhere. run() keeps stop_reason and usage, so the failure can name itself.
+    if (!directions.length) {
+      const cap = { outputTokens: r?.usage?.output_tokens, inputTokens: r?.usage?.input_tokens, maxTokens: ADAPT_MAXTOK, stopReason: r?.stopReason, model: r?.model, provider: r?.provider };
+      const why = stoppedAtCeiling(cap)
+        ? 'the model was cut off at its ceiling before it finished the JSON'
+        : 'the model returned no usable directions JSON';
+      this.log.warn('adapt: no directions - ' + why + '. ' + usageSummary(cap));
+      throw new BadRequestException('Could not propose adaptation directions: ' + why + '. ' + usageSummary(cap));
+    }
+    return { targetFormat, directions };
   }
 
   /** Regenerate ONE adaptation direction into a CLOSE new variation (same label/spirit), optionally honouring a steering note. */
@@ -390,8 +414,8 @@ export class ScripOnService {
     let source = String((opts && (opts.sourceText || opts.source)) || '');
     if (!source && opts && opts.projectId) { const i: any = await (this.prisma as any).intakeProfile.findUnique({ where: { projectId: opts.projectId } }).catch(() => null); source = String((i && i.sourceText) || ''); }
     const system = 'You are a development executive. Regenerate ONE adaptation direction into a CLOSE new variation - the SAME label and spirit, just a fresh take (not a different direction). Keep the same label. Return ONLY JSON {label, title, logline, keep, change, tone, risk}. No text outside the JSON.';
-    const user = 'TARGET FORMAT: ' + targetFormat + '\nKEEP THIS DIRECTION (label ' + String(dir.label || '') + '). Its current take:\n' + JSON.stringify({ title: dir.title, logline: dir.logline, keep: dir.keep, change: dir.change, tone: dir.tone, risk: dir.risk }) + (note ? '\nSTEERING NOTE (honour this in the new take): ' + note : '') + (source ? '\nSOURCE (excerpt):\n' + source.slice(0, 8000) : '') + '\nWrite a close new variation now.';
-    const ai: any = (await this.ai.json({ task: 'scripton.adapt.one', system, user, maxTokens: 1200, projectId: opts && opts.projectId, refType: 'Project', refId: opts && opts.projectId })) || {};
+    const user = 'TARGET FORMAT: ' + targetFormat + '\nSOURCE:\n' + source.slice(0, 60000);
+    const ai: any = (await this.ai.json({ task: 'scripton.adapt.one', system, user, maxTokens: 6000, projectId: opts && opts.projectId, refType: 'Project', refId: opts && opts.projectId })) || {};
     const out: any = (ai && (ai.direction || ai)) || {};
     return { direction: { label: out.label || dir.label, title: out.title || dir.title, logline: out.logline || dir.logline, keep: out.keep || dir.keep, change: out.change || dir.change, tone: out.tone || dir.tone, risk: out.risk || dir.risk } };
   }

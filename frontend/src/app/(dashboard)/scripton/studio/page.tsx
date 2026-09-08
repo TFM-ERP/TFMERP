@@ -301,18 +301,43 @@ function StudioPageInner() {
     try { await productionApi.scripton.development.saveIntake(projectId, brief); }
     catch (e: any) { flash(t('Your brief was not saved — check the connection before generating.') + ' ' + (e?.response?.data?.message || '')); }
     setTitle(name);
-    const items: any[] = [{ label: t('Researching the subject'), state: 'active' }, { label: t('Reading your source'), state: 'wait' }, { label: t('Applying the Lore Atlas'), state: 'wait' }, { label: t('Exploring three directions'), state: 'wait' }];
+    // THE CHECKLIST MUST DESCRIBE WHAT ACTUALLY HAPPENED. All four rows used to be ticked in one
+    // statement before the work they name had run — so a failed run showed four ✓ and 100% above the
+    // words "Could not generate directions", and "Applying the Lore Atlas" was ticked on every build
+    // including ones with no lore selected, where the backend adds nothing at all (the lore block is
+    // gated on loreSelections.length). A step that always says done is not a status, it is decoration.
+    const useLore = Array.isArray(form.loreSelections) && form.loreSelections.length > 0
+      && String(form.loreDensity || 'ACCENT').toUpperCase() !== 'OFF';
+    const items: any[] = [
+      { label: t('Researching the subject'), state: 'active' },
+      { label: t('Reading your source'), state: 'wait' },
+      ...(useLore ? [{ label: t('Applying the Lore Atlas'), state: 'wait' }] : []),
+      { label: t('Exploring three directions'), state: 'wait' },
+    ];
+    const iDir = items.length - 1;   // the lore row is optional, so the last index is not always 3
     setBuildName(name); setBuildDirections(null); setBuildItems(items.map((x) => ({ ...x }))); setBuildStatus(t('Researching the subject')); setBuildError(null); setBuilding(true);
-    try { await productionApi.scripton.research(projectId); } catch { /* tolerant */ }
-    items[0] = { label: t('Researching the subject'), state: 'done' }; items[1] = { label: t('Reading your source'), state: 'done' }; items[2] = { label: t('Applying the Lore Atlas'), state: 'done' }; items[3] = { label: t('Exploring three directions'), state: 'active' };
+    let researchOk = true;
+    try { await productionApi.scripton.research(projectId); } catch { researchOk = false; }   // tolerant, but not silent
+    items[0] = { label: t('Researching the subject'), state: researchOk ? 'done' : 'error' };
+    items[1] = { label: t('Reading your source'), state: 'done' };
+    if (useLore) items[2] = { label: t('Applying the Lore Atlas'), state: 'done' };
+    items[iDir] = { label: t('Exploring three directions'), state: 'active' };
     setBuildItems(items.map((x) => ({ ...x }))); setBuildStatus(t('Exploring three directions'));
     try {
       const res: any = await productionApi.scripton.adapt(projectId, { sourceText: String(form.sourceText || ''), targetFormat: 'feature' });
       const dirs: any[] = (res && res.data && Array.isArray(res.data.directions)) ? res.data.directions : [];
-      items[3] = { label: t('Exploring three directions'), state: 'done' }; setBuildItems(items.map((x) => ({ ...x })));
+      // Ticked only when directions actually arrived. Marking it done and THEN reporting failure is
+      // what produced four ✓ at 100% over an error message.
+      items[iDir] = { label: t('Exploring three directions'), state: dirs.length ? 'done' : 'error' };
+      setBuildItems(items.map((x) => ({ ...x })));
       if (dirs.length) { setBuildStatus(t('Choose your direction')); setBuildDirections(dirs); try { window.localStorage.setItem('scripon.dir.' + projectId, JSON.stringify({ buildId: buildIdRef.current, name, directions: dirs })); } catch { /* */ } try { window.localStorage.removeItem('scripon.intakeDraft.' + projectId); } catch { /* */ } }
       else { setBuildError(t('Could not generate directions - opening Develop so you can start manually.')); }
-    } catch (e: any) { setBuildError((e?.response?.data?.message || t('Directions could not be generated.')) + ' ' + t('Opening Develop so you can start manually.')); }
+    } catch (e: any) {
+      items[iDir] = { label: t('Exploring three directions'), state: 'error' };
+      setBuildItems(items.map((x) => ({ ...x })));
+      // The server now names the reason — a ceiling cut reads differently from a refusal — so show it.
+      setBuildError((e?.response?.data?.message || t('Directions could not be generated.')) + ' ' + t('Opening Develop so you can start manually.'));
+    }
   };
   const onBuildPick = async (d: any) => {
     if (!projectId) return;
