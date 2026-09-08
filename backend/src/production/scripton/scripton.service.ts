@@ -4663,15 +4663,35 @@ export class ScripOnService {
     if (v === 'bin') { where.deletedAt = { not: null }; }
     else if (v === 'archived') { where.deletedAt = null; where.archivedAt = { not: null }; }
     else { where.deletedAt = null; where.archivedAt = null; }
-    const rows: any[] = await (this.prisma as any).developmentBuild.findMany({
-      // NOTE: this orderBy only decides WHICH 100 rows come back; the board's order is set below,
-      // on real activity. At 18 builds the window is not binding — revisit if it ever is.
-      where, orderBy: v === 'bin' ? { deletedAt: 'desc' } : v === 'archived' ? { archivedAt: 'desc' } : { updatedAt: 'desc' }, take: 100,
-      select: { id: true, name: true, status: true, createdAt: true, updatedAt: true, deletedAt: true, archivedAt: true,
-        projectId: true, linkedProjectId: true, linkedScriptId: true, promotedVersionId: true,
-        activeVersionId: true, brief: true },
-    }).catch(() => []);
-    if (!rows.length) return [];
+    // A FAILED QUERY IS NOT AN EMPTY BOARD. This used to end in `.catch(() => [])`, so any database
+    // error rendered as "No builds yet" — and it did: shipping the archivedAt filter before the
+    // migration was applied made Postgres reject the query and emptied his board in one refresh.
+    // A screen that cannot read must say so; the panel already has a failure state that says
+    // "Nothing was deleted — this is a loading failure". So the error is allowed to reach it.
+    //
+    // And the archive columns are OPTIONAL AT RUNTIME. The migration is additive and may not be
+    // applied yet on a given database, so the three-state query is attempted first and falls back
+    // to the two-state one rather than taking the board down. The fallback cannot hide a real
+    // fault: the second attempt is not caught, so anything else still surfaces.
+    const NO_ARCHIVE_COL = 'archivedAt';
+    const select: any = { id: true, name: true, status: true, createdAt: true, updatedAt: true, deletedAt: true, archivedAt: true,
+      projectId: true, linkedProjectId: true, linkedScriptId: true, promotedVersionId: true,
+      activeVersionId: true, brief: true };
+    // NOTE: this orderBy only decides WHICH 100 rows come back; the board's order is set below,
+    // on real activity. At 18 builds the window is not binding — revisit if it ever is.
+    const orderBy: any = v === 'bin' ? { deletedAt: 'desc' } : v === 'archived' ? { archivedAt: 'desc' } : { updatedAt: 'desc' };
+    let rows: any[] | null = await (this.prisma as any).developmentBuild
+      .findMany({ where, orderBy, take: 100, select })
+      .catch((e: any) => { if (!String(e && e.message).includes(NO_ARCHIVE_COL)) throw e; return null; });
+    if (rows === null) {
+      // The column is not there yet. Archived is then an empty view, and active is simply not-binned.
+      if (v === 'archived') return [];
+      delete select.archivedAt;
+      delete where.archivedAt;
+      rows = await (this.prisma as any).developmentBuild.findMany({
+        where, orderBy: v === 'bin' ? { deletedAt: 'desc' } : { updatedAt: 'desc' }, take: 100, select });
+    }
+    if (!rows || !rows.length) return [];
     const ids = rows.map((r) => r.id);
     const versions: any[] = await (this.prisma as any).buildVersion.findMany({
       where: { buildId: { in: ids } }, select: { id: true, buildId: true, n: true },
@@ -4699,12 +4719,16 @@ export class ScripOnService {
    * endpoint answers a different question.
    */
   async getBuild(id: string) {
-    const r: any = await (this.prisma as any).developmentBuild.findUnique({
-      where: { id: String(id) },
-      select: { id: true, name: true, status: true, createdAt: true, updatedAt: true, deletedAt: true, archivedAt: true,
-        projectId: true, linkedProjectId: true, linkedScriptId: true, promotedVersionId: true,
-        activeVersionId: true, brief: true },
-    }).catch(() => null);
+    // Same runtime-optional archive column as listBuilds: a database without the migration must
+    // still be able to open a build, not 404 on a column that is merely not there yet.
+    const sel: any = { id: true, name: true, status: true, createdAt: true, updatedAt: true, deletedAt: true, archivedAt: true,
+      projectId: true, linkedProjectId: true, linkedScriptId: true, promotedVersionId: true,
+      activeVersionId: true, brief: true };
+    let r: any = await (this.prisma as any).developmentBuild
+      .findUnique({ where: { id: String(id) }, select: sel })
+      .catch((e: any) => { if (!String(e && e.message).includes('archivedAt')) return null; delete sel.archivedAt; return undefined; });
+    if (r === undefined) r = await (this.prisma as any).developmentBuild
+      .findUnique({ where: { id: String(id) }, select: sel }).catch(() => null);
     if (!r) return null;
     const mine: any[] = await (this.prisma as any).buildVersion.findMany({ where: { buildId: r.id }, select: { id: true, n: true } }).catch(() => []);
     return this.buildCard(r, mine, (await this.ladderProgress([r.id])).get(r.id));
@@ -4919,23 +4943,47 @@ export class ScripOnService {
    * Archive is also the bin's rescue door: archiving something from the bin clears deletedAt, so it
    * leaves the countdown without going back onto the active board.
    */
+  /**
+   * One state transition, with the archive column treated as optional at runtime.
+   *
+   * These used to end in `.catch(() => {})`, which is how a write against a column the database
+   * does not have would report success and do nothing — the caller flashes "Moved to bin" over a
+   * build that never moved. The archive half is dropped if the migration is not applied yet; a
+   * failure of the REMAINING write is thrown, because a delete that did not happen must not be
+   * reported as one.
+   */
+  private async setBuildState(id: string, data: Record<string, any>) {
+    const attempt = async (d: Record<string, any>) => (this.prisma as any).developmentBuild.update({ where: { id }, data: d });
+    try {
+      await attempt(data);
+    } catch (e: any) {
+      if (!String(e && e.message).includes('archivedAt')) throw e;
+      const { archivedAt, ...rest } = data;
+      if (!Object.keys(rest).length) return { ok: true, archived: false };
+      await attempt(rest);
+      return { ok: true, archived: false };
+    }
+    return { ok: true, archived: true };
+  }
   async deleteBuild(id: string) {
-    await (this.prisma as any).developmentBuild.update({ where: { id }, data: { deletedAt: new Date(), archivedAt: null } }).catch(() => {});
-    return { ok: true };
+    return this.setBuildState(id, { deletedAt: new Date(), archivedAt: null });
   }
   async restoreBuild(id: string) {
-    await (this.prisma as any).developmentBuild.update({ where: { id }, data: { deletedAt: null, archivedAt: null } }).catch(() => {});
-    return { ok: true };
+    return this.setBuildState(id, { deletedAt: null, archivedAt: null });
   }
   /** Indefinite. No countdown, no sweep, no expiry — the state that exists so nothing has to be
    *  deleted to get it off the board. */
   async archiveBuild(id: string) {
-    await (this.prisma as any).developmentBuild.update({ where: { id }, data: { archivedAt: new Date(), deletedAt: null } }).catch(() => {});
-    return { ok: true };
+    const r = await this.setBuildState(id, { archivedAt: new Date(), deletedAt: null });
+    // Archiving is the WHOLE point of this call — unlike delete, there is no useful remainder to
+    // fall back to. Say so rather than flashing "Archived" over a build that was not.
+    if (!r.archived) throw new BadRequestException('Archive is not available on this database yet — run the pending migration (npm run migrate:deploy).');
+    return r;
   }
   async unarchiveBuild(id: string) {
-    await (this.prisma as any).developmentBuild.update({ where: { id }, data: { archivedAt: null } }).catch(() => {});
-    return { ok: true };
+    const r = await this.setBuildState(id, { archivedAt: null });
+    if (!r.archived) throw new BadRequestException('Archive is not available on this database yet — run the pending migration (npm run migrate:deploy).');
+    return r;
   }
   /** "Delete forever". Same cascade as the sweep — the two doors must agree, and this one has no
    *  30-day wait in front of it. Returns what it destroyed so the UI can stop claiming a build row

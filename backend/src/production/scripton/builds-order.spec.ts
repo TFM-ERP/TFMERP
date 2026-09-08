@@ -113,3 +113,73 @@ test('a client without groupBy degrades to creation order, it does not throw the
   assert.equal(cards.length, 4, 'the board still renders');
   cards.forEach((c: any) => assert.equal(c.lastWorkedAt, null));
 });
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// A FAILED QUERY IS NOT AN EMPTY BOARD.
+//
+// listBuilds ended in `.catch(() => [])`, so ANY database error rendered as "No builds yet" — and
+// it did: the archivedAt filter shipped before the migration was applied, Postgres rejected the
+// query, and one refresh emptied the whole board with no error anywhere. The same class of failure
+// as SAMPLE and the stuck skeleton: a screen asserting something it does not know.
+//
+// Two properties now hold. The archive columns are optional at RUNTIME, so a database without the
+// migration still lists builds. And anything else is thrown, so the panel shows its failure state
+// ("Nothing was deleted — this is a loading failure") instead of a lie.
+
+const COLUMN_MISSING = 'The column `development_builds.archivedAt` does not exist in the current database.';
+
+function dbWithoutArchiveColumn(otherError?: string) {
+  let attempts = 0;
+  return {
+    attempts: () => attempts,
+    prisma: {
+      developmentBuild: {
+        findMany: async ({ select, where }: any) => {
+          attempts++;
+          if (otherError) throw new Error(otherError);
+          if (select && select.archivedAt) throw new Error(COLUMN_MISSING);
+          if (where && 'archivedAt' in where) throw new Error(COLUMN_MISSING);
+          return BUILDS.map((b) => ({ ...b, status: 'DRAFT', deletedAt: null, brief: {} }));
+        },
+        update: async ({ data }: any) => {
+          if ('archivedAt' in data) throw new Error(COLUMN_MISSING);
+          return { ok: true };
+        },
+      },
+      buildVersion: { findMany: async () => [] },
+      developmentStage: { findMany: async () => [] },
+      stageVersion: { groupBy: async () => [] },
+    } as any,
+  };
+}
+
+test('THE REGRESSION: a database without the archive migration still lists every build', async () => {
+  const f = dbWithoutArchiveColumn();
+  const cards = await svc(f.prisma).listBuilds('p1', false);
+  assert.equal(cards.length, BUILDS.length, 'the board emptied instead of falling back');
+  assert.equal(f.attempts(), 2, 'three-state query first, two-state fallback second');
+});
+
+test('any OTHER database error is thrown — it must never render as "No builds yet"', async () => {
+  const f = dbWithoutArchiveColumn('connection refused');
+  await assert.rejects(() => svc(f.prisma).listBuilds('p1', false), /connection refused/,
+    'a read failure was swallowed into an empty board');
+});
+
+test('the Archived view is empty, not broken, before the migration', async () => {
+  const f = dbWithoutArchiveColumn();
+  assert.deepEqual(await svc(f.prisma).listBuilds('p1', false, 'archived'), []);
+});
+
+test('delete still bins a build on a database without the archive column', async () => {
+  const f = dbWithoutArchiveColumn();
+  const r: any = await svc(f.prisma).deleteBuild('live');
+  assert.equal(r.ok, true, 'the deletedAt half must still be written');
+  assert.equal(r.archived, false, 'and it must report that the archive half was dropped');
+});
+
+test('archive REFUSES rather than reporting success it did not achieve', async () => {
+  const f = dbWithoutArchiveColumn();
+  await assert.rejects(() => svc(f.prisma).archiveBuild('live'), /migration/,
+    'flashing "Archived" over a build that was not archived is the failure being prevented');
+});
