@@ -23,12 +23,25 @@ const CSS = `
 .bld.osnew .phead h1{font-family:var(--sx-title);font-weight:500;letter-spacing:-.3px;font-size:25px}.bld.osnew .top .proj{font-family:var(--sx-title);font-weight:600}
 .bld .tbar{display:flex;align-items:center;gap:8px}
 .bld .chip{padding:7px 13px;border-radius:999px;font-size:12.5px;font-weight:600;color:var(--mute);background:#171a20;border:1px solid var(--hair);cursor:pointer}.bld .chip.on{background:rgba(198,164,99,.14);border-color:rgba(198,164,99,.45);color:var(--gold2)}
-.bld .grid{flex:1;display:grid;grid-template-columns:repeat(3,1fr);gap:16px;align-content:start;align-items:start;overflow:auto}
-/* min-width:0 because a grid item defaults to min-width:auto — the identity line grew long enough
-   that it could not shrink, so the card was forced wider than its track and the footer spilled out
-   over the card below. align-items:start on the grid lets each card own its height rather than
-   stretching to the tallest in its row, which is what margin-top:auto on .ft was fighting. */
-.bld .bc{background:var(--panel);border:1px solid var(--hair);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px;min-height:180px;min-width:0;overflow:hidden}
+.bld .sections{flex:1;overflow:auto;display:flex;flex-direction:column;gap:26px}
+.bld .sect{display:flex;flex-direction:column;gap:12px}
+.bld .secth{display:flex;align-items:baseline;gap:9px}
+.bld .sectt{font-size:12px;font-weight:800;letter-spacing:.9px;text-transform:uppercase;color:var(--gold2)}
+.bld .sectn{font-size:11px;font-weight:700;color:var(--mute);background:rgba(154,161,171,.12);border-radius:999px;padding:1px 8px}
+.bld .sects{font-size:11.5px;color:var(--faint)}
+.bld .grid{display:grid;grid-template-columns:repeat(3,1fr);grid-auto-rows:max-content;gap:16px;align-content:start}
+/* WHY grid-auto-rows:max-content, MEASURED — do not drop it back to plain auto rows.
+   Every implicit row was resolving to .bc's min-height floor (180px on the live board, 214.925px in
+   a harness where the content fit) while the tallest card in the row needed 226-243px. The row never
+   sized to its content, so the card ran past its own rounded border and over the card below — the
+   footer, pinned by margin-top:auto, landed outside the card entirely. max-content makes the row the
+   height of the tallest card in it, in both regimes, which is the rule this board is supposed to obey.
+   align-items stays at its stretch default so the OTHER cards in that row fill it: align-items:start
+   made each card own its height and left the row ragged while still overlapping (measured: rowOverlap
+   12.3px, ragged true). min-width:0 stays — a grid item defaults to min-width:auto, and the identity
+   line grew long enough that it could not shrink below its track.
+   Verified at 3, 2 and 1 columns, on a card with a two-line wrapped title: spill 0, overlap 0. */
+.bld .bc{background:var(--panel);border:1px solid var(--hair);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
 .bld .r1{display:flex;align-items:center;justify-content:space-between}
 .bld .spill{font-size:10px;font-weight:800;letter-spacing:.4px;padding:4px 9px;border-radius:999px}
 .bld .spill.draft{background:rgba(154,161,171,.16);color:var(--mute)}.bld .spill.review{background:rgba(91,141,239,.16);color:#a9c4f7}.bld .spill.greenlit{background:rgba(87,179,104,.16);color:var(--green)}.bld .spill.promoted{background:rgba(198,164,99,.18);color:var(--gold2)}
@@ -210,6 +223,24 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
   const shown = list.filter((b) => filter === 'All' || String(b.status || 'DRAFT').toUpperCase() === filter.toUpperCase());
   const isEmpty = !loading && !failed && shown.length === 0;
 
+  // TWO SECTIONS, NOT ONE FLAT RUN.
+  //
+  // The eleven builds the orphan recovery recreated are not the writer's recent work — they are a
+  // repair, and mixing them into one grid is how six cards still called "Name this build" came to
+  // sit above the script he had open. Ordering alone fixes today's board; a section makes it
+  // structural, so no future maintenance pass can quietly interleave with his work again.
+  //
+  // The bin is one list: there, everything present is there for the same reason.
+  const recovered = shown.filter((b: any) => !!b.recovered);
+  const recent = shown.filter((b: any) => !b.recovered);
+  const sections: { key: string; header: string; note?: string; items: any[]; showAdd?: boolean }[] =
+    bin ? [{ key: 'bin', header: '', items: shown }]
+      : !recovered.length ? [{ key: 'recent', header: '', items: recent, showAdd: true }]
+        : [
+          { key: 'recent', header: t('Recent'), note: t('ordered by when you last wrote in them'), items: recent, showAdd: true },
+          { key: 'recovered', header: t('Recovered'), note: t('rebuilt from orphaned stages — the writing survived, the source did not'), items: recovered },
+        ];
+
   const openBuild = (id: string) => { if (typeof window !== 'undefined') window.location.assign('/scripton/studio?build=' + id); };
   const openScript = (docId: string) => { if (docId && typeof window !== 'undefined') window.location.assign('/scripton/script?doc=' + docId); };
   const cycleStatus = async (b: any) => { if (isDemo(b)) { flash(t('Demo build - connect a project to manage status.')); return; } const order = ['DRAFT', 'REVIEW', 'GREENLIT']; const cur = String(b.status || 'DRAFT').toUpperCase(); const next = order[(order.indexOf(cur) + 1) % order.length]; try { await productionApi.scripton.development.setBuildStatus(b.id, next); flash(t('Status') + ' \u2192 ' + next.charAt(0) + next.slice(1).toLowerCase()); if (projectId) await load(projectId, bin); } catch { flash(t('Could not update status.')); } };
@@ -231,37 +262,8 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
     catch (e: any) { flash(e?.response?.data?.message || t('Promote failed.')); }
   };
 
-  return (
-    <div className={'bld' + (osNew ? ' osnew' : '') + (embedded ? ' embedded' : '')} dir={dir} style={embedded ? { flex: 1, minWidth: 0, minHeight: 0, overflow: 'auto', position: 'relative' } : { position: 'fixed', top: 0, right: 0, bottom: 0, left: railGap, zIndex: 80, overflow: 'auto' }}>
-      <style dangerouslySetInnerHTML={{ __html: CSS }} />
-      <div className="scr">
-        {/* Embedded in ScriptonShell → the shared top bar provides the chrome; suppress the local bar. */}
-        {!embedded && <div className="top"><div className="tl"><div className="logo" onClick={onClose} title={t('Close')}>TFM</div><div className="proj">{t('Development builds')}</div><span className="meta">{t('standalone · unlinked until you promote')}</span></div><div style={{ display: 'flex', gap: 8 }}><div className="btn gold" onClick={onNewBuild || onClose}><svg className="ico" viewBox="0 0 24 24" style={{ stroke: '#1a1509' }}><path d="M12 5v14M5 12h14" /></svg>{t('New build')}</div>{!osNew ? <div className="btn ghost" onClick={onClose}>{t('Close')}</div> : null}</div></div>}
-        <div className="body">
-          <div className="main">
-            <div className="phead"><h1>{t('Builds')}</h1><div className="sub">{t('Name, save and switch development builds. Open loads a build into Studio; promote a finished build into a project.')}</div></div>
-            <div className="tbar">{(bin ? [] : ['All', 'Draft', 'Review', 'Greenlit', 'Promoted']).map((c) => (<span key={c} className={'chip' + (filter === c ? ' on' : '')} onClick={() => setFilter(c)}>{t(c)}</span>))}<span style={{ marginLeft: 'auto', display: 'inline-flex', background: '#15181e', border: '1px solid var(--hair)', borderRadius: 9, padding: 3, gap: 2 }}><span onClick={() => switchBin(false)} style={{ fontSize: 12, fontWeight: 600, padding: '5px 12px', borderRadius: 7, cursor: 'pointer', color: !bin ? 'var(--gold2)' : 'var(--mute)', background: !bin ? 'rgba(198,164,99,.16)' : 'transparent' }}>{t('Active')}</span><span onClick={() => switchBin(true)} style={{ fontSize: 12, fontWeight: 600, padding: '5px 12px', borderRadius: 7, cursor: 'pointer', color: bin ? 'var(--gold2)' : 'var(--mute)', background: bin ? 'rgba(198,164,99,.16)' : 'transparent' }}>✖ {t('Bin')}</span></span></div>
-            <div className="grid">
-              {/* Loading: skeletons, so the board reads as "fetching" and never as "your work is gone". */}
-              {loading ? [0, 1, 2].map((i) => (
-                <div key={'sk' + i} className="bc skel" aria-hidden>
-                  <div className="sk sk-r1" /><div className="sk sk-nm" /><div className="sk sk-id" /><div className="sk sk-ft" />
-                </div>
-              )) : null}
-              {failed ? (
-                <div className="bc empty" style={{ borderColor: 'rgba(229,99,95,.5)' }}>
-                  <div className="nm" style={{ color: '#e5635f' }}>{t('Could not load your builds.')}</div>
-                  <div className="ident">{t('Nothing was deleted — this is a loading failure, not an empty board.')}</div>
-                  <div className="ft"><span className="mini gold" onClick={() => load(projectId || '', bin)}>{t('Retry')}</span></div>
-                </div>
-              ) : null}
-              {isEmpty ? (
-                <div className="bc empty">
-                  <div className="nm">{bin ? t('The bin is empty.') : t('No builds yet.')}</div>
-                  <div className="ident">{bin ? t('Deleted builds appear here for 30 days.') : t('Start one with New build — it will appear here.')}</div>
-                </div>
-              ) : null}
-              {shown.map((b) => { const st = String(b.status || 'DRAFT').toUpperCase(); const dots = DOTS[st] || 2; return (
+  /** One card. Lifted out of the map so the Recent and Recovered sections cannot drift apart. */
+  const renderCard = (b: any) => { const st = String(b.status || 'DRAFT').toUpperCase(); const dots = DOTS[st] || 2; return (
                 <div key={b.id} className="bc">
                   <div className="r1"><span className={'spill ' + (SPILL[st] || 'draft')} title={(st !== 'PROMOTED' && !bin && !isDemo(b)) ? t('Click to advance: Draft \u2192 Review \u2192 Greenlit') : (st === 'PROMOTED' ? t('Promoted to production') : '')} onClick={() => { if (st !== 'PROMOTED' && !bin && !isDemo(b)) cycleStatus(b); }} style={{ cursor: (st !== 'PROMOTED' && !bin && !isDemo(b)) ? 'pointer' : 'default' }}>{st}</span>{b.recovered ? <span className="when" title={t('When this build row was recreated from its orphaned stages')}>{t('recreated') + ' ' + onDate(b.createdAt)}</span> : null}</div>
                   {editId === b.id ? (
@@ -321,8 +323,49 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
                     </>)}
                   </div>
                 </div>
-              ); })}
-              {!bin ? <div className="add" onClick={onNewBuild || onClose}><svg className="ico" viewBox="0 0 24 24" style={{ width: 22, height: 22 }}><path d="M12 5v14M5 12h14" /></svg><div style={{ fontWeight: 600 }}>{t('New build')}</div></div> : null}
+  ); };
+
+  return (
+    <div className={'bld' + (osNew ? ' osnew' : '') + (embedded ? ' embedded' : '')} dir={dir} style={embedded ? { flex: 1, minWidth: 0, minHeight: 0, overflow: 'auto', position: 'relative' } : { position: 'fixed', top: 0, right: 0, bottom: 0, left: railGap, zIndex: 80, overflow: 'auto' }}>
+      <style dangerouslySetInnerHTML={{ __html: CSS }} />
+      <div className="scr">
+        {/* Embedded in ScriptonShell → the shared top bar provides the chrome; suppress the local bar. */}
+        {!embedded && <div className="top"><div className="tl"><div className="logo" onClick={onClose} title={t('Close')}>TFM</div><div className="proj">{t('Development builds')}</div><span className="meta">{t('standalone · unlinked until you promote')}</span></div><div style={{ display: 'flex', gap: 8 }}><div className="btn gold" onClick={onNewBuild || onClose}><svg className="ico" viewBox="0 0 24 24" style={{ stroke: '#1a1509' }}><path d="M12 5v14M5 12h14" /></svg>{t('New build')}</div>{!osNew ? <div className="btn ghost" onClick={onClose}>{t('Close')}</div> : null}</div></div>}
+        <div className="body">
+          <div className="main">
+            <div className="phead"><h1>{t('Builds')}</h1><div className="sub">{t('Name, save and switch development builds. Open loads a build into Studio; promote a finished build into a project.')}</div></div>
+            <div className="tbar">{(bin ? [] : ['All', 'Draft', 'Review', 'Greenlit', 'Promoted']).map((c) => (<span key={c} className={'chip' + (filter === c ? ' on' : '')} onClick={() => setFilter(c)}>{t(c)}</span>))}<span style={{ marginLeft: 'auto', display: 'inline-flex', background: '#15181e', border: '1px solid var(--hair)', borderRadius: 9, padding: 3, gap: 2 }}><span onClick={() => switchBin(false)} style={{ fontSize: 12, fontWeight: 600, padding: '5px 12px', borderRadius: 7, cursor: 'pointer', color: !bin ? 'var(--gold2)' : 'var(--mute)', background: !bin ? 'rgba(198,164,99,.16)' : 'transparent' }}>{t('Active')}</span><span onClick={() => switchBin(true)} style={{ fontSize: 12, fontWeight: 600, padding: '5px 12px', borderRadius: 7, cursor: 'pointer', color: bin ? 'var(--gold2)' : 'var(--mute)', background: bin ? 'rgba(198,164,99,.16)' : 'transparent' }}>✖ {t('Bin')}</span></span></div>
+            <div className="sections">
+              <div className="grid">
+              {/* Loading: skeletons, so the board reads as "fetching" and never as "your work is gone". */}
+              {loading ? [0, 1, 2].map((i) => (
+                <div key={'sk' + i} className="bc skel" aria-hidden>
+                  <div className="sk sk-r1" /><div className="sk sk-nm" /><div className="sk sk-id" /><div className="sk sk-ft" />
+                </div>
+              )) : null}
+              {failed ? (
+                <div className="bc empty" style={{ borderColor: 'rgba(229,99,95,.5)' }}>
+                  <div className="nm" style={{ color: '#e5635f' }}>{t('Could not load your builds.')}</div>
+                  <div className="ident">{t('Nothing was deleted — this is a loading failure, not an empty board.')}</div>
+                  <div className="ft"><span className="mini gold" onClick={() => load(projectId || '', bin)}>{t('Retry')}</span></div>
+                </div>
+              ) : null}
+              {isEmpty ? (
+                <div className="bc empty">
+                  <div className="nm">{bin ? t('The bin is empty.') : t('No builds yet.')}</div>
+                  <div className="ident">{bin ? t('Deleted builds appear here for 30 days.') : t('Start one with New build — it will appear here.')}</div>
+                </div>
+              ) : null}
+              </div>
+              {sections.map((sec) => (
+                <div key={sec.key} className="sect">
+                  {sec.header ? (<div className="secth"><span className="sectt">{sec.header}</span><span className="sectn">{sec.items.length}</span>{sec.note ? <span className="sects">{sec.note}</span> : null}</div>) : null}
+                  <div className="grid">
+                    {sec.items.map(renderCard)}
+                    {sec.showAdd && !bin ? <div className="add" onClick={onNewBuild || onClose}><svg className="ico" viewBox="0 0 24 24" style={{ width: 22, height: 22 }}><path d="M12 5v14M5 12h14" /></svg><div style={{ fontWeight: 600 }}>{t('New build')}</div></div> : null}
+                  </div>
+                </div>
+              ))}
               {bin && !list.length ? <div style={{ gridColumn: '1 / -1', textAlign: 'center', color: 'var(--faint)', fontSize: 13, padding: '40px 0' }}>{t('The bin is empty.')}</div> : null}
             </div>
           </div>
