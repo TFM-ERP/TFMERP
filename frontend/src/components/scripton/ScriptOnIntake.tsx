@@ -284,6 +284,10 @@ export default function ScriptOnIntake({ projectId, busy, onBegin, onClose }: { 
     researchScope: SCOPE.map((x) => x[0] + ' = ' + x[1]).join(' · '),
   });
 
+  /** One prefix, so the whole analysis is greppable in his console in one filter. */
+  const recLog = (msg: string, extra?: any) => {
+    try { if (extra === undefined) console.info('[recommend] ' + msg); else console.info('[recommend] ' + msg, extra); } catch { /* */ }
+  };
   const runRecommend = async () => {
     if (!projectId) return;
     const payload = {
@@ -304,9 +308,18 @@ export default function ScriptOnIntake({ projectId, busy, onBegin, onClose }: { 
         .concat(urls.filter((u) => u && u.trim()).map((v) => ({ kind: 'url', value: v })))
         .concat(files.map((x) => ({ kind: 'file', name: x.name, value: x.url }))),
     };
-    if (!payload.sources.length && !payload.sourceText.trim()) return;
+    // THREE SILENT EXITS USED TO SIT HERE, and between them they are the likeliest reason a screen
+    // shows Style & Voice 0/2 AND Ending 0/2 at once: two unrelated fields both empty means the
+    // analysis never produced anything, not that two separate applications failed. A return that
+    // explains nothing is indistinguishable on screen from a run that found nothing.
+    recLog('fired', { step, sources: payload.sources.length, sourceTextChars: payload.sourceText.length, projectId });
+    if (!payload.sources.length && !payload.sourceText.trim()) {
+      recLog('DID NOT RUN: no source material on the form', { pastes: pastes.length, urls: urls.length, files: files.length });
+      setRecDone({ fields: [], sources: [], note: t('No source material to analyse yet — paste, upload or link your material and the brief will fill itself in.') });
+      return;
+    }
     const key = JSON.stringify(payload.sources) + '|' + payload.sourceText.length;
-    if (recRanRef.current === key) return;   // the same material twice is the same answer
+    if (recRanRef.current === key) { recLog('skipped: same material as the last run'); return; }
     recRanRef.current = key;
     // Measured on real material: two files of ~47,000 characters took ~35s end to end. Files carry
     // the cost (each is opened, decoded and read), so they drive the estimate; pasted text is cheap.
@@ -318,6 +331,15 @@ export default function ScriptOnIntake({ projectId, busy, onBegin, onClose }: { 
       const res: any = await api.post('/production/scripton/recommend-brief/' + encodeURIComponent(projectId), payload);
       const data = (res && res.data) || {};
       const fields: any[] = Array.isArray(data.fields) ? data.fields : [];
+      // WHAT THE ANALYSIS ACTUALLY RETURNED, by field. "It returned nothing" and "it returned
+      // things but none of them applied" look identical on the form and have different fixes.
+      recLog('returned ' + fields.length + ' field(s)', {
+        fields: fields.map((r: any) => r && r.field),
+        hasEndingIds: fields.some((r: any) => r && r.field === 'spine.endingIds'),
+        hasStyles: fields.some((r: any) => r && r.field === 'styles'),
+        note: data.note,
+      });
+      if (!fields.length) recLog('THE ANALYSIS RETURNED NO FIELDS — nothing can pre-select', { data });
       const landed: any[] = [];
       let aiEnd: string[] | null = null;   // what the analysis chose, so the chips can say so
       {
@@ -403,8 +425,15 @@ export default function ScriptOnIntake({ projectId, busy, onBegin, onClose }: { 
       if (aiEnd && aiEnd.length) setEndSuggested(aiEnd);
       setRecDone({ ...data, landed: landed.length });
     } catch (e: any) {
-      // Fail open: the Brief is exactly what it would have been with no analysis at all.
-      setRecDone({ fields: [], sources: [], note: t('The material could not be analysed.') });
+      // FAIL OPEN, BUT NEVER SILENT. This used to discard `e` entirely and show one generic line, so
+      // a 401, a 500 and a timeout were indistinguishable from "your material matched nothing" — and
+      // the Brief then looked merely unhelpful rather than broken. The reason now reaches both the
+      // console and the screen; the form is still left exactly as it would have been with no
+      // analysis at all.
+      const status = e?.response?.status;
+      const why = e?.response?.data?.message || e?.message || String(e);
+      recLog('FAILED', { status, why });
+      setRecDone({ fields: [], sources: [], note: t('The material could not be analysed.') + ' ' + (status ? '(' + status + ') ' : '') + why });
     } finally { setRecBusy(false); }
   };
 
@@ -500,7 +529,14 @@ export default function ScriptOnIntake({ projectId, busy, onBegin, onClose }: { 
   useEffect(() => { if (f.mode === 'ORIGINAL') setStep(2); }, [f.mode]);
   // Reaching the Brief starts the read — by the Next button or by switching to From scratch, which
   // jumps here. runRecommend guards itself against running twice on the same material.
-  useEffect(() => { if (step === 2) { runRecommend(); } }, [step]);
+  // "The effect never fired" and "it fired and returned early" look identical on the form — both
+  // leave every field empty. This line is what separates them: no [recommend] output at all in his
+  // console means the analysis was never reached, and the step gate is where to look.
+  useEffect(() => {
+    recLog('step changed to ' + step + (step === 2 ? ' — running the analysis' : ' — not step 2, analysis not run'));
+    if (step === 2) { runRecommend(); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
   // Seed lazily on mount (avoids SSR hydration mismatch from Math.random in initial state).
   useEffect(() => { setF((p: any) => (p.seed ? p : { ...p, seed: Math.floor(Math.random() * 1000000) })); }, []);
   // When a series format is chosen, default the type-preset by locale/market so the first view is
