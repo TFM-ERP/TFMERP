@@ -233,7 +233,12 @@ export default function ScriptOnBuildScreen({ title, items, status, error, onCon
           <div className="logo"><span>TFM</span></div>
           <div className="eyebrow">{t('PREPARING YOUR DEVELOPMENT')}</div>
           <div className="ptitle">{title || t('New build')}</div>
-          <div className="psub">{t('Researching, reading your source & applying the Lore Atlas')}</div>
+          {/* THE SUBTITLE IS THE STEP LIST, not a second hardcoded copy of it. It read
+              "Researching, reading your source & applying the Lore Atlas" on every build — including
+              ones with no lore selected, where that row is not even rendered. One sentence naming
+              work that is not happening is the same defect as a step that always says done; deriving
+              it from `items` means the two cannot disagree again. */}
+          <div className="psub">{items.map((x) => String((x && x.label) || '')).filter(Boolean).join('  ·  ') || t('Preparing your development')}</div>
           <div className="bar"><div className="fill" style={{ width: pct + '%' }} /></div>
           <div className="prow"><div className="stat">{status}</div><div className="pct">{pct}%</div></div>
           <div className="steps">
