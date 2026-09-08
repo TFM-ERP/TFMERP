@@ -37,6 +37,10 @@ const NAVMAP: Record<string, string> = { home: '/scripton', reader: '/scripton/r
 /**
  * useSearchParams REQUIRES A SUSPENSE BOUNDARY, or `next build` fails on this route.
  *
+ * THIS IS THE CANONICAL PATTERN for reading the query in this app: useSearchParams inside a
+ * <Suspense> boundary, with the rule itself pure and tested (studio-view.logic.ts). The one file
+ * still on the old post-mount form is app/(dashboard)/scripton/revisions/page.tsx, marked there.
+ *
  * This codebase had been routing around that — revisions/page.tsx reads its query post-mount with
  * the comment "avoids useSearchParams Suspense" — but that workaround is precisely the bug being
  * fixed here: a post-mount read of window.location.search never re-runs on a query-ONLY navigation,

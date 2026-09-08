@@ -48,7 +48,19 @@ export default function ScriptOnRevisionsPage() {
     return () => { alive = false; };
   }, []);
 
-  // Read ?pass= post-mount (avoids useSearchParams Suspense), then fetch the render result.
+  // NOT THE PATTERN. CANONICAL IS useSearchParams INSIDE A SUSPENSE BOUNDARY — see
+  // app/(dashboard)/scripton/studio/page.tsx, which wraps its export in <Suspense> and derives
+  // state in studio-view.logic.ts.
+  //
+  // Reading the query post-mount avoids the boundary, but it is the same defect as the bug fixed in
+  // Studio on 8 Sep: a `[]` effect never re-runs on a query-ONLY navigation, because the pathname
+  // does not change and the component does not remount. Clicking Build on the rail while a build was
+  // open did nothing for exactly this reason. Here it means arriving at ?pass=X from a screen that
+  // is already /scripton/revisions leaves passId stale.
+  //
+  // THIS FILE IS THE ONE STILL TO CONVERT. Not done in the Studio commit because it is a behaviour
+  // change to a screen that fix did not touch, and it was not exercised — convert it deliberately,
+  // with the Compare flow actually run, rather than as a drive-by.
   useEffect(() => { if (typeof window !== 'undefined') setPassId(new URLSearchParams(window.location.search).get('pass') || ''); }, []);
   useEffect(() => {
     if (!passId) return;
