@@ -43,7 +43,10 @@ import {
   type EntityRegistry, type StateFact, type PlaceObservation,
 } from './entity-registry.util';
 import { mapAiFactsToCore } from './canon/canon-map.util';
-import { canonDirective } from './canon/canon-inject.util';
+import { canonDirective, prohibitionDirective } from './canon/canon-inject.util';
+import { selectCanonByQuota, quotaSummary } from './canon/canon-quota.util';
+import { SOURCE_CANON_SYSTEM, SOURCE_CANON_MAXTOK } from './canon/canon-prompt.util';
+import { parseFactsLoose } from './canon/canon-parse.util';
 import type { CanonFactCore } from './canon/canon.types';
 import { excerptSource, sourceMaterialBlock, asSourceText, SOURCE_EXCERPT_CHARS } from './source-excerpt.util';
 import { buildPackageDocModel } from './package-docx.util';
@@ -1061,7 +1064,11 @@ export class ScripOnService {
     const excerpt = excerptSource(rawSource, SOURCE_EXCERPT_CHARS);
     // at 0: source facts are anchored at story order 0 by mapAiFactsToCore, so all of them are live.
     const sourceFacts = wantsSource && excerpt.truncated ? await this.sourceCanonFor(projectId, rawSource) : [];
-    const srcBlock = wantsSource ? sourceMaterialBlock(canonDirective(sourceFacts, { at: 0, max: 30 }), excerpt) : '';
+    const srcBlock = wantsSource ? sourceMaterialBlock(canonDirective(sourceFacts, { at: 0, max: 60 }), excerpt) : '';
+    // CONSTRAINTS ARE NOT CANON AND DO NOT RIDE IN THE CANON BLOCK. They are rules about the output,
+    // they go last in the prompt where an instruction carries most weight, and a source that states
+    // none produces an empty string rather than an empty heading.
+    const ruleBlock = wantsSource ? prohibitionDirective(sourceFacts) : '';
     if (wantsSource && excerpt.truncated) this.log.log('generateStage ' + kind + ': source is an excerpt - ' + excerpt.sent + ' of ' + excerpt.total + ' characters, with ' + sourceFacts.length + ' fixed fact(s) carried alongside it.');
     const research = String((intakeRow && intakeRow.researchNotes) || '').slice(0, 4000);
     const researchBlock = research ? ('\nRESEARCH FINDINGS (authentic facts, period & cultural detail to honour):\n' + research) : '';
@@ -1078,7 +1085,7 @@ export class ScripOnService {
     const knowBlock = knowDir ? ('\n\nFORMAT & WORLD ENGINE (honour precisely across this stage):\n' + knowDir) : '';
     const draftRaw = kind === 'DRAFT';
     const jsonExact = kind === 'VIDEO_PROMPT'; // emit the exact JSON shape verbatim (format/aspectRatio are wanted output, not metadata to strip)
-    const user = 'STAGE: ' + kind + (framework ? (' | FRAMEWORK: ' + framework) : '') + steer + researchBlock + srcBlock + soFarBlock + knowBlock + langDir + (draftRaw ? '\nWrite the screenplay now as plain text (no JSON, no metadata header).' : jsonExact ? '\n' + brief.shape : '\nReturn ONLY JSON ' + brief.shape + ' with NO title/format/rating/metadata fields.');
+    const user = 'STAGE: ' + kind + (framework ? (' | FRAMEWORK: ' + framework) : '') + steer + researchBlock + srcBlock + soFarBlock + knowBlock + langDir + (ruleBlock ? ('\n\n' + ruleBlock) : '') + (draftRaw ? '\nWrite the screenplay now as plain text (no JSON, no metadata header).' : jsonExact ? '\n' + brief.shape : '\nReturn ONLY JSON ' + brief.shape + ' with NO title/format/rating/metadata fields.');
     // Generous ceilings (NOT targets) — the model stops when the stage is done; a high cap only prevents premature
     // truncation of long stages. Every "heavy" long-form stage (scene maps, treatments, beat maps, drafts, narration,
     // step outlines, season arcs) gets a 25,000-token ceiling, is STREAMED (no single long blocking request, and no
@@ -2674,16 +2681,13 @@ export class ScripOnService {
     const hit = this.sourceCanonCache.get(projectId);
     if (hit && hit.key === key) return hit.facts;
     try {
-      const sys = 'You are building the CANON for a screenplay going into production: the hard facts the script'
-        + ' must never contradict. Return ONLY JSON {facts:[{kind,subject,predicate,object,statement}]}.'
-        + ' kind is one of CHARACTER|WORLD|LORE|TIMELINE|RELATIONSHIP|PLOT. subject = the entity, upper-case.'
-        + ' predicate = a short relation such as full_name|age|relation_to|occupation|duration|owns|located_in.'
-        + ' object = the value. statement = one sentence a writer can read. Include ONLY facts the material'
-        + ' actually STATES and that a later writer could plausibly get wrong: full names exactly as written,'
-        + ' ages, family and professional relationships (who is whose sister, father, employer, mentor), how'
-        + ' long things took, dates and years, and place / company / vessel names. Do NOT invent or infer'
-        + ' anything: a missing fact is harmless, an invented one is a bug. At most 30 facts. No text outside'
-        + ' the JSON.';
+      // THE PROMPT WAS BIOGRAPHY-ONLY, AND THAT WAS THE ROOT OF THE STRUCTURAL BREAKS.
+      // It asked for "full names exactly as written, ages, family and professional relationships,
+      // dates and places" - so of 30 facts returned, 28 were biography, and four sentences the
+      // source states outright reached nothing: who the antagonist is, who permitted versus who
+      // expanded, what the crime IS, and what must happen before the climax. Raising the fact cap
+      // could never have fixed that; there was no slot for any of them to land in.
+      const sys = SOURCE_CANON_SYSTEM;
       // 8,000, not 2,400. This call asks for up to 30 structured facts as JSON, and on a model that
       // reasons by default the reasoning is billed against this same ceiling — the 2,400 here was the
       // identical ceiling that produced six textless SYNOPSIS runs on 7 Sep. It matters more here than
@@ -2692,22 +2696,32 @@ export class ScripOnService {
       // ladder then writes from an EXCERPT with no fixed facts to anchor it, which is precisely the
       // §21 circularity this function exists to prevent — a synopsis inventing what the source says,
       // then becoming the truth later stages are checked against. That is how "Jason Vane" got in.
-      const r: any = await this.ai.run({ task: 'scripton.develop.canon', system: sys, user: 'SOURCE MATERIAL:\n' + src.slice(0, 60000), maxTokens: 8000, timeoutMs: 300000, projectId, refType: 'Project', refId: projectId });
-      let j: any = (r && r.json) || null;
-      if (!j && r && typeof r.text === 'string') { try { const m = r.text.match(/\{[\s\S]*\}/); if (m) j = JSON.parse(m[0]); } catch { /* */ } }
-      const facts = mapAiFactsToCore((j && j.facts) || [], { id: '', order: 0 }).slice(0, 30);
+      const r: any = await this.ai.run({ task: 'scripton.develop.canon', system: sys, user: 'SOURCE MATERIAL:\n' + src.slice(0, 60000), maxTokens: SOURCE_CANON_MAXTOK, timeoutMs: 600000, projectId, refType: 'Project', refId: projectId });
+      // A TRUNCATED RESPONSE MUST NOT COST EVERY FACT. Measured on the 66,128-character bible: the
+      // call ran to its ceiling, the JSON was cut mid-string, JSON.parse threw, and the catch below
+      // returned [] - thirty-four complete facts, already emitted, thrown away, and the ladder then
+      // ran with no canon at all. parseFactsLoose keeps every COMPLETE object and nothing partial.
+      const loose = (r && r.json && Array.isArray(r.json.facts))
+        ? { facts: r.json.facts, salvaged: false, recovered: 0 }
+        : parseFactsLoose(r && r.text);
+      if (loose.salvaged) {
+        this.log.warn('sourceCanonFor: the response was TRUNCATED - recovered ' + loose.recovered
+          + ' complete fact(s) from it. Raise the ceiling (currently ' + SOURCE_CANON_MAXTOK + ').');
+      }
+      const picked = selectCanonByQuota(mapAiFactsToCore(loose.facts, { id: '', order: 0 }), { total: 60 });
+      const facts = picked.facts.concat(picked.prohibitions);
       this.sourceCanonCache.set(projectId, { key, facts });
       // ZERO FACTS IS NOT A NORMAL OUTCOME AND IS NO LONGER LOGGED AS ONE. It used to print at log
       // level next to every healthy run, so the one time it mattered it read like routine chatter.
       if (!facts.length) {
         this.log.warn('sourceCanonFor: NO fixed facts extracted from ' + src.length + ' characters of source — '
-          + usageSummary({ inputTokens: r?.usage?.input_tokens, outputTokens: r?.usage?.output_tokens, maxTokens: 8000, stopReason: r?.stopReason, model: r?.model, provider: r?.provider })
+          + usageSummary({ inputTokens: r?.usage?.input_tokens, outputTokens: r?.usage?.output_tokens, maxTokens: SOURCE_CANON_MAXTOK, stopReason: r?.stopReason, model: r?.model, provider: r?.provider })
           + '. Every stage built on an excerpt now runs with nothing anchoring it to the source (§21). '
-          + (stoppedAtCeiling({ outputTokens: r?.usage?.output_tokens, maxTokens: 8000, stopReason: r?.stopReason })
+          + (stoppedAtCeiling({ outputTokens: r?.usage?.output_tokens, maxTokens: SOURCE_CANON_MAXTOK, stopReason: r?.stopReason })
             ? 'The call was cut off at its ceiling — raise it.'
             : 'The model returned no usable facts JSON.'));
       } else {
-        this.log.log('sourceCanonFor: ' + facts.length + ' fixed fact(s) from ' + src.length + ' characters of SOURCE (stage bodies deliberately excluded).');
+        this.log.log('sourceCanonFor: ' + facts.length + ' fixed fact(s) from ' + src.length + ' characters of SOURCE (stage bodies deliberately excluded) — ' + quotaSummary(picked.counts) + (picked.dropped ? ('; ' + picked.dropped + ' over budget') : '') + '.');
       }
       return facts;
     } catch (e) {

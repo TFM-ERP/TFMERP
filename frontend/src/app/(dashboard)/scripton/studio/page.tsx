@@ -297,7 +297,9 @@ function StudioPageInner() {
     const { name: _n, title: _t, framework: _fw, ...rest } = form;
     const brief: any = { ...rest, spine: { ...((rest as any).spine || {}), ...(_fw ? { framework: _fw } : {}) } };
     try { const b: any = await productionApi.scripton.development.createBuild({ name, projectId, brief }); if (b && b.data && b.data.id) buildIdRef.current = b.data.id; } catch { /* */ }
-    try { await productionApi.scripton.development.saveIntake(projectId, brief); } catch { /* */ }
+    // The brief IS the generation's input; a failure here must not be silent either.
+    try { await productionApi.scripton.development.saveIntake(projectId, brief); }
+    catch (e: any) { flash(t('Your brief was not saved — check the connection before generating.') + ' ' + (e?.response?.data?.message || '')); }
     setTitle(name);
     const items: any[] = [{ label: t('Researching the subject'), state: 'active' }, { label: t('Reading your source'), state: 'wait' }, { label: t('Applying the Lore Atlas'), state: 'wait' }, { label: t('Exploring three directions'), state: 'wait' }];
     setBuildName(name); setBuildDirections(null); setBuildItems(items.map((x) => ({ ...x }))); setBuildStatus(t('Researching the subject')); setBuildError(null); setBuilding(true);
@@ -315,8 +317,16 @@ function StudioPageInner() {
   const onBuildPick = async (d: any) => {
     if (!projectId) return;
     try { window.localStorage.removeItem('scripon.dir.' + projectId); } catch { /* */ }
+    // NO WRITE-TIME CAP. This was .slice(0, 600), which truncated the chosen direction mid-word on
+    // the way INTO the brief — and what is cut here is cut everywhere downstream, because every
+    // stage reads intake.treatment. Truncation, if it is ever needed, belongs at ASSEMBLY where the
+    // budget is known and the trim can be recorded (see excerptSource's sent/total/truncated), never
+    // at the write that is supposed to be the record.
     const summary = String(d.label || '') + (d.change ? (' - change: ' + d.change) : '') + (d.tone ? (' - tone: ' + d.tone) : '');
-    try { await productionApi.scripton.development.saveIntake(projectId, { treatment: summary.slice(0, 600) }); } catch { /* */ }
+    // AND IT SAYS SO WHEN IT FAILS. `catch { }` here meant the direction silently never reached the
+    // brief and the whole ladder then generated without it, with nothing on screen to show why.
+    try { await productionApi.scripton.development.saveIntake(projectId, { treatment: summary }); }
+    catch (e: any) { flash(t('Your chosen direction was not saved — generate again after checking the connection.') + ' ' + (e?.response?.data?.message || '')); }
     setBuildDirections(null); setBuilding(false);
     await onPickDirection(d);
   };

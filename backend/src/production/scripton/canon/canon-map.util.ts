@@ -1,6 +1,11 @@
 import type { CanonFactCore, CanonKind } from './canon.types';
 
-const KINDS: CanonKind[] = ['CHARACTER', 'WORLD', 'LORE', 'TIMELINE', 'RELATIONSHIP', 'PLOT'];
+// EVERY KIND THE SCHEMA HAS. An omission here is silent and total: the fallback below maps an
+// unlisted kind to 'PLOT', so a ROLE fact would arrive as PLOT, lose its quota slot, and a
+// PROHIBITION would render as a statement of fact in the CANON list — the exact failure the
+// structural kinds were added to end.
+const KINDS: CanonKind[] = ['CHARACTER', 'WORLD', 'LORE', 'TIMELINE', 'RELATIONSHIP', 'PLOT',
+  'ROLE', 'CRIME', 'CAUSATION', 'OUTCOME', 'ORDERING', 'PROHIBITION'];
 
 /**
  * Pure: normalize raw AI rows into CanonFactCore anchored to the scene's story order.

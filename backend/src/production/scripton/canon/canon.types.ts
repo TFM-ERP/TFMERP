@@ -4,7 +4,38 @@
  * recorded (recordedAt). predicate/object are the structured pair that powers deterministic
  * conflict detection; statement is the human-readable form.
  */
-export type CanonKind = 'CHARACTER' | 'WORLD' | 'LORE' | 'TIMELINE' | 'RELATIONSHIP' | 'PLOT';
+/**
+ * WHY THERE ARE TWO GROUPS HERE.
+ *
+ * The first six are BIOGRAPHY: who someone is, what they are called, when things happened. Measured
+ * on a real extraction, 28 of 30 slots came back biography — because that is all the prompt asked
+ * for — and four sentences the source states outright reached nothing at all:
+ *
+ *   "Gideon is the operational antagonist. Alexander is the deepest personal betrayal."
+ *   "Alexander permitted the exceptional routes... Gideon expanded the operation."
+ *   "Gideon runs a concealed labor-trafficking operation."
+ *   "Resolve the major father-son confrontation before the terminal climax."
+ *
+ * None of them is a fact about a person. They are structure, and the schema had no slot for
+ * structure, so raising the fact cap only ever bought more ages.
+ *
+ * PROHIBITION is the one that changes shape rather than adding a row. "Do not rename the hero" is
+ * not a fact about the story at all — it is a rule about the output — so it must never render in a
+ * list of things that are true. See prohibitionDirective().
+ */
+export type CanonKind =
+  // Biography — who and what and when.
+  | 'CHARACTER' | 'WORLD' | 'LORE' | 'TIMELINE' | 'RELATIONSHIP' | 'PLOT'
+  // Structure — the shape of the story, which biography cannot express.
+  | 'ROLE'        // narrative FUNCTION, not job title: antagonist, betrayer, protagonist.
+  | 'CRIME'       // what the crime IS, versus what merely serves it.
+  | 'CAUSATION'   // authorised / permitted / expanded / executed — deliberately different verbs.
+  | 'OUTCOME'     // who lives, who dies, who is delivered to whom.
+  | 'ORDERING'    // what must occur before what.
+  | 'PROHIBITION'; // an explicit "do not" / "never" — a CONSTRAINT, not a fact.
+
+/** The structural kinds, which get guaranteed slots so biography cannot crowd them out. */
+export const STRUCTURAL_KINDS: CanonKind[] = ['ROLE', 'CRIME', 'CAUSATION', 'OUTCOME', 'ORDERING', 'PROHIBITION'];
 
 export interface CanonFactCore {
   kind: CanonKind;
