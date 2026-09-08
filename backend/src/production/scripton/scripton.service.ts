@@ -1325,11 +1325,13 @@ export class ScripOnService {
     // any source whose value hasn't changed since (canReuseExtraction is deliberately conservative:
     // no previous record, no positional match, or empty incoming text all fall through to re-extract).
     let prevSources: any[] = [];
+    let prevSourceText = '';
     if (projectId) {
       try {
-        const existing: any = await (this.prisma as any).intakeProfile.findUnique({ where: { projectId }, select: { sources: true } });
+        const existing: any = await (this.prisma as any).intakeProfile.findUnique({ where: { projectId }, select: { sources: true, sourceText: true } });
         prevSources = Array.isArray(existing?.sources) ? existing.sources : [];
-      } catch { prevSources = []; }
+        prevSourceText = String(existing?.sourceText || '');
+      } catch { prevSources = []; prevSourceText = ''; }
     }
 
     const out: any[] = [];
@@ -1378,8 +1380,30 @@ export class ScripOnService {
     // `out` — assembleCorpus folds it in explicitly so it survives alongside any files/URLs instead
     // of being silently dropped whenever a file source produces non-empty text of its own.
     const corpus = assembleCorpus(out, data.sourceText);
-    this.log.log('materialiseSources: ' + out.length + ' source(s), ' + corpus.length + ' chars of material.');
-    return { ...data, sources: out, sourceText: corpus || String(data.sourceText || '') };
+    // NEVER RECONSTRUCT A FIELD THE CALLER DID NOT SEND.
+    //
+    // This read `corpus || String(data.sourceText || '')` — both fallbacks read the REQUEST and
+    // neither read the RECORD, one link short. materialiseSources rewrites sourceText on ANY save
+    // carrying a `sources` array, so a caller that never mentioned sourceText had it rebuilt from
+    // nothing and the empty result written over the writer's material. Proven deterministically on a
+    // scratch project: 88 characters to 0 in one saveIntake({ sources: [an entry extracting to none] }).
+    //
+    // That is why intakeProfile.sourceText was 0 on every project WITH sources while the two without
+    // them kept theirs — and therefore why the develop ladder ran blind on every generation this
+    // system has produced. Reading brief.sourceText fixed the symptom; this is the cause.
+    //
+    // Precedence: what the sources assemble to, then what the caller EXPLICITLY sent (including a
+    // deliberate empty string — clearing the box is a real instruction), and only then the record.
+    // The existing row is already read above for prevSources, so this costs no extra query.
+    const sentSourceText = Object.prototype.hasOwnProperty.call(data, 'sourceText');
+    const nextSourceText = corpus || (sentSourceText ? String(data.sourceText || '') : prevSourceText);
+    if (!corpus && !sentSourceText && prevSourceText) {
+      this.log.warn('materialiseSources: the sources extracted to nothing and the caller sent no sourceText —'
+        + ' keeping the ' + prevSourceText.length + ' characters already on record rather than erasing them.');
+    }
+    this.log.log('materialiseSources: ' + out.length + ' source(s), ' + corpus.length + ' chars of material'
+      + (nextSourceText.length !== corpus.length ? (', sourceText resolved to ' + nextSourceText.length + ' chars') : '') + '.');
+    return { ...data, sources: out, sourceText: nextSourceText };
   }
 
   /**
