@@ -537,6 +537,7 @@ export const productionApi = {
       listBuilds: (projectId?: string, bin?: boolean, view?: string) => api.get('/production/scripton/builds?' + (projectId ? ('projectId=' + projectId) : '') + (bin ? '&bin=1' : '') + (view ? ('&view=' + view) : '')),
       // One build by id, whatever project it lives in. Do not resolve a build by listing and searching.
       getBuild: (id: string) => api.get('/production/scripton/builds/' + encodeURIComponent(id)),
+      getBuildBrief: (id: string) => api.get('/production/scripton/builds/' + encodeURIComponent(id) + '/brief'),
       createBuild: (body: any = {}) => api.post('/production/scripton/builds', body),
       renameBuild: (id: string, name: string) => api.post('/production/scripton/builds/' + id + '/rename', { name }),
       setBuildStatus: (id: string, status: string) => api.post('/production/scripton/builds/' + id + '/status', { status }),

@@ -100,6 +100,10 @@ export class ScripOnController {
   @Post('builds') @RequirePermission('production', 2) buildCreate(@Body() body: any) { return this.service.createBuild(body || {}); }
   // A build is addressed by its ID — not by listing a project and searching. See getBuild().
   @Get('builds/:id') buildOne(@Param('id') id: string) { return this.service.getBuild(id); }
+  // The saved brief, fetched only when the Settings dialog opens. The list must not carry it: 105k
+  // characters of source per card is what it cost before, and stripping it is what silently made
+  // every build report "No saved settings".
+  @Get('builds/:id/brief') buildBrief(@Param('id') id: string) { return this.service.getBuildBrief(id); }
   @Post('builds/:id/rename') @RequirePermission('production', 2) buildRename(@Param('id') id: string, @Body() body: any) { return this.service.renameBuild(id, body?.name); }
   @Post('builds/:id/status') @RequirePermission('production', 2) buildStatus(@Param('id') id: string, @Body() body: any) { return this.service.setBuildStatus(id, body?.status); }
   @Post('builds/:id/delete') @RequirePermission('production', 2) buildDelete(@Param('id') id: string) { return this.service.deleteBuild(id); }

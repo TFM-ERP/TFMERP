@@ -4798,6 +4798,26 @@ export class ScripOnService {
   }
 
   /**
+   * THE BRIEF FOR ONE BUILD, ON DEMAND — the settings snapshot the Settings dialog shows.
+   *
+   * listBuilds deliberately does NOT carry the brief: it used to ship every build's whole brief to
+   * the browser, which on this install is 105,179 characters of source per card across 22 cards, to
+   * render a name and a status. Stripping it was right; what was missed is that the Settings dialog
+   * read `card.brief` and had no other source for it, so after that change EVERY build reported "No
+   * saved settings on this build" — including ones whose brief was fully populated. The message even
+   * blamed the build's age, which sent the reader looking in the wrong place entirely.
+   *
+   * One build, on a click, is a different question from every build on every page load.
+   */
+  async getBuildBrief(id: string) {
+    const r: any = await (this.prisma as any).developmentBuild.findUnique({
+      where: { id: String(id) }, select: { id: true, name: true, brief: true },
+    }).catch(() => null);
+    if (!r) throw new BadRequestException('No such build: ' + id);
+    return { id: r.id, name: r.name, brief: r.brief || {} };
+  }
+
+  /**
    * HOW FAR EACH BUILD ACTUALLY GOT — the question the board is opened to answer.
    *
    * The card's eight dots were driven by DOTS[status] (DRAFT 2, REVIEW 4, GREENLIT 6, PROMOTED 8),

@@ -127,6 +127,24 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
   const archived = view === 'archived';
   const [confirm, setConfirm] = useState<any | null>(null);
   const [briefView, setBriefView] = useState<any | null>(null);
+  // THE BRIEF IS FETCHED, NOT CARRIED. The card deliberately has no `brief` — the list would ship
+  // 105k characters of source per build otherwise — so this dialog used to read an always-undefined
+  // field and told every build it was too old to have settings. It now asks for the one build's
+  // brief when it opens, and says plainly when that request fails rather than blaming the build.
+  const [briefBusy, setBriefBusy] = useState(false);
+  const [briefErr, setBriefErr] = useState<string | null>(null);
+  const openSettings = async (b: any) => {
+    setBriefErr(null); setBriefView(b);
+    if (!b || !b.id || isDemo(b)) return;
+    setBriefBusy(true);
+    try {
+      const r: any = await productionApi.scripton.development.getBuildBrief(b.id);
+      const brief = (r && r.data && r.data.brief) || {};
+      setBriefView((cur: any) => (cur && cur.id === b.id ? { ...cur, brief } : cur));
+    } catch (e: any) {
+      setBriefErr(e?.response?.data?.message || e?.message || t('Could not load this build settings.'));
+    } finally { setBriefBusy(false); }
+  };
   const [state, setState] = useState<'loading' | 'ready' | 'failed'>('loading');
   // IF THE FIX FOR "Untitled" IS THAT HE RENAMES IT, THE CARD SHOULD LET HIM. Eight recovered builds
   // have no title anywhere in their content, and sending him to Settings to name each one is the kind
@@ -365,7 +383,7 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
                       <span className="mini" title={t('Move to bin')} onClick={() => setConfirm({ kind: 'delete', b })} style={{ marginLeft: 'auto', color: '#e5635f', borderColor: 'rgba(229,99,95,.4)' }}>✖ {t('Delete')}</span>
                     </>) : (<>
                       {(st === 'PROMOTED' || b.linkedScriptId) ? (<>{b.linkedScriptId ? (<span className="mini gold" onClick={() => openScript(b.linkedScriptId)} title={t('Open the promoted script')}><svg className="ico" viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z" /></svg>{t('Open script')}</span>) : null}<span className="mini" onClick={() => openBuild(b.id)} title={t('Open Develop \u2014 refine or re-send to production')}><svg className="ico" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" /></svg>{t('Develop')}</span></>) : (<><span className="mini" onClick={() => openBuild(b.id)}><svg className="ico" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" /></svg>{t('Open')}</span>{(st === 'GREENLIT' || st === 'REVIEW') ? (<span className="mini gold" onClick={() => openModal(b)}><svg className="ico" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14" /></svg>{t('Promote to project')}</span>) : null}</>)}
-                      <span className="mini" onClick={() => setBriefView(b)} title={t('View saved settings (read-only)')}><svg className="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" /><path d="M19.4 13a7 7 0 000-2l2-1.5-2-3.4-2.3 1a7 7 0 00-1.7-1L15 3h-4l-.4 2.6a7 7 0 00-1.7 1l-2.3-1-2 3.4L6.6 11a7 7 0 000 2l-2 1.5 2 3.4 2.3-1a7 7 0 001.7 1L11 21h4l.4-2.6a7 7 0 001.7-1l2.3 1 2-3.4z" /></svg>{t('Settings')}</span>
+                      <span className="mini" onClick={() => openSettings(b)} title={t('View saved settings (read-only)')}><svg className="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" /><path d="M19.4 13a7 7 0 000-2l2-1.5-2-3.4-2.3 1a7 7 0 00-1.7-1L15 3h-4l-.4 2.6a7 7 0 00-1.7 1l-2.3-1-2 3.4L6.6 11a7 7 0 000 2l-2 1.5 2 3.4 2.3-1a7 7 0 001.7 1L11 21h4l.4-2.6a7 7 0 001.7-1l2.3 1 2-3.4z" /></svg>{t('Settings')}</span>
                       {/* TWO ACTIONS WHERE THERE WAS ONE. Archive is neutral and destroys nothing;
                           Delete is red and starts a 30-day countdown. A single ✖ meaning both is how
                           work ends up in the bin only because there was nowhere else to put it. */}
@@ -473,7 +491,9 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
             <div className="modal" style={{ width: 640, maxHeight: '84vh', overflow: 'auto' }} onClick={(e) => e.stopPropagation()}>
               <div className="mh"><span className="mt">{t('Settings')} — {briefView.name}</span><span className="mx" onClick={() => setBriefView(null)}>✕</span></div>
               <div className="msub" style={{ marginTop: 0 }}>{t('Read-only snapshot of the brief you set when you started this build.')}</div>
-              {!has ? (<div style={{ color: 'var(--faint)', fontSize: 13, padding: '22px 2px' }}>{t('No saved settings on this build. Builds created before this update don’t carry the brief — start a New Build and it will.')}</div>) : (<div style={{ marginTop: 4 }}>
+              {briefBusy ? (<div style={{ color: 'var(--faint)', fontSize: 13, padding: '22px 2px' }}>{t('Loading the saved brief…')}</div>)
+                : briefErr ? (<div style={{ color: '#e5635f', fontSize: 13, padding: '22px 2px' }}>{t('Could not load the saved brief.') + ' ' + briefErr}</div>)
+                : !has ? (<div style={{ color: 'var(--faint)', fontSize: 13, padding: '22px 2px' }}>{t('This build has no saved brief — nothing was recorded when it was started.')}</div>) : (<div style={{ marginTop: 4 }}>
                 {row(t('Mode'), br.mode === 'ORIGINAL' ? t('From scratch') : t('Adapt material'))}
                 {row(t('Format'), br.projectType)}
                 {row(t('Episodes'), br.episodes)}
