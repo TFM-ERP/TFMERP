@@ -1114,7 +1114,7 @@ export class ScripOnService {
     const excerpt = excerptSource(rawSource, SOURCE_EXCERPT_CHARS);
     // at 0: source facts are anchored at story order 0 by mapAiFactsToCore, so all of them are live.
     const sourceFacts = wantsSource && excerpt.truncated ? await this.sourceCanonFor(projectId, rawSource) : [];
-    const srcBlock = wantsSource ? sourceMaterialBlock(canonDirective(sourceFacts, { at: 0, max: 60 }), excerpt) : '';
+    const srcBlock = wantsSource ? sourceMaterialBlock(canonDirective(sourceFacts, { at: 0, max: 1000 }), excerpt) : '';
     // CONSTRAINTS ARE NOT CANON AND DO NOT RIDE IN THE CANON BLOCK. They are rules about the output,
     // they go last in the prompt where an instruction carries most weight, and a source that states
     // none produces an empty string rather than an empty heading.
@@ -2800,7 +2800,7 @@ export class ScripOnService {
         this.log.warn('sourceCanonFor: the response was TRUNCATED - recovered ' + loose.recovered
           + ' complete fact(s) from it. Raise the ceiling (currently ' + SOURCE_CANON_MAXTOK + ').');
       }
-      const picked = selectCanonByQuota(mapAiFactsToCore(loose.facts, { id: '', order: 0 }), { total: 60 });
+      const picked = selectCanonByQuota(mapAiFactsToCore(loose.facts, { id: '', order: 0 }));
       // WHERE EACH FACT CAME FROM, stored rather than inferred. A count cannot show coverage: the
       // prohibition total read 23, then 20, then 22 across identical runs of one bible while a third
       // of the facts changed underneath it. The section can.
@@ -2810,7 +2810,7 @@ export class ScripOnService {
       // without a line naming what and how many — the account is also persisted on the stage version
       // below, so it survives the log buffer.
       const account = { extracted: picked.extracted, kept: picked.kept, mix: quotaSummary(picked.counts),
-        located: placed.coverage.located, unlocated: placed.coverage.unlocated,
+        located: placed.coverage.located, synthesis: placed.coverage.synthesis, unlocated: placed.coverage.unlocated,
         sections: placed.coverage.bySection, unlocatedStatements: placed.coverage.unlocatedStatements,
         dropped: picked.dropped, droppedByKind: picked.droppedByKind, shortfall: quotaShortfall(picked) };
       if (picked.capBound) this.log.warn('sourceCanonFor: ' + quotaShortfall(picked));

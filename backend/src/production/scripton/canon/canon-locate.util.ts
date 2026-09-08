@@ -25,11 +25,26 @@ export interface SourceSection {
   title: string;
 }
 
+/**
+ * WHAT THE RECORD KNOWS ABOUT WHERE A FACT CAME FROM.
+ *
+ * `unlocated` and `synthesis` used to share a null, and they are not the same finding. A synthesis
+ * draws on two or more passages and legitimately has no single offset — often the most valuable
+ * facts are exactly these ("Gideon expanded the operation. Alexander kept it survivable."). An
+ * unlocated fact matches nothing anywhere, and that is the shape an invention takes. Collapsing them
+ * means a reader scanning for inventions is handed syntheses to wade through, and the one number
+ * that should alarm them is diluted by the healthy case.
+ */
+export type FactProvenance = 'located' | 'synthesis' | 'unlocated';
+
 export interface FactLocation {
-  /** Character offset of the matched text, or null when it could not be located. */
+  /** Character offset of the matched text. Null for a synthesis and for an unlocated fact alike. */
   at: number | null;
   /** Title of the section the match falls in, or null. */
   section: string | null;
+  provenance: FactProvenance;
+  /** For a synthesis: the sections its parts were found in, in document order. */
+  parts?: { at: number; section: string | null }[];
 }
 
 /**
@@ -98,7 +113,7 @@ const trimEdges = (s: string): string => s.replace(/^[\s"'.,;:—-]+/, '').repla
 export function locateFact(source: string, sections: SourceSection[], fact: CanonFactCore | { statement?: string }): FactLocation {
   const src = typeof source === 'string' ? source : '';
   const st = String((fact && (fact as any).statement) || '');
-  if (!src || !st) return { at: null, section: null };
+  if (!src || !st) return { at: null, section: null, provenance: 'unlocated' };
 
   // The search runs on normalised text; the OFFSET RETURNED IS INTO THE ORIGINAL, via an index map,
   // because a reader following the number back into the document must land where the text is.
@@ -129,21 +144,41 @@ export function locateFact(source: string, sections: SourceSection[], fact: Cano
   while ((m = re.exec(st))) quotes.push(m[1]);
   quotes.sort((a, b) => b.length - a.length);
 
+  // Every quote is located, not just the first that hits — because WHICH ONES matched is the
+  // difference between a fact read off one passage and a fact composed from several.
+  const hits: { at: number; section: string | null }[] = [];
   for (const q of quotes) {
     const at = find(q.slice(0, 60));
-    if (at >= 0) return { at, section: sectionAt(sections, at) };
+    if (at >= 0) hits.push({ at, section: sectionAt(sections, at) });
+  }
+  if (hits.length === 1) return { at: hits[0].at, section: hits[0].section, provenance: 'located' };
+  if (hits.length > 1) {
+    // A SYNTHESIS, and it is a healthy finding rather than a failure. Two or more quoted passages
+    // that each exist in the source, drawn together into one statement — "Gideon expanded the
+    // operation. Alexander kept it survivable." Reporting it as unlocated, beside the facts that
+    // match nothing at all, buries the one number that should alarm a reader.
+    hits.sort((a, b) => a.at - b.at);
+    const far = hits[hits.length - 1].at - hits[0].at;
+    const sections2 = new Set(hits.map((h) => h.section));
+    if (far > 400 || sections2.size > 1) {
+      return { at: null, section: null, provenance: 'synthesis', parts: hits };
+    }
+    return { at: hits[0].at, section: hits[0].section, provenance: 'located' };   // same passage, quoted twice
   }
   const at = find(st.replace(/["“”'']/g, '').trim().slice(0, 40));
-  if (at >= 0) return { at, section: sectionAt(sections, at) };
-  return { at: null, section: null };
+  if (at >= 0) return { at, section: sectionAt(sections, at), provenance: 'located' };
+  return { at: null, section: null, provenance: 'unlocated' };
 }
 
 export interface CoverageReport {
   located: number;
+  /** Composed from two or more passages that DO exist in the source. A healthy finding. */
+  synthesis: number;
+  /** Matched nothing anywhere. This is the number to read — an invention takes this shape. */
   unlocated: number;
   /** Facts per section title, in document order. */
   bySection: { section: string; at: number; facts: number }[];
-  /** Statements that could not be found in the source — synthesis, or invention. */
+  /** Statements that matched nothing at all. Syntheses are deliberately NOT in here. */
   unlocatedStatements: string[];
 }
 
@@ -163,13 +198,22 @@ export function locateFacts(source: string, facts: CanonFactCore[]): { facts: Ca
   const unlocatedStatements: string[] = [];
   let located = 0;
 
+  let synthesis = 0;
   const out = list.map((f) => {
     const loc = locateFact(source, sections, f);
-    if (loc.at == null) { unlocatedStatements.push(String(f.statement || '').slice(0, 240)); return { ...f, sourceOffset: null, sourceSection: null }; }
+    if (loc.provenance === 'synthesis') {
+      synthesis++;
+      // Counted against every section it drew on, because coverage is the question here.
+      for (const p of loc.parts || []) counts.set(p.section || '(no heading)', (counts.get(p.section || '(no heading)') || 0) + 1);
+      return { ...f, sourceOffset: null, sourceSection: null, sourceProvenance: 'synthesis' as const };
+    }
+    if (loc.at == null) {
+      unlocatedStatements.push(String(f.statement || '').slice(0, 240));
+      return { ...f, sourceOffset: null, sourceSection: null, sourceProvenance: 'unlocated' as const };
+    }
     located++;
-    const key = loc.section || '(no heading)';
-    counts.set(key, (counts.get(key) || 0) + 1);
-    return { ...f, sourceOffset: loc.at, sourceSection: loc.section };
+    counts.set(loc.section || '(no heading)', (counts.get(loc.section || '(no heading)') || 0) + 1);
+    return { ...f, sourceOffset: loc.at, sourceSection: loc.section, sourceProvenance: 'located' as const };
   });
 
   const order = new Map<string, number>();
@@ -178,5 +222,5 @@ export function locateFacts(source: string, facts: CanonFactCore[]): { facts: Ca
     .map(([section, n]) => ({ section, at: order.get(section) ?? -1, facts: n }))
     .sort((a, b) => a.at - b.at);
 
-  return { facts: out, coverage: { located, unlocated: list.length - located, bySection, unlocatedStatements } };
+  return { facts: out, coverage: { located, synthesis, unlocated: list.length - located - synthesis, bySection, unlocatedStatements } };
 }

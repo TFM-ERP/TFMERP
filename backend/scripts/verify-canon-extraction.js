@@ -84,7 +84,7 @@ const STRUCTURAL_CHECKS = [
   if (loose.salvaged) console.log('  !! TRUNCATED — salvaged ' + loose.recovered + ' complete facts');
   if (!loose.facts.length) { console.error('\nNO FACTS AT ALL. Tail:\n' + text.slice(-400)); process.exit(1); }
 
-  const picked = selectCanonByQuota(mapAiFactsToCore(loose.facts, { id: '', order: 0 }), { total: 60 });
+  const picked = selectCanonByQuota(mapAiFactsToCore(loose.facts, { id: '', order: 0 }));
   // The SHIPPED locator, not a copy of it — the same code that now stores a section on every fact.
   const placed = locateFacts(src, picked.facts.concat(picked.prohibitions));
   const all = placed.facts;
@@ -98,9 +98,10 @@ const STRUCTURAL_CHECKS = [
   for (const r of placed.coverage.bySection) {
     console.log('  @' + String(r.at).padStart(7) + '  ' + String(r.facts).padStart(3) + ' facts  ' + String(r.section).slice(0, 60));
   }
-  console.log('  located ' + placed.coverage.located + ', NOT LOCATED ' + placed.coverage.unlocated);
+  console.log('  located ' + placed.coverage.located + '  ·  synthesis ' + placed.coverage.synthesis
+    + '  ·  NOT LOCATED ' + placed.coverage.unlocated + '   (only the last has the shape of an invention)');
   if (placed.coverage.unlocatedStatements.length) {
-    console.log('\n--- NOT FOUND IN THE SOURCE (synthesis, or invention — the record cannot say which) ---');
+    console.log('\n--- NOT FOUND ANYWHERE IN THE SOURCE (syntheses are excluded — these are the ones to read) ---');
     for (const st of placed.coverage.unlocatedStatements) console.log('  ' + String(st).replace(/\s+/g, ' ').slice(0, 200));
   }
 
@@ -126,7 +127,7 @@ const STRUCTURAL_CHECKS = [
     }
   }
   console.log('\nprompt bytes this adds to every stage: '
-    + (canonDirective(all, { at: 0, max: 60 }).length + prohibitionDirective(all).length).toLocaleString());
+    + (canonDirective(all, { at: 0, max: 1000 }).length + prohibitionDirective(all).length).toLocaleString());
   console.log(fail ? '\n' + fail + ' CHECK(S) FAILED — do not spend on the ladder yet.' : '\nALL CHECKS PASSED.');
   process.exit(fail ? 1 : 0);
 })().catch((e) => { console.error('FAILED: ' + (e && e.message)); process.exit(2); });

@@ -61,6 +61,8 @@ export interface CanonFactCore {
    */
   sourceOffset?: number | null;
   sourceSection?: string | null;
+  /** 'located' | 'synthesis' | 'unlocated'. A synthesis has no single offset and is NOT a miss. */
+  sourceProvenance?: 'located' | 'synthesis' | 'unlocated';
 
   id?: string;
 }

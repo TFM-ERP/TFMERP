@@ -1,4 +1,5 @@
 import type { CanonFactCore, CanonKind } from './canon.types';
+import { CANON_FACT_CAP } from './canon-prompt.util';
 
 /**
  * PER-CATEGORY QUOTA — so biography cannot crowd out structure again.
@@ -19,12 +20,21 @@ import type { CanonFactCore, CanonKind } from './canon.types';
  * version, next to the existing truncation warning.
  */
 
+/**
+ * FLOORS, RAISED AGAINST A MEASURED DOCUMENT. They were 6/5/6/5/5 here and 4/3/4/3/3 in the prompt —
+ * two different sets of numbers for one idea, and both close to no floor at all on a bible this
+ * dense. At a stated cap of 120 the same source yields ROLE 16, CAUSATION 16, ORDERING 18,
+ * OUTCOME 17, CRIME 11, so a floor of 4 was never going to bind on anything real; it existed only to
+ * stop biography taking every slot, and it should also express what a serious document contains.
+ *
+ * They match the prompt's "aim for at least" line, and canon-prompt.util.spec.ts fails if they drift.
+ */
 export const DEFAULT_FLOORS: Partial<Record<CanonKind, number>> = {
-  ROLE: 6,        // who the antagonist is, who the betrayer is — one line each, and they decide the film
-  CRIME: 5,       // the crime itself, and what is only a mechanism serving it
-  CAUSATION: 6,   // authorised / permitted / expanded / executed
-  OUTCOME: 5,     // who lives, who dies, who is delivered to whom
-  ORDERING: 5,    // what must occur before what
+  ROLE: 10,       // who the antagonist is, who the betrayer is — one line each, and they decide the film
+  CRIME: 8,       // the crime itself, and what is only a mechanism serving it
+  CAUSATION: 10,  // authorised / permitted / expanded / executed
+  OUTCOME: 8,     // who lives, who dies, who is delivered to whom
+  ORDERING: 8,    // what must occur before what
 };
 
 /**
@@ -67,7 +77,7 @@ export function selectCanonByQuota(
   facts: CanonFactCore[],
   opts?: { total?: number; floors?: Partial<Record<CanonKind, number>>; prohibitionLimit?: number },
 ): QuotaResult {
-  const total = opts?.total ?? 60;
+  const total = opts?.total ?? CANON_FACT_CAP;
   const floors = opts?.floors ?? DEFAULT_FLOORS;
   const pLimit = opts?.prohibitionLimit ?? PROHIBITION_LIMIT;
   const all = Array.isArray(facts) ? facts.filter(Boolean) : [];

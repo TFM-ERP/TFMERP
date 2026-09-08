@@ -150,3 +150,57 @@ test('normalisation does NOT lower the bar — a short quote is still refused', 
   const s = sectionsOf(CURLY);
   assert.equal(locateFact(CURLY, s, f('He "drives him".')).at, null);
 });
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// SYNTHESIS IS NOT A MISS, and sharing a null with one buries the number that matters.
+//
+// Of five "not located" facts on the real bible, two were locator failures, one was a short quote,
+// and two were genuine syntheses — a character card's Age / Profession / Position fields drawn into
+// one statement. Only a fact matching NOTHING has the shape of an invention.
+
+const TWO_PLACES = ['## 5. Quick Maritime Group', 'Gideon expanded the operation beyond anything sanctioned.',
+  'q'.repeat(600), '## 13. Alexander Quick', 'Alexander kept it survivable and told no one.'].join('\n');
+
+test('THE DISTINCTION: quotes from two sections are a SYNTHESIS, not unlocated', () => {
+  const s = sectionsOf(TWO_PLACES);
+  const loc = locateFact(TWO_PLACES, s, f('"Gideon expanded the operation beyond anything sanctioned." "Alexander kept it survivable and told no one."'));
+  assert.equal(loc.provenance, 'synthesis');
+  assert.equal(loc.at, null, 'a synthesis has no single offset — that is what makes it one');
+  assert.equal((loc.parts || []).length, 2);
+  assert.deepEqual((loc.parts || []).map((p) => p.section), ['5. Quick Maritime Group', '13. Alexander Quick']);
+});
+
+test('a fact matching NOTHING is unlocated — the shape an invention takes', () => {
+  const s = sectionsOf(TWO_PLACES);
+  const loc = locateFact(TWO_PLACES, s, f('Gideon secretly owns a second terminal in Halifax he has never mentioned.'));
+  assert.equal(loc.provenance, 'unlocated');
+});
+
+test('one passage quoted twice is LOCATED, not a synthesis', () => {
+  const src = '## A\nHe controlled which sightings reached Sophie and redirected investigators away.';
+  const s = sectionsOf(src);
+  const loc = locateFact(src, s, f('"He controlled which sightings reached Sophie" and "redirected investigators away"'));
+  assert.equal(loc.provenance, 'located', 'two quotes from one sentence is one passage, not two');
+  assert.ok(loc.at !== null);
+});
+
+test('the coverage report counts them separately, and only inventions land in the list', () => {
+  const { facts, coverage } = locateFacts(TWO_PLACES, [
+    f('"Gideon expanded the operation beyond anything sanctioned." "Alexander kept it survivable and told no one."'),
+    f('"Alexander kept it survivable and told no one."'),
+    f('Gideon secretly owns a second terminal in Halifax he has never mentioned.'),
+  ]);
+  assert.equal(coverage.synthesis, 1);
+  assert.equal(coverage.located, 1);
+  assert.equal(coverage.unlocated, 1);
+  assert.equal(coverage.unlocatedStatements.length, 1, 'a synthesis must NOT be handed to a reader hunting inventions');
+  assert.match(coverage.unlocatedStatements[0], /Halifax/);
+  assert.deepEqual(facts.map((x) => x.sourceProvenance), ['synthesis', 'located', 'unlocated']);
+});
+
+test('a synthesis is counted against EVERY section it drew on — coverage is the question', () => {
+  const { coverage } = locateFacts(TWO_PLACES, [
+    f('"Gideon expanded the operation beyond anything sanctioned." "Alexander kept it survivable and told no one."'),
+  ]);
+  assert.deepEqual(coverage.bySection.map((x) => x.section), ['5. Quick Maritime Group', '13. Alexander Quick']);
+});
