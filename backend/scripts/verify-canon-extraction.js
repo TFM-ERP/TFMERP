@@ -24,6 +24,7 @@ const { parseFactsLoose } = require('../src/production/scripton/canon/canon-pars
 const { mapAiFactsToCore } = require('../src/production/scripton/canon/canon-map.util.ts');
 const { selectCanonByQuota, quotaSummary, quotaShortfall } = require('../src/production/scripton/canon/canon-quota.util.ts');
 const { canonDirective, prohibitionDirective } = require('../src/production/scripton/canon/canon-inject.util.ts');
+const { locateFacts } = require('../src/production/scripton/canon/canon-locate.util.ts');
 
 const STRUCTURAL = ['ROLE', 'CRIME', 'CAUSATION', 'OUTCOME', 'ORDERING', 'PROHIBITION'];
 
@@ -84,12 +85,24 @@ const STRUCTURAL_CHECKS = [
   if (!loose.facts.length) { console.error('\nNO FACTS AT ALL. Tail:\n' + text.slice(-400)); process.exit(1); }
 
   const picked = selectCanonByQuota(mapAiFactsToCore(loose.facts, { id: '', order: 0 }), { total: 60 });
-  const all = picked.facts.concat(picked.prohibitions);
+  // The SHIPPED locator, not a copy of it — the same code that now stores a section on every fact.
+  const placed = locateFacts(src, picked.facts.concat(picked.prohibitions));
+  const all = placed.facts;
   const bio = Object.entries(picked.counts).filter(([k]) => !STRUCTURAL.includes(k)).reduce((n, [, v]) => n + v, 0);
 
   console.log('\nEXTRACTED ' + picked.extracted + ' → KEPT ' + picked.kept + '   ' + quotaSummary(picked.counts));
   console.log('biography ' + bio + ' of ' + picked.kept + '   (the failure being fixed was 28 of 30)');
   if (picked.capBound) console.log('\n  !! ' + quotaShortfall(picked));
+
+  console.log('\n--- COVERAGE: which sections the canon actually reached ---');
+  for (const r of placed.coverage.bySection) {
+    console.log('  @' + String(r.at).padStart(7) + '  ' + String(r.facts).padStart(3) + ' facts  ' + String(r.section).slice(0, 60));
+  }
+  console.log('  located ' + placed.coverage.located + ', NOT LOCATED ' + placed.coverage.unlocated);
+  if (placed.coverage.unlocatedStatements.length) {
+    console.log('\n--- NOT FOUND IN THE SOURCE (synthesis, or invention — the record cannot say which) ---');
+    for (const st of placed.coverage.unlocatedStatements) console.log('  ' + String(st).replace(/\s+/g, ' ').slice(0, 200));
+  }
 
   console.log('\n--- STRUCTURAL FACTS AND RULES REACHING THE PROMPT ---');
   for (const f of all) if (STRUCTURAL.includes(f.kind)) console.log('  ' + f.kind.padEnd(12) + f.statement.slice(0, 190));

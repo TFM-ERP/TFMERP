@@ -47,6 +47,7 @@ import { canonDirective, prohibitionDirective } from './canon/canon-inject.util'
 import { selectCanonByQuota, quotaSummary, quotaShortfall } from './canon/canon-quota.util';
 import { SOURCE_CANON_SYSTEM, SOURCE_CANON_MAXTOK, CANON_EXTRACTOR_VERSION, CANON_MAX_SOURCE_CHARS } from './canon/canon-prompt.util';
 import { parseFactsLoose } from './canon/canon-parse.util';
+import { locateFacts } from './canon/canon-locate.util';
 import type { CanonFactCore } from './canon/canon.types';
 import { excerptSource, sourceMaterialBlock, asSourceText, SOURCE_EXCERPT_CHARS } from './source-excerpt.util';
 import { buildPackageDocModel } from './package-docx.util';
@@ -2800,11 +2801,17 @@ export class ScripOnService {
           + ' complete fact(s) from it. Raise the ceiling (currently ' + SOURCE_CANON_MAXTOK + ').');
       }
       const picked = selectCanonByQuota(mapAiFactsToCore(loose.facts, { id: '', order: 0 }), { total: 60 });
-      const facts = picked.facts.concat(picked.prohibitions);
+      // WHERE EACH FACT CAME FROM, stored rather than inferred. A count cannot show coverage: the
+      // prohibition total read 23, then 20, then 22 across identical runs of one bible while a third
+      // of the facts changed underneath it. The section can.
+      const placed = locateFacts(src, picked.facts.concat(picked.prohibitions));
+      const facts = placed.facts;
       // A QUOTA THAT SILENTLY TRUNCATES IS THE SAME DEFECT AS A CAP THAT DOES. Nothing may be lost
       // without a line naming what and how many — the account is also persisted on the stage version
       // below, so it survives the log buffer.
       const account = { extracted: picked.extracted, kept: picked.kept, mix: quotaSummary(picked.counts),
+        located: placed.coverage.located, unlocated: placed.coverage.unlocated,
+        sections: placed.coverage.bySection, unlocatedStatements: placed.coverage.unlocatedStatements,
         dropped: picked.dropped, droppedByKind: picked.droppedByKind, shortfall: quotaShortfall(picked) };
       if (picked.capBound) this.log.warn('sourceCanonFor: ' + quotaShortfall(picked));
       // Cached WITH the facts: on a cache hit the account must still describe the facts in hand,

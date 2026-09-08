@@ -49,6 +49,19 @@ export interface CanonFactCore {
   recordedAt?: number;      // monotonically increasing write order (real-time tiebreak)
   sourceSceneId?: string | null;
   supersedesId?: string | null;
+  /**
+   * WHERE IN THE SOURCE THIS FACT WAS FOUND — provenance, not a gate.
+   *
+   * The prohibition count read 23, then 20, then 22 across identical runs of the same bible, so it
+   * could never answer whether the sections beyond the old 60,000-character slice were reaching the
+   * canon. The offset and section answer it per build, without a script and without a model call.
+   *
+   * null means NOT LOCATED, never "not in the source": a paraphrase leaves nothing to find, and a
+   * fact that could not be located is a finding to read, not one to drop.
+   */
+  sourceOffset?: number | null;
+  sourceSection?: string | null;
+
   id?: string;
 }
 
