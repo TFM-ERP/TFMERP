@@ -411,12 +411,37 @@ export class ScripOnService {
     const dir = (opts && opts.direction) || {};
     const note = String((opts && opts.note) || '').trim();
     const targetFormat = String((opts && opts.targetFormat) || 'feature');
+    // THE WRITER'S NOTE WAS COMPUTED AND NEVER SENT. `note` was assigned on the line above and used
+    // nowhere; so was `dir`. The prompt said "regenerate THIS direction into a close variation" while
+    // the user message carried neither the direction nor the note — only the target format and a
+    // source that was usually empty. Measured on a real regenerate: in=126 tokens, which is the
+    // system prompt plus the literal string "TARGET FORMAT: feature\nSOURCE:". A 1,174-character
+    // steering note went nowhere, and the "variation" was invented from nothing.
+    //
+    // SOURCE, THE SAME BLINDNESS generateStage had: it read intakeProfile.sourceText alone, which is
+    // 0 characters on every project that has builds — the material lives on build.brief.sourceText.
     let source = String((opts && (opts.sourceText || opts.source)) || '');
+    if (!source && opts && opts.buildId) {
+      const b: any = await (this.prisma as any).developmentBuild.findUnique({ where: { id: String(opts.buildId) }, select: { brief: true } }).catch(() => null);
+      source = String((b && b.brief && b.brief.sourceText) || '');
+    }
     if (!source && opts && opts.projectId) { const i: any = await (this.prisma as any).intakeProfile.findUnique({ where: { projectId: opts.projectId } }).catch(() => null); source = String((i && i.sourceText) || ''); }
-    const system = 'You are a development executive. Regenerate ONE adaptation direction into a CLOSE new variation - the SAME label and spirit, just a fresh take (not a different direction). Keep the same label. Return ONLY JSON {label, title, logline, keep, change, tone, risk}. No text outside the JSON.';
-    const user = 'TARGET FORMAT: ' + targetFormat + '\nSOURCE:\n' + source.slice(0, 60000);
-    const ai: any = (await this.ai.json({ task: 'scripton.adapt.one', system, user, maxTokens: 6000, projectId: opts && opts.projectId, refType: 'Project', refId: opts && opts.projectId })) || {};
+    if (!source.trim()) throw new BadRequestException('Cannot regenerate this direction: no source material was found for this build. Regenerating from nothing would invent a direction rather than vary this one.');
+    const system = 'You are a development executive. Regenerate ONE adaptation direction into a CLOSE new variation - the SAME label and spirit, just a fresh take (not a different direction). Keep the same label. Honour the WRITER NOTE exactly: it is an instruction about this variation, not a suggestion. Return ONLY JSON {label, title, logline, keep, change, tone, risk}. No text outside the JSON.';
+    const user = 'TARGET FORMAT: ' + targetFormat
+      + '\n\nTHE DIRECTION TO VARY (keep its label and spirit):\n' + JSON.stringify({
+        label: dir.label, title: dir.title, logline: dir.logline, keep: dir.keep, change: dir.change, tone: dir.tone, risk: dir.risk,
+      }, null, 1)
+      + (note ? ('\n\nWRITER NOTE - honour every line of this:\n' + note) : '')
+      + '\n\nSOURCE:\n' + source.slice(0, 60000);
+    const r: any = await this.ai.run({ task: 'scripton.adapt.one', system, user, maxTokens: 6000, timeoutMs: 300000, projectId: opts && opts.projectId, refType: 'Project', refId: opts && opts.projectId });
+    let ai: any = (r && r.json) || null;
+    if (!ai && r && typeof r.text === 'string') { try { const m = r.text.match(/\{[\s\S]*\}/); if (m) ai = JSON.parse(m[0]); } catch { /* */ } }
     const out: any = (ai && (ai.direction || ai)) || {};
+    if (!out.logline && !out.change) {
+      const cap = { outputTokens: r?.usage?.output_tokens, inputTokens: r?.usage?.input_tokens, maxTokens: 6000, stopReason: r?.stopReason, model: r?.model, provider: r?.provider };
+      throw new BadRequestException('Could not regenerate this direction: ' + (stoppedAtCeiling(cap) ? 'the model was cut off at its ceiling' : 'the model returned no usable direction JSON') + '. ' + usageSummary(cap));
+    }
     return { direction: { label: out.label || dir.label, title: out.title || dir.title, logline: out.logline || dir.logline, keep: out.keep || dir.keep, change: out.change || dir.change, tone: out.tone || dir.tone, risk: out.risk || dir.risk } };
   }
 

@@ -84,6 +84,8 @@ function StudioPageInner() {
   useEffect(() => () => { clearInterval(promoCrawl.current); }, []);
   const tT = useRef<any>(null);
   const buildIdRef = useRef<string | undefined>(undefined);
+  /** The last steering note typed on Regenerate — saved with the direction he picks, not discarded. */
+  const regenNoteRef = useRef<string>('');
 
   /**
    * THE URL OWNS THE TAB. Clicking Build on the rail while a build was open did nothing — he had to
@@ -347,7 +349,13 @@ function StudioPageInner() {
     // stage reads intake.treatment. Truncation, if it is ever needed, belongs at ASSEMBLY where the
     // budget is known and the trim can be recorded (see excerptSource's sent/total/truncated), never
     // at the write that is supposed to be the record.
-    const summary = String(d.label || '') + (d.change ? (' - change: ' + d.change) : '') + (d.tone ? (' - tone: ' + d.tone) : '');
+    // THE WRITER'S NOTE RIDES WITH THE DIRECTION. A note typed on Regenerate is the most specific
+    // instruction in the whole intake — "Adrian provides a lead, not an archive", "complete the major
+    // family decisions before the terminal rescue" — and it was steering ONE regeneration and then
+    // being discarded. It is a directive about how to develop the film, which is exactly what
+    // intake.treatment carries into every stage, so it is saved with the direction he picked.
+    const summary = String(d.label || '') + (d.change ? (' - change: ' + d.change) : '') + (d.tone ? (' - tone: ' + d.tone) : '')
+      + (regenNoteRef.current ? ('\n\nWRITER NOTE (honour every line):\n' + regenNoteRef.current) : '');
     // AND IT SAYS SO WHEN IT FAILS. `catch { }` here meant the direction silently never reached the
     // brief and the whole ladder then generated without it, with nothing on screen to show why.
     try { await productionApi.scripton.development.saveIntake(projectId, { treatment: summary }); }
@@ -357,7 +365,18 @@ function StudioPageInner() {
   };
   const onBuildRegen = async (dir: any, note: string) => {
     if (!projectId) return null;
-    try { const r: any = await productionApi.scripton.adaptOne(projectId, { direction: dir, note: note || '' }); return (r && r.data && r.data.direction) || null; } catch { return null; }
+    // buildId, because the source lives on build.brief.sourceText — intakeProfile.sourceText is 0
+    // characters on every project that has builds, and regenerating without the source produced a
+    // direction invented from nothing (measured: in=126 tokens for the entire request).
+    if (note && note.trim()) regenNoteRef.current = note.trim();
+    try {
+      const r: any = await productionApi.scripton.adaptOne(projectId, { direction: dir, note: note || '', buildId: buildIdRef.current });
+      return (r && r.data && r.data.direction) || null;
+    } catch (e: any) {
+      // Returning null showed "could not regenerate" with no reason; the server now names it.
+      flash(e?.response?.data?.message || t('Could not regenerate that direction.'));
+      return null;
+    }
   };
   const onTab = (k: string) => setMode(k);
   const onNav = (k: string) => { if (NAVMAP[k]) return router.push(NAVMAP[k]); flash(`${k[0].toUpperCase() + k.slice(1)} ` + t('is a later screen in the build order.')); };
