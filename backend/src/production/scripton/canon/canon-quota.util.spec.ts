@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { selectCanonByQuota, quotaSummary, DEFAULT_FLOORS } from './canon-quota.util';
+import { selectCanonByQuota, quotaSummary, quotaShortfall, DEFAULT_FLOORS, PROHIBITION_LIMIT } from './canon-quota.util';
 import { prohibitionDirective, canonDirective } from './canon-inject.util';
 import { mapAiFactsToCore } from './canon-map.util';
 import type { CanonFactCore, CanonKind } from './canon.types';
@@ -55,16 +55,55 @@ test('PROHIBITIONS ARE NEVER IN THE FACT BUDGET and are never dropped for space'
   assert.equal(r.facts.filter((x) => x.kind === 'PROHIBITION').length, 0, 'and none leaked into the facts');
 });
 
-test('MEASURED: a real bible yielded 23 prohibitions — all of them must reach the prompt', () => {
-  // The first extraction against the 66,128-character bible returned 23. At the original limit of
-  // 12, eleven real rules were dropped silently — and a dropped prohibition PERMITS what it forbids.
-  const r = selectCanonByQuota(many('PROHIBITION', 23), { total: 60 });
-  assert.equal(r.prohibitions.length, 23, 'a real source was truncated by the sanity limit');
+test('THERE IS NO CAP ON PROHIBITIONS — 12 then 40 both moved the defect rather than retiring it', () => {
+  // The 66k bible yielded 23. A denser one (~40 negative continuity bullets in one section alone,
+  // plus more elsewhere) exceeds any figure worth guessing, and a dropped rule PERMITS what it
+  // forbids. They are short strings and the cheapest thing in the prompt, so the right cap is none.
+  assert.equal(PROHIBITION_LIMIT, Infinity);
+  for (const n of [23, 40, 41, 200]) {
+    const r = selectCanonByQuota(many('PROHIBITION', n), { total: 60 });
+    assert.equal(r.prohibitions.length, n, n + ' rules must all reach the prompt');
+    assert.equal(r.capBound, false);
+    assert.equal(quotaShortfall(r), '');
+  }
 });
 
-test('the sanity limit still exists, so a runaway response cannot fill the prompt', () => {
-  const r = selectCanonByQuota(many('PROHIBITION', 200), { total: 60 });
-  assert.equal(r.prohibitions.length, 40);
+test('a caller MAY cap them, but it can never bind quietly', () => {
+  const r = selectCanonByQuota(many('PROHIBITION', 23), { total: 60, prohibitionLimit: 12 });
+  assert.equal(r.prohibitions.length, 12);
+  assert.equal(r.droppedByKind.PROHIBITION, 11);
+  assert.equal(r.capBound, true);
+  assert.match(quotaShortfall(r), /11 of these are PROHIBITIONS/);
+  assert.match(quotaShortfall(r), /permits what it forbids/);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// A QUOTA THAT SILENTLY TRUNCATES IS THE SAME DEFECT AS A CAP THAT DOES
+
+test('THE ACCOUNT: every dropped fact is named by kind, never just totalled', () => {
+  const r = selectCanonByQuota([...many('CHARACTER', 40), ...many('ROLE', 10)], { total: 20 });
+  assert.equal(r.extracted, 50);
+  assert.equal(r.kept, 20);
+  assert.equal(r.dropped, 30);
+  assert.equal(r.capBound, true);
+  assert.ok(r.droppedByKind.CHARACTER > 0, 'a bare total says something was lost without saying what');
+  assert.equal(r.kept + r.dropped, r.extracted, 'the account must balance');
+});
+
+test('a healthy run reports no shortfall and adds no noise', () => {
+  const r = selectCanonByQuota([...many('ROLE', 3), ...many('CHARACTER', 4), ...many('PROHIBITION', 9)], { total: 60 });
+  assert.equal(r.capBound, false);
+  assert.equal(r.dropped, 0);
+  assert.deepEqual(r.droppedByKind, {});
+  assert.equal(quotaShortfall(r), '');
+  assert.equal(r.kept, 16);
+});
+
+test('the shortfall sentence says what to do about it', () => {
+  const r = selectCanonByQuota(many('CHARACTER', 100), { total: 10 });
+  const msg = quotaShortfall(r);
+  assert.match(msg, /extracted 100, kept 10, dropped 90/);
+  assert.match(msg, /Raise the quota/);
 });
 
 test('no fact is emitted twice, however the floors overlap', () => {

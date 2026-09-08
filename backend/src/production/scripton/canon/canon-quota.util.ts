@@ -12,9 +12,11 @@ import type { CanonFactCore, CanonKind } from './canon.types';
  * remains goes to biography; and only then is any leftover space given back to structure. A floor is
  * a minimum, never a maximum — when there is room, more structure is better than more ages.
  *
- * PROHIBITIONS ARE NOT IN THE BUDGET AT ALL. They do not render as facts (see prohibitionDirective),
- * they are rules about the output, and dropping one silently permits the thing it forbids. They are
- * returned separately and capped only by a sanity limit.
+ * NOTHING IS DROPPED SILENTLY. Every caller receives a full account — extracted, kept, and dropped
+ * per kind, plus whether any limit actually bound — because a truncating quota is the same defect as
+ * a truncating cap: a rule or a fact that vanishes with no line anywhere is how "do not rename the
+ * hero" quietly stops applying. The service warns on any drop and persists the account on the stage
+ * version, next to the existing truncation warning.
  */
 
 export const DEFAULT_FLOORS: Partial<Record<CanonKind, number>> = {
@@ -26,27 +28,35 @@ export const DEFAULT_FLOORS: Partial<Record<CanonKind, number>> = {
 };
 
 /**
- * A SANITY LIMIT, NOT A BUDGET — and it was measured, not guessed.
+ * NO CAP ON PROHIBITIONS, deliberately.
  *
- * The first real extraction against the 66,128-character bible returned 23 prohibitions. At the
- * original limit of 12, eleven real rules would have been dropped silently, and a dropped
- * prohibition does not merely go unstated: it PERMITS the thing it forbids. Among the eleven were
- * "she is never kidnapped to motivate Jason" and "no flashback without new information" — exactly
- * the shortcuts the bible exists to forbid.
+ * They were capped at 12, then 40. Both numbers move the defect rather than retire it: a real bible
+ * is dense in rules — the measured 66k source yielded 23, and a denser one (≈40 continuity bullets
+ * in one section alone, many negative, plus more elsewhere) exceeds any figure worth guessing. And a
+ * dropped prohibition does not merely go unstated: it PERMITS the thing it forbids.
  *
- * 40 is high enough that a normal bible never reaches it and low enough that a runaway response
- * cannot fill the prompt with them.
+ * They are short strings and they are the cheapest thing in the prompt, so the right cap is none.
+ * A caller may still pass `prohibitionLimit` — and if it binds, `capBound` says so and the account
+ * names the count, so it can never bind quietly.
  */
-export const PROHIBITION_LIMIT = 40;
+export const PROHIBITION_LIMIT = Infinity;
 
 export interface QuotaResult {
   /** Facts to render as CANON, structure first so it survives any later truncation. */
   facts: CanonFactCore[];
-  /** Rules about the output. Never mixed into `facts`. */
+  /** Rules about the output. Never mixed into `facts`, never capped by default. */
   prohibitions: CanonFactCore[];
-  /** What was actually allocated, for the log line — this is how a regression is noticed. */
+  /** How many came out of the model. */
+  extracted: number;
+  /** How many reach the prompt (facts + prohibitions). */
+  kept: number;
+  /** Kept, by kind — the mix, which is how a regression back to biography-only is noticed. */
   counts: Record<string, number>;
+  /** Dropped, by kind. Empty when nothing was dropped. */
+  droppedByKind: Record<string, number>;
   dropped: number;
+  /** True when a limit actually bit. The caller MUST report this rather than swallow it. */
+  capBound: boolean;
 }
 
 /**
@@ -62,7 +72,8 @@ export function selectCanonByQuota(
   const pLimit = opts?.prohibitionLimit ?? PROHIBITION_LIMIT;
   const all = Array.isArray(facts) ? facts.filter(Boolean) : [];
 
-  const prohibitions = all.filter((f) => f.kind === 'PROHIBITION').slice(0, pLimit);
+  const allProhibitions = all.filter((f) => f.kind === 'PROHIBITION');
+  const prohibitions = Number.isFinite(pLimit) ? allProhibitions.slice(0, pLimit) : allProhibitions;
   const rest = all.filter((f) => f.kind !== 'PROHIBITION');
 
   const byKind = new Map<string, CanonFactCore[]>();
@@ -86,11 +97,42 @@ export function selectCanonByQuota(
   for (const f of out) counts[f.kind] = (counts[f.kind] || 0) + 1;
   if (prohibitions.length) counts.PROHIBITION = prohibitions.length;
 
-  return { facts: out, prohibitions, counts, dropped: Math.max(0, rest.length - out.length) };
+  // THE ACCOUNT. Every fact that did not make it is named by kind — a bare total would say that
+  // something was lost without saying what, which is barely better than saying nothing.
+  const droppedByKind: Record<string, number> = {};
+  for (const f of rest) if (!taken.has(f)) droppedByKind[f.kind] = (droppedByKind[f.kind] || 0) + 1;
+  const pDropped = allProhibitions.length - prohibitions.length;
+  if (pDropped > 0) droppedByKind.PROHIBITION = pDropped;
+  const dropped = Object.values(droppedByKind).reduce((a, b) => a + b, 0);
+
+  return {
+    facts: out,
+    prohibitions,
+    extracted: all.length,
+    kept: out.length + prohibitions.length,
+    counts,
+    droppedByKind,
+    dropped,
+    capBound: dropped > 0,
+  };
 }
 
 /** One-line summary for the log: "ROLE 4 · CAUSATION 3 · CHARACTER 18 · PROHIBITION 5". */
 export function quotaSummary(counts: Record<string, number>): string {
   const keys = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
   return keys.map((k) => k + ' ' + counts[k]).join(' · ') || 'none';
+}
+
+/**
+ * The sentence written to the log and persisted on the stage version when a limit binds.
+ * Returns '' when nothing was dropped, so a healthy run adds no noise.
+ */
+export function quotaShortfall(r: QuotaResult): string {
+  if (!r || !r.capBound) return '';
+  const lost = quotaSummary(r.droppedByKind);
+  const rules = r.droppedByKind.PROHIBITION || 0;
+  return 'CANON TRUNCATED: extracted ' + r.extracted + ', kept ' + r.kept + ', dropped ' + r.dropped
+    + ' (' + lost + ').'
+    + (rules ? ' ' + rules + ' of these are PROHIBITIONS — a dropped rule permits what it forbids.' : '')
+    + ' Raise the quota rather than accepting the loss.';
 }

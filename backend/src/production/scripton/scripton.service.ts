@@ -44,7 +44,7 @@ import {
 } from './entity-registry.util';
 import { mapAiFactsToCore } from './canon/canon-map.util';
 import { canonDirective, prohibitionDirective } from './canon/canon-inject.util';
-import { selectCanonByQuota, quotaSummary } from './canon/canon-quota.util';
+import { selectCanonByQuota, quotaSummary, quotaShortfall } from './canon/canon-quota.util';
 import { SOURCE_CANON_SYSTEM, SOURCE_CANON_MAXTOK } from './canon/canon-prompt.util';
 import { parseFactsLoose } from './canon/canon-parse.util';
 import type { CanonFactCore } from './canon/canon.types';
@@ -1272,6 +1272,16 @@ export class ScripOnService {
     if (!ARRKEY[kind] && !data.warning && stoppedAtCeiling(capFacts)) {
       data.warning = truncationWarning(kind, capFacts);   // persisted, so a salvaged partial is never silent
       this.log.warn('generateStage ' + kind + ': ' + data.warning);
+    }
+    // THE CANON ACCOUNT TRAVELS WITH THE DRAFT. Which facts and rules were extracted, which reached
+    // this prompt, and which were dropped — persisted on the version, so it is answerable months
+    // later without the log buffer, and so a dropped prohibition is visible where the writing is.
+    if (sourceFacts.length) {
+      const account = this.canonAccountFor(projectId);
+      if (account) {
+        data.canon = account;
+        if (account.shortfall && !data.warning) data.warning = account.shortfall;
+      }
     }
     const created: any = await (this.prisma as any).stageVersion.create({ data: { stageId: stage.id, n, title: kind.charAt(0) + kind.slice(1).toLowerCase().replace('_', ' ') + ' V' + n, body, data: Object.keys(data).length ? data : undefined, framework: opts?.framework || null, colorCode: this.WHEEL[(n - 1) % this.WHEEL.length], status: 'DRAFT', createdById: userId || null } });
     await (this.prisma as any).developmentStage.update({ where: { id: stage.id }, data: { currentVersionId: created.id } }).catch(() => {});
@@ -2671,7 +2681,14 @@ export class ScripOnService {
    * FAIL-OPEN, like extractCanon. No facts is yesterday's behaviour; a thrown error would be worse
    * than the bug being fixed.
    */
-  private sourceCanonCache = new Map<string, { key: string; facts: CanonFactCore[] }>();
+  private sourceCanonCache = new Map<string, { key: string; facts: CanonFactCore[]; account: any }>();
+
+  /** The allocation behind the canon currently cached for this project — persisted on the stage
+   *  version so a dropped fact or rule is never only a log line. */
+  private canonAccountFor(projectId: string): any {
+    const hit = this.sourceCanonCache.get(projectId);
+    return (hit && hit.account) || null;
+  }
 
   private async sourceCanonFor(projectId: string, sourceText: string): Promise<CanonFactCore[]> {
     const src = String(sourceText || '');
@@ -2710,7 +2727,15 @@ export class ScripOnService {
       }
       const picked = selectCanonByQuota(mapAiFactsToCore(loose.facts, { id: '', order: 0 }), { total: 60 });
       const facts = picked.facts.concat(picked.prohibitions);
-      this.sourceCanonCache.set(projectId, { key, facts });
+      // A QUOTA THAT SILENTLY TRUNCATES IS THE SAME DEFECT AS A CAP THAT DOES. Nothing may be lost
+      // without a line naming what and how many — the account is also persisted on the stage version
+      // below, so it survives the log buffer.
+      const account = { extracted: picked.extracted, kept: picked.kept, mix: quotaSummary(picked.counts),
+        dropped: picked.dropped, droppedByKind: picked.droppedByKind, shortfall: quotaShortfall(picked) };
+      if (picked.capBound) this.log.warn('sourceCanonFor: ' + quotaShortfall(picked));
+      // Cached WITH the facts: on a cache hit the account must still describe the facts in hand,
+      // not the last uncached run on some other project.
+      this.sourceCanonCache.set(projectId, { key, facts, account });
       // ZERO FACTS IS NOT A NORMAL OUTCOME AND IS NO LONGER LOGGED AS ONE. It used to print at log
       // level next to every healthy run, so the one time it mattered it read like routine chatter.
       if (!facts.length) {
