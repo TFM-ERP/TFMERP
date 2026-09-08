@@ -29,6 +29,9 @@ const CSS = `
 .bld .sectt{font-size:12px;font-weight:800;letter-spacing:.9px;text-transform:uppercase;color:var(--gold2)}
 .bld .sectn{font-size:11px;font-weight:700;color:var(--mute);background:rgba(154,161,171,.12);border-radius:999px;padding:1px 8px}
 .bld .sects{font-size:11.5px;color:var(--faint)}
+.bld .warn{border:1px solid rgba(229,99,95,.5);background:rgba(229,99,95,.08);border-radius:12px;padding:13px 15px;display:flex;flex-direction:column;gap:5px}
+.bld .warnt{font-size:13px;font-weight:700;color:#e5635f}
+.bld .warns{font-size:11.5px;color:var(--mute);line-height:1.55}
 .bld .grid{display:grid;grid-template-columns:repeat(3,1fr);grid-auto-rows:max-content;gap:16px;align-content:start}
 /* WHY grid-auto-rows:max-content, MEASURED — do not drop it back to plain auto rows.
    Every implicit row was resolving to .bc's min-height floor (180px on the live board, 214.925px in
@@ -233,6 +236,31 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
   // The bin is one list: there, everything present is there for the same reason.
   const recovered = shown.filter((b: any) => !!b.recovered);
   const recent = shown.filter((b: any) => !b.recovered);
+
+  // THE BOARD MUST NEVER RENDER FEWER BUILDS THAN IT RECEIVED.
+  //
+  // It rendered 10 of 11 and said nothing — the same class of failure as SAMPLE and the stuck
+  // skeleton: a screen asserting something it does not know. Note which invariant is worth
+  // checking. `recent` and `recovered` split on !!b.recovered, so their lengths ALWAYS sum to
+  // shown.length; asserting that would pass while a build was still missing. The count that can
+  // actually diverge is what arrived versus what reached the DOM, and the one mechanism that loses
+  // a card while every array length stays right is a duplicate React key — React keeps the last
+  // child with a given key and silently discards the rest.
+  const ids = list.map((b: any) => (b && b.id != null ? String(b.id) : ''));
+  const dupIds = new Set(ids.filter((id, i) => id && ids.indexOf(id) !== i));
+  const noId = ids.filter((id) => !id).length;
+  const partitionLost = shown.length - (recent.length + recovered.length);
+  const filteredOut = filter === 'All' ? list.length - shown.length : 0;
+  const integrity = (dupIds.size || noId || partitionLost || filteredOut)
+    ? { received: list.length, distinctIds: new Set(ids.filter(Boolean)).size, dupIds: Array.from(dupIds), noId, partitionLost, filteredOut }
+    : null;
+  useEffect(() => {
+    if (!integrity) return;
+    // Loud, with the numbers, because a silent drop is what let this run.
+    console.error('[builds] the board received builds it cannot render', integrity,
+      list.map((b: any) => ({ id: b && b.id, name: b && b.name, status: b && b.status, recovered: !!(b && b.recovered) })));
+  }, [integrity ? JSON.stringify(integrity) : '']);
+
   const sections: { key: string; header: string; note?: string; items: any[]; showAdd?: boolean }[] =
     bin ? [{ key: 'bin', header: '', items: shown }]
       : !recovered.length ? [{ key: 'recent', header: '', items: recent, showAdd: true }]
@@ -263,8 +291,8 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
   };
 
   /** One card. Lifted out of the map so the Recent and Recovered sections cannot drift apart. */
-  const renderCard = (b: any) => { const st = String(b.status || 'DRAFT').toUpperCase(); const dots = DOTS[st] || 2; return (
-                <div key={b.id} className="bc">
+  const renderCard = (b: any, i = 0) => { const st = String(b.status || 'DRAFT').toUpperCase(); const dots = DOTS[st] || 2; return (
+                <div key={(b && b.id != null && !dupIds.has(String(b.id))) ? String(b.id) : ((b && b.id != null ? String(b.id) : 'noid') + '#' + i)} className="bc">
                   <div className="r1"><span className={'spill ' + (SPILL[st] || 'draft')} title={(st !== 'PROMOTED' && !bin && !isDemo(b)) ? t('Click to advance: Draft \u2192 Review \u2192 Greenlit') : (st === 'PROMOTED' ? t('Promoted to production') : '')} onClick={() => { if (st !== 'PROMOTED' && !bin && !isDemo(b)) cycleStatus(b); }} style={{ cursor: (st !== 'PROMOTED' && !bin && !isDemo(b)) ? 'pointer' : 'default' }}>{st}</span>{b.recovered ? <span className="when" title={t('When this build row was recreated from its orphaned stages')}>{t('recreated') + ' ' + onDate(b.createdAt)}</span> : null}</div>
                   {editId === b.id ? (
                     <input className="nm-in" autoFocus value={editName} placeholder={t('Name this build')}
@@ -336,6 +364,9 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
             <div className="phead"><h1>{t('Builds')}</h1><div className="sub">{t('Name, save and switch development builds. Open loads a build into Studio; promote a finished build into a project.')}</div></div>
             <div className="tbar">{(bin ? [] : ['All', 'Draft', 'Review', 'Greenlit', 'Promoted']).map((c) => (<span key={c} className={'chip' + (filter === c ? ' on' : '')} onClick={() => setFilter(c)}>{t(c)}</span>))}<span style={{ marginLeft: 'auto', display: 'inline-flex', background: '#15181e', border: '1px solid var(--hair)', borderRadius: 9, padding: 3, gap: 2 }}><span onClick={() => switchBin(false)} style={{ fontSize: 12, fontWeight: 600, padding: '5px 12px', borderRadius: 7, cursor: 'pointer', color: !bin ? 'var(--gold2)' : 'var(--mute)', background: !bin ? 'rgba(198,164,99,.16)' : 'transparent' }}>{t('Active')}</span><span onClick={() => switchBin(true)} style={{ fontSize: 12, fontWeight: 600, padding: '5px 12px', borderRadius: 7, cursor: 'pointer', color: bin ? 'var(--gold2)' : 'var(--mute)', background: bin ? 'rgba(198,164,99,.16)' : 'transparent' }}>✖ {t('Bin')}</span></span></div>
             <div className="sections">
+              {/* A state grid, and ONLY when there is a state. Left unconditional by the sections
+                  change, this rendered an empty <div class="grid"> above every populated board. */}
+              {(loading || failed || isEmpty) ? (
               <div className="grid">
               {/* Loading: skeletons, so the board reads as "fetching" and never as "your work is gone". */}
               {loading ? [0, 1, 2].map((i) => (
@@ -357,9 +388,23 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
                 </div>
               ) : null}
               </div>
+              ) : null}
+              {/* THE BOARD SAYS SO WHEN IT CANNOT ACCOUNT FOR WHAT IT WAS GIVEN. */}
+              {integrity ? (
+                <div className="warn">
+                  <div className="warnt">{t('This board received') + ' ' + integrity.received + ' ' + t('builds and cannot account for all of them.')}</div>
+                  <div className="warns">
+                    {integrity.dupIds.length ? t('Two builds share one id, so the render keeps only one:') + ' ' + integrity.dupIds.join(', ') + '. ' : ''}
+                    {integrity.noId ? integrity.noId + ' ' + t('have no id at all.') + ' ' : ''}
+                    {integrity.partitionLost ? integrity.partitionLost + ' ' + t('fell outside both sections.') + ' ' : ''}
+                    {integrity.filteredOut ? integrity.filteredOut + ' ' + t('were dropped before the sections.') + ' ' : ''}
+                    {t('Nothing was deleted — the full list is in the console. Every build is still rendered below.')}
+                  </div>
+                </div>
+              ) : null}
               {sections.map((sec) => (
                 <div key={sec.key} className="sect">
-                  {sec.header ? (<div className="secth"><span className="sectt">{sec.header}</span><span className="sectn">{sec.items.length}</span>{sec.note ? <span className="sects">{sec.note}</span> : null}</div>) : null}
+                  {sec.header ? (<div className="secth"><span className="sectt">{sec.header}</span><span className="sectn" title={sec.items.map((b: any) => (String(b.name || '(unnamed)') + ' — ' + (b.lastWorkedAt ? new Date(b.lastWorkedAt).toISOString().slice(0, 10) : t('never written')))).join(String.fromCharCode(10))}>{sec.items.length}</span>{sec.note ? <span className="sects">{sec.note}</span> : null}</div>) : null}
                   <div className="grid">
                     {sec.items.map(renderCard)}
                     {sec.showAdd && !bin ? <div className="add" onClick={onNewBuild || onClose}><svg className="ico" viewBox="0 0 24 24" style={{ width: 22, height: 22 }}><path d="M12 5v14M5 12h14" /></svg><div style={{ fontWeight: 600 }}>{t('New build')}</div></div> : null}
