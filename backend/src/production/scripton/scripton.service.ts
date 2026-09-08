@@ -48,6 +48,7 @@ import { selectCanonByQuota, quotaSummary, quotaShortfall } from './canon/canon-
 import { SOURCE_CANON_SYSTEM, SOURCE_CANON_MAXTOK, CANON_EXTRACTOR_VERSION, CANON_MAX_SOURCE_CHARS } from './canon/canon-prompt.util';
 import { parseFactsLoose } from './canon/canon-parse.util';
 import { locateFacts } from './canon/canon-locate.util';
+import { selectForStage } from './canon/canon-select.util';
 import type { CanonFactCore } from './canon/canon.types';
 import { excerptSource, sourceMaterialBlock, asSourceText, SOURCE_EXCERPT_CHARS } from './source-excerpt.util';
 import { buildPackageDocModel } from './package-docx.util';
@@ -1114,11 +1115,17 @@ export class ScripOnService {
     const excerpt = excerptSource(rawSource, SOURCE_EXCERPT_CHARS);
     // at 0: source facts are anchored at story order 0 by mapAiFactsToCore, so all of them are live.
     const sourceFacts = wantsSource && excerpt.truncated ? await this.sourceCanonFor(projectId, rawSource) : [];
-    const srcBlock = wantsSource ? sourceMaterialBlock(canonDirective(sourceFacts, { at: 0, max: 1000 }), excerpt) : '';
+    // THE STAGE BLOCK IS SELECTED; THE RECORD IS COMPLETE. They were the same list, and the cost said
+    // so — 26,651 bytes of canon riding all eight ladder stages and then every scene call. Rules are
+    // still carried whole (a budget that cannot fit them is too small); everything else is taken
+    // round-robin by section so every part of the document is represented before any part twice.
+    const stagePick = wantsSource ? selectForStage(sourceFacts) : null;
+    const stageFacts = stagePick ? stagePick.facts : [];
+    const srcBlock = wantsSource ? sourceMaterialBlock(canonDirective(stageFacts, { at: 0, max: 1000 }), excerpt) : '';
     // CONSTRAINTS ARE NOT CANON AND DO NOT RIDE IN THE CANON BLOCK. They are rules about the output,
     // they go last in the prompt where an instruction carries most weight, and a source that states
     // none produces an empty string rather than an empty heading.
-    const ruleBlock = wantsSource ? prohibitionDirective(sourceFacts) : '';
+    const ruleBlock = wantsSource ? prohibitionDirective(stageFacts) : '';
     if (wantsSource && excerpt.truncated) this.log.log('generateStage ' + kind + ': source is an excerpt - ' + excerpt.sent + ' of ' + excerpt.total + ' characters, with ' + sourceFacts.length + ' fixed fact(s) carried alongside it.');
     const research = String((intakeRow && intakeRow.researchNotes) || '').slice(0, 4000);
     const researchBlock = research ? ('\nRESEARCH FINDINGS (authentic facts, period & cultural detail to honour):\n' + research) : '';
@@ -1330,6 +1337,10 @@ export class ScripOnService {
       const account = this.canonAccountFor(projectId);
       if (account) {
         data.canon = account;
+        // What the RECORD holds and what THIS PROMPT carried are different numbers, and both belong
+        // on the version — a block that silently carries a third of the canon is the same defect as
+        // a quota that silently truncates.
+        if (stagePick) data.canonSent = { sent: stagePick.sent, total: stagePick.total, complete: stagePick.complete, byKind: stagePick.byKind, note: stagePick.note };
         if (account.shortfall && !data.warning) data.warning = account.shortfall;
       }
     }
