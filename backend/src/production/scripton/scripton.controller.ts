@@ -98,6 +98,8 @@ export class ScripOnController {
   @Patch('settings') @RequirePermission('production', 2) saveScriptonSettings(@Body() body: any) { return this.service.saveScriptonSettings(body || {}); }
   @Get('builds') buildsList(@Query('projectId') projectId?: string, @Query('bin') bin?: string) { return this.service.listBuilds(projectId, bin === '1' || bin === 'true'); }
   @Post('builds') @RequirePermission('production', 2) buildCreate(@Body() body: any) { return this.service.createBuild(body || {}); }
+  // A build is addressed by its ID — not by listing a project and searching. See getBuild().
+  @Get('builds/:id') buildOne(@Param('id') id: string) { return this.service.getBuild(id); }
   @Post('builds/:id/rename') @RequirePermission('production', 2) buildRename(@Param('id') id: string, @Body() body: any) { return this.service.renameBuild(id, body?.name); }
   @Post('builds/:id/status') @RequirePermission('production', 2) buildStatus(@Param('id') id: string, @Body() body: any) { return this.service.setBuildStatus(id, body?.status); }
   @Post('builds/:id/delete') @RequirePermission('production', 2) buildDelete(@Param('id') id: string) { return this.service.deleteBuild(id); }

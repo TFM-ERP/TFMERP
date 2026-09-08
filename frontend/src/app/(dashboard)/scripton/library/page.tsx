@@ -67,6 +67,10 @@ export default function ScriptOnLibraryPage() {
           };
         }));
       } catch { /* keep sample */ }
+      // SCOPING RULE — the slate is the EVERYTHING view, by design, and the panel is the one-project
+      // view. Written down because the two surfaces disagree on purpose and nothing said so, which is
+      // how an unscoped call read as a bug for a whole evening. Consequence worth knowing: this is the
+      // only screen where two builds of the same name from different projects sit side by side.
       // Unify the pool: every ScriptON DevelopmentBuild (new-OS work — Studio ideas, vertical AI video, etc.)
       // shows in the SAME slate as the old master-script library. listBuilds() with no projectId returns the
       // whole build pool (workspace + every project), so old and new always live together.

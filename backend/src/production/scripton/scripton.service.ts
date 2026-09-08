@@ -1013,7 +1013,11 @@ export class ScripOnService {
     if (!projectId || ladder.indexOf(kind) < 0) throw new BadRequestException('A project and a valid stage are required.');
     const stages = await this.pipeline(projectId, opts?.buildId);
     const stage: any = stages.find((s: any) => s.kind === kind);
-    if (!stage) throw new BadRequestException('Stage not found.');
+    // SAY WHAT WAS LOOKED FOR. 'Stage not found.' sent the reader hunting with nothing to hunt with —
+    // the same silence as the empty-draft message: a true statement that identifies nothing.
+    if (!stage) throw new BadRequestException('Stage not found: no ' + kind + ' stage exists for build '
+      + (opts?.buildId || '(none)') + ' / version ' + (opts?.buildVersionId || '(none)') + ' in project ' + projectId
+      + '. The ladder has: ' + (stages.map((x: any) => x.kind).join(', ') || '(no stages at all)') + '.');
     const idx = ladder.indexOf(kind);
     const priorStage: any = idx > 0 ? stages.find((s: any) => s.kind === ladder[idx - 1]) : null;
     const priorApproved: any = priorStage ? ((priorStage.versions || []).find((v: any) => v.status === 'APPROVED' || v.status === 'LOCKED') || priorStage.current) : null;
@@ -4641,8 +4645,33 @@ export class ScripOnService {
     }).catch(() => []);
     const byBuild = new Map<string, any[]>();
     for (const v of versions) { const a = byBuild.get(v.buildId) || []; a.push(v); byBuild.set(v.buildId, a); }
-    return rows.map((r) => {
-      const mine = byBuild.get(r.id) || [];
+    return rows.map((r) => this.buildCard(r, byBuild.get(r.id) || []));
+  }
+
+  /**
+   * ONE build with its identity, by id — regardless of which project it lives in.
+   *
+   * ScriptonDevelop used to resolve a build by listing EVERY build in props.projectId (twice: active
+   * and bin) and searching the result. That is O(all builds) to read one, and it silently fails when
+   * the build belongs to another project — which three of the recovered builds do — leaving the
+   * header title and continuity ring blank with no error. A build is addressed by its id; the list
+   * endpoint answers a different question.
+   */
+  async getBuild(id: string) {
+    const r: any = await (this.prisma as any).developmentBuild.findUnique({
+      where: { id: String(id) },
+      select: { id: true, name: true, status: true, createdAt: true, updatedAt: true, deletedAt: true,
+        projectId: true, linkedProjectId: true, linkedScriptId: true, promotedVersionId: true,
+        activeVersionId: true, brief: true },
+    }).catch(() => null);
+    if (!r) return null;
+    const mine: any[] = await (this.prisma as any).buildVersion.findMany({ where: { buildId: r.id }, select: { id: true, n: true } }).catch(() => []);
+    return this.buildCard(r, mine);
+  }
+
+  /** The identity a card renders, from a row + its versions. One place, so list and single agree. */
+  private buildCard(r: any, mine: any[]): any {
+    {
       const active = mine.find((v) => v.id === r.activeVersionId);
       const { brief, ...rest } = r;                       // the source stays on the server
       return {
@@ -4653,7 +4682,7 @@ export class ScripOnService {
         // here for the source fingerprint anyway, so the label was one property away all along.
         version: draftLabel(brief && brief.versionLabel) || versionCountLabel(active ? active.n : null, mine.length),
       };
-    });
+    }
   }
   /**
    * DELETE A BUILD AND EVERYTHING THAT HANGS OFF IT — the one place that does, so the scheduled

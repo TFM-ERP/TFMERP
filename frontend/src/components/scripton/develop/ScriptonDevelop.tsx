@@ -392,12 +392,13 @@ export default function ScriptonDevelop(props: ScriptonDevelopProps) {
     (async () => {
       if (!props.projectId || !props.buildId) return;
       try {
-        const [a, b] = await Promise.all([
-          productionApi.scripton.development.listBuilds(props.projectId).catch(() => ({ data: [] as any[] })),
-          productionApi.scripton.development.listBuilds(props.projectId, true).catch(() => ({ data: [] as any[] })),
-        ]);
-        const builds = [...(Array.isArray((a as any).data) ? (a as any).data : []), ...(Array.isArray((b as any).data) ? (b as any).data : [])];
-        const build = builds.find((x: any) => x.id === props.buildId);
+        // ADDRESS THE BUILD BY ITS ID. This used to list EVERY build in props.projectId — twice, active
+        // and bin — and search the result for one id. Besides being O(all builds) to read one, the list
+        // is scoped to a single project, so a build living in another project was simply never found
+        // and the header silently lost its title and continuity ring. Three of the recovered builds
+        // are in other projects.
+        const br: any = await productionApi.scripton.development.getBuild(props.buildId).catch(() => ({ data: null }));
+        const build = br?.data || null;
         const sid = build?.linkedScriptId;
         if (!sid) { if (alive) setHdr((h) => ({ ...h, title: build?.name || null })); return; }
         const vr: any = await productionApi.scripton.versions(sid);

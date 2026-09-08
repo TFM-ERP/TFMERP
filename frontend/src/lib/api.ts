@@ -528,7 +528,15 @@ export const productionApi = {
       discardVersion: (versionId: string) => api.post('/production/scripton/development/version/' + versionId + '/discard'),
       versionBrief: (buildId: string, versionId?: string) => api.get('/production/scripton/development/versions/' + buildId + '/brief' + (versionId ? ('?versionId=' + encodeURIComponent(versionId)) : '')),
       saveIntake: (projectId: string, data: any) => api.post(`/production/scripton/intake/${projectId}`, data),
+      // SCOPING RULE, written down because the two surfaces deliberately disagree and nothing said so:
+      //   the BUILDS PANEL is scoped to ONE project (it always passes a projectId; with none it
+      //   resolves the ScripON workspace itself), and the SLATE is scoped to EVERYTHING (it calls this
+      //   with no projectId on purpose, so old master scripts and new builds share one pool).
+      // That makes the slate the only screen where two builds of the same name from different
+      // projects coexist — which is why slate identity matters more than the panel's.
       listBuilds: (projectId?: string, bin?: boolean) => api.get('/production/scripton/builds?' + (projectId ? ('projectId=' + projectId) : '') + (bin ? '&bin=1' : '')),
+      // One build by id, whatever project it lives in. Do not resolve a build by listing and searching.
+      getBuild: (id: string) => api.get('/production/scripton/builds/' + encodeURIComponent(id)),
       createBuild: (body: any = {}) => api.post('/production/scripton/builds', body),
       renameBuild: (id: string, name: string) => api.post('/production/scripton/builds/' + id + '/rename', { name }),
       setBuildStatus: (id: string, status: string) => api.post('/production/scripton/builds/' + id + '/status', { status }),
