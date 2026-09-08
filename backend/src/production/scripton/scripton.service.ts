@@ -4658,6 +4658,8 @@ export class ScripOnService {
     const where: any = projectId ? { OR: [{ projectId }, { linkedProjectId: projectId }] } : {};
     where.deletedAt = bin ? { not: null } : null;
     const rows: any[] = await (this.prisma as any).developmentBuild.findMany({
+      // NOTE: this orderBy only decides WHICH 100 rows come back; the board's order is set below,
+      // on real activity. At 18 builds the window is not binding — revisit if it ever is.
       where, orderBy: bin ? { deletedAt: 'desc' } : { updatedAt: 'desc' }, take: 100,
       select: { id: true, name: true, status: true, createdAt: true, updatedAt: true, deletedAt: true,
         projectId: true, linkedProjectId: true, linkedScriptId: true, promotedVersionId: true,
@@ -4671,7 +4673,14 @@ export class ScripOnService {
     const byBuild = new Map<string, any[]>();
     for (const v of versions) { const a = byBuild.get(v.buildId) || []; a.push(v); byBuild.set(v.buildId, a); }
     const ladders = await this.ladderProgress(ids);
-    return rows.map((r) => this.buildCard(r, byBuild.get(r.id) || [], ladders.get(r.id)));
+    const cards = rows.map((r) => this.buildCard(r, byBuild.get(r.id) || [], ladders.get(r.id)));
+    // THE BIN keeps deletedAt order — there, "when did I bin this" IS the question being asked.
+    // The active board orders on when the writing was last touched; see ladderProgress. A build that
+    // has never been written to has no work to date, so it falls back to its own creation — never to
+    // updatedAt, which is the column that let a migration outrank the writer.
+    if (bin) return cards;
+    const activityOf = (c: any) => new Date(c.lastWorkedAt || c.createdAt || 0).getTime() || 0;
+    return cards.sort((a, b) => activityOf(b) - activityOf(a));
   }
 
   /**
@@ -4706,8 +4715,8 @@ export class ScripOnService {
    * A stage counts as reached when it has at least one version — an empty stage row is scaffolding
    * pipeline() creates on first open, not work.
    */
-  private async ladderProgress(ids: string[]): Promise<Map<string, { done: number; total: number; furthest: string | null }>> {
-    const out = new Map<string, { done: number; total: number; furthest: string | null }>();
+  private async ladderProgress(ids: string[]): Promise<Map<string, { done: number; total: number; furthest: string | null; lastWorkedAt: Date | null }>> {
+    const out = new Map<string, { done: number; total: number; furthest: string | null; lastWorkedAt: Date | null }>();
     if (!ids || !ids.length) return out;
     const stages: any[] = await (this.prisma as any).developmentStage.findMany({
       where: { buildId: { in: ids } },
@@ -4720,7 +4729,7 @@ export class ScripOnService {
     const kinds = new Map<string, Set<string>>();
     const doneKinds = new Map<string, Set<string>>();
     const best = new Map<string, number>();
-    for (const id of ids) { out.set(id, { done: 0, total: 0, furthest: null }); kinds.set(id, new Set()); doneKinds.set(id, new Set()); }
+    for (const id of ids) { out.set(id, { done: 0, total: 0, furthest: null, lastWorkedAt: null }); kinds.set(id, new Set()); doneKinds.set(id, new Set()); }
     for (const st of stages) {
       if (!kinds.has(st.buildId)) continue;
       kinds.get(st.buildId)!.add(st.kind);
@@ -4731,11 +4740,41 @@ export class ScripOnService {
       }
     }
     for (const id of ids) { const c = out.get(id)!; c.total = kinds.get(id)!.size; c.done = doneKinds.get(id)!.size; }
+
+    // WHEN THE WRITER LAST WORKED, which is not what any timestamp on the build row means.
+    //
+    // The board ordered on DevelopmentBuild.updatedAt. That column records when the ROW was last
+    // written — a rename, a status toggle, a migration — so the orphan recovery stamped all eleven
+    // recovered builds with the date it ran and pushed his live work to seventh place behind six
+    // cards still called "Name this build". A repair outranked the writing.
+    //
+    // StageVersion.createdAt is when a draft was actually produced. It has no updatedAt to be
+    // rewritten by later maintenance, which is exactly the property wanted here: nothing we do to
+    // these rows afterwards can move a build up the board. It also removes the special case the
+    // recovered builds seemed to need — their stage versions were never deleted, only orphaned, so
+    // their createdAt is still the original writing date (23-26 Jun) and they sort back into place
+    // on their own, with no display string to parse.
+    const stageToBuild = new Map<string, string>();
+    for (const st of stages) stageToBuild.set(st.id, st.buildId);
+    const stageIds = stages.map((st) => st.id);
+    if (stageIds.length) {
+      const grouped: any[] = await (this.prisma as any).stageVersion.groupBy({
+        by: ['stageId'], where: { stageId: { in: stageIds } }, _max: { createdAt: true },
+      }).catch(() => []);
+      for (const g of grouped) {
+        const buildId = stageToBuild.get(g.stageId);
+        if (!buildId || !out.has(buildId)) continue;
+        const at = g._max && g._max.createdAt ? new Date(g._max.createdAt) : null;
+        if (!at || isNaN(at.getTime())) continue;
+        const cur = out.get(buildId)!;
+        if (!cur.lastWorkedAt || at > cur.lastWorkedAt) cur.lastWorkedAt = at;
+      }
+    }
     return out;
   }
 
   /** The identity a card renders, from a row + its versions. One place, so list and single agree. */
-  private buildCard(r: any, mine: any[], ladder?: { done: number; total: number; furthest: string | null }): any {
+  private buildCard(r: any, mine: any[], ladder?: { done: number; total: number; furthest: string | null; lastWorkedAt?: Date | null }): any {
     {
       const active = mine.find((v) => v.id === r.activeVersionId);
       const { brief, ...rest } = r;                       // the source stays on the server
@@ -4747,6 +4786,9 @@ export class ScripOnService {
         // here for the source fingerprint anyway, so the label was one property away all along.
         version: draftLabel(brief && brief.versionLabel) || versionCountLabel(active ? active.n : null, mine.length),
         ladder: ladder || { done: 0, total: 0, furthest: null },
+        // Sorted on and rendered from the same value — a board that orders by something it does not
+        // show cannot be checked by the person reading it.
+        lastWorkedAt: (ladder && ladder.lastWorkedAt) || null,
         // Recovery metadata belongs on the identity line, never in the name. See the rename in
         // scripts: a title is what the writer calls the work, not what we know about the row.
         recovered: (brief && brief.recovered) ? {
