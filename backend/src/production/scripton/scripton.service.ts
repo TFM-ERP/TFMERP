@@ -4664,12 +4664,14 @@ export class ScripOnService {
         activeVersionId: true, brief: true },
     }).catch(() => []);
     if (!rows.length) return [];
+    const ids = rows.map((r) => r.id);
     const versions: any[] = await (this.prisma as any).buildVersion.findMany({
-      where: { buildId: { in: rows.map((r) => r.id) } }, select: { id: true, buildId: true, n: true },
+      where: { buildId: { in: ids } }, select: { id: true, buildId: true, n: true },
     }).catch(() => []);
     const byBuild = new Map<string, any[]>();
     for (const v of versions) { const a = byBuild.get(v.buildId) || []; a.push(v); byBuild.set(v.buildId, a); }
-    return rows.map((r) => this.buildCard(r, byBuild.get(r.id) || []));
+    const ladders = await this.ladderProgress(ids);
+    return rows.map((r) => this.buildCard(r, byBuild.get(r.id) || [], ladders.get(r.id)));
   }
 
   /**
@@ -4690,11 +4692,50 @@ export class ScripOnService {
     }).catch(() => null);
     if (!r) return null;
     const mine: any[] = await (this.prisma as any).buildVersion.findMany({ where: { buildId: r.id }, select: { id: true, n: true } }).catch(() => []);
-    return this.buildCard(r, mine);
+    return this.buildCard(r, mine, (await this.ladderProgress([r.id])).get(r.id));
+  }
+
+  /**
+   * HOW FAR EACH BUILD ACTUALLY GOT — the question the board is opened to answer.
+   *
+   * The card's eight dots were driven by DOTS[status] (DRAFT 2, REVIEW 4, GREENLIT 6, PROMOTED 8),
+   * so every DRAFT build showed two dots whether it held two stages of work or ten. Status is
+   * already on the card as its own chip; the dots were a second, less accurate copy of it. Measured:
+   * across 18 builds, real progress ranges 2-10 stages and does not track status at all.
+   *
+   * A stage counts as reached when it has at least one version — an empty stage row is scaffolding
+   * pipeline() creates on first open, not work.
+   */
+  private async ladderProgress(ids: string[]): Promise<Map<string, { done: number; total: number; furthest: string | null }>> {
+    const out = new Map<string, { done: number; total: number; furthest: string | null }>();
+    if (!ids || !ids.length) return out;
+    const stages: any[] = await (this.prisma as any).developmentStage.findMany({
+      where: { buildId: { in: ids } },
+      select: { id: true, buildId: true, kind: true, order: true, _count: { select: { versions: true } } },
+    }).catch(() => []);
+    // COUNTED BY KIND, NOT BY ROW. pipeline() creates a stage row per (build, buildVersion), so a
+    // build that has been re-versioned holds several rows of the same kind — counting rows gave
+    // "stage 14 of 24" for an eight-stage ladder. "Stage N of M" means kinds; the writer has one
+    // Treatment, however many times the row was instantiated.
+    const kinds = new Map<string, Set<string>>();
+    const doneKinds = new Map<string, Set<string>>();
+    const best = new Map<string, number>();
+    for (const id of ids) { out.set(id, { done: 0, total: 0, furthest: null }); kinds.set(id, new Set()); doneKinds.set(id, new Set()); }
+    for (const st of stages) {
+      if (!kinds.has(st.buildId)) continue;
+      kinds.get(st.buildId)!.add(st.kind);
+      if ((st._count?.versions || 0) > 0) {
+        doneKinds.get(st.buildId)!.add(st.kind);
+        const ord = Number(st.order) || 0;
+        if (!best.has(st.buildId) || ord >= (best.get(st.buildId) as number)) { best.set(st.buildId, ord); out.get(st.buildId)!.furthest = st.kind; }
+      }
+    }
+    for (const id of ids) { const c = out.get(id)!; c.total = kinds.get(id)!.size; c.done = doneKinds.get(id)!.size; }
+    return out;
   }
 
   /** The identity a card renders, from a row + its versions. One place, so list and single agree. */
-  private buildCard(r: any, mine: any[]): any {
+  private buildCard(r: any, mine: any[], ladder?: { done: number; total: number; furthest: string | null }): any {
     {
       const active = mine.find((v) => v.id === r.activeVersionId);
       const { brief, ...rest } = r;                       // the source stays on the server
@@ -4705,6 +4746,14 @@ export class ScripOnService {
         // The writer's own draft name wins; the machine count is only the fallback. brief is loaded
         // here for the source fingerprint anyway, so the label was one property away all along.
         version: draftLabel(brief && brief.versionLabel) || versionCountLabel(active ? active.n : null, mine.length),
+        ladder: ladder || { done: 0, total: 0, furthest: null },
+        // Recovery metadata belongs on the identity line, never in the name. See the rename in
+        // scripts: a title is what the writer calls the work, not what we know about the row.
+        recovered: (brief && brief.recovered) ? {
+          orphanBuildId: String(brief.orphanBuildId || r.id).slice(0, 9),
+          chars: Number(brief.recoveredChars) || 0,
+          writtenBetween: String(brief.writtenBetween || ''),
+        } : null,
       };
     }
   }

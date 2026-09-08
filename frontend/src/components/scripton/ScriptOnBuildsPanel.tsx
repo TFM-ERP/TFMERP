@@ -33,6 +33,7 @@ const CSS = `
 .bld .ident .k{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;letter-spacing:.3px;color:var(--mute);background:rgba(154,161,171,.12);border-radius:5px;padding:1px 5px}
 .bld .ident .sep{opacity:.45}
 .bld .ident .nosrc{color:#e5635f;font-weight:600}
+.bld .ident .chip-rec{font-size:9.5px;font-weight:800;letter-spacing:.5px;color:var(--gold2);background:rgba(198,164,99,.16);border-radius:4px;padding:1px 5px}
 .bld .bc.skel{gap:10px;justify-content:flex-start}
 .bld .sk{background:linear-gradient(90deg,rgba(154,161,171,.10) 25%,rgba(154,161,171,.18) 37%,rgba(154,161,171,.10) 63%);background-size:400% 100%;animation:bldsk 1.4s ease infinite;border-radius:6px}
 .bld .sk-r1{height:14px;width:38%}.bld .sk-nm{height:18px;width:70%}.bld .sk-id{height:11px;width:88%}.bld .sk-ft{height:12px;width:46%;margin-top:auto}
@@ -67,6 +68,13 @@ const DOTS: Record<string, number> = { DRAFT: 2, REVIEW: 4, GREENLIT: 6, PROMOTE
 // "Sept" in some ICU versions and "Sep" in others — a card identifier should not drift with a runtime.
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const onDate = (d?: string) => { if (!d) return ''; const x = new Date(d); return isNaN(+x) ? '' : x.getDate() + ' ' + MONTHS[x.getMonth()] + ' ' + x.getFullYear(); };
+const fmtChars = (n: number) => n >= 1000 ? Math.round(n / 1000) + 'k of writing' : n + ' chars';
+const STAGE_LABEL: Record<string, string> = { LOGLINE: 'Logline', PREMISE: 'Premise', THESIS: 'Thesis', SYNOPSIS: 'Synopsis', TREATMENT: 'Treatment', BEATS: 'Beats', SCENES: 'Scenes', STEP_OUTLINE: 'Step outline', DRAFT: 'Draft', COVERAGE: 'Coverage' };
+const stageLabel = (k?: string | null) => STAGE_LABEL[String(k || '')] || String(k || '').toLowerCase().replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
+/** "2026-06-23T…..Z .. 2026-06-26T…..Z" -> "23–26 Jun" */
+const spanOf = (iso: string) => { const [a, b] = String(iso || '').split(' .. '); const A = new Date(a), B = new Date(b || a);
+  if (isNaN(+A)) return ''; const m = (d: Date) => MONTHS[d.getMonth()];
+  return A.getDate() === B.getDate() && m(A) === m(B) ? (A.getDate() + ' ' + m(A)) : (A.getDate() + '–' + B.getDate() + ' ' + m(B)); };
 const ago = (d?: string) => { if (!d) return ''; const ms = Date.now() - new Date(d).getTime(); const h = Math.floor(ms / 3.6e6); return h < 1 ? 'just now' : h < 24 ? h + 'h ago' : Math.floor(h / 24) + 'd ago'; };
 const SAMPLE = [
   { id: 'b1', name: 'Antara — mythic cut', status: 'GREENLIT', updatedAt: null, linkedProjectId: null },
@@ -235,8 +243,10 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
               ) : null}
               {shown.map((b) => { const st = String(b.status || 'DRAFT').toUpperCase(); const dots = DOTS[st] || 2; return (
                 <div key={b.id} className="bc">
-                  <div className="r1"><span className={'spill ' + (SPILL[st] || 'draft')} title={(st !== 'PROMOTED' && !bin && !isDemo(b)) ? t('Click to advance: Draft \u2192 Review \u2192 Greenlit') : (st === 'PROMOTED' ? t('Promoted to production') : '')} onClick={() => { if (st !== 'PROMOTED' && !bin && !isDemo(b)) cycleStatus(b); }} style={{ cursor: (st !== 'PROMOTED' && !bin && !isDemo(b)) ? 'pointer' : 'default' }}>{st}</span><span className="when">{ago(b.updatedAt) || t('saved')}</span></div>
-                  <div className="nm">{b.name}</div>
+                  <div className="r1"><span className={'spill ' + (SPILL[st] || 'draft')} title={(st !== 'PROMOTED' && !bin && !isDemo(b)) ? t('Click to advance: Draft \u2192 Review \u2192 Greenlit') : (st === 'PROMOTED' ? t('Promoted to production') : '')} onClick={() => { if (st !== 'PROMOTED' && !bin && !isDemo(b)) cycleStatus(b); }} style={{ cursor: (st !== 'PROMOTED' && !bin && !isDemo(b)) ? 'pointer' : 'default' }}>{st}</span><span className="when" title={ago(b.updatedAt)}>{onDate(b.updatedAt) || t('saved')}</span></div>
+                  <div className="nm" style={!String(b.name || '').trim() ? { color: 'var(--faint)', fontStyle: 'italic' } : undefined}>
+                    {String(b.name || '').trim() || t('Untitled')}
+                  </div>
                   {/* Line 2 — what tells this build from the one above it. Key is OUR CHOICE (no
                       industry convention exists for a development container); the source fingerprint
                       is what makes "different foundation" visible at a glance. */}
@@ -244,13 +254,27 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
                     {/* JOINED, not prefixed. Prefixing each fragment with a separator leaves a dangling
                         leading dot whenever the first field is absent — demo rows have no shortKey. */}
                     {([
-                      b.shortKey ? <span key="k" className="k" title={t('Build key')}>{b.shortKey}</span> : null,
-                      b.createdAt ? <span key="d" title={t('created') + ' ' + ago(b.createdAt)}>{onDate(b.createdAt)}</span> : null,
-                      b.source ? <span key="s" className={b.source.empty ? 'nosrc' : ''} title={b.source.empty ? t('This build has no source material. Stages generated from it are written from the brief alone.') : t('source size and content fingerprint')}>{b.source.label}</span> : null,
-                      b.version ? <span key="v">{b.version}</span> : null,
+                      b.recovered ? <span key="r" className="chip-rec" title={t('Recovered from an orphaned build — its parent row was deleted and the writing survived.')}>{t('RECOVERED')}</span> : null,
+                      b.recovered ? <span key="ro" className="k" title={t('Orphan build id')}>{b.recovered.orphanBuildId}</span> : null,
+                      b.recovered && b.recovered.chars ? <span key="rc">{fmtChars(b.recovered.chars)}</span> : null,
+                      b.recovered && b.recovered.writtenBetween ? <span key="rw">{spanOf(b.recovered.writtenBetween)}</span> : null,
+                      !b.recovered && b.shortKey ? <span key="k" className="k" title={t('Build key')}>{b.shortKey}</span> : null,
+                      !b.recovered && b.createdAt ? <span key="d" title={t('created') + ' ' + ago(b.createdAt)}>{onDate(b.createdAt)}</span> : null,
+                      // A MISSING FIELD REMOVES ITS SLOT. `version` renders an em dash when there is
+                      // nothing to say, which trailed "no source · —" into nothing; an absent value
+                      // must not leave a separator behind it.
+                      b.source && !b.source.empty ? <span key="s" title={t('source size and content fingerprint')}>{b.source.label}</span> : null,
+                      b.source && b.source.empty ? <span key="s0" className="nosrc" title={t('This build has no source material. Stages generated from it are written from the brief alone.')}>{b.source.label}</span> : null,
+                      (b.version && b.version !== '—') ? <span key="v">{b.version}</span> : null,
                     ].filter(Boolean)).flatMap((el, i) => (i ? [<span key={'sep' + i} className="sep">·</span>, el] : [el]))}
                   </div>
-                  <div className="ladder">{[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (<span key={i} className={'d' + (i < dots ? ' on' : '')} />))}</div>
+                  {/* The dots used to be DOTS[status] — two for every DRAFT build whether it held two
+                      stages of work or ten, a second and less accurate copy of the status chip above.
+                      They now show how far the ladder actually got, and say so in words. */}
+                  <div className="ladder">{Array.from({ length: Math.max(1, b.ladder?.total || 8) }).map((_, i) => (<span key={i} className={'d' + (i < (b.ladder?.done ?? dots) ? ' on' : '')} />))}</div>
+                  <div className="ident" style={{ marginTop: 0 }}>{b.ladder && b.ladder.total
+                    ? (b.ladder.done ? (stageLabel(b.ladder.furthest) + ' · ' + t('stage') + ' ' + b.ladder.done + ' ' + t('of') + ' ' + b.ladder.total) : t('Not started'))
+                    : ''}</div>
                   <div className="ft">
                     {bin ? (<>
                       <span className="when" style={{ marginRight: 'auto' }}>{daysLeft(b.deletedAt)}{t('d left in bin')}</span>
