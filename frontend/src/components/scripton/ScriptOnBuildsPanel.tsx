@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { productionApi } from '@/lib/api';
+import { resolveScriptonProjectId } from '@/components/scripton/useScriptonProject';
 import { useLocale } from '@/lib/i18n';
 
 /** Builds — name, save, switch and promote development builds. Folded into Studio as an overlay panel
@@ -87,6 +88,14 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
   const [bin, setBin] = useState(false);
   const [confirm, setConfirm] = useState<any | null>(null);
   const [briefView, setBriefView] = useState<any | null>(null);
+  const [state, setState] = useState<'loading' | 'ready' | 'failed'>('loading');
+  // A LOAD THAT NEVER ANSWERS MUST STILL SAY SO. Without this a hung request looks identical to a
+  // slow one, forever — which is precisely how a skeleton board survived a whole evening.
+  useEffect(() => {
+    if (state !== 'loading') return;
+    const t = setTimeout(() => { if (mountedRef.current) setState('failed'); }, 12000);
+    return () => clearTimeout(t);
+  }, [state]);
   const tt = useRef<any>(null);
   const flash = (m: string) => { setToast(m); clearTimeout(tt.current); tt.current = setTimeout(() => setToast(null), 3200); };
 
@@ -101,14 +110,36 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
   const reqRef = useRef(0);
   const mountedRef = useRef(true);
   useEffect(() => () => { mountedRef.current = false; }, []);
+
+  /**
+   * THE STATE IS RESOLVED IN A FINALLY, NEVER PER BRANCH.
+   *
+   * The previous version returned early when it had no pid — and returned WITHOUT setting anything,
+   * so `builds` stayed null, which the render reads as "still loading". The board sat on skeletons
+   * forever while the network showed 200s. Every early exit here now leaves a decided state behind:
+   * a branch that returns without an answer is how a screen lies about what it knows, which is the
+   * same defect as the SAMPLE board wearing a different face.
+   *
+   * It also resolves its OWN workspace. This board is the one screen reached with no build selected,
+   * so a null projectId is legitimate rather than an error — and the answer is the hidden ScripON
+   * Library, which resolveScriptonProjectId() already returns. Asking for it beats both alternatives:
+   * querying with an empty projectId (which the server reads as "every build in the system") and
+   * waiting for a prop that is never coming.
+   */
   const load = async (pid: string, b = false) => {
-    if (!pid) return;
     const token = ++reqRef.current;
+    const live = () => mountedRef.current && token === reqRef.current;
+    if (mountedRef.current) { setState('loading'); }
+    let ok = false;
     try {
-      const r: any = await productionApi.scripton.development.listBuilds(pid, b);
-      if (!mountedRef.current || token !== reqRef.current) return;
+      const wsid = pid || (await resolveScriptonProjectId()) || '';
+      if (!wsid) { if (live()) setBuilds([]); ok = true; return; }
+      const r: any = await productionApi.scripton.development.listBuilds(wsid, b);
+      if (!live()) return;
       setBuilds(Array.isArray(r.data) ? r.data : []);
-    } catch { if (mountedRef.current && token === reqRef.current) setBuilds([]); }
+      ok = true;
+    } catch { /* ok stays false — the finally reports it */ }
+    finally { if (live()) setState(ok ? 'ready' : 'failed'); }
   };
   const daysLeft = (d?: string) => { if (!d) return 30; const ms = new Date(d).getTime() + 30 * 86400000 - Date.now(); return Math.max(0, Math.ceil(ms / 86400000)); };
   const isDemo = (b: any) => /^b\d$/.test(String(b && b.id));
@@ -119,7 +150,8 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
     let alive = true;
     (async () => {
       try { const pr: any = await productionApi.projects.list(); const ps = pr.data?.items ?? (Array.isArray(pr.data) ? pr.data : []); if (alive) setProjects(ps); } catch { /* */ }
-      if (projectId) { setDestProj(projectId); await load(projectId, false); }   // no else: an unscoped load renders every build in the system (see load)
+      if (projectId) setDestProj(projectId);
+      await load(projectId || '', false);   // load resolves the ScripON workspace when there is no projectId
     })();
     return () => { alive = false; };
   }, [projectId]);
@@ -136,10 +168,11 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
   // and nothing to retry, and the names could collide with real work so a fake card and a missing
   // one looked identical. A populated board looks like an answer; only an empty one looks like a
   // question. SAMPLE is now reachable solely through the explicit `demo` prop, which nothing passes.
-  const loading = builds === null && !demo;
+  const loading = state === 'loading' && !demo;
+  const failed = state === 'failed';
   const list = Array.isArray(builds) ? builds : (demo ? SAMPLE : []);
   const shown = list.filter((b) => filter === 'All' || String(b.status || 'DRAFT').toUpperCase() === filter.toUpperCase());
-  const isEmpty = !loading && shown.length === 0;
+  const isEmpty = !loading && !failed && shown.length === 0;
 
   const openBuild = (id: string) => { if (typeof window !== 'undefined') window.location.assign('/scripton/studio?build=' + id); };
   const openScript = (docId: string) => { if (docId && typeof window !== 'undefined') window.location.assign('/scripton/script?doc=' + docId); };
@@ -179,6 +212,13 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
                   <div className="sk sk-r1" /><div className="sk sk-nm" /><div className="sk sk-id" /><div className="sk sk-ft" />
                 </div>
               )) : null}
+              {failed ? (
+                <div className="bc empty" style={{ borderColor: 'rgba(229,99,95,.5)' }}>
+                  <div className="nm" style={{ color: '#e5635f' }}>{t('Could not load your builds.')}</div>
+                  <div className="ident">{t('Nothing was deleted — this is a loading failure, not an empty board.')}</div>
+                  <div className="ft"><span className="mini gold" onClick={() => load(projectId || '', bin)}>{t('Retry')}</span></div>
+                </div>
+              ) : null}
               {isEmpty ? (
                 <div className="bc empty">
                   <div className="nm">{bin ? t('The bin is empty.') : t('No builds yet.')}</div>
