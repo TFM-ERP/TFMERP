@@ -109,7 +109,15 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
   // rather than last arrived, so a stale response cannot overwrite a newer one.
   const reqRef = useRef(0);
   const mountedRef = useRef(true);
-  useEffect(() => () => { mountedRef.current = false; }, []);
+  // SET IT TRUE IN THE BODY, NOT ONLY FALSE IN CLEANUP.
+  //
+  // React 18 dev mounts, cleans up, then remounts. A cleanup-only reset therefore leaves this false
+  // for the component's ENTIRE life — every `live()` check fails, setBuilds is never called, the
+  // finally never records a state, and the 12s timeout is skipped because it too is guarded by this
+  // ref. A 200 carrying 11 builds was fetched and thrown away, and the board sat on skeletons with
+  // no error and no timeout. The file reads correctly, which is why it survives review: the bug is
+  // in what the effect does NOT do.
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
 
   /**
    * THE STATE IS RESOLVED IN A FINALLY, NEVER PER BRANCH.
