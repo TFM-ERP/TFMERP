@@ -61,7 +61,11 @@ const STRUCTURAL_CHECKS = [
     headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
     body: JSON.stringify({
       model: 'claude-opus-5', max_tokens: SOURCE_CANON_MAXTOK, system: SOURCE_CANON_SYSTEM,
-      messages: [{ role: 'user', content: 'SOURCE MATERIAL:\n' + src.slice(0, 60000) }],
+      // THE WHOLE SOURCE, exactly as the service sends it. This carried its own slice(0, 60000) —
+      // a second copy of the prompt assembly, which drifted the moment the service stopped slicing,
+      // so a "verification" reported on 57% of the document while the pipeline read all of it. The
+      // system prompt is imported for precisely this reason; the user half must be too.
+      messages: [{ role: 'user', content: 'SOURCE MATERIAL:\n' + src }],
     }),
   });
   const j = await res.json();
@@ -71,6 +75,10 @@ const STRUCTURAL_CHECKS = [
   console.log('stop_reason=' + j.stop_reason + '  in=' + j.usage.input_tokens + '  out=' + j.usage.output_tokens + '/' + SOURCE_CANON_MAXTOK);
   if (j.stop_reason === 'max_tokens') console.log('  !! CUT AT THE CEILING — raise SOURCE_CANON_MAXTOK; facts below are only what survived.');
 
+  // Saved so provenance can be checked offline — which section each fact came from is the real
+  // measure of a wider read, not the fact COUNT, which moves by a few between identical runs.
+  const savePath = (process.argv.indexOf('--save') > 0) ? process.argv[process.argv.indexOf('--save') + 1] : null;
+  if (savePath) { require('fs').writeFileSync(savePath, text); console.log('  raw response saved to ' + savePath); }
   const loose = parseFactsLoose(text);
   if (loose.salvaged) console.log('  !! TRUNCATED — salvaged ' + loose.recovered + ' complete facts');
   if (!loose.facts.length) { console.error('\nNO FACTS AT ALL. Tail:\n' + text.slice(-400)); process.exit(1); }
