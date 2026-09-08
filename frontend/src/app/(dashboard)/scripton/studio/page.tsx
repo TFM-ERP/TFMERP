@@ -1,7 +1,8 @@
 'use client';
 /** ScriptON Studio route. Develop = persisted pipeline (D1–D6); Adapt → directions → seed; Format. */
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { resolveStudioView } from './studio-view.logic';
 import { productionApi, approvalsApi } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
 import { resolveScriptonProjectId } from '@/components/scripton/useScriptonProject';
@@ -33,7 +34,20 @@ const SAMPLE_FORMAT: SxEpisode[] = [
 ];
 const NAVMAP: Record<string, string> = { home: '/scripton', reader: '/scripton/reader', breakdown: '/scripton/breakdown', schedule: '/scripton/schedule', doctor: '/scripton/doctor', coverage: '/scripton/doctor', studio: '/scripton/studio', greenlight: '/scripton/greenlight', reports: '/scripton/reports', library: '/scripton/library', settings: '/scripton/settings', revisions: '/scripton/revisions', notes: '/scripton/notes', approvals: '/scripton/approvals' };
 
+/**
+ * useSearchParams REQUIRES A SUSPENSE BOUNDARY, or `next build` fails on this route.
+ *
+ * This codebase had been routing around that — revisions/page.tsx reads its query post-mount with
+ * the comment "avoids useSearchParams Suspense" — but that workaround is precisely the bug being
+ * fixed here: a post-mount read of window.location.search never re-runs on a query-ONLY navigation,
+ * because the pathname does not change and the component does not remount. Reading the query
+ * properly is the fix, so the boundary comes with it.
+ */
 export default function StudioPage() {
+  return (<Suspense fallback={null}><StudioPageInner /></Suspense>);
+}
+
+function StudioPageInner() {
   const router = useRouter();
   const { t } = useLocale();
   const vp = useViewport();
@@ -43,6 +57,7 @@ export default function StudioPage() {
   const [title, setTitle] = useState('Midnight Run');
   const [projectId, setProjectId] = useState<string | null>(null);
   const [mode, setMode] = useState('builds');
+
   const [stages, setStages] = useState<any[] | null>(null);
   const [adaptResult, setAdaptResult] = useState<SxDirection[]>([]);
   const [formatResult, setFormatResult] = useState<SxEpisode[]>(SAMPLE_FORMAT);
@@ -65,6 +80,37 @@ export default function StudioPage() {
   useEffect(() => () => { clearInterval(promoCrawl.current); }, []);
   const tT = useRef<any>(null);
   const buildIdRef = useRef<string | undefined>(undefined);
+
+  /**
+   * THE URL OWNS THE TAB. Clicking Build on the rail while a build was open did nothing — he had to
+   * visit another screen and come back.
+   *
+   * The push was never the problem. The rail pushes /scripton/studio?tab=builds while the open build
+   * sits at /scripton/studio?build=X, so the URL genuinely changes and Next genuinely navigates. It
+   * is the READ that was missing: `mode` was useState and `buildIdRef` was set once at mount from
+   * window.location.search, so a query-only navigation — which does not remount the page component —
+   * left both holding their old values. The render then took the `buildIdRef.current && mode ===
+   * 'develop'` branch and drew the same screen again. Leaving by a different route and returning
+   * worked only because it forced a remount.
+   *
+   * This effect is the one place either value is derived from the URL, which is also what makes
+   * browser Back work and a refresh land where he was. It fires only when the query string actually
+   * changes, so every imperative setMode('adapt'|'format'|'develop') elsewhere keeps working.
+   *
+   * `tab` WINS over `build`, explicitly: ?tab=builds&build=X shows the board. The rail's intent is
+   * "show me the board", and leaving the build set would land back on the branch above.
+   */
+  const searchParams = useSearchParams();
+  const searchStr = searchParams.toString();
+  const lastSearchRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (lastSearchRef.current === searchStr) return;
+    lastSearchRef.current = searchStr;
+    const v = resolveStudioView(searchStr);
+    buildIdRef.current = v.buildId;
+    setMode(v.mode);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchStr]);
   const flash = (m: string) => { setToast(m); clearTimeout(tT.current); tT.current = setTimeout(() => setToast(null), 3600); };
   useEffect(() => { setMounted(true); }, []);
 
@@ -85,7 +131,8 @@ export default function StudioPage() {
         // ScriptON is standalone: a build always develops in the hidden ScriptON Library workspace — never tied to a
         // production project the bind bar happened to point at. Promotion to a real project is an explicit step.
         const pid = await resolveScriptonProjectId();
-        if (alive && pid) { setProjectId(pid); setTitle('ScriptON Studio'); buildIdRef.current = (typeof window !== 'undefined' ? (new URLSearchParams(window.location.search).get('build') || undefined) : undefined); if (buildIdRef.current) setMode('develop'); await loadPipeline(pid);
+        // buildIdRef and mode come from the URL effect above — the second reader is what let them disagree.
+        if (alive && pid) { setProjectId(pid); setTitle('ScriptON Studio'); await loadPipeline(pid);
           try {
             const saved = typeof window !== 'undefined' ? window.localStorage.getItem('scripon.dir.' + pid) : null;
             if (saved && alive) { const pd: any = JSON.parse(saved); if (pd && Array.isArray(pd.directions) && pd.directions.length) { if (pd.buildId) buildIdRef.current = pd.buildId; setBuildName(pd.name || t('New build')); setBuildItems([{ label: t('Researching the subject'), state: 'done' }, { label: t('Reading your source'), state: 'done' }, { label: t('Applying the Lore Atlas'), state: 'done' }, { label: t('Exploring three directions'), state: 'done' }]); setBuildStatus(t('Choose your direction')); setBuildError(null); setBuildProgress(null); setBuildActions(null); setBuildDirections(pd.directions); setBuilding(true); } }
