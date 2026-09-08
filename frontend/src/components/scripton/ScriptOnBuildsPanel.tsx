@@ -23,13 +23,17 @@ const CSS = `
 .bld.osnew .phead h1{font-family:var(--sx-title);font-weight:500;letter-spacing:-.3px;font-size:25px}.bld.osnew .top .proj{font-family:var(--sx-title);font-weight:600}
 .bld .tbar{display:flex;align-items:center;gap:8px}
 .bld .chip{padding:7px 13px;border-radius:999px;font-size:12.5px;font-weight:600;color:var(--mute);background:#171a20;border:1px solid var(--hair);cursor:pointer}.bld .chip.on{background:rgba(198,164,99,.14);border-color:rgba(198,164,99,.45);color:var(--gold2)}
-.bld .grid{flex:1;display:grid;grid-template-columns:repeat(3,1fr);gap:16px;align-content:start;overflow:auto}
-.bld .bc{background:var(--panel);border:1px solid var(--hair);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px;min-height:180px}
+.bld .grid{flex:1;display:grid;grid-template-columns:repeat(3,1fr);gap:16px;align-content:start;align-items:start;overflow:auto}
+/* min-width:0 because a grid item defaults to min-width:auto — the identity line grew long enough
+   that it could not shrink, so the card was forced wider than its track and the footer spilled out
+   over the card below. align-items:start on the grid lets each card own its height rather than
+   stretching to the tallest in its row, which is what margin-top:auto on .ft was fighting. */
+.bld .bc{background:var(--panel);border:1px solid var(--hair);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px;min-height:180px;min-width:0;overflow:hidden}
 .bld .r1{display:flex;align-items:center;justify-content:space-between}
 .bld .spill{font-size:10px;font-weight:800;letter-spacing:.4px;padding:4px 9px;border-radius:999px}
 .bld .spill.draft{background:rgba(154,161,171,.16);color:var(--mute)}.bld .spill.review{background:rgba(91,141,239,.16);color:#a9c4f7}.bld .spill.greenlit{background:rgba(87,179,104,.16);color:var(--green)}.bld .spill.promoted{background:rgba(198,164,99,.18);color:var(--gold2)}
 .bld .when{font-size:11px;color:var(--faint)}
-.bld .ident{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:11px;color:var(--faint);margin-top:3px;line-height:1.5}
+.bld .ident{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:11px;color:var(--faint);margin-top:3px;line-height:1.5;min-width:0;overflow-wrap:anywhere}
 .bld .ident .k{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;letter-spacing:.3px;color:var(--mute);background:rgba(154,161,171,.12);border-radius:5px;padding:1px 5px}
 .bld .ident .sep{opacity:.45}
 .bld .ident .nosrc{color:#e5635f;font-weight:600}
@@ -39,7 +43,10 @@ const CSS = `
 .bld .sk-r1{height:14px;width:38%}.bld .sk-nm{height:18px;width:70%}.bld .sk-id{height:11px;width:88%}.bld .sk-ft{height:12px;width:46%;margin-top:auto}
 @keyframes bldsk{0%{background-position:100% 50%}100%{background-position:0 50%}}
 .bld .bc.empty{justify-content:center;align-items:flex-start;border-style:dashed}
-.bld .nm{font-size:17px;font-weight:800;color:var(--cream)}
+.bld .nm{font-size:17px;font-weight:800;color:var(--cream);min-width:0;overflow-wrap:anywhere}
+.bld .nm-in{width:100%;background:#171a20;border:1px dashed rgba(198,164,99,.45);border-radius:8px;color:var(--cream);font-size:16px;font-weight:700;padding:5px 8px;outline:none}
+.bld .nm-in:focus{border-style:solid;border-color:var(--gold2)}
+.bld .ident .muted{color:var(--faint)}
 .bld .ladder{display:flex;align-items:center;gap:4px}.bld .ladder .d{flex:1;height:5px;border-radius:3px;background:#23262e}.bld .ladder .d.on{background:var(--gold)}
 .bld .ft{display:flex;align-items:center;gap:8px;border-top:1px solid var(--hair);padding-top:11px;margin-top:auto}
 .bld .mini{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 11px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--hair);color:var(--mute);background:#171a20}.bld .mini .ico{width:13px;height:13px}.bld .mini.gold{background:rgba(198,164,99,.14);border-color:rgba(198,164,99,.4);color:var(--gold2)}
@@ -97,6 +104,19 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
   const [confirm, setConfirm] = useState<any | null>(null);
   const [briefView, setBriefView] = useState<any | null>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'failed'>('loading');
+  // IF THE FIX FOR "Untitled" IS THAT HE RENAMES IT, THE CARD SHOULD LET HIM. Eight recovered builds
+  // have no title anywhere in their content, and sending him to Settings to name each one is the kind
+  // of errand a board exists to avoid.
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const commitName = async (b: any) => {
+    const name = editName.trim();
+    setEditId(null);
+    if (!name || name === String(b.name || '')) return;
+    try { await productionApi.scripton.development.renameBuild(b.id, name.slice(0, 120)); flash(t('Renamed.')); }
+    catch { flash(t('Could not rename this build.')); }
+    await load(projectId || '', bin);
+  };
   // A LOAD THAT NEVER ANSWERS MUST STILL SAY SO. Without this a hung request looks identical to a
   // slow one, forever — which is precisely how a skeleton board survived a whole evening.
   useEffect(() => {
@@ -243,10 +263,19 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
               ) : null}
               {shown.map((b) => { const st = String(b.status || 'DRAFT').toUpperCase(); const dots = DOTS[st] || 2; return (
                 <div key={b.id} className="bc">
-                  <div className="r1"><span className={'spill ' + (SPILL[st] || 'draft')} title={(st !== 'PROMOTED' && !bin && !isDemo(b)) ? t('Click to advance: Draft \u2192 Review \u2192 Greenlit') : (st === 'PROMOTED' ? t('Promoted to production') : '')} onClick={() => { if (st !== 'PROMOTED' && !bin && !isDemo(b)) cycleStatus(b); }} style={{ cursor: (st !== 'PROMOTED' && !bin && !isDemo(b)) ? 'pointer' : 'default' }}>{st}</span><span className="when" title={ago(b.updatedAt)}>{onDate(b.updatedAt) || t('saved')}</span></div>
-                  <div className="nm" style={!String(b.name || '').trim() ? { color: 'var(--faint)', fontStyle: 'italic' } : undefined}>
-                    {String(b.name || '').trim() || t('Untitled')}
-                  </div>
+                  <div className="r1"><span className={'spill ' + (SPILL[st] || 'draft')} title={(st !== 'PROMOTED' && !bin && !isDemo(b)) ? t('Click to advance: Draft \u2192 Review \u2192 Greenlit') : (st === 'PROMOTED' ? t('Promoted to production') : '')} onClick={() => { if (st !== 'PROMOTED' && !bin && !isDemo(b)) cycleStatus(b); }} style={{ cursor: (st !== 'PROMOTED' && !bin && !isDemo(b)) ? 'pointer' : 'default' }}>{st}</span>{b.recovered ? <span className="when" title={t('When this build row was recreated from its orphaned stages')}>{t('recreated') + ' ' + onDate(b.createdAt)}</span> : null}</div>
+                  {editId === b.id ? (
+                    <input className="nm-in" autoFocus value={editName} placeholder={t('Name this build')}
+                      onChange={(e) => setEditName(e.target.value.slice(0, 120))}
+                      onBlur={() => commitName(b)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') commitName(b); if (e.key === 'Escape') setEditId(null); }} />
+                  ) : (
+                    <div className="nm" title={bin || isDemo(b) ? undefined : t('Click to rename')}
+                      onClick={() => { if (!bin && !isDemo(b)) { setEditName(String(b.name || '')); setEditId(b.id); } }}
+                      style={{ cursor: (!bin && !isDemo(b)) ? 'text' : 'default', ...(!String(b.name || '').trim() ? { color: 'var(--faint)', fontStyle: 'italic', fontWeight: 600 } : {}) }}>
+                      {String(b.name || '').trim() || t('Name this build')}
+                    </div>
+                  )}
                   {/* Line 2 — what tells this build from the one above it. Key is OUR CHOICE (no
                       industry convention exists for a development container); the source fingerprint
                       is what makes "different foundation" visible at a glance. */}
@@ -257,14 +286,19 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
                       b.recovered ? <span key="r" className="chip-rec" title={t('Recovered from an orphaned build — its parent row was deleted and the writing survived.')}>{t('RECOVERED')}</span> : null,
                       b.recovered ? <span key="ro" className="k" title={t('Orphan build id')}>{b.recovered.orphanBuildId}</span> : null,
                       b.recovered && b.recovered.chars ? <span key="rc">{fmtChars(b.recovered.chars)}</span> : null,
-                      b.recovered && b.recovered.writtenBetween ? <span key="rw">{spanOf(b.recovered.writtenBetween)}</span> : null,
+                      b.recovered && b.recovered.writtenBetween ? <span key="rw" title={t('When the writing itself was made')}>{t('written') + ' ' + spanOf(b.recovered.writtenBetween)}</span> : null,
                       !b.recovered && b.shortKey ? <span key="k" className="k" title={t('Build key')}>{b.shortKey}</span> : null,
                       !b.recovered && b.createdAt ? <span key="d" title={t('created') + ' ' + ago(b.createdAt)}>{onDate(b.createdAt)}</span> : null,
                       // A MISSING FIELD REMOVES ITS SLOT. `version` renders an em dash when there is
                       // nothing to say, which trailed "no source · —" into nothing; an absent value
                       // must not leave a separator behind it.
                       b.source && !b.source.empty ? <span key="s" title={t('source size and content fingerprint')}>{b.source.label}</span> : null,
-                      b.source && b.source.empty ? <span key="s0" className="nosrc" title={t('This build has no source material. Stages generated from it are written from the brief alone.')}>{b.source.label}</span> : null,
+                      // Red means "this is WRONG", not "this is absent". A recovered build has no source
+                      // because the source died with the parent row — that is its expected state, and the
+                      // RECOVERED chip already says so. Kept red for a normally-created build, where an
+                      // absent source IS the anomaly that produced a film with an invented cast.
+                      b.source && b.source.empty ? <span key="s0" className={b.recovered ? 'muted' : 'nosrc'}
+                        title={b.recovered ? t('The original source died with the deleted parent build; only the writing survived.') : t('This build has no source material. Stages generated from it are written from the brief alone.')}>{b.source.label}</span> : null,
                       (b.version && b.version !== '—') ? <span key="v">{b.version}</span> : null,
                     ].filter(Boolean)).flatMap((el, i) => (i ? [<span key={'sep' + i} className="sep">·</span>, el] : [el]))}
                   </div>
