@@ -45,7 +45,7 @@ import {
 import { mapAiFactsToCore } from './canon/canon-map.util';
 import { canonDirective, prohibitionDirective } from './canon/canon-inject.util';
 import { selectCanonByQuota, quotaSummary, quotaShortfall } from './canon/canon-quota.util';
-import { SOURCE_CANON_SYSTEM, SOURCE_CANON_MAXTOK } from './canon/canon-prompt.util';
+import { SOURCE_CANON_SYSTEM, SOURCE_CANON_MAXTOK, CANON_EXTRACTOR_VERSION, CANON_MAX_SOURCE_CHARS } from './canon/canon-prompt.util';
 import { parseFactsLoose } from './canon/canon-parse.util';
 import type { CanonFactCore } from './canon/canon.types';
 import { excerptSource, sourceMaterialBlock, asSourceText, SOURCE_EXCERPT_CHARS } from './source-excerpt.util';
@@ -2742,8 +2742,26 @@ export class ScripOnService {
   private async sourceCanonFor(projectId: string, sourceText: string): Promise<CanonFactCore[]> {
     const src = String(sourceText || '');
     if (src.length < 400) return [];
-    // Length plus a sampled fingerprint: enough to notice an edit, and it never copies the document.
-    const key = src.length + ':' + src.slice(0, 120) + '|' + src.slice(Math.floor(src.length / 2), Math.floor(src.length / 2) + 120) + '|' + src.slice(-120);
+    // A HARD ERROR, NOT A MERGE. See CANON_MAX_SOURCE_CHARS: a chunk-and-merge path would run only
+    // on the largest bible in the system, making it the least exercised code carrying the most trust.
+    if (src.length > CANON_MAX_SOURCE_CHARS) {
+      throw new BadRequestException('This source is ' + src.length.toLocaleString() + ' characters, above the '
+        + CANON_MAX_SOURCE_CHARS.toLocaleString() + ' the canon extractor accepts in one pass. Split the material '
+        + 'rather than have it silently read in part.');
+    }
+    // THE KEY IS THE FULL DIGEST PLUS THE EXTRACTOR VERSION, and both halves were learned the hard way.
+    //
+    // It used to be length + three 120-character samples (head, middle, tail). That notices an edit
+    // at those three points and nothing else: a bible edited anywhere between them reuses the old
+    // canon. sourceFingerprint().digest is sha256 of the whole document - the six-hex `hash` beside
+    // it is a display value and would collide once in sixteen million, which here means a build
+    // served another build's canon.
+    //
+    // The VERSION half retires a canon the SOURCE did not change. V2.1's was extracted from a
+    // 60,000-character head slice of 105,179 - 57%, missing the whole story section and both
+    // rule-dense sections - and a digest alone would serve that again quite happily, because the
+    // source is identical. What changed is what we did with it.
+    const key = (sourceFingerprint(src).digest || String(src.length)) + ':v' + CANON_EXTRACTOR_VERSION;
     const hit = this.sourceCanonCache.get(projectId);
     if (hit && hit.key === key) return hit.facts;
     try {
@@ -2762,7 +2780,14 @@ export class ScripOnService {
       // ladder then writes from an EXCERPT with no fixed facts to anchor it, which is precisely the
       // §21 circularity this function exists to prevent — a synopsis inventing what the source says,
       // then becoming the truth later stages are checked against. That is how "Jason Vane" got in.
-      const r: any = await this.ai.run({ task: 'scripton.develop.canon', system: sys, user: 'SOURCE MATERIAL:\n' + src.slice(0, 60000), maxTokens: SOURCE_CANON_MAXTOK, timeoutMs: 600000, projectId, refType: 'Project', refId: projectId });
+      // THE WHOLE SOURCE. NO SLICE. This was src.slice(0, 60000), which on the 105,179-character
+      // bible read 57% and stopped inside §23 — so §24 Complete feature story, §29 Continuity
+      // foundations and §31 Rules for keeping Jason distinctive were never read by anything at all,
+      // and §29 and §31 are the two sections densest in the prohibitions this extraction exists to
+      // carry. A canon built from the front of a document is the same failure as a synopsis written
+      // from the front of one; the whole point of extracting facts was that the excerpt could not be
+      // trusted, and the extractor was quietly reading an excerpt of its own.
+      const r: any = await this.ai.run({ task: 'scripton.develop.canon', system: sys, user: 'SOURCE MATERIAL:\n' + src, maxTokens: SOURCE_CANON_MAXTOK, timeoutMs: 600000, projectId, refType: 'Project', refId: projectId });
       // A TRUNCATED RESPONSE MUST NOT COST EVERY FACT. Measured on the 66,128-character bible: the
       // call ran to its ceiling, the JSON was cut mid-string, JSON.parse threw, and the catch below
       // returned [] - thirty-four complete facts, already emitted, thrown away, and the ladder then

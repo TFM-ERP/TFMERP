@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 /**
  * WHAT MAKES ONE BUILD TELLABLE FROM ANOTHER.
  *
@@ -52,7 +54,17 @@ export function buildShortKey(name?: string | null, id?: string | null): string 
 
 export interface SourceFingerprint {
   chars: number;
+  /** SIX HEX, FOR DISPLAY ONLY. Short enough to read on a card, far too short to key a cache on. */
   hash: string | null;
+  /**
+   * FULL-STRENGTH DIGEST — the thing to key on. sha256 of the whole source.
+   *
+   * `hash` exists to be read by a person and is deliberately six characters; using it as a cache key
+   * would mean two different bibles colliding roughly once in sixteen million, and the consequence
+   * of that collision is a build served another build's canon. One module owns source identity, so
+   * both live here rather than a second hash growing up somewhere else.
+   */
+  digest: string | null;
   /** Ready to render. Null ONLY when there is no source — the card must say so, not fall silent. */
   label: string;
   empty: boolean;
@@ -79,8 +91,15 @@ function shortSize(n: number): string {
  */
 export function sourceFingerprint(sourceText?: string | null): SourceFingerprint {
   const t = typeof sourceText === 'string' ? sourceText : '';
-  if (!t.trim()) return { chars: 0, hash: null, label: 'no source', empty: true };
-  return { chars: t.length, hash: hex6(fnv1a(t)).toLowerCase(), label: 'source ' + shortSize(t.length) + ' ' + hex6(fnv1a(t)).toLowerCase(), empty: false };
+  if (!t.trim()) return { chars: 0, hash: null, digest: null, label: 'no source', empty: true };
+  const short = hex6(fnv1a(t)).toLowerCase();
+  return {
+    chars: t.length,
+    hash: short,
+    digest: createHash('sha256').update(t, 'utf8').digest('hex'),
+    label: 'source ' + shortSize(t.length) + ' ' + short,
+    empty: false,
+  };
 }
 
 /**

@@ -52,3 +52,31 @@ export const SOURCE_CANON_SYSTEM: string = [
  * model that reasons by default the reasoning is billed against this same ceiling.
  */
 export const SOURCE_CANON_MAXTOK = 32000;
+
+/**
+ * BUMP THIS WHENEVER THE EXTRACTION CHANGES — the prompt, the kinds, the quota, or the parser.
+ *
+ * It is half the cache key. V2.1's canon was extracted from a 60,000-character head slice of a
+ * 105,179-character bible: 57%, missing the entire story section and both rule-dense sections
+ * (§29 Continuity foundations, §31 Rules for keeping Jason distinctive). A canon built from that is
+ * not a smaller canon, it is a wrong one — it certifies as "ready" while the rules it exists to
+ * carry were never read. Without a version in the key, the digest alone would happily serve it
+ * again, because the SOURCE did not change; what changed is what we did with it.
+ *
+ *   1 - head slice, 60,000 chars, six structural kinds
+ *   2 - the WHOLE source, no slice
+ */
+export const CANON_EXTRACTOR_VERSION = 2;
+
+/**
+ * The most source a single extraction will accept, in characters.
+ *
+ * A HARD ERROR ABOVE THIS, NOT A MERGE. A chunk-and-merge path would run only on the largest bible
+ * in the system and nowhere else, so it would be the least exercised and most trusted code in the
+ * pipeline — and a canon silently assembled from merged fragments is exactly the failure this whole
+ * exercise is about. Refusing names the problem and leaves the choice to a person.
+ *
+ * 400,000 characters is ~125k tokens: comfortably inside the model's window, and roughly four times
+ * the largest real bible here (105,179).
+ */
+export const CANON_MAX_SOURCE_CHARS = 400000;

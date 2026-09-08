@@ -146,3 +146,41 @@ test('a name with no letters at all still yields a key', () => {
   assert.match(buildShortKey('!!! ---', 'x'), /^B-/);
   assert.match(buildShortKey('🎬', 'x'), /^B-/, 'an emoji is not a letter');
 });
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// THE DIGEST IS A KEY. `hash` IS NOT.
+//
+// The canon cache used to key on length plus three 120-character samples (head, middle, tail):
+// an edit anywhere between those points reused the old canon. `digest` is sha256 of the whole
+// document. `hash` stays six hex for the card — at that width two bibles collide roughly once in
+// sixteen million, and the consequence here is a build being served another build's canon.
+
+test('the digest changes when ANY character changes, not just the sampled ones', () => {
+  const base = 'A'.repeat(50000) + 'MIDDLE' + 'B'.repeat(50000);
+  // an edit far from head, middle and tail — exactly what the old sampled key could not see
+  const edited = base.slice(0, 25000) + 'X' + base.slice(25001);
+  assert.equal(base.length, edited.length, 'same length, so length alone cannot tell them apart');
+  assert.notEqual(sourceFingerprint(base).digest, sourceFingerprint(edited).digest,
+    'a canon extracted from one would be served for the other');
+});
+
+test('the digest is full-strength and stable', () => {
+  const f = sourceFingerprint('the whole bible');
+  assert.match(String(f.digest), /^[0-9a-f]{64}$/, 'sha256 hex: ' + f.digest);
+  assert.equal(f.digest, sourceFingerprint('the whole bible').digest, 'same input, same key');
+});
+
+test('hash stays six hex for the card, and is NOT the digest', () => {
+  const f = sourceFingerprint('x'.repeat(66128));
+  assert.match(String(f.hash), /^[0-9a-f]{6}$/);
+  assert.notEqual(f.hash, f.digest);
+  assert.match(f.label, /^source 66k [0-9a-f]{6}$/, 'the display value is unchanged');
+});
+
+test('an empty source has no digest to key on', () => {
+  for (const bad of ['', '   ', null, undefined]) {
+    const f = sourceFingerprint(bad as any);
+    assert.equal(f.digest, null, JSON.stringify(bad));
+    assert.equal(f.hash, null);
+  }
+});
