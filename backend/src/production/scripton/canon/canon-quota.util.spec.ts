@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { selectCanonByQuota, quotaSummary, quotaShortfall, DEFAULT_FLOORS, PROHIBITION_LIMIT } from './canon-quota.util';
+import { selectCanonByQuota, quotaSummary, quotaShortfall, DEFAULT_FLOORS, PROHIBITION_LIMIT, UNDROPPABLE_KINDS } from './canon-quota.util';
 import { prohibitionDirective, canonDirective } from './canon-inject.util';
 import { mapAiFactsToCore } from './canon-map.util';
 import type { CanonFactCore, CanonKind } from './canon.types';
@@ -51,7 +51,7 @@ test('a source with no structure still returns its biography — floors do not r
 test('PROHIBITIONS ARE NEVER IN THE FACT BUDGET and are never dropped for space', () => {
   const r = selectCanonByQuota([...BIOGRAPHY_FLOOD, ...many('PROHIBITION', 5)], { total: 10 });
   assert.equal(r.facts.length, 10, 'the fact budget is unchanged by them');
-  assert.equal(r.prohibitions.length, 5, 'all five rules survive a budget of ten');
+  assert.equal(r.undroppable.length, 5, 'all five rules survive a budget of ten');
   assert.equal(r.facts.filter((x) => x.kind === 'PROHIBITION').length, 0, 'and none leaked into the facts');
 });
 
@@ -62,7 +62,7 @@ test('THERE IS NO CAP ON PROHIBITIONS — 12 then 40 both moved the defect rathe
   assert.equal(PROHIBITION_LIMIT, Infinity);
   for (const n of [23, 40, 41, 200]) {
     const r = selectCanonByQuota(many('PROHIBITION', n), { total: 60 });
-    assert.equal(r.prohibitions.length, n, n + ' rules must all reach the prompt');
+    assert.equal(r.undroppable.length, n, n + ' rules must all reach the prompt');
     assert.equal(r.capBound, false);
     assert.equal(quotaShortfall(r), '');
   }
@@ -70,7 +70,7 @@ test('THERE IS NO CAP ON PROHIBITIONS — 12 then 40 both moved the defect rathe
 
 test('a caller MAY cap them, but it can never bind quietly', () => {
   const r = selectCanonByQuota(many('PROHIBITION', 23), { total: 60, prohibitionLimit: 12 });
-  assert.equal(r.prohibitions.length, 12);
+  assert.equal(r.undroppable.length, 12);
   assert.equal(r.droppedByKind.PROHIBITION, 11);
   assert.equal(r.capBound, true);
   assert.match(quotaShortfall(r), /11 of these are PROHIBITIONS/);
@@ -169,7 +169,9 @@ test('THE ACCEPTANCE TEST: the four sentences that reached nothing now survive t
   ];
   // buried under the same biography flood that starved them in the real run
   const r = selectCanonByQuota([...BIOGRAPHY_FLOOD, ...FOUR], { total: 30 });
-  const rendered = canonDirective(r.facts, { at: 0, max: 60 });
+  // ORDERING is undroppable now, so the rendered block is facts + undroppable — which is
+  // exactly what the service concatenates before injecting.
+  const rendered = canonDirective(r.facts.concat(r.undroppable), { at: 0, max: 1000 });
   for (const want of ['operational antagonist', 'permitted the exceptional routes', 'labor-trafficking', 'before the terminal climax']) {
     assert.ok(rendered.includes(want), 'MISSING FROM THE PROMPT: ' + want + ' — ' + quotaSummary(r.counts));
   }
@@ -200,4 +202,51 @@ test('the floors are the ones the categories were added for', () => {
   for (const k of ['ROLE', 'CRIME', 'CAUSATION', 'OUTCOME', 'ORDERING'] as CanonKind[]) {
     assert.ok((DEFAULT_FLOORS[k] || 0) >= 3, k + ' has no guaranteed slots, so biography can starve it again');
   }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// ORDERING AND PROHIBITION ARE UNDROPPABLE — no budget of any kind may discard them.
+//
+// The first run at a cap of 120 reported: "CANON TRUNCATED: dropped 14 (ORDERING 12 · OUTCOME 2)".
+// Reporting a loss beats hiding one, but neither of these can be thinned. A dropped prohibition
+// PERMITS the thing it forbids; a dropped ordering constraint lets the confrontation land after the
+// climax, and no later stage can tell the requirement ever existed.
+
+test('THE GUARANTEE: a tiny budget cannot drop a single ORDERING or PROHIBITION', () => {
+  const r = selectCanonByQuota(
+    [...many('CHARACTER', 200), ...many('ORDERING', 30), ...many('PROHIBITION', 92)],
+    { total: 5 },
+  );
+  assert.equal(r.undroppable.filter((x) => x.kind === 'ORDERING').length, 30, 'every ordering constraint survives');
+  assert.equal(r.undroppable.filter((x) => x.kind === 'PROHIBITION').length, 92, 'every rule survives');
+  assert.equal(r.facts.length, 5, 'only the droppable kinds feel the budget');
+  assert.equal(r.droppedByKind.ORDERING, undefined, 'and neither appears in the dropped account');
+  assert.equal(r.droppedByKind.PROHIBITION, undefined);
+});
+
+test('they are not counted against the fact budget at all', () => {
+  const withRules = selectCanonByQuota([...many('CHARACTER', 50), ...many('ORDERING', 40), ...many('PROHIBITION', 40)], { total: 50 });
+  const without = selectCanonByQuota(many('CHARACTER', 50), { total: 50 });
+  assert.equal(withRules.facts.length, without.facts.length, 'rules must not displace facts');
+  assert.equal(withRules.kept, 130);
+});
+
+test('THE REAL NUMBERS: the run that dropped 12 ORDERING facts now drops none', () => {
+  // 226 extracted, of which 92 PROHIBITION and 20 ORDERING, against the shipped keep budget.
+  const r = selectCanonByQuota([
+    ...many('PROHIBITION', 92), ...many('ORDERING', 20), ...many('CAUSATION', 21),
+    ...many('OUTCOME', 18), ...many('ROLE', 17), ...many('CHARACTER', 17), ...many('CRIME', 14),
+    ...many('PLOT', 9), ...many('RELATIONSHIP', 5), ...many('WORLD', 5), ...many('LORE', 4), ...many('TIMELINE', 2),
+  ]);
+  assert.equal(r.dropped, 0, 'a future CANON TRUNCATED is a defect, not a state: ' + quotaShortfall(r));
+  assert.equal(r.capBound, false);
+  assert.equal(r.counts.ORDERING, 20);
+  assert.equal(r.counts.PROHIBITION, 92);
+});
+
+test('an explicit prohibitionLimit still binds, and still says so', () => {
+  const r = selectCanonByQuota([...many('PROHIBITION', 92), ...many('ORDERING', 20)], { prohibitionLimit: 10 });
+  assert.equal(r.undroppable.filter((x) => x.kind === 'PROHIBITION').length, 10);
+  assert.equal(r.droppedByKind.PROHIBITION, 82, 'deliberate, and loud');
+  assert.equal(r.undroppable.filter((x) => x.kind === 'ORDERING').length, 20, 'ordering is untouched by it');
 });

@@ -2804,7 +2804,7 @@ export class ScripOnService {
       // WHERE EACH FACT CAME FROM, stored rather than inferred. A count cannot show coverage: the
       // prohibition total read 23, then 20, then 22 across identical runs of one bible while a third
       // of the facts changed underneath it. The section can.
-      const placed = locateFacts(src, picked.facts.concat(picked.prohibitions));
+      const placed = locateFacts(src, picked.facts.concat(picked.undroppable));
       const facts = placed.facts;
       // A QUOTA THAT SILENTLY TRUNCATES IS THE SAME DEFECT AS A CAP THAT DOES. Nothing may be lost
       // without a line naming what and how many — the account is also persisted on the stage version

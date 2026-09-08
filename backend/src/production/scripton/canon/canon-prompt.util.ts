@@ -67,17 +67,31 @@ export function canonSystemPrompt(cap: number = CANON_FACT_CAP): string {
  */
 export const CANON_FACT_CAP = 120;
 
+/**
+ * WHAT THE ALLOCATOR KEEPS — deliberately far above what the prompt ASKS for.
+ *
+ * These were one number, and that was the mistake behind "CANON TRUNCATED: extracted 226, kept 212".
+ * The ask and the keep are different jobs: the ask shapes what the model looks for, and a ~20%
+ * overshoot on it is normal and harmless; the keep exists only to stop a runaway response filling
+ * the record, and if it ever binds on a real document it has thinned a canon that was correctly
+ * extracted. The densest bible here produced 226 facts, of which 112 are undroppable.
+ *
+ * Any future "CANON TRUNCATED" is therefore a defect to fix, not a state to report.
+ */
+export const CANON_KEEP_BUDGET = 500;
+
 /** The shipped prompt. Built from the cap so the two cannot drift. */
 export const SOURCE_CANON_SYSTEM: string = canonSystemPrompt();
 
 /**
- * MEASURED, NOT CHOSEN. At 8,000 this call ran to its ceiling on a 66,128-character bible
- * (stop_reason=max_tokens, 8,000 output tokens) and the JSON came back cut mid-string — so the
- * whole extraction returned nothing and every stage was written with no canon. Sixty facts with
- * quoted statements is simply a larger response than the old thirty biographical ones, and on a
- * model that reasons by default the reasoning is billed against this same ceiling.
+ * PAST WHAT THE DENSEST REAL DOCUMENT PRODUCES, with room. Measured at a cap of 120 on the
+ * 105,179-character bible: out=27,752 against 32,000 — 87% of the ceiling, one denser document away
+ * from a truncated extraction. This has been the single most repeated defect of the night (SYNOPSIS
+ * at 2,400, canon at 8,000, directions at 3,000), and every instance looked like something else
+ * until the numbers were read. A ceiling should be a number nothing reaches, not a number the
+ * biggest real input brushes.
  */
-export const SOURCE_CANON_MAXTOK = 32000;
+export const SOURCE_CANON_MAXTOK = 64000;
 
 /**
  * BUMP THIS WHENEVER THE EXTRACTION CHANGES — the prompt, the kinds, the quota, or the parser.

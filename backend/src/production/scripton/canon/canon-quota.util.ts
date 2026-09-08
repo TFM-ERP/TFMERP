@@ -1,5 +1,5 @@
 import type { CanonFactCore, CanonKind } from './canon.types';
-import { CANON_FACT_CAP } from './canon-prompt.util';
+import { CANON_KEEP_BUDGET } from './canon-prompt.util';
 
 /**
  * PER-CATEGORY QUOTA — so biography cannot crowd out structure again.
@@ -51,11 +51,29 @@ export const DEFAULT_FLOORS: Partial<Record<CanonKind, number>> = {
  */
 export const PROHIBITION_LIMIT = Infinity;
 
+/**
+ * KINDS NO BUDGET MAY DISCARD — not the allocator's, not a stage's, not a ceiling's.
+ *
+ * PROHIBITION was already outside the fact budget. ORDERING joins it because the first run at a cap
+ * of 120 dropped twelve ORDERING facts and reported it: "CANON TRUNCATED: dropped 14 (ORDERING 12 ·
+ * OUTCOME 2)". Reporting a loss is better than hiding one, but neither of these is a fact that can
+ * be thinned. A dropped prohibition PERMITS the thing it forbids; a dropped ordering constraint lets
+ * the confrontation land after the climax, and no later stage can tell that the requirement existed.
+ *
+ * Both are short, both are the cheapest lines in the prompt, and both are rules rather than colour.
+ * Any future "CANON TRUNCATED" naming either of them is a defect, not a state.
+ */
+export const UNDROPPABLE_KINDS: CanonKind[] = ['PROHIBITION', 'ORDERING'];
+
 export interface QuotaResult {
   /** Facts to render as CANON, structure first so it survives any later truncation. */
   facts: CanonFactCore[];
-  /** Rules about the output. Never mixed into `facts`, never capped by default. */
-  prohibitions: CanonFactCore[];
+  /**
+   * THE UNDROPPABLE KINDS — PROHIBITION and ORDERING. Named for what it holds: it was called
+   * `prohibitions` and then ORDERING joined it, at which point the field lied about its contents and
+   * two tests read it as a prohibition count. Never mixed into `facts`, never touched by the budget.
+   */
+  undroppable: CanonFactCore[];
   /** How many came out of the model. */
   extracted: number;
   /** How many reach the prompt (facts + prohibitions). */
@@ -77,14 +95,20 @@ export function selectCanonByQuota(
   facts: CanonFactCore[],
   opts?: { total?: number; floors?: Partial<Record<CanonKind, number>>; prohibitionLimit?: number },
 ): QuotaResult {
-  const total = opts?.total ?? CANON_FACT_CAP;
+  const total = opts?.total ?? CANON_KEEP_BUDGET;
   const floors = opts?.floors ?? DEFAULT_FLOORS;
   const pLimit = opts?.prohibitionLimit ?? PROHIBITION_LIMIT;
   const all = Array.isArray(facts) ? facts.filter(Boolean) : [];
 
-  const allProhibitions = all.filter((f) => f.kind === 'PROHIBITION');
-  const prohibitions = Number.isFinite(pLimit) ? allProhibitions.slice(0, pLimit) : allProhibitions;
-  const rest = all.filter((f) => f.kind !== 'PROHIBITION');
+  // The undroppable kinds are lifted out BEFORE any budget is applied, so no arithmetic below can
+  // reach them. `prohibitionLimit` remains only so a caller can bind it deliberately and loudly.
+  const undroppable = all.filter((f) => UNDROPPABLE_KINDS.includes(f.kind));
+  const allProhibitions = undroppable.filter((f) => f.kind === 'PROHIBITION');
+  const carried = Number.isFinite(pLimit)
+    ? undroppable.filter((f) => f.kind !== 'PROHIBITION').concat(allProhibitions.slice(0, pLimit))
+    : undroppable;
+  const undroppable2 = carried;
+  const rest = all.filter((f) => !UNDROPPABLE_KINDS.includes(f.kind));
 
   const byKind = new Map<string, CanonFactCore[]>();
   for (const f of rest) { const a = byKind.get(f.kind) || []; a.push(f); byKind.set(f.kind, a); }
@@ -105,21 +129,21 @@ export function selectCanonByQuota(
 
   const counts: Record<string, number> = {};
   for (const f of out) counts[f.kind] = (counts[f.kind] || 0) + 1;
-  if (prohibitions.length) counts.PROHIBITION = prohibitions.length;
+  for (const f of undroppable2) counts[f.kind] = (counts[f.kind] || 0) + 1;
 
   // THE ACCOUNT. Every fact that did not make it is named by kind — a bare total would say that
   // something was lost without saying what, which is barely better than saying nothing.
   const droppedByKind: Record<string, number> = {};
   for (const f of rest) if (!taken.has(f)) droppedByKind[f.kind] = (droppedByKind[f.kind] || 0) + 1;
-  const pDropped = allProhibitions.length - prohibitions.length;
+  const pDropped = allProhibitions.length - undroppable2.filter((f) => f.kind === 'PROHIBITION').length;
   if (pDropped > 0) droppedByKind.PROHIBITION = pDropped;
   const dropped = Object.values(droppedByKind).reduce((a, b) => a + b, 0);
 
   return {
     facts: out,
-    prohibitions,
+    undroppable: undroppable2,
     extracted: all.length,
-    kept: out.length + prohibitions.length,
+    kept: out.length + undroppable2.length,
     counts,
     droppedByKind,
     dropped,

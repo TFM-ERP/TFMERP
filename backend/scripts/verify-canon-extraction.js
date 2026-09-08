@@ -86,7 +86,7 @@ const STRUCTURAL_CHECKS = [
 
   const picked = selectCanonByQuota(mapAiFactsToCore(loose.facts, { id: '', order: 0 }));
   // The SHIPPED locator, not a copy of it — the same code that now stores a section on every fact.
-  const placed = locateFacts(src, picked.facts.concat(picked.prohibitions));
+  const placed = locateFacts(src, picked.facts.concat(picked.undroppable));
   const all = placed.facts;
   const bio = Object.entries(picked.counts).filter(([k]) => !STRUCTURAL.includes(k)).reduce((n, [, v]) => n + v, 0);
 

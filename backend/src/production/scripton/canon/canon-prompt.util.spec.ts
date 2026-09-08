@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { canonSystemPrompt, SOURCE_CANON_SYSTEM, CANON_FACT_CAP, CANON_MAX_SOURCE_CHARS, CANON_EXTRACTOR_VERSION, SOURCE_CANON_MAXTOK } from './canon-prompt.util';
+import { canonSystemPrompt, SOURCE_CANON_SYSTEM, CANON_FACT_CAP, CANON_KEEP_BUDGET, CANON_MAX_SOURCE_CHARS, CANON_EXTRACTOR_VERSION, SOURCE_CANON_MAXTOK } from './canon-prompt.util';
 import { DEFAULT_FLOORS, selectCanonByQuota } from './canon-quota.util';
 import type { CanonFactCore, CanonKind } from './canon.types';
 
@@ -29,8 +29,14 @@ test('the prompt states the cap the allocator actually uses', () => {
   const many = (kind: CanonKind, n: number): CanonFactCore[] => Array.from({ length: n }, (_, i) => ({
     kind, subject: 'S' + i, predicate: 'p', object: 'o', statement: kind + ' ' + i, validFrom: 0, validTo: null, status: 'ACTIVE',
   }));
+  // THE KEEP MUST EXCEED THE ASK. They were one number, which is how "extracted 226, kept 212"
+  // happened: a ~20% overshoot on the ask is normal, and the budget that stores the result must
+  // never be the thing that truncates it.
+  assert.ok(CANON_KEEP_BUDGET > CANON_FACT_CAP * 2,
+    'keep ' + CANON_KEEP_BUDGET + ' must sit far above ask ' + CANON_FACT_CAP);
   const r = selectCanonByQuota(many('CHARACTER', CANON_FACT_CAP + 40));
-  assert.equal(r.facts.length, CANON_FACT_CAP, 'the allocator budgets exactly what the prompt asks for');
+  assert.equal(r.facts.length, CANON_FACT_CAP + 40, 'the ask is not a ceiling on what is kept');
+  assert.equal(r.capBound, false, 'and nothing was dropped');
 });
 
 test('THE FLOORS IN THE PROMPT ARE THE FLOORS IN THE CODE', () => {
@@ -55,9 +61,10 @@ test('the cap is 120 — A/B measured, not chosen', () => {
   assert.equal(CANON_FACT_CAP, 120);
 });
 
-test('the ceiling still clears the measured output', () => {
-  // cap=120 produced 18,604 output tokens on the real bible; the ceiling must sit above it with room.
-  assert.ok(SOURCE_CANON_MAXTOK >= 24000, 'a cap of ' + CANON_FACT_CAP + ' needs headroom: ' + SOURCE_CANON_MAXTOK);
+test('the ceiling clears the densest measured output with room', () => {
+  // Measured at cap 120 on the real bible: out=27,752. A ceiling the biggest real input brushes is
+  // the defect that broke SYNOPSIS, canon and directions tonight.
+  assert.ok(SOURCE_CANON_MAXTOK >= 27752 * 2, 'headroom over the measured 27,752: ' + SOURCE_CANON_MAXTOK);
 });
 
 test('the source bound and extractor version are stated, and the version moved when the read did', () => {
