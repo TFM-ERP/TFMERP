@@ -133,3 +133,90 @@ test('a build with no stages purges cleanly and reports zeroes', async () => {
   assert.equal(out.chars, 0);
   assert.deepEqual(db.builds.map((b) => b.id), ['B']);
 });
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// ARCHIVED IS SAFE — the promise the third state makes, and the one that must never quietly lapse.
+//
+// The sweep selects on deletedAt alone. That is only safe because the four transition writes keep
+// archivedAt and deletedAt mutually exclusive: archive clears deletedAt, delete clears archivedAt.
+// A row carrying both would be archived work with a 30-day countdown running on it, and the sweep
+// would take it without a word. These tests are what stops that shape from being reintroduced.
+
+function archiveDb() {
+  const db: { builds: any[] } = {
+    builds: [
+      { id: 'live', archivedAt: null, deletedAt: null },
+      { id: 'archived', archivedAt: new Date('2020-01-01'), deletedAt: null },   // archived long ago
+      { id: 'binned', archivedAt: null, deletedAt: new Date('2020-01-01') },     // binned long ago
+    ],
+  };
+  const prisma: any = {
+    developmentBuild: {
+      findMany: async ({ where }: any = {}) => db.builds.filter((b) => {
+        const c = where && where.deletedAt;
+        if (c && c.lt !== undefined) return !!b.deletedAt && b.deletedAt < c.lt;
+        if (c === null) return b.deletedAt === null;
+        return true;
+      }).map((b) => ({ ...b })),
+      update: async ({ where, data }: any) => {
+        const row = db.builds.find((b) => b.id === where.id);
+        Object.assign(row, data);
+        return { ...row };
+      },
+      deleteMany: async ({ where }: any) => {
+        const ids: string[] = (where && where.id && where.id.in) || [];
+        const before = db.builds.length;
+        db.builds = db.builds.filter((b) => ids.indexOf(b.id) < 0);
+        return { count: before - db.builds.length };
+      },
+    },
+    developmentStage: { findMany: async () => [], deleteMany: async () => ({ count: 0 }) },
+    stageVersion: { findMany: async () => [], deleteMany: async () => ({ count: 0 }) },
+    buildVersion: { deleteMany: async () => ({ count: 0 }) },
+  };
+  return { prisma, db };
+}
+
+test('THE PROMISE: a build archived years ago survives the 30-day sweep', async () => {
+  const { prisma, db } = archiveDb();
+  await svc(prisma).purgeExpiredBuilds();
+  assert.ok(db.builds.some((b) => b.id === 'archived'), 'archived work was swept — the state means nothing');
+  assert.ok(!db.builds.some((b) => b.id === 'binned'), 'and the binned one, long expired, WAS taken');
+  assert.ok(db.builds.some((b) => b.id === 'live'), 'the active build is untouched');
+});
+
+test('archiving from the bin leaves the countdown without returning to the active board', async () => {
+  const { prisma, db } = archiveDb();
+  await svc(prisma).archiveBuild('binned');
+  const row = db.builds.find((b) => b.id === 'binned');
+  assert.equal(row.deletedAt, null, 'the countdown is gone');
+  assert.ok(row.archivedAt instanceof Date, 'and it is archived, not active');
+  await svc(prisma).purgeExpiredBuilds();
+  assert.ok(db.builds.some((b) => b.id === 'binned'), 'the rescue holds against the sweep');
+});
+
+test('NEVER BOTH: every transition clears the state it is leaving', async () => {
+  const { prisma, db } = archiveDb();
+  const row = () => db.builds.find((b) => b.id === 'live');
+  const s = svc(prisma);
+  await s.archiveBuild('live');
+  assert.equal(row().deletedAt, null);
+  await s.deleteBuild('live');
+  assert.equal(row().archivedAt, null, 'binning an archived build must clear archivedAt');
+  assert.ok(row().deletedAt instanceof Date);
+  await s.restoreBuild('live');
+  assert.equal(row().archivedAt, null);
+  assert.equal(row().deletedAt, null, 'restore returns it to active — both null');
+  await s.archiveBuild('live');
+  await s.unarchiveBuild('live');
+  assert.equal(row().archivedAt, null, 'unarchive returns it to active');
+  assert.equal(row().deletedAt, null);
+  for (const b of db.builds) assert.ok(!(b.archivedAt && b.deletedAt), 'no row may ever carry both');
+});
+
+test('an archived build is never a purge candidate, whatever its age', async () => {
+  const { prisma, db } = archiveDb();
+  db.builds.push({ id: 'ancient', archivedAt: new Date('1999-01-01'), deletedAt: null });
+  await svc(prisma).purgeExpiredBuilds();
+  assert.ok(db.builds.some((b) => b.id === 'ancient'), 'age is irrelevant — archived has no expiry');
+});

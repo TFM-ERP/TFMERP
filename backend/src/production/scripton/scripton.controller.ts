@@ -96,7 +96,7 @@ export class ScripOnController {
   @Get('workspace') workspace() { return this.service.scriptonWorkspaceView(); }
   @Get('settings') scriptonSettings(@Query('projectId') projectId?: string) { return this.service.getScriptonSettings(projectId || ''); }
   @Patch('settings') @RequirePermission('production', 2) saveScriptonSettings(@Body() body: any) { return this.service.saveScriptonSettings(body || {}); }
-  @Get('builds') buildsList(@Query('projectId') projectId?: string, @Query('bin') bin?: string) { return this.service.listBuilds(projectId, bin === '1' || bin === 'true'); }
+  @Get('builds') buildsList(@Query('projectId') projectId?: string, @Query('bin') bin?: string, @Query('view') view?: string) { return this.service.listBuilds(projectId, bin === '1' || bin === 'true', view); }
   @Post('builds') @RequirePermission('production', 2) buildCreate(@Body() body: any) { return this.service.createBuild(body || {}); }
   // A build is addressed by its ID — not by listing a project and searching. See getBuild().
   @Get('builds/:id') buildOne(@Param('id') id: string) { return this.service.getBuild(id); }
@@ -104,6 +104,11 @@ export class ScripOnController {
   @Post('builds/:id/status') @RequirePermission('production', 2) buildStatus(@Param('id') id: string, @Body() body: any) { return this.service.setBuildStatus(id, body?.status); }
   @Post('builds/:id/delete') @RequirePermission('production', 2) buildDelete(@Param('id') id: string) { return this.service.deleteBuild(id); }
   @Post('builds/:id/restore') @RequirePermission('production', 2) buildRestore(@Param('id') id: string) { return this.service.restoreBuild(id); }
+  // ARCHIVE IS NOT DELETION and is not permissioned like it. It destroys nothing, has no countdown
+  // and no sweep behind it — it is the state that exists so a build never has to be binned merely
+  // to get it off the board. Level 2, beside rename and status, not beside delete.
+  @Post('builds/:id/archive') @RequirePermission('production', 2) buildArchive(@Param('id') id: string) { return this.service.archiveBuild(id); }
+  @Post('builds/:id/unarchive') @RequirePermission('production', 2) buildUnarchive(@Param('id') id: string) { return this.service.unarchiveBuild(id); }
   // LEVEL 3. "Delete forever" now genuinely deletes forever: purgeBuildsCascade takes the stages,
   // the stage versions and every draft written into them. It has no 30-day wait in front of it and
   // no audit record behind it, so it sits with the other unrecoverable routes rather than beside

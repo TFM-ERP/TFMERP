@@ -4650,18 +4650,24 @@ export class ScripOnService {
    * select, so every row carried its whole brief — 66 KB of screenplay source per build, 100 builds
    * a page, to render a name and a status. The panel reads six fields and never touched it.
    */
-  async listBuilds(projectId?: string, bin?: boolean) {
+  async listBuilds(projectId?: string, bin?: boolean, view?: string) {
+    // THREE STATES, NOT TWO. `bin` stays in the signature so every existing caller keeps working;
+    // `view` is what the board sends now. Active means BOTH null — an archived build is not on the
+    // active board and is not in the bin, which is the whole point of the state.
+    const v = String(view || (bin ? 'bin' : 'active')).toLowerCase();
     // NO SWEEP HERE. This used to call purgeExpiredBuilds() — a hard deleteMany — so merely LISTING
     // the builds page permanently destroyed data, with no confirmation, no undo, and no way for a
     // reader to know it had happened. A GET must not delete. The sweep is now an explicit action
     // (POST builds/purge-expired); raising the 30-day window would have left that shape intact.
     const where: any = projectId ? { OR: [{ projectId }, { linkedProjectId: projectId }] } : {};
-    where.deletedAt = bin ? { not: null } : null;
+    if (v === 'bin') { where.deletedAt = { not: null }; }
+    else if (v === 'archived') { where.deletedAt = null; where.archivedAt = { not: null }; }
+    else { where.deletedAt = null; where.archivedAt = null; }
     const rows: any[] = await (this.prisma as any).developmentBuild.findMany({
       // NOTE: this orderBy only decides WHICH 100 rows come back; the board's order is set below,
       // on real activity. At 18 builds the window is not binding — revisit if it ever is.
-      where, orderBy: bin ? { deletedAt: 'desc' } : { updatedAt: 'desc' }, take: 100,
-      select: { id: true, name: true, status: true, createdAt: true, updatedAt: true, deletedAt: true,
+      where, orderBy: v === 'bin' ? { deletedAt: 'desc' } : v === 'archived' ? { archivedAt: 'desc' } : { updatedAt: 'desc' }, take: 100,
+      select: { id: true, name: true, status: true, createdAt: true, updatedAt: true, deletedAt: true, archivedAt: true,
         projectId: true, linkedProjectId: true, linkedScriptId: true, promotedVersionId: true,
         activeVersionId: true, brief: true },
     }).catch(() => []);
@@ -4678,7 +4684,7 @@ export class ScripOnService {
     // The active board orders on when the writing was last touched; see ladderProgress. A build that
     // has never been written to has no work to date, so it falls back to its own creation — never to
     // updatedAt, which is the column that let a migration outrank the writer.
-    if (bin) return cards;
+    if (v === 'bin') return cards;
     const activityOf = (c: any) => new Date(c.lastWorkedAt || c.createdAt || 0).getTime() || 0;
     return cards.sort((a, b) => activityOf(b) - activityOf(a));
   }
@@ -4695,7 +4701,7 @@ export class ScripOnService {
   async getBuild(id: string) {
     const r: any = await (this.prisma as any).developmentBuild.findUnique({
       where: { id: String(id) },
-      select: { id: true, name: true, status: true, createdAt: true, updatedAt: true, deletedAt: true,
+      select: { id: true, name: true, status: true, createdAt: true, updatedAt: true, deletedAt: true, archivedAt: true,
         projectId: true, linkedProjectId: true, linkedScriptId: true, promotedVersionId: true,
         activeVersionId: true, brief: true },
     }).catch(() => null);
@@ -4837,7 +4843,18 @@ export class ScripOnService {
     return out;
   }
 
-  /** The 30-day sweep. An EXPLICIT action now — never a side effect of reading the list. */
+  /**
+   * The 30-day sweep. An EXPLICIT action — never a side effect of reading the list.
+   *
+   * IT SELECTS ON deletedAt ALONE, and that is deliberate: an archived build has deletedAt null, so
+   * it is not a candidate and cannot become one. The exclusivity is held by the four transition
+   * writes above, not by a second clause here. purge-cascade.spec.ts archives a build, runs this,
+   * and asserts it survives — because "archived is safe" is the promise the state makes.
+   *
+   * NOT SCHEDULED. Nothing calls this on a timer, and it must stay that way until the bin has been
+   * triaged: re-arming the countdown first would start a 30-day clock on work that predates the
+   * archive feature and gave him no chance to move it out.
+   */
   async purgeExpiredBuilds() {
     const cutoff = new Date(Date.now() - 30 * 86400000);
     const due: any[] = await (this.prisma as any).developmentBuild.findMany({ where: { deletedAt: { lt: cutoff } }, select: { id: true } }).catch(() => []);
@@ -4892,12 +4909,32 @@ export class ScripOnService {
     if (['DRAFT', 'REVIEW', 'GREENLIT', 'PROMOTED'].indexOf(st) < 0) throw new BadRequestException('Invalid build status.');
     return (this.prisma as any).developmentBuild.update({ where: { id }, data: { status: st } });
   }
+  /**
+   * ARCHIVED, BINNED AND ACTIVE ARE MUTUALLY EXCLUSIVE, and these four writes are why.
+   *
+   * Each transition sets one column and clears the other, so "never both" is a property of the code
+   * rather than a rule someone has to remember — which matters because the 30-day sweep selects on
+   * deletedAt alone. A row carrying both would be archived work with a countdown running on it.
+   *
+   * Archive is also the bin's rescue door: archiving something from the bin clears deletedAt, so it
+   * leaves the countdown without going back onto the active board.
+   */
   async deleteBuild(id: string) {
-    await (this.prisma as any).developmentBuild.update({ where: { id }, data: { deletedAt: new Date() } }).catch(() => {});
+    await (this.prisma as any).developmentBuild.update({ where: { id }, data: { deletedAt: new Date(), archivedAt: null } }).catch(() => {});
     return { ok: true };
   }
   async restoreBuild(id: string) {
-    await (this.prisma as any).developmentBuild.update({ where: { id }, data: { deletedAt: null } }).catch(() => {});
+    await (this.prisma as any).developmentBuild.update({ where: { id }, data: { deletedAt: null, archivedAt: null } }).catch(() => {});
+    return { ok: true };
+  }
+  /** Indefinite. No countdown, no sweep, no expiry — the state that exists so nothing has to be
+   *  deleted to get it off the board. */
+  async archiveBuild(id: string) {
+    await (this.prisma as any).developmentBuild.update({ where: { id }, data: { archivedAt: new Date(), deletedAt: null } }).catch(() => {});
+    return { ok: true };
+  }
+  async unarchiveBuild(id: string) {
+    await (this.prisma as any).developmentBuild.update({ where: { id }, data: { archivedAt: null } }).catch(() => {});
     return { ok: true };
   }
   /** "Delete forever". Same cascade as the sweep — the two doors must agree, and this one has no

@@ -32,6 +32,9 @@ const CSS = `
 .bld .warn{border:1px solid rgba(229,99,95,.5);background:rgba(229,99,95,.08);border-radius:12px;padding:13px 15px;display:flex;flex-direction:column;gap:5px}
 .bld .warnt{font-size:13px;font-weight:700;color:#e5635f}
 .bld .warns{font-size:11.5px;color:var(--mute);line-height:1.55}
+.bld .seg{margin-inline-start:auto;display:inline-flex;background:#15181e;border:1px solid var(--hair);border-radius:9px;padding:3px;gap:2px}
+.bld .segb{font-size:12px;font-weight:600;padding:5px 12px;border-radius:7px;cursor:pointer;color:var(--mute);white-space:nowrap}
+.bld .segb.on{color:var(--gold2);background:rgba(198,164,99,.16)}
 .bld .grid{display:grid;grid-template-columns:repeat(3,1fr);grid-auto-rows:max-content;gap:16px;align-content:start}
 /* WHY grid-auto-rows:max-content, MEASURED — do not drop it back to plain auto rows.
    Every implicit row was resolving to .bc's min-height floor (180px on the live board, 214.925px in
@@ -116,7 +119,12 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
   const [destProj, setDestProj] = useState('');
   const [newName, setNewName] = useState('');
   const [toast, setToast] = useState<string | null>(null);
-  const [bin, setBin] = useState(false);
+  // THREE STATES, NOT TWO. `view` is the state; `bin` derives from it so every existing reference
+  // keeps its meaning. Archive is the door that stops a build having to be BINNED — with a 30-day
+  // countdown on it — merely to get it off the active board.
+  const [view, setView] = useState<'active' | 'archived' | 'bin'>('active');
+  const bin = view === 'bin';
+  const archived = view === 'archived';
   const [confirm, setConfirm] = useState<any | null>(null);
   const [briefView, setBriefView] = useState<any | null>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'failed'>('loading');
@@ -131,7 +139,7 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
     if (!name || name === String(b.name || '')) return;
     try { await productionApi.scripton.development.renameBuild(b.id, name.slice(0, 120)); flash(t('Renamed.')); }
     catch { flash(t('Could not rename this build.')); }
-    await load(projectId || '', bin);
+    await load(projectId || '', view);
   };
   // A LOAD THAT NEVER ANSWERS MUST STILL SAY SO. Without this a hung request looks identical to a
   // slow one, forever — which is precisely how a skeleton board survived a whole evening.
@@ -178,7 +186,8 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
    * querying with an empty projectId (which the server reads as "every build in the system") and
    * waiting for a prop that is never coming.
    */
-  const load = async (pid: string, b = false) => {
+  const load = async (pid: string, v: 'active' | 'archived' | 'bin' | boolean = 'active') => {
+    const vw: 'active' | 'archived' | 'bin' = v === true ? 'bin' : v === false ? 'active' : v;
     const token = ++reqRef.current;
     const live = () => mountedRef.current && token === reqRef.current;
     if (mountedRef.current) { setState('loading'); }
@@ -186,7 +195,7 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
     try {
       const wsid = pid || (await resolveScriptonProjectId()) || '';
       if (!wsid) { if (live()) setBuilds([]); ok = true; return; }
-      const r: any = await productionApi.scripton.development.listBuilds(wsid, b);
+      const r: any = await productionApi.scripton.development.listBuilds(wsid, vw === 'bin', vw);
       if (!live()) return;
       setBuilds(Array.isArray(r.data) ? r.data : []);
       ok = true;
@@ -195,15 +204,17 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
   };
   const daysLeft = (d?: string) => { if (!d) return 30; const ms = new Date(d).getTime() + 30 * 86400000 - Date.now(); return Math.max(0, Math.ceil(ms / 86400000)); };
   const isDemo = (b: any) => /^b\d$/.test(String(b && b.id));
-  const switchBin = (v: boolean) => { setBin(v); setFilter('All'); if (projectId) load(projectId, v); };
-  const doRestore = async (b: any) => { if (isDemo(b)) { flash(t('Demo build.')); return; } try { await productionApi.scripton.development.restoreBuild(b.id); flash(t('Restored.')); if (projectId) await load(projectId, true); } catch { flash(t('Could not restore.')); } };
-  const doConfirm = async () => { const b = confirm.b; const kind = confirm.kind; setConfirm(null); if (isDemo(b)) { flash(t('Demo build - connect a project.')); return; } try { if (kind === 'purge') { const r: any = await productionApi.scripton.development.purgeBuild(b.id); const d = r?.data?.purged || r?.purged; flash(d && d.chars ? (t('Deleted forever') + ' — ' + d.stageVersions + ' ' + t('draft(s)') + ', ' + Number(d.chars).toLocaleString() + ' ' + t('characters of writing.')) : t('Deleted forever.')); } else { await productionApi.scripton.development.deleteBuild(b.id); flash(t('Moved to bin.')); } if (projectId) await load(projectId, bin); } catch { flash(t('Action failed.')); } };
+  const switchView = (v: 'active' | 'archived' | 'bin') => { setView(v); setFilter('All'); if (projectId) load(projectId, v); };
+  const doArchive = async (b: any) => { if (isDemo(b)) { flash(t('Demo build.')); return; } try { await productionApi.scripton.development.archiveBuild(b.id); flash(t('Archived — kept indefinitely, with no countdown.')); if (projectId) await load(projectId, view); } catch { flash(t('Could not archive.')); } };
+  const doUnarchive = async (b: any) => { if (isDemo(b)) { flash(t('Demo build.')); return; } try { await productionApi.scripton.development.unarchiveBuild(b.id); flash(t('Back on the active board.')); if (projectId) await load(projectId, view); } catch { flash(t('Could not unarchive.')); } };
+  const doRestore = async (b: any) => { if (isDemo(b)) { flash(t('Demo build.')); return; } try { await productionApi.scripton.development.restoreBuild(b.id); flash(t('Restored.')); if (projectId) await load(projectId, view); } catch { flash(t('Could not restore.')); } };
+  const doConfirm = async () => { const b = confirm.b; const kind = confirm.kind; setConfirm(null); if (isDemo(b)) { flash(t('Demo build - connect a project.')); return; } try { if (kind === 'purge') { const r: any = await productionApi.scripton.development.purgeBuild(b.id); const d = r?.data?.purged || r?.purged; flash(d && d.chars ? (t('Deleted forever') + ' — ' + d.stageVersions + ' ' + t('draft(s)') + ', ' + Number(d.chars).toLocaleString() + ' ' + t('characters of writing.')) : t('Deleted forever.')); } else { await productionApi.scripton.development.deleteBuild(b.id); flash(t('Moved to bin.')); } if (projectId) await load(projectId, view); } catch { flash(t('Action failed.')); } };
   useEffect(() => {
     let alive = true;
     (async () => {
       try { const pr: any = await productionApi.projects.list(); const ps = pr.data?.items ?? (Array.isArray(pr.data) ? pr.data : []); if (alive) setProjects(ps); } catch { /* */ }
       if (projectId) setDestProj(projectId);
-      await load(projectId || '', false);   // load resolves the ScripON workspace when there is no projectId
+      await load(projectId || '', 'active');   // load resolves the ScripON workspace when there is no projectId
     })();
     return () => { alive = false; };
   }, [projectId]);
@@ -262,7 +273,7 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
   }, [integrity ? JSON.stringify(integrity) : '']);
 
   const sections: { key: string; header: string; note?: string; items: any[]; showAdd?: boolean }[] =
-    bin ? [{ key: 'bin', header: '', items: shown }]
+    view !== 'active' ? [{ key: view, header: '', items: shown }]
       : !recovered.length ? [{ key: 'recent', header: '', items: recent, showAdd: true }]
         : [
           { key: 'recent', header: t('Recent'), note: t('ordered by when you last wrote in them'), items: recent, showAdd: true },
@@ -271,7 +282,7 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
 
   const openBuild = (id: string) => { if (typeof window !== 'undefined') window.location.assign('/scripton/studio?build=' + id); };
   const openScript = (docId: string) => { if (docId && typeof window !== 'undefined') window.location.assign('/scripton/script?doc=' + docId); };
-  const cycleStatus = async (b: any) => { if (isDemo(b)) { flash(t('Demo build - connect a project to manage status.')); return; } const order = ['DRAFT', 'REVIEW', 'GREENLIT']; const cur = String(b.status || 'DRAFT').toUpperCase(); const next = order[(order.indexOf(cur) + 1) % order.length]; try { await productionApi.scripton.development.setBuildStatus(b.id, next); flash(t('Status') + ' \u2192 ' + next.charAt(0) + next.slice(1).toLowerCase()); if (projectId) await load(projectId, bin); } catch { flash(t('Could not update status.')); } };
+  const cycleStatus = async (b: any) => { if (isDemo(b)) { flash(t('Demo build - connect a project to manage status.')); return; } const order = ['DRAFT', 'REVIEW', 'GREENLIT']; const cur = String(b.status || 'DRAFT').toUpperCase(); const next = order[(order.indexOf(cur) + 1) % order.length]; try { await productionApi.scripton.development.setBuildStatus(b.id, next); flash(t('Status') + ' \u2192 ' + next.charAt(0) + next.slice(1).toLowerCase()); if (projectId) await load(projectId, view); } catch { flash(t('Could not update status.')); } };
   const openModal = (b: any) => { setModal(b); setTarget('existing'); setNewName(b.name + ' (project)'); };
 
   const resolveVersion = async (): Promise<string | null> => {
@@ -343,11 +354,23 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
                     {bin ? (<>
                       <span className="when" style={{ marginRight: 'auto' }}>{daysLeft(b.deletedAt)}{t('d left in bin')}</span>
                       <span className="mini gold" onClick={() => doRestore(b)}>↩ {t('Restore')}</span>
+                      {/* Rescue WITHOUT returning it to the active board — archiving from the bin
+                          clears the countdown and leaves it out of the way. */}
+                      <span className="mini" onClick={() => doArchive(b)} title={t('Keep it indefinitely, off the active board and out of the bin')}><svg className="ico" viewBox="0 0 24 24"><path d="M3 7h18v13H3zM3 7l2-4h14l2 4M9 12h6" /></svg>{t('Archive')}</span>
                       <span className="mini" onClick={() => setConfirm({ kind: 'purge', b })} style={{ color: '#e5635f', borderColor: 'rgba(229,99,95,.4)' }}>{t('Delete forever')}</span>
+                    </>) : archived ? (<>
+                      {/* NO COUNTDOWN — there isn't one. Archived is indefinite. */}
+                      <span className="mini" onClick={() => openBuild(b.id)}><svg className="ico" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" /></svg>{t('Open')}</span>
+                      <span className="mini gold" onClick={() => doUnarchive(b)} title={t('Put it back on the active board')}>↩ {t('Unarchive')}</span>
+                      <span className="mini" title={t('Move to bin')} onClick={() => setConfirm({ kind: 'delete', b })} style={{ marginLeft: 'auto', color: '#e5635f', borderColor: 'rgba(229,99,95,.4)' }}>✖ {t('Delete')}</span>
                     </>) : (<>
                       {(st === 'PROMOTED' || b.linkedScriptId) ? (<>{b.linkedScriptId ? (<span className="mini gold" onClick={() => openScript(b.linkedScriptId)} title={t('Open the promoted script')}><svg className="ico" viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z" /></svg>{t('Open script')}</span>) : null}<span className="mini" onClick={() => openBuild(b.id)} title={t('Open Develop \u2014 refine or re-send to production')}><svg className="ico" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" /></svg>{t('Develop')}</span></>) : (<><span className="mini" onClick={() => openBuild(b.id)}><svg className="ico" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" /></svg>{t('Open')}</span>{(st === 'GREENLIT' || st === 'REVIEW') ? (<span className="mini gold" onClick={() => openModal(b)}><svg className="ico" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14" /></svg>{t('Promote to project')}</span>) : null}</>)}
                       <span className="mini" onClick={() => setBriefView(b)} title={t('View saved settings (read-only)')}><svg className="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" /><path d="M19.4 13a7 7 0 000-2l2-1.5-2-3.4-2.3 1a7 7 0 00-1.7-1L15 3h-4l-.4 2.6a7 7 0 00-1.7 1l-2.3-1-2 3.4L6.6 11a7 7 0 000 2l-2 1.5 2 3.4 2.3-1a7 7 0 001.7 1L11 21h4l.4-2.6a7 7 0 001.7-1l2.3 1 2-3.4z" /></svg>{t('Settings')}</span>
-                      <span className="mini" title={t('Move to bin')} onClick={() => setConfirm({ kind: 'delete', b })} style={{ marginLeft: 'auto', color: '#e5635f', borderColor: 'rgba(229,99,95,.4)' }}>✖</span>
+                      {/* TWO ACTIONS WHERE THERE WAS ONE. Archive is neutral and destroys nothing;
+                          Delete is red and starts a 30-day countdown. A single ✖ meaning both is how
+                          work ends up in the bin only because there was nowhere else to put it. */}
+                      <span className="mini" style={{ marginInlineStart: 'auto' }} onClick={() => doArchive(b)} title={t('Keep indefinitely, off the board. No countdown, never swept.')}><svg className="ico" viewBox="0 0 24 24"><path d="M3 7h18v13H3zM3 7l2-4h14l2 4M9 12h6" /></svg>{t('Archive')}</span>
+                      <span className="mini" title={t('Move to bin — deleted after 30 days')} onClick={() => setConfirm({ kind: 'delete', b })} style={{ color: '#e5635f', borderColor: 'rgba(229,99,95,.4)' }}>✖ {t('Delete')}</span>
                     </>)}
                   </div>
                 </div>
@@ -362,7 +385,7 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
         <div className="body">
           <div className="main">
             <div className="phead"><h1>{t('Builds')}</h1><div className="sub">{t('Name, save and switch development builds. Open loads a build into Studio; promote a finished build into a project.')}</div></div>
-            <div className="tbar">{(bin ? [] : ['All', 'Draft', 'Review', 'Greenlit', 'Promoted']).map((c) => (<span key={c} className={'chip' + (filter === c ? ' on' : '')} onClick={() => setFilter(c)}>{t(c)}</span>))}<span style={{ marginLeft: 'auto', display: 'inline-flex', background: '#15181e', border: '1px solid var(--hair)', borderRadius: 9, padding: 3, gap: 2 }}><span onClick={() => switchBin(false)} style={{ fontSize: 12, fontWeight: 600, padding: '5px 12px', borderRadius: 7, cursor: 'pointer', color: !bin ? 'var(--gold2)' : 'var(--mute)', background: !bin ? 'rgba(198,164,99,.16)' : 'transparent' }}>{t('Active')}</span><span onClick={() => switchBin(true)} style={{ fontSize: 12, fontWeight: 600, padding: '5px 12px', borderRadius: 7, cursor: 'pointer', color: bin ? 'var(--gold2)' : 'var(--mute)', background: bin ? 'rgba(198,164,99,.16)' : 'transparent' }}>✖ {t('Bin')}</span></span></div>
+            <div className="tbar">{(bin ? [] : ['All', 'Draft', 'Review', 'Greenlit', 'Promoted']).map((c) => (<span key={c} className={'chip' + (filter === c ? ' on' : '')} onClick={() => setFilter(c)}>{t(c)}</span>))}<span className="seg">{([['active', t('Active')], ['archived', '▤ ' + t('Archived')], ['bin', '✖ ' + t('Bin')]] as const).map(([v, label]) => (<span key={v} className={'segb' + (view === v ? ' on' : '')} onClick={() => switchView(v as any)}>{label}</span>))}</span></div>
             <div className="sections">
               {/* A state grid, and ONLY when there is a state. Left unconditional by the sections
                   change, this rendered an empty <div class="grid"> above every populated board. */}
@@ -378,13 +401,13 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
                 <div className="bc empty" style={{ borderColor: 'rgba(229,99,95,.5)' }}>
                   <div className="nm" style={{ color: '#e5635f' }}>{t('Could not load your builds.')}</div>
                   <div className="ident">{t('Nothing was deleted — this is a loading failure, not an empty board.')}</div>
-                  <div className="ft"><span className="mini gold" onClick={() => load(projectId || '', bin)}>{t('Retry')}</span></div>
+                  <div className="ft"><span className="mini gold" onClick={() => load(projectId || '', view)}>{t('Retry')}</span></div>
                 </div>
               ) : null}
               {isEmpty ? (
                 <div className="bc empty">
-                  <div className="nm">{bin ? t('The bin is empty.') : t('No builds yet.')}</div>
-                  <div className="ident">{bin ? t('Deleted builds appear here for 30 days.') : t('Start one with New build — it will appear here.')}</div>
+                  <div className="nm">{bin ? t('The bin is empty.') : archived ? t('Nothing archived yet.') : t('No builds yet.')}</div>
+                  <div className="ident">{bin ? t('Deleted builds appear here for 30 days.') : archived ? t('Archive a build to keep it indefinitely without binning it — no countdown, never swept.') : t('Start one with New build — it will appear here.')}</div>
                 </div>
               ) : null}
               </div>
@@ -407,7 +430,7 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
                   {sec.header ? (<div className="secth"><span className="sectt">{sec.header}</span><span className="sectn" title={sec.items.map((b: any) => (String(b.name || '(unnamed)') + ' — ' + (b.lastWorkedAt ? new Date(b.lastWorkedAt).toISOString().slice(0, 10) : t('never written')))).join(String.fromCharCode(10))}>{sec.items.length}</span>{sec.note ? <span className="sects">{sec.note}</span> : null}</div>) : null}
                   <div className="grid">
                     {sec.items.map(renderCard)}
-                    {sec.showAdd && !bin ? <div className="add" onClick={onNewBuild || onClose}><svg className="ico" viewBox="0 0 24 24" style={{ width: 22, height: 22 }}><path d="M12 5v14M5 12h14" /></svg><div style={{ fontWeight: 600 }}>{t('New build')}</div></div> : null}
+                    {sec.showAdd && view === 'active' ? <div className="add" onClick={onNewBuild || onClose}><svg className="ico" viewBox="0 0 24 24" style={{ width: 22, height: 22 }}><path d="M12 5v14M5 12h14" /></svg><div style={{ fontWeight: 600 }}>{t('New build')}</div></div> : null}
                   </div>
                 </div>
               ))}

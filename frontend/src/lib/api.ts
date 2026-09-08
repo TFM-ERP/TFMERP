@@ -534,7 +534,7 @@ export const productionApi = {
       //   with no projectId on purpose, so old master scripts and new builds share one pool).
       // That makes the slate the only screen where two builds of the same name from different
       // projects coexist — which is why slate identity matters more than the panel's.
-      listBuilds: (projectId?: string, bin?: boolean) => api.get('/production/scripton/builds?' + (projectId ? ('projectId=' + projectId) : '') + (bin ? '&bin=1' : '')),
+      listBuilds: (projectId?: string, bin?: boolean, view?: string) => api.get('/production/scripton/builds?' + (projectId ? ('projectId=' + projectId) : '') + (bin ? '&bin=1' : '') + (view ? ('&view=' + view) : '')),
       // One build by id, whatever project it lives in. Do not resolve a build by listing and searching.
       getBuild: (id: string) => api.get('/production/scripton/builds/' + encodeURIComponent(id)),
       createBuild: (body: any = {}) => api.post('/production/scripton/builds', body),
@@ -542,6 +542,8 @@ export const productionApi = {
       setBuildStatus: (id: string, status: string) => api.post('/production/scripton/builds/' + id + '/status', { status }),
       deleteBuild: (id: string) => api.post('/production/scripton/builds/' + id + '/delete', {}),
       restoreBuild: (id: string) => api.post('/production/scripton/builds/' + id + '/restore', {}),
+      archiveBuild: (id: string) => api.post('/production/scripton/builds/' + id + '/archive', {}),
+      unarchiveBuild: (id: string) => api.post('/production/scripton/builds/' + id + '/unarchive', {}),
       purgeBuild: (id: string) => api.post('/production/scripton/builds/' + id + '/purge', {}),
       resetStage: (stageId: string, cascade = false) => api.post('/production/scripton/development/stage/' + stageId + '/reset', { cascade }),
       promoteBuild: (versionId: string, body: any = {}) => api.post('/production/scripton/development/version/' + versionId + '/promote-build', body),

@@ -8896,10 +8896,15 @@ model DevelopmentBuild {
   characterBible    Json?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
+  // THREE STATES, NOT TWO: active (both null), archived, binned. Never both — archive clears
+  // deletedAt and delete clears archivedAt, so the exclusivity is a property of the writes rather
+  // than a rule someone has to remember. Archived lives indefinitely; no sweep ever sees it.
+  archivedAt        DateTime?
   deletedAt         DateTime?
   @@index([projectId])
   @@index([linkedProjectId])
   @@index([deletedAt])
+  @@index([archivedAt])
   @@map("development_builds")
 }
 
