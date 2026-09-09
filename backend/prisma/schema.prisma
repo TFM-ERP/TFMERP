@@ -8638,6 +8638,12 @@ model AiRun {
   provider     String? // anthropic | deepseek | gemini | openrouter | local (which engine served this call)
   model        String
   status       String   @default("RUNNING")
+  // EVERY CEILING DEFECT TONIGHT WAS INFERRED FROM outputTokens == maxTokens: SYNOPSIS at 2,400,
+  // canon at 8,000, directions at 3,000. That inference works and should not have to be made -
+  // stop_reason says it outright, and without maxTokens beside it the comparison cannot be made at
+  // all from the ledger.
+  stopReason   String?
+  maxTokens    Int?
   projectId    String?
   refType      String?
   refId        String?
@@ -8899,6 +8905,14 @@ model DevelopmentBuild {
   // THREE STATES, NOT TWO: active (both null), archived, binned. Never both — archive clears
   // deletedAt and delete clears archivedAt, so the exclusivity is a property of the writes rather
   // than a rule someone has to remember. Archived lives indefinitely; no sweep ever sees it.
+  // CANON, AS AN EXPLICIT BUILD-LEVEL STEP. Extraction used to run inline inside generateStage, so
+  // the first stage of a 105,179-character build waited on it and a failure surfaced as a missing
+  // stage rather than as a missing canon. NULL means LEGACY - a build created before this column,
+  // never extracted. It is deliberately not 'pending': a default of 'pending' plus a strict gate
+  // would have locked all 22 existing builds out of generation with one migration.
+  canonState        String?   // null = legacy (extract on demand) | pending | running | ready | failed
+  canonError        String?
+  canonAt           DateTime?
   archivedAt        DateTime?
   deletedAt         DateTime?
   @@index([projectId])
