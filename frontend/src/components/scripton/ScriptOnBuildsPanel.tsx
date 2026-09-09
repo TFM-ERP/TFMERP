@@ -365,6 +365,19 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
                       stages of work or ten, a second and less accurate copy of the status chip above.
                       They now show how far the ladder actually got, and say so in words. */}
                   <div className="ladder">{Array.from({ length: Math.max(1, b.ladder?.total || 8) }).map((_, i) => (<span key={i} className={'d' + (i < (b.ladder?.done ?? dots) ? ' on' : '')} />))}</div>
+                  {/* THE CANON STEP, BESIDE THE LADDER. Every stage is written against it, so a build
+                      whose canon is missing or failed cannot generate — and a card that shows only a
+                      ladder makes that build look ready. null is LEGACY, not broken: those predate the
+                      step and extract on first use. */}
+                  {b.canon && b.canon.state && b.canon.state !== 'ready' ? (
+                    <div className="ident" style={{ marginTop: 0 }}>
+                      <span style={{ color: b.canon.state === 'failed' ? '#e5635f' : 'var(--gold2)', fontWeight: 700 }}>
+                        {b.canon.state === 'failed' ? t('Canon failed') : b.canon.state === 'running' ? t('Canon extracting…') : t('Canon queued')}
+                      </span>
+                      <span className="sep">·</span>
+                      <span>{b.canon.state === 'failed' ? String(b.canon.error || t('no reason recorded')).slice(0, 90) : t('stages cannot be written until it is ready')}</span>
+                    </div>
+                  ) : null}
                   <div className="ident" style={{ marginTop: 0 }}>{b.ladder && b.ladder.total
                     ? (b.ladder.done ? (stageLabel(b.ladder.furthest) + ' · ' + t('stage') + ' ' + b.ladder.done + ' ' + t('of') + ' ' + b.ladder.total) : t('Not started'))
                     : ''}</div>

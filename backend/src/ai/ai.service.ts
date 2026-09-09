@@ -86,7 +86,9 @@ export class AiService {
         const started = Date.now();
         try {
           const r = await callProvider({ provider: plan.provider, model, apiKey: plan.apiKey, baseUrl: plan.baseUrl, system: opts.system, user: opts.user, cachePrefix: opts.cachePrefix, maxTokens: opts.maxTokens, temperature: opts.temperature, timeoutMs: opts.timeoutMs, idleTimeoutMs: opts.idleTimeoutMs, stream: wantStream, effort: opts.effort });
-          await this.finish(runId, r.usage, r.text, Date.now() - started);
+          // stop_reason and the ceiling it was given, together — every ceiling defect tonight was
+          // inferred from outputTokens == maxTokens, and neither number was in the ledger.
+          await this.finish(runId, r.usage, r.text, Date.now() - started, { stopReason: r.stopReason, maxTokens: opts.maxTokens ?? null });
           // CACHING IS VERIFIED, NOT ASSUMED. A prefix below the model's minimum cacheable length
           // (512 tokens on Opus 5) is simply not cached — no error, no warning, and a bill that
           // looks exactly like a cache that is working. The first call of a run legitimately shows
@@ -191,7 +193,7 @@ export class AiService {
     const data = await this.post(body, runId, opts.beta, opts.timeoutMs);
     const text = this.firstText(data);
     const toolUse = Array.isArray(data?.content) ? data.content.filter((c: any) => c?.type === 'tool_use') : [];
-    await this.finish(runId, data?.usage, text, Date.now() - started);
+    await this.finish(runId, data?.usage, text, Date.now() - started, { stopReason: data?.stop_reason ?? null, maxTokens: body?.max_tokens ?? null });
     return { data, text, toolUse, usage: data?.usage, model, runId };
   }
 
@@ -234,9 +236,9 @@ export class AiService {
    *  into it: with a breakpoint in play input_tokens is only the uncached remainder, so a row that
    *  added them together would lose the ability to price each part at its own rate — and reads cost a
    *  tenth of writes. See ai-cost.util.ts for the arithmetic that depends on them staying apart. */
-  private async finish(id: string | undefined, usage: any, text: string, ms: number): Promise<void> {
+  private async finish(id: string | undefined, usage: any, text: string, ms: number, meta?: { stopReason?: string | null; maxTokens?: number | null }): Promise<void> {
     if (!id) return;
-    try { await (this.prisma as any).aiRun.update({ where: { id }, data: { status: 'DONE', inputTokens: usage?.input_tokens ?? null, outputTokens: usage?.output_tokens ?? null, cacheReadTokens: usage?.cache_read_input_tokens ?? null, cacheCreationTokens: usage?.cache_creation_input_tokens ?? null, outputChars: (text || '').length, latencyMs: ms } }); } catch { /* logging never breaks the request */ }
+    try { await (this.prisma as any).aiRun.update({ where: { id }, data: { status: 'DONE', stopReason: meta?.stopReason ?? null, maxTokens: meta?.maxTokens ?? null, inputTokens: usage?.input_tokens ?? null, outputTokens: usage?.output_tokens ?? null, cacheReadTokens: usage?.cache_read_input_tokens ?? null, cacheCreationTokens: usage?.cache_creation_input_tokens ?? null, outputChars: (text || '').length, latencyMs: ms } }); } catch { /* logging never breaks the request */ }
   }
   private async fail(id: string | undefined, msg: string): Promise<void> {
     if (!id) return;
