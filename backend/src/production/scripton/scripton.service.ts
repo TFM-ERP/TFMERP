@@ -1992,6 +1992,17 @@ export class ScripOnService {
   }
 
   async saveIntake(projectId: string, data: any) {
+    // intake.treatment IS NOT WRITTEN HERE ANY MORE — BY ANYONE. It is the project-scoped direction the
+    // builds with no build_directions row of their own still read, so every write to it changed the
+    // direction of all of them. Its two writers are gone: the pick saves on the build (builds/:id/direction)
+    // and the build flow keeps its narrative-style choice on the build's brief. Refused, not dropped: on
+    // 10 Sep a tab running pre-change code overwrote it with one build's pick, and a silent drop would have
+    // hidden that. Checked before materialiseSources, so a refused save does no work at all.
+    if (data && data.treatment !== undefined) {
+      throw new BadRequestException('The intake no longer accepts "treatment". A direction is saved on its build '
+        + '(POST /production/scripton/builds/:id/direction), and the narrative-style choice stays on the build\'s '
+        + 'brief. If this page was open before an update, reload it — it is running old code.');
+    }
     const materialised = await this.materialiseSources(data, projectId);
     const d: any = {}; for (const k of ScripOnService.INTAKE_COLS) { if (materialised && materialised[k] !== undefined) d[k] = materialised[k]; }
     return (this.prisma as any).intakeProfile.upsert({ where: { projectId }, create: { projectId, ...d }, update: d });

@@ -64,12 +64,25 @@ test('an EXPLICIT empty sourceText is honoured — clearing the box is a real in
 });
 
 test('a save with NO sources array leaves sourceText and sources untouched', async () => {
-  // studio:268 posts { treatment } alone; it must not disturb anything else.
+  // A partial save — one field, no sources — must not disturb anything else.
   const { prisma, db } = fakeDb({ projectId: 'p1', sourceText: KNOWN, sources: [{ kind: 'paste', value: 'x' }] });
-  await svc(prisma).saveIntake('p1', { treatment: 'FAITHFUL - change: open on Cape Breton' });
+  await svc(prisma).saveIntake('p1', { genres: ['Thriller'] });
   assert.equal(db.profile!.sourceText, KNOWN);
   assert.deepEqual(db.profile!.sources, [{ kind: 'paste', value: 'x' }]);
-  assert.equal(db.profile!.treatment, 'FAITHFUL - change: open on Cape Breton');
+  assert.deepEqual(db.profile!.genres, ['Thriller']);
+});
+
+test('THE DIRECTION IS NOT WRITTEN THROUGH THE INTAKE: any treatment is refused, and nothing is written', async () => {
+  // On 10 Sep a tab running pre-change code posted { treatment } and replaced the project direction that
+  // 25 builds read. Every shape is refused — a pick's text, a style label, and the form's empty default.
+  const LEGACY = 'FAITHFUL - change: the direction the builds without their own still read';
+  for (const treatment of ['REINVENTION - change: invert the point of view', 'Multi-POV', '']) {
+    const { prisma, db } = fakeDb({ projectId: 'p1', sourceText: KNOWN, treatment: LEGACY });
+    await assert.rejects(svc(prisma).saveIntake('p1', { treatment, tone: 'warm' }), /no longer accepts "treatment"/);
+    assert.equal(db.profile!.treatment, LEGACY, 'treatment ' + JSON.stringify(treatment) + ' must not be written');
+    assert.equal(db.profile!.tone, undefined, 'a refused save writes none of its other fields either');
+    assert.equal(db.profile!.sourceText, KNOWN);
+  }
 });
 
 test('the caller sending sourceText explicitly still wins over the record', async () => {

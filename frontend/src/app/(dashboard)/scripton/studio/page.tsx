@@ -107,11 +107,16 @@ function StudioPageInner() {
   const searchParams = useSearchParams();
   const searchStr = searchParams.toString();
   const lastSearchRef = useRef<string | null>(null);
+  // ?build=<id>&directions=1 re-opens THAT build's direction screen (reopenBuildDirections); repickRef marks
+  // the screen as a re-pick, so the pick saves a new version and generates nothing.
+  const wantDirectionsRef = useRef(false);
+  const repickRef = useRef(false);
   useEffect(() => {
     if (lastSearchRef.current === searchStr) return;
     lastSearchRef.current = searchStr;
     const v = resolveStudioView(searchStr);
     buildIdRef.current = v.buildId;
+    wantDirectionsRef.current = !!v.buildId && new URLSearchParams(searchStr).get('directions') === '1';
     setMode(v.mode);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchStr]);
@@ -137,10 +142,13 @@ function StudioPageInner() {
         const pid = await resolveScriptonProjectId();
         // buildIdRef and mode come from the URL effect above — the second reader is what let them disagree.
         if (alive && pid) { setProjectId(pid); setTitle('ScriptON Studio'); await loadPipeline(pid);
+          let restored = false;
           try {
             const saved = typeof window !== 'undefined' ? window.localStorage.getItem('scripon.dir.' + pid) : null;
-            if (saved && alive) { const pd: any = JSON.parse(saved); if (pd && Array.isArray(pd.directions) && pd.directions.length) { if (pd.buildId) buildIdRef.current = pd.buildId; setBuildName(pd.name || t('New build')); setBuildItems([{ label: t('Researching the subject'), state: 'done' }, { label: t('Reading your source'), state: 'done' }, { label: t('Applying the Lore Atlas'), state: 'done' }, { label: t('Exploring three directions'), state: 'done' }]); setBuildStatus(t('Choose your direction')); setBuildError(null); setBuildProgress(null); setBuildActions(null); setBuildDirections(pd.directions); setBuilding(true); } }
+            if (saved && alive) { const pd: any = JSON.parse(saved); if (pd && Array.isArray(pd.directions) && pd.directions.length) { if (pd.buildId) buildIdRef.current = pd.buildId; repickRef.current = !!pd.repick; restored = true; setBuildName(pd.name || t('New build')); setBuildItems([{ label: t('Researching the subject'), state: 'done' }, { label: t('Reading your source'), state: 'done' }, { label: t('Applying the Lore Atlas'), state: 'done' }, { label: t('Exploring three directions'), state: 'done' }]); setBuildStatus(t('Choose your direction')); setBuildError(null); setBuildProgress(null); setBuildActions(null); setBuildDirections(pd.directions); setBuilding(true); } }
           } catch { /* */ }
+          // Once per load, and not when saved directions were just restored — that would pay for a second set.
+          if (alive && wantDirectionsRef.current && buildIdRef.current && !restored) { wantDirectionsRef.current = false; void reopenBuildDirections(pid); }
         }
       } catch { /* sample */ }
     })();
@@ -300,13 +308,17 @@ function StudioPageInner() {
 
   const onIntakeBegin = async (form: any) => {
     if (!projectId) return;
+    repickRef.current = false; // a NEW build's first pick seeds its ladder, even if a re-pick screen was closed unpicked
     try { window.localStorage.removeItem('scripon.dir.' + projectId); } catch { /* */ }
     const name = String(form.name || form.title || t('New build')).slice(0, 120);
     const { name: _n, title: _t, framework: _fw, ...rest } = form;
     const brief: any = { ...rest, spine: { ...((rest as any).spine || {}), ...(_fw ? { framework: _fw } : {}) } };
     try { const b: any = await productionApi.scripton.development.createBuild({ name, projectId, brief }); if (b && b.data && b.data.id) buildIdRef.current = b.data.id; } catch { /* */ }
     // The brief IS the generation's input; a failure here must not be silent either.
-    try { await productionApi.scripton.development.saveIntake(projectId, brief); }
+    // Minus `treatment` (the narrative-style select): it stays on the build's brief, saved just above. The
+    // intake refuses it — intake.treatment is the direction the builds without one of their own still read.
+    const { treatment: _style, ...intakeBrief } = brief;
+    try { await productionApi.scripton.development.saveIntake(projectId, intakeBrief); }
     catch (e: any) { flash(t('Your brief was not saved — check the connection before generating.') + ' ' + (e?.response?.data?.message || '')); }
     setTitle(name);
     // THE CHECKLIST MUST DESCRIBE WHAT ACTUALLY HAPPENED. All four rows used to be ticked in one
@@ -347,6 +359,41 @@ function StudioPageInner() {
       setBuildError((e?.response?.data?.message || t('Directions could not be generated.')) + ' ' + t('Opening Develop so you can start manually.'));
     }
   };
+  /**
+   * RE-PICK ON AN OPEN BUILD. The three-card screen (note + Regenerate per card) existed only inside the
+   * new-build flow, so a build whose pick never saved could not be given a direction without starting
+   * another build. This re-opens it for the build that is open, from THAT build's own source
+   * (brief.sourceText) — not a pasted one, not the project's — and marks the screen a re-pick: the pick
+   * then saves a new version on this build and generates nothing. Reached by URL
+   * (?build=<id>&directions=1), because an open build shows ScriptonDevelop, which has no Adapt.
+   */
+  const reopenBuildDirections = async (pid: string) => {
+    const bid = buildIdRef.current;
+    if (!pid || !bid) { flash(t('Open a build first.')); return; }
+    let name = t('This build'); let src = '';
+    try {
+      const r: any = await productionApi.scripton.development.getBuildBrief(bid);
+      name = String((r && r.data && r.data.name) || name);
+      src = String((r && r.data && r.data.brief && r.data.brief.sourceText) || '');
+    } catch (e: any) { flash(t('Could not read this build’s brief.') + ' ' + (e?.response?.data?.message || '')); return; }
+    if (src.trim().length < 40) { flash(t('This build has no source of its own to explore directions from.')); return; }
+    repickRef.current = true;
+    const items: any[] = [{ label: t('Reading this build’s source'), state: 'done' }, { label: t('Exploring three directions'), state: 'active' }];
+    setBuildName(name); setBuildItems(items.map((x) => ({ ...x }))); setBuildStatus(t('Exploring three directions'));
+    setBuildError(null); setBuildProgress(null); setBuildActions(null); setBuildDirections(null); setBuilding(true);
+    try {
+      const res: any = await productionApi.scripton.adapt(pid, { sourceText: src, targetFormat: 'feature' });
+      const dirs: any[] = (res && res.data && Array.isArray(res.data.directions)) ? res.data.directions : [];
+      items[1] = { label: t('Exploring three directions'), state: dirs.length ? 'done' : 'error' };
+      setBuildItems(items.map((x) => ({ ...x })));
+      if (dirs.length) { setBuildStatus(t('Choose your direction')); setBuildDirections(dirs); try { window.localStorage.setItem('scripon.dir.' + pid, JSON.stringify({ buildId: bid, name, directions: dirs, repick: true })); } catch { /* */ } }
+      else setBuildError(t('Could not generate directions for this build.'));
+    } catch (e: any) {
+      items[1] = { label: t('Exploring three directions'), state: 'error' };
+      setBuildItems(items.map((x) => ({ ...x })));
+      setBuildError(e?.response?.data?.message || t('Directions could not be generated.'));
+    }
+  };
   const onBuildPick = async (d: any, note?: string) => {
     if (!projectId) return;
     try { window.localStorage.removeItem('scripon.dir.' + projectId); } catch { /* */ }
@@ -369,12 +416,24 @@ function StudioPageInner() {
     // AND IT SAYS SO WHEN IT FAILS. `catch { }` here meant the direction silently never reached the
     // brief and the whole ladder then generated without it, with nothing on screen to show why.
     const bid = buildIdRef.current;
+    // A RE-PICK GENERATES NOTHING. The build already has stages; its direction is saved as a new version
+    // and regenerating them is a separate, deliberate step. Read before the write, so a failed save cannot
+    // fall through into a paid call either.
+    const repick = repickRef.current;
+    repickRef.current = false;
+    let savedN: number | null = null;
     try {
       if (!bid) throw new Error(t('No build is open to save it on.'));
-      await api.post('/production/scripton/builds/' + encodeURIComponent(bid) + '/direction', { direction: d, note: pickedNote });
+      const r: any = await api.post('/production/scripton/builds/' + encodeURIComponent(bid) + '/direction', { direction: d, note: pickedNote });
+      savedN = (r && r.data && r.data.n) || null;
     }
     catch (e: any) { flash(t('Your chosen direction was not saved — generate again after checking the connection.') + ' ' + (e?.response?.data?.message || e?.message || '')); }
     setBuildDirections(null); setBuilding(false);
+    if (repick) {
+      if (savedN) flash(t('Direction saved on this build as version') + ' ' + savedN + '. ' + t('Nothing was regenerated.'));
+      setMode('develop');
+      return;
+    }
     await onPickDirection(d);
   };
   const onBuildRegen = async (dir: any, note: string) => {
