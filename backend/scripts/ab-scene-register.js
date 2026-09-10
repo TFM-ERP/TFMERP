@@ -132,7 +132,7 @@ const spread = (xs) => xs.length ? (Math.min(...xs) + '–' + Math.max(...xs) + 
         cache: sceneCalls.map((c) => 'r' + (c.usage.cache_read_input_tokens || 0) + '/w' + (c.usage.cache_creation_input_tokens || 0) + '/in' + (c.usage.input_tokens || 0)).join(' '),
         ok: rep.ok, contradicted: rep.contradicted, lines: [...new Set(rep.items.map((i) => i.line))], unverified: rep.unverifiedQuotes, items: rep.items };
       res[arm].push(row);
-      console.log(arm + k + 1 + '  ' + String(words).padStart(4) + ' words (' + row.ratio.toFixed(2) + 'x ask)  defects ' + row.defects + '  attempts ' + row.attempts
+      console.log(arm + (k + 1) + '  ' + String(words).padStart(4) + ' words (' + row.ratio.toFixed(2) + 'x ask)  defects ' + row.defects + '  attempts ' + row.attempts
         + '  cache ' + row.cache + '  ·  ' + (rep.ok ? rep.contradicted + ' contradicted ' + JSON.stringify(row.lines) + (rep.unverifiedQuotes ? ' (' + rep.unverifiedQuotes + ' quote(s) not found)' : '') : 'CHECK FAILED'));
       out.push('==================== ARM ' + arm + ' · SAMPLE ' + (k + 1) + ' · ' + (arm === 'A' ? 'NO REGISTER' : 'REGISTER') + ' ====================\n'
         + String(text) + '\n\n--- register check: ' + rep.summary + '\n'
