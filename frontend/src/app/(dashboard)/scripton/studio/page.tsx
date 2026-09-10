@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { resolveStudioView } from './studio-view.logic';
-import { productionApi, approvalsApi } from '@/lib/api';
+import { productionApi, approvalsApi, api } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
 import { resolveScriptonProjectId } from '@/components/scripton/useScriptonProject';
 import ScriptOnStudio from '@/components/scripton/ScriptOnStudio';
@@ -352,23 +352,28 @@ function StudioPageInner() {
     try { window.localStorage.removeItem('scripon.dir.' + projectId); } catch { /* */ }
     // NO WRITE-TIME CAP. This was .slice(0, 600), which truncated the chosen direction mid-word on
     // the way INTO the brief — and what is cut here is cut everywhere downstream, because every
-    // stage reads intake.treatment. Truncation, if it is ever needed, belongs at ASSEMBLY where the
+    // stage reads the direction. Truncation, if it is ever needed, belongs at ASSEMBLY where the
     // budget is known and the trim can be recorded (see excerptSource's sent/total/truncated), never
     // at the write that is supposed to be the record.
     // THE WRITER'S NOTE RIDES WITH THE DIRECTION. A note typed on Regenerate is the most specific
     // instruction in the whole intake — "Adrian provides a lead, not an archive", "complete the major
     // family decisions before the terminal rescue" — and it was steering ONE regeneration and then
-    // being discarded. It is a directive about how to develop the film, which is exactly what
-    // intake.treatment carries into every stage, so it is saved with the direction he picked.
+    // being discarded. It is a directive about how to develop the film, so it is saved with the
+    // direction he picked and carried into every stage with it.
     // It is the note that produced THIS version of THIS card (DirCard carries it on the version) —
     // not the last note typed anywhere on the page, which is what a page-wide ref gave.
     const pickedNote = String(note || '').trim();
-    const summary = String(d.label || '') + (d.change ? (' - change: ' + d.change) : '') + (d.tone ? (' - tone: ' + d.tone) : '')
-      + (pickedNote ? ('\n\nWRITER NOTE (honour every line):\n' + pickedNote) : '');
+    // THE PICK IS SAVED ON THE BUILD (build_directions), not on the project intake. intake.treatment
+    // was one value per project: every pick overwrote the direction of every other build in it. With
+    // no build open there is nowhere to save it — and writing the project instead would be that bug.
     // AND IT SAYS SO WHEN IT FAILS. `catch { }` here meant the direction silently never reached the
     // brief and the whole ladder then generated without it, with nothing on screen to show why.
-    try { await productionApi.scripton.development.saveIntake(projectId, { treatment: summary }); }
-    catch (e: any) { flash(t('Your chosen direction was not saved — generate again after checking the connection.') + ' ' + (e?.response?.data?.message || '')); }
+    const bid = buildIdRef.current;
+    try {
+      if (!bid) throw new Error(t('No build is open to save it on.'));
+      await api.post('/production/scripton/builds/' + encodeURIComponent(bid) + '/direction', { direction: d, note: pickedNote });
+    }
+    catch (e: any) { flash(t('Your chosen direction was not saved — generate again after checking the connection.') + ' ' + (e?.response?.data?.message || e?.message || '')); }
     setBuildDirections(null); setBuilding(false);
     await onPickDirection(d);
   };

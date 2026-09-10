@@ -1245,7 +1245,7 @@ export class ScripOnService {
     const soFarBlock = soFar ? ('\nDEVELOPMENT SO FAR (everything already written - stay fully consistent with all of it; build directly on it):' + soFar) : '';
     const framework = opts?.framework || (intakeRow && intakeRow.spine && intakeRow.spine.framework) || undefined;
     const brief = this.stageBrief(kind, framework);
-    const steer = await this.intakeSteer(projectId);
+    const steer = await this.intakeSteer(projectId, opts?.buildId);
     const langDir = await this.langDirective((buildRow && buildRow.brief) || intakeRow || {});
     const knowDir = knowledgeDirective((buildRow && buildRow.brief) || intakeRow || {});
     const knowBlock = knowDir ? ('\n\nFORMAT & WORLD ENGINE (honour precisely across this stage):\n' + knowDir) : '';
@@ -1998,6 +1998,38 @@ export class ScripOnService {
   }
 
   /**
+   * THE PICK WRITES THE BUILD, NOT THE PROJECT. A new version (n = last + 1) carrying all seven fields
+   * and the writer's note, never an update in place; the build then points at it. intake.treatment is
+   * NOT written — the builds without a row of their own still read it, and a pick in one build must
+   * not change the direction of every other build in the project.
+   *
+   * One transaction, and it is load-bearing: the read follows directionId first, so a row created
+   * without the pointer moving would leave the build generating under its PREVIOUS version, silently.
+   */
+  async pickBuildDirection(buildId: string, body: any, userId?: string) {
+    const id = String(buildId || '');
+    const d: any = (body && body.direction) || {};
+    const s = (v: any) => (typeof v === 'string' && v.trim() ? v : null);
+    const data = {
+      label: s(d.label), title: s(d.title), logline: s(d.logline), keep: s(d.keep),
+      change: s(d.change), tone: s(d.tone), risk: s(d.risk), note: s(body && body.note),
+    };
+    if (!data.label && !data.logline && !data.change) throw new BadRequestException('The direction is empty — nothing to save on build ' + id + '.');
+    const write = () => (this.prisma as any).$transaction(async (tx: any) => {
+      const b: any = await tx.developmentBuild.findUnique({ where: { id }, select: { id: true } });
+      if (!b) throw new BadRequestException('Build not found: ' + id + ' — the direction was not saved.');
+      const last: any = await tx.buildDirection.findFirst({ where: { buildId: id }, orderBy: { n: 'desc' }, select: { n: true } });
+      const row: any = await tx.buildDirection.create({ data: { buildId: id, n: (last ? last.n : 0) + 1, ...data, origin: 'picked', createdById: userId || null } });
+      await tx.developmentBuild.update({ where: { id }, data: { directionId: row.id } });
+      return row;
+    });
+    // Two picks on one build at the same moment both read the same last n; @@unique([buildId, n])
+    // refuses the second. Once more reads the new last n.
+    try { return await write(); }
+    catch (e: any) { if (e && e.code === 'P2002') return write(); throw e; }
+  }
+
+  /**
    * Read a stored genre-override list back into the shape `genreProfileTable` accepts.
    *
    * Everything here came out of a JSON column, which means it came from a database that a previous
@@ -2110,9 +2142,43 @@ export class ScripOnService {
     return rows;
   }
 
-  private async intakeSteer(projectId: string): Promise<string> {
-    const i: any = await (this.prisma as any).intakeProfile.findUnique({ where: { projectId } }).catch(() => null);
-    if (!i) return '';
+  /**
+   * THE DIRECTION IS READ FROM THE BUILD, AND ONLY FROM THE PROJECT WHEN THE BUILD HAS NONE.
+   *
+   * intake_profiles.treatment is one value per project: every build in it read the same text and
+   * every pick overwrote it for all of them. A build now carries its own versions in build_directions
+   * and points at the one it generates under (directionId). The project text is the fallback for the
+   * builds that predate that — 30 of 32 at the migration — and they read exactly what they read before.
+   *
+   * No .catch on the build-scoped read. A swallowed error here would quietly hand this build the
+   * project's direction — another build's pick — which is the bug this replaces. It fails loudly instead.
+   */
+  private async buildDirectionRow(buildId: string | null | undefined): Promise<any | null> {
+    if (!buildId) return null;
+    const db: any = this.prisma;
+    const id = String(buildId);
+    const b: any = await db.developmentBuild.findUnique({ where: { id }, select: { directionId: true } });
+    if (b && b.directionId) {
+      const r: any = await db.buildDirection.findUnique({ where: { id: b.directionId } });
+      if (r && r.buildId === id) return r;
+    }
+    return db.buildDirection.findFirst({ where: { buildId: id }, orderBy: { n: 'desc' } });
+  }
+
+  // The same text the pick used to write into intake.treatment — label, change, tone and the writer's
+  // note — so a build-scoped read steers exactly as the project-scoped one did. An INHERITED row is the
+  // project text verbatim (legacyText); its structured fields are null by design.
+  private static directionSteerText(r: any): string {
+    if (r.legacyText != null) return String(r.legacyText);
+    const note = String(r.note || '').trim();
+    return String(r.label || '') + (r.change ? (' - change: ' + r.change) : '') + (r.tone ? (' - tone: ' + r.tone) : '')
+      + (note ? ('\n\nWRITER NOTE (honour every line):\n' + note) : '');
+  }
+
+  private async intakeSteer(projectId: string, buildId?: string | null): Promise<string> {
+    const i: any = (await (this.prisma as any).intakeProfile.findUnique({ where: { projectId } }).catch(() => null)) || {};
+    const dirRow = await this.buildDirectionRow(buildId);
+    const direction = dirRow ? ScripOnService.directionSteerText(dirRow) : i.treatment;
     const parts: string[] = [];
     if (i.realBased) parts.push('Based on a real story/subject; reality level = ' + (i.realityLevel || 'INSPIRED') + ' (how faithful vs invented).');
     if (Array.isArray(i.genres) && i.genres.length) parts.push('Genres: ' + i.genres.join(', ') + (i.tone ? ' | tone: ' + i.tone : '') + '.');
@@ -2171,7 +2237,7 @@ export class ScripOnService {
     // stage is better off reading the source and the canon facts, which are extracted from source
     // and nothing else, and which correctly supplied the real names the excerpt did not reach.
     if (i.constraints && typeof i.constraints === 'object') { const c: any = i.constraints; const cs = [c.budget ? ('budget ' + c.budget) : null, c.maxLocations ? ('max ' + c.maxLocations + ' locations') : null, c.castSize ? ('cast ' + c.castSize) : null].filter(Boolean); if (cs.length) parts.push('Keep it filmable: ' + cs.join(', ') + '.'); }
-    if (i.treatment) parts.push('Narrative treatment/style: ' + i.treatment + '.');
+    if (direction) parts.push('Narrative treatment/style: ' + direction + '.');
     if (Array.isArray(i.blendLayers) && i.blendLayers.length) parts.push('Blend layers over the base genre: ' + i.blendLayers.join(', ') + '.');
     { const place = [Array.isArray(i.settingPlace) ? i.settingPlace.join(', ') : (i.settingPlace || ''), i.settingEra || '', Array.isArray(i.settingWorld) ? i.settingWorld.join(', ') : (i.settingWorld || '')].filter(Boolean); if (place.length) parts.push('Setting/world: ' + place.join(' | ') + '.'); }
     if (i.cultureEra) parts.push('Culture/era: ' + i.cultureEra + '.');
@@ -2549,8 +2615,8 @@ export class ScripOnService {
    * on a small per-scene call help or crowd the scene is measured, not assumed:
    * scripts/ab-scene-register.js.
    */
-  private async buildFeatureCtx(projectId: string, stages: any[], directive = '', sourceText: any = ''): Promise<string> {
-    const steer = await this.intakeSteer(projectId);
+  private async buildFeatureCtx(projectId: string, buildId: string | null, stages: any[], directive = '', sourceText: any = ''): Promise<string> {
+    const steer = await this.intakeSteer(projectId, buildId);
     const intakeRow: any = await (this.prisma as any).intakeProfile.findUnique({ where: { projectId } }).catch(() => null);
     const research = String((intakeRow && intakeRow.researchNotes) || '').slice(0, 2400);
     const bodyOf = (k: string) => { const x: any = stages.find((y: any) => y.kind === k); return String((x && x.current && x.current.body) || ''); };
@@ -4183,7 +4249,7 @@ export class ScripOnService {
       const bRow: any = await (this.prisma as any).developmentBuild.findFirst({ where: { linkedScriptId: docId } }).catch((e: any) => { this.log.warn('build lookup failed for script ' + docId + ' — falling back to an empty brief. ' + this.why(e)); return null; });
       const featBrief = (bRow && bRow.brief) || {};
       const featDirective = [await this.langDirective(featBrief), knowledgeDirective(featBrief)].filter(Boolean).join('\n');
-      const ctx = await this.buildFeatureCtx(projectId, stages, featDirective, featBrief.sourceText);
+      const ctx = await this.buildFeatureCtx(projectId, (bRow && bRow.id) || null, stages, featDirective, featBrief.sourceText);
       const ar = this.isArabicBrief((bRow && bRow.brief) || {});
       // Build the scene list that drives the whole script. The old bug: it trusted any existing SCENES list of
       // >= 20 cards and stopped there — so a partial SCENES stage (e.g. 20 cards covering only the first ~2/3)
@@ -4677,7 +4743,7 @@ export class ScripOnService {
       const bRow: any = await (this.prisma as any).developmentBuild.findFirst({ where: { linkedScriptId: docId } }).catch((e: any) => { this.log.warn('build lookup failed for script ' + docId + ' — falling back to an empty brief. ' + this.why(e)); return null; });
       const featBrief = (bRow && bRow.brief) || {};
       const featDirective = [await this.langDirective(featBrief), knowledgeDirective(featBrief)].filter(Boolean).join('\n');
-      const ctx = await this.buildFeatureCtx(projectId, stages, featDirective, featBrief.sourceText);
+      const ctx = await this.buildFeatureCtx(projectId, (bRow && bRow.id) || null, stages, featDirective, featBrief.sourceText);
       const ar = this.isArabicBrief(featBrief);
       const spine = this.buildSpine(stages);
       const beatN = this.countBeats(stages);
