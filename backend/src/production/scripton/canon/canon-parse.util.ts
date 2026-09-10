@@ -31,7 +31,7 @@ export interface LooseParse {
  * emits at depth 0 recovers nothing at all — which is the whole failure this exists to prevent.
  * A stack emits each object as it closes, whatever encloses it; non-facts are filtered afterwards.
  */
-function completeObjects(s: string): any[] {
+export function completeObjects(s: string): any[] {
   const out: any[] = [];
   const stack: number[] = [];
   let inStr = false;

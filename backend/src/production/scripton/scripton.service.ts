@@ -45,6 +45,7 @@ import {
 import { mapAiFactsToCore } from './canon/canon-map.util';
 import { canonDirective, prohibitionDirective, registerDirective } from './canon/canon-inject.util';
 import { transcribeRegister, REGISTER_VERSION } from './canon/canon-register.util';
+import { registerLines, registerCheckUser, parseRegisterCheck, REGISTER_CHECK_SYSTEM, REGISTER_CHECK_MAXTOK } from './canon/register-check.util';
 import { selectCanonByQuota, quotaSummary, quotaShortfall } from './canon/canon-quota.util';
 import { SOURCE_CANON_SYSTEM, SOURCE_CANON_MAXTOK, CANON_EXTRACTOR_VERSION, CANON_MAX_SOURCE_CHARS } from './canon/canon-prompt.util';
 import { parseFactsLoose } from './canon/canon-parse.util';
@@ -1390,6 +1391,12 @@ export class ScripOnService {
     }
     const created: any = await (this.prisma as any).stageVersion.create({ data: { stageId: stage.id, n, title: kind.charAt(0) + kind.slice(1).toLowerCase().replace('_', ' ') + ' V' + n, body, data: Object.keys(data).length ? data : undefined, framework: opts?.framework || null, colorCode: this.WHEEL[(n - 1) % this.WHEEL.length], status: 'DRAFT', createdById: userId || null } });
     await (this.prisma as any).developmentStage.update({ where: { id: stage.id }, data: { currentVersionId: created.id } }).catch(() => {});
+    // THE REGISTER CHECK — REPORTED, NOT GATED. The register rode on this prompt; whether the draft
+    // honoured it is a rate, measured here and stored on the version. After the response, so a stage
+    // never waits on its own audit.
+    if (wantsSource && stageFacts.some((f) => f.kind === 'REGISTER')) {
+      void this.checkAgainstRegister(created.id, kind, body, stageFacts, projectId).catch((e) => this.log.warn('register check: ' + this.why(e)));
+    }
     if (kind === 'SCENES') { void this.generateCharacterBible(projectId, userId, opts?.buildId).catch(() => {}); }   // auto character breakdown the moment scenes land
     if (ai.__warning) (created as any).warning = ai.__warning; // surface in the HTTP response too
     return created;
@@ -2795,6 +2802,35 @@ export class ScripOnService {
    */
   private sourceCanonCache = new Map<string, { facts: CanonFactCore[]; account: any }>();
   private canonInFlight = new Map<string, Promise<{ facts: CanonFactCore[]; account: any; from: 'extracted'; stored: 'stored' | 'no-table' }>>();
+
+  /**
+   * Check one stage version against the register it was written under, and store the report on it
+   * as data.registerCheck. Report-only: nothing is blocked, regenerated or hidden on the result.
+   * A failed check is stored as failed — never as a clean pass — see parseRegisterCheck.
+   */
+  async checkAgainstRegister(versionId: string, kind: string, body: string, facts: CanonFactCore[], projectId?: string | null): Promise<any> {
+    const lines = registerLines(facts);
+    if (!lines.length || !String(body || '').trim()) return null;
+    const at = new Date().toISOString();
+    let registerCheck: any;
+    try {
+      const r: any = await this.ai.run({ task: 'scripton.develop.register-check', system: REGISTER_CHECK_SYSTEM,
+        user: registerCheckUser(lines, kind, body), maxTokens: REGISTER_CHECK_MAXTOK, timeoutMs: 300000,
+        projectId: projectId || null, refType: 'StageVersion', refId: versionId });
+      const text = String((r && r.text) || '') || (r && r.json ? JSON.stringify(r.json) : '');
+      registerCheck = { ...parseRegisterCheck(text, lines, body), at, model: (r && r.model) || null, stopReason: (r && r.stopReason) || null };
+    } catch (e) {
+      registerCheck = { ok: false, checked: lines.length, contradicted: null, rate: null, items: [], at,
+        error: String(this.why(e)).slice(0, 400), summary: 'REGISTER CHECK FAILED: ' + String(this.why(e)).slice(0, 200) };
+    }
+    const v: any = await (this.prisma as any).stageVersion.findUnique({ where: { id: versionId }, select: { data: true } }).catch(() => null);
+    if (v) {
+      await (this.prisma as any).stageVersion.update({ where: { id: versionId }, data: { data: { ...((v && v.data) || {}), registerCheck } } })
+        .catch((e: any) => this.log.warn('register check not stored on ' + versionId + ': ' + this.why(e)));
+    }
+    this.log.log('generateStage ' + kind + ': ' + registerCheck.summary);
+    return registerCheck;
+  }
 
   /** The fail-open wrapper the stage path uses. A failed extraction still carries the register. */
   private async sourceCanonFor(projectId: string, sourceText: string): Promise<{ facts: CanonFactCore[]; account: any }> {
