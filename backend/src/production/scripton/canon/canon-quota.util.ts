@@ -63,7 +63,10 @@ export const PROHIBITION_LIMIT = Infinity;
  * Both are short, both are the cheapest lines in the prompt, and both are rules rather than colour.
  * Any future "CANON TRUNCATED" naming either of them is a defect, not a state.
  */
-export const UNDROPPABLE_KINDS: CanonKind[] = ['PROHIBITION', 'ORDERING'];
+// REGISTER joins them for the same reason and a stronger one: it is the source's own rule list,
+// transcribed line for line, and the defect it exists to end is precisely a register being sampled
+// (§29: 53 bullets in, 9 to 11 facts out, 23 violations downstream).
+export const UNDROPPABLE_KINDS: CanonKind[] = ['PROHIBITION', 'ORDERING', 'REGISTER'];
 
 export interface QuotaResult {
   /** Facts to render as CANON, structure first so it survives any later truncation. */

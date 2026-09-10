@@ -32,7 +32,11 @@ export type CanonKind =
   | 'CAUSATION'   // authorised / permitted / expanded / executed — deliberately different verbs.
   | 'OUTCOME'     // who lives, who dies, who is delivered to whom.
   | 'ORDERING'    // what must occur before what.
-  | 'PROHIBITION'; // an explicit "do not" / "never" — a CONSTRAINT, not a fact.
+  | 'PROHIBITION' // an explicit "do not" / "never" — a CONSTRAINT, not a fact.
+  // Transcribed, not extracted — a line of the source's own rule register, verbatim. Only
+  // transcribeRegister() mints one; it is deliberately absent from the model's kind whitelist, so a
+  // model fact claiming to be REGISTER collapses to PLOT rather than passing as the author's words.
+  | 'REGISTER';
 
 /** The structural kinds, which get guaranteed slots so biography cannot crowd them out. */
 export const STRUCTURAL_KINDS: CanonKind[] = ['ROLE', 'CRIME', 'CAUSATION', 'OUTCOME', 'ORDERING', 'PROHIBITION'];
