@@ -11,9 +11,10 @@ import { useLocale } from '@/lib/i18n';
 import { useScriptonShellFlag } from './osShellFlag';
 import { OS_WORKSPACES, activeWorkspaceKey, filterWorkspaces, type OsWorkspace } from './os-workspaces';
 import { useScriptonMode } from './useScriptonMode';
+import { SxTruncationBanner, type SxTruncation } from './shared/sx';
 const lsGet = (k: string, fb: any) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : fb; } catch { return fb; } };
 
-export type SxLadder = { name: string; sub?: string; state: 'done' | 'on' | 'wait'; body?: string; kind?: string; stageId?: string; versionId?: string; versionN?: number; versionCount?: number; versionColor?: string; status?: string; framework?: string; scenes?: any[]; steps?: any[] };
+export type SxLadder = { name: string; sub?: string; state: 'done' | 'on' | 'wait'; body?: string; kind?: string; stageId?: string; versionId?: string; versionN?: number; versionCount?: number; versionColor?: string; status?: string; framework?: string; scenes?: any[]; steps?: any[]; truncation?: SxTruncation | null };
 export type SxSpine = { k: string; v: string };
 export type SxDirection = { label: string; logline: string; keep?: string; change?: string; tone?: string; risk?: string };
 export type SxEpisode = { ep?: any; title?: string; engine?: string; cliffhanger?: string; hook?: string; escalation?: string; sting?: string };
@@ -347,11 +348,13 @@ export default function ScriptOnStudio(props: {
               const fk = (focus && L.find((s) => s.kind === focus)) ? focus : (activeS ? activeS.kind : (L[lastDone] ? L[lastDone].kind : (L[0] ? L[0].kind : '')));
               const cur: any = L.find((s) => s.kind === fk) || activeS || L[0];
               const nextS: any = L[lastDone + 1];
-              const done = lastDone + 1;
+              // A stage cut off at its ceiling is reached but not done — the count says so.
+              const done = lastDone + 1 - L.slice(0, lastDone + 1).filter((s) => s.truncation).length;
               const pct = L.length ? Math.round((done / L.length) * 100) : 0;
               const lbl = (k: string) => { const x = L.find((s) => s.kind === k); return x ? x.name : k; };
               const renderBody = (s: any) => (
                 <>
+                  <SxTruncationBanner tr={s.truncation} t={t} />
                   {s.kind === 'SCENES' && Array.isArray(s.scenes) && s.scenes.length > 0 ? (
                     <div style={{ display: 'grid', gap: 6 }}>{s.scenes.slice(0, 40).map((sc: any, j: number) => (
                       <div key={j} style={{ background: '#15171d', border: '1px solid var(--hair)', borderRadius: 8, padding: '8px 10px' }}>
@@ -388,8 +391,8 @@ export default function ScriptOnStudio(props: {
                     <div className="dvrhead"><div className="dvlogo"><span>{'✦'}</span></div><div><div className="t">{t('The ladder')}</div><div className="s">{done} / {L.length} {t('stages')}</div></div></div>
                     {L.map((s, i) => { const isBusy = props.genBusy === s.kind; return (
                       <button key={i} className={'dvrstep' + (s.kind === fk ? ' cur' : '') + (s.state === 'done' ? ' dones' : '') + (isBusy ? ' busy' : '')} onClick={() => setFocus(s.kind || '')}>
-                        <span className={'dvdot ' + s.state}>{s.state === 'done' ? '✓' : s.state === 'on' ? '●' : ''}</span>
-                        <span style={{ minWidth: 0 }}><span className="nm">{s.name}</span><span className="sub">{isBusy ? t('writing…') : s.state === 'done' ? (s.status || ('V' + (s.versionN || 1))) : s.state === 'on' ? (s.sub || ('V' + (s.versionN || 1))) : t('pending')}</span></span>
+                        <span className={'dvdot ' + s.state} style={s.truncation ? { color: '#e5635f' } : undefined}>{s.truncation ? '!' : s.state === 'done' ? '✓' : s.state === 'on' ? '●' : ''}</span>
+                        <span style={{ minWidth: 0 }}><span className="nm">{s.name}</span><span className="sub" style={s.truncation && !isBusy ? { color: '#e5635f' } : undefined}>{isBusy ? t('writing…') : s.truncation ? ('V' + (s.versionN || 1) + ' · ' + t('incomplete — cut off')) : s.state === 'done' ? (s.status || ('V' + (s.versionN || 1))) : s.state === 'on' ? (s.sub || ('V' + (s.versionN || 1))) : t('pending')}</span></span>
                       </button>); })}
                     <div className="dvrfoot"><div className="lbl"><span>{t('Pipeline')}</span><span>{done} / {L.length}</span></div><div className="dvrbar"><i style={{ width: pct + '%' }} /></div></div>
                   </div>

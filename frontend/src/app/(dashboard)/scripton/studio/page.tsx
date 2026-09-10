@@ -163,6 +163,7 @@ function StudioPageInner() {
         body: v && v.body ? String(v.body) : '',
         versionId: v?.id, versionN: v?.n, versionCount: (s.versions || []).length, versionColor: v?.colorCode,
         status: v?.status, framework: v?.framework, scenes: v?.data?.scenes, steps: v?.data?.steps,
+        truncation: v?.truncation || null,   // set by the server when this version was cut off at its ceiling
       } as SxLadder;
     });
   }, [projectId, stages, lastIdx, t]);
@@ -182,7 +183,14 @@ function StudioPageInner() {
   const genStage = async (kind: string, extra: any = {}) => {
     if (!projectId) { flash(t('Connect a project to develop.')); return; }
     setGenBusy(kind); setGenErr(null); flash(t('Generating') + ' ' + t(STAGE_LABEL[kind] || kind) + '…');
-    try { await productionApi.scripton.development.generate(projectId, { kind, buildId: buildIdRef.current, ...extra }); await loadPipeline(projectId); flash(t(STAGE_LABEL[kind] || kind) + ' ' + t('generated.')); }
+    try {
+      const r: any = await productionApi.scripton.development.generate(projectId, { kind, buildId: buildIdRef.current, ...extra });
+      await loadPipeline(projectId);
+      // A stage cut off at its ceiling was NOT generated — it was started. Say so, not "generated."
+      const cut = r && r.data && r.data.truncation;
+      if (cut) setGenErr(t(STAGE_LABEL[kind] || kind) + ': ' + String(cut.note || t('incomplete — cut off')));
+      else flash(t(STAGE_LABEL[kind] || kind) + ' ' + t('generated.'));
+    }
     catch (e: any) { setGenErr(e?.response?.data?.message || t('Develop engine needs an AI key configured on the server.')); }
     finally { setGenBusy(null); }
   };
@@ -392,13 +400,26 @@ function StudioPageInner() {
   };
 
   if (!mounted) return null;
+  // The sticky generation alert — rendered by BOTH screens. It used to live only in the legacy return
+  // below, so on the new Develop screen a failed or cut-off stage set genErr and nothing showed it.
+  const genErrAlert = genErr ? (
+    <div role="alert" style={{ position: 'fixed', insetBlockEnd: 20, insetInlineStart: '50%', transform: 'translateX(-50%)', zIndex: 92, maxWidth: 580, width: 'calc(100% - 32px)', display: 'flex', alignItems: 'flex-start', gap: 10, background: 'linear-gradient(180deg,rgba(44,20,20,0.98),rgba(26,13,13,0.98))', border: '1px solid rgba(214,109,109,0.55)', borderRadius: 13, padding: '12px 14px', boxShadow: '0 16px 46px rgba(0,0,0,0.62)', fontFamily: 'var(--sx-body)', backdropFilter: 'blur(8px)' }}>
+      <span aria-hidden style={{ fontSize: 16, lineHeight: '19px', color: '#E8A0A0', flexShrink: 0 }}>⚠</span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: 0.7, color: '#E8A0A0', textTransform: 'uppercase', marginBottom: 3 }}>{t('Generation stopped')}</div>
+        <div style={{ fontSize: 12.5, color: '#F0E9DC', lineHeight: 1.55, wordBreak: 'break-word' }}>{genErr}</div>
+        <div style={{ fontSize: 11, color: '#b9a9a9', marginTop: 5 }}>{t('Stays until you dismiss it or run again.')}</div>
+      </div>
+      <button onClick={() => setGenErr(null)} aria-label={t('Dismiss')} title={t('Dismiss')} style={{ flexShrink: 0, background: 'transparent', border: 'none', color: '#d9b3b3', cursor: 'pointer', fontSize: 16, lineHeight: '19px', padding: 0 }}>✕</button>
+    </div>
+  ) : null;
   // New Develop — structural rebuild (Figma 69:2), under the new shell when a build is open.
   // `old` (or the Builds list with no build open) keeps the current Builder below. When `building`
   // (a Draft → script render is running), fall through so the existing ScriptOnBuildScreen renders.
   if (osNew && buildIdRef.current && mode === 'develop' && !building) {
-    return <ScriptonDevelop vp={vp} onBack={onBack} projectId={projectId} buildId={buildIdRef.current}
+    return <><ScriptonDevelop vp={vp} onBack={onBack} projectId={projectId} buildId={buildIdRef.current}
       ladder={ladder} spine={spine} comps={COMPS} genBusy={genBusy}
-      onAdvance={advance} onRegenerate={onRegenerate} onSwitchVersion={onSwitchVersion} onPromoteScript={onPromoteScript} />;
+      onAdvance={advance} onRegenerate={onRegenerate} onSwitchVersion={onSwitchVersion} onPromoteScript={onPromoteScript} />{genErrAlert}</>;
   }
   // New shell — the Build workspace landing (builds list) renders inside the ONE ScriptonShell, so its
   // chrome matches every other route (no more standalone "Development builds" bar bypassing the shell).
@@ -432,15 +453,5 @@ function StudioPageInner() {
         </div>
       </div>
     ) : null}
-    {genErr ? (
-      <div role="alert" style={{ position: 'fixed', insetBlockEnd: 20, insetInlineStart: '50%', transform: 'translateX(-50%)', zIndex: 92, maxWidth: 580, width: 'calc(100% - 32px)', display: 'flex', alignItems: 'flex-start', gap: 10, background: 'linear-gradient(180deg,rgba(44,20,20,0.98),rgba(26,13,13,0.98))', border: '1px solid rgba(214,109,109,0.55)', borderRadius: 13, padding: '12px 14px', boxShadow: '0 16px 46px rgba(0,0,0,0.62)', fontFamily: 'var(--sx-body)', backdropFilter: 'blur(8px)' }}>
-        <span aria-hidden style={{ fontSize: 16, lineHeight: '19px', color: '#E8A0A0', flexShrink: 0 }}>⚠</span>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: 0.7, color: '#E8A0A0', textTransform: 'uppercase', marginBottom: 3 }}>{t('Generation stopped')}</div>
-          <div style={{ fontSize: 12.5, color: '#F0E9DC', lineHeight: 1.55, wordBreak: 'break-word' }}>{genErr}</div>
-          <div style={{ fontSize: 11, color: '#b9a9a9', marginTop: 5 }}>{t('Stays until you dismiss it or run again.')}</div>
-        </div>
-        <button onClick={() => setGenErr(null)} aria-label={t('Dismiss')} title={t('Dismiss')} style={{ flexShrink: 0, background: 'transparent', border: 'none', color: '#d9b3b3', cursor: 'pointer', fontSize: 16, lineHeight: '19px', padding: 0 }}>✕</button>
-      </div>
-    ) : null}</>);
+    {genErrAlert}</>);
 }

@@ -16,7 +16,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { productionApi } from '@/lib/api';
 import { useLocale } from '@/lib/i18n';
-import { SxRail, cleanStageText, type SxLadder, type SxSpine } from '@/components/scripton/shared/sx';
+import { SxRail, SxTruncationBanner, cleanStageText, type SxLadder, type SxSpine } from '@/components/scripton/shared/sx';
 import { ScriptPaper } from '@/components/scripton/scriptPaper';
 import VideoRenderPanel from '@/components/scripton/VideoRenderPanel';
 import CohesiveEpisodePanel from '@/components/scripton/CohesiveEpisodePanel';
@@ -356,7 +356,8 @@ export default function ScriptonDevelop(props: ScriptonDevelopProps) {
 
   // Counters (node §2): done = stages with a version (the node's 7/8 = Coverage mid-generation has
   // no version yet; a fully-developed build is 8/8). pct = round(done/total*100).
-  const done = useMemo(() => ladder.filter((l) => !!l.versionId).length, [ladder]);
+  // A stage cut off at its token ceiling has a version but is NOT done (stage-truncation.util).
+  const done = useMemo(() => ladder.filter((l) => !!l.versionId && !l.truncation).length, [ladder]);
   const pct = Math.round((done / TOTAL) * 100);
 
   // The focused stage — defaults to the furthest-developed stage (the current 'on'); ladder rows switch it.
@@ -428,12 +429,13 @@ export default function ScriptonDevelop(props: ScriptonDevelopProps) {
         {ladder.map((l, i) => {
           // Row highlight follows the FOCUSED stage (gold ●); others show ✓ (has a version) or hollow pending.
           const st = l.kind === focusKind ? 'on' : (l.versionId ? 'done' : 'wait');
-          const sub = l.kind === props.genBusy ? t('writing…') : (l.versionN ? 'V' + l.versionN + (l.framework ? ' · ' + l.framework : '') : (!l.versionId ? t('pending') : (l.sub || '')));
-          const dot = st === 'done' ? '✓' : st === 'on' ? '●' : '';
+          const cut = !!l.truncation && l.kind !== props.genBusy;
+          const sub = l.kind === props.genBusy ? t('writing…') : cut ? ('V' + (l.versionN || 1) + ' · ' + t('incomplete — cut off')) : (l.versionN ? 'V' + l.versionN + (l.framework ? ' · ' + l.framework : '') : (!l.versionId ? t('pending') : (l.sub || '')));
+          const dot = cut ? '!' : st === 'done' ? '✓' : st === 'on' ? '●' : '';
           return (
-            <button key={l.kind || i} className={'lrow ' + st} onClick={() => l.kind && setFocusKind(l.kind)} title={l.name}>
-              <span className="ldot">{dot}</span>
-              <span className="ltext"><span className="lname">{l.name}</span><span className="lsub">{sub}</span></span>
+            <button key={l.kind || i} className={'lrow ' + st} onClick={() => l.kind && setFocusKind(l.kind)} title={cut ? l.truncation!.note : l.name}>
+              <span className="ldot" style={cut ? { color: '#e5635f' } : undefined}>{dot}</span>
+              <span className="ltext"><span className="lname">{l.name}</span><span className="lsub" style={cut ? { color: '#e5635f' } : undefined}>{sub}</span></span>
             </button>
           );
         })}
@@ -453,8 +455,8 @@ export default function ScriptonDevelop(props: ScriptonDevelopProps) {
         {ladder.map((l, i) => {
           const st = l.kind === focusKind ? 'on' : (l.versionId ? 'done' : 'wait');
           return (
-            <button key={l.kind || i} className={'lchip ' + st} onClick={() => l.kind && setFocusKind(l.kind)}>
-              <span className="cdot" />{l.name}
+            <button key={l.kind || i} className={'lchip ' + st} onClick={() => l.kind && setFocusKind(l.kind)} title={l.truncation ? l.truncation.note : undefined} style={l.truncation ? { color: '#e5635f' } : undefined}>
+              <span className="cdot" />{l.name}{l.truncation ? ' !' : ''}
             </button>
           );
         })}
@@ -489,6 +491,7 @@ export default function ScriptonDevelop(props: ScriptonDevelopProps) {
       </div>
       <div className="cvdiv" />
       <div className="cvbody">
+        <SxTruncationBanner tr={active?.truncation} t={t} />
         <StageCanvasBody active={active} t={t} projectId={props.projectId} />
       </div>
       <div className="cvfoot">

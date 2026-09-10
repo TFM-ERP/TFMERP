@@ -45,6 +45,7 @@ import {
 import { mapAiFactsToCore } from './canon/canon-map.util';
 import { canonDirective, prohibitionDirective, registerDirective } from './canon/canon-inject.util';
 import { transcribeRegister, REGISTER_VERSION } from './canon/canon-register.util';
+import { truncationFlag, truncationOf } from './stage-truncation.util';
 import { registerLines, registerCheckUser, parseRegisterCheck, REGISTER_CHECK_SYSTEM, REGISTER_CHECK_MAXTOK } from './canon/register-check.util';
 import { selectCanonByQuota, quotaSummary, quotaShortfall } from './canon/canon-quota.util';
 import { SOURCE_CANON_SYSTEM, SOURCE_CANON_MAXTOK, CANON_EXTRACTOR_VERSION, CANON_MAX_SOURCE_CHARS } from './canon/canon-prompt.util';
@@ -754,7 +755,12 @@ export class ScripOnService {
     await ensure();
     const all: any[] = await (this.prisma as any).developmentStage.findMany({ where: baseWhere, include: { versions: { orderBy: { n: 'asc' } } } }).catch(() => []);
     all.sort((a, b) => ord(a.kind) - ord(b.kind));
-    return all.map((s) => ({ ...s, current: (s.versions || []).find((v: any) => v.id === s.currentVersionId) || (s.versions || [])[(s.versions || []).length - 1] || null }));
+    // Every version says whether it was cut off at its ceiling — read here once, so the screen does not
+    // parse the old warning prose itself (see stage-truncation.util).
+    return all.map((s) => {
+      const versions = (s.versions || []).map((v: any) => ({ ...v, truncation: truncationOf(v.data) }));
+      return { ...s, versions, current: versions.find((v: any) => v.id === s.currentVersionId) || versions[versions.length - 1] || null };
+    });
   }
 
   // ── Build versions (V1/V2/V3) — each a full re-run with its own frozen brief snapshot + ladder + script. Opt-in. ──
@@ -849,7 +855,7 @@ export class ScripOnService {
    *  adds nothing — bounded, sequentially renumbered. Returns the completed array + a
    *  warning when it's STILL truncating, so we never silently persist a partial outline.
    *  Mirrors generateFeature()'s scene-map continuation. */
-  private async extendStageArray(o: { kind: string; arrKey: string; system: string; user: string; cap: number; firstRes: any; firstArr: any[]; projectId: string }): Promise<{ arr: any[]; passes: number; warning?: string }> {
+  private async extendStageArray(o: { kind: string; arrKey: string; system: string; user: string; cap: number; firstRes: any; firstArr: any[]; projectId: string }): Promise<{ arr: any[]; passes: number; warning?: string; last?: { stopReason?: string; outputTokens?: number } }> {
     const { kind, arrKey, system, user, cap, projectId } = o;
     let arr: any[] = Array.isArray(o.firstArr) ? o.firstArr.slice() : [];
     const truncated = (r: any): boolean => { if (!r) return true; const used = (r.usage && r.usage.output_tokens) || 0; const clean = !!(r.json && Array.isArray(r.json[arrKey])); return !clean || used >= cap * 0.9; };
@@ -871,7 +877,7 @@ export class ScripOnService {
     if (kind === 'SCENES') arr = arr.map((s, i) => ({ ...s, sceneNumber: i + 1 }));
     if (kind === 'STEP_OUTLINE') arr = arr.map((s, i) => ({ ...s, n: i + 1 }));
     const warning = (arr.length && truncated(last)) ? (kind + ' outline may be incomplete — still truncating after ' + passes + ' continuation pass(es) (' + arr.length + ' items). Re-run.') : undefined;
-    return { arr, passes, warning };
+    return { arr, passes, warning, last: { stopReason: last?.stopReason, outputTokens: last?.usage?.output_tokens } };
   }
   /**
    * Measured duration per stage, in seconds — taken from real AiRun latencies on this install, not
@@ -1017,7 +1023,7 @@ export class ScripOnService {
         j.status = 'DONE'; j.finishedAt = Date.now();
         j.elapsedSec = Math.round((j.finishedAt - j.startedAt) / 1000);
         j.versionId = created && created.id; j.versionN = created && created.n;
-        if (created && created.warning) j.warning = String(created.warning);
+        if (created && (created.truncation || created.warning)) j.warning = String(created.truncation ? created.truncation.note : created.warning);
         this.log.log('startStage: ' + kind + ' DONE in ' + j.elapsedSec + 's (estimate was ' + estimateSec + 's) — version ' + j.versionId + '.');
       })
       .catch((e: any) => {
@@ -1299,7 +1305,10 @@ export class ScripOnService {
     if (ARRKEY[kind] && Array.isArray(ai[ARRKEY[kind]]) && ai[ARRKEY[kind]].length) {
       const ext = await this.extendStageArray({ kind, arrKey: ARRKEY[kind], system: brief.system, user, cap, firstRes: res, firstArr: ai[ARRKEY[kind]], projectId });
       ai[ARRKEY[kind]] = ext.arr;
-      if (ext.warning) ai.__warning = ext.warning;
+      if (ext.warning) {
+        ai.__warning = ext.warning;
+        ai.__truncated = truncationFlag({ stopReason: ext.last?.stopReason, outputTokens: ext.last?.outputTokens, maxTokens: cap }, { items: ext.arr.length, passes: ext.passes });
+      }
     }
     const data: any = {};
     if (Array.isArray(ai.beats)) data.beats = ai.beats;
@@ -1308,6 +1317,7 @@ export class ScripOnService {
     if (Array.isArray(ai.shots)) data.shots = ai.shots;
     if (kind === 'VIDEO_PROMPT' && ai && (ai.shots || ai.format)) data.videoPayload = { format: ai.format || 'VERTICAL_AI_VIDEO', aspectRatio: ai.aspectRatio || '9:16', shots: ai.shots || [] };
     if (ai.__warning) data.warning = ai.__warning; // persisted so a still-truncated outline is never silent
+    if (ai.__truncated) data.truncated = ai.__truncated; // and as a flag, so "is this stage done?" can read it
     const maxN = (stage.versions || []).reduce((m: number, v: any) => Math.max(m, v.n || 0), 0);
     const n = maxN + 1;
     const META = new Set(['title', 'format', 'rating', 'totalScenes', 'type', 'genre']);
@@ -1382,9 +1392,14 @@ export class ScripOnService {
       stopReason: res?.stopReason, sawThinking: res?.sawThinking, model: res?.model, provider: res?.provider,
     };
     if (!body) throw new BadRequestException(explainEmptyDraft(kind, capFacts));
-    if (!ARRKEY[kind] && !data.warning && stoppedAtCeiling(capFacts)) {
-      data.warning = truncationWarning(kind, capFacts);   // persisted, so a salvaged partial is never silent
-      this.log.warn('generateStage ' + kind + ': ' + data.warning);
+    // A STAGE CUT OFF AT ITS CEILING IS FLAGGED, NOT JUST ANNOTATED — see stage-truncation.util. The
+    // sentence was always written; nothing read it, and the v2.2 DRAFT filed as done at 25,000/25,000.
+    // An array stage that came back WITH items is judged by its continuation passes above instead.
+    const arrItems = ARRKEY[kind] && Array.isArray(ai[ARRKEY[kind]]) ? ai[ARRKEY[kind]].length : 0;
+    if (!arrItems && !data.truncated && stoppedAtCeiling(capFacts)) {
+      data.truncated = truncationFlag(capFacts);
+      if (!data.warning) data.warning = truncationWarning(kind, capFacts);   // persisted, so a salvaged partial is never silent
+      this.log.warn('generateStage ' + kind + ': TRUNCATED — ' + data.warning);
     }
     // THE CANON ACCOUNT TRAVELS WITH THE DRAFT. Which facts and rules were extracted, which reached
     // this prompt, and which were dropped — persisted on the version, so it is answerable months
@@ -1413,6 +1428,8 @@ export class ScripOnService {
     }
     if (kind === 'SCENES') { void this.generateCharacterBible(projectId, userId, opts?.buildId).catch(() => {}); }   // auto character breakdown the moment scenes land
     if (ai.__warning) (created as any).warning = ai.__warning; // surface in the HTTP response too
+    if (data.warning && !(created as any).warning) (created as any).warning = data.warning;
+    (created as any).truncation = truncationOf(data);   // the caller says INCOMPLETE, not "generated"
     return created;
   }
 
@@ -5100,34 +5117,54 @@ export class ScripOnService {
    * already on the card as its own chip; the dots were a second, less accurate copy of it. Measured:
    * across 18 builds, real progress ranges 2-10 stages and does not track status at all.
    *
+   * A stage counts as DONE only when its current version was not cut off at its ceiling; a cut-off
+   * one is reached (furthest) and named in `incomplete`, never counted done.
+   *
    * A stage counts as reached when it has at least one version — an empty stage row is scaffolding
    * pipeline() creates on first open, not work.
    */
-  private async ladderProgress(ids: string[]): Promise<Map<string, { done: number; total: number; furthest: string | null; lastWorkedAt: Date | null }>> {
-    const out = new Map<string, { done: number; total: number; furthest: string | null; lastWorkedAt: Date | null }>();
+  private async ladderProgress(ids: string[]): Promise<Map<string, { done: number; total: number; furthest: string | null; lastWorkedAt: Date | null; incomplete: string[] }>> {
+    const out = new Map<string, { done: number; total: number; furthest: string | null; lastWorkedAt: Date | null; incomplete: string[] }>();
     if (!ids || !ids.length) return out;
     const stages: any[] = await (this.prisma as any).developmentStage.findMany({
       where: { buildId: { in: ids } },
-      select: { id: true, buildId: true, kind: true, order: true, _count: { select: { versions: true } } },
+      select: { id: true, buildId: true, kind: true, order: true, currentVersionId: true, _count: { select: { versions: true } } },
     }).catch(() => []);
+    // A CUT-OFF STAGE IS REACHED, NOT DONE. Its current version stopped at its ceiling (see
+    // stage-truncation.util), so it counts toward `furthest` — the ladder did get there — but not toward
+    // `done`, and it is named in `incomplete`. Only the two fields the check needs are read: a stage
+    // version's data holds whole scene lists, and this runs for every card on the board.
+    const cut = new Set<string>();
+    const curIds = stages.map((st) => st.currentVersionId).filter(Boolean);
+    if (curIds.length) {
+      const rows: any[] = await (this.prisma as any).$queryRaw`SELECT "id", "data"->'truncated' AS "truncated", "data"->>'warning' AS "warning" FROM "stage_versions" WHERE "id" = ANY(${curIds})`
+        .catch((e: any) => { this.log.warn('ladderProgress: truncation not read — cut-off stages will count as done. ' + this.why(e)); return []; });
+      for (const r of rows) if (truncationOf({ truncated: r.truncated, warning: r.warning })) cut.add(r.id);
+    }
     // COUNTED BY KIND, NOT BY ROW. pipeline() creates a stage row per (build, buildVersion), so a
     // build that has been re-versioned holds several rows of the same kind — counting rows gave
     // "stage 14 of 24" for an eight-stage ladder. "Stage N of M" means kinds; the writer has one
     // Treatment, however many times the row was instantiated.
     const kinds = new Map<string, Set<string>>();
     const doneKinds = new Map<string, Set<string>>();
+    const cutKinds = new Map<string, Set<string>>();
     const best = new Map<string, number>();
-    for (const id of ids) { out.set(id, { done: 0, total: 0, furthest: null, lastWorkedAt: null }); kinds.set(id, new Set()); doneKinds.set(id, new Set()); }
+    for (const id of ids) { out.set(id, { done: 0, total: 0, furthest: null, lastWorkedAt: null, incomplete: [] }); kinds.set(id, new Set()); doneKinds.set(id, new Set()); cutKinds.set(id, new Set()); }
     for (const st of stages) {
       if (!kinds.has(st.buildId)) continue;
       kinds.get(st.buildId)!.add(st.kind);
       if ((st._count?.versions || 0) > 0) {
-        doneKinds.get(st.buildId)!.add(st.kind);
+        if (st.currentVersionId && cut.has(st.currentVersionId)) cutKinds.get(st.buildId)!.add(st.kind);
+        else doneKinds.get(st.buildId)!.add(st.kind);
         const ord = Number(st.order) || 0;
         if (!best.has(st.buildId) || ord >= (best.get(st.buildId) as number)) { best.set(st.buildId, ord); out.get(st.buildId)!.furthest = st.kind; }
       }
     }
-    for (const id of ids) { const c = out.get(id)!; c.total = kinds.get(id)!.size; c.done = doneKinds.get(id)!.size; }
+    for (const id of ids) {
+      const c = out.get(id)!; const done = doneKinds.get(id)!;
+      c.total = kinds.get(id)!.size; c.done = done.size;
+      c.incomplete = [...cutKinds.get(id)!].filter((k) => !done.has(k));   // a kind complete in another row is done
+    }
 
     // WHEN THE WRITER LAST WORKED, which is not what any timestamp on the build row means.
     //
@@ -5162,7 +5199,7 @@ export class ScripOnService {
   }
 
   /** The identity a card renders, from a row + its versions. One place, so list and single agree. */
-  private buildCard(r: any, mine: any[], ladder?: { done: number; total: number; furthest: string | null; lastWorkedAt?: Date | null }): any {
+  private buildCard(r: any, mine: any[], ladder?: { done: number; total: number; furthest: string | null; lastWorkedAt?: Date | null; incomplete?: string[] }): any {
     {
       const active = mine.find((v) => v.id === r.activeVersionId);
       const { brief, ...rest } = r;                       // the source stays on the server
@@ -5173,7 +5210,7 @@ export class ScripOnService {
         // The writer's own draft name wins; the machine count is only the fallback. brief is loaded
         // here for the source fingerprint anyway, so the label was one property away all along.
         version: draftLabel(brief && brief.versionLabel) || versionCountLabel(active ? active.n : null, mine.length),
-        ladder: ladder || { done: 0, total: 0, furthest: null },
+        ladder: ladder || { done: 0, total: 0, furthest: null, incomplete: [] },
         // Sorted on and rendered from the same value — a board that orders by something it does not
         // show cannot be checked by the person reading it.
         lastWorkedAt: (ladder && ladder.lastWorkedAt) || null,

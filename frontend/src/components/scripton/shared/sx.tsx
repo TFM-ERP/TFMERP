@@ -15,7 +15,20 @@ import { useScriptonGenerating } from '../useScriptonGenerating';
 
 const lsGet = (k: string, fb: any) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : fb; } catch { return fb; } };
 
-export type SxLadder = { name: string; sub?: string; state: 'done' | 'on' | 'wait'; body?: string; kind?: string; stageId?: string; versionId?: string; versionN?: number; versionCount?: number; versionColor?: string; status?: string; framework?: string; scenes?: any[]; steps?: any[] };
+export type SxLadder = { name: string; sub?: string; state: 'done' | 'on' | 'wait'; body?: string; kind?: string; stageId?: string; versionId?: string; versionN?: number; versionCount?: number; versionColor?: string; status?: string; framework?: string; scenes?: any[]; steps?: any[]; truncation?: SxTruncation | null };
+/** Set by the server on a version cut off at its token ceiling (stage-truncation.util). Such a stage is NOT done. */
+export type SxTruncation = { note: string; stopReason?: string | null; outputTokens?: number | null; maxTokens?: number | null };
+
+/** The loud part: a cut-off stage says so above its text, in words, every time it is shown. */
+export function SxTruncationBanner({ tr, t }: { tr?: SxTruncation | null; t: (k: string) => string }) {
+  if (!tr) return null;
+  return (
+    <div role="alert" style={{ margin: '0 0 12px', padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(229,99,95,.55)', background: 'rgba(229,99,95,.12)', color: '#e5635f', fontSize: 12.5, lineHeight: 1.45 }}>
+      <b style={{ letterSpacing: '.06em' }}>{t('INCOMPLETE — CUT OFF')}</b>
+      <div style={{ marginTop: 3 }}>{tr.note}</div>
+    </div>
+  );
+}
 export type SxSpine = { k: string; v: string };
 export type SxDirection = { label: string; logline: string; keep?: string; change?: string; tone?: string; risk?: string };
 export type SxEpisode = { ep?: any; title?: string; engine?: string; cliffhanger?: string; hook?: string; escalation?: string; sting?: string };

@@ -379,8 +379,16 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
                     </div>
                   ) : null}
                   <div className="ident" style={{ marginTop: 0 }}>{b.ladder && b.ladder.total
-                    ? (b.ladder.done ? (stageLabel(b.ladder.furthest) + ' · ' + t('stage') + ' ' + b.ladder.done + ' ' + t('of') + ' ' + b.ladder.total) : t('Not started'))
-                    : ''}</div>
+                    ? ((b.ladder.done || (b.ladder.incomplete && b.ladder.incomplete.length)) ? (stageLabel(b.ladder.furthest) + ' · ' + t('stage') + ' ' + b.ladder.done + ' ' + t('of') + ' ' + b.ladder.total) : t('Not started'))
+                    : ''}
+                    {/* A stage cut off at its token ceiling is reached, not done — named here in red, so the
+                        card cannot show a truncated draft as a finished one. */}
+                    {b.ladder && Array.isArray(b.ladder.incomplete) && b.ladder.incomplete.length ? (<>
+                      <span className="sep">·</span>
+                      <span style={{ color: '#e5635f', fontWeight: 700 }} title={t('Cut off at its token ceiling — regenerate it.')}>
+                        {b.ladder.incomplete.map((k: string) => stageLabel(k)).join(', ')} {t('incomplete — cut off')}
+                      </span>
+                    </>) : null}</div>
                   <div className="ft">
                     {bin ? (<>
                       <span className="when" style={{ marginRight: 'auto' }}>{daysLeft(b.deletedAt)}{t('d left in bin')}</span>
