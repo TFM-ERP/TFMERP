@@ -1,0 +1,22 @@
+# LINE ENDINGS ARE DECIDED HERE, NOT BY EACH MACHINE'S core.autocrlf.
+# The repository stores LF, and every checkout writes LF, on Windows and on the Mac alike. Without
+# this file the Windows checkout wrote CRLF, the move to the Mac carried those files over, and git
+# then reported 49 files as modified that differed only in line endings.
+* text=auto eol=lf
+
+# Windows-only scripts: cmd.exe needs CRLF in the working tree. Stored as LF like everything else.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Never converted. text=auto detects binaries by a NUL in the first 8,000 bytes; these are declared
+# so a file that happens to have none is not rewritten.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.docx binary
+*.xlsx binary
+*.lnk binary
