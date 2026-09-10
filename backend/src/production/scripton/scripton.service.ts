@@ -2834,7 +2834,7 @@ export class ScripOnService {
 
   /** The fail-open wrapper the stage path uses. A failed extraction still carries the register. */
   private async sourceCanonFor(projectId: string, sourceText: string): Promise<{ facts: CanonFactCore[]; account: any }> {
-    const src = String(sourceText || '');
+    const src = String(sourceText || '').trim();   // the same text loadSourceCanon keys on
     if (src.length < 400) return { facts: [], account: null };
     try {
       const got = await this.loadSourceCanon(projectId, src, { extract: true });
@@ -2854,8 +2854,14 @@ export class ScripOnService {
    * extraction, stored before it is returned. Null when there is nothing and extraction was not
    * asked for. THROWS when an extraction fails: callers that must fail open use sourceCanonFor.
    */
-  private async loadSourceCanon(projectId: string, src: string, opts: { extract: boolean })
+  private async loadSourceCanon(projectId: string, sourceText: string, opts: { extract: boolean })
     : Promise<{ facts: CanonFactCore[]; account: any; from: 'memory' | 'stored' | 'extracted'; stored?: 'stored' | 'no-table' } | null> {
+    // ONE TEXT, ONE KEY, WHOEVER ASKS. The stage gate hands over asSourceText() — trimmed — while
+    // extractCanonForBuild handed over the raw brief. On a bible with a trailing newline (3 of 17
+    // sourced builds) those are two different sha256 digests: the build step stored the canon under
+    // one, the gate looked under the other, never found it, and re-fired "extracting again" on every
+    // click — a lockout. The digest, the stored row and every offset are taken on the trimmed text.
+    const src = String(sourceText || '').trim();
     const { digest, key } = this.canonKeyOf(src);
     const hit = this.sourceCanonCache.get(key);
     if (hit) return { ...hit, from: 'memory' };
