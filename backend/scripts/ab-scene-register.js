@@ -114,8 +114,12 @@ const spread = (xs) => xs.length ? (Math.min(...xs) + '–' + Math.max(...xs) + 
 
   const res = { A: [], B: [] };
   const out = [];
-  for (let k = 0; k < N; k++) {
+  let stopped = null;
+  // A run that dies part-way (a provider out of credit did, on the first real run) keeps what it
+  // measured: every sample is written as it lands, and the summary covers what completed.
+  samples: for (let k = 0; k < N; k++) {
     for (const arm of (k % 2 ? ['B', 'A'] : ['A', 'B'])) {
+      try {
       const mark = calls.length;
       const text = await svc.writeScene(arm === 'A' ? ctxA : ctxB, sc, header, '', '', b.projectId, budget);
       const sceneCalls = calls.slice(mark).filter((c) => c.task === 'scripton.feature.scene');
@@ -133,10 +137,16 @@ const spread = (xs) => xs.length ? (Math.min(...xs) + '–' + Math.max(...xs) + 
       out.push('==================== ARM ' + arm + ' · SAMPLE ' + (k + 1) + ' · ' + (arm === 'A' ? 'NO REGISTER' : 'REGISTER') + ' ====================\n'
         + String(text) + '\n\n--- register check: ' + rep.summary + '\n'
         + rep.items.map((i) => '#' + i.line + ' ' + i.rule.slice(0, 140) + '\n   "' + i.draft + '"' + (i.quoteFound ? '' : ' (NOT FOUND)') + '\n   ' + i.why).join('\n') + '\n');
+      fs.writeFileSync(OUT, out.join('\n'));
+      } catch (e) {
+        stopped = arm + (k + 1) + ': ' + String((e && e.message) || e).slice(0, 300);
+        break samples;
+      }
     }
   }
+  if (stopped) console.log('\nSTOPPED at ' + stopped + '\n— the summary covers only the samples that completed.');
 
-  console.log('\nSUMMARY (n=' + N + ' per arm)');
+  console.log('\nSUMMARY (n=' + res.A.length + ' in A, ' + res.B.length + ' in B; ' + N + ' asked per arm)');
   for (const arm of ['A', 'B']) {
     const rs = res[arm]; const okd = rs.filter((r) => r.ok);
     const freq = {}; for (const r of okd) for (const l of r.lines) freq[l] = (freq[l] || 0) + 1;
