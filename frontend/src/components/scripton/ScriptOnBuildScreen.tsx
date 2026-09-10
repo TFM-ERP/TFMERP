@@ -4,8 +4,17 @@ import { useLocale } from '@/lib/i18n';
 
 /** TFM cinematic build screen. Phase 1: research + prep stepper. Phase 2 (when `directions` arrive):
  *  the 3-direction pick (FAITHFUL / BOLD / REIMAGINED) shown AFTER the research, BEFORE Develop. No star, no site URLs. */
+// THE TOP WAS UNREACHABLE. This scroller centred its content with align-items:center, so when the
+// three direction cards grew taller than the viewport — a note being typed grows them — half the
+// overflow was pushed ABOVE the top edge, where no scroll position exists: the logo, the title and
+// the top of every card could only be seen by zooming out. flex-start plus margin:auto on the child
+// is safe centring — centred while it fits, top-aligned and fully scrollable when it does not.
+// The glows sit in their own clipped fixed layer: as children of the scroller, .glowB (bottom:-240px,
+// right:-120px) added 240px of empty scroll below the cards and a sideways scroll to the right.
 const CSS = `
-.tfmbuild{position:fixed;inset:0;z-index:90;background:#0C0D10;display:flex;align-items:center;justify-content:center;font-family:var(--sx-body);overflow:auto}
+.tfmbuild{position:fixed;inset:0;z-index:90;background:#0C0D10;display:flex;align-items:flex-start;justify-content:center;padding:56px 0 48px;font-family:var(--sx-body);overflow:auto}
+.tfmbuild .glows{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:0}
+.tfmbuild > .border-glow-card{margin:auto}
 .tfmbuild .glowA{position:absolute;top:-320px;left:50%;transform:translateX(-50%);width:1300px;height:900px;pointer-events:none;background:radial-gradient(circle at center,rgba(198,164,99,.20),rgba(198,164,99,.05) 45%,transparent 70%)}
 .tfmbuild .glowB{position:absolute;bottom:-240px;right:-120px;width:900px;height:700px;pointer-events:none;background:radial-gradient(circle at center,rgba(94,131,168,.12),transparent 70%)}
 .tfmbuild .hair{position:absolute;left:0;right:0;height:1px;background:rgba(198,164,99,.18)}
@@ -33,7 +42,7 @@ const CSS = `
 .tfmbuild .err{margin-top:14px;font-size:12px;color:#e9a8a6;line-height:1.5}
 .tfmbuild .cont{margin-top:14px;height:40px;padding:0 18px;border:none;border-radius:11px;background:linear-gradient(180deg,#E6D2A2,#C6A463);color:#15120B;font-weight:800;font-size:13px;cursor:pointer}
 /* directions phase */
-.tfmbuild .dirwrap{position:relative;z-index:2;width:1430px;max-width:calc(100vw - 40px);padding:30px 24px;text-align:center}
+.tfmbuild .dirwrap{position:relative;z-index:2;margin:auto;width:1430px;max-width:calc(100vw - 40px);padding:30px 24px;text-align:center}
 .tfmbuild .dlogo{width:44px;height:44px;border-radius:12px;background:linear-gradient(180deg,#E6D2A2,#C6A463);display:grid;place-items:center;margin:0 auto 12px}.tfmbuild .dlogo span{color:#15120B;font-weight:900;font-size:14px;letter-spacing:-1px}
 .tfmbuild .dttl{font-family:var(--sx-title);font-size:26px;font-weight:600;color:#F3ECDD;margin-bottom:5px}
 .tfmbuild .dsub{color:#9aa1ab;font-size:13px;margin-bottom:22px}
@@ -161,19 +170,24 @@ const CSS = `
 `;
 const FALLBACK_LABELS = ['FAITHFUL', 'RECONCEIVED', 'REINVENTION'];
 
-function DirCard({ d, i, onPick, onRegen }: { d: any; i: number; onPick?: (x: any) => void; onRegen?: (x: any, note: string) => Promise<any | null> }) {
+function DirCard({ d, i, onPick, onRegen }: { d: any; i: number; onPick?: (x: any, note: string) => void; onRegen?: (x: any, note: string) => Promise<any | null> }) {
   const { t } = useLocale();
   const [versions, setVersions] = useState<any[]>([d]);
   const [idx, setIdx] = useState(0);
   const [noteOpen, setNoteOpen] = useState(false);
   const [note, setNote] = useState('');
-  const [appliedNote, setAppliedNote] = useState('');
   const [busy, setBusy] = useState(false);
   const cur = versions[idx] || d;
   const regen = async () => {
     if (!onRegen || busy) return;
     setBusy(true);
-    try { const nd = await onRegen(cur, note.trim()); if (nd) { setVersions((v) => { const nv = v.concat([nd]); setIdx(nv.length - 1); return nv; }); if (note.trim()) setAppliedNote(note.trim()); } } catch { /* */ }
+    // THE NOTE BELONGS TO THE VERSION IT PRODUCED. It was one page-wide ref: a note typed on one card
+    // rode along when a DIFFERENT card was picked, a note from a previous build's directions rode into
+    // the next build, and it was stored before the regeneration had even succeeded. Now it travels
+    // only with the version it steered; a take regenerated without a new note inherits its parent's,
+    // because that note is still in force for this line of versions.
+    const used = note.trim();
+    try { const nd = await onRegen(cur, used); if (nd) { const tagged = { ...nd, __note: used || cur.__note || '' }; setVersions((v) => { const nv = v.concat([tagged]); setIdx(nv.length - 1); return nv; }); } } catch { /* */ }
     setBusy(false);
   };
   return (
@@ -190,18 +204,18 @@ function DirCard({ d, i, onPick, onRegen }: { d: any; i: number; onPick?: (x: an
         </div>
       </div>
       <div className={'dlog' + (busy ? ' fade' : '')}>{cur.logline || cur.summary || ''}</div>
-      {appliedNote ? <div className="dnote"><b>{t('Note')} {'\u25b8'}</b> {appliedNote}</div> : null}
+      {cur.__note ? <div className="dnote"><b>{t('Note')} {'\u25b8'}</b> {cur.__note}</div> : null}
       {noteOpen ? (<div className="dnotebox"><textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder={t('e.g. make the brother colder \u00b7 more political intrigue \u00b7 lean into the poetry')} /><div className="dnotehint">{t('Type a note, then press')} <b>{'\u27f3'}</b> {t('to regenerate with it.')}</div></div>) : null}
       {cur.keep ? <div className="drow"><b>{t('Keep')}</b>{cur.keep}</div> : null}
       {cur.change ? <div className="drow"><b>{t('Change')}</b>{cur.change}</div> : null}
       {cur.tone ? <div className="drow"><b>{t('Tone')}</b>{cur.tone}</div> : null}
       {cur.risk ? <div className="drow"><b>{t('Risk')}</b>{cur.risk}</div> : null}
-      <button className="dpick" onClick={() => onPick && onPick(cur)}>{t('Develop this')} <span className="dar">{'\u2192'}</span></button>
+      <button className="dpick" onClick={() => onPick && onPick(cur, String(cur.__note || ''))}>{t('Develop this')} <span className="dar">{'\u2192'}</span></button>
     </div>
   );
 }
 
-export default function ScriptOnBuildScreen({ title, items, status, error, onContinue, directions, onPick, onRegen, progress, actions }: { title: string; items: { label: string; state: 'done' | 'active' | 'wait' | 'error' }[]; status: string; error?: string | null; onContinue?: () => void; directions?: any[] | null; onPick?: (d: any) => void; onRegen?: (d: any, note: string) => Promise<any | null>; progress?: number | null; actions?: { label: string; primary?: boolean; onClick: () => void }[] | null }) {
+export default function ScriptOnBuildScreen({ title, items, status, error, onContinue, directions, onPick, onRegen, progress, actions }: { title: string; items: { label: string; state: 'done' | 'active' | 'wait' | 'error' }[]; status: string; error?: string | null; onContinue?: () => void; directions?: any[] | null; onPick?: (d: any, note: string) => void; onRegen?: (d: any, note: string) => Promise<any | null>; progress?: number | null; actions?: { label: string; primary?: boolean; onClick: () => void }[] | null }) {
   const { dir, t } = useLocale();
   const showDirs = !!(directions && directions.length);
   const total = items.length || 1;
@@ -212,7 +226,7 @@ export default function ScriptOnBuildScreen({ title, items, status, error, onCon
   return (
     <div className="tfmbuild" dir={dir}>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
-      <div className="glowA" /><div className="glowB" />
+      <div className="glows"><div className="glowA" /><div className="glowB" /></div>
       <div className="hair" style={{ top: 34 }} /><div className="hair" style={{ bottom: 34 }} />
       <span className="corner" style={{ top: 16, left: 30 }}>{t('THE FILM MAKERS · DEVELOPMENT')}</span>
       <span className="corner" style={{ top: 16, right: 30 }}>{showDirs ? t('CHOOSE A DIRECTION') : error ? t('PAUSED') : t('BUILDING')}</span>

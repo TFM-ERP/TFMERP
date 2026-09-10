@@ -84,8 +84,6 @@ function StudioPageInner() {
   useEffect(() => () => { clearInterval(promoCrawl.current); }, []);
   const tT = useRef<any>(null);
   const buildIdRef = useRef<string | undefined>(undefined);
-  /** The last steering note typed on Regenerate — saved with the direction he picks, not discarded. */
-  const regenNoteRef = useRef<string>('');
 
   /**
    * THE URL OWNS THE TAB. Clicking Build on the rail while a build was open did nothing — he had to
@@ -341,7 +339,7 @@ function StudioPageInner() {
       setBuildError((e?.response?.data?.message || t('Directions could not be generated.')) + ' ' + t('Opening Develop so you can start manually.'));
     }
   };
-  const onBuildPick = async (d: any) => {
+  const onBuildPick = async (d: any, note?: string) => {
     if (!projectId) return;
     try { window.localStorage.removeItem('scripon.dir.' + projectId); } catch { /* */ }
     // NO WRITE-TIME CAP. This was .slice(0, 600), which truncated the chosen direction mid-word on
@@ -354,8 +352,11 @@ function StudioPageInner() {
     // family decisions before the terminal rescue" — and it was steering ONE regeneration and then
     // being discarded. It is a directive about how to develop the film, which is exactly what
     // intake.treatment carries into every stage, so it is saved with the direction he picked.
+    // It is the note that produced THIS version of THIS card (DirCard carries it on the version) —
+    // not the last note typed anywhere on the page, which is what a page-wide ref gave.
+    const pickedNote = String(note || '').trim();
     const summary = String(d.label || '') + (d.change ? (' - change: ' + d.change) : '') + (d.tone ? (' - tone: ' + d.tone) : '')
-      + (regenNoteRef.current ? ('\n\nWRITER NOTE (honour every line):\n' + regenNoteRef.current) : '');
+      + (pickedNote ? ('\n\nWRITER NOTE (honour every line):\n' + pickedNote) : '');
     // AND IT SAYS SO WHEN IT FAILS. `catch { }` here meant the direction silently never reached the
     // brief and the whole ladder then generated without it, with nothing on screen to show why.
     try { await productionApi.scripton.development.saveIntake(projectId, { treatment: summary }); }
@@ -368,7 +369,6 @@ function StudioPageInner() {
     // buildId, because the source lives on build.brief.sourceText — intakeProfile.sourceText is 0
     // characters on every project that has builds, and regenerating without the source produced a
     // direction invented from nothing (measured: in=126 tokens for the entire request).
-    if (note && note.trim()) regenNoteRef.current = note.trim();
     try {
       const r: any = await productionApi.scripton.adaptOne(projectId, { direction: dir, note: note || '', buildId: buildIdRef.current });
       return (r && r.data && r.data.direction) || null;
