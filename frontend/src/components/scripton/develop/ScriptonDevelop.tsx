@@ -284,9 +284,11 @@ const CSS = `
 .sx.develop .sttrack{height:5px;border-radius:99px;background:var(--track);overflow:hidden;margin-top:11px}
 .sx.develop .sttrack .ind{display:block;height:5px;width:40%;border-radius:99px;background:var(--gold);animation:dcvsweep 1.5s ease-in-out infinite}
 @keyframes dcvsweep{0%{margin-inline-start:-40%}100%{margin-inline-start:100%}}
-.sx.develop .acts{display:flex;align-items:center;gap:10px}
+.sx.develop .acts{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .sx.develop .btn{height:34px;padding:0 15px;border-radius:9px;font-size:12.5px;font-weight:600;cursor:pointer;border:1px solid var(--hair2);background:transparent;color:var(--cream);display:inline-flex;align-items:center;gap:7px}
 .sx.develop .btn:hover{border-color:var(--gold2)}
+.sx.develop .btn:disabled{opacity:.45;cursor:not-allowed}
+.sx.develop .btn:disabled:hover{border-color:var(--hair2)}
 .sx.develop .btn.gold{background:linear-gradient(180deg,var(--gold2),var(--gold));border-color:transparent;color:var(--goldink)}
 .sx.develop .btn.gold:hover{filter:brightness(1.05)}
 
@@ -371,6 +373,11 @@ export default function ScriptonDevelop(props: ScriptonDevelopProps) {
   const active = ladder.find((l) => l.kind === focusKind) || ladder.find((l) => l.state === 'on') || ladder[ladder.length - 1];
   const activeIdx = Math.max(0, ladder.findIndex((l) => l.kind === active?.kind));
   const nextStage = ladder.find((l) => !l.versionId); // next stage with no version yet
+  // A CUT-OFF STAGE IS NOT BUILT ON (the server refuses; this says so before the click). The next stage
+  // waits on any cut-off stage before it; the script waits on any cut-off stage it is written from.
+  const cutBeforeNext = nextStage ? ladder.slice(0, ladder.indexOf(nextStage)).filter((l) => l.truncation) : [];
+  const cutForScript = ladder.filter((l) => l.truncation && l.kind !== 'COVERAGE');
+  const names = (ls: SxLadder[]) => ls.map((l) => l.name).join(', ');
   const metaHint = (() => {
     switch (active?.kind) {
       case 'LOGLINE': return t('the promise in one line');
@@ -499,11 +506,18 @@ export default function ScriptonDevelop(props: ScriptonDevelopProps) {
           <StatusBar t={t} label={stageLabel(props.genBusy)} />
         ) : (
           <div className="acts">
+            {(cutBeforeNext.length || (active?.kind === 'DRAFT' && cutForScript.length)) ? (
+              <div style={{ flexBasis: '100%', color: '#e5635f', fontSize: 12 }}>
+                {t('Regenerate first')}: {names(cutBeforeNext.length ? cutBeforeNext : cutForScript)} — {t('incomplete — cut off')}. {t('Nothing is written from a cut-off stage; you can still read, copy and export it.')}
+              </div>
+            ) : null}
             {active?.kind === 'DRAFT' && active.versionId && props.onPromoteScript
-              ? <button className="btn gold" onClick={() => props.onPromoteScript!(active.versionId!)}>↗ {t('Generate script → Library')}</button>
+              ? <button className="btn gold" disabled={!!cutForScript.length} title={cutForScript.length ? t('Blocked') + ': ' + names(cutForScript) + ' ' + t('incomplete — cut off') : undefined}
+                  onClick={() => { if (!cutForScript.length) props.onPromoteScript!(active.versionId!); }}>↗ {t('Generate script → Library')}</button>
               : null}
             {nextStage
-              ? <button className={'btn' + (active?.kind === 'DRAFT' ? '' : ' gold')} onClick={props.onAdvance}>{t('Generate')} {stageLabel(nextStage.kind)} →</button>
+              ? <button className={'btn' + (active?.kind === 'DRAFT' ? '' : ' gold')} disabled={!!cutBeforeNext.length} title={cutBeforeNext.length ? t('Blocked') + ': ' + names(cutBeforeNext) + ' ' + t('incomplete — cut off') : undefined}
+                  onClick={() => { if (!cutBeforeNext.length) props.onAdvance(); }}>{t('Generate')} {stageLabel(nextStage.kind)} →</button>
               : null}
             {active?.kind ? <button className="btn" onClick={() => props.onRegenerate(active.kind!)}>⟳ {t('Regenerate')} {stageLabel(active.kind)}</button> : null}
           </div>

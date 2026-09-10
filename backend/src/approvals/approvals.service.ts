@@ -1,9 +1,11 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { chainForAmount } from './routing.util';
+import { truncationOf } from '../production/scripton/stage-truncation.util';
 
 @Injectable()
 export class ApprovalsService {
+  private readonly log = new Logger('ApprovalsService');
   constructor(private prisma: PrismaService) {}
 
   /** Build a routing chain for an expense (idempotent — won't duplicate an open request). */
@@ -178,7 +180,14 @@ export class ApprovalsService {
         if (entityType === 'BREAKDOWN_ELEMENT') { const ids = (payload && Array.isArray(payload.ids) && payload.ids.length) ? payload.ids : [entityId]; await (this.prisma as any).breakdownElement.updateMany({ where: { id: { in: ids } }, data: (payload && payload.data) || {} }); }
         else if (entityType === 'ANNOTATION_RESOLVE') { await (this.prisma as any).annotation.update({ where: { id: entityId }, data: { resolved: true } }); }
         else if (entityType === 'REVISION_ACTIVATE') { const docId = payload && payload.documentId; if (docId) await (this.prisma as any).scriptDocument.update({ where: { id: docId }, data: { activeRevisionId: entityId } }); }
-        else if (entityType === 'STAGE_VERSION_APPROVE') { await (this.prisma as any).stageVersion.update({ where: { id: entityId }, data: { status: 'APPROVED' } }); }
+        else if (entityType === 'STAGE_VERSION_APPROVE') {
+          // A stage version cut off at its token ceiling is never approved, whoever signs it off — the
+          // same rule promoteVersion enforces (production/scripton/stage-truncation.util). The decision
+          // stands on the request; the version simply stays unapproved, and the log says why.
+          const sv: any = await (this.prisma as any).stageVersion.findUnique({ where: { id: entityId }, select: { data: true } });
+          if (truncationOf(sv && sv.data)) this.log.warn('STAGE_VERSION_APPROVE ' + entityId + ': not applied — the version is incomplete (cut off at its token ceiling). Regenerate it, then approve the complete version.');
+          else await (this.prisma as any).stageVersion.update({ where: { id: entityId }, data: { status: 'APPROVED' } });
+        }
       } catch { /* tolerant: never break the approval flow on a downstream write */ }
     }
   }

@@ -45,7 +45,8 @@ import {
 import { mapAiFactsToCore } from './canon/canon-map.util';
 import { canonDirective, prohibitionDirective, registerDirective } from './canon/canon-inject.util';
 import { transcribeRegister, REGISTER_VERSION } from './canon/canon-register.util';
-import { truncationFlag, truncationOf } from './stage-truncation.util';
+import { truncationFlag, truncationOf, nextStageRefusal, approvalRefusal, scriptRefusal } from './stage-truncation.util';
+import { continuationUser, joinContinuation, DRAFT_CONTINUATION_PASSES } from './prose-continuation.util';
 import { registerLines, registerCheckUser, parseRegisterCheck, REGISTER_CHECK_SYSTEM, REGISTER_CHECK_MAXTOK } from './canon/register-check.util';
 import { selectCanonByQuota, quotaSummary, quotaShortfall } from './canon/canon-quota.util';
 import { SOURCE_CANON_SYSTEM, SOURCE_CANON_MAXTOK, CANON_EXTRACTOR_VERSION, CANON_MAX_SOURCE_CHARS } from './canon/canon-prompt.util';
@@ -879,6 +880,46 @@ export class ScripOnService {
     const warning = (arr.length && truncated(last)) ? (kind + ' outline may be incomplete — still truncating after ' + passes + ' continuation pass(es) (' + arr.length + ' items). Re-run.') : undefined;
     return { arr, passes, warning, last: { stopReason: last?.stopReason, outputTokens: last?.usage?.output_tokens } };
   }
+
+  /**
+   * The prose half of extendStageArray: a DRAFT that stopped at its ceiling is continued piece by
+   * piece until a piece finishes on its own, or DRAFT_CONTINUATION_PASSES run out.
+   *
+   * Each piece is a separate call with the stage's own ceiling, so no single call grows, and a piece
+   * that fails — error, a restart from an earlier scene, nothing added — stops the run WITHOUT losing
+   * what was written: the caller files it, flagged as cut off, with the reason. Every piece is recorded
+   * (tokens, stop reason, how it was joined) on the version.
+   */
+  private async extendDraft(o: { system: string; user: string; cap: number; text: string; firstRes: any; projectId: string })
+    : Promise<{ text: string; passes: number; lastRes: any; stop?: string; pieces: any[] }> {
+    const factsOf = (r: any) => ({ outputTokens: r?.usage?.output_tokens, maxTokens: o.cap, stopReason: r?.stopReason });
+    let text = o.text; let lastRes = o.firstRes; let passes = 0; let stop: string | undefined;
+    const pieces: any[] = [{ n: 1, chars: text.length, outputTokens: o.firstRes?.usage?.output_tokens ?? null, stopReason: o.firstRes?.stopReason ?? null }];
+    while (stoppedAtCeiling(factsOf(lastRes)) && passes < DRAFT_CONTINUATION_PASSES) {
+      passes++;
+      const n = passes + 1;
+      let r: any;
+      try {
+        r = await this.ai.run({ task: 'scripton.develop.draft.cont', system: o.system, user: continuationUser(o.user, text, passes),
+          maxTokens: o.cap, stream: true, timeoutMs: 600000, idleTimeoutMs: 120000, effort: ScripOnService.STAGE_EFFORT.DRAFT,
+          projectId: o.projectId, refType: 'Project', refId: o.projectId });
+      } catch (e) {
+        stop = 'piece ' + n + ' failed: ' + String(this.why(e)).slice(0, 200);
+        pieces.push({ n, error: stop });
+        break;
+      }
+      const j = joinContinuation(text, String((r && r.text) || ''));
+      pieces.push({ n, chars: String((r && r.text) || '').length, outputTokens: r?.usage?.output_tokens ?? null, stopReason: r?.stopReason ?? null, how: j.how, dropped: j.dropped, restarted: j.restarted });
+      if (j.restarted) { stop = 'piece ' + n + ' went back to scene ' + j.restarted.at + ' after scene ' + j.restarted.after + ' and was discarded'; break; }
+      if (j.text.length <= text.length) { stop = 'piece ' + n + ' added nothing'; break; }
+      text = j.text; lastRes = r;
+      this.log.log('generateStage DRAFT: piece ' + n + ' joined (' + j.how + (j.dropped ? ', ' + j.dropped + ' repeated line(s) dropped' : '') + ') — '
+        + text.length.toLocaleString() + ' characters so far, stop reason ' + (r?.stopReason || '?') + '.');
+    }
+    this.log.log('generateStage DRAFT: written in ' + pieces.length + ' piece(s), ' + text.length.toLocaleString() + ' characters — '
+      + (stop ? 'STOPPED SHORT: ' + stop : stoppedAtCeiling(factsOf(lastRes)) ? 'still cut off after ' + passes + ' continuation pass(es)' : 'complete'));
+    return { text, passes, lastRes, stop, pieces };
+  }
   /**
    * Measured duration per stage, in seconds — taken from real AiRun latencies on this install, not
    * guessed. The ladder previously told every stage "this can take a minute or two"; DRAFT actually
@@ -1081,6 +1122,12 @@ export class ScripOnService {
       + (opts?.buildId || '(none)') + ' / version ' + (opts?.buildVersionId || '(none)') + ' in project ' + projectId
       + '. The ladder has: ' + (stages.map((x: any) => x.kind).join(', ') || '(no stages at all)') + '.');
     const idx = ladder.indexOf(kind);
+    // A CUT-OFF STAGE IS NOT BUILT ON. Every later stage is written from the earlier ones (DEVELOPMENT
+    // SO FAR below), so a half-finished stage would be carried forward as if it were finished.
+    // Regenerating the cut-off stage itself is always allowed — that is the fix. Checked before any
+    // paid call.
+    const refusal = nextStageRefusal(kind, this.cutOffKinds(stages.filter((s: any) => { const i = ladder.indexOf(s.kind); return i >= 0 && i < idx; })));
+    if (refusal) throw new BadRequestException(refusal);
     const priorStage: any = idx > 0 ? stages.find((s: any) => s.kind === ladder[idx - 1]) : null;
     const priorApproved: any = priorStage ? ((priorStage.versions || []).find((v: any) => v.status === 'APPROVED' || v.status === 'LOCKED') || priorStage.current) : null;
     const intakeRow: any = await (this.prisma as any).intakeProfile.findUnique({ where: { projectId } }).catch(() => null);
@@ -1377,6 +1424,16 @@ export class ScripOnService {
     if (/^[\[{][\s\S]*"(output|scenes|steps|beats)"\s*:/.test(body)) { try { const j: any = JSON.parse(body); const re = flat(j.output ?? j).trim(); if (re) body = re; } catch { /* leave as-is */ } }
     if (/^[\[{]/.test(body.trim()) && kind !== 'VIDEO_PROMPT') { const sv = this.salvageProse(body); if (sv) body = sv; }
     if (!body) body = stripFence(String((res && res.text) || '').trim());
+    // THE DRAFT IS WRITTEN IN PIECES (prose-continuation.util). One that stops at its ceiling is picked
+    // up where it stopped, piece by piece — each piece its own 25,000-token call, so a piece that fails
+    // loses only itself — the way SCENES and STEP_OUTLINE already continue. Everything below judges the
+    // LAST piece: the draft is complete only if the last piece finished on its own.
+    let draftCont: { text: string; passes: number; lastRes: any; stop?: string; pieces: any[] } | null = null;
+    if (draftRaw && body && stoppedAtCeiling({ outputTokens: res?.usage?.output_tokens, maxTokens: cap, stopReason: res?.stopReason })) {
+      draftCont = await this.extendDraft({ system: brief.system, user, cap, text: body, firstRes: res, projectId });
+      body = draftCont.text;
+    }
+    const lastRes: any = (draftCont && draftCont.lastRes) || res;
     // A CAPPED PROSE STAGE HAS EXACTLY TWO PERMITTED OUTCOMES, AND "EMPTY DRAFT" IS NEITHER.
     //
     // Either we salvaged a draft off the partial response — in which case the version carries a
@@ -1387,20 +1444,23 @@ export class ScripOnService {
     // saying nothing useful. recoverStage/extendStageArray only ever covered the array stages
     // (BEATS/SCENES/STEP_OUTLINE); this is the prose half of that guarantee.
     const capFacts = {
-      text: String((res && res.text) || ''),
-      inputTokens: res?.usage?.input_tokens, outputTokens: res?.usage?.output_tokens, maxTokens: cap,
-      stopReason: res?.stopReason, sawThinking: res?.sawThinking, model: res?.model, provider: res?.provider,
+      text: String((lastRes && lastRes.text) || ''),
+      inputTokens: lastRes?.usage?.input_tokens, outputTokens: lastRes?.usage?.output_tokens, maxTokens: cap,
+      stopReason: lastRes?.stopReason, sawThinking: lastRes?.sawThinking, model: lastRes?.model, provider: lastRes?.provider,
     };
     if (!body) throw new BadRequestException(explainEmptyDraft(kind, capFacts));
     // A STAGE CUT OFF AT ITS CEILING IS FLAGGED, NOT JUST ANNOTATED — see stage-truncation.util. The
     // sentence was always written; nothing read it, and the v2.2 DRAFT filed as done at 25,000/25,000.
     // An array stage that came back WITH items is judged by its continuation passes above instead.
     const arrItems = ARRKEY[kind] && Array.isArray(ai[ARRKEY[kind]]) ? ai[ARRKEY[kind]].length : 0;
-    if (!arrItems && !data.truncated && stoppedAtCeiling(capFacts)) {
-      data.truncated = truncationFlag(capFacts);
-      if (!data.warning) data.warning = truncationWarning(kind, capFacts);   // persisted, so a salvaged partial is never silent
+    if (!arrItems && !data.truncated && (stoppedAtCeiling(capFacts) || (draftCont && draftCont.stop))) {
+      data.truncated = truncationFlag(capFacts, draftCont ? { passes: draftCont.passes, failed: draftCont.stop || null } : undefined);
+      if (!data.warning) data.warning = truncationWarning(kind, capFacts)   // persisted, so a salvaged partial is never silent
+        + (draftCont ? ' Written in ' + draftCont.pieces.length + ' piece(s)' + (draftCont.stop ? '; ' + draftCont.stop : '') + '.' : '');
       this.log.warn('generateStage ' + kind + ': TRUNCATED — ' + data.warning);
     }
+    // Every piece, as written and joined — so a draft made of pieces can be audited seam by seam.
+    if (draftCont) data.draftPieces = draftCont.pieces;
     // THE CANON ACCOUNT TRAVELS WITH THE DRAFT. Which facts and rules were extracted, which reached
     // this prompt, and which were dropped — persisted on the version, so it is answerable months
     // later without the log buffer, and so a dropped prohibition is visible where the writing is.
@@ -2137,7 +2197,27 @@ export class ScripOnService {
   async promoteVersion(versionId: string, status: string) {
     const s = String(status || 'APPROVED').toUpperCase();
     if (!['DRAFT', 'REVIEW', 'APPROVED', 'LOCKED'].includes(s)) throw new BadRequestException('Invalid status.');
+    // A cut-off version is never approved or locked — see stage-truncation.util.
+    if (s === 'APPROVED' || s === 'LOCKED') {
+      const v: any = await (this.prisma as any).stageVersion.findUnique({ where: { id: versionId }, select: { data: true, stageId: true } }).catch(() => null);
+      const st: any = v ? await (this.prisma as any).developmentStage.findUnique({ where: { id: v.stageId }, select: { kind: true } }).catch(() => null) : null;
+      const refusal = approvalRefusal((st && st.kind) || 'stage', s, v ? truncationOf(v.data) : null);
+      if (refusal) throw new BadRequestException(refusal);
+    }
     return (this.prisma as any).stageVersion.update({ where: { id: versionId }, data: { status: s } });
+  }
+
+  /** Kinds whose CURRENT version is cut off at its ceiling — pipeline() marks them. */
+  private cutOffKinds(stages: any[]): string[] {
+    return [...new Set((stages || []).filter((s: any) => s && s.current && s.current.truncation).map((s: any) => String(s.kind)))];
+  }
+
+  /**
+   * The stages a script is written FROM that are cut off. Coverage is written about the draft, not
+   * the other way round, so it never blocks a script.
+   */
+  private cutOffForScript(stages: any[]): string[] {
+    return this.cutOffKinds(stages).filter((k) => k !== 'COVERAGE');
   }
 
   async compareVersions(a: string, b: string) {
@@ -4560,6 +4640,11 @@ export class ScripOnService {
     const existingPages: any[] = (oldRev && Array.isArray(oldRev.pageText)) ? oldRev.pageText : [];
     const build: any = await (this.prisma as any).developmentBuild.findFirst({ where: { linkedScriptId: doc.id } }).catch(() => null);
     const stages = await this.pipeline(doc.projectId, build ? build.id : null);
+    // NOT OVER THE SCRIPT THAT EXISTS. A rewrite swaps this document's active revision for the new run
+    // and an extend appends to it; either one, written from a ladder holding a cut-off stage, puts
+    // half-finished work where finished work was. Refused before the new revision is even created.
+    const cutRefusal = scriptRefusal(this.cutOffForScript(stages), 'rewrite');
+    if (cutRefusal) throw new BadRequestException(cutRefusal);
     const existing = this.sceneCards(stages);
     const doExtend = mode === 'extend' && existingPages.length > 1;
     // A fresh revision to write into; the OLD revision stays active until the new one finishes (non-destructive).
@@ -4796,6 +4881,14 @@ export class ScripOnService {
     const stage: any = await (this.prisma as any).developmentStage.findUnique({ where: { id: v.stageId } });
     if (!stage) throw new BadRequestException('Stage not found.');
     const stages = await this.pipeline(stage.projectId, stage.buildId || null);
+    // NOTHING HALF-FINISHED IS FILED AS THE SCRIPT. This writes a new script from the ladder and points
+    // the build at it — replacing the build's link to any script it already had — so a cut-off stage
+    // in what it is written from, or a cut-off version being promoted, would put half-finished work
+    // where the finished script was. Refused before the document is created.
+    const cutForScript = this.cutOffForScript(stages);
+    if (truncationOf(v.data) && cutForScript.indexOf(stage.kind) < 0) cutForScript.push(stage.kind);
+    const cutRefusal = scriptRefusal(cutForScript, 'write');
+    if (cutRefusal) throw new BadRequestException(cutRefusal);
     const lg: any = stages.find((s: any) => s.kind === 'LOGLINE');
     const fromLog = String((lg && lg.current && lg.current.body) || '').split(/[.\n]/)[0].trim();
     const bld: any = stage.buildId ? await (this.prisma as any).developmentBuild.findUnique({ where: { id: stage.buildId } }).catch(() => null) : null;
@@ -5471,6 +5564,10 @@ export class ScripOnService {
     const v: any = versionId ? await (this.prisma as any).stageVersion.findUnique({ where: { id: versionId } }).catch(() => null) : null;
     if (!v && !(build && build.linkedScriptId)) throw new BadRequestException('Nothing to promote yet — generate the script first.');
     const stage: any = v ? await (this.prisma as any).developmentStage.findUnique({ where: { id: v.stageId } }).catch(() => null) : null;
+    // A cut-off version is not sent to production: with no Library script its own body becomes the
+    // project's WHITE master, and either way it is LOCKED below.
+    const prodRefusal = v && truncationOf(v.data) ? scriptRefusal([String((stage && stage.kind) || 'stage')], 'production') : null;
+    if (prodRefusal) throw new BadRequestException(prodRefusal);
     const srcProjectId = String((stage && stage.projectId) || (build && build.projectId) || '');
 
     // ── Snapshot transfer payload from the build brief + develop stages + coverage ──

@@ -348,6 +348,10 @@ export default function ScriptOnStudio(props: {
               const fk = (focus && L.find((s) => s.kind === focus)) ? focus : (activeS ? activeS.kind : (L[lastDone] ? L[lastDone].kind : (L[0] ? L[0].kind : '')));
               const cur: any = L.find((s) => s.kind === fk) || activeS || L[0];
               const nextS: any = L[lastDone + 1];
+              // A cut-off stage is not built on — the server refuses; the buttons say so first.
+              const cutBeforeNext = L.slice(0, lastDone + 1).filter((s) => s.truncation);
+              const cutForScript = L.filter((s) => s.truncation && s.kind !== 'COVERAGE');
+              const cutNames = (ls: any[]) => ls.map((s) => s.name).join(', ');
               // A stage cut off at its ceiling is reached but not done — the count says so.
               const done = lastDone + 1 - L.slice(0, lastDone + 1).filter((s) => s.truncation).length;
               const pct = L.length ? Math.round((done / L.length) * 100) : 0;
@@ -375,7 +379,9 @@ export default function ScriptOnStudio(props: {
                   )}
                   {s.versionId && s.kind === 'DRAFT' && props.onPromoteScript ? (
                     <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                      <button onClick={() => props.onPromoteScript!(s.versionId!)} style={{ background: 'rgba(91,141,239,.16)', color: 'var(--blue)', border: '1px solid rgba(91,141,239,.4)', borderRadius: 8, padding: '7px 12px', fontSize: 12, cursor: 'pointer' }}>{'↗'} {t('Generate script')} {'→'} {t('Library')}</button>
+                      <button disabled={!!cutForScript.length} title={cutForScript.length ? t('Blocked') + ': ' + cutNames(cutForScript) + ' ' + t('incomplete — cut off') : undefined}
+                        onClick={() => { if (!cutForScript.length) props.onPromoteScript!(s.versionId!); }} style={{ background: 'rgba(91,141,239,.16)', color: 'var(--blue)', border: '1px solid rgba(91,141,239,.4)', borderRadius: 8, padding: '7px 12px', fontSize: 12, cursor: cutForScript.length ? 'not-allowed' : 'pointer', opacity: cutForScript.length ? 0.45 : 1 }}>{'↗'} {t('Generate script')} {'→'} {t('Library')}</button>
+                      {cutForScript.length ? <span style={{ color: '#e5635f', fontSize: 11.5, alignSelf: 'center' }}>{t('Regenerate first')}: {cutNames(cutForScript)}</span> : null}
                     </div>
                   ) : null}
                   {props.reads && s.versionId && props.reads[s.versionId] ? (() => { const rd: any = props.reads![s.versionId!]; const vc = rd.verdict === 'GO' ? 'var(--green)' : rd.verdict === 'HOLD' ? 'var(--red)' : 'var(--amber)'; return (
@@ -414,7 +420,10 @@ export default function ScriptOnStudio(props: {
                       {props.genBusy ? (
                         <div className="dvgen"><span className="dvspin" /><span>{t('Generating')} {lbl(props.genBusy)} {'—'} {t('this can take a minute or two')}</span><div className="dvprog"><i /></div></div>
                       ) : nextS ? (<>
-                        <button className="gbtn" onClick={() => props.onAction('advance')}>{t('Generate')} {nextS.name} <span className="ar">{dir === 'rtl' ? '←' : '→'}</span></button>
+                        <button className="gbtn" disabled={!!cutBeforeNext.length} title={cutBeforeNext.length ? t('Blocked') + ': ' + cutNames(cutBeforeNext) + ' ' + t('incomplete — cut off') : undefined}
+                          style={cutBeforeNext.length ? { opacity: 0.45, cursor: 'not-allowed' } : undefined}
+                          onClick={() => { if (!cutBeforeNext.length) props.onAction('advance'); }}>{t('Generate')} {nextS.name} <span className="ar">{dir === 'rtl' ? '←' : '→'}</span></button>
+                        {cutBeforeNext.length ? <span style={{ color: '#e5635f', fontSize: 11.5, alignSelf: 'center' }}>{t('Regenerate first')}: {cutNames(cutBeforeNext)} — {t('incomplete — cut off')}</span> : null}
                         {props.onRegenerate && cur ? <button className="gbtn ghost" onClick={() => props.onRegenerate!(cur.kind!)}>{'⟳'} {t('Regenerate')} {cur.name}</button> : null}
                         <span className="dvhint">{t('Builds on')} {cur ? cur.name : t('the last stage')}</span>
                       </>) : (<span className="dvhint">{t('The ladder is complete — every stage written.')}</span>)}
