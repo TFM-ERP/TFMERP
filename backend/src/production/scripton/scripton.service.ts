@@ -2458,12 +2458,27 @@ export class ScripOnService {
     return [];
   }
 
-  private async buildFeatureCtx(projectId: string, stages: any[], directive = ''): Promise<string> {
+  /**
+   * The context every per-scene call shares — the planner, writeScene, repairScene and the short-scene
+   * expansion all receive this string, and it is the CACHE PREFIX (see writeScene), so it must be
+   * byte-identical across the run. It is.
+   *
+   * THE REGISTER RIDES AT ITS END. The same 81 verbatim lines the ladder stages carry, transcribed
+   * from the build's source with no model call — so deterministic, and after the first scene a cache
+   * read. It goes last in the prefix, nearest the scene instruction that follows it. Whether 81 rules
+   * on a small per-scene call help or crowd the scene is measured, not assumed:
+   * scripts/ab-scene-register.js.
+   */
+  private async buildFeatureCtx(projectId: string, stages: any[], directive = '', sourceText: any = ''): Promise<string> {
     const steer = await this.intakeSteer(projectId);
     const intakeRow: any = await (this.prisma as any).intakeProfile.findUnique({ where: { projectId } }).catch(() => null);
     const research = String((intakeRow && intakeRow.researchNotes) || '').slice(0, 2400);
     const bodyOf = (k: string) => { const x: any = stages.find((y: any) => y.kind === k); return String((x && x.current && x.current.body) || ''); };
-    return (directive ? directive + '\n' : '') + (steer ? steer + '\n' : '') + (research ? '\nRESEARCH (honour for authenticity):\n' + research + '\n' : '') + '\nLOGLINE: ' + bodyOf('LOGLINE').slice(0, 400) + '\nSYNOPSIS:\n' + bodyOf('SYNOPSIS').slice(0, 1400) + '\nTREATMENT:\n' + bodyOf('TREATMENT').slice(0, 2600) + '\nBEAT MAP:\n' + bodyOf('BEATS').slice(0, 2200);
+    // Build first, as generateStage reads it: the build's own source outranks a project-level one.
+    const src = asSourceText(sourceText) || asSourceText(intakeRow && intakeRow.sourceText) || '';
+    const register = src ? registerDirective(transcribeRegister(src.trim()).facts) : '';
+    return (directive ? directive + '\n' : '') + (steer ? steer + '\n' : '') + (research ? '\nRESEARCH (honour for authenticity):\n' + research + '\n' : '') + '\nLOGLINE: ' + bodyOf('LOGLINE').slice(0, 400) + '\nSYNOPSIS:\n' + bodyOf('SYNOPSIS').slice(0, 1400) + '\nTREATMENT:\n' + bodyOf('TREATMENT').slice(0, 2600) + '\nBEAT MAP:\n' + bodyOf('BEATS').slice(0, 2200)
+      + (register ? '\n\n' + register : '');
   }
 
   // The FULL developed outline, for scene PLANNING — generous limits so the planner sees the whole story
@@ -4088,7 +4103,7 @@ export class ScripOnService {
       const bRow: any = await (this.prisma as any).developmentBuild.findFirst({ where: { linkedScriptId: docId } }).catch((e: any) => { this.log.warn('build lookup failed for script ' + docId + ' — falling back to an empty brief. ' + this.why(e)); return null; });
       const featBrief = (bRow && bRow.brief) || {};
       const featDirective = [await this.langDirective(featBrief), knowledgeDirective(featBrief)].filter(Boolean).join('\n');
-      const ctx = await this.buildFeatureCtx(projectId, stages, featDirective);
+      const ctx = await this.buildFeatureCtx(projectId, stages, featDirective, featBrief.sourceText);
       const ar = this.isArabicBrief((bRow && bRow.brief) || {});
       // Build the scene list that drives the whole script. The old bug: it trusted any existing SCENES list of
       // >= 20 cards and stopped there — so a partial SCENES stage (e.g. 20 cards covering only the first ~2/3)
@@ -4577,7 +4592,7 @@ export class ScripOnService {
       const bRow: any = await (this.prisma as any).developmentBuild.findFirst({ where: { linkedScriptId: docId } }).catch((e: any) => { this.log.warn('build lookup failed for script ' + docId + ' — falling back to an empty brief. ' + this.why(e)); return null; });
       const featBrief = (bRow && bRow.brief) || {};
       const featDirective = [await this.langDirective(featBrief), knowledgeDirective(featBrief)].filter(Boolean).join('\n');
-      const ctx = await this.buildFeatureCtx(projectId, stages, featDirective);
+      const ctx = await this.buildFeatureCtx(projectId, stages, featDirective, featBrief.sourceText);
       const ar = this.isArabicBrief(featBrief);
       const spine = this.buildSpine(stages);
       const beatN = this.countBeats(stages);
