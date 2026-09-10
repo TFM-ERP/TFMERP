@@ -8919,6 +8919,9 @@ model DevelopmentBuild {
   @@index([linkedProjectId])
   @@index([deletedAt])
   @@index([archivedAt])
+  // Declared here because migration 20260909020000 created it and this schema did not say so —
+  // it went missing from the database (a `db push` would drop it), out of step with migration history.
+  @@index([canonState])
   @@map("development_builds")
 }
 
