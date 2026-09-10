@@ -8913,6 +8913,10 @@ model DevelopmentBuild {
   canonState        String?   // null = legacy (extract on demand) | pending | running | ready | failed
   canonError        String?
   canonAt           DateTime?
+  // The direction version this build generates under (build_directions.id). NULL means no direction
+  // on record: the build predates per-build directions (its direction lived on the shared project
+  // intake and was overwritten), or none has been picked yet. Never a copy of another build's.
+  directionId       String?
   archivedAt        DateTime?
   deletedAt         DateTime?
   @@index([projectId])
@@ -8923,6 +8927,35 @@ model DevelopmentBuild {
   // it went missing from the database (a `db push` would drop it), out of step with migration history.
   @@index([canonState])
   @@map("development_builds")
+}
+
+// THE DIRECTION, ON THE BUILD, VERSIONED (v1, v2, …). It lived in intake_profiles.treatment — one
+// value per PROJECT, shared by every build in it, overwritten by every pick, and stored as label +
+// change + tone only (title, logline, keep and risk were discarded). A row is one version and is
+// never updated in place; the build points at the one it generates under (directionId).
+// origin: picked | regenerated | edited | inherited. An INHERITED row was carried over from the
+// project intake by the migration and says what is and is not known about it in `provenance`;
+// `legacyText` holds that text verbatim, unparsed, and the structured fields stay null for it.
+model BuildDirection {
+  id          String   @id @default(cuid())
+  buildId     String
+  n           Int
+  label       String?
+  title       String?
+  logline     String?
+  keep        String?
+  change      String?
+  tone        String?
+  risk        String?
+  note        String?
+  origin      String
+  legacyText  String?
+  provenance  String?
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@unique([buildId, n])
+  @@map("build_directions")
 }
 
 // A full re-run of a ScripON build — its own frozen brief snapshot, develop ladder and script. V1/V2/V3.
