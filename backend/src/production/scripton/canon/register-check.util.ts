@@ -23,8 +23,13 @@ import { completeObjects } from './canon-parse.util';
  * Pure; the model call lives in the service.
  */
 
-/** Opus 5 thinks by default and the thinking is billed against this ceiling — see SOURCE_CANON_MAXTOK. */
-export const REGISTER_CHECK_MAXTOK = 16000;
+/**
+ * Opus 5 thinks by default and the thinking is billed against this ceiling — see SOURCE_CANON_MAXTOK.
+ * 32,000, not 16,000: checking the v2.2 DRAFT (99,000 characters) spent 14,052 output tokens for
+ * 1,431 characters of answer — 88% of the old ceiling — and the DRAFT is now checked on every run.
+ * A ceiling, not a target; a check that still hits it is salvaged row by row or reported failed.
+ */
+export const REGISTER_CHECK_MAXTOK = 32000;
 
 export const REGISTER_CHECK_SYSTEM = [
   "You check a screenplay-development draft against the source material's own rule register.",

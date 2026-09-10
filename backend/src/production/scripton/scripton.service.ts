@@ -1170,7 +1170,18 @@ export class ScripOnService {
     const ruleBlock = wantsSource ? prohibitionDirective(stageFacts) : '';
     // THE REGISTER, VERBATIM, just ahead of the rules — the source's own rule list, line for line,
     // carried whole on every stage because selectForStage never charges an undroppable kind.
-    const registerBlock = wantsSource ? registerDirective(stageFacts) : '';
+    //
+    // AND ON THE THREE STAGES THAT WRITE THE FILM. SCENES, STEP_OUTLINE and DRAFT are not wantsSource,
+    // so they got no source, no canon and no register — and they are where the register is broken
+    // most: on v2.2 STEP_OUTLINE contradicted 16 of 81 lines, the worst stage on the ladder, and 26 of
+    // the ladder's contradictions sat in these three stages. Ten of the eleven breaks a reader found by
+    // hand were in them. They carry the REGISTER only — transcribed here from the build's source, no
+    // model call and no canon gate — not the extracted facts or the excerpt; those still ride the eight
+    // stages above. ~3,000 tokens a call.
+    const registerOnly = !wantsSource && ['SCENES', 'STEP_OUTLINE', 'DRAFT'].indexOf(kind) >= 0;
+    const registerFacts: CanonFactCore[] = wantsSource ? stageFacts.filter((f) => f.kind === 'REGISTER')
+      : registerOnly ? transcribeRegister(rawSource.trim()).facts : [];
+    const registerBlock = registerDirective(registerFacts);
     if (wantsSource && excerpt.truncated) this.log.log('generateStage ' + kind + ': source is an excerpt - ' + excerpt.sent + ' of ' + excerpt.total + ' characters, with ' + sourceFacts.length + ' fixed fact(s) carried alongside it.');
     const research = String((intakeRow && intakeRow.researchNotes) || '').slice(0, 4000);
     const researchBlock = research ? ('\nRESEARCH FINDINGS (authentic facts, period & cultural detail to honour):\n' + research) : '';
@@ -1389,13 +1400,16 @@ export class ScripOnService {
         if (account.shortfall && !data.warning) data.warning = account.shortfall;
       }
     }
+    // Which register this prompt carried, on every stage that carried one — the register-only stages
+    // have no canon account to say so.
+    if (registerFacts.length) data.registerSent = { version: REGISTER_VERSION, lines: registerFacts.length, from: wantsSource ? 'canon' : 'transcribed' };
     const created: any = await (this.prisma as any).stageVersion.create({ data: { stageId: stage.id, n, title: kind.charAt(0) + kind.slice(1).toLowerCase().replace('_', ' ') + ' V' + n, body, data: Object.keys(data).length ? data : undefined, framework: opts?.framework || null, colorCode: this.WHEEL[(n - 1) % this.WHEEL.length], status: 'DRAFT', createdById: userId || null } });
     await (this.prisma as any).developmentStage.update({ where: { id: stage.id }, data: { currentVersionId: created.id } }).catch(() => {});
     // THE REGISTER CHECK — REPORTED, NOT GATED. The register rode on this prompt; whether the draft
     // honoured it is a rate, measured here and stored on the version. After the response, so a stage
     // never waits on its own audit.
-    if (wantsSource && stageFacts.some((f) => f.kind === 'REGISTER')) {
-      void this.checkAgainstRegister(created.id, kind, body, stageFacts, projectId).catch((e) => this.log.warn('register check: ' + this.why(e)));
+    if (registerFacts.length) {
+      void this.checkAgainstRegister(created.id, kind, body, registerFacts, projectId).catch((e) => this.log.warn('register check: ' + this.why(e)));
     }
     if (kind === 'SCENES') { void this.generateCharacterBible(projectId, userId, opts?.buildId).catch(() => {}); }   // auto character breakdown the moment scenes land
     if (ai.__warning) (created as any).warning = ai.__warning; // surface in the HTTP response too
@@ -2815,7 +2829,9 @@ export class ScripOnService {
     let registerCheck: any;
     try {
       const r: any = await this.ai.run({ task: 'scripton.develop.register-check', system: REGISTER_CHECK_SYSTEM,
-        user: registerCheckUser(lines, kind, body), maxTokens: REGISTER_CHECK_MAXTOK, timeoutMs: 300000,
+        // 15 minutes: the ceiling at the ~60 tokens/s measured on opus-5 is ~9 minutes. Streamed (ai.run
+        // streams anything this size), so a stalled call still dies on the 120s idle abort.
+        user: registerCheckUser(lines, kind, body), maxTokens: REGISTER_CHECK_MAXTOK, timeoutMs: 900000,
         projectId: projectId || null, refType: 'StageVersion', refId: versionId });
       const text = String((r && r.text) || '') || (r && r.json ? JSON.stringify(r.json) : '');
       registerCheck = { ...parseRegisterCheck(text, lines, body), at, model: (r && r.model) || null, stopReason: (r && r.stopReason) || null };
