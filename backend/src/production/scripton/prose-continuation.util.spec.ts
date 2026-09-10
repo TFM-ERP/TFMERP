@@ -89,6 +89,28 @@ test('a code fence around the piece is not written into the screenplay', () => {
   assert.ok(!j.text.includes('```'));
 });
 
+test('A PREAMBLE IS NOT SCREENPLAY: a piece that announces itself has the announcement dropped, then joins normally', () => {
+  const j = joinContinuation(WRITTEN, 'Continuing from where the last piece stopped:\n\n' + CUT + '. Too consistent.');
+  assert.equal(j.preamble, 'Continuing from where the last piece stopped:');
+  assert.equal(j.how, 'rewrote-line', 'without the drop this was "appended", announcement and all');
+  assert.ok(!j.text.includes('last piece'));
+  assert.match(j.text, /Beautiful\. Consistent\. Too consistent\.$/);
+  // Before a rewritten scene it would also have hidden the heading, and the half scene would have stayed.
+  const s = joinContinuation(WRITTEN, '[Continuing from scene 40]\n40  INT. FBI BOSTON FIELD OFFICE - CONFERENCE ROOM - DAY\n\nDev turns the laptop.');
+  assert.equal(s.how, 'rewrote-scene');
+  assert.ok(!s.text.includes('Beautiful. Consistent'));
+  for (const p of ['Here is the continuation:', "**Here's the continuation of the screenplay.**", 'Sure — continuing from scene 40.', 'Piece 2', '(continued from the previous piece)', 'Continuing from where I left off.']) {
+    assert.ok(joinContinuation(WRITTEN, p + '\n' + CUT + '. Too consistent.').preamble, p);
+  }
+});
+
+test('…and screenplay that only sounds like one stays: action, parentheticals, transitions, dialogue', () => {
+  for (const p of ['Continuing down the hall, Jason stops.', 'Continuing from the kitchen, Sophie follows.', '(continuing)', '(continuing from before)', 'CONTINUED:', 'CUT TO:', "Here's where we left off.", 'Okay.']) {
+    assert.equal(joinContinuation(WRITTEN, p + '\nMore.').preamble, null, p);
+  }
+  assert.match(joinContinuation(WRITTEN + '\n', 'Continuing down the hall, Jason stops.').text, /Continuing down the hall, Jason stops\.$/);
+});
+
 test('the bound is the one the array stages use', () => {
   assert.equal(DRAFT_CONTINUATION_PASSES, 4);
 });

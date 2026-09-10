@@ -67,15 +67,45 @@ export interface JoinResult {
   dropped: number;
   /** Set when the piece went back to an earlier scene. The text is then UNCHANGED. */
   restarted: { at: number; after: number } | null;
+  /** The piece's opening line, dropped because it was about the piece rather than in it. */
+  preamble: string | null;
 }
 
 const norm = (s: string) => String(s || '').replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[–—]/g, '-')
   .replace(/\s+/g, ' ').trim().toLowerCase();
 
+const ABOUT_THE_WRITING = /\b(?:continuation|piece|previous|screenplay|draft|scene \d+|where i (?:left off|stopped))\b/i;
+
+/**
+ * A line the model wrote ABOUT the piece instead of IN it — "Continuing from where the last piece
+ * stopped:", "Here is the continuation:", "[Continued from scene 40]". The prompt forbids a preamble;
+ * this is the backstop, because such a line fails every test in joinContinuation and would otherwise
+ * go into the screenplay as if it were action. Deliberately narrow: only a piece's first line is
+ * tested, it must talk about continuing, and it must read as an announcement. "Continuing down the
+ * hall, Jason stops." is action and stays; so do "(continuing)", "CONTINUED:", "CUT TO:" and the
+ * line of dialogue "Here's where we left off."
+ */
+export function isPreamble(line: string): boolean {
+  const l = String(line || '').trim().replace(/^[*_#>\s]+/, '').replace(/[*_\s]+$/, '');
+  if (!/[a-z]/.test(l)) return false;                                        // all caps: a transition or a slugline
+  if (!/\b(?:continu\w*|piece|picking up|resum\w*|left off)\b/i.test(l)) return false;
+  if (/^[[(].*[\])]$/.test(l)) return ABOUT_THE_WRITING.test(l);             // "(continuing)" is a parenthetical
+  if (/:$/.test(l) || /^piece\s+\d+\b/i.test(l)) return true;
+  return /^(?:here(?:'s| is)|below is|sure|certainly|okay|ok)\b|^(?:continu\w*|picking up|resuming)\s+(?:from|where)\b/i.test(l)
+    && ABOUT_THE_WRITING.test(l);
+}
+
 /** Stitch the next piece onto what was written. */
 export function joinContinuation(written: string, next: string): JoinResult {
-  const w = String(written || '');
-  const piece = String(next || '').replace(/^\s*```[a-z]*[ \t]*\n?/i, '').replace(/\n?```\s*$/, '');
+  let piece = String(next || '').replace(/^\s*```[a-z]*[ \t]*\n?/i, '').replace(/\n?```\s*$/, '');
+  // The preamble goes before anything is judged: left in, it would also hide a rewritten scene's heading.
+  const lead = piece.match(/^\s*([^\n]*)(?:\n|$)/);
+  let preamble: string | null = null;
+  if (lead && isPreamble(lead[1])) { preamble = lead[1].trim(); piece = piece.slice(lead[0].length); }
+  return { ...joinPiece(String(written || ''), piece), preamble };
+}
+
+function joinPiece(w: string, piece: string): Omit<JoinResult, 'preamble'> {
   const lastW = sceneHeadings(w).slice(-1)[0];
   const firstP = sceneHeadings(piece)[0];
 

@@ -909,11 +909,11 @@ export class ScripOnService {
         break;
       }
       const j = joinContinuation(text, String((r && r.text) || ''));
-      pieces.push({ n, chars: String((r && r.text) || '').length, outputTokens: r?.usage?.output_tokens ?? null, stopReason: r?.stopReason ?? null, how: j.how, dropped: j.dropped, restarted: j.restarted });
+      pieces.push({ n, chars: String((r && r.text) || '').length, outputTokens: r?.usage?.output_tokens ?? null, stopReason: r?.stopReason ?? null, how: j.how, dropped: j.dropped, restarted: j.restarted, preamble: j.preamble });
       if (j.restarted) { stop = 'piece ' + n + ' went back to scene ' + j.restarted.at + ' after scene ' + j.restarted.after + ' and was discarded'; break; }
       if (j.text.length <= text.length) { stop = 'piece ' + n + ' added nothing'; break; }
       text = j.text; lastRes = r;
-      this.log.log('generateStage DRAFT: piece ' + n + ' joined (' + j.how + (j.dropped ? ', ' + j.dropped + ' repeated line(s) dropped' : '') + ') — '
+      this.log.log('generateStage DRAFT: piece ' + n + ' joined (' + j.how + (j.dropped ? ', ' + j.dropped + ' repeated line(s) dropped' : '') + (j.preamble ? ', preamble dropped: "' + j.preamble.slice(0, 80) + '"' : '') + ') — '
         + text.length.toLocaleString() + ' characters so far, stop reason ' + (r?.stopReason || '?') + '.');
     }
     this.log.log('generateStage DRAFT: written in ' + pieces.length + ' piece(s), ' + text.length.toLocaleString() + ' characters — '
@@ -988,7 +988,7 @@ export class ScripOnService {
     key: string; kind: string; projectId: string; buildId?: string | null;
     status: 'RUNNING' | 'DONE' | 'ERROR'; startedAt: number; finishedAt?: number;
     elapsedSec: number; estimateSec: number; versionId?: string; versionN?: number;
-    warning?: string; error?: string;
+    warning?: string; error?: string; truncated?: boolean;
   }>();
 
   private stageJobKey(projectId: string, buildId: any, kind: string): string {
@@ -1065,6 +1065,9 @@ export class ScripOnService {
         j.elapsedSec = Math.round((j.finishedAt - j.startedAt) / 1000);
         j.versionId = created && created.id; j.versionN = created && created.n;
         if (created && (created.truncation || created.warning)) j.warning = String(created.truncation ? created.truncation.note : created.warning);
+        // `warning` also carries non-truncation notes (the canon shortfall), so the poller cannot tell
+        // "cut off" from the text alone — and a cut-off stage must never be announced as generated.
+        j.truncated = !!(created && created.truncation);
         this.log.log('startStage: ' + kind + ' DONE in ' + j.elapsedSec + 's (estimate was ' + estimateSec + 's) — version ' + j.versionId + '.');
       })
       .catch((e: any) => {
@@ -1091,7 +1094,7 @@ export class ScripOnService {
     return {
       key: j.key, kind: j.kind, status: j.status, elapsedSec, estimateSec: j.estimateSec, progressPct,
       versionId: j.versionId || null, versionN: j.versionN || null,
-      warning: j.warning || null, error: j.error || null,
+      warning: j.warning || null, error: j.error || null, truncated: !!j.truncated,
       overdue: j.status === 'RUNNING' && elapsedSec > j.estimateSec * 2,
     };
   }
