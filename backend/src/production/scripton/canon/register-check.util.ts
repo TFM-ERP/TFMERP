@@ -25,7 +25,7 @@ import { completeObjects } from './canon-parse.util';
 
 /**
  * Opus 5 thinks by default and the thinking is billed against this ceiling — see SOURCE_CANON_MAXTOK.
- * 32,000, not 16,000: checking the v2.2 DRAFT (99,000 characters) spent 14,052 output tokens for
+ * 32,000, not 16,000: checking the v2.2 DRAFT (38,257 characters) spent 14,052 output tokens for
  * 1,431 characters of answer — 88% of the old ceiling — and the DRAFT is now checked on every run.
  * A ceiling, not a target; a check that still hits it is salvaged row by row or reported failed.
  */
@@ -55,10 +55,13 @@ export function registerLines(facts: CanonFactCore[]): RegisterLine[] {
  * THE DRAFT IS DELIMITED AND THE INSTRUCTION COMES AFTER IT.
  *
  * It used to end the prompt: "DRAFT - STAGE DRAFT:\n" + body, nothing after. On the v2.2 screenplay
- * — which had itself been cut off mid-word at its own ceiling ("END OF TITLE SI") — the checker did
- * not check it at all. It CONTINUED it: 19,444 characters of new scenes, 41 to FADE OUT, and no JSON,
- * so the check was recorded as failed and the one contradiction it was asked about (Ward, 48, against
- * "Ward is forty-four") was never evaluated. A long document at the very end of a prompt, unfinished,
+ * — which had itself been cut off mid-sentence at its own 25,000-token ceiling ("...eleven-ten.
+ * Beautiful. Consistent") — the checker did not check it at all. It CONTINUED it: 19,444 characters
+ * of new scenes to FADE OUT (7,881 tokens, stop reason end_turn) and no JSON, so the check was
+ * recorded as failed and the one contradiction it was asked about (Ward, 48, against
+ * "Ward is forty-four") was never evaluated. (An earlier version of this comment quoted "END OF TITLE
+ * SI" as the draft's last words. It was not in the draft: it was that continuation, cut short by a
+ * display slice in our own tooling.) A long document at the very end of a prompt, unfinished,
  * reads as text to complete. So: tags around it, a closing tag it cannot forge, and the task restated
  * after it, where the model reads it last.
  */
