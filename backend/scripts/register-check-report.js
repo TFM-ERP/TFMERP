@@ -22,7 +22,8 @@ const { AiService } = require('../src/ai/ai.service.ts');
 const { CanonService } = require('../src/production/scripton/canon/canon.service.ts');
 const { ScripOnService } = require('../src/production/scripton/scripton.service.ts');
 
-const LADDER = ['LOGLINE', 'PREMISE', 'THESIS', 'SYNOPSIS', 'STORY_ENGINE', 'SEASON_ARC', 'TREATMENT', 'BEATS'];
+// The whole ladder, not just the eight stages the register rides on: v2.2's Ward-at-48 was in the DRAFT.
+const LADDER = ['LOGLINE', 'PREMISE', 'THESIS', 'SYNOPSIS', 'STORY_ENGINE', 'SEASON_ARC', 'TREATMENT', 'BEATS', 'SCENES', 'STEP_OUTLINE', 'DRAFT'];
 const buildId = process.argv[2];
 const RUN = process.argv.includes('--run');
 if (!buildId) { console.error('usage: node -r ts-node/register scripts/register-check-report.js <buildId> [--run]'); process.exit(2); }

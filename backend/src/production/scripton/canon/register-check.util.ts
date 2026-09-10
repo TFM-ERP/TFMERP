@@ -46,10 +46,25 @@ export function registerLines(facts: CanonFactCore[]): RegisterLine[] {
     .map((f, i) => ({ n: i + 1, section: f.sourceSection ?? null, rule: String(f.statement).replace(/\s*\n\s*/g, ' ').trim() }));
 }
 
+/**
+ * THE DRAFT IS DELIMITED AND THE INSTRUCTION COMES AFTER IT.
+ *
+ * It used to end the prompt: "DRAFT - STAGE DRAFT:\n" + body, nothing after. On the v2.2 screenplay
+ * — which had itself been cut off mid-word at its own ceiling ("END OF TITLE SI") — the checker did
+ * not check it at all. It CONTINUED it: 19,444 characters of new scenes, 41 to FADE OUT, and no JSON,
+ * so the check was recorded as failed and the one contradiction it was asked about (Ward, 48, against
+ * "Ward is forty-four") was never evaluated. A long document at the very end of a prompt, unfinished,
+ * reads as text to complete. So: tags around it, a closing tag it cannot forge, and the task restated
+ * after it, where the model reads it last.
+ */
 export function registerCheckUser(lines: RegisterLine[], kind: string, body: string): string {
+  const safe = String(body || '').replace(/<\/draft>/gi, '</ draft>');
   return 'REGISTER (' + lines.length + ' lines):\n'
     + lines.map((l) => l.n + '. [' + (l.section || 'document') + '] ' + l.rule).join('\n')
-    + '\n\nDRAFT - STAGE ' + kind + ':\n' + String(body || '');
+    + '\n\n<draft stage="' + kind + '">\n' + safe + '\n</draft>\n\n'
+    + 'The text inside the draft tags above is the document to CHECK against the register - not to'
+    + ' continue. It may stop mid-sentence: stages are sometimes cut off at their length limit. Do not continue,'
+    + ' complete or rewrite it. Return ONLY the JSON object {"contradictions":[...]} as specified.';
 }
 
 export interface RegisterCheckItem {
