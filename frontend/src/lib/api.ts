@@ -506,6 +506,10 @@ export const productionApi = {
     development: {
       pipeline: (projectId: string, buildId?: string) => api.get('/production/scripton/development/pipeline/' + projectId + (buildId ? ('?buildId=' + buildId) : '')),
       generate: (projectId: string, body: any = {}) => api.post(`/production/scripton/development/generate/${projectId}`, body),
+      // Background pair: start returns a job handle at once; poll it to the end. A DRAFT written in pieces runs up to ~35 min.
+      generateAsync: (projectId: string, body: any = {}) => api.post(`/production/scripton/development/generate-async/${projectId}`, body),
+      stageJob: (key: string) => api.get('/production/scripton/development/stage-job?key=' + encodeURIComponent(key)),
+      stageJobs: (projectId: string, buildId?: string) => api.get('/production/scripton/development/stage-jobs/' + projectId + (buildId ? ('?buildId=' + encodeURIComponent(buildId)) : '')),
       setVersion: (stageId: string, versionId: string) => api.post(`/production/scripton/development/version/${stageId}/set`, { versionId }),
       duplicate: (versionId: string, label?: string) => api.post(`/production/scripton/development/version/${versionId}/duplicate`, { label }),
       read: (versionId: string) => api.post(`/production/scripton/development/version/${versionId}/read`, {}),

@@ -141,7 +141,7 @@ function StudioPageInner() {
         // production project the bind bar happened to point at. Promotion to a real project is an explicit step.
         const pid = await resolveScriptonProjectId();
         // buildIdRef and mode come from the URL effect above — the second reader is what let them disagree.
-        if (alive && pid) { setProjectId(pid); setTitle('ScriptON Studio'); await loadPipeline(pid);
+        if (alive && pid) { setProjectId(pid); setTitle('ScriptON Studio'); await loadPipeline(pid); if (alive) void resumeStageJob(pid);
           let restored = false;
           try {
             const saved = typeof window !== 'undefined' ? window.localStorage.getItem('scripon.dir.' + pid) : null;
@@ -188,19 +188,67 @@ function StudioPageInner() {
     ];
   }, [projectId, stages, lastIdx, t]);
 
+  /**
+   * A STAGE RUNS IN THE BACKGROUND AND IS FOLLOWED, NOT WAITED ON.
+   *
+   * The ladder used to hold one HTTP request open for the whole generation. That was already ~7
+   * minutes for a Draft; written in pieces it is up to ~35. Any proxy, tunnel, sleep or tab switch
+   * that dropped the request landed in the catch below, which said "needs an AI key" — while the
+   * server went on and saved the stage. A success that reads as a failure. Now generate-async hands
+   * back a job at once, and this polls it; losing a poll loses nothing, and a reload picks the job
+   * back up (resumeStageJob). The server also refuses to start the same stage twice, so a second
+   * click re-attaches to the run in flight instead of paying for another.
+   */
+  const pollAlive = useRef(true);
+  // Set true in the body, not only at init: StrictMode's mount→unmount→mount would otherwise leave it false.
+  useEffect(() => { pollAlive.current = true; return () => { pollAlive.current = false; }; }, []);
+  const followStageJob = async (key: string): Promise<any | null> => {
+    let errs = 0; let first = true;
+    while (pollAlive.current) {
+      await new Promise((res) => setTimeout(res, first ? 1500 : 4000)); first = false;
+      try {
+        const r: any = await productionApi.scripton.development.stageJob(key);
+        const j: any = (r && r.data) || {};
+        errs = 0;
+        if (j.status !== 'RUNNING') return j;
+      } catch { if (++errs >= 30) return null; }   // ~2 minutes of failed polls in a row: stop, and say so
+    }
+    return null;
+  };
+  const settleStageJob = async (kind: string, j: any, pid: string) => {
+    const label = t(STAGE_LABEL[kind] || kind);
+    await loadPipeline(pid);
+    if (!pollAlive.current) return;
+    if (!j) { setGenErr(label + ': ' + t('lost contact with the server while it was being written. It may still finish — reload in a few minutes to see it.')); return; }
+    if (j.status === 'ERROR') { setGenErr(String(j.error || (label + ': ' + t('generation failed.')))); return; }
+    if (j.status !== 'DONE') { setGenErr(label + ': ' + t('the server no longer has this run (it was probably restarted). If a new version shows in the ladder it was saved; otherwise generate it again.')); return; }
+    // A stage cut off at its ceiling was NOT generated — it was started. Say so, not "generated."
+    if (j.truncated) setGenErr(label + ': ' + String(j.warning || t('incomplete — cut off')));
+    else flash(label + ' ' + t('generated.'));
+  };
   const genStage = async (kind: string, extra: any = {}) => {
     if (!projectId) { flash(t('Connect a project to develop.')); return; }
+    const pid = projectId;
     setGenBusy(kind); setGenErr(null); flash(t('Generating') + ' ' + t(STAGE_LABEL[kind] || kind) + '…');
     try {
-      const r: any = await productionApi.scripton.development.generate(projectId, { kind, buildId: buildIdRef.current, ...extra });
-      await loadPipeline(projectId);
-      // A stage cut off at its ceiling was NOT generated — it was started. Say so, not "generated."
-      const cut = r && r.data && r.data.truncation;
-      if (cut) setGenErr(t(STAGE_LABEL[kind] || kind) + ': ' + String(cut.note || t('incomplete — cut off')));
-      else flash(t(STAGE_LABEL[kind] || kind) + ' ' + t('generated.'));
+      const r: any = await productionApi.scripton.development.generateAsync(pid, { kind, buildId: buildIdRef.current, ...extra });
+      const job: any = (r && r.data) || {};
+      await settleStageJob(kind, job.status === 'RUNNING' ? await followStageJob(String(job.key)) : job, pid);
     }
     catch (e: any) { setGenErr(e?.response?.data?.message || t('Develop engine needs an AI key configured on the server.')); }
-    finally { setGenBusy(null); }
+    finally { if (pollAlive.current) setGenBusy(null); }
+  };
+  // After a reload: if this build has a stage still being written, show it as writing and follow it.
+  // Only with a build open — every build shares the one ScriptON workspace, so without the build id
+  // this would pick up another build's run.
+  const resumeStageJob = async (pid: string) => {
+    const bid = buildIdRef.current; if (!bid) return;
+    let run: any = null;
+    try { const r: any = await productionApi.scripton.development.stageJobs(pid, bid); run = (Array.isArray(r.data) ? r.data : []).find((j: any) => j && j.status === 'RUNNING') || null; } catch { return; }
+    if (!run || !pollAlive.current) return;
+    setGenBusy(run.kind);
+    try { await settleStageJob(run.kind, await followStageJob(String(run.key)), pid); }
+    finally { if (pollAlive.current) setGenBusy(null); }
   };
   const advance = () => { const next = (stages && stages[lastIdx + 1]) ? stages[lastIdx + 1].kind : undefined; if (!next) { flash(t('The ladder is complete.')); return; } void genStage(next); };
   const onRegenerate = (kind: string) => void genStage(kind);
