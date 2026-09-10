@@ -9158,6 +9158,27 @@ model CanonFact {
   @@map("canon_facts")
 }
 
+// THE LADDER CANON, STORED — keyed on what it was extracted FROM, not on who asked for it.
+// It lived in an in-memory map, so a build marked canonState 'ready' certified facts a restart
+// erased and nobody could read back. One row per (sha256 of the whole source, extractor version):
+// a restart reads it back, and a second build on the same bible reuses it instead of paying again.
+// `register` is the transcribed rule register ({ version, facts, report }) — derived from the source
+// with no model call, stored so the row can be read back whole, refreshed when its version moves.
+model SourceCanon {
+  id               String   @id @default(cuid())
+  digest           String
+  extractorVersion Int
+  sourceChars      Int
+  facts            Json
+  account          Json
+  register         Json?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([digest, extractorVersion])
+  @@map("source_canons")
+}
+
 model SceneRelation {
   id          String   @id @default(cuid())
   scriptId    String
