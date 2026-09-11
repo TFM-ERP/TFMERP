@@ -58,6 +58,7 @@ import { excerptSource, sourceMaterialBlock, asSourceText, SOURCE_EXCERPT_CHARS 
 import { buildPackageDocModel } from './package-docx.util';
 import { packDocx } from './package-docx.renderer';
 import { LEVER_KEYS, resolveLever } from './intake-levers.util';
+import { resolveSpineField } from './spine-resolve.util';
 import { resolveCollabMode } from './collab-mode.util';
 import { isProviderExhausted, isStubRunaway, isHalt, ScriptGenerationHalted, STUB_STREAK_ABORT, HaltKind } from './provider-health.util';
 import { htmlToText as htmlToTextUtil, extractText, uploadBasename, assembleCorpus, canReuseExtraction, kindOf, kindFromContentType, MAX_REMOTE_BYTES } from './source-ingest.util';
@@ -1246,15 +1247,21 @@ export class ScripOnService {
     for (const st of earlier) { const b = String((st.current && st.current.body) || ''); if (b) soFar += '\n--- ' + st.kind + ' ---\n' + b.slice(0, 2400); }
     if (soFar.length > 14000) soFar = soFar.slice(soFar.length - 14000);
     const soFarBlock = soFar ? ('\nDEVELOPMENT SO FAR (everything already written - stay fully consistent with all of it; build directly on it):' + soFar) : '';
-    const framework = opts?.framework || (intakeRow && intakeRow.spine && intakeRow.spine.framework) || undefined;
+    // THE BUILD'S OWN FRAMEWORK. This read the workspace intake's spine.framework — one row for every
+    // build in the project — so Jason Quick, which chose sequence8, was written on savecat at every
+    // stage. The build first, the workspace only when the build has none; a BEATS re-pick still wins.
+    const framework = resolveSpineField('framework', buildRow && buildRow.brief, intakeRow, opts?.framework).value;
     const brief = this.stageBrief(kind, framework);
+    // The id is internal ("sequence8"), and on every stage but BEATS this header is the ONLY framework
+    // signal the model gets — so it carries the framework's name too, from the same table BEATS uses.
+    const frameworkName = framework && this.FRAMEWORKS[framework] ? this.FRAMEWORKS[framework].name : '';
     const steer = await this.intakeSteer(projectId, opts?.buildId);
     const langDir = await this.langDirective((buildRow && buildRow.brief) || intakeRow || {});
     const knowDir = knowledgeDirective((buildRow && buildRow.brief) || intakeRow || {});
     const knowBlock = knowDir ? ('\n\nFORMAT & WORLD ENGINE (honour precisely across this stage):\n' + knowDir) : '';
     const draftRaw = kind === 'DRAFT';
     const jsonExact = kind === 'VIDEO_PROMPT'; // emit the exact JSON shape verbatim (format/aspectRatio are wanted output, not metadata to strip)
-    const user = 'STAGE: ' + kind + (framework ? (' | FRAMEWORK: ' + framework) : '') + steer + researchBlock + srcBlock + soFarBlock + knowBlock + langDir + (registerBlock ? ('\n\n' + registerBlock) : '') + (ruleBlock ? ('\n\n' + ruleBlock) : '') + (draftRaw ? '\nWrite the screenplay now as plain text (no JSON, no metadata header).' : jsonExact ? '\n' + brief.shape : '\nReturn ONLY JSON ' + brief.shape + ' with NO title/format/rating/metadata fields.');
+    const user = 'STAGE: ' + kind + (framework ? (' | FRAMEWORK: ' + framework + (frameworkName ? ' (' + frameworkName + ')' : '')) : '') + steer + researchBlock + srcBlock + soFarBlock + knowBlock + langDir + (registerBlock ? ('\n\n' + registerBlock) : '') + (ruleBlock ? ('\n\n' + ruleBlock) : '') + (draftRaw ? '\nWrite the screenplay now as plain text (no JSON, no metadata header).' : jsonExact ? '\n' + brief.shape : '\nReturn ONLY JSON ' + brief.shape + ' with NO title/format/rating/metadata fields.');
     // Generous ceilings (NOT targets) — the model stops when the stage is done; a high cap only prevents premature
     // truncation of long stages. Every "heavy" long-form stage (scene maps, treatments, beat maps, drafts, narration,
     // step outlines, season arcs) gets a 25,000-token ceiling, is STREAMED (no single long blocking request, and no
@@ -1481,7 +1488,9 @@ export class ScripOnService {
     // Which register this prompt carried, on every stage that carried one — the register-only stages
     // have no canon account to say so.
     if (registerFacts.length) data.registerSent = { version: REGISTER_VERSION, lines: registerFacts.length, from: wantsSource ? 'canon' : 'transcribed' };
-    const created: any = await (this.prisma as any).stageVersion.create({ data: { stageId: stage.id, n, title: kind.charAt(0) + kind.slice(1).toLowerCase().replace('_', ' ') + ' V' + n, body, data: Object.keys(data).length ? data : undefined, framework: opts?.framework || null, colorCode: this.WHEEL[(n - 1) % this.WHEEL.length], status: 'DRAFT', createdById: userId || null } });
+    // `framework` is what the prompt carried, not only a BEATS re-pick: it stored opts?.framework, so
+    // every other version said null while its prompt said savecat — and the studio showed a blank.
+    const created: any = await (this.prisma as any).stageVersion.create({ data: { stageId: stage.id, n, title: kind.charAt(0) + kind.slice(1).toLowerCase().replace('_', ' ') + ' V' + n, body, data: Object.keys(data).length ? data : undefined, framework: framework || null, colorCode: this.WHEEL[(n - 1) % this.WHEEL.length], status: 'DRAFT', createdById: userId || null } });
     await (this.prisma as any).developmentStage.update({ where: { id: stage.id }, data: { currentVersionId: created.id } }).catch(() => {});
     // THE REGISTER CHECK — REPORTED, NOT GATED. The register rode on this prompt; whether the draft
     // honoured it is a rate, measured here and stored on the version. After the response, so a stage
@@ -2202,6 +2211,11 @@ export class ScripOnService {
     const i: any = (await (this.prisma as any).intakeProfile.findUnique({ where: { projectId } }).catch(() => null)) || {};
     const dirRow = await this.buildDirectionRow(buildId);
     const direction = dirRow ? ScripOnService.directionSteerText(dirRow) : i.treatment;
+    // The build's own brief, for its spine (the ending, below). No .catch, like buildDirectionRow: a
+    // failed read must not quietly fall back to the workspace's values — that is the defect itself.
+    const buildBrief: any = buildId
+      ? ((await (this.prisma as any).developmentBuild.findUnique({ where: { id: String(buildId) }, select: { brief: true } })) || {}).brief || null
+      : null;
     const parts: string[] = [];
     if (i.realBased) parts.push('Based on a real story/subject; reality level = ' + (i.realityLevel || 'INSPIRED') + ' (how faithful vs invented).');
     if (Array.isArray(i.genres) && i.genres.length) parts.push('Genres: ' + i.genres.join(', ') + (i.tone ? ' | tone: ' + i.tone : '') + '.');
@@ -2223,7 +2237,16 @@ export class ScripOnService {
     if (tex.length) { parts.push('GENRE & TEXTURE LAYERS (legacy):'); for (const t of tex) parts.push('\u00b7 ' + ((t && t.name) || 'texture') + (t && t.ins ? ' \u2014 ' + t.ins : '') + '.'); }
     const tgt = [i.format, i.language, i.country ? ('market ' + i.country) : null, i.rating ? ('rating ' + i.rating) : null, i.length].filter(Boolean);
     if (tgt.length) parts.push('Target: ' + tgt.join(' | ') + '.');
-    if (i.spine && typeof i.spine === 'object') { const s: any = i.spine; const sp = [s.want ? ('want ' + s.want) : null, s.need ? ('need ' + s.need) : null, s.opposing ? ('opposing ' + s.opposing) : null, s.theme ? ('theme ' + s.theme) : null, s.ending ? ('ending ' + s.ending) : null].filter(Boolean); if (sp.length) parts.push('Spine: ' + sp.join('; ') + '.'); }
+    {
+      // THE ENDING IS THE BUILD'S, the workspace's only when the build has none (resolveSpineField).
+      // want / need / opposing / theme are still the workspace row's — wiring those is its own item, and
+      // the workspace carries none of them today. The line no longer needs the workspace to HAVE a spine
+      // object: a build's own ending reaches the prompt whether or not the intake row carries one.
+      const s: any = (i.spine && typeof i.spine === 'object') ? i.spine : {};
+      const ending = resolveSpineField('ending', buildBrief, i).value;
+      const sp = [s.want ? ('want ' + s.want) : null, s.need ? ('need ' + s.need) : null, s.opposing ? ('opposing ' + s.opposing) : null, s.theme ? ('theme ' + s.theme) : null, ending ? ('ending ' + ending) : null].filter(Boolean);
+      if (sp.length) parts.push('Spine: ' + sp.join('; ') + '.');
+    }
     // THE CAST, AND WHO THE STORY IS ABOUT.
     //
     // characterBible has carried an explicit `role` per character all along — "Protagonist",
