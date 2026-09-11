@@ -8,7 +8,8 @@
  */
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { KEEP_CHECK_SYSTEM, keepCheckUser, parseKeepCheck } from './keep-check.util';
+import { KEEP_CHECK_SYSTEM, keepCheckUser, parseKeepCheck, quotedLines } from './keep-check.util';
+import { splitKeep } from './keep-items.util';
 
 const ITEMS = [
   "the fish-market win, the gala lapel line 'Smile. This is the part you're good at,' and Celeste recognizing him over the bracelet clasp",
@@ -151,4 +152,69 @@ test('fenced JSON parses', () => {
   assert.equal(r.ok, true);
   assert.equal(r.salvaged, false);
   assert.equal(r.itemsFound, 1);
+});
+
+// ── THE VERBATIM RULE ─────────────────────────────────────────────────────────────────────────────
+// The two real keeps, verbatim from build_directions (cmtwm0eka, cmtvse1hu). The expected lines were
+// declared before quotedLines existed (Claude outputs/keep-verbatim-ACCEPTANCE-2026-09-11.json).
+const JASIN = "The full spine as written: the five-to-six-page betrayal prologue at the dock, evening clothes and the cheap winter coat, Adrian's car turning back toward the attackers; the hard cut to Musa's rescue near Cape Breton; the observable chain of Jason's call, Sophie's inquiry, Marcus's leak, Gideon's attack and the MacRae murders; Boston's service-door geography; the fish-market win, the gala lapel line 'Smile. This is the part you're good at,' and Celeste recognizing him over the bracelet clasp; the single Sequence Four flashback revealing the missing worker, the authorization Jason signed and the confrontation with Alexander; the father-son reckoning resolved before the terminal; the held Mercy, Gideon's accelerated destruction, the established escape launch used by Nora and the workers, Hale's boat and the post-evacuation reveal about Leah; 'You don't get to disappear'; Nora's unresolved ending and 'Monday. Nine.'";
+const JASON = "The crime exactly as written: recruitment promises, withheld documents, diverted wages, transfers that record a man as repatriated while he cannot travel, and legitimate relief work that shelters the people abusing it. Keep Musa Dabo's genuine expertise — the compressors and reefer units he serviced, the confinement routines, the colleagues' names, the fragments of the transfer route — and keep the climax's dependence on his instructions being followed exactly. Keep Amara Ceesay, fitter, as the author and leader of the extraction plan. Keep Jason whole and dangerous: Prince and Ghost, the damaged hand, the wit, the seduction, the moral danger of a man who protects people by deciding for them. Keep the gala with Adrian forced to pose beside him and the line 'Smile. This is the part you're good at.' Keep the fish-market sequence as a clean, uninjured, pleasurable win. Keep Gideon's fatal misreading of dependency as loyalty, Sophie's costly delay, Ward's discipline about separating what a witness saw from what he was told, Lena's refusal, and the terminal-and-harbour climax where workers' local knowledge defeats a system.";
+
+test('quotedLines reproduces the lines declared for the real cmtwm0eka keep, item by item', () => {
+  const got = splitKeep(JASIN).items.map((t) => quotedLines(t));
+  assert.deepEqual(got, [[], [], [], [], ["Smile. This is the part you're good at"], [], [], [], ["You don't get to disappear"], ['Monday. Nine']]);
+});
+
+test('the 1,136-char prose keep (cmtvse1hu) holds exactly one quoted line, through ten apostrophes', () => {
+  assert.equal(JASON.length, 1136);
+  assert.deepEqual(quotedLines(JASON), ["Smile. This is the part you're good at"]);
+});
+
+test('an apostrophe is never a delimiter; double and curly quotes pair; a one-word span is not a line', () => {
+  assert.deepEqual(quotedLines("the colleagues' names and the workers' boat"), []);
+  assert.deepEqual(quotedLines('the line "wait, no" at the gate and “not now, Jason” later'), ['wait, no', 'not now, Jason']);
+  assert.deepEqual(quotedLines("Prince and 'Ghost' and ‘You don’t get to disappear’"), ['You don’t get to disappear']);
+  assert.deepEqual(quotedLines("an unclosed 'line that never ends"), []);
+  assert.deepEqual(quotedLines(null), []);
+});
+
+test('THE n1 #9 CASE: a paraphrase is not the quoted line — the "found" is not counted and the line is a miss', () => {
+  const draft = "Jason delivers Gideon to Ward's team and tells him he does not get to disappear. Monday. Nine.";
+  const r = parseKeepCheck(J({ items: [
+    { item: 2, found: [{ thing: "'You don't get to disappear'", quote: "Jason delivers Gideon to Ward's team and tells him he does not get to disappear" }], missing: [] },
+    { item: 3, found: [{ thing: 'Monday. Nine.', quote: 'Monday. Nine.' }], missing: ["Nora's unresolved ending"] },
+  ] }), ITEMS, draft);
+  const it = r.items[1];
+  assert.equal(it.found[0].quoteFound, true, 'the paraphrase IS in the draft — the evidence check alone cannot catch this');
+  assert.equal(it.found[0].notVerbatim, "You don't get to disappear");
+  assert.equal(it.status, 'MISSING');
+  assert.deepEqual(it.missing, ["'You don't get to disappear'"]);
+  assert.deepEqual(it.lines, [{ line: "You don't get to disappear", verbatim: false }]);
+  assert.equal(r.thingsFound, 1);
+  assert.equal(r.notVerbatim, 1);
+  assert.match(r.summary, /1 quoted line\(s\) claimed found whose words are not in the draft/);
+});
+
+test('a line the checker already named missing is not listed twice', () => {
+  const r = parseKeepCheck(J({ items: [{ item: 1, found: [], missing: ["the gala lapel line 'Smile. This is the part you're good at,'", 'bracelet clasp'] }] }), ITEMS, 'Nothing here.');
+  assert.deepEqual(r.items[0].missing, ["the gala lapel line 'Smile. This is the part you're good at,'", 'bracelet clasp']);
+});
+
+test('ONE-WAY: a line the checker calls missing that IS verbatim stays missing, with verbatim: true beside it', () => {
+  const r = parseKeepCheck(J({ items: [{ item: 3, found: [], missing: ['Monday. Nine.'] }] }), ITEMS, DRAFT);
+  assert.equal(r.items[2].status, 'MISSING');
+  assert.deepEqual(r.items[2].lines, [{ line: 'Monday. Nine', verbatim: true }]);
+});
+
+test('a "found" naming the line without its words stays counted — but the verbatim miss is still added', () => {
+  const r = parseKeepCheck(J({ items: [{ item: 2, found: [{ thing: 'the disappear line', quote: 'does not get to disappear' }], missing: [] }] }), ITEMS, 'He does not get to disappear.');
+  assert.equal(r.items[1].found[0].notVerbatim, undefined);
+  assert.equal(r.items[1].status, 'PARTIAL');
+  assert.deepEqual(r.items[1].missing, ["'You don't get to disappear'"]);
+});
+
+test('the line matches through curly quotes and case in the draft', () => {
+  const r = parseKeepCheck(J({ items: [{ item: 2, found: [{ thing: "'You don't get to disappear'", quote: 'YOU DON’T GET TO DISAPPEAR' }], missing: [] }] }), ITEMS, 'He says: “YOU DON’T GET TO DISAPPEAR.”');
+  assert.equal(r.items[1].status, 'FOUND');
+  assert.equal(r.notVerbatim, 0);
 });

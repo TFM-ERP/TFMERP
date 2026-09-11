@@ -20,6 +20,15 @@ import { completeObjects } from './canon-parse.util';
  *   • an item the checker never mentions is NOT REPORTED — never assumed found;
  *   • a response with no readable answer is a FAILED check, never "0 missing".
  *
+ * A QUOTED LINE IS FOUND ONLY IF ITS WORDS ARE THERE. A keep item that quotes dialogue — 'You don't
+ * get to disappear' — names words, not a sentiment. The checker judges presence by meaning, so it
+ * once passed "tells him he does not get to disappear" as that line (cmtwm0eka TREATMENT n1). The
+ * evidence check above could not catch it: the paraphrase WAS in the draft, it just was not the line.
+ * So every quoted line in an item is matched verbatim (normalised as above) against the draft. A
+ * checker "found" naming a line that is not there is kept, marked `notVerbatim`, and not counted,
+ * and the line joins the item's misses. ONE-WAY: it only takes a "found" away; a line the checker
+ * calls missing that IS verbatim stays missing, with `verbatim: true` beside it in `lines`.
+ *
  * Pure; the model call lives in the service.
  */
 
@@ -56,8 +65,10 @@ export function keepCheckUser(items: string[], lead: string | null, kind: string
  *   NOT REPORTED — the checker said nothing about the item. Never read as found or missing.
  */
 export type KeepItemStatus = 'FOUND' | 'PARTIAL' | 'MISSING' | 'UNPROVEN' | 'NOT REPORTED';
-export interface KeepFound { thing: string; quote: string; quoteFound: boolean }
-export interface KeepCheckItem { item: number; text: string; status: KeepItemStatus; found: KeepFound[]; missing: string[] }
+/** `notVerbatim`: the quoted line this "found" names, whose words are not in the draft. Not counted. */
+export interface KeepFound { thing: string; quote: string; quoteFound: boolean; notVerbatim?: string }
+export interface KeepLine { line: string; verbatim: boolean }
+export interface KeepCheckItem { item: number; text: string; status: KeepItemStatus; found: KeepFound[]; missing: string[]; lines: KeepLine[] }
 export interface KeepCheckReport {
   /** False when the response held no readable answer; the counts are then null, never 0. */
   ok: boolean;
@@ -73,6 +84,8 @@ export interface KeepCheckReport {
   thingsMissing: number | null;
   /** Claimed found with a quote the draft does not hold — counted as neither found nor missing. */
   unverifiedQuotes: number;
+  /** Claimed found for a quoted line whose words are not in the draft — not counted as found. */
+  notVerbatim: number;
   invalid: number;
   salvaged: boolean;
   items: KeepCheckItem[];
@@ -82,8 +95,38 @@ export interface KeepCheckReport {
 const norm = (t: string) => String(t || '').replace(/[‘’]/g, "'").replace(/[“”]/g, '"')
   .replace(/[–—]/g, '-').replace(/…/g, '...').replace(/\s+/g, ' ').trim().toLowerCase();
 
+/**
+ * The quoted lines inside one keep item, in order. Double and curly double quotes pair plainly. A
+ * single quote OPENS only after start, whitespace or a bracket and before a non-space; it CLOSES
+ * only after a non-space and before end, whitespace or punctuation — so the quote in "you're" or
+ * "Nora's", with letters on both sides, is an apostrophe and never a delimiter. Trailing , . ; : ! ?
+ * inside the span are dropped ('Monday. Nine.' → "Monday. Nine"); a span under two words is not a
+ * line. Limit: a plural possessive inside a single-quoted line (workers' boat) closes it early.
+ */
+export function quotedLines(item: any): string[] {
+  const s = String(item || '');
+  const out: string[] = [];
+  const push = (t: string) => { const l = t.trim().replace(/[\s,.;:!?]+$/, ''); if (l.split(/\s+/).filter(Boolean).length >= 2) out.push(l); };
+  let open = -1;
+  let kind = '';
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    const prev = i ? s[i - 1] : '';
+    const next = s[i + 1] || '';
+    if (open < 0) {
+      if (ch === '"' || ch === '“') { open = i + 1; kind = ch; }
+      else if ((ch === "'" || ch === '‘') && (!prev || /[\s(\[]/.test(prev)) && next && !/\s/.test(next)) { open = i + 1; kind = "'"; }
+      continue;
+    }
+    const closes = kind === "'" ? ((ch === "'" || ch === '’') && !!prev && !/\s/.test(prev) && (!next || /[\s,.;:!?)\]]/.test(next)))
+      : kind === '“' ? ch === '”' : ch === '"';
+    if (closes) { push(s.slice(open, i)); open = -1; }
+  }
+  return out;
+}
+
 const failed = (items: string[], why: string): KeepCheckReport => ({ ok: false, checked: items.length, itemsFound: null, itemsPartial: null,
-  itemsMissing: null, itemsUnproven: null, itemsNotReported: null, thingsFound: null, thingsMissing: null, unverifiedQuotes: 0, invalid: 0, salvaged: false, items: [],
+  itemsMissing: null, itemsUnproven: null, itemsNotReported: null, thingsFound: null, thingsMissing: null, unverifiedQuotes: 0, notVerbatim: 0, invalid: 0, salvaged: false, items: [],
   summary: 'KEEP CHECK FAILED: ' + why + ' — this is not a clean pass.' });
 
 export function parseKeepCheck(text: string, items: string[], body: string): KeepCheckReport {
@@ -118,18 +161,28 @@ export function parseKeepCheck(text: string, items: string[], body: string): Kee
   // Every item was demanded. An answer that reports none of them is not "nothing found" — it is no answer.
   if (!byItem.size) return failed(items, 'the checker reported none of the ' + items.length + ' items' + (invalid ? ' (' + invalid + ' row(s) named no item)' : ''));
 
+  const counted = (f: KeepFound) => f.quoteFound && !f.notVerbatim;
   const out: KeepCheckItem[] = items.map((text, i) => {
     const s = byItem.get(i + 1);
-    if (!s || (!s.found.length && !s.missing.length)) return { item: i + 1, text, status: 'NOT REPORTED', found: s ? s.found : [], missing: [] };
-    const verified = s.found.filter((f) => f.quoteFound).length;
-    const unverified = s.found.length - verified;
-    const status: KeepItemStatus = verified ? ((s.missing.length || unverified) ? 'PARTIAL' : 'FOUND')
+    const lines: KeepLine[] = quotedLines(text).map((line) => ({ line, verbatim: B.includes(norm(line)) }));
+    if (!s || (!s.found.length && !s.missing.length)) return { item: i + 1, text, status: 'NOT REPORTED', found: s ? s.found : [], missing: [], lines };
+    for (const { line, verbatim } of lines) {
+      if (verbatim) continue;
+      const L = norm(line);
+      for (const f of s.found) if (norm(f.thing).includes(L)) f.notVerbatim = line;
+      if (!s.missing.some((m) => norm(m).includes(L))) s.missing.push("'" + line + "'");
+    }
+    const verified = s.found.filter(counted).length;
+    const unverified = s.found.filter((f) => !f.quoteFound).length;
+    const demoted = s.found.filter((f) => f.quoteFound && f.notVerbatim).length;
+    const status: KeepItemStatus = verified ? ((s.missing.length || unverified || demoted) ? 'PARTIAL' : 'FOUND')
       : unverified ? 'UNPROVEN' : 'MISSING';
-    return { item: i + 1, text, status, found: s.found, missing: s.missing };
+    return { item: i + 1, text, status, found: s.found, missing: s.missing, lines };
   });
   const count = (st: KeepItemStatus) => out.filter((i) => i.status === st).length;
-  const thingsFound = out.reduce((n, i) => n + i.found.filter((f) => f.quoteFound).length, 0);
+  const thingsFound = out.reduce((n, i) => n + i.found.filter(counted).length, 0);
   const unverifiedQuotes = out.reduce((n, i) => n + i.found.filter((f) => !f.quoteFound).length, 0);
+  const notVerbatim = out.reduce((n, i) => n + i.found.filter((f) => f.quoteFound && f.notVerbatim).length, 0);
   const thingsMissing = out.reduce((n, i) => n + i.missing.length, 0);
   const missingNames = out.flatMap((i) => i.missing.map((m) => '#' + i.item + ' ' + m));
   const summary = 'KEEP CHECK (presence only — named and found; not a judgment of use): '
@@ -139,8 +192,9 @@ export function parseKeepCheck(text: string, items: string[], body: string): Kee
     + (count('NOT REPORTED') ? ' · ' + count('NOT REPORTED') + ' NOT REPORTED by the checker' : '')
     + (missingNames.length ? ' — not found: ' + missingNames.join('; ') : '')
     + (unverifiedQuotes ? ' · ' + unverifiedQuotes + ' quoted passage(s) NOT FOUND in the draft (not counted as found)' : '')
+    + (notVerbatim ? ' · ' + notVerbatim + ' quoted line(s) claimed found whose words are not in the draft (not counted as found)' : '')
     + (invalid ? ' · ' + invalid + ' row(s) named no item' : '')
     + (salvaged ? ' · recovered from malformed JSON' : '');
   return { ok: true, checked: items.length, itemsFound: count('FOUND'), itemsPartial: count('PARTIAL'), itemsMissing: count('MISSING'),
-    itemsUnproven: count('UNPROVEN'), itemsNotReported: count('NOT REPORTED'), thingsFound, thingsMissing, unverifiedQuotes, invalid, salvaged, items: out, summary };
+    itemsUnproven: count('UNPROVEN'), itemsNotReported: count('NOT REPORTED'), thingsFound, thingsMissing, unverifiedQuotes, notVerbatim, invalid, salvaged, items: out, summary };
 }
