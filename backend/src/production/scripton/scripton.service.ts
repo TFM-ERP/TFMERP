@@ -48,6 +48,8 @@ import { transcribeRegister, REGISTER_VERSION } from './canon/canon-register.uti
 import { truncationFlag, truncationOf, nextStageRefusal, approvalRefusal, scriptRefusal } from './stage-truncation.util';
 import { continuationUser, joinContinuation, DRAFT_CONTINUATION_PASSES } from './prose-continuation.util';
 import { registerLines, registerCheckUser, parseRegisterCheck, REGISTER_CHECK_SYSTEM, REGISTER_CHECK_MAXTOK } from './canon/register-check.util';
+import { KEEP_CHECK_SYSTEM, KEEP_CHECK_MAXTOK, keepCheckUser, parseKeepCheck, keepSent, keepCheckNotRun, keepCheckOutcome } from './canon/keep-check.util';
+import { splitKeep } from './canon/keep-items.util';
 import { selectCanonByQuota, quotaSummary, quotaShortfall } from './canon/canon-quota.util';
 import { SOURCE_CANON_SYSTEM, SOURCE_CANON_MAXTOK, CANON_EXTRACTOR_VERSION, CANON_MAX_SOURCE_CHARS } from './canon/canon-prompt.util';
 import { parseFactsLoose } from './canon/canon-parse.util';
@@ -1270,6 +1272,9 @@ export class ScripOnService {
     // signal the model gets — so it carries the framework's name too, from the same table BEATS uses.
     const frameworkName = framework && this.FRAMEWORKS[framework] ? this.FRAMEWORKS[framework].name : '';
     const steer = await this.intakeSteer(projectId, opts?.buildId);
+    // THE KEEP THIS PROMPT CARRIED, read beside the steer that sent it: the Keep check checks what was
+    // asked for. TREATMENT only — the stage the direction's KEEP list is checked at.
+    const keep = kind === 'TREATMENT' ? keepSent(opts?.buildId, opts?.buildId ? await this.buildDirectionRow(opts.buildId) : null) : null;
     // A8 — FIELD-LEVEL OR NOTHING. `buildRow.brief || intakeRow` handed a build with no brief the
     // ENTIRE workspace row as its brief: another film's language, market, conflicts and styles. A
     // build now gets its own brief or an empty one; only the legacy project path (no buildId) uses the
@@ -1507,6 +1512,10 @@ export class ScripOnService {
     // Which register this prompt carried, on every stage that carried one — the register-only stages
     // have no canon account to say so.
     if (registerFacts.length) data.registerSent = { version: REGISTER_VERSION, lines: registerFacts.length, from: wantsSource ? 'canon' : 'transcribed' };
+    // THE KEEP CHECK STARTS AS "NOT RUN", ON THE VERSION ITSELF. The result replaces it; a check killed
+    // by a restart leaves this standing, with its start time — never a version that looks checked.
+    const keepStartedAt = new Date().toISOString();
+    if (keep) data.keepCheck = keep.keep ? keepCheckNotRun('started ' + keepStartedAt + '; no result recorded — a check still running finishes within 15 minutes', { startedAt: keepStartedAt }) : keepCheckNotRun(String(keep.reason));
     // `framework` is what the prompt carried, not only a BEATS re-pick: it stored opts?.framework, so
     // every other version said null while its prompt said savecat — and the studio showed a blank.
     const created: any = await (this.prisma as any).stageVersion.create({ data: { stageId: stage.id, n, title: kind.charAt(0) + kind.slice(1).toLowerCase().replace('_', ' ') + ' V' + n, body, data: Object.keys(data).length ? data : undefined, framework: framework || null, colorCode: this.WHEEL[(n - 1) % this.WHEEL.length], status: 'DRAFT', createdById: userId || null } });
@@ -1516,6 +1525,9 @@ export class ScripOnService {
     // never waits on its own audit.
     if (registerFacts.length) {
       void this.checkAgainstRegister(created.id, kind, body, registerFacts, projectId).catch((e) => this.log.warn('register check: ' + this.why(e)));
+    }
+    if (keep && keep.keep) {
+      void this.checkAgainstKeep(created.id, body, keep.keep, projectId, keepStartedAt).catch((e) => this.log.warn('keep check: ' + this.why(e)));
     }
     if (kind === 'SCENES') { void this.generateCharacterBible(projectId, userId, opts?.buildId).catch(() => {}); }   // auto character breakdown the moment scenes land
     if (ai.__warning) (created as any).warning = ai.__warning; // surface in the HTTP response too
@@ -3074,6 +3086,33 @@ export class ScripOnService {
     }
     this.log.log('generateStage ' + kind + ': ' + registerCheck.summary);
     return registerCheck;
+  }
+
+  /**
+   * Check a TREATMENT for what its direction said to KEEP, and store the result on it as
+   * data.keepCheck. Report-only. Presence only — see keep-check.util. Three states, never a score:
+   * MISSES (with the list), NO MISSES, or NOT RUN (with the reason; a failed check is NOT RUN).
+   *
+   * MERGED ATOMICALLY. The register check lands on the same row in parallel; a read-modify-write here
+   * would lose whichever of the two finished first.
+   */
+  async checkAgainstKeep(versionId: string, body: string, keep: string, projectId?: string | null, startedAt?: string): Promise<any> {
+    const { lead, items } = splitKeep(keep);
+    const meta = { at: new Date().toISOString(), startedAt: startedAt || null, keepChars: keep.length };
+    let keepCheck: any;
+    try {
+      const r: any = await this.ai.run({ task: 'scripton.develop.keep-check', system: KEEP_CHECK_SYSTEM,
+        user: keepCheckUser(items, lead, 'TREATMENT', body), maxTokens: KEEP_CHECK_MAXTOK, timeoutMs: 900000,
+        projectId: projectId || null, refType: 'StageVersion', refId: versionId });
+      const text = String((r && r.text) || '') || (r && r.json ? JSON.stringify(r.json) : '');
+      keepCheck = keepCheckOutcome(parseKeepCheck(text, items, body), { ...meta, at: new Date().toISOString(), model: (r && r.model) || null, stopReason: (r && r.stopReason) || null });
+    } catch (e) {
+      keepCheck = keepCheckNotRun('the check failed: ' + String(this.why(e)).slice(0, 300), { ...meta, at: new Date().toISOString() });
+    }
+    await (this.prisma as any).$executeRaw`UPDATE "stage_versions" SET "data" = (CASE WHEN jsonb_typeof("data") = 'object' THEN "data" ELSE '{}'::jsonb END) || jsonb_build_object('keepCheck', ${JSON.stringify(keepCheck)}::jsonb) WHERE "id" = ${versionId}`
+      .catch((e: any) => this.log.warn('keep check not stored on ' + versionId + ': ' + this.why(e)));
+    this.log.log('generateStage TREATMENT: ' + keepCheck.summary);
+    return keepCheck;
   }
 
   /** The fail-open wrapper the stage path uses. A failed extraction still carries the register. */

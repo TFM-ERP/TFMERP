@@ -8,7 +8,7 @@
  */
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { KEEP_CHECK_SYSTEM, keepCheckUser, parseKeepCheck, quotedLines } from './keep-check.util';
+import { KEEP_CHECK_SYSTEM, keepCheckUser, parseKeepCheck, quotedLines, keepSent, keepCheckOutcome, keepCheckNotRun, keepMisses } from './keep-check.util';
 import { splitKeep } from './keep-items.util';
 
 const ITEMS = [
@@ -217,4 +217,71 @@ test('the line matches through curly quotes and case in the draft', () => {
   const r = parseKeepCheck(J({ items: [{ item: 2, found: [{ thing: "'You don't get to disappear'", quote: 'YOU DON’T GET TO DISAPPEAR' }], missing: [] }] }), ITEMS, 'He says: “YOU DON’T GET TO DISAPPEAR.”');
   assert.equal(r.items[1].status, 'FOUND');
   assert.equal(r.notVerbatim, 0);
+});
+
+// ── WHAT IS STORED: THREE STATES, NEVER A SCORE ───────────────────────────────────────────────────
+const SCORE = /\b\d+\s*(of|\/)\s*\d+\b/;
+const COUNTS = ['itemsFound', 'itemsPartial', 'itemsMissing', 'itemsUnproven', 'itemsNotReported', 'thingsFound', 'thingsMissing', 'checked'];
+const noScore = (o: any) => { const s = JSON.stringify(o); assert.doesNotMatch(s, SCORE); for (const k of COUNTS) assert.ok(!(k in o), k); };
+
+test('MISSES: the stored result names what is missing and carries no count or fraction', () => {
+  const rep = parseKeepCheck(J({ items: [
+    { item: 1, found: [{ thing: 'fish-market win', quote: 'wins a fish-market negotiation' }], missing: ['bracelet clasp'] },
+    { item: 2, found: [{ thing: 'the line', quote: "You don't get to disappear" }], missing: [] },
+    { item: 3, found: [{ thing: 'Monday. Nine.', quote: 'Monday. Nine.' }], missing: [] },
+  ] }), ITEMS, DRAFT);
+  const o = keepCheckOutcome(rep, { at: 'T' });
+  assert.equal(o.state, 'MISSES');
+  assert.deepEqual(o.misses, ['bracelet clasp']);
+  assert.equal(o.summary, 'KEEP CHECK — not found: bracelet clasp');
+  assert.equal(o.at, 'T');
+  noScore(o);
+});
+
+test('NO MISSES: said outright, with the presence-only qualifier, and no score', () => {
+  const rep = parseKeepCheck(J({ items: [
+    { item: 1, found: [{ thing: 'fish-market win', quote: 'wins a fish-market negotiation' }, { thing: 'lapel', quote: "Smile. This is the part you're good at" }], missing: [] },
+    { item: 2, found: [{ thing: 'the line', quote: "You don't get to disappear" }], missing: [] },
+    { item: 3, found: [{ thing: 'Monday. Nine.', quote: 'Monday. Nine.' }], missing: [] },
+  ] }), ITEMS, DRAFT);
+  const o = keepCheckOutcome(rep, {});
+  assert.equal(o.state, 'NO MISSES');
+  assert.deepEqual(o.misses, []);
+  assert.match(o.summary, /presence only; not a judgment of how it is used/);
+  noScore(o);
+});
+
+test('UNCONFIRMED IS LISTED, NEVER DROPPED: an unreported item and an unproven quote are misses, not a pass', () => {
+  const rep = parseKeepCheck(J({ items: [
+    { item: 1, found: [{ thing: 'bracelet clasp', quote: 'Celeste knows him by the clasp' }], missing: [] },
+    { item: 2, found: [{ thing: 'the line', quote: "You don't get to disappear" }], missing: [] },
+  ] }), ITEMS, DRAFT);
+  assert.deepEqual(keepMisses(rep), ['bracelet clasp (the quoted words are not in the draft)', ITEMS[2] + ' (not checked)']);
+  assert.equal(keepCheckOutcome(rep, {}).state, 'MISSES');
+});
+
+test('A FAILED CHECK IS STORED AS NOT RUN — never as NO MISSES, never with a score', () => {
+  for (const text of ['I could not complete the review.', '{"items":[]}']) {
+    const o = keepCheckOutcome(parseKeepCheck(text, ITEMS, DRAFT), { at: 'T' });
+    assert.equal(o.state, 'NOT RUN', text);
+    assert.match(o.reason, /^the check failed: /);
+    assert.equal(o.misses, null);
+    assert.match(o.summary, /^KEEP CHECK DID NOT RUN: the check failed/);
+    noScore(o);
+  }
+});
+
+test('keepCheckNotRun carries its reason and extra fields', () => {
+  const o = keepCheckNotRun('started T; no result recorded', { startedAt: 'T' });
+  assert.deepEqual(o, { state: 'NOT RUN', reason: 'started T; no result recorded', misses: null, summary: 'KEEP CHECK DID NOT RUN: started T; no result recorded', startedAt: 'T' });
+});
+
+test('keepSent: only a picked row with a non-blank keep sends one; every other case names why', () => {
+  assert.deepEqual(keepSent('b', { legacyText: null, keep: JASIN }), { keep: JASIN, reason: null });
+  assert.match(String(keepSent(null, null).reason), /no build/);
+  assert.match(String(keepSent('b', null).reason), /no direction row/);
+  assert.match(String(keepSent('b', { legacyText: 'old text', keep: null }).reason), /inherited project text/);
+  assert.match(String(keepSent('b', { legacyText: 'old text', keep: JASIN }).reason), /inherited project text/, 'a legacy row sends legacyText, never its keep');
+  assert.match(String(keepSent('b', { legacyText: null, keep: '  ' }).reason), /has no KEEP list/);
+  assert.equal(keepSent('b', { legacyText: null, keep: '  ' }).keep, null);
 });

@@ -1,4 +1,5 @@
 import { completeObjects } from './canon-parse.util';
+import { splitKeep } from './keep-items.util';
 
 /**
  * IS WHAT THE DIRECTION SAID TO KEEP ON THE PAGE? — PRESENCE ONLY, REPORTED, NOT GATED.
@@ -197,4 +198,51 @@ export function parseKeepCheck(text: string, items: string[], body: string): Kee
     + (salvaged ? ' · recovered from malformed JSON' : '');
   return { ok: true, checked: items.length, itemsFound: count('FOUND'), itemsPartial: count('PARTIAL'), itemsMissing: count('MISSING'),
     itemsUnproven: count('UNPROVEN'), itemsNotReported: count('NOT REPORTED'), thingsFound, thingsMissing, unverifiedQuotes, notVerbatim, invalid, salvaged, items: out, summary };
+}
+
+// ── WHAT IS STORED ────────────────────────────────────────────────────────────────────────────────
+// THREE STATES, AND NEVER A SCORE. A fraction is misleading by construction: a draft that never saw
+// the Keep list scored 6 of 10 (cmtwm0eka TREATMENT n1), because a draft and its Keep share a source.
+// So the stored result names what is MISSING and nothing else, and says outright when the check did
+// not run — a version with no result must not look like a version with nothing missing (SYNOPSIS v2's
+// register check was killed by a restart and left no trace at all).
+
+export type KeepCheckState = 'NO MISSES' | 'MISSES' | 'NOT RUN';
+
+/** The Keep a TREATMENT prompt carried — or why it carried none. Mirrors directionSteerText. */
+export function keepSent(buildId: any, dirRow: any): { keep: string | null; reason: string | null } {
+  if (!buildId) return { keep: null, reason: 'no build: the legacy project path carries no KEEP list' };
+  if (!dirRow) return { keep: null, reason: 'this build has no direction row; its prompt used the workspace direction, which has no KEEP list' };
+  if (dirRow.legacyText != null) return { keep: null, reason: "this build's direction is inherited project text; it carries no KEEP list" };
+  if (!splitKeep(dirRow.keep).items.length) return { keep: null, reason: 'the picked direction has no KEEP list' };
+  return { keep: String(dirRow.keep), reason: null };
+}
+
+export function keepCheckNotRun(reason: string, extra?: Record<string, any>): any {
+  return { state: 'NOT RUN' as KeepCheckState, reason, misses: null, summary: 'KEEP CHECK DID NOT RUN: ' + reason, ...(extra || {}) };
+}
+
+/**
+ * Everything not confirmed present, in item order. Unconfirmed is listed, never dropped: an item the
+ * checker never reported, or a "found" whose quote is not in the draft, is not a pass.
+ */
+export function keepMisses(report: KeepCheckReport): string[] {
+  const out: string[] = [];
+  for (const it of report.items) {
+    if (it.status === 'NOT REPORTED') { out.push(it.text + ' (not checked)'); continue; }
+    out.push(...it.missing);
+    for (const f of it.found) if (!f.quoteFound) out.push((f.thing || 'item ' + it.item) + ' (the quoted words are not in the draft)');
+  }
+  return out;
+}
+
+/** The stored result. No count and no fraction — the per-item audit is kept for traceability only. */
+export function keepCheckOutcome(report: KeepCheckReport, meta: Record<string, any>): any {
+  if (!report.ok) return keepCheckNotRun('the check failed: ' + report.summary.replace(/^KEEP CHECK FAILED: /, ''), meta);
+  const misses = keepMisses(report);
+  const state: KeepCheckState = misses.length ? 'MISSES' : 'NO MISSES';
+  const items = report.items.map((i) => ({ item: i.item, text: i.text, status: i.status, found: i.found, missing: i.missing, lines: i.lines }));
+  return { state, misses, items, salvaged: report.salvaged, invalid: report.invalid, ...meta,
+    summary: misses.length ? 'KEEP CHECK — not found: ' + misses.join('; ')
+      : 'KEEP CHECK — nothing named in the KEEP list is missing from the draft (presence only; not a judgment of how it is used)' };
 }
