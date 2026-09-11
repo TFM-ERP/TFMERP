@@ -509,7 +509,14 @@ export class ScripOnService {
 
   // The authoritative per-build brief (DevelopmentBuild.brief wins; else the shared IntakeProfile).
   private async briefFor(projectId: string, buildId?: string | null): Promise<any> {
-    if (buildId) { const b: any = await (this.prisma as any).developmentBuild.findUnique({ where: { id: String(buildId) } }).catch(() => null); if (b && b.brief) return b.brief; }
+    // A BUILD IS DESCRIBED BY ITS OWN BRIEF OR BY NOTHING. This used to fall through to the whole
+    // workspace intake row when the build had no brief — or when the build read failed, via a
+    // .catch that turned the error into "no build" — so one project row could decide another build's
+    // ladder. Only the legacy project path (no buildId, no build to own anything) reads the intake row.
+    if (buildId) {
+      const b: any = await (this.prisma as any).developmentBuild.findUnique({ where: { id: String(buildId) } });
+      return (b && b.brief) || {};
+    }
     const i: any = await (this.prisma as any).intakeProfile.findUnique({ where: { projectId } }).catch(() => null);
     return i || {};
   }
@@ -1256,8 +1263,13 @@ export class ScripOnService {
     // signal the model gets — so it carries the framework's name too, from the same table BEATS uses.
     const frameworkName = framework && this.FRAMEWORKS[framework] ? this.FRAMEWORKS[framework].name : '';
     const steer = await this.intakeSteer(projectId, opts?.buildId);
-    const langDir = await this.langDirective((buildRow && buildRow.brief) || intakeRow || {});
-    const knowDir = knowledgeDirective((buildRow && buildRow.brief) || intakeRow || {});
+    // A8 — FIELD-LEVEL OR NOTHING. `buildRow.brief || intakeRow` handed a build with no brief the
+    // ENTIRE workspace row as its brief: another film's language, market, conflicts and styles. A
+    // build now gets its own brief or an empty one; only the legacy project path (no buildId) uses the
+    // project's own intake row.
+    const ownBrief: any = opts?.buildId ? ((buildRow && buildRow.brief) || {}) : (intakeRow || {});
+    const langDir = await this.langDirective(ownBrief);
+    const knowDir = knowledgeDirective(ownBrief);
     const knowBlock = knowDir ? ('\n\nFORMAT & WORLD ENGINE (honour precisely across this stage):\n' + knowDir) : '';
     const draftRaw = kind === 'DRAFT';
     const jsonExact = kind === 'VIDEO_PROMPT'; // emit the exact JSON shape verbatim (format/aspectRatio are wanted output, not metadata to strip)
@@ -2208,14 +2220,23 @@ export class ScripOnService {
   }
 
   private async intakeSteer(projectId: string, buildId?: string | null): Promise<string> {
-    const i: any = (await (this.prisma as any).intakeProfile.findUnique({ where: { projectId } }).catch(() => null)) || {};
+    const intake: any = (await (this.prisma as any).intakeProfile.findUnique({ where: { projectId } }).catch(() => null)) || {};
     const dirRow = await this.buildDirectionRow(buildId);
-    const direction = dirRow ? ScripOnService.directionSteerText(dirRow) : i.treatment;
-    // The build's own brief, for its spine (the ending, below). No .catch, like buildDirectionRow: a
-    // failed read must not quietly fall back to the workspace's values — that is the defect itself.
+    // A4 (UNAUDITED, kept in 3a by ruling): a build with no build_directions row falls back to the
+    // workspace intake.treatment.
+    const direction = dirRow ? ScripOnService.directionSteerText(dirRow) : intake.treatment;
+    // The build's own brief. No .catch, like buildDirectionRow: a failed read must not quietly fall
+    // back to the workspace's values — that is the defect itself.
     const buildBrief: any = buildId
       ? ((await (this.prisma as any).developmentBuild.findUnique({ where: { id: String(buildId) }, select: { brief: true } })) || {}).brief || null
       : null;
+    // 3a — THE CREATIVE BRIEF IS THE BUILD'S. Every field below was read from the workspace intake
+    // row — one row per project, last written by whichever build's intake save last succeeded (on
+    // 11 Sep: a source-less build from 2 Sep) — so Jason Quick's prompts said "Thriller, Survival",
+    // "market Global / International", "Setting/world: United States". With a build, all of it comes
+    // from the build's own brief, and a field the build does not carry produces NO line: absence is
+    // legible, a borrowed value is not. Only the legacy project path (no buildId) reads the intake row.
+    const i: any = buildId ? (buildBrief || {}) : intake;
     const parts: string[] = [];
     if (i.realBased) parts.push('Based on a real story/subject; reality level = ' + (i.realityLevel || 'INSPIRED') + ' (how faithful vs invented).');
     if (Array.isArray(i.genres) && i.genres.length) parts.push('Genres: ' + i.genres.join(', ') + (i.tone ? ' | tone: ' + i.tone : '') + '.');
@@ -2238,12 +2259,11 @@ export class ScripOnService {
     const tgt = [i.format, i.language, i.country ? ('market ' + i.country) : null, i.rating ? ('rating ' + i.rating) : null, i.length].filter(Boolean);
     if (tgt.length) parts.push('Target: ' + tgt.join(' | ') + '.');
     {
-      // THE ENDING IS THE BUILD'S, the workspace's only when the build has none (resolveSpineField).
-      // want / need / opposing / theme are still the workspace row's — wiring those is its own item, and
-      // the workspace carries none of them today. The line no longer needs the workspace to HAVE a spine
-      // object: a build's own ending reaches the prompt whether or not the intake row carries one.
+      // want / need / opposing / theme are the BUILD's (3a), with NO workspace fallback: a build that
+      // does not carry one gets nothing, never a shared row's value. THE ENDING is the build's, the
+      // workspace's only when the build has none — A5, UNAUDITED, kept in 3a by ruling.
       const s: any = (i.spine && typeof i.spine === 'object') ? i.spine : {};
-      const ending = resolveSpineField('ending', buildBrief, i).value;
+      const ending = resolveSpineField('ending', buildBrief, intake).value;
       const sp = [s.want ? ('want ' + s.want) : null, s.need ? ('need ' + s.need) : null, s.opposing ? ('opposing ' + s.opposing) : null, s.theme ? ('theme ' + s.theme) : null, ending ? ('ending ' + ending) : null].filter(Boolean);
       if (sp.length) parts.push('Spine: ' + sp.join('; ') + '.');
     }
