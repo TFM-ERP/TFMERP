@@ -1247,7 +1247,14 @@ export class ScripOnService {
       : registerOnly ? transcribeRegister(rawSource.trim()).facts : [];
     const registerBlock = registerDirective(registerFacts);
     if (wantsSource && excerpt.truncated) this.log.log('generateStage ' + kind + ': source is an excerpt - ' + excerpt.sent + ' of ' + excerpt.total + ' characters, with ' + sourceFacts.length + ' fixed fact(s) carried alongside it.');
-    const research = String((intakeRow && intakeRow.researchNotes) || '').slice(0, 4000);
+    // 3b-READ — A BUILD'S RESEARCH IS ITS OWN, AND IT HAS NONE YET. This read the workspace row's
+    // researchNotes — one field per project, written by whichever build last ran research. On 11 Sep
+    // it held a note computed from a row frozen since 2 Sep ("the SOURCE excerpt arrived blank"),
+    // and every build's every stage carried it. There is no build-scoped store yet, so a build gets
+    // NO research block: absence is legible, another film's research is not. The block is omitted
+    // outright (see researchBlock), never emitted as an empty header. Only the legacy project path
+    // (no buildId) still reads the project's own row.
+    const research = opts?.buildId ? '' : String((intakeRow && intakeRow.researchNotes) || '').slice(0, 4000);
     const researchBlock = research ? ('\nRESEARCH FINDINGS (authentic facts, period & cultural detail to honour):\n' + research) : '';
     const earlier = stages.filter((s: any) => ladder.indexOf(s.kind) >= 0 && ladder.indexOf(s.kind) < idx).sort((a: any, b: any) => ladder.indexOf(a.kind) - ladder.indexOf(b.kind));
     let soFar = '';
@@ -2684,7 +2691,9 @@ export class ScripOnService {
   private async buildFeatureCtx(projectId: string, buildId: string | null, stages: any[], directive = '', sourceText: any = ''): Promise<string> {
     const steer = await this.intakeSteer(projectId, buildId);
     const intakeRow: any = await (this.prisma as any).intakeProfile.findUnique({ where: { projectId } }).catch(() => null);
-    const research = String((intakeRow && intakeRow.researchNotes) || '').slice(0, 2400);
+    // 3b-READ, as in generateStage: a build gets no research block until it has research of its own —
+    // never the workspace row's. Only the legacy path (no build) reads the project's own row.
+    const research = buildId ? '' : String((intakeRow && intakeRow.researchNotes) || '').slice(0, 2400);
     const bodyOf = (k: string) => { const x: any = stages.find((y: any) => y.kind === k); return String((x && x.current && x.current.body) || ''); };
     // Build first, as generateStage reads it: the build's own source outranks a project-level one.
     const src = asSourceText(sourceText) || asSourceText(intakeRow && intakeRow.sourceText) || '';
