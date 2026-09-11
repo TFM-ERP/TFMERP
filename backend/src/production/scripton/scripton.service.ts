@@ -1141,7 +1141,7 @@ export class ScripOnService {
     // extracted from the whole document, and it is TOLD the source below is an excerpt.
     //
     // The facts come from sourceCanonFor, which reads the source and NOTHING ELSE. Using
-    // extractCanon here would read the stage bodies too - and a synopsis written from this very
+    // extractCanon (since removed) here would have read the stage bodies too - and a synopsis written from this very
     // excerpt is exactly the document that must not be allowed to define the truth it was supposed
     // to be checked against. That circularity is how "Jason Vane" became canon (§21).
     const wantsSource = ['LOGLINE', 'SYNOPSIS', 'TREATMENT', 'BEATS', 'PREMISE', 'STORY_ENGINE', 'SEASON_ARC', 'THESIS'].indexOf(kind) >= 0;
@@ -1723,6 +1723,15 @@ export class ScripOnService {
    *
    * FAIL-OPEN at every level. One batch failing costs that batch; all of them failing costs nothing
    * at all, because an unclassified corpus behaves exactly as it does today.
+   *
+   * DEAD CODE — UNCALLED as of 11 Sep 2026. Its one call site was the report-only line at the top of
+   * extractCanon, which was removed (see generateFeatureAsync). Nothing calls this method now, and so
+   * nothing reaches sourceDocsFrom, classifyBatch, corpusKey or the sourceBibles cache either. It is
+   * kept, not deleted, because SCRIPTON-SOURCE-LAYER-SPEC-02-CLASSIFY.md and its plan name it; step
+   * (3) of that plan flips the extractor to bible.canonText, and that extractor no longer exists.
+   * Before it ran it never did any work in practice: it reads the workspace intake's `sources`, and no
+   * intake_profiles row carries a source with text; the ledger holds no classify run. Reviving it means
+   * choosing a new call site AND a build-scoped input — not re-adding the old line.
    */
   private async sourceBibleFor(projectId: string): Promise<SourceBible | null> {
     if (!projectId) return null;
@@ -1767,7 +1776,7 @@ export class ScripOnService {
 
   /** Material shorter than this says nothing worth pre-filling a form with. */
   private static readonly MIN_ANALYSE_CHARS = 200;
-  /** What one analysis reads. The same ceiling fullSourceFor uses — a form is not a screenplay. */
+  /** What one analysis reads. The same ceiling the removed fullSourceFor used — a form is not a screenplay. */
   private static readonly MAX_ANALYSE_CHARS = 60000;
 
   /**
@@ -2951,40 +2960,11 @@ export class ScripOnService {
   }
 
   /**
-   * Everything the development ladder holds, UNTRUNCATED — for the one pass that needs the whole
-   * document rather than a prefix.
-   *
-   * buildFeatureCtx caps the treatment at 2,600 characters because it rides on all 130 scene prompts.
-   * That cap is right for a repeated prefix and disastrous as the only reading: a 66,000-character
-   * design document reaches the scene writer as its first two sections. This is read ONCE, so it does
-   * not cap the same way.
-   */
-  private async fullSourceFor(projectId: string, stages: any[]): Promise<string> {
-    const bodyOf = (k: string) => { const x: any = stages.find((y: any) => y.kind === k); return String((x && x.current && x.current.body) || ''); };
-    const intake: any = await (this.prisma as any).intakeProfile.findUnique({ where: { projectId } }).catch(() => null);
-    return [
-      String((intake && intake.sourceText) || ''),
-      bodyOf('LOGLINE'), bodyOf('SYNOPSIS'), bodyOf('TREATMENT'), bodyOf('BEATS'), bodyOf('STEP_OUTLINE'),
-    ].filter(Boolean).join('\n\n').slice(0, 60000);
-  }
-
-  /**
-   * Extract the story's CANON once per generation: the handful of facts a scene could get wrong.
-   *
-   * The 1 Sep draft named its protagonist Jason Andrew Quick and later Jason Richard Quick, and put
-   * him in the water for four minutes in one scene and twenty-two in another. Neither is a writing
-   * failure — nothing ever told the writer either fact. One call here, carried on every scene prompt,
-   * is the cheapest fix available and the same one DOC measured: state the constraint while drafting
-   * instead of hunting violations afterwards.
-   *
-   * Fail-open. A canon that could not be extracted must never stop a generation — it only makes the
-   * draft as good as it was yesterday.
-   */
-  /**
    * Facts extracted from the SOURCE MATERIAL ALONE, for the development ladder.
    *
-   * WHY THIS IS NOT extractCanon. extractCanon reads fullSourceFor, which is the source PLUS the
-   * bodies of LOGLINE, SYNOPSIS, TREATMENT, BEATS and STEP_OUTLINE. That is correct at feature
+   * WHY THIS IS NOT extractCanon (the feature writer's canon, removed 2026-09-11 — see
+   * generateFeatureAsync). extractCanon read fullSourceFor, which was the source PLUS the
+   * bodies of LOGLINE, SYNOPSIS, TREATMENT, BEATS and STEP_OUTLINE. That was defensible at feature
    * time - by then those stages are the story. It is exactly wrong DURING the ladder, and §21 of
    * the findings document records why: a synopsis written from a 6,000-character excerpt renamed
    * the protagonist, and fullSourceFor then read that synopsis back as evidence, so the invented
@@ -3241,39 +3221,6 @@ export class ScripOnService {
         + quotaSummary(picked.counts) + (picked.dropped ? ('; ' + picked.dropped + ' over budget') : '') + '. Register: ' + c.account.register.summary
         + '. ' + (stored === 'stored' ? 'Stored.' : 'Memory only.'));
       return { facts: c.facts, account: c.account, from: 'extracted', stored };
-    }
-  }
-
-  private async extractCanon(projectId: string, stages: any[]): Promise<CanonFactCore[]> {
-    try {
-      // ② runs REPORT-ONLY here: classify the material and log what it found, while the extractor
-      // keeps reading the unchanged corpus below. This is the call site ③ will flip — fullSourceFor
-      // becomes bible.canonText — but not until a real build's log shows the roles are right on real
-      // material. A classifier that called a treatment a reference would be worse than none.
-      await this.sourceBibleFor(projectId).catch(() => null);
-      const src = await this.fullSourceFor(projectId, stages);
-      if (src.length < 400) return [];
-      const sys = 'You are building the CANON for a screenplay going into production: the hard facts the script'
-        + ' must never contradict. Return ONLY JSON {facts:[{kind,subject,predicate,object,statement}]}.'
-        + ' kind is one of CHARACTER|WORLD|LORE|TIMELINE|RELATIONSHIP|PLOT. subject = the entity, upper-case.'
-        + ' predicate = a short relation such as full_name|age|relation_to|occupation|duration|owns|located_in.'
-        + ' object = the value. statement = one sentence a writer can read. Include ONLY facts the material'
-        + ' actually STATES and that a scene could plausibly get wrong: full names exactly as written, ages,'
-        + ' family and professional relationships (who is whose sister, father, employer), how long things'
-        + ' took, dates and years, and place / company / vessel names. Do NOT invent or infer anything: a'
-        + ' missing fact is harmless, an invented one is a bug. At most 30 facts. No text outside the JSON.';
-      const r: any = await this.ai.run({ task: 'scripton.feature.canon', system: sys, user: 'DEVELOPMENT MATERIAL:\n' + src, maxTokens: 2400, timeoutMs: 180000, projectId, refType: 'Project', refId: projectId });
-      let j: any = (r && r.json) || null;
-      if (!j && r && typeof r.text === 'string') { try { const m = r.text.match(/\{[\s\S]*\}/); if (m) j = JSON.parse(m[0]); } catch { /* */ } }
-      // mapAiFactsToCore is the canon module's own normaliser — reused rather than reimplemented, so
-      // source facts are shaped exactly like the ones a render pass extracts. Anchored at story order 0
-      // with no source scene: these are true from the first page, and belong to no single scene.
-      const facts = mapAiFactsToCore((j && j.facts) || [], { id: '', order: 0 }).slice(0, 30);
-      this.log.log('extractCanon: ' + facts.length + ' fixed fact(s) from ' + src.length + ' characters of source material.');
-      return facts;
-    } catch (e) {
-      this.log.warn('extractCanon: failed — continuing without a canon block. ' + this.why(e));
-      return [];
     }
   }
 
@@ -4356,15 +4303,19 @@ export class ScripOnService {
         this.log.log('generateFeatureAsync: tracking ' + exits.length + ' cast exit(s) — '
           + exits.map((e) => e.name + ' @ ' + (e.scene + 1)).join(', '));
       }
-      // Still PLANNING as far as the UI is concerned — this is one call that can run a couple of
-      // minutes on a long document, and a silent gap reads as a hang. The overlay never stall-checks
-      // during PLANNING, so the heartbeat is what keeps the message honest rather than what keeps it alive.
-      const beatCanon = this.genProgress.get(docId);
-      if (beatCanon) { beatCanon.phase = 'PLANNING'; beatCanon.note = 'Reading the source for the story\'s fixed facts — names, dates, relationships.'; beatCanon.lastActivityAt = Date.now(); }
       // Everything goes into the canon graph in ./canon rather than a parallel store: it is bi-temporal,
       // so `resolveCanonAt` answers "what is true at scene N" without any special-casing here, and
       // `persistFacts` stamps a monotonic recordedAt so a rerun's facts supersede the previous run's.
-      const canonFacts: CanonFactCore[] = exitsAsCanonFacts(exits).concat(await this.extractCanon(projectId, stages));
+      //
+      // THE PLAN'S EXITS ARE THE ONLY PRODUCER. extractCanon used to add up to 30 facts read from the
+      // stage bodies; it was removed on 11 Sep 2026. Measured on Jason Quick: every Opus 5 run since
+      // 1 Sep hit its 2,400-token ceiling, truncated the JSON and yielded 0 facts; and of the 19 it had
+      // tried to write, 8 repeated the source's register, which already rides every scene call in full
+      // (buildFeatureCtx), while 7 existed only in the synopsis or treatment — the model's own earlier
+      // output, promoted to law. The register is the source's canon on the scene path now.
+      // verifyAndRepair's name-drift guard (canonicalForm) therefore sees the exit facts only — no
+      // more than it has actually seen since 1 Sep. It is not fed the register yet.
+      const canonFacts: CanonFactCore[] = exitsAsCanonFacts(exits);
       if (canonFacts.length) await this.canon.persistFacts(docId, canonFacts).catch((e: any) => this.log.warn('persistFacts failed — the draft continues without stored canon. ' + this.why(e)));
       const setP = (patch: any) => { const p = this.genProgress.get(docId); if (p) Object.assign(p, patch, { lastActivityAt: Date.now() }); };
       const saveRev = async (pages: any[]) => { await (this.prisma as any).scriptRevision.update({ where: { id: revId }, data: { pageText: pages, pageCount: pages.length } }).catch((e: any) => { this.log.error('saveRev: could NOT persist ' + pages.length + ' pages to revision ' + revId + ' — generated work is being lost. ' + this.why(e)); }); };
@@ -4826,15 +4777,19 @@ export class ScripOnService {
         this.log.log('extendFeatureAsync: tracking ' + exits.length + ' cast exit(s); '
           + strip.removed + ' impossible cast entries removed before writing.');
       }
-      // Still PLANNING as far as the UI is concerned — this is one call that can run a couple of
-      // minutes on a long document, and a silent gap reads as a hang. The overlay never stall-checks
-      // during PLANNING, so the heartbeat is what keeps the message honest rather than what keeps it alive.
-      const beatCanon = this.genProgress.get(docId);
-      if (beatCanon) { beatCanon.phase = 'PLANNING'; beatCanon.note = 'Reading the source for the story\'s fixed facts — names, dates, relationships.'; beatCanon.lastActivityAt = Date.now(); }
       // Everything goes into the canon graph in ./canon rather than a parallel store: it is bi-temporal,
       // so `resolveCanonAt` answers "what is true at scene N" without any special-casing here, and
       // `persistFacts` stamps a monotonic recordedAt so a rerun's facts supersede the previous run's.
-      const canonFacts: CanonFactCore[] = exitsAsCanonFacts(exits).concat(await this.extractCanon(projectId, stages));
+      //
+      // THE PLAN'S EXITS ARE THE ONLY PRODUCER. extractCanon used to add up to 30 facts read from the
+      // stage bodies; it was removed on 11 Sep 2026. Measured on Jason Quick: every Opus 5 run since
+      // 1 Sep hit its 2,400-token ceiling, truncated the JSON and yielded 0 facts; and of the 19 it had
+      // tried to write, 8 repeated the source's register, which already rides every scene call in full
+      // (buildFeatureCtx), while 7 existed only in the synopsis or treatment — the model's own earlier
+      // output, promoted to law. The register is the source's canon on the scene path now.
+      // verifyAndRepair's name-drift guard (canonicalForm) therefore sees the exit facts only — no
+      // more than it has actually seen since 1 Sep. It is not fed the register yet.
+      const canonFacts: CanonFactCore[] = exitsAsCanonFacts(exits);
       if (canonFacts.length) await this.canon.persistFacts(docId, canonFacts).catch((e: any) => this.log.warn('persistFacts failed — the draft continues without stored canon. ' + this.why(e)));
       const setP = (patch: any) => { const p = this.genProgress.get(docId); if (p) Object.assign(p, patch, { lastActivityAt: Date.now() }); };
       const saveRev = async (pages: any[]) => { await (this.prisma as any).scriptRevision.update({ where: { id: revId }, data: { pageText: pages, pageCount: pages.length } }).catch((e: any) => { this.log.error('saveRev: could NOT persist ' + pages.length + ' pages to revision ' + revId + ' — generated work is being lost. ' + this.why(e)); }); };
