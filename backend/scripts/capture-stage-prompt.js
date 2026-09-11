@@ -1,7 +1,15 @@
 /**
  * CAPTURE THE PROMPT A STAGE WOULD SEND — and count the source's register in it.
  *
- *   node -r ts-node/register scripts/capture-stage-prompt.js <buildId> <target> [--out <file.json>]
+ *   node -r ts-node/register scripts/capture-stage-prompt.js <buildId> <target> [--phrase "…"]… [--out <file.json>]
+ *
+ *   --phrase  repeatable. Each is counted in the captured payload — in the register block and outside
+ *             it — after normalising curly quotes and whitespace, with the exact count beside it.
+ *             Checked only on a capture: with NOT CAPTURED no phrase is reported at all.
+ *
+ *   exit  0 captured (and every --phrase found) · 1 captured, and at least one --phrase ABSENT
+ *         3 NOT CAPTURED (never 1: "no prompt" and "a prompt without the phrase" stay apart)
+ *         2 usage / unknown build · 4 the instrument itself failed
  *
  *   target  a ladder kind (SCENES, STEP_OUTLINE, DRAFT, SYNOPSIS, COVERAGE, …)
  *             → generateStage({ projectId, kind, buildId }), the exact options the studio sends
@@ -49,7 +57,9 @@ const buildId = args[0];
 const target = String(args[1] || '').toUpperCase();
 const opt = (k, d) => { const i = args.indexOf(k); return i > 0 && args[i + 1] ? args[i + 1] : d; };
 const OUT = opt('--out', null);
-if (!buildId || !target) { console.error('usage: node -r ts-node/register scripts/capture-stage-prompt.js <buildId> <KIND|DRAFT_CONT|FEATURE_SCENE|FEATURE_ENTRY> [--out file.json]'); process.exit(2); }
+const PHRASES = [];
+for (let i = 2; i < args.length; i++) if (args[i] === '--phrase' && args[i + 1]) PHRASES.push(args[++i]);
+if (!buildId || !target || target.startsWith('--')) { console.error('usage: node -r ts-node/register scripts/capture-stage-prompt.js <buildId> <KIND|DRAFT_CONT|FEATURE_SCENE|FEATURE_ENTRY> [--phrase "…"]… [--out file.json]'); process.exit(2); }
 
 // The header registerDirective() opens the block with (canon-inject.util.ts). Read, not rebuilt: the
 // block is located by finding this line in the captured text.
@@ -174,10 +184,9 @@ const makeAi = (targetTask, answerPlanner, cutFirstDraft) => {
   if (!captured) {
     status = 'NOT CAPTURED';
     report.reason = thrown && thrown !== CAPTURED ? String(thrown.message || thrown).slice(0, 600) : 'the run ended without calling ' + targetTask;
-  } else if (!refLines.length) {
-    status = 'CAPTURED — NO REFERENCE (the build has no register to look for; no count)';
   } else {
-    status = deviations.length ? 'CAPTURED, WITH PATH DEVIATIONS BEFORE THE CAPTURE' : 'CAPTURED CLEAN';
+    status = !refLines.length ? 'CAPTURED — NO REFERENCE (the build has no register to look for; no register count)'
+      : deviations.length ? 'CAPTURED, WITH PATH DEVIATIONS BEFORE THE CAPTURE' : 'CAPTURED CLEAN';
     const fields = Object.entries(captured.fields);
     const whole = norm(fields.map(([, v]) => v).join('\n'));
     let block = '', blockField = null;
@@ -190,15 +199,29 @@ const makeAi = (targetTask, answerPlanner, cutFirstDraft) => {
       block = lines.slice(0, end).join('\n'); blockField = key; break;
     }
     const nb = norm(block);
-    const inBlock = refLines.filter((s) => nb.includes(s)).length;
-    const anywhere = refLines.filter((s) => whole.includes(s)).length;
     report.capture = {
       method: captured.method, task: captured.task,
       fields: Object.fromEntries(fields.map(([k, v]) => [k, v.length + ' chars'])),
       registerBlock: block ? ('present in `' + blockField + '`, ' + block.length + ' chars') : 'ABSENT',
-      inRegisterBlock: inBlock, anywhereInPayload: anywhere, of: refLines.length,
-      missingFromBlock: refLines.map((s, i) => (nb.includes(s) ? null : '#' + (i + 1) + ' ' + s.slice(0, 90))).filter(Boolean),
     };
+    if (refLines.length) Object.assign(report.capture, {
+      inRegisterBlock: refLines.filter((s) => nb.includes(s)).length, anywhereInPayload: refLines.filter((s) => whole.includes(s)).length, of: refLines.length,
+      missingFromBlock: refLines.map((s, i) => (nb.includes(s) ? null : '#' + (i + 1) + ' ' + s.slice(0, 90))).filter(Boolean),
+    });
+    // --phrase, folded in from the retired verify-stage-prompt.js. Checked ONLY here, on a capture:
+    // a phrase count exists only when there is a prompt to count it in. Matched after normalising
+    // curly quotes (the bible writes "don’t") and whitespace (registerDirective joins wrapped lines);
+    // the exact, un-normalised count is reported beside it so a normalised hit is visible as one.
+    if (PHRASES.length) {
+      const q = (t) => norm(String(t).replace(/[‘’]/g, "'").replace(/[“”]/g, '"'));
+      const count = (hay, needle) => (needle ? hay.split(needle).length - 1 : 0);
+      const W = q(fields.map(([, v]) => v).join('\n')), B = q(block);
+      const rawWhole = fields.map(([, v]) => v).join('\n');
+      report.capture.phrases = PHRASES.map((ph) => {
+        const total = count(W, q(ph)), inside = count(B, q(ph));
+        return { phrase: ph, found: total > 0, total, inRegisterBlock: inside, outsideRegisterBlock: total - inside, exact: count(rawWhole, ph) };
+      });
+    }
     if (answered) {
       // Two captures from one run, compared — nothing rebuilt. Does the later piece carry the first
       // piece's prompt whole, and the same system prompt?
@@ -225,8 +248,12 @@ const makeAi = (targetTask, answerPlanner, cutFirstDraft) => {
     const c = report.capture;
     console.log('CAPTURE ' + c.method + ' ' + c.task + ' · fields ' + JSON.stringify(c.fields));
     console.log('REGISTER BLOCK ' + c.registerBlock);
-    console.log('COUNT   ' + c.inRegisterBlock + ' of ' + c.of + ' register lines in the register block · ' + c.anywhereInPayload + ' of ' + c.of + ' anywhere in the payload');
-    if (c.missingFromBlock.length && c.missingFromBlock.length <= 10) c.missingFromBlock.forEach((m) => console.log('  missing ' + m));
+    if (c.of) console.log('COUNT   ' + c.inRegisterBlock + ' of ' + c.of + ' register lines in the register block · ' + c.anywhereInPayload + ' of ' + c.of + ' anywhere in the payload');
+    if (c.missingFromBlock && c.missingFromBlock.length && c.missingFromBlock.length <= 10) c.missingFromBlock.forEach((m) => console.log('  missing ' + m));
+    for (const p of c.phrases || []) {
+      console.log('PHRASE  ' + (p.found ? 'FOUND ' : 'ABSENT') + ' ' + JSON.stringify(p.phrase) + ' ×' + p.total + ' (in the register block ' + p.inRegisterBlock
+        + ', outside it ' + p.outsideRegisterBlock + '; exact, un-normalised ' + p.exact + ')');
+    }
     if (c.continuation) {
       const k = c.continuation;
       console.log('PIECES  piece 1 user ' + k.piece1UserChars + ' chars · piece 2 user ' + k.piece2UserChars + ' chars · piece 2 begins with piece 1 byte for byte: '
@@ -234,6 +261,10 @@ const makeAi = (targetTask, answerPlanner, cutFirstDraft) => {
       if (k.suffixHead) console.log('SUFFIX  ' + JSON.stringify(k.suffixHead) + '…');
     }
   }
+  if (!captured && PHRASES.length) console.log('PHRASES not checked — nothing was captured, so there is no prompt to find them in (' + PHRASES.length + ' requested)');
   if (OUT) { fs.writeFileSync(OUT, JSON.stringify(report, null, 2)); console.log('WROTE   ' + OUT); }
   await real.$disconnect();
-})().catch((e) => { console.error('INSTRUMENT ERROR (no count):', e); process.exit(1); });
+  // Exit codes keep the two zeros apart: 3 is "no prompt", 1 is "a prompt, and a phrase not in it".
+  const absent = (report.capture && report.capture.phrases || []).filter((p) => !p.found).length;
+  process.exit(!captured ? 3 : absent ? 1 : 0);
+})().catch((e) => { console.error('INSTRUMENT ERROR (no count):', e); process.exit(4); });
