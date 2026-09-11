@@ -2222,7 +2222,11 @@ export class ScripOnService {
   private static directionSteerText(r: any): string {
     if (r.legacyText != null) return String(r.legacyText);
     const note = String(r.note || '').trim();
+    // KEEP is sent whole: the direction's own list of what survives from the source. It was stored on
+    // every picked row and reached no prompt — so the gala lapel line and the bracelet clasp were never
+    // asked for. Prose, not items: splitting it into checkable lines is the compliance check's problem.
     return String(r.label || '') + (r.change ? (' - change: ' + r.change) : '') + (r.tone ? (' - tone: ' + r.tone) : '')
+      + (r.keep ? ('\n\nKEEP (honour every item):\n' + r.keep) : '')
       + (note ? ('\n\nWRITER NOTE (honour every line):\n' + note) : '');
   }
 
