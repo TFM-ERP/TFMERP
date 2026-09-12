@@ -1265,9 +1265,9 @@ export class ScripOnService {
     // first 2,400 characters of a 9,792-character treatment is an instruction no stage can follow.
     const soFarOut = developmentSoFar(earlier.map((st: any) => ({ kind: st.kind, body: String((st.current && st.current.body) || '') })));
     const soFarBlock = soFarOut.block;
-    if (soFarOut.parts.some((p) => !p.complete)) {
+    if (soFarOut.parts.some((p) => !p.complete) || soFarOut.omitted.length) {
       this.log.log('generateStage ' + kind + ': DEVELOPMENT SO FAR carries ' + soFarOut.parts.map((p) => p.kind + ' ' + p.sent + '/' + p.total).join(', ')
-        + (soFarOut.frontCut ? ' — and the block cap cut the front' : ''));
+        + (soFarOut.omitted.length ? ' — not carried: ' + soFarOut.omitted.map((o) => o.kind + ' (' + o.total + ')').join(', ') : ''));
     }
     // THE BUILD'S OWN FRAMEWORK. This read the workspace intake's spine.framework — one row for every
     // build in the project — so Jason Quick, which chose sequence8, was written on savecat at every

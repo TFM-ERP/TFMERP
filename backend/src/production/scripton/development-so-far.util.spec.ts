@@ -1,83 +1,99 @@
 /**
- * DEVELOPMENT SO FAR says what it holds. Run: npm run test:unit
+ * DEVELOPMENT SO FAR: whole stages, most recent first, and it says what it holds.
+ * Run: npm run test:unit
  *
- * The golden test below is the whole point of this commit: it reproduces the OLD expression
- * (scripton.service.ts:1262, `b.slice(0, 2400)` joined under `--- KIND ---`, then a 14,000-character
- * tail cut) and asserts the new block is byte-for-byte identical once the header lines are
- * normalised away. The labels are the only change; no content and no cap moved.
+ * The old rule sent the first 2,400 characters of every earlier stage. V2.6's BEATS therefore
+ * received 5,095 characters of a 15,067-character ladder and invented what lay past the cut. The
+ * budget is now spent on WHOLE stages from the bottom up; the one that does not fit whole goes in as
+ * a single labelled fragment; anything past it is named, never silently absent.
  */
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { developmentSoFar, soFarLabel, SOFAR_PER_STAGE, SOFAR_BLOCK } from './development-so-far.util';
+import { developmentSoFar, soFarLabel, SOFAR_BUDGET, SOFAR_MIN_FRAGMENT } from './development-so-far.util';
 
-/** The rule exactly as it stood before this change. */
-function oldBlock(stages: { kind: string; body: string }[]): string {
-  let soFar = '';
-  for (const st of stages) { const b = String(st.body || ''); if (b) soFar += '\n--- ' + st.kind + ' ---\n' + b.slice(0, 2400); }
-  if (soFar.length > 14000) soFar = soFar.slice(soFar.length - 14000);
-  return soFar;
-}
-const strip = (s: string) => s.replace(/\n--- [A-Z_]+ \((?:first [\d,]+ of [\d,]+ characters|complete, [\d,]+ characters)\) ---\n/g, (m) => '\n--- ' + (/--- ([A-Z_]+) /.exec(m) as RegExpExecArray)[1] + ' ---\n');
 const body = (n: number, seed = 'x') => (seed + ' ').repeat(Math.ceil(n / 2)).slice(0, n);
-
-// V2.6's real sizes at BEATS (11 Sep).
+/** V2.6 at BEATS, and cmttt92yx at DRAFT — the two real ladders measured on 11–12 Sep. */
 const V26 = [{ kind: 'LOGLINE', body: body(241) }, { kind: 'SYNOPSIS', body: body(5034, 'y') }, { kind: 'TREATMENT', body: body(9792, 'z') }];
+const FULL = [['LOGLINE', 270], ['SYNOPSIS', 4477], ['TREATMENT', 8915], ['BEATS', 12463], ['SCENES', 16974], ['STEP_OUTLINE', 17166]]
+  .map(([k, n]) => ({ kind: k as string, body: body(n as number, String(k).charAt(0).toLowerCase()) }));
 
-test('THE LABELS ARE THE ONLY CHANGE: the block matches the old rule byte for byte once headers are normalised', () => {
-  for (const stages of [V26,
-    [{ kind: 'LOGLINE', body: body(270) }, { kind: 'SYNOPSIS', body: body(4477) }, { kind: 'TREATMENT', body: body(8915) }, { kind: 'BEATS', body: body(12463) }, { kind: 'SCENES', body: body(16974) }, { kind: 'STEP_OUTLINE', body: body(17166) }],
-    [{ kind: 'LOGLINE', body: body(80) }],
-  ]) {
-    const got = developmentSoFar(stages);
-    const head = got.block.indexOf('\n---');
-    assert.equal(strip(got.block.slice(head)), oldBlock(stages), stages.map((s) => s.kind).join(','));
+test('the budget carries every measured ladder WHOLE — nothing labelled "first N of"', () => {
+  for (const stages of [V26, FULL]) {
+    const r = developmentSoFar(stages);
+    assert.deepEqual(r.omitted, []);
+    assert.ok(r.parts.every((p) => p.complete), stages.map((s) => s.kind).join(','));
+    assert.equal(r.parts.length, stages.length);
+    assert.doesNotMatch(r.block, /\(first /);
+  }
+  const r = developmentSoFar(FULL);
+  assert.ok(r.block.includes('--- STEP_OUTLINE (complete, 17,166 characters) ---'));
+  assert.ok(r.block.includes('--- SCENES (complete, 16,974 characters) ---'));
+});
+
+test('SPENT NEWEST FIRST: when the budget is short, the nearest stages are the ones carried whole', () => {
+  const r = developmentSoFar(FULL, 30000);           // STEP_OUTLINE 17,166 whole, then 12,834 left
+  assert.deepEqual(r.parts.map((p) => p.kind), ['SCENES', 'STEP_OUTLINE']);
+  assert.deepEqual(r.parts.map((p) => p.complete), [false, true], 'the nearest stage is whole; the next is the fragment');
+  assert.equal(r.parts[0].sent, 30000 - 17166);
+  assert.deepEqual(r.omitted.map((o) => o.kind), ['LOGLINE', 'SYNOPSIS', 'TREATMENT', 'BEATS']);
+});
+
+test('THE ONE THAT DOES NOT FIT IS A LABELLED FRAGMENT, NOT A DROP', () => {
+  const r = developmentSoFar(FULL, 20000);           // STEP_OUTLINE 17,166 whole, 2,834 left for SCENES
+  assert.deepEqual(r.parts.map((p) => p.kind), ['SCENES', 'STEP_OUTLINE']);
+  assert.equal(r.parts[0].complete, false);
+  assert.equal(r.parts[0].sent, 20000 - 17166);
+  assert.ok(r.block.includes('--- SCENES (first 2,834 of 16,974 characters) ---'));
+  assert.ok(r.block.includes('--- STEP_OUTLINE (complete, 17,166 characters) ---'));
+});
+
+test('ANYTHING OMITTED IS NAMED, with its size, before the content', () => {
+  const r = developmentSoFar(FULL, 20000);
+  assert.match(r.block, /^\nDEVELOPMENT SO FAR \([^)]*\):\n\[Not carried here, for length: LOGLINE \(270 characters\), SYNOPSIS \(4,477 characters\), TREATMENT \(8,915 characters\), BEATS \(12,463 characters\)\. Everything below this line is present as labelled\.\]\n--- SCENES/);
+  assert.deepEqual(r.omitted, [{ kind: 'LOGLINE', total: 270 }, { kind: 'SYNOPSIS', total: 4477 }, { kind: 'TREATMENT', total: 8915 }, { kind: 'BEATS', total: 12463 }]);
+});
+
+test('the content never exceeds the budget, and is printed oldest first', () => {
+  for (const B of [2000, 9000, 20000, 30000, 64000]) {
+    const r = developmentSoFar(FULL, B);
+    const carried = r.parts.reduce((a, p) => a + p.sent, 0);
+    assert.ok(carried <= B, B + ': ' + carried);
+    const order = r.parts.map((p) => p.kind);
+    assert.deepEqual(order, FULL.map((s) => s.kind).filter((k) => order.includes(k)), 'ladder order');
   }
 });
 
-test('V2.6 at BEATS: the three labels state the real numbers', () => {
-  const r = developmentSoFar(V26);
-  assert.ok(r.block.includes('--- LOGLINE (complete, 241 characters) ---'), 'LOGLINE');
-  assert.ok(r.block.includes('--- SYNOPSIS (first 2,400 of 5,034 characters) ---'), 'SYNOPSIS');
-  assert.ok(r.block.includes('--- TREATMENT (first 2,400 of 9,792 characters) ---'), 'TREATMENT');
-  assert.deepEqual(r.parts, [
-    { kind: 'LOGLINE', sent: 241, total: 241, complete: true },
-    { kind: 'SYNOPSIS', sent: 2400, total: 5034, complete: false },
-    { kind: 'TREATMENT', sent: 2400, total: 9792, complete: false },
-  ]);
-  assert.equal(r.frontCut, false, 'the 14,000 block cap does not bind at BEATS on any real build measured');
+test('a scrap of room is not worth a fragment: the stage is named as omitted instead', () => {
+  const r = developmentSoFar(FULL, 17166 + SOFAR_MIN_FRAGMENT - 1);
+  assert.deepEqual(r.parts.map((p) => p.kind), ['STEP_OUTLINE']);
+  assert.ok(r.omitted.some((o) => o.kind === 'SCENES'));
+  const r2 = developmentSoFar(FULL, 17166 + SOFAR_MIN_FRAGMENT);
+  assert.deepEqual(r2.parts.map((p) => p.kind), ['SCENES', 'STEP_OUTLINE']);
+  assert.equal(r2.parts[0].sent, SOFAR_MIN_FRAGMENT);
 });
 
-test('the header sentence is unchanged and opens the block', () => {
+test('a single stage larger than the whole budget is still carried, as a fragment', () => {
+  const r = developmentSoFar([{ kind: 'DRAFT', body: body(38257) }], 14000);
+  assert.deepEqual(r.parts, [{ kind: 'DRAFT', sent: 14000, total: 38257, complete: false }]);
+  assert.ok(r.block.includes('--- DRAFT (first 14,000 of 38,257 characters) ---'));
+  assert.deepEqual(r.omitted, []);
+});
+
+test('the header sentence is unchanged', () => {
   assert.match(developmentSoFar(V26).block, /^\nDEVELOPMENT SO FAR \(everything already written - stay fully consistent with all of it; build directly on it\):\n--- LOGLINE/);
 });
 
-test('a stage shorter than the cap is labelled complete, never "first N of N"', () => {
+test('labels: complete, or first N of M', () => {
   assert.equal(soFarLabel('LOGLINE', 241, 241), '--- LOGLINE (complete, 241 characters) ---');
   assert.equal(soFarLabel('TREATMENT', 2400, 9792), '--- TREATMENT (first 2,400 of 9,792 characters) ---');
-  assert.equal(soFarLabel('SCENES', 2400, 2400), '--- SCENES (complete, 2,400 characters) ---');
 });
 
-test('when the block cap cuts the front, it says so — and a beheaded first entry is never silent', () => {
-  const many = ['A', 'B', 'C', 'D', 'E', 'F', 'G'].map((k) => ({ kind: 'STAGE_' + k, body: body(2400, k.toLowerCase()) }));
-  const r = developmentSoFar(many);
-  assert.equal(r.frontCut, true);
-  assert.match(r.block, /\[The start of this block was cut to fit 14,000 characters: the first entry below may begin mid-sentence\.\]/);
-  assert.match(r.block, /^\nDEVELOPMENT SO FAR \([^)]*\):\n\[The start of this block was cut[^\]]*\]\n/, 'the note sits between the header and the content');
-  assert.ok(r.block.length <= SOFAR_BLOCK + 400, 'the content still obeys the block cap; only the header and note sit outside it');
-});
-
-test('empty in, empty out — no header, no note, and nothing throws', () => {
+test('the budget is the measured one, and empty in is empty out', () => {
+  assert.equal(SOFAR_BUDGET, 64000, 'the largest prior ladder measured is 60,265 characters');
   for (const stages of [[], [{ kind: 'LOGLINE', body: '' }], null as any, undefined as any]) {
     const r = developmentSoFar(stages);
     assert.equal(r.block, '');
     assert.deepEqual(r.parts, []);
-    assert.equal(r.frontCut, false);
+    assert.deepEqual(r.omitted, []);
   }
-});
-
-test('the caps are the ones the service used, and are overridable for tests only', () => {
-  assert.equal(SOFAR_PER_STAGE, 2400);
-  assert.equal(SOFAR_BLOCK, 14000);
-  const r = developmentSoFar([{ kind: 'TREATMENT', body: body(500) }], 100, 14000);
-  assert.ok(r.block.includes('--- TREATMENT (first 100 of 500 characters) ---'));
 });

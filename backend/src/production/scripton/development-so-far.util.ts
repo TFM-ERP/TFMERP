@@ -23,17 +23,27 @@ export interface SoFarPart { kind: string; sent: number; total: number; complete
 export interface SoFarResult {
   /** The block as it goes into the prompt, header included; '' when there is nothing to carry. */
   block: string;
+  /** What was carried, in ladder order. */
   parts: SoFarPart[];
-  /** True when the block cap cut the front off — the first entry below it may begin mid-sentence. */
-  frontCut: boolean;
+  /** What the budget could not carry — named in the block, never silently absent. */
+  omitted: { kind: string; total: number }[];
 }
 
-export const SOFAR_PER_STAGE = 2400;
-export const SOFAR_BLOCK = 14000;
+/**
+ * THE BUDGET IS SPENT ON WHOLE STAGES, MOST RECENT FIRST — and 64,000 was chosen from the ledger,
+ * not from respect for the old number. The largest prior ladder on any build measured is 60,265
+ * characters (cmttt92yx at DRAFT), so this carries every one of them whole at every rung. The old
+ * 14,000 never once bound (the largest block built was 12,377): it was a default, not a fit.
+ *
+ * PRICED: 2.85–3.70 characters per input token measured across the develop tasks, $5/M input on
+ * claude-opus-5 (ai-cost.util), no caching in use on these calls. Carrying the whole ladder at every
+ * rung costs +$0.18 on the largest build measured, and $0.10 for the single DRAFT call — against the
+ * $4/script this project is planned around.
+ */
+export const SOFAR_BUDGET = 64000;
+/** Below this, the remaining space is not worth a fragment: the stage is named as omitted instead. */
+export const SOFAR_MIN_FRAGMENT = 500;
 const HEADER = '\nDEVELOPMENT SO FAR (everything already written - stay fully consistent with all of it; build directly on it):';
-const CUT_NOTE = '\n[The start of this block was cut to fit ' + SOFAR_BLOCK.toLocaleString('en-US')
-  + ' characters: the first entry below may begin mid-sentence.]';
-
 const num = (n: number) => n.toLocaleString('en-US');
 
 /** '--- TREATMENT (first 2,400 of 9,792 characters) ---' / '--- LOGLINE (complete, 241 characters) ---' */
@@ -41,19 +51,40 @@ export function soFarLabel(kind: string, sent: number, total: number): string {
   return '--- ' + kind + (sent < total ? ' (first ' + num(sent) + ' of ' + num(total) + ' characters)' : ' (complete, ' + num(total) + ' characters)') + ' ---';
 }
 
-export function developmentSoFar(stages: SoFarStage[], perStage = SOFAR_PER_STAGE, blockCap = SOFAR_BLOCK): SoFarResult {
-  const parts: SoFarPart[] = [];
-  let soFar = '';
-  for (const st of Array.isArray(stages) ? stages : []) {
-    const body = String((st && st.body) || '');
-    if (!body) continue;
-    const piece = body.slice(0, perStage);
-    parts.push({ kind: String(st.kind || ''), sent: piece.length, total: body.length, complete: piece.length === body.length });
-    soFar += '\n' + soFarLabel(String(st.kind || ''), piece.length, body.length) + '\n' + piece;
+export function developmentSoFar(stages: SoFarStage[], budget = SOFAR_BUDGET): SoFarResult {
+  const all = (Array.isArray(stages) ? stages : [])
+    .map((st) => ({ kind: String((st && st.kind) || ''), body: String((st && st.body) || '') }))
+    .filter((st) => st.body);
+  if (!all.length) return { block: '', parts: [], omitted: [] };
+
+  // NEWEST FIRST, WHOLE. The stage a rung must not contradict is the one just below it, so the budget
+  // is spent from the bottom up. The first stage that does not fit whole goes in as ONE fragment of
+  // what is left — a dropped stage is the failure this replaces, so nothing is dropped while there is
+  // room to carry part of it. Anything past that is omitted, and named in the block.
+  const taken = new Map<string, number>();          // kind → characters carried
+  let used = 0;
+  for (let i = all.length - 1; i >= 0; i--) {
+    const st = all[i];
+    const room = budget - used;
+    if (st.body.length <= room) { taken.set(st.kind, st.body.length); used += st.body.length; continue; }
+    if (room >= SOFAR_MIN_FRAGMENT) { taken.set(st.kind, room); used += room; }
+    break;
   }
-  if (!soFar) return { block: '', parts: [], frontCut: false };
-  const frontCut = soFar.length > blockCap;
-  if (frontCut) soFar = soFar.slice(soFar.length - blockCap);
-  // The tail slice starts mid-content, so the note needs its own line to be readable as a note.
-  return { block: HEADER + (frontCut ? CUT_NOTE + '\n' : '') + soFar, parts, frontCut };
+  const omitted = all.filter((st) => !taken.has(st.kind)).map((st) => ({ kind: st.kind, total: st.body.length }));
+
+  // Printed oldest first: it reads as a ladder, and the newest — the one that matters most — ends up
+  // closest to the instruction that follows it.
+  const parts: SoFarPart[] = [];
+  let body = '';
+  for (const st of all) {
+    const sent = taken.get(st.kind);
+    if (sent === undefined) continue;
+    const piece = st.body.slice(0, sent);
+    parts.push({ kind: st.kind, sent: piece.length, total: st.body.length, complete: piece.length === st.body.length });
+    body += '\n' + soFarLabel(st.kind, piece.length, st.body.length) + '\n' + piece;
+  }
+  const note = omitted.length
+    ? '\n[Not carried here, for length: ' + omitted.map((o) => o.kind + ' (' + num(o.total) + ' characters)').join(', ') + '. Everything below this line is present as labelled.]'
+    : '';
+  return { block: HEADER + note + body, parts, omitted };
 }
