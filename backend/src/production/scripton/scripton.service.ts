@@ -963,9 +963,27 @@ export class ScripOnService {
    * under a dollar would trade the accuracy of the fact list for pocket change, and a missed fact
    * there is the circularity the whole path exists to prevent.
    */
+  /**
+   * THE SCREENPLAY STAGES ARE BOUNDED TOO, AS OF 12 SEP — and the omission above was not free.
+   *
+   * V2.6's SCENES call spent 25,000 of 25,000 output tokens and returned NOT ONE CHARACTER: the whole
+   * budget went to thinking, which is billed against the same ceiling and carries no visible text.
+   * These four stages had no entry here, so `effort` was undefined and nothing bounded the reasoning
+   * on exactly the calls with the largest budgets. It is the same failure the SYNOPSIS suffered nine
+   * times on 4–7 Sep at 2,400 tokens, and 71 feature calls before that.
+   *
+   * MEDIUM, NOT LOW. It matches TREATMENT, the closest comparable stage, whose prose is good. The
+   * change that matters is unbounded → bounded; the higher bound is the smaller step and reverts in
+   * one line. And the quality premise for leaving these unbounded is thin: SCENES has thought without
+   * a bound all along, and is the stage where 26 of the ladder's contradictions sat.
+   *
+   * DRAFT is here because :915 already asks for STAGE_EFFORT.DRAFT on the continuation pass — a key
+   * that did not exist, so that call has always sent undefined.
+   */
   private static readonly STAGE_EFFORT: Record<string, EffortLevel> = {
     LOGLINE: 'low', PREMISE: 'low', THESIS: 'low', COVERAGE: 'low', RESEARCH_PLAN: 'low', RIGHTS_PLAN: 'low',
     SYNOPSIS: 'medium', TREATMENT: 'medium', STORY_ENGINE: 'medium',
+    BEATS: 'medium', SCENES: 'medium', STEP_OUTLINE: 'medium', DRAFT: 'medium',
   };
 
   // SYNOPSIS is 67 because that is what the first run to actually FINISH took (7 Sep, 5,975 tokens,
