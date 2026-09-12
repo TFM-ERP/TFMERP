@@ -50,6 +50,7 @@ import { continuationUser, joinContinuation, DRAFT_CONTINUATION_PASSES } from '.
 import { registerLines, registerCheckUser, parseRegisterCheck, REGISTER_CHECK_SYSTEM, REGISTER_CHECK_MAXTOK } from './canon/register-check.util';
 import { KEEP_CHECK_SYSTEM, KEEP_CHECK_MAXTOK, keepCheckUser, parseKeepCheck, keepSent, keepCheckNotRun, keepCheckOutcome } from './canon/keep-check.util';
 import { splitKeep } from './canon/keep-items.util';
+import { developmentSoFar } from './development-so-far.util';
 import { selectCanonByQuota, quotaSummary, quotaShortfall } from './canon/canon-quota.util';
 import { SOURCE_CANON_SYSTEM, SOURCE_CANON_MAXTOK, CANON_EXTRACTOR_VERSION, CANON_MAX_SOURCE_CHARS } from './canon/canon-prompt.util';
 import { parseFactsLoose } from './canon/canon-parse.util';
@@ -1259,10 +1260,15 @@ export class ScripOnService {
     const research = opts?.buildId ? '' : String((intakeRow && intakeRow.researchNotes) || '').slice(0, 4000);
     const researchBlock = research ? ('\nRESEARCH FINDINGS (authentic facts, period & cultural detail to honour):\n' + research) : '';
     const earlier = stages.filter((s: any) => ladder.indexOf(s.kind) >= 0 && ladder.indexOf(s.kind) < idx).sort((a: any, b: any) => ladder.indexOf(a.kind) - ladder.indexOf(b.kind));
-    let soFar = '';
-    for (const st of earlier) { const b = String((st.current && st.current.body) || ''); if (b) soFar += '\n--- ' + st.kind + ' ---\n' + b.slice(0, 2400); }
-    if (soFar.length > 14000) soFar = soFar.slice(soFar.length - 14000);
-    const soFarBlock = soFar ? ('\nDEVELOPMENT SO FAR (everything already written - stay fully consistent with all of it; build directly on it):' + soFar) : '';
+    // AND IT SAYS WHAT IT HOLDS — see development-so-far.util. The content and both caps are what they
+    // were; each entry now names its own size, because "stay fully consistent with all of it" over the
+    // first 2,400 characters of a 9,792-character treatment is an instruction no stage can follow.
+    const soFarOut = developmentSoFar(earlier.map((st: any) => ({ kind: st.kind, body: String((st.current && st.current.body) || '') })));
+    const soFarBlock = soFarOut.block;
+    if (soFarOut.parts.some((p) => !p.complete)) {
+      this.log.log('generateStage ' + kind + ': DEVELOPMENT SO FAR carries ' + soFarOut.parts.map((p) => p.kind + ' ' + p.sent + '/' + p.total).join(', ')
+        + (soFarOut.frontCut ? ' — and the block cap cut the front' : ''));
+    }
     // THE BUILD'S OWN FRAMEWORK. This read the workspace intake's spine.framework — one row for every
     // build in the project — so Jason Quick, which chose sequence8, was written on savecat at every
     // stage. The build first, the workspace only when the build has none; a BEATS re-pick still wins.
