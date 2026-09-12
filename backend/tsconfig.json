@@ -10,8 +10,24 @@
     "target": "ES2021",
     "sourceMap": true,
     "outDir": "./dist",
+    // rootDir pins the build root to src, so main.js lands at dist/main.js — the path Nest's own
+    // launcher looks for. Without it TypeScript infers the root from the widest include (below), and
+    // when that included prisma/ too the output nested one level deeper at dist/src/main.js. Nest
+    // then could not find the entry point, so `npm run start` and `start:dev` both died with
+    // MODULE_NOT_FOUND and only the hand-written start:prod path worked.
+    "rootDir": "src",
     "baseUrl": "./",
     "incremental": true,
+    // Keep the incremental cache INSIDE the output folder, so it dies with what it describes.
+    // nest-cli.json currently sets deleteOutDir:false, so nothing wipes dist/ and cache and output
+    // already agree. The pin is for the other setting, which this project has had before and can
+    // have again: with deleteOutDir:true and the cache OUTSIDE dist/, a build wipes the output and
+    // then reads a cache that says "already built" — tsc emits nothing, prints "Found 0 errors", and
+    // leaves no dist/main.js behind. The build looks clean and the app will not start. TypeScript
+    // derives this path from outDir + rootDir, so pinning rootDir above would otherwise move it to
+    // the project root, exactly where a wipe cannot reach it. Pinned here, the cache is correct under
+    // either setting rather than depending on that derivation.
+    "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
     "skipLibCheck": true,
     "strictNullChecks": false,
     "noImplicitAny": false,
@@ -26,5 +42,10 @@
       "@clients/*": ["src/clients/*"]
     }
   },
-  "include": ["src/**/*", "prisma/**/*"]
+  // prisma/ is deliberately NOT compiled. The five .ts files there (seed.ts, seed-vendors.ts,
+  // backfill-employees.ts, backfill-tenancy.ts, migrate-bank-accounts.ts) are standalone maintenance
+  // scripts run through `ts-node --transpile-only`, never imported by the app — including them only
+  // widened the build root and broke the entry path. ts-node does not consult this list, so every
+  // db:seed / backfill script still runs exactly as before.
+  "include": ["src/**/*"]
 }
