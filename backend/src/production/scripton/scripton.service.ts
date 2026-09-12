@@ -870,7 +870,23 @@ export class ScripOnService {
   private async extendStageArray(o: { kind: string; arrKey: string; system: string; user: string; cap: number; firstRes: any; firstArr: any[]; projectId: string }): Promise<{ arr: any[]; passes: number; warning?: string; last?: { stopReason?: string; outputTokens?: number } }> {
     const { kind, arrKey, system, user, cap, projectId } = o;
     let arr: any[] = Array.isArray(o.firstArr) ? o.firstArr.slice() : [];
-    const truncated = (r: any): boolean => { if (!r) return true; const used = (r.usage && r.usage.output_tokens) || 0; const clean = !!(r.json && Array.isArray(r.json[arrKey])); return !clean || used >= cap * 0.9; };
+    // THE PROVIDER SAYS WHETHER IT WAS CUT OFF. ASK IT, DO NOT GUESS FROM THE METER.
+    //
+    // This read `used >= cap * 0.9` alone, and on 12 Sep that cost V2.6 its scene cap: SCENES asked
+    // for 24-40 cards, the model returned 40 and stopped of its own accord — stop_reason end_turn at
+    // 24,593 of 25,000 — and this predicate called that "truncated" because it crossed 90% of the
+    // ceiling. The continuation then appended three more scenes, so a stage that had obeyed the brief
+    // exactly was filed with 43. The model followed the instruction; the backstop broke it.
+    //
+    // The proportion survives only where a provider reports no stop reason at all.
+    const truncated = (r: any): boolean => {
+      if (!r) return true;
+      const used = (r.usage && r.usage.output_tokens) || 0;
+      const clean = !!(r.json && Array.isArray(r.json[arrKey]));
+      if (!clean) return true;                                   // unparsable is still a reason to continue
+      const sr = String(r.stopReason || '');
+      return sr ? sr === 'max_tokens' : used >= cap * 0.9;
+    };
     const pull = (r: any): any[] => (r && r.json && Array.isArray(r.json[arrKey])) ? r.json[arrKey] : (this.recoverStage(String((r && r.text) || ''))[arrKey] || []);
     const desc = (x: any): string => kind === 'SCENES'
       ? ((x.sceneNumber != null ? x.sceneNumber + ' ' : '') + String(x.slugline || x.location || ''))
