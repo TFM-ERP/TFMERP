@@ -49,8 +49,11 @@ import { UserNotificationsModule } from './user-notifications/user-notifications
 
 import { SavedViewsModule } from './saved-views/saved-views.module';
 
+import { FilesModule } from './files/files.module';
+
 @Module({
   imports: [
+    FilesModule,
     SavedViewsModule,
     UserNotificationsModule,
     PreferencesModule,
