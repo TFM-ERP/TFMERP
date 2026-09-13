@@ -3170,7 +3170,12 @@ export class ScripOnService {
     // having even unsaved — but a caller that cannot tell would re-resolve on every call while
     // believing the value frozen. `stored` says which, and data.eraCheck reports it.
     const stored = await (this.prisma as any).$executeRaw`UPDATE "development_builds" SET "brief" = (CASE WHEN jsonb_typeof("brief") = 'object' THEN "brief" ELSE '{}'::jsonb END) || jsonb_build_object('storyYear', ${JSON.stringify(record)}::jsonb) WHERE "id" = ${id}`
-      .then(() => true)
+      // n > 0, NOT "it did not throw". $executeRaw returns the affected count, and an UPDATE that
+      // matched nothing is a successful statement that wrote no row. purgeExpiredBuilds hard-deletes
+      // on every builds-page load, so a build can vanish between the findUnique above and this write
+      // — and reporting stored:true over nothing written is exactly the silent-success defect this
+      // field exists to prevent.
+      .then((n: number) => Number(n) > 0)
       .catch((e: any) => { this.log.warn('storyYear NOT PERSISTED on ' + id + ' — it will be resolved again on the next call: ' + this.why(e)); return false; });
     // A LOG LINE IS NOT THE READER — data.eraCheck is (Plan 03, Task 3). This is for after the fact.
     this.log.log('storyYear ' + result.provenance + ' for ' + id + ': '
