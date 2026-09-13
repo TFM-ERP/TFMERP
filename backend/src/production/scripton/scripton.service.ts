@@ -52,6 +52,8 @@ import { KEEP_CHECK_SYSTEM, KEEP_CHECK_MAXTOK, keepCheckUser, parseKeepCheck, ke
 import { splitKeep } from './canon/keep-items.util';
 import { developmentSoFar } from './development-so-far.util';
 import { resolveStoryYear, storyYearInputsSha, storedStoryYearIsFresh, storedAsResult, makeStoredStoryYear, StoryYearForBuild } from './story-year.util';
+import { buildEraCheck } from './era-check.util';
+import { sweepEras, resolveEventAnchored } from './era.util';
 import { selectCanonByQuota, quotaSummary, quotaShortfall } from './canon/canon-quota.util';
 import { SOURCE_CANON_SYSTEM, SOURCE_CANON_MAXTOK, CANON_EXTRACTOR_VERSION, CANON_MAX_SOURCE_CHARS } from './canon/canon-prompt.util';
 import { parseFactsLoose } from './canon/canon-parse.util';
@@ -1569,6 +1571,10 @@ export class ScripOnService {
     }
     if (keep && keep.keep) {
       void this.checkAgainstKeep(created.id, body, keep.keep, projectId, keepStartedAt).catch((e) => this.log.warn('keep check: ' + this.why(e)));
+    }
+    // THE ERA CHECK RUNS ON EVERY STAGE, because it costs no model call — see checkAgainstEra.
+    if (opts?.buildId) {
+      void this.checkAgainstEra(created.id, body, opts.buildId).catch((e) => this.log.warn('era check: ' + this.why(e)));
     }
     if (kind === 'SCENES') { void this.generateCharacterBible(projectId, userId, opts?.buildId).catch(() => {}); }   // auto character breakdown the moment scenes land
     if (ai.__warning) (created as any).warning = ai.__warning; // surface in the HTTP response too
@@ -3181,6 +3187,38 @@ export class ScripOnService {
     this.log.log('storyYear ' + result.provenance + ' for ' + id + ': '
       + (result.year === null ? 'unresolved' : String(result.year)) + (stored ? '' : ' (NOT PERSISTED)') + (result.note ? ' — ' + result.note : ''));
     return { ...result, stored, fromStore: false };
+  }
+
+  /**
+   * THE ERA CHECK — arithmetic, report-only, and the first check here that asks nothing of a model.
+   *
+   * It reads the finished stage with the sweep built in Plans 01 and 02, measures what it finds
+   * against the build's own present year, and stores the report as data.eraCheck. No AI, so it
+   * cannot hallucinate and costs nothing to run on every stage; report-only, so it cannot block a
+   * writer over a young feature's arithmetic.
+   *
+   * It is also the READER for an unresolved anchor. When the present year is ASK, this says so on
+   * the stage — where the writing is, and where the Keep check was read on V2.6 — instead of leaving
+   * it to a log line nobody opens.
+   */
+  async checkAgainstEra(versionId: string, body: string, buildId?: string | null): Promise<any> {
+    const anchor = await this.storyYearFor(buildId).catch(() => null);
+    const row: any = buildId
+      ? await (this.prisma as any).developmentBuild.findUnique({ where: { id: String(buildId) }, select: { brief: true } }).catch(() => null)
+      : null;
+    const material = String(asSourceText(row && row.brief && row.brief.sourceText) || '');
+    const year = anchor && anchor.year !== null ? anchor.year : new Date().getFullYear();
+    const hits = resolveEventAnchored(String(body || ''), sweepEras(String(body || ''), year), []);
+    const eraCheck = buildEraCheck({
+      hits,
+      anchor: anchor ? { year: anchor.year, provenance: anchor.provenance, stored: anchor.stored, note: anchor.note, conflict: anchor.conflict } : null,
+      materialChars: material.length,
+    });
+    await (this.prisma as any).$executeRaw`UPDATE "stage_versions" SET "data" = (CASE WHEN jsonb_typeof("data") = 'object' THEN "data" ELSE '{}'::jsonb END) || jsonb_build_object('eraCheck', ${JSON.stringify(eraCheck)}::jsonb) WHERE "id" = ${versionId}`
+      .then((n: number) => Number(n) > 0 || Promise.reject(new Error('no such version')))
+      .catch((e: any) => this.log.warn('era check not stored on ' + versionId + ': ' + this.why(e)));
+    this.log.log('generateStage: ' + eraCheck.summary);
+    return eraCheck;
   }
 
   async checkAgainstKeep(versionId: string, body: string, keep: string, projectId?: string | null, startedAt?: string): Promise<any> {
