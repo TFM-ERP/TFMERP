@@ -37,7 +37,10 @@ export interface StoryYearResult {
   provenance: StoryYearProvenance;
   /** What the user is told. '' when nothing needs saying. */
   note: string;
-  /** What produced the answer — the pairs, the row, or the band. Empty only on ASK. */
+  /**
+   * What produced the answer — the pairs, the row, or the band. Empty when there was nothing to
+   * cite: an unset era defaulting to this year, or an ASK with no candidate to name.
+   */
   evidence: string[];
   /** ERA_ANCHOR_CONFLICT: two datings of the history implying different presents. */
   conflict?: { years: number[]; pairs: string[] };
@@ -81,10 +84,18 @@ export const CONTEMPORARY_PHRASES = ['contemporary', 'present day', 'modern day'
 /**
  * Prose that dates itself is never answered with "now", whatever it begins with: a 4-digit year, a
  * decade, a century, or an era token. "a contemporary retelling of the 1920s" is a period piece.
+ *
+ * `bc` and `bce` stand alone; `ad` and `ce` are ordinary English words ("an ad agency", "ce n'est"),
+ * so they disqualify only when a number is against them — "500 AD", "AD 500". Without that, a
+ * present-day advertising story would be refused for containing the word "ad".
  */
-const DATED_PROSE = /\b\d{4}\b|\b\d{2,4}s\b|\bcentur(?:y|ies)\b|\b(?:bc|bce|ad|ce)\b/;
+const DATED_PROSE = /\b\d{4}\b|\b\d{2,4}s\b|\bcentur(?:y|ies)\b|\b(?:bc|bce)\b|\b\d{1,4}\s?(?:ad|ce)\b|\b(?:ad|ce)\s?\d{1,4}\b/;
 
 const norm = (s: unknown): string => String(s == null ? '' : s).trim().toLowerCase().replace(/\s+/g, ' ');
+
+/** The same nine bands, keyed by the normalised label — see the lookup in resolveStoryYear. */
+const BAND_BY_NORM: Record<string, string> = Object.keys(BAND_LABELS)
+  .reduce((acc, label) => { acc[norm(label)] = BAND_LABELS[label]; return acc; }, {} as Record<string, string>);
 
 /**
  * LEADING-PHRASE, NOT SUBSTRING. A substring test makes "seven years before present day" contemporary,
@@ -96,14 +107,23 @@ export function readsAsContemporary(settingEra: unknown): boolean {
   return CONTEMPORARY_PHRASES.some((p) => s === p || (s.startsWith(p) && /^[\s\-–—:,;/()[\]]/.test(s.slice(p.length))));
 }
 
-/** Sentence spans over the material. Pairing may not cross one — see the plan's note on the dial. */
+/**
+ * Sentence spans over the material. Pairing may not cross one — see the plan's note on the dial.
+ *
+ * A NEWLINE BREAKS UNCONDITIONALLY; only . ! ? need the lookahead that keeps "7.5" and "Dr." whole.
+ * Requiring one for the newline too was measured wrong on the commonest shape this system reads: in
+ * "- He vanished in 1994\n- Seven years before the film, Sophie began asking" the next character is
+ * "-", not whitespace, so the two bullets were one span and the resolver answered COMPUTED 2001 —
+ * a year built from a date on one bullet and a distance on the next. §29 Continuity foundations is
+ * 45 such bullets, and no bullet ends in a full stop.
+ */
 function sentences(text: string): { start: number; end: number }[] {
   const out: { start: number; end: number }[] = [];
   let start = 0;
   for (let i = 0; i < text.length; i++) {
     const ch = text[i];
-    const isBreak = (ch === '.' || ch === '!' || ch === '?' || ch === '\n')
-      && (i + 1 >= text.length || /[\s"'”’)\]]/.test(text[i + 1]));
+    const isBreak = ch === '\n'
+      || ((ch === '.' || ch === '!' || ch === '?') && (i + 1 >= text.length || /[\s"'”’)\]]/.test(text[i + 1])));
     if (isBreak) {
       if (i + 1 > start) out.push({ start, end: i + 1 });
       start = i + 1;
@@ -181,7 +201,10 @@ export function resolveStoryYear(input: StoryYearInput): StoryYearResult {
       }
       // 'missing' cannot happen here (findEraRow just matched), and falls through if it ever does.
     }
-    const bandId = BAND_LABELS[era];
+    // Normalised the way the concession is, so a hand-lowercased or re-spaced label still resolves.
+    // The taxonomy guard in the spec stays EXACT: this leniency is for what a user types, not for a
+    // renamed option the form now offers.
+    const bandId = BAND_LABELS[era] || BAND_BY_NORM[norm(era)];
     if (bandId) {
       if (bandId === 'contemporary') {
         return { year: currentYear, provenance: 'DEFAULTED_PRESENT', note: 'Set in the present, so the present year is this year.', evidence: ['Contemporary'] };

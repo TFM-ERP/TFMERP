@@ -43,6 +43,18 @@ test('THE SENTENCE IS THE WINDOW: a year and a phrase in different sentences do 
   assert.equal(out.year, NOW, 'it degrades to the contemporary rung, never to a year built from two unrelated mentions');
 });
 
+test('A BULLET LIST DOES NOT PAIR ACROSS ITS BULLETS — §29 Continuity foundations is 45 of them', () => {
+  const out = r('- He vanished in 1994\n- Seven years before the film, Sophie began asking', 'Contemporary');
+  assert.notEqual(out.provenance, 'COMPUTED', 'two bullets are two statements, and no bullet ends in a full stop');
+  assert.equal(out.year, NOW, 'it must not answer 2001 from a year on one bullet and a distance on the next');
+});
+
+test('A SINGLE NEWLINE IS A BOUNDARY ON ITS OWN — no full stop anywhere in the material', () => {
+  const out = r('The yard closed in 1994\nSophie began asking seven years before the film', 'Contemporary');
+  assert.notEqual(out.provenance, 'COMPUTED');
+  assert.equal(out.year, NOW);
+});
+
 test('a range and a zero offset never anchor', () => {
   assert.notEqual(r('In 2019, fifteen to ten years before the film, the yard closed.').provenance, 'COMPUTED');
   assert.notEqual(r('In 2019, the present, the yard closed.').provenance, 'COMPUTED');
@@ -97,6 +109,20 @@ test('THE NEGATIVE GUARD: prose that dates itself is never answered with "now"',
   for (const era of ['set in the 19th century', 'modern day, 1994', 'today, before 500 BC', 'contemporary — the 90s']) {
     assert.equal(readsAsContemporary(era), false, era);
   }
+});
+
+test('"ad" and "ce" disqualify only with a number against them — an ad agency is not a period piece', () => {
+  assert.equal(readsAsContemporary('present day — an ad agency in Beirut'), true);
+  assert.equal(readsAsContemporary('today, ce n\'est pas une pipe'), true);
+  assert.equal(readsAsContemporary('present day, 500 AD flashbacks'), false);
+  assert.equal(readsAsContemporary('today — AD 500 and after'), false);
+  assert.equal(readsAsContemporary('contemporary, 300 BC prologue'), false);
+});
+
+test('a hand-typed band label still resolves, though the taxonomy guard stays exact', () => {
+  assert.equal(r('Monks.', 'medieval (500–1500)').year, 1000, 'lowercased');
+  assert.equal(r('Monks.', '  Medieval (500–1500)  ').year, 1000, 'padded');
+  assert.equal(r('Domes.', 'FAR FUTURE').year, NOW + 150, 'shouted');
 });
 
 test('NOT A SUBSTRING TEST: the phrase must lead', () => {
