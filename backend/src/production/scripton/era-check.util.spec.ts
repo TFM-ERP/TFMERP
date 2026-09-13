@@ -71,6 +71,21 @@ test('one unresolved expression is said in the singular', () => {
   assert.ok(r.notes.some((n) => /1 temporal expression measures a distance/.test(n)), JSON.stringify(r.notes));
 });
 
+test('NO FINDINGS STATES ITS OWN BLINDNESS — and only that state does', () => {
+  const clean = run({ hits: [hit('seven years before', -2557)] });
+  assert.equal(clean.state, 'NO FINDINGS');
+  assert.ok(clean.notes.some((n) => /Bare event references .* carry no number and are not read by this check at all/.test(n)
+    && /Nothing here says whether they are consistent/.test(n)), JSON.stringify(clean.notes));
+
+  const found = run({ anchor: anchor({ year: null, provenance: 'ASK', conflict: { years: [1994, 1996], pairs: ['a'] } }) });
+  assert.equal(found.state, 'FINDINGS');
+  assert.equal(found.notes.filter((n) => /Bare event references/.test(n)).length, 0, 'a stage with a finding is not being read as health');
+
+  const notRun = run({ anchor: anchor({ year: null, provenance: 'ASK', note: 'no period.' }) });
+  assert.equal(notRun.state, 'NOT RUN');
+  assert.equal(notRun.notes.filter((n) => /Bare event references/.test(n)).length, 0);
+});
+
 test('AN UNPERSISTED ANCHOR SAYS SO — stored:false reaches the stage', () => {
   const r = run({ anchor: anchor({ stored: false }) });
   assert.ok(r.notes.some((n) => /NOT PERSISTED/.test(n)), JSON.stringify(r.notes));

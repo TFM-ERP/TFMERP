@@ -109,6 +109,13 @@ export function buildEraCheck(input: EraCheckInput): EraCheckReport {
   }
 
   const state: EraCheckState = findings.length ? 'FINDINGS' : 'NO FINDINGS';
+  // NO FINDINGS MUST STATE ITS OWN BLINDNESS, and only this state needs to: it is the one a reader
+  // takes as "the timeline is consistent". What it actually means is "no NUMERIC temporal expression
+  // contradicted the anchor". Section coverage is not rule coverage.
+  if (state === 'NO FINDINGS') {
+    notes.push('Bare event references — "before the war", "the year Jason vanished" — carry no number and are not read by this check at all. '
+      + 'Nothing here says whether they are consistent.');
+  }
   // NO FRACTION IN THE SUMMARY. "3 of 5 placed" is the shape the Keep check was forbidden, for the
   // same reason: a ratio invites confidence the denominator does not support. The counts stay in
   // `expressions`, where a reader who wants them asks for them, and what the summary says is what
