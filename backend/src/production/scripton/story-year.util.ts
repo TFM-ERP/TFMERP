@@ -47,6 +47,21 @@ export interface StoryYearResult {
   conflict?: { years: number[]; pairs: string[] };
 }
 
+/**
+ * What `storyYearFor` returns: the answer, plus whether the row actually holds it.
+ *
+ * A PERSIST THAT FAILED IS NOT A FREEZE. The write is deliberately not fatal — an anchor is worth
+ * having even when it could not be saved — but if the caller cannot tell, every later call silently
+ * re-resolves and the freeze this task exists for does not exist. So the outcome is carried, and
+ * Task 3's data.eraCheck says "anchor not persisted" rather than leaving it to a log line.
+ */
+export interface StoryYearForBuild extends StoryYearResult {
+  /** True when brief.storyYear now holds this answer. */
+  stored: boolean;
+  /** True when it came from the row rather than being resolved on this call. */
+  fromStore: boolean;
+}
+
 export interface StoryYearInput {
   material: string;
   settingEra?: string | null;

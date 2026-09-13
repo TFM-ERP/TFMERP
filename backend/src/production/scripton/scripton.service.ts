@@ -51,7 +51,7 @@ import { registerLines, registerCheckUser, parseRegisterCheck, REGISTER_CHECK_SY
 import { KEEP_CHECK_SYSTEM, KEEP_CHECK_MAXTOK, keepCheckUser, parseKeepCheck, keepSent, keepCheckNotRun, keepCheckOutcome } from './canon/keep-check.util';
 import { splitKeep } from './canon/keep-items.util';
 import { developmentSoFar } from './development-so-far.util';
-import { resolveStoryYear, storyYearInputsSha, storedStoryYearIsFresh, storedAsResult, makeStoredStoryYear, StoryYearResult } from './story-year.util';
+import { resolveStoryYear, storyYearInputsSha, storedStoryYearIsFresh, storedAsResult, makeStoredStoryYear, StoryYearForBuild } from './story-year.util';
 import { selectCanonByQuota, quotaSummary, quotaShortfall } from './canon/canon-quota.util';
 import { SOURCE_CANON_SYSTEM, SOURCE_CANON_MAXTOK, CANON_EXTRACTOR_VERSION, CANON_MAX_SOURCE_CHARS } from './canon/canon-prompt.util';
 import { parseFactsLoose } from './canon/canon-parse.util';
@@ -3154,7 +3154,7 @@ export class ScripOnService {
    * a read-modify-write here would race every other writer of that column. Same jsonb `||` as the
    * keep check's, and it touches nothing but `storyYear`.
    */
-  async storyYearFor(buildId: string | null | undefined): Promise<StoryYearResult | null> {
+  async storyYearFor(buildId: string | null | undefined): Promise<StoryYearForBuild | null> {
     if (!buildId) return null;
     const id = String(buildId);
     const row: any = await (this.prisma as any).developmentBuild.findUnique({ where: { id }, select: { brief: true } }).catch(() => null);
@@ -3162,16 +3162,20 @@ export class ScripOnService {
     const brief: any = row.brief || {};
     const material = String(asSourceText(brief.sourceText) || '');
     const sha = storyYearInputsSha(material, brief.settingEra, brief.settingCountry);
-    if (storedStoryYearIsFresh(brief.storyYear, sha)) return storedAsResult(brief.storyYear);
+    if (storedStoryYearIsFresh(brief.storyYear, sha)) return { ...storedAsResult(brief.storyYear), stored: true, fromStore: true };
 
     const result = resolveStoryYear({ material, settingEra: brief.settingEra, settingCountry: brief.settingCountry, currentYear: new Date().getFullYear() });
     const record = makeStoredStoryYear(result, sha);
-    await (this.prisma as any).$executeRaw`UPDATE "development_builds" SET "brief" = (CASE WHEN jsonb_typeof("brief") = 'object' THEN "brief" ELSE '{}'::jsonb END) || jsonb_build_object('storyYear', ${JSON.stringify(record)}::jsonb) WHERE "id" = ${id}`
-      .catch((e: any) => this.log.warn('storyYear not stored on ' + id + ': ' + this.why(e)));
+    // A FAILED PERSIST IS CARRIED, NOT SWALLOWED. It is deliberately not fatal — an anchor is worth
+    // having even unsaved — but a caller that cannot tell would re-resolve on every call while
+    // believing the value frozen. `stored` says which, and data.eraCheck reports it.
+    const stored = await (this.prisma as any).$executeRaw`UPDATE "development_builds" SET "brief" = (CASE WHEN jsonb_typeof("brief") = 'object' THEN "brief" ELSE '{}'::jsonb END) || jsonb_build_object('storyYear', ${JSON.stringify(record)}::jsonb) WHERE "id" = ${id}`
+      .then(() => true)
+      .catch((e: any) => { this.log.warn('storyYear NOT PERSISTED on ' + id + ' — it will be resolved again on the next call: ' + this.why(e)); return false; });
     // A LOG LINE IS NOT THE READER — data.eraCheck is (Plan 03, Task 3). This is for after the fact.
     this.log.log('storyYear ' + result.provenance + ' for ' + id + ': '
-      + (result.year === null ? 'unresolved' : String(result.year)) + (result.note ? ' — ' + result.note : ''));
-    return result;
+      + (result.year === null ? 'unresolved' : String(result.year)) + (stored ? '' : ' (NOT PERSISTED)') + (result.note ? ' — ' + result.note : ''));
+    return { ...result, stored, fromStore: false };
   }
 
   async checkAgainstKeep(versionId: string, body: string, keep: string, projectId?: string | null, startedAt?: string): Promise<any> {
