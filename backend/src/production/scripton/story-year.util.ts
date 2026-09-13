@@ -110,7 +110,12 @@ export function readsAsContemporary(settingEra: unknown): boolean {
 /**
  * Sentence spans over the material. Pairing may not cross one — see the plan's note on the dial.
  *
- * A NEWLINE BREAKS UNCONDITIONALLY; only . ! ? need the lookahead that keeps "7.5" and "Dr." whole.
+ * A NEWLINE BREAKS UNCONDITIONALLY; only . ! ? need the lookahead, which keeps a decimal like "7.5"
+ * whole. It does NOT keep an abbreviation whole: in "Dr. Hale arrived in 1994, seven years before."
+ * the full stop is followed by a space, so that splits into two spans. A KNOWN, BENIGN FALSE
+ * NEGATIVE — the cost is a legitimate pair dropped, never a wrong year computed, and this ladder
+ * degrades to ASK rather than to a guess. Widening it to recognise abbreviations is a change to make
+ * on evidence of refused pairs, with its own test.
  * Requiring one for the newline too was measured wrong on the commonest shape this system reads: in
  * "- He vanished in 1994\n- Seven years before the film, Sophie began asking" the next character is
  * "-", not whitespace, so the two bullets were one span and the resolver answered COMPUTED 2001 —
