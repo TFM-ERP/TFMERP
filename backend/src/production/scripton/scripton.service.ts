@@ -51,6 +51,7 @@ import { registerLines, registerCheckUser, parseRegisterCheck, REGISTER_CHECK_SY
 import { KEEP_CHECK_SYSTEM, KEEP_CHECK_MAXTOK, keepCheckUser, parseKeepCheck, keepSent, keepCheckNotRun, keepCheckOutcome } from './canon/keep-check.util';
 import { splitKeep } from './canon/keep-items.util';
 import { developmentSoFar } from './development-so-far.util';
+import { resolveStoryYear, storyYearInputsSha, storedStoryYearIsFresh, storedAsResult, makeStoredStoryYear, StoryYearResult } from './story-year.util';
 import { selectCanonByQuota, quotaSummary, quotaShortfall } from './canon/canon-quota.util';
 import { SOURCE_CANON_SYSTEM, SOURCE_CANON_MAXTOK, CANON_EXTRACTOR_VERSION, CANON_MAX_SOURCE_CHARS } from './canon/canon-prompt.util';
 import { parseFactsLoose } from './canon/canon-parse.util';
@@ -3136,6 +3137,43 @@ export class ScripOnService {
    * MERGED ATOMICALLY. The register check lands on the same row in parallel; a read-modify-write here
    * would lose whichever of the two finished first.
    */
+  /**
+   * THE STORY'S PRESENT YEAR, RESOLVED LAZILY AND FROZEN ONCE — see story-year.util for the ladder.
+   *
+   * Not written at creation, because all 32 existing builds were created before this existed and a
+   * creation-only write would leave every one of them permanently anchorless. So the first caller
+   * that needs an anchor resolves it, persists it, and every caller after that reads what is stored.
+   *
+   * FROZEN WHILE ITS INPUTS ARE. A stored anchor is never recomputed — a build made today and re-run
+   * in January must not shift every era by a year — unless the material, `settingEra` or
+   * `settingCountry` has changed since. `inputsSha` covers all three: a writer who corrects a prose
+   * era to "Medieval (500–1500)" changes no material, and a source-only hash would keep a stale ASK
+   * for ever.
+   *
+   * THE WRITE MERGES ONE KEY, ATOMICALLY. `brief` holds the spine, the source and 30-odd fields, and
+   * a read-modify-write here would race every other writer of that column. Same jsonb `||` as the
+   * keep check's, and it touches nothing but `storyYear`.
+   */
+  async storyYearFor(buildId: string | null | undefined): Promise<StoryYearResult | null> {
+    if (!buildId) return null;
+    const id = String(buildId);
+    const row: any = await (this.prisma as any).developmentBuild.findUnique({ where: { id }, select: { brief: true } }).catch(() => null);
+    if (!row) return null;
+    const brief: any = row.brief || {};
+    const material = String(asSourceText(brief.sourceText) || '');
+    const sha = storyYearInputsSha(material, brief.settingEra, brief.settingCountry);
+    if (storedStoryYearIsFresh(brief.storyYear, sha)) return storedAsResult(brief.storyYear);
+
+    const result = resolveStoryYear({ material, settingEra: brief.settingEra, settingCountry: brief.settingCountry, currentYear: new Date().getFullYear() });
+    const record = makeStoredStoryYear(result, sha);
+    await (this.prisma as any).$executeRaw`UPDATE "development_builds" SET "brief" = (CASE WHEN jsonb_typeof("brief") = 'object' THEN "brief" ELSE '{}'::jsonb END) || jsonb_build_object('storyYear', ${JSON.stringify(record)}::jsonb) WHERE "id" = ${id}`
+      .catch((e: any) => this.log.warn('storyYear not stored on ' + id + ': ' + this.why(e)));
+    // A LOG LINE IS NOT THE READER — data.eraCheck is (Plan 03, Task 3). This is for after the fact.
+    this.log.log('storyYear ' + result.provenance + ' for ' + id + ': '
+      + (result.year === null ? 'unresolved' : String(result.year)) + (result.note ? ' — ' + result.note : ''));
+    return result;
+  }
+
   async checkAgainstKeep(versionId: string, body: string, keep: string, projectId?: string | null, startedAt?: string): Promise<any> {
     const { lead, items } = splitKeep(keep);
     const meta = { at: new Date().toISOString(), startedAt: startedAt || null, keepChars: keep.length };

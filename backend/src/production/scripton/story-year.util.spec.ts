@@ -226,3 +226,45 @@ test('BREAK 5 — make the concession a substring test: the 1920s row would go c
 test('BREAK 6 — let a midpoint print: an approximation would reach the page as fact', () => {
   assert.equal(storyYearForPrompt(r('Monks.', 'Medieval (500–1500)')), null);
 });
+
+// ── what is stored on the build ─────────────────────────────────────────────────────────────────
+
+import { storyYearInputsSha, storedStoryYearIsFresh, makeStoredStoryYear, storedAsResult } from './story-year.util';
+
+test('THE HASH COVERS ALL THREE INPUTS — changing ONLY settingEra recomputes', () => {
+  const a = storyYearInputsSha('the material', 'Sometime after the war', 'Britain');
+  assert.equal(storyYearInputsSha('the material', 'Sometime after the war', 'Britain'), a, 'same inputs, same hash');
+  assert.notEqual(storyYearInputsSha('the material', 'Medieval (500–1500)', 'Britain'), a, 'settingEra alone must move it');
+  assert.notEqual(storyYearInputsSha('the material', 'Sometime after the war', 'Egypt'), a, 'settingCountry alone must move it');
+  assert.notEqual(storyYearInputsSha('other material', 'Sometime after the war', 'Britain'), a, 'material alone must move it');
+});
+
+test('the hash is length-prefixed, so no field can impersonate another', () => {
+  assert.notEqual(storyYearInputsSha('ab', 'c', ''), storyYearInputsSha('a', 'bc', ''));
+});
+
+test('a stored anchor is fresh only for the inputs it was computed from', () => {
+  const sha = storyYearInputsSha('m', 'Contemporary', 'Britain');
+  const rec = makeStoredStoryYear(r('m', 'Contemporary'), sha, 'T');
+  assert.equal(storedStoryYearIsFresh(rec, sha), true);
+  assert.equal(storedStoryYearIsFresh(rec, storyYearInputsSha('m', 'Medieval (500–1500)', 'Britain')), false);
+  for (const junk of [null, undefined, {}, { inputsSha: '' }, 'nope']) assert.equal(storedStoryYearIsFresh(junk as any, sha), false);
+});
+
+test('AN ASK IS PERSISTED WITH ITS REASON — otherwise the same failed resolution runs on every generation', () => {
+  const out = r('A war.', 'Sometime after the war');
+  const rec = makeStoredStoryYear(out, 'sha', 'T');
+  assert.equal(rec.provenance, 'ASK');
+  assert.equal(rec.year, null);
+  assert.match(rec.note, /not a period this map knows/);
+  assert.equal(rec.at, 'T');
+});
+
+test('a conflict survives the round trip; a result without one carries no empty key', () => {
+  const conflicted = makeStoredStoryYear(r('In 2019, seven years before the film, he was attacked. In 1994, thirty years before the film, it was founded.'), 'sha', 'T');
+  assert.deepEqual(conflicted.conflict?.years, [2026, 2024]);
+  assert.deepEqual(storedAsResult(conflicted).conflict?.years, [2026, 2024]);
+  const plain = makeStoredStoryYear(r('Two brothers.'), 'sha', 'T');
+  assert.equal('conflict' in plain, false);
+  assert.deepEqual(storedAsResult(plain), { year: NOW, provenance: 'DEFAULTED_PRESENT', note: plain.note, evidence: [] });
+});

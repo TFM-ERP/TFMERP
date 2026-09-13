@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import { tokenize, matchPhrases, matchYears } from './era-tokens.util';
 import { daysToYears, roundHalfAwayFromZero } from './era-days.util';
 import { anchorYearForEra, anchorYearForBand, findEraRow } from './era-map.util';
@@ -256,4 +257,53 @@ export function storyYearForPrompt(r: StoryYearResult | null | undefined): numbe
 export function storyYearForCheck(r: StoryYearResult | null | undefined): { year: number | null; provenance: StoryYearProvenance } {
   if (!r) return { year: null, provenance: 'ASK' };
   return { year: typeof r.year === 'number' ? r.year : null, provenance: r.provenance };
+}
+
+// ── WHAT IS STORED ON THE BUILD ─────────────────────────────────────────────────────────────────
+
+/**
+ * `brief.storyYear` — a Json key on DevelopmentBuild.brief. No column, no migration, the same shape
+ * of storage as `spine.want`.
+ *
+ * FROZEN WHILE ITS INPUTS ARE. A build made today and re-run in January must not shift every era by
+ * a year (§2), so a stored anchor is used and never recomputed — unless the inputs it was computed
+ * FROM have changed. Hence `inputsSha` over all three: the material, `settingEra` and
+ * `settingCountry`. A writer who corrects a prose era to "Medieval (500–1500)" changes no material,
+ * and a source-only hash would keep the stale ASK for ever.
+ */
+export interface StoredStoryYear {
+  year: number | null;
+  provenance: StoryYearProvenance;
+  note: string;
+  evidence: string[];
+  conflict?: { years: number[]; pairs: string[] };
+  /** sha256 of the three resolution inputs. Differ → recompute; equal → never. */
+  inputsSha: string;
+  at: string;
+}
+
+/** The hash of everything the answer was computed from. Length-prefixed, so no field can impersonate another. */
+export function storyYearInputsSha(material: unknown, settingEra: unknown, settingCountry: unknown): string {
+  const part = (v: unknown) => { const s = String(v == null ? '' : v); return s.length + ':' + s; };
+  return createHash('sha256').update(part(material) + part(settingEra) + part(settingCountry)).digest('hex').slice(0, 32);
+}
+
+/** Use what is stored only when it was computed from exactly these inputs. */
+export function storedStoryYearIsFresh(stored: unknown, inputsSha: string): stored is StoredStoryYear {
+  const s = stored as StoredStoryYear | null;
+  return !!s && typeof s === 'object' && typeof s.inputsSha === 'string' && !!inputsSha && s.inputsSha === inputsSha;
+}
+
+/** The record to persist. Carries the whole result, so nothing has to be recomputed to explain it. */
+export function makeStoredStoryYear(r: StoryYearResult, inputsSha: string, at = new Date().toISOString()): StoredStoryYear {
+  return {
+    year: r.year, provenance: r.provenance, note: r.note, evidence: r.evidence,
+    ...(r.conflict ? { conflict: r.conflict } : {}),
+    inputsSha, at,
+  };
+}
+
+/** A stored record read back as a result, for the two helpers above it. */
+export function storedAsResult(s: StoredStoryYear): StoryYearResult {
+  return { year: s.year, provenance: s.provenance, note: s.note, evidence: Array.isArray(s.evidence) ? s.evidence : [], ...(s.conflict ? { conflict: s.conflict } : {}) };
 }
