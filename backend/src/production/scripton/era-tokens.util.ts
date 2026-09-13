@@ -64,6 +64,8 @@ export interface Token {
   link?: 'range' | 'compound';
   /** STORY: this one IS the present ("now", "today"), not merely a pointer at the work. */
   present?: boolean;
+  /** A line ended before this token. Two numerals across one are two statements, never one number. */
+  nl?: boolean;
 }
 
 /** How many days a run of `n` of this unit is. Months go through the year so one rule rounds. */
@@ -148,7 +150,11 @@ const CONNECTOR_TEXT = new Set(['to', '-', '–', '—']);
 const ERA_MARKS = new Set(['bc', 'bce', 'ad', 'ce']);
 
 /** A raw lexeme before it is classified: a word, a digit run, or one punctuation mark. */
-interface Atom { text: string; start: number; end: number; space: boolean }
+/**
+ * `nl` — a line ended between the previous atom and this one. Carried because a numeral run may not
+ * cross one: see the guard in `tokenize`.
+ */
+interface Atom { text: string; start: number; end: number; space: boolean; nl: boolean }
 
 const ATOM_RE = /\d{1,3}(?:,\d{3})+|\d+|[A-Za-z]+\.?|[^\sA-Za-z\d]/g;
 
@@ -161,9 +167,9 @@ function lex(s: string): Atom[] {
     // `c.` and `ca.` are cues; every other trailing dot is a terminator in its own right.
     let text = m[0], end = m.index + m[0].length;
     if (/^[A-Za-z]+\.$/.test(text) && !/^(?:c|ca)\.$/i.test(text)) { text = text.slice(0, -1); end -= 1; }
-    out.push({ text, start: m.index, end, space: m.index > prevEnd });
+    out.push({ text, start: m.index, end, space: m.index > prevEnd, nl: s.slice(prevEnd, m.index).indexOf('\n') >= 0 });
     prevEnd = end;
-    if (end < m.index + m[0].length) { out.push({ text: '.', start: end, end: end + 1, space: false }); prevEnd = end + 1; }
+    if (end < m.index + m[0].length) { out.push({ text: '.', start: end, end: end + 1, space: false, nl: false }); prevEnd = end + 1; }
   }
   return out;
 }
@@ -286,6 +292,19 @@ export function tokenize(input: string): Token[] {
       let j = i;
       while (j + 1 < atoms.length) {
         const nxt = atoms[j + 1];
+        // TWO NUMERALS MAY NOT BE JOINED ACROSS A LINE END.
+        //
+        // The run is greedy so "three hundred and fifty" is one number, and until now it crossed a
+        // newline: "He vanished in 1994\nSeven years before the film" folded 1994 and Seven into
+        // 2001, and the sweep returned ONE hit of -730,865 days — two thousand years, from a date
+        // on one line and a distance on the next. A line end is the strongest signal the material
+        // gives that two numbers belong to two statements, and a numeral written across one is not
+        // a shape English produces.
+        //
+        // This bounds the RUN only. A phrase that merely wraps — "seven years\nbefore the film" —
+        // is a NUMBER, a UNIT and a TAIL, joined by the phrase walk further down, and still reads
+        // as one expression worth -2,557 days.
+        if (nxt.nl) break;
         // A hyphen belongs to the NUMERAL only when it is unspaced and does not sit between two
         // bare digit runs — "twenty-five" is one number, "10-15" is a range. Same rule the
         // connector classifier uses, applied here so the run does not swallow a range separator.
@@ -300,8 +319,8 @@ export function tokenize(input: string): Token[] {
       const value = foldNumeral(atoms, i, j);
       const start = a.start, end = atoms[j].end;
       out.push(value === null
-        ? { kind: 'WORD', text: s.slice(start, end), start, end }
-        : { kind: 'NUMBER', text: s.slice(start, end), start, end, value });
+        ? { kind: 'WORD', text: s.slice(start, end), start, end, nl: a.nl }
+        : { kind: 'NUMBER', text: s.slice(start, end), start, end, value, nl: a.nl });
       i = j + 1;
       continue;
     }
@@ -482,7 +501,11 @@ export function matchPhrases(input: Token[]): PhraseMatch[] {
     // Two numerals side by side with nothing joining them is unreadable — "2 500" is a thousands
     // separator typed as a space, or two numbers run together, and the page does not say which.
     // Without this the walk simply restarted at the second one and dated "500 years before".
-    if (t.kind === 'NUMBER' && tokens[i - 1] && tokens[i - 1].kind === 'NUMBER') continue;
+    //
+    // A LINE END IS SOMETHING JOINING THEM: it says they are two statements. "…in 1994\nSeven years
+    // before the film" is a date and then a distance, and suppressing the second here would trade
+    // the old wrong answer (one hit of -730,865 days) for a silently missing one.
+    if (t.kind === 'NUMBER' && !t.nl && tokens[i - 1] && tokens[i - 1].kind === 'NUMBER') continue;
 
     let k = i;
     const hedge = tokens[k].kind === 'HEDGE' ? tokens[k] : null;

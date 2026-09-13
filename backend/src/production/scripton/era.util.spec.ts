@@ -430,3 +430,26 @@ test('a phrase must start where the head starts, or the head is narration and re
   assert.deepEqual(parseEraPhrase('seven years ago'), { from: -2557, to: -2557 });
   assert.deepEqual(parseEraPhrase('  seven years ago'), { from: -2557, to: -2557 });
 });
+
+// ── the four line-end fixtures, with the outputs declared before the fix ────────────────────────
+const NL = String.fromCharCode(10);
+const shape = (text: string) => sweepEras(text, 2026).map((h) => [h.text, h.offset ? h.offset.from : null]);
+
+test('A DATE ON ONE LINE AND A DISTANCE ON THE NEXT ARE TWO HITS, NEVER ONE', () => {
+  assert.deepEqual(shape('He vanished in 1994' + NL + 'Seven years before the film'),
+    [['1994', -11688], ['Seven years before', -2557]]);
+});
+
+test('REGRESSION GUARD: the same passage with a full stop is what it always was', () => {
+  assert.deepEqual(shape('He vanished in 1994. Seven years before the film.'),
+    [['1994', -11688], ['Seven years before', -2557]]);
+});
+
+test('GUARD AGAINST OVER-FIXING: a phrase that merely wraps is still ONE hit', () => {
+  assert.deepEqual(shape('seven years' + NL + 'before the film'), [['seven years' + NL + 'before', -2557]]);
+});
+
+test('bullets are unchanged — two hits, as they already were', () => {
+  assert.deepEqual(shape('- He vanished in 1994' + NL + '- Seven years before the film'),
+    [['1994', -11688], ['Seven years before', -2557]]);
+});

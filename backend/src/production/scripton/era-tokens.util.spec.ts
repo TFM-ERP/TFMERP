@@ -158,3 +158,35 @@ test('never throws on junk', () => {
   assert.deepEqual(matchPhrases([null as any]), []);
   assert.deepEqual(matchYears([null as any]), []);
 });
+
+// ── a numeral run may not cross a line end ──────────────────────────────────────────────────────
+//
+// "He vanished in 1994\nSeven years before the film" folded 1994 and Seven into 2001 and dated the
+// passage -730,865 days: two thousand years, from a date on one line and a distance on the next.
+// A numeral written across a line break is not a shape English produces; two numerals across one
+// are two statements.
+
+const NL = String.fromCharCode(10);
+
+test('TWO NUMERALS ARE NOT ONE VALUE ACROSS A LINE END', () => {
+  const nums = tokenize('He vanished in 1994' + NL + 'Seven years before the film')
+    .filter((t) => t.kind === 'NUMBER').map((t) => t.value);
+  assert.deepEqual(nums, [1994, 7], 'two numbers, not 2001');
+});
+
+test('a numeral run still folds within one line', () => {
+  assert.deepEqual(tokenize('three hundred and fifty years before').filter((t) => t.kind === 'NUMBER').map((t) => t.value), [350]);
+  assert.deepEqual(tokenize('twenty-seven years ago').filter((t) => t.kind === 'NUMBER').map((t) => t.value), [27]);
+});
+
+test('A PHRASE THAT MERELY WRAPS IS UNTOUCHED — the guard bounds the numeral run, not the phrase', () => {
+  const m = matchPhrases(tokenize('seven years' + NL + 'before the film'));
+  assert.equal(m.length, 1);
+  assert.equal(m[0].from, -2557);
+});
+
+test('a second numeral opening a new line can still start a phrase', () => {
+  const m = matchPhrases(tokenize('He vanished in 1994' + NL + 'Seven years before the film'));
+  assert.equal(m.length, 1, 'the walk must not suppress it as a side-by-side numeral');
+  assert.equal(m[0].from, -2557);
+});
