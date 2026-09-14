@@ -117,6 +117,18 @@ export function buildEraCheck(input: EraCheckInput): EraCheckReport {
    */
   const pairs = Array.isArray(input && input.bodyPairs) ? input.bodyPairs : [];
   const implied = [...new Set(pairs.map((p) => p.year))];
+  // What the HEAD LINE may claim. 'agreed' is the only one of the three that may say so, and it is
+  // not the same question as "are there pairs": a stage can date itself and disagree without being
+  // accused, and printing "agrees" beside a note saying it disagrees is a summary contradicting
+  // itself in one sentence.
+  let agreement: 'none' | 'agreed' | 'disagreed' = pairs.length ? 'agreed' : 'none';
+  if (implied.length === 1 && a.year === null) {
+    // THE STAGE IS THE ANSWER, AND NOTHING WAS ASKING. With no anchor there is nothing to compare
+    // against — but the stage has just dated the present, which is exactly what the build is missing.
+    agreement = 'none';
+    notes.push('This stage dates the present at ' + implied[0] + ', and this build has no present year at all. '
+      + 'Set it — the stage has the answer.');
+  }
   if (implied.length > 1) {
     findings.push({
       code: ERA_ANCHOR_CONFLICT,
@@ -127,6 +139,7 @@ export function buildEraCheck(input: EraCheckInput): EraCheckReport {
     // AGAINST A COMPUTED ANCHOR THIS IS A FINDING; against an assumed one it is a NOTE. Accusing a
     // stage of contradicting a year nobody stated would be the PLACE_JUMP mistake: the stage is the
     // better evidence, and what the writer needs is the offer to set the anchor, not a defect.
+    agreement = 'disagreed';
     if (a.provenance === 'COMPUTED') {
       findings.push({
         code: ERA_ANCHOR_CONFLICT,
@@ -172,8 +185,10 @@ export function buildEraCheck(input: EraCheckInput): EraCheckReport {
   // comparison is between datings, and a stage that never dates itself has had nothing compared.
   const head = findings.length
     ? 'ERA CHECK — ' + findings.map((f) => f.note).join(' ')
-    : pairs.length
+    : agreement === 'agreed'
       ? 'ERA CHECK — this stage\'s own dating agrees with the story\'s present year'
-      : 'ERA CHECK — this stage never dates the present, so there was nothing to compare it against';
+      : agreement === 'disagreed'
+        ? 'ERA CHECK — this stage dates the present differently from the year assumed here, which is not treated as a contradiction'
+        : 'ERA CHECK — this stage never dates the present, so there was nothing to compare it against';
   return { state, findings, notes, anchor: a, expressions, summary: head + (notes.length ? ' · ' + notes.join(' ') : ''), at };
 }

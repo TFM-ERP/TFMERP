@@ -112,7 +112,19 @@ test('but against an ASSUMED anchor it is a NOTE — the stage is the better evi
     const r = run({ anchor: anchor({ year: 2026, provenance: p as any }), bodyPairs: [{ year: 1994, text: '1987 + "seven years before"' }] });
     assert.equal(r.state, 'NO FINDINGS', p + ' must not accuse');
     assert.ok(r.notes.some((n) => /dates the present at 1994/.test(n) && /Set the present year if the stage is right/.test(n)), JSON.stringify(r.notes));
+    // THE HEAD LINE MUST NOT CONTRADICT THAT NOTE. It printed "agrees with the story's present year"
+    // beside a note saying it disagrees, because the branch tested whether pairs existed at all.
+    assert.doesNotMatch(r.summary, /own dating agrees with the story's present year/, p + ': the head line claimed agreement');
+    assert.match(r.summary, /dates the present differently from the year assumed here, which is not treated as a contradiction/);
   }
+});
+
+test('A STAGE THAT DATES ITSELF WITH NO ANCHOR IS NOT SILENT — it is the answer nobody asked for', () => {
+  const r = run({ anchor: anchor({ year: null, provenance: 'ASK', note: 'No period.' }), bodyPairs: [{ year: 1994, text: '1987 + "seven years before"' }] });
+  assert.equal(r.state, 'NOT RUN', 'there is still no anchor to measure against');
+  assert.ok(r.notes.some((n) => /dates the present at 1994/.test(n) && /this build has no present year at all/.test(n) && /Set it — the stage has the answer/.test(n)),
+    JSON.stringify(r.notes));
+  assert.doesNotMatch(r.summary, /own dating agrees/);
 });
 
 test('a stage whose dating AGREES with the anchor is clean, and says what it compared', () => {
