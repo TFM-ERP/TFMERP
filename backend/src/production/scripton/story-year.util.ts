@@ -155,14 +155,18 @@ function sentences(text: string): { start: number; end: number }[] {
 }
 
 /**
- * Rung 1. EVERY pair, not the first: a single pair cannot disagree with itself, and disagreement is
+ * EVERY absolute/relative pair in a text, as the present each implies. Exported because the era check
+ * runs the same reading over a finished STAGE, and a second implementation of this would be a second
+ * parser — the thing Plan 02 spent a task removing.
+ *
+ * Rung 1 uses it thus. EVERY pair, not the first: a single pair cannot disagree with itself, and disagreement is
  * the finding — the material dating its own history two incompatible ways, caught before a word is
  * written.
  *
  * A ranged phrase ("fifteen to ten years before") is skipped: it implies a span of presents, not one.
  * A zero offset ("the present") is skipped: pairing "now" with a year says nothing about the story.
  */
-function computedPairs(material: string): { year: number; text: string }[] {
+export function datingPairs(material: string): { year: number; text: string }[] {
   const tokens = tokenize(material);
   const phrases = matchPhrases(tokens).filter((p) => p.anchored && p.from === p.to && p.from !== 0);
   const years = matchYears(tokens);
@@ -190,7 +194,7 @@ export function resolveStoryYear(input: StoryYearInput): StoryYearResult {
   }
 
   // ── 1 · COMPUTED ────────────────────────────────────────────────────────────────────────────
-  const pairs = computedPairs(material);
+  const pairs = datingPairs(material);
   if (pairs.length) {
     const distinct = [...new Set(pairs.map((p) => p.year))];
     if (distinct.length === 1) {

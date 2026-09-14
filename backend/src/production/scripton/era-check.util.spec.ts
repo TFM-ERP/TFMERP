@@ -20,7 +20,7 @@ test('a clean stage: it ran, found nothing, and says so without a fraction', () 
   assert.equal(r.state, 'NO FINDINGS');
   assert.deepEqual(r.findings, []);
   assert.deepEqual(r.expressions, { total: 2, resolved: 2, unresolved: 0, samples: [] });
-  assert.match(r.summary, /nothing in this stage contradicts the timeline/);
+  assert.match(r.summary, /never dates the present, so there was nothing to compare it against/);
   assert.doesNotMatch(r.summary, /\b\d+ of \d+\b/, 'no ratio in the summary — the Keep ruling, applied here');
   assert.equal(r.at, AT);
 });
@@ -74,8 +74,8 @@ test('one unresolved expression is said in the singular', () => {
 test('NO FINDINGS STATES ITS OWN BLINDNESS — and only that state does', () => {
   const clean = run({ hits: [hit('seven years before', -2557)] });
   assert.equal(clean.state, 'NO FINDINGS');
-  assert.ok(clean.notes.some((n) => /Bare event references .* carry no number and are not read by this check at all/.test(n)
-    && /Nothing here says whether they are consistent/.test(n)), JSON.stringify(clean.notes));
+  assert.ok(clean.notes.some((n) => /bare references like "before the war", which carry no number and are not read by this check at all/.test(n)),
+    JSON.stringify(clean.notes));
 
   const found = run({ anchor: anchor({ year: null, provenance: 'ASK', conflict: { years: [1994, 1996], pairs: ['a'] } }) });
   assert.equal(found.state, 'FINDINGS');
@@ -84,6 +84,52 @@ test('NO FINDINGS STATES ITS OWN BLINDNESS — and only that state does', () => 
   const notRun = run({ anchor: anchor({ year: null, provenance: 'ASK', note: 'no period.' }) });
   assert.equal(notRun.state, 'NOT RUN');
   assert.equal(notRun.notes.filter((n) => /Bare event references/.test(n)).length, 0);
+});
+
+
+// ── the comparison: the stage's own dating, against itself and against the anchor ───────────────
+//
+// These are the tests that CAN come back positive. Before them the only finding in this file came
+// from the anchor — a per-build fact, identical on every stage — so no stage body could ever produce
+// one, and the head line claimed a comparison that never happened.
+
+test('A STAGE THAT DATES THE PRESENT TWO WAYS IS A FINDING', () => {
+  const r = run({ bodyPairs: [{ year: 2026, text: '2019 + "seven years before"' }, { year: 2024, text: '1994 + "thirty years before"' }] });
+  assert.equal(r.state, 'FINDINGS');
+  assert.equal(r.findings[0].code, ERA_ANCHOR_CONFLICT);
+  assert.match(r.findings[0].note, /dates the present two ways — 2026 and 2024/);
+  assert.equal(r.findings[0].evidence.length, 2);
+});
+
+test('A STAGE THAT CONTRADICTS A COMPUTED ANCHOR IS A FINDING', () => {
+  const r = run({ anchor: anchor({ year: 2026, provenance: 'COMPUTED' }), bodyPairs: [{ year: 1994, text: '1987 + "seven years before"' }] });
+  assert.equal(r.state, 'FINDINGS');
+  assert.match(r.findings[0].note, /dates the present at 1994, and the material dated it at 2026/);
+});
+
+test('but against an ASSUMED anchor it is a NOTE — the stage is the better evidence', () => {
+  for (const p of ['DEFAULTED_PRESENT', 'ERA_MIDPOINT']) {
+    const r = run({ anchor: anchor({ year: 2026, provenance: p as any }), bodyPairs: [{ year: 1994, text: '1987 + "seven years before"' }] });
+    assert.equal(r.state, 'NO FINDINGS', p + ' must not accuse');
+    assert.ok(r.notes.some((n) => /dates the present at 1994/.test(n) && /Set the present year if the stage is right/.test(n)), JSON.stringify(r.notes));
+  }
+});
+
+test('a stage whose dating AGREES with the anchor is clean, and says what it compared', () => {
+  const r = run({ anchor: anchor({ year: 2026, provenance: 'COMPUTED' }), bodyPairs: [{ year: 2026, text: '2019 + "seven years before"' }] });
+  assert.equal(r.state, 'NO FINDINGS');
+  assert.match(r.summary, /this stage's own dating agrees with the story's present year/);
+  assert.ok(r.notes.some((n) => /What was checked: whether this stage dates the present in two different ways/.test(n)));
+});
+
+test('A STAGE THAT NEVER DATES THE PRESENT SAYS SO — it does not claim a clean timeline', () => {
+  // Measured 13 Sep: V2.6's TREATMENT, SCENES and SYNOPSIS and n2's TREATMENT carry 27 temporal hits
+  // and NOT ONE absolute year, so this is what every real stage today produces.
+  const r = run({ hits: [hit('SEVEN YEARS EARLIER', -2557), hit('eight years ago', -2922)], bodyPairs: [] });
+  assert.equal(r.state, 'NO FINDINGS');
+  assert.match(r.summary, /never dates the present, so there was nothing to compare it against/);
+  assert.ok(r.notes.some((n) => /this stage dates the present in no way at all, so nothing was compared/.test(n)), JSON.stringify(r.notes));
+  assert.ok(r.notes.some((n) => /whether "seven years earlier" and "eight years ago" mean the same event, which needs the events named/.test(n)));
 });
 
 test('AN UNPERSISTED ANCHOR SAYS SO — stored:false reaches the stage', () => {

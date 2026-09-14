@@ -47,6 +47,12 @@ export interface EraCheckReport {
 
 export interface EraCheckInput {
   hits: EraHit[];
+  /**
+   * Every present the STAGE ITSELF implies, from `datingPairs` over its body: an absolute year and a
+   * relative distance in one sentence. This is the only thing in a stage that can disagree with the
+   * anchor in a way arithmetic can prove — see the comparison below.
+   */
+  bodyPairs?: { year: number; text: string }[];
   anchor: { year: number | null; provenance: StoryYearProvenance | 'NONE'; stored: boolean; note?: string; conflict?: { years: number[]; pairs: string[] } } | null;
   /** Characters of source material this build holds. 0 is a stated condition, not a fault. */
   materialChars: number;
@@ -93,6 +99,46 @@ export function buildEraCheck(input: EraCheckInput): EraCheckReport {
   if (a.provenance === 'DEFAULTED_PRESENT') notes.push('The present year was assumed to be this year; nothing in the material dates the story.');
 
   const findings: EraFinding[] = [];
+
+  /**
+   * THE COMPARISON — the stage's own dating against the anchor, and against itself.
+   *
+   * Measured on four real stage bodies first (13 Sep): V2.6's TREATMENT, SCENES and SYNOPSIS and
+   * n2's TREATMENT carry 27 temporal hits between them and NOT ONE absolute year — every hit is
+   * "SEVEN YEARS EARLIER", "eight years ago", "two days later". So the comparisons that a lone hit
+   * would allow are all unsound here:
+   *   · a year on its own ("1850") is a reference, not a contradiction — stories name years;
+   *   · a positive offset is a flash-forward, which the signed axis exists to express;
+   *   · "seven years earlier" against "eight years ago" is only a contradiction if both name the SAME
+   *     event, and event identity is Task 3a's work, not something a scalar offset carries.
+   * What IS provable is a stage that DATES ITSELF: an absolute year and a distance in one sentence
+   * imply a present, and that present can disagree with another one in the same stage, or with an
+   * anchor the material itself computed.
+   */
+  const pairs = Array.isArray(input && input.bodyPairs) ? input.bodyPairs : [];
+  const implied = [...new Set(pairs.map((p) => p.year))];
+  if (implied.length > 1) {
+    findings.push({
+      code: ERA_ANCHOR_CONFLICT,
+      note: 'This stage dates the present two ways — ' + implied.join(' and ') + '.',
+      evidence: pairs.map((p) => p.text).slice(0, SAMPLE_MAX),
+    });
+  } else if (implied.length === 1 && a.year !== null && implied[0] !== a.year) {
+    // AGAINST A COMPUTED ANCHOR THIS IS A FINDING; against an assumed one it is a NOTE. Accusing a
+    // stage of contradicting a year nobody stated would be the PLACE_JUMP mistake: the stage is the
+    // better evidence, and what the writer needs is the offer to set the anchor, not a defect.
+    if (a.provenance === 'COMPUTED') {
+      findings.push({
+        code: ERA_ANCHOR_CONFLICT,
+        note: 'This stage dates the present at ' + implied[0] + ', and the material dated it at ' + a.year + '.',
+        evidence: pairs.map((p) => p.text).slice(0, SAMPLE_MAX),
+      });
+    } else {
+      notes.push('This stage dates the present at ' + implied[0] + ', while the present year here was '
+        + (a.provenance === 'ERA_MIDPOINT' ? 'derived from the chosen period' : 'assumed') + ' as ' + a.year + '. Set the present year if the stage is right.');
+    }
+  }
+
   if (anchor && anchor.conflict && Array.isArray(anchor.conflict.years) && anchor.conflict.years.length > 1) {
     findings.push({
       code: ERA_ANCHOR_CONFLICT,
@@ -113,15 +159,21 @@ export function buildEraCheck(input: EraCheckInput): EraCheckReport {
   // takes as "the timeline is consistent". What it actually means is "no NUMERIC temporal expression
   // contradicted the anchor". Section coverage is not rule coverage.
   if (state === 'NO FINDINGS') {
-    notes.push('Bare event references — "before the war", "the year Jason vanished" — carry no number and are not read by this check at all. '
-      + 'Nothing here says whether they are consistent.');
+    notes.push('What was checked: whether this stage dates the present in two different ways, or in a way the material\'s own dating contradicts'
+      + (pairs.length ? '' : ' — and this stage dates the present in no way at all, so nothing was compared') + '. '
+      + 'What was NOT: whether "seven years earlier" and "eight years ago" mean the same event, which needs the events named; '
+      + 'and bare references like "before the war", which carry no number and are not read by this check at all.');
   }
   // NO FRACTION IN THE SUMMARY. "3 of 5 placed" is the shape the Keep check was forbidden, for the
   // same reason: a ratio invites confidence the denominator does not support. The counts stay in
   // `expressions`, where a reader who wants them asks for them, and what the summary says is what
   // was NOT placed.
+  // THE HEAD LINE CLAIMS ONLY WHAT WAS COMPARED. "Nothing contradicts the timeline" was false: the
+  // comparison is between datings, and a stage that never dates itself has had nothing compared.
   const head = findings.length
     ? 'ERA CHECK — ' + findings.map((f) => f.note).join(' ')
-    : 'ERA CHECK — nothing in this stage contradicts the timeline';
+    : pairs.length
+      ? 'ERA CHECK — this stage\'s own dating agrees with the story\'s present year'
+      : 'ERA CHECK — this stage never dates the present, so there was nothing to compare it against';
   return { state, findings, notes, anchor: a, expressions, summary: head + (notes.length ? ' · ' + notes.join(' ') : ''), at };
 }

@@ -51,9 +51,10 @@ import { registerLines, registerCheckUser, parseRegisterCheck, REGISTER_CHECK_SY
 import { KEEP_CHECK_SYSTEM, KEEP_CHECK_MAXTOK, keepCheckUser, parseKeepCheck, keepSent, keepCheckNotRun, keepCheckOutcome } from './canon/keep-check.util';
 import { splitKeep } from './canon/keep-items.util';
 import { developmentSoFar } from './development-so-far.util';
-import { resolveStoryYear, storyYearInputsSha, storedStoryYearIsFresh, storedAsResult, makeStoredStoryYear, StoryYearForBuild } from './story-year.util';
+import { resolveStoryYear, storyYearInputsSha, storedStoryYearIsFresh, storedAsResult, makeStoredStoryYear, datingPairs, StoryYearForBuild } from './story-year.util';
 import { buildEraCheck } from './era-check.util';
 import { sweepEras, resolveEventAnchored } from './era.util';
+import { datedWorldEvents } from './world-events.util';
 import { selectCanonByQuota, quotaSummary, quotaShortfall } from './canon/canon-quota.util';
 import { SOURCE_CANON_SYSTEM, SOURCE_CANON_MAXTOK, CANON_EXTRACTOR_VERSION, CANON_MAX_SOURCE_CHARS } from './canon/canon-prompt.util';
 import { parseFactsLoose } from './canon/canon-parse.util';
@@ -3208,9 +3209,17 @@ export class ScripOnService {
       : null;
     const material = String(asSourceText(row && row.brief && row.brief.sourceText) || '');
     const year = anchor && anchor.year !== null ? anchor.year : new Date().getFullYear();
-    const hits = resolveEventAnchored(String(body || ''), sweepEras(String(body || ''), year), []);
+    const text = String(body || '');
+    // THE WORLD EVENTS TABLE, WIRED. 206 names — labels and aliases — offset against this build's own
+    // present, refusing the ones that name several episodes or that several events answer to. It was
+    // built, tested and imported by nobody; passing [] here meant "two years after the Black Death"
+    // stayed unresolved beside a table that could date it. Measured on this material it changes
+    // nothing (the one unresolved phrase is anchored to a STORY event, which is Task 3a) — but it
+    // costs one call and it is the difference between a refusal and a refusal we chose.
+    const hits = resolveEventAnchored(text, sweepEras(text, year), datedWorldEvents(year));
     const eraCheck = buildEraCheck({
       hits,
+      bodyPairs: datingPairs(text),
       anchor: anchor ? { year: anchor.year, provenance: anchor.provenance, stored: anchor.stored, note: anchor.note, conflict: anchor.conflict } : null,
       materialChars: material.length,
     });
