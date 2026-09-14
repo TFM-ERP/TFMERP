@@ -3244,6 +3244,10 @@ export class ScripOnService {
       keepCheck = keepCheckNotRun('the check failed: ' + String(this.why(e)).slice(0, 300), { ...meta, at: new Date().toISOString() });
     }
     await (this.prisma as any).$executeRaw`UPDATE "stage_versions" SET "data" = (CASE WHEN jsonb_typeof("data") = 'object' THEN "data" ELSE '{}'::jsonb END) || jsonb_build_object('keepCheck', ${JSON.stringify(keepCheck)}::jsonb) WHERE "id" = ${versionId}`
+      // n > 0, not "it did not throw" — a5e0e70's shape, which this write predates. A version deleted
+      // between its creation and this merge leaves a statement that succeeds and writes nothing, and
+      // a keep result reported as stored over no row is the silent success this file keeps hunting.
+      .then((n: number) => Number(n) > 0 || Promise.reject(new Error('the version was not there to write to')))
       .catch((e: any) => this.log.warn('keep check not stored on ' + versionId + ': ' + this.why(e)));
     this.log.log('generateStage TREATMENT: ' + keepCheck.summary);
     return keepCheck;
