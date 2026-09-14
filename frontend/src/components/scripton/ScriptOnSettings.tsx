@@ -65,6 +65,9 @@ const CSS = `
 .sx .gthead,.sx .gtr{grid-template-columns:1.1fr 1.6fr 1.3fr 1.1fr .9fr .55fr .7fr}
 .sx .gstage{color:var(--text)}.sx .gsize{color:var(--mute);font-size:11.5px}.sx .gdur{color:var(--faint);font-size:11px}
 .sx .badge.red{background:rgba(229,99,95,.16);color:var(--red)}
+/* ABANDONED — the process never came back. Deliberately the quietest badge on the row: it is not a
+   success and not a provider failure, and it must never fall through to green. */
+.sx .badge.grey{background:rgba(255,255,255,.07);color:var(--faint)}
 `;
 
 const RAIL: { k: string; lbl: string; d: React.ReactNode }[] = [
@@ -141,7 +144,7 @@ export default function ScriptOnSettings(props: {
                 </div>
                 <div className="gtable">
                   <div className="gthead"><span>{t('SURFACE')}</span><span>{t('STAGE / PURPOSE')}</span><span>{t('MODEL')}</span><span>{t('SIZE')}</span><span>{t('STATUS')}</span><span>{t('DUR')}</span><span>{t('WHEN')}</span></div>
-                  {(feed?.runs || []).map((r: any, i: number) => (<div className="gtr" key={r.id || i}><span className="gsf" style={{ color: r.kind === 'VIDEO' ? 'var(--blue)' : undefined }}>{r.surface}</span><span className="gstage">{[r.purpose, r.stage].filter(Boolean).join(' · ') || '—'}</span><span className="gmodel">{r.model}</span><span className="gsize">{r.tokens ? (r.size + ' · ' + fmtTok(r.tokens)) : (r.durationSec ? (r.durationSec + 's clip') : '—')}</span><span className={'badge ' + (r.result === 'error' ? 'red' : r.result === 'running' ? 'amber' : 'green')}>{r.status}</span><span className="gdur">{r.durationMs ? Math.round(r.durationMs / 1000) + 's' : (r.durationSec ? r.durationSec + 's' : '—')}</span><span className="gwhen">{rel(r.when)}</span></div>))}
+                  {(feed?.runs || []).map((r: any, i: number) => (<div className="gtr" key={r.id || i}><span className="gsf" style={{ color: r.kind === 'VIDEO' ? 'var(--blue)' : undefined }}>{r.surface}</span><span className="gstage">{[r.purpose, r.stage].filter(Boolean).join(' · ') || '—'}</span><span className="gmodel">{r.model}</span><span className="gsize">{r.tokens ? (r.size + ' · ' + fmtTok(r.tokens)) : (r.durationSec ? (r.durationSec + 's clip') : '—')}</span><span className={'badge ' + (r.result === 'error' ? 'red' : r.result === 'abandoned' ? 'grey' : r.result === 'running' ? 'amber' : 'green')}>{r.status}</span><span className="gdur">{r.durationMs ? Math.round(r.durationMs / 1000) + 's' : (r.durationSec ? r.durationSec + 's' : '—')}</span><span className="gwhen">{rel(r.when)}</span></div>))}
                   {feed && !feed.runs.length && <div className="gtr"><span className="gsf" style={{ gridColumn: '1/8', color: 'var(--faint)' }}>{t('No runs in this window.')}</span></div>}
                   {!feed && <div className="gtr"><span className="gsf" style={{ gridColumn: '1/8', color: 'var(--faint)' }}>{t('Loading run history…')}</span></div>}
                 </div>

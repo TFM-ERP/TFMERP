@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { LlmProvider } from './providers';
+import { runResult } from './ai-run-reaper.util';
 
 /**
  * LLM Engines & Routing — the text-side mirror of AudioEnginesService.
@@ -446,7 +447,7 @@ export class LlmRoutingService implements OnModuleInit {
     for (const r of ai) {
       const parts = String(r.task || '').split('.');
       const tokens = (r.inputTokens || 0) + (r.outputTokens || 0);
-      norm.push({ kind: 'LLM', id: r.id, when: r.createdAt, surface: parts[0] || 'system', purpose: parts[1] || '', stage: parts.slice(2).join('.') || '', task: r.task, model: r.model, provider: r.provider || '', tokens, size: this.sizeBucket(tokens), status: r.status, result: r.status === 'DONE' ? 'success' : r.status === 'ERROR' ? 'error' : 'running', durationMs: r.latencyMs ?? null, confidence: r.confidence != null ? Number(r.confidence) : null, error: r.error || null });
+      norm.push({ kind: 'LLM', id: r.id, when: r.createdAt, surface: parts[0] || 'system', purpose: parts[1] || '', stage: parts.slice(2).join('.') || '', task: r.task, model: r.model, provider: r.provider || '', tokens, size: this.sizeBucket(tokens), status: r.status, result: runResult(String(r.status || '')), durationMs: r.latencyMs ?? null, confidence: r.confidence != null ? Number(r.confidence) : null, error: r.error || null });
     }
     for (const r of vid) {
       norm.push({ kind: 'VIDEO', id: r.id, when: r.createdAt, surface: 'video', purpose: 'render', stage: r.provider || '', task: 'video.render.' + (r.provider || ''), model: r.model, provider: r.provider || '', tokens: null, size: null, durationSec: r.durationSec ?? null, status: r.status, result: r.status === 'COMPLETED' ? 'success' : r.status === 'FAILED' ? 'error' : 'running', durationMs: r.latencyMs ?? null, videoUrl: r.videoUrl || null, error: r.error || null });

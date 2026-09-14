@@ -136,6 +136,8 @@ const CSS = `
 .sx.studio .fchip.on{background:linear-gradient(180deg,var(--gold2),var(--gold));color:var(--goldink);border-color:transparent}
 .sx.studio .fsel{font-size:11px;color:var(--text);background:var(--panel2);border:1px solid var(--hair);border-radius:999px;padding:5px 10px;cursor:pointer}
 .sx.studio .badge.red{background:rgba(229,99,95,.16);color:var(--red)}
+/* ABANDONED — see ai-run-reaper.util.ts. Never green: a run nobody closed is not a success. */
+.sx.studio .badge.grey{background:rgba(255,255,255,.07);color:var(--faint)}
 .sx.studio .runs td.mono{font-family:'Courier Prime',ui-monospace,monospace;font-size:11px;color:var(--mute)}
 .sx.studio[data-vp="mobile"] .liverow{grid-template-columns:1fr}
 
@@ -276,7 +278,7 @@ export default function ScriptonStudio(props: StudioProps) {
                           <thead><tr><th>{t('Surface')}</th><th>{t('Stage / purpose')}</th><th>{t('Model')}</th><th>{t('Size')}</th><th>{t('Status')}</th><th>{t('Dur')}</th><th>{t('When')}</th></tr></thead>
                           <tbody>
                             {(feed?.runs || []).map((r: any, i: number) => (
-                              <tr key={r.id || i}><td style={{ color: r.kind === 'VIDEO' ? 'var(--blue)' : undefined, fontWeight: 600 }}>{r.surface}</td><td>{[r.purpose, r.stage].filter(Boolean).join(' · ') || '—'}</td><td className="mono">{r.model}</td><td>{r.tokens ? (r.size + ' · ' + fmtTok(r.tokens)) : (r.durationSec ? (r.durationSec + 's clip') : '—')}</td><td><span className={'badge ' + (r.result === 'error' ? 'red' : (r.result === 'running' ? 'amber' : 'green'))}>{r.status}</span></td><td>{r.durationMs ? Math.round(r.durationMs / 1000) + 's' : (r.durationSec ? r.durationSec + 's' : '—')}</td><td>{relTime(r.when)}</td></tr>
+                              <tr key={r.id || i}><td style={{ color: r.kind === 'VIDEO' ? 'var(--blue)' : undefined, fontWeight: 600 }}>{r.surface}</td><td>{[r.purpose, r.stage].filter(Boolean).join(' · ') || '—'}</td><td className="mono">{r.model}</td><td>{r.tokens ? (r.size + ' · ' + fmtTok(r.tokens)) : (r.durationSec ? (r.durationSec + 's clip') : '—')}</td><td><span className={'badge ' + (r.result === 'error' ? 'red' : r.result === 'abandoned' ? 'grey' : (r.result === 'running' ? 'amber' : 'green'))}>{r.status}</span></td><td>{r.durationMs ? Math.round(r.durationMs / 1000) + 's' : (r.durationSec ? r.durationSec + 's' : '—')}</td><td>{relTime(r.when)}</td></tr>
                             ))}
                             {feed && !feed.runs.length && (<tr><td colSpan={7} style={{ color: 'var(--faint)' }}>{t('No runs in this window.')}</td></tr>)}
                             {!feed && (<tr><td colSpan={7} style={{ color: 'var(--faint)' }}>{t('Loading run history…')}</td></tr>)}

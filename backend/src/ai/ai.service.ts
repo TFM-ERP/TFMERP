@@ -1,5 +1,6 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { ABANDONED, ABANDONED_AFTER_MS, abandonedBefore } from './ai-run-reaper.util';
 import { LlmRoutingService, DEFAULT_ANTHROPIC_MODEL, isRetiredModel } from './llm-routing.service';
 import { callProvider, isExhausting, redactSecrets, ProviderErrorKind, EffortLevel } from './providers';
 import { usageSummary, stoppedAtCeiling } from './empty-output.util';
@@ -23,9 +24,33 @@ export interface AiRawResult { data: any; text: string; toolUse: any[]; usage: a
  * per attempt. Tolerant pre-db:push (logging + chain reads are guarded).
  */
 @Injectable()
-export class AiService {
+export class AiService implements OnModuleInit {
   private readonly log = new Logger(AiService.name);
   constructor(private prisma: PrismaService, private routing: LlmRoutingService) {}
+
+  /** Close out runs whose process never came back — see ai-run-reaper.util. Startup only: nothing
+   *  reads RUNNING to decide anything, so a sweep per boot is enough, and a repeating one would need
+   *  a scheduler this service does not have. Tolerant pre-db:push, like the rest of the ledger. */
+  async onModuleInit(): Promise<void> { try { await this.reapAbandonedRuns(); } catch { /* tolerant: pre-db:push / transient DB */ } }
+
+  /** Mark every RUNNING row older than the threshold ABANDONED. Returns how many were marked. */
+  async reapAbandonedRuns(now: Date = new Date(), afterMs: number = ABANDONED_AFTER_MS): Promise<number> {
+    const before = abandonedBefore(now, afterMs);
+    // `error` HERE IS AN EXPLANATION, NOT A PROVIDER FAILURE. Every other row that carries this
+    // column got it from a provider saying no; this one got it from nobody saying anything. Nothing
+    // reads `error` independently of `status`, so the two cannot be confused today — but a future
+    // reader counting non-empty `error` values would count these as failures, which is the same
+    // mistake as reading a failure rate off a table where failover writes one row per attempt.
+    const r: any = await (this.prisma as any).aiRun.updateMany({
+      where: { status: 'RUNNING', createdAt: { lt: before } },
+      data: { status: ABANDONED, error: 'the process that started this run never returned' },
+    });
+    const n = Number((r && r.count) || 0);
+    // SILENT WHEN THERE IS NOTHING TO SAY. A boot line on every restart reporting zero is how a log
+    // stops being read — and this one matters on the boots where it is not zero.
+    if (n > 0) this.log.warn('reaped ' + n + ' abandoned AI run(s) older than ' + Math.round(afterMs / 60000) + ' minutes');
+    return n;
+  }
 
   /** Legacy sync accessor for the default Anthropic model (callers that read .model).
    *  The old hard-coded fallback here was claude-3-5-sonnet-20241022, which Anthropic RETIRED on
