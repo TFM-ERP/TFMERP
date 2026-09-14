@@ -37,6 +37,7 @@ test('TWO DATINGS THAT DISAGREE ARE THE FINDING, and the code is the exported co
 
 test('NO ANCHOR IS NOT RUN, WITH THE REASON — never "no findings"', () => {
   const r = run({ anchor: anchor({ year: null, provenance: 'ASK', note: '"Sometime after the war" is not a period this map knows.' }) });
+  assert.match(r.summary, /not a period this map knows/);
   assert.equal(r.state, 'NOT RUN');
   assert.match(r.reason || '', /not a period this map knows/);
   assert.match(r.summary, /^ERA CHECK DID NOT RUN: /);
@@ -125,6 +126,9 @@ test('A STAGE THAT DATES ITSELF WITH NO ANCHOR IS NOT SILENT — it is the answe
   assert.ok(r.notes.some((n) => /dates the present at 1994/.test(n) && /this build has no present year at all/.test(n) && /Set it — the stage has the answer/.test(n)),
     JSON.stringify(r.notes));
   assert.doesNotMatch(r.summary, /own dating agrees/);
+  // THE SUMMARY IS ALSO THE LOG LINE, so the evidence must be in it, not only in `notes`.
+  assert.match(r.summary, /^ERA CHECK DID NOT RUN: /);
+  assert.match(r.summary, /dates the present at 1994.*Set it — the stage has the answer/);
 });
 
 test('a stage whose dating AGREES with the anchor is clean, and says what it compared', () => {

@@ -164,7 +164,11 @@ export function buildEraCheck(input: EraCheckInput): EraCheckReport {
   // refused because two datings disagree has already told the writer something true.
   if (a.year === null && !findings.length) {
     const reason = (anchor && anchor.note) || 'The story has no present year, so nothing could be measured from it.';
-    return { state: 'NOT RUN', reason, findings: [], notes, anchor: a, expressions, summary: 'ERA CHECK DID NOT RUN: ' + reason, at };
+    // THE NOTES FOLD INTO THIS SUMMARY TOO. Every other state does it, and the summary is also the
+    // log line — so a stage that dated the present while the build had no anchor put its evidence in
+    // `notes` and said nothing where anyone reads.
+    return { state: 'NOT RUN', reason, findings: [], notes, anchor: a, expressions,
+      summary: 'ERA CHECK DID NOT RUN: ' + reason + (notes.length ? ' · ' + notes.join(' ') : ''), at };
   }
 
   const state: EraCheckState = findings.length ? 'FINDINGS' : 'NO FINDINGS';
