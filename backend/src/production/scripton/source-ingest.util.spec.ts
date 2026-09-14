@@ -170,7 +170,12 @@ test('I2: an HTML source file is not silently truncated at htmlToText\'s 40000-c
  * §7.2.4) rather than hand-adjusting a correct xref table to dodge a bug two library versions deep.
  */
 function buildMinimalPdf(objBodies: string[], rootObjNum: number): Buffer {
-  const PAD_COMMENT_LEN = 4300; // pushes the file safely past Node's ~4KB buffer-pooling cutoff
+  // 600, NOT 4,300. The old pad pushed the fixture past Node 22's ~4 KB pooling cutoff, which made it
+  // immune to the very bug these tests guard: the suite stayed green on Node 22 while 8 KB PDFs
+  // failed silently in production, and went red on Node 24 only because the cutoff moved to 32 KB.
+  // A fixture that sits INSIDE the pooled window is the guard — it fails the moment
+  // common/buffer-pool.ts stops being loaded.
+  const PAD_COMMENT_LEN = 600;
   let out = '%PDF-1.4\n%' + 'P'.repeat(PAD_COMMENT_LEN) + '\n';
   const offsets: number[] = [0];
   for (let i = 0; i < objBodies.length; i++) {

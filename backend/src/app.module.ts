@@ -1,3 +1,6 @@
+// Buffer pooling breaks pdf-parse on Node 24 — see common/buffer-pool.ts. Imported for the
+// side effect, at the first moment the process reaches application code.
+import './common/buffer-pool';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from './common/prisma/prisma.module';
