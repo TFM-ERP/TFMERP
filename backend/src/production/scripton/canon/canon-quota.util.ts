@@ -35,14 +35,16 @@ export const DEFAULT_FLOORS: Partial<Record<CanonKind, number>> = {
   CAUSATION: 10,  // authorised / permitted / expanded / executed
   OUTCOME: 8,     // who lives, who dies, who is delivered to whom
   ORDERING: 8,    // what must occur before what
-  // MOTIVE: one want and one need per principal. A 6-9 principal bible is 12-18 lines, so this floor
-  // holds the ensemble rather than the two or three the allocator would otherwise keep.
+  // MOTIVE: one want and one need per principal. THIS IS NOW THE EXTRACTION ASK, NOT A SELECTION
+  // FLOOR — MOTIVE is undroppable below, so `rest` never contains one and this entry allocates
+  // nothing. It stays because the prompt mirrors these numbers (the guard in canon-prompt.util.spec
+  // pins the two together), and the model still needs telling to aim for twelve.
   //
-  // A FLOOR, NOT UNDROPPABILITY. The plan asked for motive to be undroppable "for characters present
-  // in the stage", which is a different mechanism from the three flat entries in UNDROPPABLE_KINDS —
-  // it needs stage-aware selection that does not exist yet. A floor achieves the practical goal
-  // (motive is not crowded out by biography) without inventing conditional logic inside the quota,
-  // and conditional undroppability stays its own change with its own acceptance.
+  // WHY A FLOOR WAS NOT ENOUGH, measured rather than argued. A floor of 12 was honoured — 15 of 23
+  // survived — and it still dropped Vex's need, "she turns over records that implicate herself as
+  // well as her employers", which is the motivation for her climax turn and the single line a
+  // reading of the pages had already identified as missing. Extracted, stored, and discarded one
+  // step before the prompt.
   MOTIVE: 12,
 };
 
@@ -69,13 +71,27 @@ export const PROHIBITION_LIMIT = Infinity;
  * be thinned. A dropped prohibition PERMITS the thing it forbids; a dropped ordering constraint lets
  * the confrontation land after the climax, and no later stage can tell that the requirement existed.
  *
+ * MOTIVE JOINS THEM, and NOT by the prohibition parallel — that one is close but inexact, because a
+ * dropped prohibition causes a VIOLATION while a dropped want causes a DEGRADATION. The decisive
+ * reason is that the alternative cannot exist at the stage that needs it. The plan specified motive
+ * as undroppable "for characters present in the stage"; at SCENES there are no scene cards yet —
+ * SCENES is what generates them — so "present in the stage" has no referent exactly where it matters
+ * most. That filtering is right for DRAFT, where each card names its own characters, and it stays
+ * there.
+ *
+ * MEASURED, AND IT TOOK THE MEASUREMENT: a floor of 12 was honoured, 15 of 23 survived, and the
+ * eight discarded included Vex's need — "she turns over records that implicate herself as well as her
+ * employers" — the motivation for her climax turn, and the line a reading of the finished pages had
+ * independently named as missing. A floor was a judgement that did not survive contact; the
+ * stage-aware alternative would not have survived first contact with SCENES. Neither spec had it.
+ *
  * Both are short, both are the cheapest lines in the prompt, and both are rules rather than colour.
  * Any future "CANON TRUNCATED" naming either of them is a defect, not a state.
  */
 // REGISTER joins them for the same reason and a stronger one: it is the source's own rule list,
 // transcribed line for line, and the defect it exists to end is precisely a register being sampled
 // (§29: 53 bullets in, 9 to 11 facts out, 23 violations downstream).
-export const UNDROPPABLE_KINDS: CanonKind[] = ['PROHIBITION', 'ORDERING', 'REGISTER'];
+export const UNDROPPABLE_KINDS: CanonKind[] = ['PROHIBITION', 'ORDERING', 'REGISTER', 'MOTIVE'];
 
 export interface QuotaResult {
   /** Facts to render as CANON, structure first so it survives any later truncation. */

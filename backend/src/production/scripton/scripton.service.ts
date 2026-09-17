@@ -1194,6 +1194,26 @@ export class ScripOnService {
     // excerpt is exactly the document that must not be allowed to define the truth it was supposed
     // to be checked against. That circularity is how "Jason Vane" became canon (§21).
     const wantsSource = ['LOGLINE', 'SYNOPSIS', 'TREATMENT', 'BEATS', 'PREMISE', 'STORY_ENGINE', 'SEASON_ARC', 'THESIS'].indexOf(kind) >= 0;
+    /**
+     * F1 — THE STAGES THAT WRITE THE FILM WERE THE ONES WORKING FROM THE LEAST MATERIAL.
+     *
+     * `wantsSource` gates three different things at once: the 6,000-character excerpt, the extracted
+     * canon facts, and the prohibition rules. SCENES and STEP_OUTLINE were outside it, so they
+     * received the register alone — names, prohibitions, ordering. The register is RULES. It is not
+     * texture, and a scene card composed from rules is factually correct and generically written.
+     *
+     * Measured on the composed SCENES prompt before this change: zero canon facts, and the word
+     * MOTIVE zero times — while the canon held 23 MOTIVE rows across 13 characters, including three
+     * wants for the antagonist a reader had just called a plot function.
+     *
+     * CANON WITHOUT THE EXCERPT, DELIBERATELY. The excerpt is the expensive half and the one
+     * source-excerpt.util.ts is rightly conservative about; the canon block is already built and
+     * already budgeted per stage, and SCENES is ONE call. So these stages join the canon-fed class
+     * and not the excerpt-fed one — `sourceMaterialBlock` emits FIXED FACTS with no SOURCE MATERIAL
+     * when the excerpt is null. DRAFT is unchanged: it is per-scene, and the plan gives it facts
+     * filtered by scene card, which is its own change.
+     */
+    const wantsCanon = wantsSource || ['SCENES', 'STEP_OUTLINE'].indexOf(kind) >= 0;
     // THE LADDER WAS READING THE WRONG FIELD, AND SO IT WAS READING NOTHING.
     //
     // A build keeps its own source on the BUILD (brief.sourceText — 44,733 characters on the build
@@ -1232,7 +1252,7 @@ export class ScripOnService {
     // null and extractCanonForBuild skips), so gating a 40-to-399-character source on a canon that
     // can never arrive locked that build out of every stage for good.
     let canon: { facts: CanonFactCore[]; account: any } | null = null;
-    if (wantsSource && rawSource.length >= 400 && opts?.buildId) {
+    if (wantsCanon && rawSource.length >= 400 && opts?.buildId) {
       const st = String((buildRow && buildRow.canonState) || '') || null;
       if (st === 'ready') {
         // READY MUST MEAN READABLE. The canon used to live in memory only, so "ready" outlived the
@@ -1260,34 +1280,44 @@ export class ScripOnService {
           + ' — fix the source or re-run the extraction, then generate.');
       }
     }
-    if (wantsSource && !canon) canon = await this.sourceCanonFor(projectId, rawSource);
+    if (wantsCanon && !canon) canon = await this.sourceCanonFor(projectId, rawSource);
     const sourceFacts = canon ? canon.facts : [];
     // THE STAGE BLOCK IS SELECTED; THE RECORD IS COMPLETE. They were the same list, and the cost said
     // so — 26,651 bytes of canon riding all eight ladder stages and then every scene call. Rules are
     // still carried whole (a budget that cannot fit them is too small); everything else is taken
     // round-robin by section so every part of the document is represented before any part twice.
-    const stagePick = wantsSource ? selectForStage(sourceFacts) : null;
+    const stagePick = wantsCanon ? selectForStage(sourceFacts) : null;
     const stageFacts = stagePick ? stagePick.facts : [];
-    const srcBlock = wantsSource ? sourceMaterialBlock(canonDirective(stageFacts, { at: 0, max: 1000 }), excerpt) : '';
+    // The excerpt rides only the excerpt-fed stages; the promoted ones get the facts with a null
+    // excerpt, which sourceMaterialBlock renders as FIXED FACTS alone.
+    const srcBlock = wantsCanon ? sourceMaterialBlock(canonDirective(stageFacts, { at: 0, max: 1000 }), wantsSource ? excerpt : null) : '';
     // CONSTRAINTS ARE NOT CANON AND DO NOT RIDE IN THE CANON BLOCK. They are rules about the output,
     // they go last in the prompt where an instruction carries most weight, and a source that states
     // none produces an empty string rather than an empty heading.
-    const ruleBlock = wantsSource ? prohibitionDirective(stageFacts) : '';
+    const ruleBlock = wantsCanon ? prohibitionDirective(stageFacts) : '';
     // THE REGISTER, VERBATIM, just ahead of the rules — the source's own rule list, line for line,
     // carried whole on every stage because selectForStage never charges an undroppable kind.
     //
-    // AND ON THE THREE STAGES THAT WRITE THE FILM. SCENES, STEP_OUTLINE and DRAFT are not wantsSource,
-    // so they got no source, no canon and no register — and they are where the register is broken
-    // most: on v2.2 STEP_OUTLINE contradicted 16 of 81 lines, the worst stage on the ladder, and 26 of
-    // the ladder's contradictions sat in these three stages. Ten of the eleven breaks a reader found by
-    // hand were in them. They carry the REGISTER only — transcribed here from the build's source, no
-    // model call and no canon gate — not the extracted facts or the excerpt; those still ride the eight
-    // stages above. ~3,000 tokens a call.
-    const registerOnly = !wantsSource && ['SCENES', 'STEP_OUTLINE', 'DRAFT'].indexOf(kind) >= 0;
-    const registerFacts: CanonFactCore[] = wantsSource ? stageFacts.filter((f) => f.kind === 'REGISTER')
+    // AND ON THE STAGES THAT WRITE THE FILM. SCENES, STEP_OUTLINE and DRAFT got no source, no canon
+    // and no register — and they are where the register is broken most: on v2.2 STEP_OUTLINE
+    // contradicted 16 of 81 lines, the worst stage on the ladder, and 26 of the ladder's
+    // contradictions sat in these three stages. Ten of the eleven breaks a reader found by hand were
+    // in them. Carrying the register here fixed that much.
+    //
+    // SINCE F1, SCENES AND STEP_OUTLINE TAKE THE CANON PATH INSTEAD. The register still rides — it is
+    // an undroppable kind, so selectForStage never charges for it and the whole of it survives inside
+    // `stageFacts` — but it now arrives as part of the canon rather than as a second, separately
+    // transcribed copy. DRAFT is the only stage left on the transcribe-only path.
+    const registerOnly = !wantsCanon && ['SCENES', 'STEP_OUTLINE', 'DRAFT'].indexOf(kind) >= 0;
+    const registerFacts: CanonFactCore[] = wantsCanon ? stageFacts.filter((f) => f.kind === 'REGISTER')
       : registerOnly ? transcribeRegister(rawSource.trim()).facts : [];
     const registerBlock = registerDirective(registerFacts);
     if (wantsSource && excerpt.truncated) this.log.log('generateStage ' + kind + ': source is an excerpt - ' + excerpt.sent + ' of ' + excerpt.total + ' characters, with ' + sourceFacts.length + ' fixed fact(s) carried alongside it.');
+    // The promoted stages say what they carry too, and say it differently — no excerpt is sent, so a
+    // line about excerpting would be false. A stage that silently changed what it receives is a
+    // stage whose output cannot be attributed later.
+    else if (wantsCanon) this.log.log('generateStage ' + kind + ': ' + stageFacts.length + ' canon fact(s) and '
+      + registerFacts.length + ' register line(s), no excerpt.');
     // 3b-READ — A BUILD'S RESEARCH IS ITS OWN, AND IT HAS NONE YET. This read the workspace row's
     // researchNotes — one field per project, written by whichever build last ran research. On 11 Sep
     // it held a note computed from a row frozen since 2 Sep ("the SOURCE excerpt arrived blank"),
@@ -3448,10 +3478,20 @@ export class ScripOnService {
       // A QUOTA THAT SILENTLY TRUNCATES IS THE SAME DEFECT AS A CAP THAT DOES. Nothing may be lost
       // without a line naming what and how many — the account is also persisted on the stage version
       // below, so it survives the log buffer.
+      // MOTIVE PER CHARACTER, NAMED. Two wants for one person is normal and usually better than one
+      // — Gideon wanting to survive AND to be seen as the man who found the corruption is the
+      // doubleness that makes an antagonist a person — so nothing here caps them. What a cap would
+      // have bought is visibility, and this buys it honestly instead: a bible that yields forty
+      // motives is SEEN in the account at extraction time rather than discovered later in a prompt.
+      const motiveBy: Record<string, number> = {};
+      for (const f of facts) if (f.kind === 'MOTIVE') motiveBy[f.subject] = (motiveBy[f.subject] || 0) + 1;
+      const motiveNames = Object.keys(motiveBy).sort((a, b) => motiveBy[b] - motiveBy[a]);
+      const motives = { total: motiveNames.reduce((n, k) => n + motiveBy[k], 0), characters: motiveNames.length,
+        byCharacter: motiveBy, summary: motiveNames.map((k) => k + ' ' + motiveBy[k]).join(' · ') };
       const account = { extracted: picked.extracted, kept: picked.kept, mix: quotaSummary(picked.counts),
         located: placed.coverage.located, synthesis: placed.coverage.synthesis, unlocated: placed.coverage.unlocated,
         sections: placed.coverage.bySection, unlocatedStatements: placed.coverage.unlocatedStatements,
-        dropped: picked.dropped, droppedByKind: picked.droppedByKind, shortfall: quotaShortfall(picked) };
+        dropped: picked.dropped, droppedByKind: picked.droppedByKind, shortfall: quotaShortfall(picked), motives };
       if (picked.capBound) this.log.warn('sourceCanonFor: ' + quotaShortfall(picked));
       // ZERO FACTS IS A FAILED EXTRACTION, NOT AN EMPTY CANON. It used to be cached, and a build
       // marked "ready" on it — ready, certifying nothing. Now it throws: the build records WHY it
