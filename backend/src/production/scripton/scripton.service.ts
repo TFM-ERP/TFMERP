@@ -70,7 +70,7 @@ import { resolveCollabMode } from './collab-mode.util';
 import { isProviderExhausted, isStubRunaway, isHalt, ScriptGenerationHalted, STUB_STREAK_ABORT, HaltKind } from './provider-health.util';
 import { htmlToText as htmlToTextUtil, extractText, uploadBasename, assembleCorpus, canReuseExtraction, kindOf, kindFromContentType, MAX_REMOTE_BYTES } from './source-ingest.util';
 import { segmentPassages, batchPassages, applyVerdicts, buildSourceBible, passageBody, residualPaste, SourceDoc, Passage, SourceBible } from './source-classify.util';
-import { coerceRecommendations, recommendableFields, salvageRows, FIELD_SPECS, Recommendation } from './brief-recommend.util';
+import { coerceRecommendations, recommendableFields, salvageRows, FIELD_SPECS, listFor, promptGroup, Recommendation } from './brief-recommend.util';
 import { verdictFor, abandonedMessage } from './stage-jobs.util';
 import { buildSetList, setListBrief } from './set-list.util';
 import { readFile } from 'fs/promises';
@@ -1926,19 +1926,24 @@ export class ScripOnService {
 
     const optsFor = (f: string): string[] => {
       const spec = FIELD_SPECS[f];
-      const key = (spec && spec.options) || f;
-      const v = options[key];
-      return Array.isArray(v) ? v.filter((x) => typeof x === 'string' && x.trim()) : [];
+      if (!spec) return [];
+      return listFor(spec, options as any, f).filter((x) => typeof x === 'string' && x.trim());
     };
-    const enumFields = recommendableFields().filter((f) => {
-      const k = FIELD_SPECS[f].kind;
-      return (k === 'enum' || k === 'enumList' || k === 'flags') && optsFor(f).length > 0;
-    });
-    const freeFields = recommendableFields().filter((f) => {
-      const k = FIELD_SPECS[f].kind;
-      return k === 'text' || k === 'textList' || k === 'number';
-    });
-    if (!enumFields.length && !freeFields.length) return { fields: [], sources: report, chars: corpus.length };
+    /** Hints are keyed by the caller's option key when there is one, else by the field itself. */
+    const hintKey = (f: string): string => {
+      const spec = FIELD_SPECS[f];
+      return (spec && typeof spec.options === 'string') ? spec.options : f;
+    };
+    const enumFields = recommendableFields().filter((f) =>
+      promptGroup(FIELD_SPECS[f].kind) === 'options' && optsFor(f).length > 0);
+    const freeFields = recommendableFields().filter((f) => promptGroup(FIELD_SPECS[f].kind) === 'free');
+    // A KIND THE PROMPT DOES NOT ASK ABOUT IS A FIELD THE ANALYSIS CAN NEVER FILL. When `boolean`
+    // was added to the shared field table, this partition was the consumer that still switched on
+    // the old set — so realBased and researchSubject would have been declared, validated, and never
+    // once asked for, falling silently to the form's defaults. brief-recommend-groups.spec.ts pins
+    // every declared kind to exactly one group so the next kind cannot go invisible the same way.
+    const boolFields = recommendableFields().filter((f) => promptGroup(FIELD_SPECS[f].kind) === 'boolean');
+    if (!enumFields.length && !freeFields.length && !boolFields.length) return { fields: [], sources: report, chars: corpus.length };
 
     // READ AND JUDGE — do not transcribe.
     //
@@ -1991,7 +1996,7 @@ export class ScripOnService {
     const user = 'Read the material at the end, then fill in what you can judge from it.\n\nFIELDS WITH FIXED OPTIONS — copy the value exactly:\n'
       + enumFields.map((f) => {
         const spec = FIELD_SPECS[f];
-        const key = (spec && spec.options) || f;
+        const key = hintKey(f);
         const shape = spec.kind === 'enumList' ? ' (array, up to ' + (spec.maxItems || 4) + ')'
           : (spec.kind === 'flags'
             ? ' (array — list ONLY the ones this story needs; every one you leave out is switched OFF)'
@@ -2007,6 +2012,12 @@ export class ScripOnService {
         return '· ' + f + (spec.kind === 'textList' ? ' (array, up to ' + (spec.maxItems || 6) + ')' : '')
           + ' — short text, under ' + spec.max + ' characters';
       }).join('\n')
+      + (boolFields.length
+        ? '\n\nYES/NO FIELDS — answer true or false, never a number. If the degree matters, say it in'
+          + ' the matching level field instead:\n'
+          + boolFields.map((f) => '· ' + f + ' — true or false'
+            + (hints[hintKey(f)] ? '\n    ' + hints[hintKey(f)] : '')).join('\n')
+        : '')
       + '\n\nTHE MATERIAL:\n' + corpus.slice(0, ScripOnService.MAX_ANALYSE_CHARS);
 
     let raw: any = null;

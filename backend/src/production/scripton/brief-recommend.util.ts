@@ -30,12 +30,19 @@
  * NEVER THROWS. A failed analysis leaves the Brief exactly as it would have been without one.
  */
 
-export type FieldKind = 'enum' | 'enumList' | 'text' | 'textList' | 'number' | 'flags';
+export type FieldKind = 'enum' | 'enumList' | 'text' | 'textList' | 'number' | 'flags' | 'boolean';
 
 export interface FieldSpec {
   kind: FieldKind;
-  /** enum/enumList/flags: the key in the caller-supplied options map. */
-  options?: string;
+  /**
+   * enum/enumList/flags: where the closed vocabulary comes from.
+   *  · a STRING is a key into the caller-supplied options map — the form's own lists.
+   *  · an ARRAY is the vocabulary itself, for fields whose values are fixed by the SCHEMA rather
+   *    than by a UI list. `realityLevel` is the case: the column is `String? // FAITHFUL|INSPIRED|
+   *    LOOSE`, the form hard-codes the same three ids, and the caller sends no list for it — so a
+   *    string key would resolve to `undefined` and the field would silently never apply.
+   */
+  options?: string | string[];
   /** text/textList: hard character cap, so a model cannot pour an essay into a one-line field. */
   max?: number;
   /** enumList/textList: how many entries survive. */
@@ -43,6 +50,8 @@ export interface FieldSpec {
   /** number: inclusive bounds. Anything outside is dropped, never clamped — a clamped guess is a lie. */
   min?: number;
   maxNum?: number;
+  /** number: the column is an Int, so a fraction is dropped rather than rounded — same reason. */
+  int?: boolean;
 }
 
 export interface Recommendation {
@@ -108,10 +117,12 @@ export const FIELD_SPECS: Record<string, FieldSpec> = {
   projectIntent: { kind: 'text', max: 160 },
   budgetTier: { kind: 'text', max: 60 },
   comps: { kind: 'textList', max: 120, maxItems: 8 },
-  researchSubject: { kind: 'number', min: 0, maxNum: 1 },
-  realBased: { kind: 'number', min: 0, maxNum: 1 },
-  researchAmount: { kind: 'number', min: 0, maxNum: 100 },
-  researchDepth: { kind: 'number', min: 0, maxNum: 100 },
+  researchSubject: { kind: 'boolean' },
+  realBased: { kind: 'boolean' },
+  // The degree the flag cannot carry. Vocabulary fixed by the column, not by a caller list.
+  realityLevel: { kind: 'enum', options: ['FAITHFUL', 'INSPIRED', 'LOOSE'] },
+  researchAmount: { kind: 'number', min: 0, maxNum: 100, int: true },
+  researchDepth: { kind: 'number', min: 0, maxNum: 100, int: true },
   // RESEARCH SCOPE is six lanes, all ON by default, and the panel says so. Not all six are
   // applicable to every story: a two-hander in one flat needs no box-office comps lane, and an
   // invented world needs no real-subject-and-history lane. So this is the one field the analysis
@@ -334,16 +345,24 @@ const pickList = (raw: any, cap: number, map: (v: any) => string | null): string
   return picked.length ? picked : null;
 };
 
+/** The vocabulary for a closed field: an inline array is its own list, a string is a caller key.
+ *  Exported so the prompt builder resolves options the same way the coercer does — the two drifting
+ *  apart is how a field comes to be offered with one vocabulary and validated against another. */
+export function listFor(spec: FieldSpec, opts: Record<string, string[]>, field: string): string[] {
+  if (Array.isArray(spec.options)) return spec.options;
+  return opts[(spec.options as string) || field] || [];
+}
+
 const KINDS: Record<FieldKind, KindOps> = {
   enum: {
-    coerce: (raw, spec, opts, field) => matchOption(raw, opts[spec.options || field]),
+    coerce: (raw, spec, opts, field) => matchOption(raw, listFor(spec, opts, field)),
     equals: (cur, applied) => cur === applied,
     emptyValue: () => '',
     presenceProtects: true,
   },
   enumList: {
     coerce: (raw, spec, opts, field) =>
-      pickList(raw, spec.maxItems || 4, (v) => matchOption(v, opts[spec.options || field])),
+      pickList(raw, spec.maxItems || 4, (v) => matchOption(v, listFor(spec, opts, field))),
     equals: sameList,
     emptyValue: () => [],
     presenceProtects: true,
@@ -362,7 +381,7 @@ const KINDS: Record<FieldKind, KindOps> = {
   },
   flags: {
     coerce: (raw, spec, opts, field) => {
-      const keys = (opts[spec.options || field] || []).filter((k) => typeof k === 'string' && k.trim());
+      const keys = listFor(spec, opts, field).filter((k) => typeof k === 'string' && k.trim());
       const wanted = new Set<string>();
       if (keys.length) {
         if (Array.isArray(raw)) {
@@ -404,16 +423,73 @@ const KINDS: Record<FieldKind, KindOps> = {
     // Out of range is DROPPED, not clamped. A clamped guess reads as a measurement.
     coerce: (raw, spec) => {
       const n = Number(raw);
-      return (isFinite(n) && n >= (spec.min as number) && n <= (spec.maxNum as number)) ? n : null;
+      if (!isFinite(n) || n < (spec.min as number) || n > (spec.maxNum as number)) return null;
+      // AN Int COLUMN CANNOT HOLD 55.5. Rounding would be the same lie as clamping — it reports a
+      // precision the analysis did not offer — and the write would be rejected whole, taking every
+      // other field on the row with it. See the Boolean case below: this is the same defect latent.
+      if (spec.int && !Number.isInteger(n)) return null;
+      return n;
     },
     equals: (cur, applied) => cur === applied,
     emptyValue: () => null,
     presenceProtects: true,
   },
+  /**
+   * A YES/NO COLUMN. Added because its absence cost a whole intake save.
+   *
+   * `realBased` and `researchSubject` are `Boolean` in the schema, bare truthy tests at every
+   * reader, and `true` in the form's own initial state — but they were declared `number 0..1` here,
+   * so the analysis answered a yes/no question with 0.25 and 0.7. Postgres refused the row, all
+   * sixty columns of it, and the only survivor was the jsonb brief, which accepts anything.
+   *
+   * A FRACTION IS NOT A WEAK YES — IT IS A DIFFERENT QUESTION. 0.25 means "mostly invented", which
+   * is what `realityLevel: LOOSE` exists to say. So a fraction is DROPPED here rather than rounded
+   * to true: rounding would put the flag ON at full strength and lose the degree, which is exactly
+   * the flattening that made `0.25` and `1.0` produce identical prompts. Whole 0 and 1 are accepted
+   * because they are unambiguous answers to the question actually asked.
+   */
+  boolean: {
+    coerce: (raw) => {
+      if (typeof raw === 'boolean') return raw;
+      if (typeof raw === 'number') return raw === 1 ? true : raw === 0 ? false : null;
+      const t = String(raw == null ? '' : raw).trim().toLowerCase();
+      if (t === 'true' || t === 'yes') return true;
+      if (t === 'false' || t === 'no') return false;
+      return null;
+    },
+    equals: (cur, applied) => !!cur === !!applied,
+    // Undo restores the form's own initial state for these two, which is ON for both.
+    emptyValue: () => true,
+    // Both ship ON by default, so presence says nothing about whether a human chose it.
+    presenceProtects: false,
+  },
 };
 
 /** Every kind the field table uses, for the test that pins the two in step. */
 export const DECLARED_KINDS = Object.keys(KINDS) as FieldKind[];
+
+/** Which block of the analysis prompt a field is offered in. */
+export type PromptGroup = 'options' | 'free' | 'boolean';
+
+/**
+ * THE PROMPT'S PARTITION, OWNED BY THE TABLE THAT DEFINES THE KINDS.
+ *
+ * The analysis prompt lists recommendable fields in blocks, and a kind missing from every block is
+ * a field the model is never asked about — declared, validated, and permanently empty. That is what
+ * happened when `boolean` was added: the shared table grew, the consumer that switched on kind did
+ * not, and the two fields it was added for would have fallen silently to the form's defaults.
+ *
+ * Total by construction: the compiler rejects a new kind that is not routed, and
+ * brief-recommend-groups.spec.ts asserts every declared kind lands in exactly one group.
+ */
+export function promptGroup(kind: FieldKind): PromptGroup {
+  switch (kind) {
+    case 'enum': case 'enumList': case 'flags': return 'options';
+    case 'text': case 'textList': case 'number': return 'free';
+    case 'boolean': return 'boolean';
+    default: { const never: never = kind; return never; }
+  }
+}
 
 /**
  * Turn a model reply into recommendations the form can safely receive.

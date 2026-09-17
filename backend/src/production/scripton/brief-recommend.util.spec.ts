@@ -186,7 +186,9 @@ test('every field the analysis may fill is declared, and the table is coherent',
   assert.ok(fields.length > 20);
   for (const f of fields) {
     const s = FIELD_SPECS[f];
-    assert.ok(['enum', 'enumList', 'text', 'textList', 'number', 'flags'].indexOf(s.kind) >= 0, f);
+    // DECLARED_KINDS, not a second hard-coded list — this test exists to keep the field table and
+    // the kind table in step, and a literal here just adds a third copy to keep in step as well.
+    assert.ok(DECLARED_KINDS.indexOf(s.kind) >= 0, f);
     if (s.kind === 'enum' || s.kind === 'enumList' || s.kind === 'flags') assert.ok(s.options, f + ' needs an options key');
     if (s.kind === 'text' || s.kind === 'textList') assert.ok((s.max || 0) > 0, f + ' needs a cap');
     if (s.kind === 'number') {

@@ -282,6 +282,16 @@ export default function ScriptOnIntake({ projectId, busy, onBegin, onClose }: { 
     styles: STYLE_PACKS.map((x: any) => x.id + ' = ' + x.label).join(' · '),
     endings: ENDING_TYPES.map((x: any) => x.id + ' = ' + x.label).join(' · '),
     researchScope: SCOPE.map((x) => x[0] + ' = ' + x[1]).join(' · '),
+    // A FIELD NAME IS NOT THE QUESTION. Offered as a bare `realBased — true or false`, a model reads
+    // the name and answers from the setting: real Boston, real Cape Breton, real FBI and Coast Guard
+    // make "realBased" look TRUE for a story whose characters, company and case are all invented.
+    // The wording below is the label on the screen (:892), so the prompt and the form ask the same
+    // question, plus the distinction that actually decides it.
+    realBased: 'Based on a real story / person — is this a dramatisation of events that actually'
+      + ' happened to real people? A real SETTING is not a real STORY: invented characters in real'
+      + ' cities, with real agencies and real procedure, is false. Say how faithful in realityLevel.',
+    researchSubject: 'Research the subject online — true only when there is a real subject, case or'
+      + ' person to research. False for an invented story, however real its world.',
   });
 
   /** One prefix, so the whole analysis is greppable in his console in one filter. */
