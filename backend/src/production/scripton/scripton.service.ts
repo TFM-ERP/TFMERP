@@ -2293,9 +2293,19 @@ export class ScripOnService {
   private async intakeSteer(projectId: string, buildId?: string | null): Promise<string> {
     const intake: any = (await (this.prisma as any).intakeProfile.findUnique({ where: { projectId } }).catch(() => null)) || {};
     const dirRow = await this.buildDirectionRow(buildId);
-    // A4 (UNAUDITED, kept in 3a by ruling): a build with no build_directions row falls back to the
-    // workspace intake.treatment.
-    const direction = dirRow ? ScripOnService.directionSteerText(dirRow) : intake.treatment;
+    // F3 — THE LAST SHARED READ IN THIS FUNCTION, AND THE LARGEST. Every brief field below became
+    // build-scoped in 3a; this line did not, so a build with no direction row of its own silently
+    // inherited `intake.treatment` — one row per project, twenty-six builds deep. On 17 Sep that
+    // fallback was a ~5,000-word FAITHFUL direction with an embedded WRITER NOTE, riding every
+    // prompt of a build whose direction had never been set. Measured in the captured prompts rather
+    // than inferred: that build's TREATMENT carried "Compression by function" and "You don't get to
+    // disappear" from a direction belonging to another build entirely — and it silently made the
+    // §67 pair's "no direction" arm a second directed build.
+    //
+    // Absence is legible; a borrowed value is not. With a buildId the build answers for itself or
+    // says nothing. The legacy project path (no buildId) keeps the workspace row, which is the only
+    // source it has ever had.
+    const direction = dirRow ? ScripOnService.directionSteerText(dirRow) : (buildId ? '' : intake.treatment);
     // The build's own brief. No .catch, like buildDirectionRow: a failed read must not quietly fall
     // back to the workspace's values — that is the defect itself.
     const buildBrief: any = buildId
