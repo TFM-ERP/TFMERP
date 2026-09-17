@@ -5,7 +5,7 @@ import type { CanonFactCore, CanonKind } from './canon.types';
 // PROHIBITION would render as a statement of fact in the CANON list — the exact failure the
 // structural kinds were added to end.
 const KINDS: CanonKind[] = ['CHARACTER', 'WORLD', 'LORE', 'TIMELINE', 'RELATIONSHIP', 'PLOT',
-  'ROLE', 'CRIME', 'CAUSATION', 'OUTCOME', 'ORDERING', 'PROHIBITION'];
+  'ROLE', 'CRIME', 'CAUSATION', 'OUTCOME', 'ORDERING', 'PROHIBITION', 'MOTIVE'];
 
 /**
  * Pure: normalize raw AI rows into CanonFactCore anchored to the scene's story order.

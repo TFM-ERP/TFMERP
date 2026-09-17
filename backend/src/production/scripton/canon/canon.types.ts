@@ -33,6 +33,15 @@ export type CanonKind =
   | 'OUTCOME'     // who lives, who dies, who is delivered to whom.
   | 'ORDERING'    // what must occur before what.
   | 'PROHIBITION' // an explicit "do not" / "never" — a CONSTRAINT, not a fact.
+  /**
+   * MOTIVE — what a named character WANTS, and what they NEED. Added 17 Sep after the first
+   * complete ladder this system produced: Gideon, Vex and Musa all read as functions rather than
+   * people, and Vex's entire climax turn rested on paperwork she read off-screen. The bible states
+   * their motives on the page; there was no slot to put them in, so motive reached a prompt only
+   * through `spine.want` / `spine.need` — one character, and an intake field rather than an
+   * extraction. An ensemble whose antagonist has no stated want writes as a plot function.
+   */
+  | 'MOTIVE'
   // Transcribed, not extracted — a line of the source's own rule register, verbatim. Only
   // transcribeRegister() mints one; it is deliberately absent from the model's kind whitelist, so a
   // model fact claiming to be REGISTER collapses to PLOT rather than passing as the author's words.

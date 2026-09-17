@@ -45,7 +45,11 @@ test('THE FLOORS IN THE PROMPT ARE THE FLOORS IN THE CODE', () => {
   const line = SOURCE_CANON_SYSTEM.split('\n').find((l) => /Aim for at least/.test(l)) || '';
   assert.ok(line, 'the prompt must state its floors');
   const stated = numbersIn(line);
-  const code = [DEFAULT_FLOORS.ROLE, DEFAULT_FLOORS.CRIME, DEFAULT_FLOORS.CAUSATION, DEFAULT_FLOORS.OUTCOME, DEFAULT_FLOORS.ORDERING];
+  // DERIVED, NOT RE-LISTED. This read a hand-written five, so adding MOTIVE to the floors left the
+  // guard asserting the old set and failing for the right reason with the wrong message. Reading the
+  // floors themselves means the next kind with a floor is covered the day it is added — the same
+  // medicine as DECLARED_KINDS. The prompt must state them in declaration order.
+  const code = Object.values(DEFAULT_FLOORS);
   assert.deepEqual(stated, code, 'prompt says ' + stated.join('/') + ', code says ' + code.join('/'));
 });
 

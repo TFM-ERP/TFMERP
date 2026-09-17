@@ -35,6 +35,15 @@ export const DEFAULT_FLOORS: Partial<Record<CanonKind, number>> = {
   CAUSATION: 10,  // authorised / permitted / expanded / executed
   OUTCOME: 8,     // who lives, who dies, who is delivered to whom
   ORDERING: 8,    // what must occur before what
+  // MOTIVE: one want and one need per principal. A 6-9 principal bible is 12-18 lines, so this floor
+  // holds the ensemble rather than the two or three the allocator would otherwise keep.
+  //
+  // A FLOOR, NOT UNDROPPABILITY. The plan asked for motive to be undroppable "for characters present
+  // in the stage", which is a different mechanism from the three flat entries in UNDROPPABLE_KINDS —
+  // it needs stage-aware selection that does not exist yet. A floor achieves the practical goal
+  // (motive is not crowded out by biography) without inventing conditional logic inside the quota,
+  // and conditional undroppability stays its own change with its own acceptance.
+  MOTIVE: 12,
 };
 
 /**

@@ -28,6 +28,10 @@ export function canonSystemPrompt(cap: number = CANON_FACT_CAP): string {
     'OUTCOME - who lives, who dies, who is delivered to whom, what is destroyed or survives.',
     'predicate: survives|dies|delivered_to|destroyed.',
     'ORDERING - what must occur BEFORE what. predicate: occurs_before|occurs_after.',
+    'MOTIVE - what a NAMED character WANTS (the goal they pursue) and what they NEED (what the story',
+    'requires them to learn or give up). One of each per principal, in their own terms, not the',
+    'theme\'s. The antagonist has a want as surely as the hero does; a character with no stated want',
+    'is written as a plot function. predicate: wants|needs.',
     'PROHIBITION - an explicit "do not" / "never" / "no X" in the source. State it as the',
     'INSTRUCTION it is ("Do not rename the hero"), never as a fact about the story. predicate: must_not.',
     'CHARACTER|RELATIONSHIP|TIMELINE|WORLD|LORE|PLOT - biography: full names exactly as written, ages,',
@@ -36,8 +40,9 @@ export function canonSystemPrompt(cap: number = CANON_FACT_CAP): string {
     'QUOTAS, and they matter more than the total. Biography is the easiest thing to extract and it has',
     'swamped every previous run. Before returning, check you have looked SPECIFICALLY for: every ROLE',
     'the source assigns; what the crime is versus what merely serves it; every authorised / permitted /',
-    'expanded / executed distinction; every stated outcome; every ordering requirement; and EVERY',
-    'prohibition. Aim for at least 10 ROLE, 8 CRIME, 10 CAUSATION, 8 OUTCOME and 8 ORDERING facts where',
+    'expanded / executed distinction; every stated outcome; every ordering requirement; a want and a',
+    'need for EVERY principal including the antagonist; and EVERY',
+    'prohibition. Aim for at least 10 ROLE, 8 CRIME, 10 CAUSATION, 8 OUTCOME, 8 ORDERING and 12 MOTIVE facts where',
     'the source supports them, and ALL prohibitions without limit. If the source supports fewer, return',
     'fewer - but do not fill the space with more names and ages.',
     '',
@@ -105,8 +110,17 @@ export const SOURCE_CANON_MAXTOK = 64000;
  *
  *   1 - head slice, 60,000 chars, six structural kinds
  *   2 - the WHOLE source, no slice
+ *   3 - MOTIVE: what each principal wants and needs
+ *
+ * WHAT VERSION 3 MEANS FOR THE TWO STORED CANONS, said accurately: they are not WRONG, they are
+ * MOTIVE-LESS. Unlike the v1→v2 bump, nothing here was misread — the extraction was correct for the
+ * kinds that existed. Re-extraction is the feature arriving on each build at next use, not a tax
+ * this change imposes. Both v2 rows were exported verbatim to
+ * "Claude outputs/captures/SOURCE-CANONS-BEFORE-EXTRACTOR-V3.json" before the bump: the key is
+ * digest + extractorVersion, so they become unreachable the moment this constant moves, and one of
+ * them is the canon behind the first complete ladder this system produced.
  */
-export const CANON_EXTRACTOR_VERSION = 2;
+export const CANON_EXTRACTOR_VERSION = 3;
 
 /**
  * The most source a single extraction will accept, in characters.
