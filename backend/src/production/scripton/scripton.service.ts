@@ -1342,8 +1342,12 @@ export class ScripOnService {
     // The promoted stages say what they carry too, and say it differently — no excerpt is sent, so a
     // line about excerpting would be false. A stage that silently changed what it receives is a
     // stage whose output cannot be attributed later.
-    else if (wantsCanon) this.log.log('generateStage ' + kind + ': ' + stageFacts.length + ' canon fact(s) and '
-      + registerFacts.length + ' register line(s), no excerpt.');
+    // THE REGISTER IS INSIDE THE SELECTION, SO IT IS NOT ADDED TO IT. This read "252 canon fact(s)
+    // and 81 register line(s)", and 252 already contained those 81 — a reader summing them got 333
+    // for a prompt carrying 252. sourceCanonFor merges the register into `facts` before
+    // selectForStage ever sees it, so the honest shape is the parts and their total.
+    else if (wantsCanon) this.log.log('generateStage ' + kind + ': ' + (stageFacts.length - registerFacts.length)
+      + ' canon fact(s) + ' + registerFacts.length + ' register line(s) = ' + stageFacts.length + ' selected, no excerpt.');
     // 3b-READ — A BUILD'S RESEARCH IS ITS OWN, AND IT HAS NONE YET. This read the workspace row's
     // researchNotes — one field per project, written by whichever build last ran research. On 11 Sep
     // it held a note computed from a row frozen since 2 Sep ("the SOURCE excerpt arrived blank"),
