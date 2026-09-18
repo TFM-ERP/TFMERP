@@ -54,6 +54,7 @@ import { developmentSoFar } from './development-so-far.util';
 import { resolveStoryYear, storyYearInputsSha, storedStoryYearIsFresh, storedAsResult, makeStoredStoryYear, datingPairs, StoryYearForBuild } from './story-year.util';
 import { buildEraCheck } from './era-check.util';
 import { sweepEras, resolveEventAnchored } from './era.util';
+import { strataFrom, stratumTable, strataDropped } from './stratum-table.util';
 import { datedWorldEvents } from './world-events.util';
 import { selectCanonByQuota, quotaSummary, quotaShortfall } from './canon/canon-quota.util';
 import { SOURCE_CANON_SYSTEM, SOURCE_CANON_MAXTOK, CANON_EXTRACTOR_VERSION, CANON_MAX_SOURCE_CHARS } from './canon/canon-prompt.util';
@@ -1312,6 +1313,31 @@ export class ScripOnService {
     const registerFacts: CanonFactCore[] = wantsCanon ? stageFacts.filter((f) => f.kind === 'REGISTER')
       : registerOnly ? transcribeRegister(rawSource.trim()).facts : [];
     const registerBlock = registerDirective(registerFacts);
+    /**
+     * F4 — THE TIME STRATA, NAMED ONCE, SO NOTHING HAS TO SUBTRACT.
+     *
+     * On V2.6 a flashback was slugged "(EIGHT YEARS EARLIER)" where the material says seven — with
+     * all 81 register lines in the prompt, including the one stating the arithmetic in words. More
+     * checking would not have caught it; the model was asked to subtract and subtracted wrong. This
+     * gives it the strata already labelled and tells it to use the label.
+     *
+     * Two forms, keyed on provenance, and it never hands over a year the material did not state:
+     * COMPUTED prints years, anything else prints offsets. So `storyYearForPrompt`'s COMPUTED-only
+     * rule stays intact and a DEFAULTED_PRESENT anchor still yields a usable table — fixity is what
+     * the table is for, not truth.
+     *
+     * Only the stages that write time, and only when the material names a second stratum.
+     */
+    let stratumBlock = '';
+    if (wantsCanon && rawSource) {
+      try {
+        const anchor = await this.storyYearFor(opts?.buildId).catch(() => null);
+        const prov = anchor ? anchor.provenance : 'DEFAULTED_PRESENT';
+        const yr = anchor && typeof anchor.year === 'number' ? anchor.year : new Date().getFullYear();
+        const eraHits = sweepEras(rawSource, yr);
+        stratumBlock = stratumTable(strataFrom(eraHits, yr, prov), yr, prov, strataDropped(eraHits));
+      } catch { stratumBlock = ''; /* a missing table must never fail a stage */ }
+    }
     if (wantsSource && excerpt.truncated) this.log.log('generateStage ' + kind + ': source is an excerpt - ' + excerpt.sent + ' of ' + excerpt.total + ' characters, with ' + sourceFacts.length + ' fixed fact(s) carried alongside it.');
     // The promoted stages say what they carry too, and say it differently — no excerpt is sent, so a
     // line about excerpting would be false. A stage that silently changed what it receives is a
@@ -1359,7 +1385,7 @@ export class ScripOnService {
     const knowBlock = knowDir ? ('\n\nFORMAT & WORLD ENGINE (honour precisely across this stage):\n' + knowDir) : '';
     const draftRaw = kind === 'DRAFT';
     const jsonExact = kind === 'VIDEO_PROMPT'; // emit the exact JSON shape verbatim (format/aspectRatio are wanted output, not metadata to strip)
-    const user = 'STAGE: ' + kind + (framework ? (' | FRAMEWORK: ' + framework + (frameworkName ? ' (' + frameworkName + ')' : '')) : '') + steer + researchBlock + srcBlock + soFarBlock + knowBlock + langDir + (registerBlock ? ('\n\n' + registerBlock) : '') + (ruleBlock ? ('\n\n' + ruleBlock) : '') + (draftRaw ? '\nWrite the screenplay now as plain text (no JSON, no metadata header).' : jsonExact ? '\n' + brief.shape : '\nReturn ONLY JSON ' + brief.shape + ' with NO title/format/rating/metadata fields.');
+    const user = 'STAGE: ' + kind + (framework ? (' | FRAMEWORK: ' + framework + (frameworkName ? ' (' + frameworkName + ')' : '')) : '') + steer + researchBlock + srcBlock + soFarBlock + knowBlock + langDir + (stratumBlock ? ('\n\n' + stratumBlock) : '') + (registerBlock ? ('\n\n' + registerBlock) : '') + (ruleBlock ? ('\n\n' + ruleBlock) : '') + (draftRaw ? '\nWrite the screenplay now as plain text (no JSON, no metadata header).' : jsonExact ? '\n' + brief.shape : '\nReturn ONLY JSON ' + brief.shape + ' with NO title/format/rating/metadata fields.');
     // Generous ceilings (NOT targets) — the model stops when the stage is done; a high cap only prevents premature
     // truncation of long stages. Every "heavy" long-form stage (scene maps, treatments, beat maps, drafts, narration,
     // step outlines, season arcs) gets a 25,000-token ceiling, is STREAMED (no single long blocking request, and no

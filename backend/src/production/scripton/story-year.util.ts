@@ -184,6 +184,39 @@ export function datingPairs(material: string): { year: number; text: string }[] 
   return out;
 }
 
+/**
+ * Years stated in the ERA FIELD, where a bare number needs no cue.
+ *
+ * `matchYears` licenses a four-digit number only when a cue precedes it — "in 1994", "before 1994"
+ * — and that is right for prose, where a bare 1994 could be a quantity, a case number or a hull
+ * number. It is wrong here: this field's entire purpose is to say WHEN, so the field supplies the
+ * cue the sentence would have. Without this, a writer typing "1987" fell past every rung to ASK and
+ * was told to set the year they had just set.
+ *
+ * Same tokenizer, one relaxed rule — not a second parser. The UNIT guard is kept, so "1987 days"
+ * is still a duration rather than a year, and cued years ("set in 1987") continue to resolve
+ * through matchYears exactly as they do in prose.
+ */
+function yearsInEraField(era: string): number[] {
+  const tokens = tokenize(era);
+  const out = matchYears(tokens).map((y) => y.year);
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
+    if (!t || t.value === undefined) continue;
+    if (t.kind === 'YEAR') { out.push(t.value); continue; }
+    if (t.kind !== 'NUMBER' || !/^\d{4}$/.test(t.text) || t.value < 1000 || t.value > 2999) continue;
+    if (tokens[i + 1] && tokens[i + 1].kind === 'UNIT') continue;
+    // A DECADE IS A BAND, NOT A STATED YEAR. The tokenizer splits "1920s" into NUMBER 1920 and the
+    // bare word "s", so without this "a contemporary retelling of the 1920s" answered COMPUTED 1920
+    // — a period piece pinned to its first year, and precisely the laundering this ladder refuses.
+    // The existing negative guard caught it; a decade belongs to the band lookup or to ASK.
+    const next = tokens[i + 1];
+    if (next && next.kind === 'WORD' && /^s$/i.test(next.text) && next.start === t.end) continue;
+    out.push(t.value);
+  }
+  return out;
+}
+
 export function resolveStoryYear(input: StoryYearInput): StoryYearResult {
   const material = String((input && input.material) || '');
   const currentYear = input && Number.isFinite(input.currentYear) ? Math.trunc(input.currentYear) : NaN;
@@ -198,11 +231,23 @@ export function resolveStoryYear(input: StoryYearInput): StoryYearResult {
   if (pairs.length) {
     const distinct = [...new Set(pairs.map((p) => p.year))];
     if (distinct.length === 1) {
+      // REPORT-ONLY: the material's arithmetic wins, and says so when a typed year disagrees.
+      //
+      // Rung 2b reads a year the writer typed into the Era control. If the material ALSO dates
+      // itself, this rung returns first and that typed year is never compared — a disagreement
+      // between the two most specific sources of the same fact, decided silently. Resolving it
+      // needs the rungs restructured to collect before they decide, which is its own change; what
+      // is cheap now is to stop it being invisible, and to collect the observations that would
+      // tell us which source should win.
+      const typed = [...new Set(yearsInEraField(String((input && input.settingEra) || '')))];
+      const disagreement = typed.length === 1 && typed[0] !== distinct[0]
+        ? ` The period field says ${typed[0]}; the material's own dating wins here, and the two disagree.`
+        : '';
       return {
         year: distinct[0],
         provenance: 'COMPUTED',
-        note: `${pairs[0].text} puts the present at ${distinct[0]}.`,
-        evidence: pairs.map((p) => p.text),
+        note: `${pairs[0].text} puts the present at ${distinct[0]}.` + disagreement,
+        evidence: pairs.map((p) => p.text).concat(disagreement ? [`period field: ${era}`] : []),
       };
     }
     return {
@@ -243,6 +288,42 @@ export function resolveStoryYear(input: StoryYearInput): StoryYearResult {
           evidence: [era],
         };
       }
+    }
+    // ── 2b · COMPUTED, FROM A YEAR THE WRITER TYPED ───────────────────────────────────────────
+    //
+    // The Era control is free text, and a writer who types "1987" has STATED the present. Without
+    // this rung that answer fell past every lookup to the final branch and came back ASK — "…is not
+    // a period this map knows, and your material never dates itself, so the present year cannot be
+    // worked out. Set it yourself." The writer had just set it, in the field provided.
+    //
+    // AFTER THE TAXONOMY, NOT BEFORE, and that ordering is load-bearing. Placed first it hijacked
+    // every band label carrying digits — "Medieval (500–1500)", "Mid-century (1940s–70s)" — and
+    // answered COMPUTED 500 for a period the map already anchors properly. Six era-family tests
+    // said so immediately. A recognised period wins; a typed year is read only when nothing in the
+    // taxonomy matches.
+    //
+    // COMPUTED is the honest provenance, and the distinction the ladder turns on is preserved:
+    // provenance describes WHAT THE MATERIAL SAID, never which component supplied the number. A year
+    // a person typed is a stated year; a year INFERRED from "present day" is not, and still resolves
+    // DEFAULTED_PRESENT below however it arrives.
+    //
+    // Two different years in one era string is a contradiction the writer must settle, exactly as
+    // two disagreeing datings in the material are.
+    //
+    // NOT HANDLED, and said rather than hidden: if the material dates itself AND the writer types a
+    // different year, rung 1 returns first and the typed year is never compared. That disagreement
+    // is real and currently silent; surfacing it needs the rungs restructured to collect before they
+    // decide, which is its own change.
+    const eraYears = [...new Set(yearsInEraField(era))];
+    if (eraYears.length === 1) {
+      return { year: eraYears[0], provenance: 'COMPUTED', note: `You set the period to "${era}", so the present is ${eraYears[0]}.`, evidence: [era] };
+    }
+    if (eraYears.length > 1) {
+      return {
+        year: null, provenance: 'ASK',
+        note: `"${era}" names more than one year — ${eraYears.join(' and ')}. Set the present year yourself.`,
+        evidence: [era], conflict: { years: eraYears, pairs: [era] },
+      };
     }
     if (readsAsContemporary(era)) {
       return { year: currentYear, provenance: 'DEFAULTED_PRESENT', note: 'Your setting reads as the present day, so the present year is this year.', evidence: [era] };
