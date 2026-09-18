@@ -1457,9 +1457,42 @@ export class ScripOnService {
     // Continuation backstop — if a long array stage cut off mid-array, extend it to the
     // ending instead of silently persisting the partial (salvage alone left no cliffhanger).
     const ARRKEY: Record<string, string> = { SCENES: 'scenes', STEP_OUTLINE: 'steps' };
+    // SEEDED FROM THE FIRST RESPONSE, BEFORE THE GUARD BELOW CAN DECLINE TO RUN.
+    //
+    // The guard needs at least one parsed item, so a stage that produced NOTHING never reaches
+    // extendStageArray and would record no ceiling at all — the outcome where "did it hit the wall?"
+    // is the first question anyone asks, and the one case where AiRun alone had to answer it. `res`
+    // already carries both numbers; ext overwrites them when a continuation runs.
+    //
+    // BOTH CALLS ARE KEPT, NEVER REPLACED. An earlier version overwrote this seed with the
+    // continuation's numbers, so any run with passes >= 1 described only its TAIL: the row read
+    // "end_turn, comfortable" for a stage whose FIRST call had returned max_tokens or unparsable
+    // JSON — which is precisely why a continuation ran. The fact that made the stage continue was
+    // the one fact the row did not carry, which is the defect this field was added to end.
+    //
+    // Deliberately wider than the array stages: every kind records what it spent against its
+    // ceiling, so a prose stage that stopped at max_tokens says so on its own row too.
+    const firstCeiling = { stopReason: (res && res.stopReason) ?? null, outputTokens: (res && res.usage && res.usage.output_tokens) ?? null };
+    ai.__ceiling = { first: firstCeiling, last: firstCeiling, maxTokens: cap, passes: 0 };
     if (ARRKEY[kind] && Array.isArray(ai[ARRKEY[kind]]) && ai[ARRKEY[kind]].length) {
       const ext = await this.extendStageArray({ kind, arrKey: ARRKEY[kind], system: brief.system, user, cap, firstRes: res, firstArr: ai[ARRKEY[kind]], projectId });
       ai[ARRKEY[kind]] = ext.arr;
+      // F5 — THE PREDICATE'S INPUTS ARE RECORDED ON EVERY RUN, NOT ONLY WHEN IT FIRES.
+      //
+      // These three numbers are what the truncation predicate reads: a provider stop reason, the
+      // tokens used, and the ceiling they are measured against. They were persisted only inside the
+      // `ext.warning` branch — so the stage row carried them exactly when a continuation happened
+      // and discarded them exactly when one did not. "Did not" is the branch the stop-reason rule
+      // was written for: on 17 Sep a SCENES run finished at 24,494 of 25,000 (98.0%) with
+      // `end_turn` and made zero continuations, which is the first live evidence that the rule
+      // changes an outcome — and the stage row it produced recorded none of it.
+      //
+      // The numbers survive in AiRun either way (finish() writes them on every completed call), so
+      // this is bookkeeping, not a hole: it removes a join by task and timestamp, and it puts the
+      // evidence on the row a reader is already looking at.
+      // The SEED is preserved — `first` is what made the predicate continue, `last` is where it
+      // finished. At passes 0 they are the same object and say so honestly.
+      ai.__ceiling = { first: firstCeiling, last: { stopReason: ext.last?.stopReason ?? null, outputTokens: ext.last?.outputTokens ?? null }, maxTokens: cap, passes: ext.passes ?? 0 };
       if (ext.warning) {
         ai.__warning = ext.warning;
         ai.__truncated = truncationFlag({ stopReason: ext.last?.stopReason, outputTokens: ext.last?.outputTokens, maxTokens: cap }, { items: ext.arr.length, passes: ext.passes });
@@ -1473,6 +1506,8 @@ export class ScripOnService {
     if (kind === 'VIDEO_PROMPT' && ai && (ai.shots || ai.format)) data.videoPayload = { format: ai.format || 'VERTICAL_AI_VIDEO', aspectRatio: ai.aspectRatio || '9:16', shots: ai.shots || [] };
     if (ai.__warning) data.warning = ai.__warning; // persisted so a still-truncated outline is never silent
     if (ai.__truncated) data.truncated = ai.__truncated; // and as a flag, so "is this stage done?" can read it
+    // UNCONDITIONAL, unlike the two above: a clean run is exactly the case whose numbers were lost.
+    if (ai.__ceiling) data.ceiling = ai.__ceiling;
     const maxN = (stage.versions || []).reduce((m: number, v: any) => Math.max(m, v.n || 0), 0);
     const n = maxN + 1;
     const META = new Set(['title', 'format', 'rating', 'totalScenes', 'type', 'genre']);
