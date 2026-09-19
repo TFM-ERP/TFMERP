@@ -19,6 +19,7 @@ import {
   genreProfileTable,
   type FeatureLengthPlan, type LineBudget, type GenreOverride, type GenreProfileRow,
 } from './feature-length.util';
+import { draftLengthCheck } from './draft-length.util';
 import {
   classifyLine, nextInSpeech, checkScene, checkDraftContinuity, checkPlanCast, stripExitedCast,
   collectExits, unavailableLine, dedupeScenes, repairInstruction, summariseContinuity,
@@ -1634,6 +1635,19 @@ export class ScripOnService {
     }
     // Every piece, as written and joined — so a draft made of pieces can be audited seam by seam.
     if (draftCont) data.draftPieces = draftCont.pieces;
+    // F9 — THE DRAFT STATES ITS PAGE COUNT AGAINST THE TARGET, SO A SEED ANNOUNCES ITSELF.
+    //
+    // Report-only, DRAFT only, and measured with THIS SERVICE'S OWN PAGINATOR — the same call the
+    // script screen and the feature writer make. A newline count is not a page count: the ladder
+    // draft that prompted this read 38 by newlines and 57 by paginate(), and the 19-page gap is
+    // exactly the wrap cost and slug geometry paginate() charges for. Counted on the body as it is
+    // about to be stored, so the number describes the artifact on the row and nothing else.
+    if (draftRaw) {
+      try {
+        data.lengthCheck = draftLengthCheck(this.paginate(body).length, planFeatureLength(ownBrief));
+        this.log.log('generateStage DRAFT: LENGTH — ' + data.lengthCheck.state + '. ' + data.lengthCheck.note);
+      } catch (e: any) { this.log.warn('generateStage DRAFT: length check failed — ' + String(e?.message || e)); }
+    }
     // THE CANON ACCOUNT TRAVELS WITH THE DRAFT. Which facts and rules were extracted, which reached
     // this prompt, and which were dropped — persisted on the version, so it is answerable months
     // later without the log buffer, and so a dropped prohibition is visible where the writing is.

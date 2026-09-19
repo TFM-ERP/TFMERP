@@ -634,6 +634,15 @@ export interface FeatureLengthPlan {
   formatKey: string;
   /** Pages the finished draft should reach. */
   targetPages: number;
+  /**
+   * WHERE `targetPages` CAME FROM — and it is not decoration.
+   *
+   * An empty brief silently collects the genre profile's default and reports it in exactly the same
+   * field, with exactly the same confidence, as a page count the producer typed. "110" then means
+   * either "this film is 110 pages" or "nobody said, so we assumed" — one number, two worlds, which
+   * is the defect the three-state checks exist to prevent. Stated, so a reader can tell.
+   */
+  targetFrom: 'BRIEF' | 'DEFAULT';
   /** Screen-time estimate for display. Always present it as "approximately". */
   targetMinutes: number;
   /**
@@ -703,6 +712,7 @@ export function planFeatureLength(brief: any, beatN = 0): FeatureLengthPlan {
     genreKey: g.key,
     formatKey: band.key,
     targetPages,
+    targetFrom: asked != null ? 'BRIEF' : 'DEFAULT',
     targetMinutes: Math.round(targetPages / g.pagesPerMinute),
     targetScenes,
     pagesPerScene: pagesPerSceneFloor(g.sceneDensity, texture),
