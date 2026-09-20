@@ -1,6 +1,8 @@
 'use client';
 
 import React from 'react';
+// One money formatter for both render paths — see the note on fmtAmt there.
+import { fmtAmt } from '@/lib/reportTemplate';
 
 /**
  * Shared commercial-document renderer for Invoices and Quotations.
@@ -84,12 +86,85 @@ export const DEFAULT_DOC_SETTINGS: Required<Omit<DocumentSettings, 'columns'>> &
   columns: COLUMN_DEFS.map(c => ({ key: c.key, show: true, width: c.width })),
 };
 
-const fmtAmt = (n: any) =>
-  Number(n ?? 0).toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtDate = (d: any) =>
   d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
 const GOLD_D = '#8B6914';
+
+/* ── Print foundation ──────────────────────────────────────────────────────
+ * Every financial document shares one @page rule and one set of page-break
+ * rules. Page margins derive from pageMarginX/Y so the Report Designer keeps
+ * control of geometry and the screen preview still matches the printed page:
+ * on paper @page owns the margin and the element padding is zeroed, so the
+ * two are never added together.
+ */
+const PX_TO_MM = 25.4 / 96;
+/** A4 geometry from references/visual-and-print-standard.md — @page { margin: 10mm 12mm }. */
+const MIN_MARGIN_X_MM = 12;
+const MIN_MARGIN_Y_MM = 10;
+const mm = (px: number) => Math.round(px * PX_TO_MM * 10) / 10;
+/** Bottom margin reserved so the print dialog's page-number footer (or a server-side
+ *  PDF footerTemplate) has somewhere to land without colliding with content.
+ *  The document cannot draw the numbers itself: Chrome resolves counter(page) only
+ *  inside @page margin boxes, which it does not implement, and a position:fixed band
+ *  paints on page 1 only. Visual standard requires >= 12mm. */
+const FOOTER_ZONE_MM = 14;
+
+/** Screen chrome shared by the print routes — toolbar hiding and colour fidelity. */
+export const PRINT_CHROME_CSS = `
+@media print {
+  html, body { background: #fff !important; }
+  body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  .print\\:hidden { display: none !important; }
+  .print\\:pt-0 { padding-top: 0 !important; }
+}`;
+
+/** The document's own print rules. Exported so a custom template can reuse the geometry. */
+export function buildDocPrintCss(settings?: DocumentSettings | null): string {
+  const S = { ...DEFAULT_DOC_SETTINGS, ...(settings || {}) };
+  // The visual standard's A4 geometry is a floor, not a suggestion: a profile may
+  // widen the margin but never narrow it below what a printer can actually reach.
+  // (One live profile stores 24/11px, which would derive a 2.9mm top margin.)
+  const mx = Math.max(MIN_MARGIN_X_MM, mm(Number(S.pageMarginX) || 0));
+  const my = Math.max(MIN_MARGIN_Y_MM, mm(Number(S.pageMarginY) || 0));
+  const mb = Math.max(FOOTER_ZONE_MM, my);
+  return `
+@page { size: A4; margin: ${my}mm ${mx}mm ${mb}mm; }
+@page :first { margin-top: ${Math.max(0, my - 2)}mm; }
+
+/* Tabular figures so decimals line up down a column — screen and paper alike. */
+.tfm-doc__num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+
+@media print {
+  /* @page owns the margin on paper; drop the element padding so they don't stack. */
+  .tfm-doc { max-width: none !important; margin: 0 !important; padding: 0 !important; }
+  .tfm-doc { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  /* Line-item header repeats on every page; tfoot carries forward. */
+  .tfm-doc__items thead { display: table-header-group; }
+  .tfm-doc__items tfoot { display: table-footer-group; }
+  .tfm-doc__items th { break-inside: avoid; page-break-inside: avoid; }
+
+  /* A row never splits across a page break. */
+  .tfm-doc tr { break-inside: avoid; page-break-inside: avoid; }
+
+  /* The totals block never orphans onto a page of its own. Chrome honours
+     break-after on the preceding table far more reliably than break-before on
+     the block itself, so both are stated. */
+  .tfm-doc__items { break-after: avoid; page-break-after: avoid; }
+  .tfm-doc__totals { break-inside: avoid; page-break-inside: avoid; break-before: avoid; page-break-before: avoid; }
+
+  /* Keep these blocks whole rather than split them across a fold. */
+  .tfm-doc__parties, .tfm-doc__bank, .tfm-doc__signature,
+  .tfm-doc__notes, .tfm-doc__footer { break-inside: avoid; page-break-inside: avoid; }
+
+  /* A heading never sits alone at the foot of a page. */
+  .tfm-doc__heading { break-after: avoid; page-break-after: avoid; }
+
+}
+
+`;
+}
 
 interface Props {
   type: 'invoice' | 'quotation';
@@ -185,7 +260,9 @@ export default function DocumentLayout({ type, doc, company, bank, settings, log
       case 'days': return item.days ?? 1;
       case 'price': return fmtAmt(item.unitPrice);
       case 'total': return fmtAmt(item.lineTotal);
-      case 'vatrate': return lineVat > 0 ? `${vatRate}%` : '0%';
+      // Non-zero tax means the line is rated, whichever sign it carries. A credit
+      // note reverses a rated line, so its rate is 5%, not 0%.
+      case 'vatrate': return lineVat !== 0 ? `${vatRate}%` : '0%';
       case 'vatamt': return fmtAmt(lineVat);
       default: return '';
     }
@@ -207,7 +284,7 @@ export default function DocumentLayout({ type, doc, company, bank, settings, log
       </div>
     ),
     parties: (
-      <div key="parties" style={{ display: 'flex', alignItems: 'stretch', marginBottom: 20 }}>
+      <div key="parties" className="tfm-doc__parties" style={{ display: 'flex', alignItems: 'stretch', marginBottom: 20 }}>
         <div style={{ flex: '0 0 220px', paddingInlineEnd: 4 }}>
           {[
             { k: 'Name', v: co?.name ?? 'The Film Makers FZ LLC', bold: true },
@@ -239,7 +316,7 @@ export default function DocumentLayout({ type, doc, company, bank, settings, log
       </div>
     ),
     items: (
-      <table key="items" style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 10, border: '1px solid #ddd', fontSize: BASE }}>
+      <table key="items" className="tfm-doc__items" style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 10, border: '1px solid #ddd', fontSize: BASE }}>
         <thead>
           <tr style={{ background: '#F2EAD3' }}>
             {cols.map((h, i) => (
@@ -251,7 +328,7 @@ export default function DocumentLayout({ type, doc, company, bank, settings, log
           {items.map((item: any, ri: number) => (
             <tr key={item.id ?? ri} style={{ background: ri % 2 === 0 ? '#fff' : '#FDFAF4' }}>
               {cols.map((c, ci) => (
-                <td key={c.key} style={{ padding: '6px 8px', textAlign: c.align as any, borderBottom: '1px solid #eee', borderRight: ci < cols.length - 1 ? '1px solid #eee' : undefined, verticalAlign: 'top' }}>{cellVal(item, c.key)}</td>
+                <td key={c.key} className={c.key === 'desc' ? undefined : 'tfm-doc__num'} style={{ padding: '6px 8px', textAlign: c.align as any, borderBottom: '1px solid #eee', borderRight: ci < cols.length - 1 ? '1px solid #eee' : undefined, verticalAlign: 'top' }}>{cellVal(item, c.key)}</td>
               ))}
             </tr>
           ))}
@@ -259,39 +336,39 @@ export default function DocumentLayout({ type, doc, company, bank, settings, log
       </table>
     ),
     totals: (
-      <div key="totals" style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 24 }}>
+      <div key="totals" className="tfm-doc__totals" style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 24 }}>
         <table style={{ borderCollapse: 'collapse', border: '1px solid #ddd', fontSize: BASE }}>
           <tbody>
             <tr>
               <td style={{ padding: '5px 10px', fontWeight: 700, textAlign: 'end', borderBottom: '1px solid #eee', borderRight: '1px solid #eee', background: '#fafafa', color: NAVY, minWidth: 200 }}>Total Amount</td>
-              <td style={{ padding: '5px 10px', textAlign: 'end', borderBottom: '1px solid #eee', borderRight: '1px solid #eee', minWidth: 100 }}>{fmtAmt(subtotal)}</td>
-              <td style={{ padding: '5px 10px', textAlign: 'end', borderBottom: '1px solid #eee', minWidth: 90 }}>{fmtAmt(vatAmount)}</td>
+              <td className="tfm-doc__num" style={{ padding: '5px 10px', textAlign: 'end', borderBottom: '1px solid #eee', borderRight: '1px solid #eee', minWidth: 100 }}>{fmtAmt(subtotal)}</td>
+              <td className="tfm-doc__num" style={{ padding: '5px 10px', textAlign: 'end', borderBottom: '1px solid #eee', minWidth: 90 }}>{fmtAmt(vatAmount)}</td>
             </tr>
             {discountAmt > 0 && (
               <tr>
                 <td style={{ padding: '5px 10px', fontWeight: 700, textAlign: 'end', borderBottom: '1px solid #eee', borderRight: '1px solid #eee', background: '#fafafa', color: NAVY }}>Discount</td>
-                <td colSpan={2} style={{ padding: '5px 10px', textAlign: 'end', borderBottom: '1px solid #eee', color: '#c0392b' }}>− {fmtAmt(discountAmt)}</td>
+                <td colSpan={2} className="tfm-doc__num" style={{ padding: '5px 10px', textAlign: 'end', borderBottom: '1px solid #eee', color: '#c0392b' }}>− {fmtAmt(discountAmt)}</td>
               </tr>
             )}
             {deductionAmt > 0 && (
               <tr>
                 <td style={{ padding: '5px 10px', fontWeight: 700, textAlign: 'end', borderBottom: '1px solid #eee', borderRight: '1px solid #eee', background: '#fafafa', color: NAVY }}>Deduction{doc.deductionReason ? ` (${doc.deductionReason})` : ''}</td>
-                <td colSpan={2} style={{ padding: '5px 10px', textAlign: 'end', borderBottom: '1px solid #eee', color: '#c0392b' }}>− {fmtAmt(deductionAmt)}</td>
+                <td colSpan={2} className="tfm-doc__num" style={{ padding: '5px 10px', textAlign: 'end', borderBottom: '1px solid #eee', color: '#c0392b' }}>− {fmtAmt(deductionAmt)}</td>
               </tr>
             )}
             <tr>
               <td style={{ padding: '6px 10px', fontWeight: 700, textAlign: 'end', borderBottom: '1px solid #eee', borderRight: '1px solid #eee', background: '#F2EAD3', color: NAVY }}>Total Amount Inclusive of VAT</td>
-              <td colSpan={2} style={{ padding: '6px 10px', textAlign: 'end', fontWeight: 700, borderBottom: '1px solid #eee', background: '#F2EAD3' }}>{cur} {fmtAmt(total)}</td>
+              <td className="tfm-doc__num" colSpan={2} style={{ padding: '6px 10px', textAlign: 'end', fontWeight: 700, borderBottom: '1px solid #eee', background: '#F2EAD3' }}>{cur} {fmtAmt(total)}</td>
             </tr>
             {!isQuote && (
               <>
                 <tr>
                   <td style={{ padding: '5px 10px', fontWeight: 700, textAlign: 'end', borderBottom: '1px solid #eee', borderRight: '1px solid #eee', background: '#fafafa', color: NAVY }}>Amount Settled / Adjusted</td>
-                  <td colSpan={2} style={{ padding: '5px 10px', textAlign: 'end', borderBottom: '1px solid #eee' }}>{fmtAmt(amountPaid)}</td>
+                  <td className="tfm-doc__num" colSpan={2} style={{ padding: '5px 10px', textAlign: 'end', borderBottom: '1px solid #eee' }}>{fmtAmt(amountPaid)}</td>
                 </tr>
                 <tr>
                   <td style={{ padding: '7px 10px', fontWeight: 700, textAlign: 'end', borderRight: '1px solid #555', background: NAVY, color: 'white' }}>Balance Due Amount</td>
-                  <td colSpan={2} style={{ padding: '7px 10px', textAlign: 'end', fontWeight: 700, fontSize: BASE + 1, background: GOLD, color: 'white' }}>{cur} {fmtAmt(amountDue)}</td>
+                  <td className="tfm-doc__num" colSpan={2} style={{ padding: '7px 10px', textAlign: 'end', fontWeight: 700, fontSize: BASE + 1, background: GOLD, color: 'white' }}>{cur} {fmtAmt(amountDue)}</td>
                 </tr>
               </>
             )}
@@ -305,8 +382,8 @@ export default function DocumentLayout({ type, doc, company, bank, settings, log
       </div>
     ),
     bank: (S.showBankBlock && bank) ? (
-      <div key="bank" style={{ marginBottom: 24 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: NAVY, marginBottom: 12 }}>{isQuote ? 'Bank Details (for reference)' : 'Payment Method'}</div>
+      <div key="bank" className="tfm-doc__bank" style={{ marginBottom: 24 }}>
+        <div className="tfm-doc__heading" style={{ fontSize: 12, fontWeight: 700, color: NAVY, marginBottom: 12 }}>{isQuote ? 'Bank Details (for reference)' : 'Payment Method'}</div>
         <div style={{ display: 'flex', alignItems: 'stretch', fontSize: BASE }}>
           <div style={{ flex: '0 0 200px', paddingInlineEnd: 4 }}>
             <div style={{ fontWeight: 700, color: NAVY, marginBottom: 3 }}>Cheques Payable to</div>
@@ -344,7 +421,7 @@ export default function DocumentLayout({ type, doc, company, bank, settings, log
       </div>
     ) : null,
     signature: (isQuote && S.showSignature) ? (
-      <div key="signature" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 36, marginTop: 28, marginBottom: 16 }}>
+      <div key="signature" className="tfm-doc__signature" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 36, marginTop: 28, marginBottom: 16 }}>
         {[`Authorised Signature — ${co?.name ?? 'The Film Makers FZ LLC'}`, `Client Acceptance — ${client?.companyName ?? ''}`].map((label, i) => (
           <div key={i}>
             <div style={{ borderTop: '1px solid #aaa', paddingTop: 5 }}>
@@ -356,13 +433,13 @@ export default function DocumentLayout({ type, doc, company, bank, settings, log
       </div>
     ) : null,
     notes: (!isQuote && doc.notes) ? (
-      <div key="notes" style={{ marginBottom: 18, padding: '8px 12px', background: '#FDFAF4', border: '1px solid #EEE8D8', borderRadius: 3, fontSize: BASE }}>
+      <div key="notes" className="tfm-doc__notes" style={{ marginBottom: 18, padding: '8px 12px', background: '#FDFAF4', border: '1px solid #EEE8D8', borderRadius: 3, fontSize: BASE }}>
         <div style={{ fontWeight: 700, color: GOLD_D, marginBottom: 2, fontSize: BASE - 0.5, textTransform: 'uppercase', letterSpacing: 0.5 }}>Notes</div>
         <div style={{ color: '#555' }}>{doc.notes}</div>
       </div>
     ) : null,
     footer: (
-      <div key="footer" style={{ borderTop: '1px solid #ddd', marginTop: 20, paddingTop: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <div key="footer" className="tfm-doc__footer" style={{ borderTop: '1px solid #ddd', marginTop: 20, paddingTop: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div style={{ color: '#999', fontSize: 8, maxWidth: '65%', lineHeight: 1.5 }}>{isQuote ? S.quotationFooter : S.invoiceFooter}</div>
         <div style={{ textAlign: 'end', color: '#999', fontSize: 8, lineHeight: 1.6 }}>
           {co?.website && <div>{co.website}</div>}
@@ -374,7 +451,8 @@ export default function DocumentLayout({ type, doc, company, bank, settings, log
   };
 
   return (
-    <div style={{ maxWidth: 794, margin: '0 auto', padding: `${S.pageMarginY}px ${S.pageMarginX}px`, background: '#fff', position: 'relative', fontFamily: S.fontFamily, fontSize: BASE, color: '#222', lineHeight: 1.45 }}>
+    <div className="tfm-doc" style={{ maxWidth: 794, margin: '0 auto', padding: `${S.pageMarginY}px ${S.pageMarginX}px`, background: '#fff', position: 'relative', fontFamily: S.fontFamily, fontSize: BASE, color: '#222', lineHeight: 1.45 }}>
+      <style dangerouslySetInnerHTML={{ __html: buildDocPrintCss(settings) }} />
       {order.map(k => Section[k])}
     </div>
   );

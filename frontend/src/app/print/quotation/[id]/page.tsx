@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { financeApi, settingsApi } from '@/lib/api';
-import DocumentLayout, { DEFAULT_DOC_SETTINGS } from '@/components/finance/DocumentLayout';
+import DocumentLayout, { DEFAULT_DOC_SETTINGS, PRINT_CHROME_CSS, buildDocPrintCss } from '@/components/finance/DocumentLayout';
 import { renderTemplate, buildContext } from '@/lib/reportTemplate';
 
 const GOLD = '#0f172a';
@@ -74,14 +74,10 @@ export default function QuotationPrintPage() {
         )}
       </div>
 
-      <style>{`
-        @media print {
-          @page { size: A4; margin: 8mm 10mm; }
-          body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-          .print\\:hidden { display: none !important; }
-          .print\\:pt-0  { padding-top: 0 !important; }
-        }
-      `}</style>
+      {/* Screen chrome only. The @page geometry and page-break rules live in
+          DocumentLayout so every financial document shares one source. A custom
+          template bypasses that component, so it gets the geometry directly. */}
+      <style dangerouslySetInnerHTML={{ __html: PRINT_CHROME_CSS + (useTpl ? buildDocPrintCss(settings) : '') }} />
     </>
   );
 }

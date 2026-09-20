@@ -62,8 +62,14 @@ export default function FinanceDashboard() {
         const key = `${year}-${String(i + 1).padStart(2, '0')}`;
         return {
           name,
-          Rental: rev.RENTAL?.[key] || 0,
-          Production: rev.PRODUCTION?.[key] || 0,
+          // Keys are GL revenue-line labels now, not Activity enum values. The
+          // old rev.RENTAL / rev.PRODUCTION silently charted zero for every
+          // BOTH invoice — 92% of revenue — and the endpoint itself 500'd on
+          // any activity outside the three it hardcoded.
+          Rental: rev['Rental']?.[key] || 0,
+          Production: rev['Production']?.[key] || 0,
+          'Rental + Production': rev['Rental + Production']?.[key] || 0,
+          Other: rev['Other']?.[key] || 0,
         };
       });
       setChartData(chart);
@@ -155,11 +161,15 @@ export default function FinanceDashboard() {
                 cursor={{ fill: 'var(--surface-2)', opacity: 0.5 }} />
               <Bar dataKey="Rental" fill="#3E7CB1" radius={[3,3,0,0]} />
               <Bar dataKey="Production" fill="#C0954A" radius={[3,3,0,0]} />
+              <Bar dataKey="Rental + Production" fill="#6B8F71" radius={[3,3,0,0]} />
+              <Bar dataKey="Other" fill="#9A8C98" radius={[3,3,0,0]} />
             </BarChart>
           </ResponsiveContainer>
           <div className="flex gap-4 mt-2 text-xs" style={{ color: 'var(--text-3)' }}>
             <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm inline-block" style={{ background: '#3E7CB1' }}/> {t('Rental')}</span>
             <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm inline-block" style={{ background: '#C0954A' }}/> {t('Production')}</span>
+            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm inline-block" style={{ background: '#6B8F71' }}/> {t('Rental + Production')}</span>
+            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm inline-block" style={{ background: '#9A8C98' }}/> {t('Other')}</span>
           </div>
         </div>
 

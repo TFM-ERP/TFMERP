@@ -5,7 +5,8 @@ import React from 'react';
 import { SxRail } from './ScriptOnStudio';
 import { useLocale } from '@/lib/i18n';
 import ReviewProtectionPanel from './ReviewProtectionPanel';
-import { aiEnginesApi, scriptAudioApi, videoEnginesApi } from '@/lib/api';
+import GenreProfilePanel, { type GenreRow, type GenreOverride } from './GenreProfilePanel';
+import { aiEnginesApi, productionApi, scriptAudioApi, videoEnginesApi } from '@/lib/api';
 
 export type SxRun = { surface: string; model: string; tokens: string; conf: number; status: string; statusClass: string; when: string };
 
@@ -85,21 +86,113 @@ const SUBNAV = [
   { k: 'workspace', label: 'Workspace', d: <path d="M3 9l9-7 9 7v11H3z" /> },
   { k: 'ai', label: 'AI Governance', d: <path d="M12 3l1.9 5.6L19.5 9l-4.5 3.3L16.8 18 12 14.7 7.2 18l1.8-5.7L4.5 9z" /> },
   { k: 'protection', label: 'Review Protection', d: <path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6zM9 12l2 2 4-4" /> },
+  { k: 'genres', label: 'Genre profiles', d: <path d="M3 5h18M3 12h12M3 19h7M17 11.5l4.5 3.5-4.5 3.5z" /> },
   { k: 'members', label: 'Members & roles', d: <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8z" /> },
   { k: 'tenancy', label: 'Companies & tenancy', d: <path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4" /> },
   { k: 'integrations', label: 'Integrations', d: <path d="M10 13a5 5 0 007 0l3-3a5 5 0 00-7-7l-1 1M14 11a5 5 0 00-7 0l-3 3a5 5 0 007 7l1-1" /> },
   { k: 'billing', label: 'Billing', d: <><rect x="2" y="5" width="20" height="14" rx="2" /><path d="M2 10h20" /></> },
 ];
 
+/** One entry per settings section that renders in-place. A section with no entry here is a nav item
+ *  the parent routes elsewhere, which is why the click handler below falls through to onAction. */
+type SetSection = 'ai' | 'protection' | 'genres';
+const HEADS: Record<SetSection, { h: string; sub: string }> = {
+  ai: {
+    h: 'AI Governance',
+    sub: 'One model gateway, one audit trail. Every ScriptON Doctor run is versioned, scored for confidence, and logged.',
+  },
+  protection: {
+    h: 'Review Protection',
+    sub: 'Recipient-watermarked, permission-locked, audit-logged review copies. Set the workspace default here.',
+  },
+  genres: {
+    h: 'Genre profiles',
+    sub: 'The genre length table the planner actually reads, and the overrides layered on top of it. The table itself is never edited.',
+  },
+};
+
 export default function ScriptOnSettings(props: {
   companyName: string; model: string; promptSet: string; confidence: number; humanApproval: boolean;
   runs: SxRun[]; runsMeta: string; onAction: (k: string) => void; onNav: (k: string) => void; onBack: () => void; toast?: string | null;
 }) {
   const { dir, t } = useLocale();
-  const [section, setSection] = React.useState<'ai' | 'protection'>('ai');
+  const [section, setSection] = React.useState<SetSection>('ai');
   const [live, setLive] = React.useState<any>({});
   const [feed, setFeed] = React.useState<any>(null);
   const [rf, setRf] = React.useState<{ hours: number; surface?: string; status?: string; size?: string }>({ hours: 24 });
+
+  // --- Genre profiles ----------------------------------------------------------------------------
+  // This section owns its own persistence, exactly as ReviewProtectionPanel does, and for the same
+  // reason: it is not part of the AI Governance form the top-bar Save button submits.
+  //
+  // The rows are DERIVED server-side from feature-length.util.ts and are never stored, so the screen
+  // holds no second copy of the genre table and cannot show one that has drifted from the table the
+  // planner uses. What is stored is only the override list.
+  const [genreRows, setGenreRows] = React.useState<GenreRow[]>([]);
+  const [genreOv, setGenreOv] = React.useState<GenreOverride[]>([]);
+  const [genreDefaults, setGenreDefaults] = React.useState<Record<string, any>>({});
+  const [genreProjectId, setGenreProjectId] = React.useState<string>('');
+  const [genreSaving, setGenreSaving] = React.useState<boolean>(false);
+  const [genreNote, setGenreNote] = React.useState<string>('');
+  const genreLoaded = React.useRef<boolean>(false);
+  const genreTimer = React.useRef<any>(null);
+  // Every edit takes a number. A save may only write its result back to the screen if no newer edit
+  // has been made since it left, otherwise a slow response overwrites what the user has just typed.
+  const genreSeq = React.useRef<number>(0);
+
+  React.useEffect(() => {
+    if (section !== 'genres' || genreLoaded.current) return;
+    let ok = true;
+    productionApi.scripton.settings('').then((r: any) => {
+      if (!ok) return;
+      const d: any = r && r.data ? r.data : {};
+      genreLoaded.current = true;
+      setGenreRows(Array.isArray(d.genreProfiles) ? d.genreProfiles : []);
+      const defs: any = d.defaults && typeof d.defaults === 'object' ? d.defaults : {};
+      setGenreDefaults(defs);
+      setGenreOv(Array.isArray(defs.genreOverrides) ? defs.genreOverrides : []);
+      setGenreProjectId(typeof d.projectId === 'string' ? d.projectId : '');
+      setGenreNote('');
+    }).catch(() => {
+      if (ok) setGenreNote('Could not load the genre table. Nothing below is the table the planner is using \u2014 do not edit it.');
+    });
+    return () => { ok = false; };
+  }, [section]);
+
+  const persistGenres = React.useCallback((next: GenreOverride[], seq: number) => {
+    setGenreSaving(true);
+    // The defaults column is replaced WHOLESALE on the server, so the whole object that was read back
+    // has to travel with the change. Sending only { genreOverrides } would erase every other default.
+    productionApi.scripton.saveSettings({
+      projectId: genreProjectId || undefined,
+      defaults: { ...genreDefaults, genreOverrides: next },
+    }).then((r: any) => {
+      if (seq !== genreSeq.current) return;   // a newer edit is already in flight; its answer wins
+      const d: any = r && r.data ? r.data : {};
+      // Trust the server's resolved rows over the local guess: it re-derives them through the same code
+      // the planner reads, so a value the server refused shows here as unchanged rather than as saved.
+      if (Array.isArray(d.genreProfiles)) setGenreRows(d.genreProfiles);
+      const defs: any = d.defaults && typeof d.defaults === 'object' ? d.defaults : null;
+      if (defs) {
+        setGenreDefaults(defs);
+        setGenreOv(Array.isArray(defs.genreOverrides) ? defs.genreOverrides : []);
+      }
+      setGenreNote('');
+    }).catch(() => {
+      if (seq === genreSeq.current) setGenreNote('That change was not saved. What is on screen is not what is on the server.');
+    }).then(() => {
+      if (seq === genreSeq.current) setGenreSaving(false);
+    });
+  }, [genreDefaults, genreProjectId]);
+
+  const onGenreChange = React.useCallback((next: GenreOverride[]) => {
+    setGenreOv(next);                       // the field must never fight the person typing in it
+    const seq = ++genreSeq.current;
+    if (genreTimer.current) clearTimeout(genreTimer.current);
+    genreTimer.current = setTimeout(() => persistGenres(next, seq), 700);
+  }, [persistGenres]);
+
+  React.useEffect(() => () => { if (genreTimer.current) clearTimeout(genreTimer.current); }, []);
   React.useEffect(() => { let ok = true; Promise.all([aiEnginesApi.health().catch(() => ({ data: null })), videoEnginesApi.health().catch(() => ({ data: null })), scriptAudioApi.engines().catch(() => ({ data: [] }))]).then(([l, v, a]: any) => { if (ok) setLive({ llm: l.data, video: v.data, audio: a.data }); }); return () => { ok = false; }; }, []);
   React.useEffect(() => { let ok = true; aiEnginesApi.runs({ hours: rf.hours, surface: rf.surface, status: rf.status, size: rf.size, limit: 60 }).then((r: any) => { if (ok) setFeed(r.data); }).catch(() => { if (ok) setFeed({ runs: [], surfaces: [], sizes: [] }); }); return () => { ok = false; }; }, [rf.hours, rf.surface, rf.status, rf.size]);
   const llmLive = (live.llm?.providers || []).filter((p: any) => p.usable).length, llmTot = (live.llm?.providers || []).length;
@@ -118,11 +211,14 @@ export default function ScriptOnSettings(props: {
         <div className="body">
           <SxRail active="settings" />
           <div className="main"><div className="content">
-            <div className="phead"><h1>{section === 'protection' ? t('Review Protection') : t('AI Governance')}</h1><div className="sub">{section === 'protection' ? t('Recipient-watermarked, permission-locked, audit-logged review copies. Set the workspace default here.') : t('One model gateway, one audit trail. Every ScriptON Doctor run is versioned, scored for confidence, and logged.')}</div></div>
+            <div className="phead"><h1>{t(HEADS[section].h)}</h1><div className="sub">{t(HEADS[section].sub)}</div></div>
             <div className="setgrid">
-              <div className="subnav">{SUBNAV.map((s) => (<button key={s.k} className={'sni' + (s.k === section ? ' on' : '')} onClick={() => s.k === 'ai' ? setSection('ai') : s.k === 'protection' ? setSection('protection') : props.onAction('subnav')}><svg className="ico" viewBox="0 0 24 24">{s.d}</svg>{t(s.label)}</button>))}</div>
+              <div className="subnav">{SUBNAV.map((s) => (<button key={s.k} className={'sni' + (s.k === section ? ' on' : '')} onClick={() => (Object.prototype.hasOwnProperty.call(HEADS, s.k) ? setSection(s.k as SetSection) : props.onAction('subnav'))}><svg className="ico" viewBox="0 0 24 24">{s.d}</svg>{t(s.label)}</button>))}</div>
               <div className="setmain">
-                {section === 'protection' ? <ReviewProtectionPanel /> : <>
+                {section === 'protection' ? <ReviewProtectionPanel /> : section === 'genres' ? <>
+                {genreNote ? <div className="panelcard" style={{ borderColor: 'var(--amber)', marginBottom: 12 }}><div className="eyebrow" style={{ color: 'var(--amber)' }}>{t('NOT SAVED')}</div><div className="sub" style={{ fontSize: 12 }}>{t(genreNote)}</div></div> : null}
+                <GenreProfilePanel rows={genreRows} overrides={genreOv} onChange={onGenreChange} saving={genreSaving} />
+                </> : <>
                 <div className="panelcard" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                   <div><div className="eyebrow">{t('ENGINES & ROUTING')}</div><div className="sub" style={{ fontSize: 12 }}>{t('Configure providers, failover order and telemetry for text, audio + video AI.')}</div></div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}><a className="btn gold" href="/setup/llm-engines">{t('AI Engines & Routing')}</a><a className="btn ghost" href="/setup/audio-engines">{t('Audio Engines')}</a><a className="btn ghost" href="/setup/video-engines">{t('Video Engines')}</a></div>

@@ -2,10 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
-import { reportsApi, settingsApi } from '@/lib/api';
+import { reportsApi, settingsApi, companyLogoUrl } from '@/lib/api';
+import DataNotice from '@/components/finance/DataNotice';
 
 const API_ROOT = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1').replace('/api/v1', '');
-const logoSrc = (v?: string) => (!v ? '' : (v.startsWith('http') || v.startsWith('data:')) ? v : `${API_ROOT}${v}`);
+// Uploaded files sit behind a Bearer token an <img> cannot send, so the old
+// `${API_ROOT}${v}` form resolved to a 404 and the logo never printed.
+const logoSrc = companyLogoUrl;
 const GOLD = '#0f172a', NAVY = '#1a1a2e';
 const fmtAmt = (n: any) => Number(n ?? 0).toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtCell = (v: any, fmt?: string) => {
@@ -58,6 +61,10 @@ export default function ReportPrintPage() {
             {logoSrc(co?.logoUrl) ? <img src={logoSrc(co.logoUrl)} alt="" style={{ height: 44, objectFit: 'contain' }} /> : null}
           </div>
           <div style={{ borderTop: `2px solid ${GOLD}`, margin: '10px 0 14px' }} />
+
+          {/* A report that does not tie to the ledger must say so on paper too —
+              the printed copy is the one that gets filed and reconciled. */}
+          <DataNotice notice={data.notice} print />
 
           {/* Table */}
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 9.5 }}>

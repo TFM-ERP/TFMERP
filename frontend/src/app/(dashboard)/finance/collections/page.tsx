@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Banknote, RefreshCw, Send, Settings, X, Mail, Play, FileText, AlertTriangle, Check } from 'lucide-react';
 import { collectionsApi } from '@/lib/api';
+import DataNotice from '@/components/finance/DataNotice';
 import { formatCurrency } from '@/lib/utils';
 import { useLocale } from '@/lib/i18n';
 
@@ -63,6 +64,8 @@ export default function CollectionsPage() {
       </div>
 
       {msg && <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">{msg}</div>}
+
+      <DataNotice notice={data?.notice} />
 
       {/* Aging tiles */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">

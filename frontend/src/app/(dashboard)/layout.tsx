@@ -11,7 +11,7 @@ import { useState, useEffect } from 'react';
 import SetupGate from '@/components/SetupGate';
 import NotificationBell from '@/components/NotificationBell';
 import PwaRegister from '@/components/PwaRegister';
-import { settingsApi, statusApi, permissionsApi, accountApi, assetUrl } from '@/lib/api';
+import { settingsApi, statusApi, permissionsApi, accountApi, assetUrl, companyLogoUrl } from '@/lib/api';
 import { useLocale, applyLocale } from '@/lib/i18n';
 import { useScriptonShellFlag } from '@/components/scripton/osShellFlag';
 import { rememberFilmosRoute } from '@/components/scripton/os-workspaces';
@@ -39,6 +39,7 @@ const MODULES: Module[] = [
     { label: 'Journal Entries', href: '/accounting/journals' },
     { label: 'Trial Balance', href: '/accounting/trial-balance' },
     { label: 'Bank Reconciliation', href: '/accounting/bank-rec' },
+    { label: 'Year End & Tax Filing', href: '/accounting/statutory' },
     { label: 'Tax Rates', href: '/finance/vat' },
   ]},
   { key: 'rentals', label: 'Rentals', icon: Truck, pages: [
@@ -193,8 +194,10 @@ const THEME_MENU: { id: string; name: string; hint: string }[] = [
   { id: 'daylight', name: 'Daylight', hint: 'High-contrast' },
 ];
 
-const API_ROOT = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1').replace('/api/v1', '');
-const fileSrc = (v?: string) => (!v ? '' : (v.startsWith('http') || v.startsWith('data:')) ? v : `${API_ROOT}${v}`);
+// The company logo goes through the shared helper. The old `${API_ROOT}${v}`
+// form pointed at /uploads, which sits behind a Bearer token an <img> cannot
+// send — a 404, so the app shell fell back to the bundled mark.
+const fileSrc = companyLogoUrl;
 
 const ALL_PAGES = MODULES.flatMap(m => m.pages.filter(p => !p.divider).map(p => ({ ...p, module: m.label, mkey: m.key })));
 

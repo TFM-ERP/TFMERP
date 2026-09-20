@@ -58,8 +58,26 @@ const AR_IE_WORD = /(داخلي|خارجي|د\s*\/\s*خ|خ\s*\/\s*د)/;
 const AR_TOD_WORD = /(ليل|نهار|صباح|مساء|فجر|ظهر|ظهيرة|غروب|شروق|الغسق|الفجر|متصل|لاحقاً|لاحقا|مستمر)/;
 const AR_TRANS_LINE = /^(?:قطع(?:\s+حاد)?(?:\s+مطابق)?(?:\s+قافز)?(?:\s+إلى)?\s*:?|مزج\s+إلى\s*:?|اختفاء(?:\s+تدريجي)?(?:\s+إلى\s+السواد)?\.?|ظهور\s+تدريجي\s*:?|العودة\s+إلى\s*:?|النهاية\.?|انتقال\s*:?)$/;
 const AR_SENT_END = /[\.!:؟؛،]$/;
-const AR_NUM = /[#:]?\s*([0-9٠-٩]+)/;
-const arDigitsToWestern = (s: string) => s.split('').map((ch) => { const c = ch.charCodeAt(0); return (c >= 0x0660 && c <= 0x0669) ? String(c - 0x0660) : ch; }).join('');
+// A scene number is a KEY, not a glyph. The margin column is that key, so it is always Western -
+// which is what makes it agree with the stripboard, the call sheet, the DOOD, and with the sides
+// matcher in backend/src/production/scripton/sides.util.ts. The heading text itself is untouched:
+// it is presentation, and it stays in whatever digits the script is written in.
+//
+// TWO Unicode blocks carry Arabic-script digits, and this used to know only one. U+0660-0669 is
+// `arab` (٠١٢); U+06F0-06F9 is `arabext` (۰۱۲), the Persian and Urdu shapes. A heading numbered
+// in the second block matched nothing, so sceneNo came back undefined and THE MARGIN PRINTED BLANK
+// on that page - a scene with no number on a document whose whole job is to be referred to by number.
+//
+// NOTE FOR WHOEVER TOUCHES THIS NEXT: the same fold exists as foldDigits() in sides.util.ts on the
+// backend. Two copies of one rule is how a 168-page script rendered as 303 pages; these two are
+// deliberately identical in behaviour, so change both or neither.
+const AR_NUM = /[#:]?\s*([0-9٠-٩۰-۹]+)/;
+const arDigitsToWestern = (s: string) => s.split('').map((ch) => {
+  const c = ch.charCodeAt(0);
+  if (c >= 0x0660 && c <= 0x0669) return String(c - 0x0660);   // arab
+  if (c >= 0x06f0 && c <= 0x06f9) return String(c - 0x06f0);   // arabext
+  return ch;
+}).join('');
 
 // Classify raw screenplay lines into typed elements. Latin and Arabic are handled per-line, so a
 // diglossic Arabic script (MSA action + colloquial dialogue) parses just like an English one.

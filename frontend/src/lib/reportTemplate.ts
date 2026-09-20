@@ -10,8 +10,20 @@
  *  - TOKENS / ITEM_TOKENS: lists used by the builder's merge-field blocks.
  */
 
-const fmtAmt = (n: any) =>
-  Number(n ?? 0).toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+/**
+ * Money for accounting output. Negatives take parentheses — (1,250.00) — not a
+ * minus sign: that is the convention an accountant reads, and unlike colour it
+ * survives greyscale. Two decimals always.
+ *
+ * Exported and imported by DocumentLayout so the printed document and the
+ * template-rendered document cannot drift apart.
+ */
+export const fmtAmt = (n: any) => {
+  const v = Number(n ?? 0);
+  const abs = Math.abs(v).toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  // A value that merely rounds to zero must not print as "(0.00)".
+  return v < 0 && abs !== '0.00' ? `(${abs})` : abs;
+};
 
 const fmtDate = (d: any) =>
   d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
@@ -40,7 +52,10 @@ export function buildContext(type: 'invoice' | 'quotation', doc: any, company: a
       unit: it.unit ?? '',
       unitPrice: fmtAmt(it.unitPrice),
       lineTotal: fmtAmt(it.lineTotal),
-      vatRate: lineVat > 0 ? `${vatRate}%` : '0%',
+      // Non-zero tax means the line is rated, whichever sign it carries. A credit
+      // note reverses a rated line, so its rate is 5%, not 0% — printing 0% on a
+      // UAE tax document misstates the rate.
+      vatRate: lineVat !== 0 ? `${vatRate}%` : '0%',
       vatAmount: fmtAmt(lineVat),
     };
   });

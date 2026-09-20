@@ -12,15 +12,16 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { productionApi, arrivalApi, castingApi, transportApi, savedViewsApi } from '@/lib/api';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { Plus, Pencil, Save, RotateCcw, LayoutGrid, Check, PanelLeft, PanelRight, PanelTop, EyeOff } from 'lucide-react';
+import ProductionIntelWidget from './ProductionIntelWidget';
 
 type Item = { id: string; w: number; h?: number };
 
 const DEFAULT_LAYOUT: Item[] = [
   { id: 'workflow', w: 1 }, { id: 'kpi-money', w: 2 }, { id: 'kpi-today', w: 3 },
-  { id: 'today-scenes', w: 2 }, { id: 'attention', w: 1 }, { id: 'script', w: 1 },
+  { id: 'intel', w: 2 }, { id: 'today-scenes', w: 2 }, { id: 'attention', w: 1 }, { id: 'script', w: 1 },
   { id: 'schedule', w: 1 }, { id: 'crew', w: 1 },
 ];
-const DEF_H: Record<string, number> = { 'kpi-today': 5, 'kpi-money': 5, 'workflow': 10, 'today-scenes': 9, 'attention': 8, 'script': 7, 'schedule': 6, 'crew': 6, 'approvals': 7, 'budget': 6, 'project-info': 7, 'travel': 6, 'casting': 6, 'locations': 6, 'transport': 6, 'perdiem': 6, 'weather': 7, 'tasks': 6, 'quote': 6, 'onthisday': 6, 'prompt': 6, 'palette': 7, 'composition': 10, 'notes': 8, 'todo': 9, 'pomodoro': 8, 'links': 9, 'clocks': 8, 'countdown': 8, 'sun': 9, 'ratio': 8, 'pagetime': 7, 'timecode': 8, 'units': 7, 'moon': 7, 'safety': 6, 'currency': 8, 'birthdays': 6, 'ambient': 8 };
+const DEF_H: Record<string, number> = { 'kpi-today': 5, 'kpi-money': 5, 'workflow': 10, 'today-scenes': 9, 'attention': 8, 'script': 7, 'schedule': 6, 'crew': 6, 'approvals': 7, 'budget': 6, 'project-info': 7, 'travel': 6, 'casting': 6, 'locations': 6, 'transport': 6, 'perdiem': 6, 'weather': 7, 'tasks': 6, 'quote': 6, 'onthisday': 6, 'prompt': 6, 'palette': 7, 'composition': 10, 'notes': 8, 'todo': 9, 'pomodoro': 8, 'links': 9, 'clocks': 8, 'countdown': 8, 'sun': 9, 'ratio': 8, 'pagetime': 7, 'timecode': 8, 'units': 7, 'moon': 7, 'safety': 6, 'currency': 8, 'birthdays': 6, 'ambient': 8, 'intel': 14 };
 const PRESET_VIEWS: Record<string, Item[]> = {
   'Default': DEFAULT_LAYOUT,
   'Line Producer': [{ id: 'kpi-money', w: 2 }, { id: 'approvals', w: 1 }, { id: 'budget', w: 2 }, { id: 'attention', w: 1 }, { id: 'perdiem', w: 1 }, { id: 'crew', w: 1 }, { id: 'workflow', w: 1 }],
@@ -236,6 +237,7 @@ export default function CustomizableOverview({ projectId, project, currency = 'A
     castingApi.calls(projectId).then(r => set('casting', Array.isArray(r.data) ? r.data : [])).catch(() => {});
     transportApi.orders({ projectId }).then(r => set('torders', Array.isArray(r.data) ? r.data : [])).catch(() => {});
     transportApi.vehicles({ projectId }).then(r => set('tveh', Array.isArray(r.data) ? r.data : [])).catch(() => {});
+    productionApi.intel.get(projectId).then(r => set('intel', r.data)).catch(() => {}); // shared 30-min cache; surfaces alerts in Needs-attention even when the Intel widget isn't on the board
     return () => { alive = false; };
   }, [projectId]);
 
@@ -314,8 +316,10 @@ export default function CustomizableOverview({ projectId, project, currency = 'A
   const castSubs = calls.reduce((a: number, c: any) => a + (c._count?.submissions || 0), 0);
   const torders: any[] = d.torders || []; const tveh: any[] = d.tveh || [];
   const activeRuns = torders.filter((o: any) => ['ACTIVE', 'EN_ROUTE', 'ASSIGNED', 'DISPATCHED'].includes(o.status)).length;
+  const intelAlerts: any[] = (d.intel?.items || []).filter((x: any) => x.severity === 'CRITICAL' || x.severity === 'WARNING');
 
   const WIDGETS: Record<string, { icon: string; title: string; desc: string; w: number; sample?: boolean; tab?: string; cat?: string; render?: () => any; Comp?: any }> = useMemo(() => ({
+    'intel': { icon: '🛰', title: 'Production Intel', desc: 'AI risk radar — weather, holidays & world news near your locations', w: 2, cat: 'Production', Comp: ProductionIntelWidget },
     'kpi-money': { icon: '💷', title: 'Money · live', desc: 'EFC, variance, cash, committed POs', w: 2, tab: 'costreport', render: () => (
       <div className="pd-row pd-c4">
         <div className="pd-stat"><div className="k">Est. final cost</div><div className="v">{money(efc)}</div><div className={`d ${spentPct > 100 ? 'wn' : ''}`}>{spentPct}% spent</div></div>
@@ -351,11 +355,14 @@ export default function CustomizableOverview({ projectId, project, currency = 'A
       </tbody></table> : <div style={{ padding: 4, fontSize: 12, color: 'var(--text-3)' }}>No scheduled day yet — build the stripboard to populate.</div>) },
     'attention': { icon: '⚠️', title: 'Needs attention', desc: 'Blockers waiting on you', w: 1, render: () => (
       <div>
+        {intelAlerts.slice(0, 3).map((a: any, i: number) => (
+          <div key={'intel' + i} className="pd-attn" title={a.suggestion || ''}><span className="dot" style={{ background: a.severity === 'CRITICAL' ? 'var(--danger)' : 'var(--warn)' }} />🛰 {a.title}{a.window ? ` · ${a.window}` : ''}</div>
+        ))}
         {draftPos > 0 && <div className="pd-attn"><span className="dot" style={{ background: 'var(--warn)' }} />{draftPos} PO(s) awaiting approval</div>}
         {(crew.length - memosSigned) > 0 && <div className="pd-attn"><span className="dot" style={{ background: 'var(--danger)' }} />{crew.length - memosSigned} deal memo(s) unsigned</div>}
         {wf?.next && <div className="pd-attn"><span className="dot" style={{ background: 'var(--accent)' }} />Next step: {(wf.steps || []).find((s: any) => s.key === wf.next)?.label || wf.next}</div>}
         {wf?.accounting?.periodClosed === false && <div className="pd-attn"><span className="dot" style={{ background: 'var(--ok)' }} />Period {wf.accounting.currentPeriod} open</div>}
-        {draftPos === 0 && (crew.length - memosSigned) === 0 && !wf?.next && <div style={{ fontSize: 12, color: 'var(--text-3)' }}>All clear.</div>}
+        {draftPos === 0 && (crew.length - memosSigned) === 0 && !wf?.next && intelAlerts.length === 0 && <div style={{ fontSize: 12, color: 'var(--text-3)' }}>All clear.</div>}
       </div>) },
     'schedule': { icon: '🗓', title: 'Schedule', desc: 'Scenes/pages, shoot days, next day', w: 1, tab: 'schedule', render: () => (
       <div>

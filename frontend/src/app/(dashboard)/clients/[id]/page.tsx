@@ -24,7 +24,160 @@ const DOC_LABELS: Record<string, string> = {
   LPO: 'LPO', AGREEMENT: 'Agreement', OTHER: 'Other',
 };
 const aed = (n: any) => formatCurrency(Number(n || 0));
-type Tab = 'overview' | 'contacts' | 'documents' | 'financials';
+type Tab = 'overview' | 'contacts' | 'documents' | 'financials' | 'transactions';
+
+/**
+ * Every transaction on the account, oldest first, with a running balance — the
+ * statement a client would recognise. Invoices debit, receipts credit, and the
+ * last line is what is owed today.
+ */
+function TransactionsTab({ clientId }: { clientId: string }) {
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    clientsApi.transactions(clientId)
+      .then(res => setData(res.data))
+      .catch(() => setFailed(true))
+      .finally(() => setLoading(false));
+  }, [clientId]);
+
+  if (loading) {
+    return (
+      <div className="card flex items-center gap-2 text-sm text-gray-400">
+        <Loader2 size={14} className="animate-spin" /> Loading the account…
+      </div>
+    );
+  }
+  if (failed || !data) {
+    return <div className="card text-sm text-red-600">The account could not be loaded.</div>;
+  }
+
+  const rows: any[] = data.rows || [];
+  const t = data.totals || {};
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Stat label="Invoiced" value={aed(t.invoiced)} />
+        <Stat label="Received" value={aed(t.received)} tone="text-green-700" />
+        <Stat label="Credit notes" value={aed(t.credited)} />
+        <Stat
+          label="Balance owed"
+          value={aed(t.balance)}
+          tone={Number(t.balance) > 0.005 ? 'text-red-600' : 'text-gray-900'}
+        />
+      </div>
+
+      <div className="card overflow-hidden p-0">
+        <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
+          <Receipt size={15} className="text-gray-400" />
+          <h3 className="font-semibold text-gray-800 text-sm">Account statement</h3>
+          <span className="text-xs text-gray-400">
+            {data.counts?.invoices ?? 0} invoices · {data.counts?.receipts ?? 0} receipts
+            {data.counts?.creditNotes ? ` · ${data.counts.creditNotes} credit notes` : ''}
+          </span>
+        </div>
+
+        {rows.length === 0 ? (
+          <p className="px-4 py-10 text-center text-sm text-gray-400">
+            Nothing on this account yet.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr>
+                  <th className="table-th">Date</th>
+                  <th className="table-th">Reference</th>
+                  <th className="table-th">Detail</th>
+                  <th className="table-th text-end">Charged</th>
+                  <th className="table-th text-end">Paid</th>
+                  <th className="table-th text-end">Balance</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r: any) => {
+                  const isReceipt = r.kind === 'RECEIPT';
+                  const bounced = isReceipt && r.status === 'BOUNCED';
+                  return (
+                    <tr key={`${r.kind}-${r.id}`} className="table-row align-top">
+                      <td className="table-td whitespace-nowrap text-gray-500">{formatDate(r.date)}</td>
+                      <td className="table-td whitespace-nowrap">
+                        {isReceipt ? (
+                          <a
+                            href={`/print/receipt/${r.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-brand-600 hover:underline font-mono text-xs"
+                          >
+                            {r.ref}
+                          </a>
+                        ) : (
+                          <Link
+                            href={`/finance/invoices/${r.id}`}
+                            className="text-brand-600 hover:underline font-medium"
+                          >
+                            {r.ref}
+                          </Link>
+                        )}
+                      </td>
+                      <td className="table-td text-gray-600">
+                        <span className={cn(bounced && 'line-through text-gray-400')}>
+                          {r.description || (isReceipt ? 'Receipt' : 'Invoice')}
+                        </span>
+                        {bounced && <span className="ms-2 badge bg-red-100 text-red-600 text-xs">Bounced</span>}
+                        {isReceipt && r.link && (
+                          <span className="text-xs text-gray-400"> · against {r.link.invoiceNumber}</span>
+                        )}
+                        {!isReceipt && Number(r.amountDue) > 0.005 && (
+                          <span className="text-xs text-amber-700"> · {aed(r.amountDue)} still due</span>
+                        )}
+                      </td>
+                      <td className="table-td text-end tabular-nums">
+                        {r.debit > 0 ? aed(r.debit) : <span className="text-gray-300">—</span>}
+                      </td>
+                      <td className="table-td text-end tabular-nums text-green-700">
+                        {r.credit > 0 ? aed(r.credit) : <span className="text-gray-300">—</span>}
+                      </td>
+                      <td className="table-td text-end tabular-nums font-medium">{aed(r.balance)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                <tr className="border-t border-gray-200 font-semibold">
+                  <td className="table-td" colSpan={3}>Balance owed</td>
+                  <td className="table-td text-end tabular-nums">{aed(t.invoiced)}</td>
+                  <td className="table-td text-end tabular-nums text-green-700">{aed(t.received)}</td>
+                  <td className={cn('table-td text-end tabular-nums', Number(t.balance) > 0.005 && 'text-red-600')}>
+                    {aed(t.balance)}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <p className="text-xs text-gray-400">
+        Cancelled, voided and draft invoices are left out — they were never owed. A bounced receipt
+        is shown but moves nothing, because the money came back.
+      </p>
+    </div>
+  );
+}
+
+function Stat({ label, value, tone }: { label: string; value: string; tone?: string }) {
+  return (
+    <div className="card py-3">
+      <p className="text-xs text-gray-400">{label}</p>
+      <p className={cn('text-lg font-bold', tone || 'text-gray-900')}>{value}</p>
+    </div>
+  );
+}
 
 export default function ClientDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -77,6 +230,7 @@ export default function ClientDetailPage() {
     { id: 'overview', label: 'Overview' },
     { id: 'contacts', label: `Contacts (${client.contacts?.length || 0})` },
     { id: 'documents', label: `Documents (${client.documents?.length || 0})` },
+    { id: 'transactions', label: 'Transactions' },
     { id: 'financials', label: 'Financials' },
   ];
 
@@ -196,6 +350,7 @@ export default function ClientDetailPage() {
 
       {tab === 'contacts' && <ContactPicker clientId={id} contactType="CLIENT_EMPLOYEE" />}
       {tab === 'documents' && <DocumentsTab client={client} reload={load} />}
+      {tab === 'transactions' && <TransactionsTab clientId={id} />}
 
       {/* ── Financials ── */}
       {tab === 'financials' && (

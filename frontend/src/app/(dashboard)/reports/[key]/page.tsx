@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Printer, Download, RefreshCw } from 'lucide-react';
 import { reportsApi } from '@/lib/api';
+import DataNotice from '@/components/finance/DataNotice';
 import { formatCurrency } from '@/lib/utils';
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
@@ -56,6 +57,8 @@ export default function ReportViewerPage() {
           <button onClick={print} disabled={!data} className="btn-primary"><Printer size={14} /> Print / PDF</button>
         </div>
       </div>
+
+      <DataNotice notice={data?.notice} />
 
       <div className="card overflow-x-auto">
         {loading ? <div className="p-10 text-center text-gray-400 text-sm">Loading…</div> : !data || data.rows.length === 0 ? (

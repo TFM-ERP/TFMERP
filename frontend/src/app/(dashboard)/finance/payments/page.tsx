@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { financeApi } from '@/lib/api';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
-import { Search, RefreshCw, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { RefreshCw, CheckCircle, XCircle, Clock, FileText } from 'lucide-react';
 import { CinematicHeader } from '@/components/CinematicHeader';
 import { useLocale } from '@/lib/i18n';
 
@@ -133,7 +133,20 @@ export default function PaymentsPage() {
                   </span>
                 </td>
                 <td className="table-td">
-                  <div className="flex gap-1">
+                  <div className="flex items-center gap-2">
+                    {/* The receipt document — opens in its own tab, prints, and
+                        saves as PDF from the browser's print dialogue. */}
+                    <a
+                      href={`/print/receipt/${p.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={t('Open receipt')}
+                      className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-800"
+                    >
+                      <FileText size={13} />
+                      {t('Receipt')}
+                    </a>
+                    <span className="text-gray-200">·</span>
                     {p.status === 'PENDING' && (
                       <>
                         <button onClick={() => handleUpdateStatus(p.id, 'CLEARED')}
@@ -148,7 +161,7 @@ export default function PaymentsPage() {
                         className="text-xs text-yellow-600 hover:text-yellow-700 font-medium">Reopen</button>
                     )}
                     {p.status === 'CLEARED' && (
-                      <span className="text-xs text-gray-300">—</span>
+                      <span className="text-xs text-gray-300">{t('Cleared')}</span>
                     )}
                   </div>
                 </td>

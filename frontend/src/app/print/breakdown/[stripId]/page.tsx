@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { productionApi, settingsApi } from '@/lib/api';
+import { productionApi, settingsApi, companyLogoUrl } from '@/lib/api';
 
 const API_ROOT = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1').replace('/api/v1', '');
-const logoSrc = (v?: string) => (!v ? '' : (v.startsWith('http') || v.startsWith('data:')) ? v : `${API_ROOT}${v}`);
+// Uploaded files sit behind a Bearer token an <img> cannot send, so the old
+// `${API_ROOT}${v}` form resolved to a 404 and the logo never printed.
+const logoSrc = companyLogoUrl;
 const GOLD = '#0f172a', NAVY = '#1a1a2e';
 const CATS = ['CAST', 'BACKGROUND', 'STUNTS', 'VEHICLES', 'ANIMALS', 'PROPS', 'SET_DRESSING', 'WARDROBE', 'MAKEUP_HAIR', 'SFX', 'VFX', 'SPECIAL_EQUIPMENT', 'SOUND_MUSIC', 'ART', 'GREENERY', 'SECURITY', 'OTHER'];
 const label = (c: string) => c.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, m => m.toUpperCase());

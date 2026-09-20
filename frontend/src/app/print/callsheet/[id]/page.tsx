@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Fragment } from 'react';
 import { useParams } from 'next/navigation';
-import { productionApi, settingsApi } from '@/lib/api';
+import { productionApi, settingsApi, companyLogoUrl } from '@/lib/api';
 
 /**
  * Studio Master call sheet — live print/PDF.
@@ -12,7 +12,9 @@ import { productionApi, settingsApi } from '@/lib/api';
  * (Previous simple layout preserved at page.tsx.bak.)
  */
 const API_ROOT = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1').replace('/api/v1', '');
-const logoSrc = (v?: string) => (!v ? '' : (v.startsWith('http') || v.startsWith('data:')) ? v : `${API_ROOT}${v}`);
+// Uploaded files sit behind a Bearer token an <img> cannot send, so the old
+// `${API_ROOT}${v}` form resolved to a 404 and the logo never printed.
+const logoSrc = companyLogoUrl;
 const fmtDay = (d?: string) => d ? new Date(d).toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' }) : '';
 const num = (v: any) => (v == null || isNaN(Number(v)) ? null : Number(v));
 

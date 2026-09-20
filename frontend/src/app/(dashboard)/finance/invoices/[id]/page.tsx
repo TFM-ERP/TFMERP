@@ -6,7 +6,7 @@ import Link from 'next/link';
 import {
   ArrowLeft, CreditCard, RefreshCw, Building2, Calendar,
   FileText, Plus, X, Clock, AlertCircle, DollarSign,
-  Printer, History, ChevronDown, Edit2, CheckCircle
+  Printer, History, ChevronDown, Edit2, CheckCircle, Mail, Send
 } from 'lucide-react';
 import { financeApi } from '@/lib/api';
 import { formatCurrency, formatDate, daysUntil, cn } from '@/lib/utils';
@@ -15,6 +15,103 @@ import StatusTimeline from '@/components/StatusTimeline';
 import StatusChangeModal from '@/components/StatusChangeModal';
 
 const PAYMENT_METHODS = ['BANK_TRANSFER','CHEQUE','CASH','CARD','ONLINE'];
+
+/**
+ * Review the composed email, then send it.
+ *
+ * Opening this composes a draft on the server and shows it. Nothing has left
+ * the system at that point, and nothing does until Send is pressed here.
+ */
+function ShareModal({ invoiceId, draft, onClose, onSent }: any) {
+  const [to, setTo] = useState(draft.to || '');
+  const [subject, setSubject] = useState(draft.subject || '');
+  const [html, setHtml] = useState(draft.html || '');
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState('');
+
+  const send = async () => {
+    setError('');
+    setSending(true);
+    try {
+      await financeApi.invoices.shareSend(invoiceId, { to, subject, html });
+      onSent(to);
+    } catch (e: any) {
+      setError(e?.response?.data?.message || 'Could not send. Nothing was sent.');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-auto">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <h2 className="font-bold text-gray-900 flex items-center gap-2">
+            <Mail size={16} /> Share invoice {draft.invoiceNumber}
+          </h2>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400">
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          <p className="text-xs text-gray-500">{draft.note}</p>
+
+          {!draft.smtpConfigured && (
+            <div className="flex gap-2 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <AlertCircle size={14} className="shrink-0 mt-0.5" />
+              <span>
+                Sending needs SMTP, which is not set up yet (Company Management → Email), and the
+                server needs the <code>nodemailer</code> package installed. You can still copy this
+                text and send it yourself.
+              </span>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">To</label>
+            <input
+              className="input w-full"
+              value={to}
+              onChange={e => setTo(e.target.value)}
+              placeholder="No email on file for this client — type one"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Subject</label>
+            <input className="input w-full" value={subject} onChange={e => setSubject(e.target.value)} />
+          </div>
+
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Message</label>
+            <textarea
+              className="input w-full font-mono text-xs"
+              rows={12}
+              value={html}
+              onChange={e => setHtml(e.target.value)}
+            />
+            <p className="text-[11px] text-gray-400 mt-1">
+              The invoice is not attached. Open Print, save it as a PDF, and attach it — or paste a
+              link. Editing here changes only this one message.
+            </p>
+          </div>
+
+          {error && (
+            <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">{error}</div>
+          )}
+        </div>
+
+        <div className="flex gap-2 px-5 py-4 border-t border-gray-100">
+          <button onClick={onClose} className="btn-secondary flex-1">Cancel</button>
+          <button onClick={send} disabled={sending || !to.trim()} className="btn-primary flex-1">
+            <Send size={14} /> {sending ? 'Sending…' : 'Send'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function PaymentModal({ invoice, bankAccounts, onClose, onDone }: any) {
   const [form, setForm] = useState({
@@ -125,6 +222,29 @@ export default function InvoiceDetailPage() {
   const [showPayModal, setShowPayModal] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [draft, setDraft] = useState<any>(null);
+  const [composing, setComposing] = useState(false);
+  const [sentTo, setSentTo] = useState('');
+
+  // Composing asks the server for the message and shows it. It sends nothing.
+  const compose = async () => {
+    setComposing(true);
+    try {
+      const { data } = await financeApi.invoices.shareDraft(id);
+      setDraft(data);
+    } catch {
+      setDraft({
+        invoiceNumber: inv?.invoiceNumber ?? '',
+        to: '',
+        subject: '',
+        html: '',
+        smtpConfigured: false,
+        note: 'The draft could not be composed. Nothing has been sent.',
+      });
+    } finally {
+      setComposing(false);
+    }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -166,6 +286,14 @@ export default function InvoiceDetailPage() {
           bankAccounts={bankAccounts}
           onClose={() => setShowPayModal(false)}
           onDone={load}
+        />
+      )}
+      {draft && (
+        <ShareModal
+          invoiceId={id}
+          draft={draft}
+          onClose={() => setDraft(null)}
+          onSent={(to: string) => { setDraft(null); setSentTo(to); load(); }}
         />
       )}
       {showStatusModal && (
@@ -217,12 +345,30 @@ export default function InvoiceDetailPage() {
             <button
               onClick={() => window.open(`/print/invoice/${id}`, '_blank')}
               className="btn-secondary"
-              title="Print / Save as PDF"
+              title="Opens the document and the print dialogue — choose Save as PDF to download"
             >
-              <Printer size={14} /> Print
+              <Printer size={14} /> Print / Download
+            </button>
+            <button
+              onClick={compose}
+              disabled={composing}
+              className="btn-secondary"
+              title="Compose an email for review — nothing is sent until you press Send"
+            >
+              <Mail size={14} /> {composing ? 'Composing…' : 'Share via email'}
             </button>
           </div>
         </div>
+
+        {sentTo && (
+          <div className="card flex items-center gap-2 text-sm text-green-700 bg-green-50 border-green-200">
+            <CheckCircle size={15} className="shrink-0" />
+            <span>Sent to {sentTo}.</span>
+            <button onClick={() => setSentTo('')} className="ml-auto text-green-600 hover:text-green-800">
+              <X size={14} />
+            </button>
+          </div>
+        )}
 
         {/* Status History Timeline */}
         {showHistory && (

@@ -40,6 +40,49 @@ api.interceptors.response.use(
   },
 );
 
+/**
+ * The company logo, as a URL an <img> can load directly.
+ *
+ * Takes whatever the company profile stores (logoUrl / darkLogoUrl /
+ * invoiceLogoUrl) and points at the public company-logo route. `${API_ROOT}/uploads/...`
+ * — what every print page used to build — is a 404: uploaded files sit behind a
+ * Bearer token an <img> cannot send, which is why the real logo never printed.
+ *
+ * Returns '' when there is nothing stored, so callers can fall back.
+ */
+export const companyLogoUrl = (stored?: string | null): string => {
+  if (!stored) return '';
+  if (stored.startsWith('http') || stored.startsWith('data:')) return stored;
+  const filename = stored.split('/').filter(Boolean).pop();
+  return filename ? `${API_ROOT}/api/v1/company/logo/${encodeURIComponent(filename)}` : '';
+};
+
+/**
+ * An <img>- or <iframe>-safe URL for a private file under /uploads.
+ *
+ * Uploaded files are NOT served statically — they sit behind FilesModule at
+ * GET /api/v1/uploads/:filename, which needs a Bearer token that an <img>,
+ * <iframe> or <embed> cannot send. This mints the short-lived signed link the
+ * backend provides for exactly that case. For the company logo use
+ * `companyLogoUrl` instead: it needs no round trip.
+ *
+ * Returns '' when there is nothing to show, so callers can fall back.
+ */
+export async function signedFileUrl(stored?: string | null, ttlSeconds = 900): Promise<string> {
+  if (!stored) return '';
+  if (stored.startsWith('http') || stored.startsWith('data:')) return stored;
+  const filename = stored.split('/').filter(Boolean).pop();
+  if (!filename) return '';
+  try {
+    const { data } = await api.post(`/uploads/${encodeURIComponent(filename)}/link`, null, {
+      params: { ttl: ttlSeconds },
+    });
+    return data?.url ? `${API_ROOT}${data.url}` : '';
+  } catch {
+    return '';
+  }
+}
+
 // ── File Upload ───────────────────────────────────────────────────────────────
 
 export const uploadFile = async (file: File): Promise<{ url: string; originalName: string }> => {
@@ -94,12 +137,20 @@ export const financeApi = {
     update: (id: string, data: any) => api.put(`/finance/invoices/${id}`, data),
     updateStatus: (id: string, status: string, notes?: string) => api.patch(`/finance/invoices/${id}/status`, { status, notes }),
     recordPayment: (id: string, data: any) => api.post(`/finance/invoices/${id}/payments`, data),
+    // Two steps on purpose: shareDraft composes and returns, sending nothing;
+    // shareSend is the separate call made after the draft has been read.
+    shareDraft: (id: string) => api.post(`/finance/invoices/${id}/share-draft`),
+    shareSend: (id: string, body: { to: string; subject: string; html: string }) =>
+      api.post(`/finance/invoices/${id}/share-send`, body),
     agingReport: () => api.get('/finance/invoices/aging-report'),
   },
 
   // Payments
   payments: {
     list: (params: any) => api.get('/finance/payments', { params }),
+    // One receipt with its client, invoice and bank account — what the receipt
+    // document needs. The backend's findOne already includes those relations.
+    get: (id: string) => api.get(`/finance/payments/${id}`),
     summary: (start?: string, end?: string) => api.get('/finance/payments/summary', { params: { startDate: start, endDate: end } }),
     updateStatus: (id: string, status: string) => api.patch(`/finance/payments/${id}/status`, { status }),
   },
@@ -1178,6 +1229,29 @@ export const accountingApi = {
   postingStatus: () => api.get('/accounting/posting-status'),
   postAll: () => api.post('/accounting/post-all'),
   postBurden: (versionId: string) => api.post(`/accounting/post-burden/${versionId}`),
+  // Statutory reporting — IFRS for SMEs statement set, built from the ledger
+  incomeStatement: (params: any) => api.get('/accounting/reports/income-statement', { params }),
+  financialPosition: (params: any) => api.get('/accounting/reports/financial-position', { params }),
+  changesInEquity: (params: any) => api.get('/accounting/reports/changes-in-equity', { params }),
+  cashFlows: (params: any) => api.get('/accounting/reports/cash-flows', { params }),
+  fullSet: (params: any) => api.get('/accounting/reports/full-set', { params }),
+  /**
+   * The statements as a Word file. Fetched through axios rather than opened in a
+   * new tab, because the endpoint is behind the JWT guard and a plain window.open
+   * carries no Authorization header.
+   */
+  fullSetDocx: (params: any) =>
+    api.get('/accounting/reports/full-set.docx', { params, responseType: 'blob' }),
+  // Management reporting
+  agedReceivables: (params?: any) => api.get('/accounting/reports/aged-receivables', { params }),
+  agedPayables: (params?: any) => api.get('/accounting/reports/aged-payables', { params }),
+  executiveSummary: (params: any) => api.get('/accounting/reports/executive-summary', { params }),
+  // Tax
+  vat201: (params: any) => api.get('/accounting/tax/vat201', { params }),
+  vat201Year: (params: any) => api.get('/accounting/tax/vat201/year', { params }),
+  corporateTax: (params: any) => api.get('/accounting/tax/corporate-tax', { params }),
+  ctRevenueReconciliation: (params: any) => api.get('/accounting/tax/corporate-tax/revenue-reconciliation', { params }),
+  auditFile: (params: any) => api.get('/accounting/tax/faf', { params }),
   // Reports
   trialBalance: (params?: any) => api.get('/accounting/trial-balance', { params }),
   summary: (params?: any) => api.get('/accounting/summary', { params }),
@@ -1302,6 +1376,9 @@ export const clientsApi = {
   get: (id: string) => api.get(`/clients/${id}`),
   balance: (id: string) => api.get(`/clients/${id}/balance`),
   financialSummary: (id: string) => api.get(`/clients/${id}/financial-summary`),
+  // The full account statement: invoices, credit notes and receipts on one
+  // timeline with a running balance.
+  transactions: (id: string) => api.get(`/clients/${id}/transactions`),
   create: (data: any) => api.post('/clients', data),
   update: (id: string, data: any) => api.put(`/clients/${id}`, data),
   updateStatus: (id: string, status: string, blockReason?: string) =>
