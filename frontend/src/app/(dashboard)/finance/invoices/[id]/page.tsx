@@ -41,6 +41,17 @@ function parseLockoutMinutes(message?: string): number {
 }
 
 /**
+ * A 403 alone doesn't mean the five-wrong-passwords lockout fired — RequirePermission
+ * also returns 403, e.g. when a role changes mid-session. Only treat it as the lockout
+ * when the message actually looks like the one InvoicesService.assertPassword throws:
+ * `Too many failed attempts. Try again in ${minutes} minute(s).`
+ * (backend/src/finance/invoices/invoices.service.ts, InvoicesService.assertPassword).
+ */
+function isLockoutMessage(message?: string): boolean {
+  return !!message && /^Too many failed attempts\./.test(message);
+}
+
+/**
  * Pulls the date and reason back out of `internalNotes` for a voided invoice.
  *
  * The Invoice model has no voidedAt, voidedBy or voidReason column — confirmed by
@@ -128,6 +139,13 @@ function MoreMenu({ invoiceStatus, onVoid, onDelete, t }: any) {
   }, [open]);
 
   const deletable = DELETABLE_STATUSES.includes(invoiceStatus);
+  // Voiding an already-voided invoice is refused by the backend, but only after the
+  // password check runs — hide the option before that dead end is ever reachable.
+  const voidable = invoiceStatus !== 'VOIDED';
+
+  // Neither action is available (e.g. a voided, non-deletable invoice) — don't open an
+  // empty menu.
+  if (!voidable && !deletable) return null;
 
   return (
     <div className="relative" ref={ref}>
@@ -136,19 +154,22 @@ function MoreMenu({ invoiceStatus, onVoid, onDelete, t }: any) {
       </button>
       {open && (
         <div className="absolute end-0 mt-2 w-80 bg-white rounded-xl shadow-2xl border border-gray-100 z-50 overflow-hidden">
-          <button
-            onClick={() => { setOpen(false); onVoid(); }}
-            className="w-full text-start px-4 py-3 hover:bg-gray-50 text-sm text-red-700 flex items-center gap-2.5"
-          >
-            <Ban size={15} className="shrink-0" />
-            <span>{t('Void Invoice — cancel it for good')}</span>
-          </button>
+          {voidable && (
+            <button
+              onClick={() => { setOpen(false); onVoid(); }}
+              className="w-full text-start px-4 py-3 hover:bg-gray-50 text-sm text-red-700 flex items-center gap-2.5"
+            >
+              <Ban size={15} className="shrink-0" />
+              <span>{t('Void Invoice — cancel it for good')}</span>
+            </button>
+          )}
           <button
             onClick={() => { if (deletable) { setOpen(false); onDelete(); } }}
             disabled={!deletable}
             title={!deletable ? t("Can't delete — money has already moved against this invoice. Void it instead.") : undefined}
             className={cn(
-              'w-full text-start px-4 py-3 text-sm flex items-center gap-2.5 border-t border-gray-50',
+              'w-full text-start px-4 py-3 text-sm flex items-center gap-2.5',
+              voidable && 'border-t border-gray-50',
               deletable ? 'hover:bg-gray-50 text-red-700 cursor-pointer' : 'opacity-40 cursor-not-allowed text-gray-400'
             )}
           >
@@ -621,7 +642,7 @@ export default function InvoiceDetailPage() {
     } catch (e: any) {
       const status = e?.response?.status;
       const message: string | undefined = e?.response?.data?.message;
-      if (status === 403) {
+      if (status === 403 && isLockoutMessage(message)) {
         setLockedUntil(Date.now() + parseLockoutMinutes(message) * 60000);
       } else if (!e?.response) {
         // No response at all — the request never reached the server, or never came
@@ -671,13 +692,16 @@ export default function InvoiceDetailPage() {
         confirmNumber: deleteConfirmNumber,
       });
       setDeletePassword('');
-      // The invoice no longer exists — leave the detail page.
+      // The invoice no longer exists — leave the detail page. Return here, before
+      // any of the catch/finally state below, rather than letting a `finally`
+      // block set state (setDeleteSubmitting, setDeletePassword) on a component
+      // that's already navigating away and about to unmount.
       router.push('/finance/invoices');
       return;
     } catch (e: any) {
       const status = e?.response?.status;
       const message: string | undefined = e?.response?.data?.message;
-      if (status === 403) {
+      if (status === 403 && isLockoutMessage(message)) {
         setLockedUntil(Date.now() + parseLockoutMinutes(message) * 60000);
       } else if (status === 400 && message && /Type the invoice number exactly/i.test(message)) {
         // Defensive only — the confirm button stays disabled until the numbers
@@ -698,7 +722,10 @@ export default function InvoiceDetailPage() {
         // 401 wrong password.
         setDeleteError(message || t(RETRY_COPY));
       }
-    } finally {
+      // No `finally` here on purpose — the success path above returns before this
+      // point, and a `finally` block runs even after a `return`, which would set
+      // state on the component after it has already navigated away and started
+      // unmounting. Both flags are reset here, in the one path that stays mounted.
       setDeleteSubmitting(false);
       setDeletePassword('');
     }
@@ -751,8 +778,15 @@ export default function InvoiceDetailPage() {
       await financeApi.invoices.archive(id);
       setShowArchiveConfirm(false);
       await load();
-    } catch (e) {
-      setArchiveDialogError(t(RETRY_COPY));
+    } catch (e: any) {
+      // No response at all is a genuine network failure. Anything else — a 403 for
+      // lacking finance:2, or the backend's own "already archived" refusal — has a
+      // real message from the server that's more useful than the generic retry copy.
+      if (!e?.response) {
+        setArchiveDialogError(t(RETRY_COPY));
+      } else {
+        setArchiveDialogError(e?.response?.data?.message || t(RETRY_COPY));
+      }
     } finally {
       setArchiveSubmitting(false);
     }
@@ -764,8 +798,12 @@ export default function InvoiceDetailPage() {
     try {
       await financeApi.invoices.unarchive(id);
       await load();
-    } catch (e) {
-      setLifecycleError(t(RETRY_COPY));
+    } catch (e: any) {
+      if (!e?.response) {
+        setLifecycleError(t(RETRY_COPY));
+      } else {
+        setLifecycleError(e?.response?.data?.message || t(RETRY_COPY));
+      }
     } finally {
       setUnarchiving(false);
     }
@@ -946,7 +984,7 @@ export default function InvoiceDetailPage() {
           <div className="card flex items-center gap-2 text-sm text-red-700 bg-red-50 border-red-200">
             <AlertCircle size={15} className="shrink-0" />
             <span>{lifecycleError}</span>
-            <button onClick={() => setLifecycleError('')} className="ml-auto text-red-600 hover:text-red-800">
+            <button onClick={() => setLifecycleError('')} className="ms-auto text-red-600 hover:text-red-800">
               <X size={14} />
             </button>
           </div>
@@ -961,10 +999,14 @@ export default function InvoiceDetailPage() {
                 {t(ARCHIVED_BANNER_COPY).replace('{date}', formatDate(inv.archivedAt))}
               </p>
             </div>
-            <button onClick={handleUnarchive} disabled={unarchiving} className="btn-secondary text-xs px-3 py-1.5">
-              {unarchiving ? <RefreshCw size={12} className="animate-spin" /> : <ArchiveRestore size={12} />}
-              {t('Unarchive')}
-            </button>
+            {/* Being archived is visible to everyone — changing it isn't; gate the
+                button the same way the toolbar's Unarchive button already is. */}
+            {!canArchiveLoading && canArchive && (
+              <button onClick={handleUnarchive} disabled={unarchiving} className="btn-secondary text-xs px-3 py-1.5">
+                {unarchiving ? <RefreshCw size={12} className="animate-spin" /> : <ArchiveRestore size={12} />}
+                {t('Unarchive')}
+              </button>
+            )}
           </div>
         )}
 
@@ -977,10 +1019,14 @@ export default function InvoiceDetailPage() {
                 ? (voidStamp.reversed
                     ? t('Voided on {date}. Reason: "{reason}". A reversing entry was posted to the ledger.')
                         .replace('{date}', formatDate(voidStamp.date))
-                        .replace('{reason}', voidStamp.reason)
+                        // Function replacement, not a string one — voidStamp.reason is free
+                        // text the user typed, and String.prototype.replace's string form
+                        // interprets $&, $` and $' in the replacement, which would mangle a
+                        // reason containing any of them.
+                        .replace('{reason}', () => voidStamp.reason)
                     : t('Voided on {date}. Reason: "{reason}".')
                         .replace('{date}', formatDate(voidStamp.date))
-                        .replace('{reason}', voidStamp.reason))
+                        .replace('{reason}', () => voidStamp.reason))
                 : t('Voided on {date}.').replace('{date}', formatDate(inv.updatedAt))}
             </p>
           </div>

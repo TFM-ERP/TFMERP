@@ -95,8 +95,15 @@ export default function InvoicesPage() {
       await financeApi.invoices.archive(archiveTarget.id);
       setArchiveTarget(null);
       await load();
-    } catch (e) {
-      setArchiveDialogError(t(RETRY_COPY));
+    } catch (e: any) {
+      // No response at all is a genuine network failure. Anything else — a 403 for
+      // lacking finance:2, or the backend's own "already archived" refusal — has a
+      // real message from the server that's more useful than the generic retry copy.
+      if (!e?.response) {
+        setArchiveDialogError(t(RETRY_COPY));
+      } else {
+        setArchiveDialogError(e?.response?.data?.message || t(RETRY_COPY));
+      }
     } finally {
       setArchiveSubmitting(false);
     }
@@ -108,8 +115,12 @@ export default function InvoicesPage() {
     try {
       await financeApi.invoices.unarchive(inv.id);
       await load();
-    } catch (e) {
-      setActionError(t(RETRY_COPY));
+    } catch (e: any) {
+      if (!e?.response) {
+        setActionError(t(RETRY_COPY));
+      } else {
+        setActionError(e?.response?.data?.message || t(RETRY_COPY));
+      }
     } finally {
       setBusyRowId(null);
     }
