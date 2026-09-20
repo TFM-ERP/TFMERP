@@ -90,3 +90,6 @@ backend/tools/import-data.json
 backend/tools/attach-manifest.json
 backend/prisma/schema.prisma.backup-*
 .claude/
+
+# Scratch from Claude sessions — patches, check scripts, one-off outputs
+Claude outputs/
