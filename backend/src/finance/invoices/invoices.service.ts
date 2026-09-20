@@ -362,6 +362,16 @@ export class InvoicesService {
   }
 
   async updateStatus(id: string, status: InvoiceStatus, userId?: string, notes?: string) {
+    // Voiding has to post a reversing journal entry, take a password and reason,
+    // and go through voidInvoice()'s own transaction — none of which this bare
+    // status route can do. Refuse it here, before any write, rather than let a
+    // plain PATCH leave a VOIDED invoice with revenue still sitting in AR and no
+    // trace in the ledger.
+    if (status === InvoiceStatus.VOIDED) {
+      throw new BadRequestException(
+        'Use the Void action — voiding an invoice has to post a reversing entry to the ledger.',
+      );
+    }
     const invoice = await this.findOne(id);
     const previousStatus = invoice.status as string;
     const updateData: any = { status };

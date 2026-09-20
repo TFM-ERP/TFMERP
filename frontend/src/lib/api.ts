@@ -1,5 +1,14 @@
 import axios from 'axios';
 
+// The re-auth prompts on Void/Delete post the invoice password to check it. A wrong
+// password is a normal, expected 401 there — the dialog shows its own error — so those
+// two calls opt out of the global redirect-to-login below with this flag.
+declare module 'axios' {
+  export interface AxiosRequestConfig {
+    skipAuthRedirect?: boolean;
+  }
+}
+
 const RAW_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 // Local dev: a relative base is proxied through Next's dev rewrite, which can drop long AI
 // requests (coverage/diagnostics). On localhost we call the backend directly (CORS allows it);
@@ -32,7 +41,7 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401 && typeof window !== 'undefined') {
+    if (error.response?.status === 401 && !error.config?.skipAuthRedirect && typeof window !== 'undefined') {
       localStorage.removeItem('tfm_token');
       window.location.href = '/login';
     }
@@ -145,10 +154,12 @@ export const financeApi = {
     agingReport: () => api.get('/finance/invoices/aging-report'),
     archive:     (id: string) => api.post(`/finance/invoices/${id}/archive`),
     unarchive:   (id: string) => api.post(`/finance/invoices/${id}/unarchive`),
+    // skipAuthRedirect: a wrong password here is a normal 401 the dialog itself
+    // reports — the global interceptor must not treat it as an expired session.
     voidInvoice: (id: string, data: { password: string; reason: string }) =>
-                   api.post(`/finance/invoices/${id}/void`, data),
+                   api.post(`/finance/invoices/${id}/void`, data, { skipAuthRedirect: true }),
     remove:      (id: string, data: { password: string; reason: string; confirmNumber: string }) =>
-                   api.delete(`/finance/invoices/${id}`, { data }),
+                   api.delete(`/finance/invoices/${id}`, { data, skipAuthRedirect: true }),
   },
 
   // Payments
