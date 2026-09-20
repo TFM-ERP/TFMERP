@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { filterWorkspaces, OS_WORKSPACES } from './os-workspaces.ts';
+import { filterWorkspaces, OS_WORKSPACES } from './os-workspaces.data.ts';
 
 test('solo mode hides the Room workspace; team keeps it', () => {
   const solo = filterWorkspaces(OS_WORKSPACES, 'solo').map((w) => w.key);

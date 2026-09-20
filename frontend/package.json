@@ -9,7 +9,9 @@
     "dev": "next dev --port 3000",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "node --enable-source-maps --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./src/test-support/node-loader-hooks.ts --test \"src/**/*.test.ts\"",
+    "test:watch": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./src/test-support/node-loader-hooks.ts --watch --test \"src/**/*.test.ts\""
   },
   "dependencies": {
     "@hookform/resolvers": "^3.6.0",

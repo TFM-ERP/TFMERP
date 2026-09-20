@@ -1,50 +1,44 @@
 // frontend/src/components/scripton/os-workspaces.ts
+//
+// Attaches the rail icon components (React/lucide-react) to the plain workspace data in
+// ./os-workspaces.data.ts, and re-exports everything under the names this module has always
+// exported. Consumers (ScriptOnStudio.tsx, shared/sx.tsx, (dashboard)/layout.tsx,
+// useScriptonBack.ts) import from here exactly as before — nothing about their imports changes.
+//
+// Why the split: this file's import of ./rail-icons pulls in real JSX, which plain `node --test`
+// cannot execute (no JSX transform). The data + pure logic now live in os-workspaces.data.ts,
+// which has no React/JSX in its import chain and so is directly testable under Node. See
+// ../../test-support/README.md for the full explanation of that boundary.
 import type { ComponentType } from 'react';
 import { Home, PenLine, Stethoscope } from 'lucide-react';
 import { BuildIcon, CanonIcon, VersionsIcon, RoomIcon, SlateIcon, SettingsIcon } from './rail-icons';
+import {
+  OS_WORKSPACES as OS_WORKSPACES_DATA,
+  activeWorkspaceKey,
+  filterWorkspaces,
+  rememberFilmosRoute,
+  lastFilmosRoute,
+  type OsWorkspace as OsWorkspaceData,
+} from './os-workspaces.data';
 
-export type OsWorkspace = { key: string; label: string; href: string; icon: ComponentType<any>; perm?: string; teamOnly?: boolean };
+export { activeWorkspaceKey, filterWorkspaces, rememberFilmosRoute, lastFilmosRoute };
 
-export const OS_WORKSPACES: OsWorkspace[] = [
-  { key: 'home',     label: 'Home',     href: '/scripton',                    icon: Home },
-  { key: 'write',    label: 'Write',    href: '/scripton/reader',             icon: PenLine },
-  { key: 'develop',  label: 'Build',    href: '/scripton/studio?tab=builds',  icon: BuildIcon },
-  { key: 'canon',    label: 'Canon',    href: '/scripton/canon',              icon: CanonIcon },
-  { key: 'doctor',   label: 'Doctor',   href: '/scripton/doctor',             icon: Stethoscope },
-  { key: 'versions', label: 'Versions', href: '/scripton/revisions',          icon: VersionsIcon },
-  { key: 'room',     label: 'Room',     href: '/scripton/notes',              icon: RoomIcon, teamOnly: true },
-  { key: 'slate',    label: 'Slate',    href: '/scripton/library',            icon: SlateIcon },
-  { key: 'studio',   label: 'Settings',  href: '/scripton/settings',           icon: SettingsIcon, perm: 'setup' },
-];
+export type OsWorkspace = OsWorkspaceData & { icon: ComponentType<any> };
 
-const pathOf = (href: string) => href.split('?')[0];
+const ICONS: Record<string, ComponentType<any>> = {
+  home: Home,
+  write: PenLine,
+  develop: BuildIcon,
+  canon: CanonIcon,
+  doctor: Stethoscope,
+  versions: VersionsIcon,
+  room: RoomIcon,
+  slate: SlateIcon,
+  studio: SettingsIcon,
+};
 
-export function activeWorkspaceKey(pathname: string, _search?: string): string | null {
-  // Develop solely owns /scripton/studio (incl. ?tab=builds and sub-routes).
-  if (pathname === '/scripton/studio' || pathname.startsWith('/scripton/studio/')) return 'develop';
-  // Everything else (including Studio → /scripton/settings) by longest path match.
-  let bestKey: string | null = null;
-  let bestLen = -1;
-  for (const w of OS_WORKSPACES) {
-    const p = pathOf(w.href);
-    if (p === '/scripton/studio') continue; // Develop's path, handled above
-    if (pathname === p || (p !== '/scripton' && pathname.startsWith(p + '/')) || (p === '/scripton' && pathname === '/scripton')) {
-      if (p.length > bestLen) { bestKey = w.key; bestLen = p.length; }
-    }
-  }
-  return bestKey;
-}
-
-const LS_KEY = 'tfm_last_filmos_route';
-export function rememberFilmosRoute(pathname: string): void {
-  if (!pathname || pathname.startsWith('/scripton')) return;
-  try { sessionStorage.setItem(LS_KEY, pathname); } catch { /* ignore */ }
-}
-export function lastFilmosRoute(): string {
-  try { return sessionStorage.getItem(LS_KEY) || '/home'; } catch { return '/home'; }
-}
-
-/** Drop team-only workspaces (e.g. Room) when in solo mode. Pure. */
-export function filterWorkspaces(list: OsWorkspace[], mode: 'team' | 'solo'): OsWorkspace[] {
-  return list.filter((w) => !(w.teamOnly && mode === 'solo'));
-}
+export const OS_WORKSPACES: OsWorkspace[] = OS_WORKSPACES_DATA.map((w) => {
+  const icon = ICONS[w.key];
+  if (!icon) throw new Error(`os-workspaces: no icon mapped for workspace key "${w.key}"`);
+  return { ...w, icon };
+});
