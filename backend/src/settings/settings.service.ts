@@ -44,6 +44,10 @@ export class SettingsService {
       website:  p.website,
       logoUrl:  p.logoUrl,
       darkLogoUrl: p.darkLogoUrl, // dark-mode logo (white lettering) for the app shell
+      // The logo printed on financial documents. Kept separate from logoUrl
+      // because the app shell and the printed page want different artwork —
+      // without it every printed document fell back to the bundled placeholder.
+      invoiceLogoUrl: p.invoiceLogoUrl,
       documentSettings: p.documentSettings || null,
       emailSettings: (p as any).emailSettings || null,
       // Finance defaults
@@ -86,6 +90,7 @@ export class SettingsService {
     if (data.website !== undefined) d.website = data.website || undefined;
     if (data.logoUrl !== undefined) d.logoUrl = data.logoUrl || undefined;
     if (data.darkLogoUrl !== undefined) d.darkLogoUrl = data.darkLogoUrl || undefined;
+    if (data.invoiceLogoUrl !== undefined) d.invoiceLogoUrl = data.invoiceLogoUrl || undefined;
     if (data.defaultCurrency !== undefined) d.currency = data.defaultCurrency || undefined;
     if (data.invoicePrefix !== undefined) d.invoicePrefix = data.invoicePrefix || undefined;
     if (data.quotationPrefix !== undefined) d.quotationPrefix = data.quotationPrefix || undefined;

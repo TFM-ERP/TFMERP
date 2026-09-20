@@ -32,7 +32,7 @@ export class DashboardService {
       return num(r._sum.total);
     }, 0);
     const paymentsLast30 = await safe(async () => {
-      const r = await this.prisma.payment.aggregate({ _sum: { amount: true }, where: { paymentDate: { gte: last30 } } });
+      const r = await this.prisma.payment.aggregate({ _sum: { amount: true }, where: { direction: 'RECEIPT', paymentDate: { gte: last30 } } });
       return num(r._sum.amount);
     }, 0);
     const expensesMtd = await safe(async () => {
