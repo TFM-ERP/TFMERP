@@ -100,3 +100,6 @@ backend/prisma/schema.prisma.backup-*
 
 # Scratch from Claude sessions — patches, check scripts, one-off outputs
 Claude outputs/
+
+# Verification builds — kept out of .next so they never trample a running dev server
+frontend/.next-verify/

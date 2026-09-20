@@ -12,7 +12,8 @@
     "lint": "next lint",
     "test": "node --enable-source-maps --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./src/test-support/node-loader-hooks.ts --test \"src/**/*.test.ts\"",
     "test:watch": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./src/test-support/node-loader-hooks.ts --watch --test \"src/**/*.test.ts\"",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "build:verify": "next build --distDir .next-verify"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.6.0",
