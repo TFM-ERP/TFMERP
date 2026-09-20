@@ -67,7 +67,20 @@ export const DEFAULT_HEAD_SHARE = 0.6;
  */
 export const MIN_TAIL_CHARS = 1600;
 
-/** Neither side may fall below this. Under marker + 2x this, there is no useful window at all. */
+/**
+ * THE HEAD HAS A FLOOR TOO, and it was missing until buildFeatureCtx made the omission visible.
+ *
+ * At that site's old 2,200 budget, MIN_TAIL 1,600 left a 477-character head: 81% of the ending and
+ * 4% of the opening. That is not a window, it is a tail with an apology. Both ends have to be
+ * legible or the part should say it was not carried.
+ *
+ * Below marker + MIN_HEAD + MIN_TAIL there is no legible window, and the part is DROPPED and NAMED
+ * rather than degraded silently. The way to stay above the floor is to fund the part properly —
+ * which is why commit 3 raises buildFeatureCtx's per-part caps rather than only windowing them.
+ */
+export const MIN_HEAD_CHARS = 1200;
+
+/** Neither side may fall below this absolute minimum. */
 export const MIN_SIDE_CHARS = 400;
 
 const num = (n: number) => n.toLocaleString('en-US');
@@ -127,7 +140,7 @@ function snapForward(s: string, at: number): number {
 }
 
 export function windowKeepingEnd(
-  body: any, budget: number, opts?: { headShare?: number; minTail?: number; minSide?: number },
+  body: any, budget: number, opts?: { headShare?: number; minTail?: number; minHead?: number; minSide?: number },
 ): Window {
   const s = String(body == null ? '' : body);
   const total = s.length;
@@ -138,13 +151,14 @@ export function windowKeepingEnd(
   const headShare = opts && typeof opts.headShare === 'number' ? Math.min(1, Math.max(0, opts.headShare)) : DEFAULT_HEAD_SHARE;
   const minTail = opts && typeof opts.minTail === 'number' ? Math.max(0, opts.minTail) : MIN_TAIL_CHARS;
   const minSide = opts && typeof opts.minSide === 'number' ? Math.max(0, opts.minSide) : MIN_SIDE_CHARS;
+  const minHead = opts && typeof opts.minHead === 'number' ? Math.max(0, opts.minHead) : MIN_HEAD_CHARS;
 
   // THE MARKER IS CHARGED INSIDE THE BUDGET. An uncharged marker overruns the cap silently, which
   // is this same defect one level up. Its own length is bounded by using `total` as the omitted
   // count — the widest the digits can ever be — so the finished block is always <= budget.
   const markerRoom = elisionMarker(total, total).length + 2;   // +2 for the newlines around it
 
-  if (cap < markerRoom + 2 * minSide) {
+  if (cap < markerRoom + Math.max(minHead, minSide) + Math.max(minTail, minSide)) {
     // NO USEFUL WINDOW. Emitting a sliver plus a marker would spend the budget saying nothing; the
     // caller names the part as omitted instead, the way developmentSoFar already names what it
     // could not carry.
@@ -153,7 +167,8 @@ export function windowKeepingEnd(
 
   const avail = cap - markerRoom;
   let tail = Math.max(Math.round(avail * (1 - headShare)), minTail);
-  tail = Math.min(tail, avail - minSide);
+  // The head's floor binds the tail's ceiling — MIN_TAIL may not eat the opening.
+  tail = Math.min(tail, avail - Math.max(minHead, minSide));
   tail = Math.max(tail, minSide);
   const head = avail - tail;
 
