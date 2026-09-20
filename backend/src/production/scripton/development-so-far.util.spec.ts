@@ -34,7 +34,10 @@ test('SPENT NEWEST FIRST: when the budget is short, the nearest stages are the o
   const r = developmentSoFar(FULL, 30000);           // STEP_OUTLINE 17,166 whole, then 12,834 left
   assert.deepEqual(r.parts.map((p) => p.kind), ['SCENES', 'STEP_OUTLINE']);
   assert.deepEqual(r.parts.map((p) => p.complete), [false, true], 'the nearest stage is whole; the next is the fragment');
-  assert.equal(r.parts[0].sent, 30000 - 17166);
+  // The fragment is now a WINDOW, so it carries slightly less than its room: the elision marker is
+  // charged inside the budget rather than added on top of it.
+  assert.ok(r.parts[0].sent < 30000 - 17166 && r.parts[0].sent > 30000 - 17166 - 400, 'sent ' + r.parts[0].sent);
+  assert.ok(r.block.includes(FULL[4].body.slice(-40)), 'the SCENES fragment must carry its ENDING');
   assert.deepEqual(r.omitted.map((o) => o.kind), ['LOGLINE', 'SYNOPSIS', 'TREATMENT', 'BEATS']);
 });
 
@@ -42,9 +45,10 @@ test('THE ONE THAT DOES NOT FIT IS A LABELLED FRAGMENT, NOT A DROP', () => {
   const r = developmentSoFar(FULL, 20000);           // STEP_OUTLINE 17,166 whole, 2,834 left for SCENES
   assert.deepEqual(r.parts.map((p) => p.kind), ['SCENES', 'STEP_OUTLINE']);
   assert.equal(r.parts[0].complete, false);
-  assert.equal(r.parts[0].sent, 20000 - 17166);
-  assert.ok(r.block.includes('--- SCENES (first 2,834 of 16,974 characters) ---'));
+  assert.match(r.block, /--- SCENES \(opening and ending - [\d,]+ of 16,974 characters; [\d,]+ omitted from the middle\) ---/);
   assert.ok(r.block.includes('--- STEP_OUTLINE (complete, 17,166 characters) ---'));
+  assert.ok(r.block.includes(FULL[4].body.slice(0, 40)), 'opening');
+  assert.ok(r.block.includes(FULL[4].body.slice(-40)), 'ENDING');
 });
 
 test('ANYTHING OMITTED IS NAMED, with its size, before the content', () => {
@@ -63,19 +67,34 @@ test('the content never exceeds the budget, and is printed oldest first', () => 
   }
 });
 
+/**
+ * THE FLOOR CASE. A room too small to give a window BOTH a legible opening and a legible ending
+ * carries nothing, and the stage is NAMED as omitted rather than emitted as a stub. The threshold
+ * is the window's floor (marker + minHead + minTail), which is higher than SOFAR_MIN_FRAGMENT —
+ * so a 500-character scrap that the old head-slice would have carried is now named instead.
+ */
 test('a scrap of room is not worth a fragment: the stage is named as omitted instead', () => {
-  const r = developmentSoFar(FULL, 17166 + SOFAR_MIN_FRAGMENT - 1);
-  assert.deepEqual(r.parts.map((p) => p.kind), ['STEP_OUTLINE']);
-  assert.ok(r.omitted.some((o) => o.kind === 'SCENES'));
-  const r2 = developmentSoFar(FULL, 17166 + SOFAR_MIN_FRAGMENT);
-  assert.deepEqual(r2.parts.map((p) => p.kind), ['SCENES', 'STEP_OUTLINE']);
-  assert.equal(r2.parts[0].sent, SOFAR_MIN_FRAGMENT);
+  const scrap = developmentSoFar(FULL, 17166 + SOFAR_MIN_FRAGMENT - 1);
+  assert.deepEqual(scrap.parts.map((p) => p.kind), ['STEP_OUTLINE']);
+  assert.ok(scrap.omitted.some((o) => o.kind === 'SCENES'), 'named, not silently absent');
+
+  const stillScrap = developmentSoFar(FULL, 17166 + SOFAR_MIN_FRAGMENT);
+  assert.deepEqual(stillScrap.parts.map((p) => p.kind), ['STEP_OUTLINE']);
+  assert.ok(stillScrap.omitted.some((o) => o.kind === 'SCENES'), '500 is below the window floor too');
+
+  const enough = developmentSoFar(FULL, 17166 + 3000);
+  assert.deepEqual(enough.parts.map((p) => p.kind), ['SCENES', 'STEP_OUTLINE']);
+  assert.ok(enough.block.includes(FULL[4].body.slice(-40)), 'and it carries its ending');
 });
 
 test('a single stage larger than the whole budget is still carried, as a fragment', () => {
-  const r = developmentSoFar([{ kind: 'DRAFT', body: body(38257) }], 14000);
-  assert.deepEqual(r.parts, [{ kind: 'DRAFT', sent: 14000, total: 38257, complete: false }]);
-  assert.ok(r.block.includes('--- DRAFT (first 14,000 of 38,257 characters) ---'));
+  const draft = body(38257);
+  const r = developmentSoFar([{ kind: 'DRAFT', body: draft }], 14000);
+  assert.equal(r.parts.length, 1);
+  assert.equal(r.parts[0].complete, false);
+  assert.ok(r.parts[0].sent < 14000 && r.parts[0].sent > 13000, 'sent ' + r.parts[0].sent);
+  assert.match(r.block, /--- DRAFT \(opening and ending - [\d,]+ of 38,257 characters; [\d,]+ omitted from the middle\) ---/);
+  assert.ok(r.block.includes(draft.slice(-40)), 'a lone over-budget stage still carries its ending');
   assert.deepEqual(r.omitted, []);
 });
 
@@ -83,8 +102,10 @@ test('the header sentence is unchanged', () => {
   assert.match(developmentSoFar(V26).block, /^\nDEVELOPMENT SO FAR \(everything already written - stay fully consistent with all of it; build directly on it\):\n--- LOGLINE/);
 });
 
-test('labels: complete, or first N of M', () => {
+test('labels: complete, windowed, or (for a caller that passes no elision) first N of M', () => {
   assert.equal(soFarLabel('LOGLINE', 241, 241), '--- LOGLINE (complete, 241 characters) ---');
+  assert.equal(soFarLabel('TREATMENT', 2400, 9792, 7392),
+    '--- TREATMENT (opening and ending - 2,400 of 9,792 characters; 7,392 omitted from the middle) ---');
   assert.equal(soFarLabel('TREATMENT', 2400, 9792), '--- TREATMENT (first 2,400 of 9,792 characters) ---');
 });
 
