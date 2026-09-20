@@ -1,8 +1,12 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { REVENUE_LINES, POSTABLE_INVOICE_STATUSES } from '../accounting/revenue-mapping.util';
+import { buildRevenueMatrix, reconcile, toReportRows, MatrixInvoice } from './revenue-matrix.util';
+import { arSettlementNotice, collectArSettlementFacts } from '../accounting/ar-settlement-notice.util';
 
 type Col = { key: string; label: string; align?: 'left' | 'right' | 'center'; format?: 'currency' | 'number' | 'date' | 'text' };
-type Report = { key: string; title: string; columns: Col[]; rows: any[]; totals?: any; period?: { from: string; to: string } };
+type Report = { key: string; title: string; columns: Col[]; rows: any[]; totals?: any; period?: { from: string; to: string }; notice?: any };
 
 @Injectable()
 export class ReportsService {
@@ -13,6 +17,7 @@ export class ReportsService {
       // Financial
       { key: 'pl', name: 'Profit & Loss', category: 'Financial', dateRange: true },
       { key: 'revenue-by-client', name: 'Revenue by Client', category: 'Financial', dateRange: true },
+      { key: 'revenue-matrix', name: 'Revenue Matrix (client x revenue line)', category: 'Financial', dateRange: true },
       { key: 'expenses-by-category', name: 'Expenses by Category', category: 'Financial', dateRange: true },
       { key: 'payments-received', name: 'Payments Received', category: 'Financial', dateRange: true },
       { key: 'cash-flow', name: 'Cash Flow (monthly)', category: 'Financial', dateRange: true },
@@ -45,6 +50,7 @@ export class ReportsService {
     const map: Record<string, () => Promise<Report>> = {
       'pl': () => this.pl(from, to, period),
       'revenue-by-client': () => this.revenueByClient(from, to, period),
+      'revenue-matrix': () => this.revenueMatrix(from, to, period),
       'expenses-by-category': () => this.expensesByCategory(from, to, period),
       'payments-received': () => this.paymentsReceived(from, to, period),
       'cash-flow': () => this.cashFlow(from, to, period),
@@ -88,16 +94,122 @@ export class ReportsService {
     };
   }
 
+  /**
+   * Revenue by client, NET of VAT.
+   *
+   * Was summing `Invoice.total`, which is VAT-inclusive — every client was
+   * overstated by the VAT rate (5% on standard-rated sales). Revenue is
+   * `total - vatAmount`, which is also exactly what `postAll()` credits to the
+   * revenue accounts, so this column now ties to the general ledger.
+   *
+   * `total - vatAmount` is used rather than `subtotal` deliberately: `subtotal`
+   * is struck before `discountAmount` and `deductionAmount`, so the two diverge
+   * on any discounted invoice. They coincide today only because every discount
+   * and deduction in the data is zero.
+   *
+   * Arithmetic stays on Prisma.Decimal and converts to number once, at the
+   * response boundary, because the Report row shape is JSON.
+   *
+   * Note: the status filter here (`notIn CANCELLED, DRAFT`) is WIDER than the
+   * one `postAll()` posts on (`in SENT, PARTIALLY_PAID, PAID, OVERDUE`) — it
+   * also admits PENDING_APPROVAL, VOIDED, REFUNDED and BAD_DEBT. This report
+   * therefore need not equal GL revenue. Left as-is: narrowing it changes which
+   * invoices appear, which is a separate decision from the VAT defect.
+   */
   private async revenueByClient(from: Date, to: Date, period: any): Promise<Report> {
-    const grp = await this.prisma.invoice.groupBy({ by: ['clientId'], where: { issueDate: { gte: from, lte: to }, status: { notIn: ['CANCELLED', 'DRAFT'] as any } }, _sum: { total: true, amountDue: true }, _count: { _all: true } });
+    const grp = await this.prisma.invoice.groupBy({ by: ['clientId'], where: { issueDate: { gte: from, lte: to }, status: { notIn: ['CANCELLED', 'DRAFT'] as any } }, _sum: { total: true, vatAmount: true, amountDue: true }, _count: { _all: true } });
     const clients = await this.prisma.client.findMany({ where: { id: { in: grp.map(g => g.clientId) } }, select: { id: true, companyName: true } });
     const cmap = Object.fromEntries(clients.map(c => [c.id, c.companyName]));
-    const rows = grp.map(g => ({ client: cmap[g.clientId] || '—', invoices: g._count._all, invoiced: Number(g._sum.total || 0), outstanding: Number(g._sum.amountDue || 0) }))
-      .sort((a, b) => b.invoiced - a.invoiced);
+    const D = Prisma.Decimal;
+    const rows = grp.map(g => {
+      const net = new D(g._sum.total ?? 0).minus(new D(g._sum.vatAmount ?? 0));
+      return { client: cmap[g.clientId] || '—', invoices: g._count._all, _net: net, _due: new D(g._sum.amountDue ?? 0) };
+    }).sort((a, b) => b._net.comparedTo(a._net));
+    const netTotal = rows.reduce((s, r) => s.plus(r._net), new D(0));
+    const dueTotal = rows.reduce((s, r) => s.plus(r._due), new D(0));
     return {
-      key: 'revenue-by-client', title: 'Revenue by Client', period,
-      columns: [{ key: 'client', label: 'Client' }, { key: 'invoices', label: 'Invoices', align: 'right', format: 'number' }, { key: 'invoiced', label: 'Invoiced', align: 'right', format: 'currency' }, { key: 'outstanding', label: 'Outstanding', align: 'right', format: 'currency' }],
-      rows, totals: { Invoiced: rows.reduce((s, r) => s + r.invoiced, 0), Outstanding: rows.reduce((s, r) => s + r.outstanding, 0) },
+      key: 'revenue-by-client', title: 'Revenue by Client (net of VAT)', period,
+      columns: [{ key: 'client', label: 'Client' }, { key: 'invoices', label: 'Invoices', align: 'right', format: 'number' }, { key: 'invoiced', label: 'Revenue (excl. VAT)', align: 'right', format: 'currency' }, { key: 'outstanding', label: 'Outstanding (incl. VAT)', align: 'right', format: 'currency' }],
+      rows: rows.map(r => ({ client: r.client, invoices: r.invoices, invoiced: r._net.toNumber(), outstanding: r._due.toNumber() })),
+      totals: { 'Revenue (excl. VAT)': netTotal.toNumber(), 'Outstanding (incl. VAT)': dueTotal.toNumber() },
+    };
+  }
+
+  /**
+   * Revenue matrix — client (rows) x GL revenue line (columns), net of VAT.
+   * Contract: src/reports/revenue-matrix.contract.md
+   *
+   * Reads Invoice (Layer A), never JournalLine — the ledger gains no client
+   * dimension. The two are tied together by the invariant instead: the grand
+   * total must equal GL revenue for the same period, to the fils. If it does
+   * not, the report says so in a variance row rather than appearing to balance.
+   */
+  private async revenueMatrix(from: Date, to: Date, period: any): Promise<Report> {
+    const invoices = await this.prisma.invoice.findMany({
+      where: { issueDate: { gte: from, lte: to }, status: { in: POSTABLE_INVOICE_STATUSES as any } },
+      select: {
+        id: true, clientId: true, activity: true, invoiceType: true, total: true, vatAmount: true,
+        client: { select: { companyName: true } },
+      },
+      // Deterministic: a report whose row order shifts between runs cannot be diffed.
+      orderBy: [{ issueDate: 'asc' }, { id: 'asc' }],
+    });
+
+    const input: MatrixInvoice[] = invoices.map(i => ({
+      clientId: i.clientId,
+      clientName: (i as any).client?.companyName || '—',
+      activity: i.activity as any,
+      invoiceType: i.invoiceType as any,
+      total: i.total as any,
+      vatAmount: i.vatAmount as any,
+    }));
+    const matrix = buildRevenueMatrix(input);
+
+    // GL revenue for the same window, from POSTED entries only.
+    const glLines = await this.prisma.journalLine.findMany({
+      where: {
+        account: { type: 'INCOME' as any },
+        entry: { status: 'POSTED' as any, date: { gte: from, lte: to } },
+      },
+      select: { debit: true, credit: true },
+    });
+    const glRevenue = glLines.reduce(
+      (s, l) => s.plus(new Prisma.Decimal(l.credit as any)).minus(new Prisma.Decimal(l.debit as any)),
+      new Prisma.Decimal(0),
+    );
+    const check = reconcile(matrix, glRevenue);
+    const unpostedInvoices = await this.prisma.invoice.count({
+      where: {
+        issueDate: { gte: from, lte: to }, status: { in: POSTABLE_INVOICE_STATUSES as any },
+        NOT: { id: { in: (await this.prisma.journalEntry.findMany({
+          where: { sourceType: 'INVOICE' }, select: { sourceId: true },
+        })).map(e => e.sourceId as string) } },
+      },
+    });
+
+    const rows: any[] = toReportRows(matrix);
+    if (!rows.length) rows.push({ client: 'No invoices for this period', invoices: 0, total: 0 });
+
+    return {
+      key: 'revenue-matrix', title: 'Revenue Matrix — client x revenue line (net of VAT)', period,
+      columns: [
+        { key: 'client', label: 'Client' },
+        { key: 'invoices', label: 'Invoices', align: 'right', format: 'number' },
+        ...REVENUE_LINES.map(l => ({ key: l.code, label: l.label, align: 'right' as const, format: 'currency' as const })),
+        { key: 'total', label: 'Total (excl. VAT)', align: 'right', format: 'currency' },
+      ],
+      rows,
+      totals: {
+        ...REVENUE_LINES.reduce((o, l) => ({ ...o, [l.label]: matrix.columnTotals[l.code].toNumber() }), {}),
+        'Total (excl. VAT)': matrix.grandTotal.toNumber(),
+        'GL revenue (same period)': check.glRevenue.toNumber(),
+        // Surfaced, never plugged. A non-zero variance means posting is incomplete
+        // or a mapping changed without a re-post.
+        ...(check.reconciled ? {} : {
+          'VARIANCE — does not reconcile': check.variance.toNumber(),
+          'Unposted invoices in period': unpostedInvoices,
+        }),
+      },
     };
   }
 
@@ -112,7 +224,7 @@ export class ReportsService {
   }
 
   private async paymentsReceived(from: Date, to: Date, period: any): Promise<Report> {
-    const pays = await this.prisma.payment.findMany({ where: { paymentDate: { gte: from, lte: to } }, include: { client: { select: { companyName: true } } }, orderBy: { paymentDate: 'desc' } });
+    const pays = await this.prisma.payment.findMany({ where: { direction: 'RECEIPT', paymentDate: { gte: from, lte: to } }, include: { client: { select: { companyName: true } } }, orderBy: { paymentDate: 'desc' } });
     const rows = pays.map(p => ({ date: p.paymentDate, ref: p.paymentNumber, client: (p as any).client?.companyName || '—', method: p.method, status: p.status, amount: Number(p.amount) }));
     return {
       key: 'payments-received', title: 'Payments Received', period,
@@ -123,7 +235,7 @@ export class ReportsService {
 
   private async cashFlow(from: Date, to: Date, period: any): Promise<Report> {
     const [pays, exps] = await Promise.all([
-      this.prisma.payment.findMany({ where: { paymentDate: { gte: from, lte: to } }, select: { paymentDate: true, amount: true } }),
+      this.prisma.payment.findMany({ where: { direction: 'RECEIPT', paymentDate: { gte: from, lte: to } }, select: { paymentDate: true, amount: true } }),
       this.prisma.expense.findMany({ where: { expenseDate: { gte: from, lte: to }, status: { in: ['APPROVED', 'PAID'] as any } }, select: { expenseDate: true, totalAmount: true } }),
     ]);
     const m: Record<string, { inflow: number; outflow: number }> = {};
@@ -148,8 +260,17 @@ export class ReportsService {
     return {
       key: 'ar-aging', title: 'Receivables Aging',
       columns: [{ key: 'invoice', label: 'Invoice' }, { key: 'client', label: 'Client' }, { key: 'due', label: 'Due', format: 'date' }, { key: 'daysOverdue', label: 'Days overdue', align: 'right', format: 'number' }, { key: 'amount', label: 'Amount due', align: 'right', format: 'currency' }],
-      rows, totals: { 'Total outstanding': rows.reduce((s, r) => s + r.amount, 0) },
+      rows,
+      totals: { 'Total outstanding': rows.reduce((s, r) => s + r.amount, 0) },
+      // Ageing reads Invoice.amountDue, which reflects settlement recorded on the
+      // invoice. That is not the same as cash posted to the ledger — see the util.
+      notice: await this.arSettlementNotice(rows.reduce((s, r) => s + r.amount, 0)),
     };
+  }
+
+  /** Shared receivables caveat — see ar-settlement-notice.util for what it detects. */
+  private async arSettlementNotice(subLedgerOpen: number) {
+    return arSettlementNotice(await collectArSettlementFacts(this.prisma as any, subLedgerOpen));
   }
 
   // ── Rental ──
