@@ -1,4 +1,7 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable, NotFoundException, BadRequestException,
+  UnauthorizedException, ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { InvoiceStatus } from '@prisma/client';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
@@ -6,6 +9,8 @@ import { UpdateInvoiceDto } from './dto/update-invoice.dto';
 import { QueryInvoiceDto } from './dto/query-invoice.dto';
 import { StatusService } from '../../status/status.service';
 import { sumLineItems, computeDocumentTotals } from '../totals.util';
+import * as bcrypt from 'bcryptjs';
+import { canDelete, canVoid, canArchive, LifecycleState } from './invoice-lifecycle.rules';
 
 @Injectable()
 export class InvoicesService {
@@ -13,6 +18,91 @@ export class InvoicesService {
     private prisma: PrismaService,
     private statusService: StatusService,
   ) {}
+
+  /**
+   * Failed confirmation attempts, per user. In memory on purpose: a restart
+   * clears it, which is fine for a single-tenant system and adds no dependency.
+   */
+  private readonly failures = new Map<string, { count: number; until: number }>();
+  private static readonly MAX_FAILURES = 5;
+  private static readonly LOCK_MS = 15 * 60 * 1000;
+
+  /**
+   * Confirms the caller is who they say they are, using the password they log
+   * in with. There is no separate admin password: a shared secret makes the
+   * audit log say "someone who knew it", and this makes it say who.
+   */
+  private async assertPassword(userId: string, password: string, action: string): Promise<void> {
+    const now = Date.now();
+    const record = this.failures.get(userId);
+    if (record && record.count >= InvoicesService.MAX_FAILURES && now < record.until) {
+      const minutes = Math.ceil((record.until - now) / 60000);
+      throw new ForbiddenException(
+        `Too many failed attempts. Try again in ${minutes} minute${minutes === 1 ? '' : 's'}.`,
+      );
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { passwordHash: true },
+    });
+    const ok = user ? await bcrypt.compare(password, user.passwordHash) : false;
+
+    if (!ok) {
+      const count = (record && now < record.until ? record.count : 0) + 1;
+      this.failures.set(userId, { count, until: now + InvoicesService.LOCK_MS });
+      await this.writeAudit(userId, `${action}_DENIED`, 'unknown', null);
+      throw new UnauthorizedException('That password is not correct.');
+    }
+
+    this.failures.delete(userId);
+  }
+
+  /** Every lifecycle action lands in the audit log, successful or not. */
+  private async writeAudit(
+    userId: string,
+    action: string,
+    invoiceId: string,
+    oldValue: unknown,
+  ): Promise<void> {
+    await this.prisma.auditLog.create({
+      data: {
+        userId,
+        action,
+        resource: 'Invoice',
+        resourceId: invoiceId,
+        oldValue: oldValue === null ? undefined : (oldValue as any),
+      },
+    });
+  }
+
+  /** Loads exactly what the rules module needs to reach a verdict. */
+  private async lifecycleState(id: string): Promise<{ state: LifecycleState; invoice: any }> {
+    const invoice = await this.prisma.invoice.findUnique({
+      where: { id },
+      include: { items: true, client: { select: { companyName: true } } },
+    });
+    if (!invoice) throw new NotFoundException(`Invoice ${id} was not found`);
+
+    const [journals, clearedReceipts] = await Promise.all([
+      this.prisma.journalEntry.count({
+        where: { sourceType: 'INVOICE', sourceId: id, status: 'POSTED' },
+      }),
+      this.prisma.payment.count({
+        where: { invoiceId: id, direction: 'RECEIPT', status: 'CLEARED' },
+      }),
+    ]);
+
+    return {
+      invoice,
+      state: {
+        status: invoice.status,
+        hasJournal: journals > 0,
+        clearedReceipts,
+        archivedAt: invoice.archivedAt,
+      },
+    };
+  }
 
   private async nextNumber(prefix: string) {
     const year = new Date().getFullYear();
