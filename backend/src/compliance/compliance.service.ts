@@ -108,7 +108,7 @@ export class ComplianceService {
       this.prisma.client.count(),
       this.prisma.client.count({ where: { trn: { not: null } } }),
       this.prisma.invoice.findMany({
-        where: { status: { notIn: ['DRAFT', 'CANCELLED'] as any } },
+        where: { status: { notIn: ['CANCELLED', 'VOIDED'] } },
         take: 500,
         orderBy: { issueDate: 'desc' },
         select: {
