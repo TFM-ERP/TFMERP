@@ -22,6 +22,7 @@ import {
 import { draftLengthCheck } from './draft-length.util';
 import { windowKeepingEnd, windowLabel, allocate } from './excerpt-window.util';
 import { consumedStamp, hasConsumed } from './consumed-stamp.util';
+import { preSpendGate, GATE_CHECKS } from './pre-spend-gate.util';
 import {
   classifyLine, nextInSpeech, checkScene, checkDraftContinuity, checkPlanCast, stripExitedCast,
   collectExits, unavailableLine, dedupeScenes, repairInstruction, summariseContinuity,
@@ -1366,6 +1367,26 @@ export class ScripOnService {
     // first 2,400 characters of a 9,792-character treatment is an instruction no stage can follow.
     const soFarOut = developmentSoFar(earlier.map((st: any) => ({ kind: st.kind, body: String((st.current && st.current.body) || '') })));
     const soFarBlock = soFarOut.block;
+    // C1's stamp is computed here, before the paid call, because C2's gate reads it.
+    const consumed = consumedStamp(soFarOut.parts, stages);
+    // ── C2 — THE PRE-SPEND GATE ────────────────────────────────────────────────────────────────
+    // The checks on the versions this stage is about to be written from already exist. Read them
+    // BEFORE the expensive call, not after. On 20 Sep the register check had already named line 39
+    // on STEP_OUTLINE and 79 scenes were written on top of it.
+    // Report-only for every stage except DRAFT, which is where the spend becomes a film.
+    if (kind === 'DRAFT') {
+      const gateVersions = stages
+        .map((st: any) => ({ id: st.current && st.current.id, kind: st.kind, data: st.current && st.current.data }))
+        .filter((v: any) => v.id);
+      const gate = preSpendGate(consumed, gateVersions, { checks: GATE_CHECKS });
+      if (gate.stop && !opts?.waiveChecks) {
+        throw new BadRequestException(gate.text
+          + '\n\nNothing has been generated and nothing has been spent. Amend the upstream stage, or'
+          + ' re-run with waiveChecks to proceed on the record above.');
+      }
+      if (gate.stop) this.log.warn('generateStage DRAFT: PRE-SPEND FINDINGS WAIVED —\n' + gate.text);
+      else this.log.log('generateStage DRAFT: ' + gate.text);
+    }
     if (soFarOut.parts.some((p) => !p.complete) || soFarOut.omitted.length) {
       this.log.log('generateStage ' + kind + ': DEVELOPMENT SO FAR carries ' + soFarOut.parts.map((p) => p.kind + ' ' + p.sent + '/' + p.total).join(', ')
         + (soFarOut.omitted.length ? ' — not carried: ' + soFarOut.omitted.map((o) => o.kind + ' (' + o.total + ')').join(', ') : ''));
@@ -1545,7 +1566,6 @@ export class ScripOnService {
     // block actually CARRIED, never its `omitted`) resolved against pipeline()'s own `current`, so
     // the stamp records what was read rather than what happened to be available. See
     // consumed-stamp.util for why it must not be re-derived from currentVersionId.
-    const consumed = consumedStamp(soFarOut.parts, stages);
     if (hasConsumed(consumed)) data.consumed = consumed;
     const maxN = (stage.versions || []).reduce((m: number, v: any) => Math.max(m, v.n || 0), 0);
     const n = maxN + 1;
@@ -5384,7 +5404,7 @@ export class ScripOnService {
   }
 
   // Promote: file the document immediately, then write it in the background by format (poll scriptProgress).
-  async promoteToScript(versionId: string, userId?: string) {
+  async promoteToScript(versionId: string, userId?: string, opts?: { waiveChecks?: boolean }) {
     const v: any = await (this.prisma as any).stageVersion.findUnique({ where: { id: versionId } });
     if (!v) throw new BadRequestException('Version not found.');
     const stage: any = await (this.prisma as any).developmentStage.findUnique({ where: { id: v.stageId } });
@@ -5398,6 +5418,24 @@ export class ScripOnService {
     if (truncationOf(v.data) && cutForScript.indexOf(stage.kind) < 0) cutForScript.push(stage.kind);
     const cutRefusal = scriptRefusal(cutForScript, 'write');
     if (cutRefusal) throw new BadRequestException(cutRefusal);
+    // ── C2 — THE PRE-SPEND GATE, on the other side of the same spend ───────────────────────────
+    // The feature writer is 40-84 paid calls. These are the stages it reads: buildFeatureCtx takes
+    // LOGLINE/SYNOPSIS/TREATMENT/BEATS, buildSpine adds STEP_OUTLINE, and sceneCards reads SCENES.
+    // Checked BEFORE the document row is created, so a refusal leaves nothing behind.
+    const FEATURE_CONSUMES = ['LOGLINE', 'SYNOPSIS', 'TREATMENT', 'BEATS', 'STEP_OUTLINE', 'SCENES'];
+    const featureConsumed: Record<string, string> = {};
+    for (const k of FEATURE_CONSUMES) {
+      const st: any = stages.find((x: any) => x.kind === k);
+      if (st && st.current && st.current.id) featureConsumed[k] = st.current.id;
+    }
+    const featureGate = preSpendGate(featureConsumed, stages.map((st: any) => ({ id: st.current && st.current.id, kind: st.kind, data: st.current && st.current.data })).filter((v: any) => v.id), { checks: GATE_CHECKS });
+    if (featureGate.stop && !opts?.waiveChecks) {
+      throw new BadRequestException(featureGate.text
+        + '\n\nNo script document has been created and nothing has been spent. Amend the upstream'
+        + ' stage, or re-run with waiveChecks to proceed on the record above.');
+    }
+    if (featureGate.stop) this.log.warn('promoteToScript: PRE-SPEND FINDINGS WAIVED —\n' + featureGate.text);
+    else this.log.log('promoteToScript: ' + featureGate.text);
     const lg: any = stages.find((s: any) => s.kind === 'LOGLINE');
     const fromLog = String((lg && lg.current && lg.current.body) || '').split(/[.\n]/)[0].trim();
     const bld: any = stage.buildId ? await (this.prisma as any).developmentBuild.findUnique({ where: { id: stage.buildId } }).catch(() => null) : null;

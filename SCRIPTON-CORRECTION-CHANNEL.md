@@ -79,7 +79,7 @@ stamp becomes a claim about what was *available* rather than a record of what wa
 
 ## C2 — The pre-spend gate
 
-Small, and the item that would have caught line 39. **Not yet landed.**
+Small, and the item that would have caught line 39. **Landed.**
 
 ### Problem
 
@@ -112,6 +112,24 @@ gate's output changes from (b) to (c) in the same run.
 
 C2 does not fix anything and does not regenerate anything. It reads what is already stored and
 stops. **Amending is C3.**
+
+### As landed
+
+Two spend points: `generateStage` when `kind === 'DRAFT'`, and `promoteToScript` before the script
+document row is created — so a refusal leaves nothing behind. Both accept `waiveChecks` at the
+service layer; the HTTP controller passes no waive, so the endpoint always gates.
+
+Run against Jason Quick V3.2 on the day it landed, it **STOPS**, naming line 39 on three stages:
+
+```
+BEATS        — registerCheck: FINDINGS. 1 of 81 contradicted  Line(s): 39.
+STEP_OUTLINE — registerCheck: FINDINGS. 1 of 81 contradicted  Line(s): 39.
+SCENES       — registerCheck: FINDINGS. 1 of 81 contradicted  Line(s): 39.
+TREATMENT    — keepCheck:     FINDINGS. not found: explicit five-to-six-page prologue; Leah named
+```
+
+and reports **9 clean, 5 NOT RUN** — the NOT RUNs all `keepCheck`, absent on every stage but
+TREATMENT, each one saying in words that it is not a pass.
 
 ---
 
