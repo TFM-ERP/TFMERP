@@ -20,9 +20,11 @@ export class AuditInterceptor implements NestInterceptor {
     // skip auth/login noise
     if (url.includes('/auth/')) return next.handle();
     // skip routes (or whole controllers) that write their own, more specific audit row
-    if (this.reflector.getAllAndOverride<boolean>(SKIP_AUDIT, [ctx.getHandler(), ctx.getClass()])) {
-      return next.handle();
-    }
+    try {
+      if (this.reflector.getAllAndOverride<boolean>(SKIP_AUDIT, [ctx.getHandler(), ctx.getClass()])) {
+        return next.handle();
+      }
+    } catch { /* skip check failed, continue to audit */ }
 
     return next.handle().pipe(tap(() => {
       try {
