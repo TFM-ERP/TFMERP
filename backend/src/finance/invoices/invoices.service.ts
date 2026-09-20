@@ -3,7 +3,7 @@ import {
   UnauthorizedException, ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
-import { InvoiceStatus } from '@prisma/client';
+import { InvoiceStatus, Prisma } from '@prisma/client';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { UpdateInvoiceDto } from './dto/update-invoice.dto';
 import { QueryInvoiceDto } from './dto/query-invoice.dto';
@@ -73,15 +73,28 @@ export class InvoicesService {
     this.failures.delete(userId);
   }
 
-  /** Every lifecycle action lands in the audit log, successful or not. */
+  /**
+   * Every lifecycle action lands in the audit log, successful or not.
+   *
+   * Takes an optional Prisma transaction client, defaulting to the plain
+   * `this.prisma`. When called with a `tx` from inside a `$transaction`
+   * callback (voidInvoice, remove), the audit row is written through that
+   * same client, so it commits or rolls back with the mutation it describes
+   * instead of being a separate, possibly-lost write after the fact. This
+   * method does not catch its own errors — a failed `auditLog.create` throws
+   * out to the caller, and inside a transaction that means the whole
+   * transaction rolls back, exactly as it must for the audit row to be a
+   * reliable guarantee rather than a best-effort side effect.
+   */
   private async writeAudit(
     userId: string,
     action: string,
     invoiceId: string,
     oldValue: unknown,
     ip?: string,
+    client: Prisma.TransactionClient = this.prisma,
   ): Promise<void> {
-    await this.prisma.auditLog.create({
+    await client.auditLog.create({
       data: {
         userId,
         action,
@@ -442,14 +455,22 @@ export class InvoicesService {
 
   // ── Lifecycle: archive, unarchive, void, delete ─────────────────────────
   //
-  // The audit write for each of these always happens AFTER the mutation it
-  // describes has actually committed, never before and never interleaved with
-  // it. `writeAudit` uses this.prisma directly, not a transaction client, so
-  // if it ran first (as the brief for this task sketched it) a rolled-back
-  // void or delete would still leave a permanent audit row claiming the
-  // action happened. Recording a false "this was voided" is worse than
-  // occasionally missing the audit row for a write that failed after it
-  // succeeded, so the mutation goes first.
+  // archive/unarchive are single-field mutations, audited right after they
+  // commit — there is one statement to lose, and losing the audit row for it
+  // is a minor gap, not a hole in the books.
+  //
+  // voidInvoice and remove are different. For remove, the audit payload is
+  // the ONLY surviving copy of the invoice, its line items and its
+  // attachment list once the rows are gone — an audit insert that fails
+  // after the delete has already committed would erase the invoice with no
+  // record at all, which the five-year FTA retention rule cannot tolerate.
+  // For voidInvoice, the audit row is what names the reversing journal entry
+  // the void created. So for both, `writeAudit` is called with `tx` and runs
+  // INSIDE the same `$transaction` as the mutation: either the audit row and
+  // the mutation both land, or neither does. `writeAudit` does not catch its
+  // own errors, so a failed audit insert — a dropped connection, pool
+  // exhaustion, oversized JSON — throws inside the callback and rolls the
+  // whole transaction back, same as any other failed statement in it.
 
   /** Hides an invoice from the default list. Changes nothing else. */
   async archive(id: string, userId: string, ip?: string) {
@@ -510,9 +531,33 @@ export class InvoicesService {
     });
 
     const voided = await this.prisma.$transaction(async (tx) => {
+      // Belt-and-braces guard, in addition to the status-flip guard below:
+      // if a reversal was already posted for this invoice (e.g. the status
+      // flip below lost a race in a way this check still catches, or the
+      // invoice was left in a state where canVoid wrongly allowed a second
+      // pass), refuse rather than post a second one.
+      const existingReversal = await tx.journalEntry.findFirst({
+        where: { sourceType: 'INVOICE_VOID', sourceId: id },
+        select: { id: true },
+      });
+      if (existingReversal) {
+        throw new BadRequestException('This invoice is already voided.');
+      }
+
       let reversalEntryNumber: string | null = null;
 
       if (original) {
+        // A POSTED journal entry with no lines is not something
+        // AccountingService.je() would ever create, and reversing one here
+        // would post exactly that: a hollow, unbalanced entry. Refuse
+        // instead of writing it.
+        if (!original.lines || original.lines.length === 0) {
+          throw new BadRequestException(
+            `Cannot void invoice ${invoice.invoiceNumber}: its posted journal entry ` +
+              `${original.entryNumber} has no lines to reverse.`,
+          );
+        }
+
         // Same atomic-increment sequence AccountingService.nextEntryNumber()
         // and this service's own nextNumber() use (documentSequence.upsert
         // with { increment: 1 }) — run through `tx` so a failure below rolls
@@ -525,10 +570,41 @@ export class InvoicesService {
           create: { prefix: 'JE', lastNumber: 1, year },
         });
         reversalEntryNumber = `JE-${year}-${String(seq.lastNumber).padStart(4, '0')}`;
+      }
 
+      const stamp =
+        `[VOIDED ${new Date().toISOString().slice(0, 10)}] ${dto.reason}` +
+        (original
+          ? ` Reversed by journal ${reversalEntryNumber} against ${original.entryNumber}.`
+          : '');
+
+      // The status flip IS the concurrency guard. `lifecycleState`/`canVoid`
+      // and the `original` lookup above all ran outside this transaction, so
+      // two interleaved voids of the same invoice can both reach here having
+      // seen a non-VOIDED status. Only one `updateMany` can match a row that
+      // is still not VOIDED — the other gets flipped.count === 0, throws,
+      // and its reversal (built above but not yet written) never gets
+      // created, because the journalEntry.create below only runs after this
+      // guard passes. Two concurrent voids therefore commit at most one
+      // reversal between them, never two.
+      const flipped = await tx.invoice.updateMany({
+        where: { id, status: { not: 'VOIDED' } },
+        data: {
+          status: 'VOIDED',
+          amountDue: 0,
+          internalNotes: invoice.internalNotes
+            ? `${invoice.internalNotes}\n\n${stamp}`
+            : stamp,
+        },
+      });
+      if (flipped.count !== 1) {
+        throw new BadRequestException('This invoice is already voided.');
+      }
+
+      if (original) {
         await tx.journalEntry.create({
           data: {
-            entryNumber: reversalEntryNumber,
+            entryNumber: reversalEntryNumber!,
             date: new Date(),
             memo:
               `Void of invoice ${invoice.invoiceNumber} — reverses ${original.entryNumber}. ` +
@@ -543,35 +619,28 @@ export class InvoicesService {
         });
       }
 
-      const stamp =
-        `[VOIDED ${new Date().toISOString().slice(0, 10)}] ${dto.reason}` +
-        (original ? ` Reversed by a journal against ${original.entryNumber}.` : '');
-
-      return tx.invoice.update({
-        where: { id },
-        data: {
-          status: 'VOIDED',
-          amountDue: 0,
-          internalNotes: invoice.internalNotes
-            ? `${invoice.internalNotes}\n\n${stamp}`
-            : stamp,
+      // `updateMany` returns only a count, not the row, so the updated
+      // invoice is re-fetched here for the return value — through `tx`, so
+      // it reflects exactly what this transaction just wrote and nothing a
+      // concurrent request wrote after it.
+      await this.writeAudit(
+        userId,
+        'VOID',
+        id,
+        {
+          invoiceNumber: invoice.invoiceNumber,
+          status: invoice.status,
+          total: String(invoice.total),
+          reason: dto.reason,
+          reversedEntry: original?.entryNumber ?? null,
+          reversalEntry: reversalEntryNumber,
         },
-      });
-    });
+        ip,
+        tx,
+      );
 
-    await this.writeAudit(
-      userId,
-      'VOID',
-      id,
-      {
-        invoiceNumber: invoice.invoiceNumber,
-        status: invoice.status,
-        total: String(invoice.total),
-        reason: dto.reason,
-        reversedEntry: original?.entryNumber ?? null,
-      },
-      ip,
-    );
+      return tx.invoice.findUnique({ where: { id } });
+    });
 
     return voided;
   }
@@ -604,38 +673,45 @@ export class InvoicesService {
     });
 
     await this.prisma.$transaction(async (tx) => {
+      // The audit row is the ONLY surviving copy of this invoice, its line
+      // items and its attachment list once the deletes below run — so it is
+      // written FIRST, through `tx`, before any delete. If the audit insert
+      // fails, this throws and the whole transaction (including the deletes
+      // that haven't happened yet) rolls back: the invoice stays exactly as
+      // it was, rather than being gone with no record of it ever existing.
+      await this.writeAudit(
+        userId,
+        'DELETE',
+        id,
+        {
+          invoice: {
+            invoiceNumber: invoice.invoiceNumber,
+            clientId: invoice.clientId,
+            client: invoice.client?.companyName ?? null,
+            issueDate: invoice.issueDate,
+            subtotal: String(invoice.subtotal),
+            vatAmount: String(invoice.vatAmount),
+            total: String(invoice.total),
+            status: invoice.status,
+            internalNotes: invoice.internalNotes,
+          },
+          items: invoice.items.map((i: any) => ({
+            description: i.description,
+            quantity: String(i.quantity),
+            unitPrice: String(i.unitPrice),
+            lineTotal: String(i.lineTotal),
+          })),
+          attachments,
+          reason: dto.reason,
+        },
+        ip,
+        tx,
+      );
+
       await tx.documentAttachment.deleteMany({ where: { entityType: 'INVOICE', entityId: id } });
       await tx.invoiceItem.deleteMany({ where: { invoiceId: id } });
       await tx.invoice.delete({ where: { id } });
     });
-
-    await this.writeAudit(
-      userId,
-      'DELETE',
-      id,
-      {
-        invoice: {
-          invoiceNumber: invoice.invoiceNumber,
-          clientId: invoice.clientId,
-          client: invoice.client?.companyName ?? null,
-          issueDate: invoice.issueDate,
-          subtotal: String(invoice.subtotal),
-          vatAmount: String(invoice.vatAmount),
-          total: String(invoice.total),
-          status: invoice.status,
-          internalNotes: invoice.internalNotes,
-        },
-        items: invoice.items.map((i: any) => ({
-          description: i.description,
-          quantity: String(i.quantity),
-          unitPrice: String(i.unitPrice),
-          lineTotal: String(i.lineTotal),
-        })),
-        attachments,
-        reason: dto.reason,
-      },
-      ip,
-    );
 
     return { deleted: true, invoiceNumber: invoice.invoiceNumber };
   }

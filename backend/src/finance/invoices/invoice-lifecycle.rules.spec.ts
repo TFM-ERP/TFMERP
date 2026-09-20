@@ -155,3 +155,21 @@ test('buildReversalLines assigns sortOrder by position', () => {
   ]);
   assert.deepEqual(reversed.map((l) => l.sortOrder), [0, 1]);
 });
+
+test('buildReversalLines on an empty original returns an empty array', () => {
+  assert.deepEqual(buildReversalLines([]), []);
+});
+
+test('buildReversalLines moves debit/credit values, it does not do arithmetic on them', () => {
+  // Production passes Prisma Decimal instances here, not numbers. A sentinel
+  // object with only a toString() proves the exact same reference comes back
+  // swapped — nothing was added to, subtracted from, or otherwise computed
+  // from it, which a numeric fixture could never distinguish from a correct
+  // arithmetic swap.
+  const D1 = { toString: () => 'D1' };
+  const D2 = { toString: () => 'D2' };
+  const original = [{ accountId: 'ar', debit: D1, credit: D2, description: 'AR' }];
+  const [reversed] = buildReversalLines(original);
+  assert.equal(reversed.debit, D2);
+  assert.equal(reversed.credit, D1);
+});
