@@ -1,5 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { revenueAccountFor, REVENUE_LINES, POSTABLE_INVOICE_STATUSES } from './revenue-mapping.util';
+import { expenseAccountCode } from './expense-mapping.util';
 
 type GlType = 'ASSET' | 'LIABILITY' | 'EQUITY' | 'INCOME' | 'EXPENSE';
 
@@ -25,6 +27,7 @@ const STANDARD_COA: { code: string; name: string; type: GlType; subtype?: string
   // Income
   { code: '4000', name: 'Rental Revenue', type: 'INCOME', subtype: 'Operating Income' },
   { code: '4100', name: 'Production Services Revenue', type: 'INCOME', subtype: 'Operating Income' },
+  { code: '4150', name: 'Rental & Production (combined)', type: 'INCOME', subtype: 'Operating Income' },
   { code: '4200', name: 'Other Income', type: 'INCOME', subtype: 'Other Income' },
   // Expenses
   { code: '5000', name: 'Cost of Services', type: 'EXPENSE', subtype: 'Cost of Sales' },
@@ -152,8 +155,34 @@ export class AccountingService {
     if (totalD === 0) throw new BadRequestException('Entry total cannot be zero.');
   }
 
+  /**
+   * Refuse to touch a period that has been closed.
+   *
+   * Periods start OPEN and nothing is blocked until one is deliberately closed,
+   * so this cannot lock anyone out by surprise. It exists because during the 2025
+   * reconstruction every correcting entry could be dated freely into a year whose
+   * accounts were supposedly finished — there was nothing in the system with an
+   * opinion about that.
+   *
+   * Only POSTED entries are blocked. A draft can be prepared against a closed
+   * period; it simply cannot be posted until the period is reopened.
+   */
+  private async assertPeriodOpen(date: Date) {
+    const closed = await this.prisma.fiscalPeriod.findFirst({
+      where: { status: 'CLOSED', startDate: { lte: date }, endDate: { gte: date } },
+      select: { year: true, periodType: true, startDate: true, endDate: true, closedAt: true },
+    });
+    if (!closed) return;
+    const d = (x: Date) => x.toISOString().slice(0, 10);
+    throw new BadRequestException(
+      `The period ${d(closed.startDate)} to ${d(closed.endDate)} was closed on ${closed.closedAt ? d(closed.closedAt) : 'an earlier date'}. ` +
+        'Reopen it before posting into it, or date the entry in an open period.',
+    );
+  }
+
   async createJournal(data: { date: string; memo?: string; reference?: string; lines: any[]; post?: boolean }, userId?: string) {
     this.validateBalanced(data.lines);
+    if (data.post) await this.assertPeriodOpen(new Date(data.date));
     const entryNumber = await this.nextEntryNumber();
     return this.prisma.journalEntry.create({
       data: {
@@ -214,6 +243,7 @@ export class AccountingService {
     if (e.status === 'POSTED') return e;
     if (e.status === 'VOID') throw new BadRequestException('Voided entries cannot be posted.');
     this.validateBalanced(e.lines);
+    await this.assertPeriodOpen(e.date);
     return this.prisma.journalEntry.update({ where: { id }, data: { status: 'POSTED', postedAt: new Date() } });
   }
 
@@ -372,20 +402,6 @@ export class AccountingService {
     return byCode;
   }
 
-  private expenseAccountCode(category?: string): string {
-    const c = (category || '').toLowerCase();
-    if (c.includes('fuel') || c.includes('transport')) return '5100';
-    if (c.includes('mainten') || c.includes('repair')) return '5200';
-    if (c.includes('crew') || c.includes('freelan')) return '5300';
-    if (c.includes('salar') || c.includes('wage') || c.includes('payroll')) return '6000';
-    if (c.includes('rent') || c.includes('utilit')) return '6100';
-    if (c.includes('office') || c.includes('admin')) return '6200';
-    if (c.includes('market') || c.includes('advert')) return '6300';
-    if (c.includes('insur')) return '6400';
-    if (c.includes('bank')) return '6500';
-    return '6900';
-  }
-
   async postingStatus() {
     const map = await this.accountMap();
     const posted = await this.prisma.journalEntry.findMany({ where: { sourceType: { not: null } }, select: { sourceType: true, sourceId: true } });
@@ -420,17 +436,24 @@ export class AccountingService {
 
   /** Generate journal entries for all unposted invoices, expenses and payments. Idempotent. */
   async postAll() {
+    // An install seeded before 4150 existed would silently drop every BOTH invoice:
+    // je() returns null when a code is missing from the chart, with no error.
+    await this.ensureAccounts(REVENUE_LINES.map(l => ({
+      code: l.code, name: l.accountName, type: 'INCOME' as GlType, subtype: 'Operating Income',
+    })));
     const map = await this.accountMap();
     if (Object.keys(map).length === 0) throw new BadRequestException('Seed the chart of accounts first.');
     const posted = await this.prisma.journalEntry.findMany({ where: { sourceType: { not: null } }, select: { sourceType: true, sourceId: true } });
     const done = new Set(posted.map(p => `${p.sourceType}:${p.sourceId}`));
     let invoices = 0, expenses = 0, payments = 0;
 
-    const invs = await this.prisma.invoice.findMany({ where: { status: { in: ['SENT', 'PARTIALLY_PAID', 'PAID', 'OVERDUE'] as any } } });
+    const invs = await this.prisma.invoice.findMany({ where: { status: { in: POSTABLE_INVOICE_STATUSES as any } } });
     for (const inv of invs) {
       if (done.has(`INVOICE:${inv.id}`)) continue;
       const total = Number(inv.total); const vat = Number(inv.vatAmount); const net = total - vat;
-      const rev = inv.activity === 'PRODUCTION' ? '4100' : inv.activity === 'RENTAL' ? '4000' : '4200';
+      // Mapping lives in revenue-mapping.util so the revenue matrix report groups
+      // by exactly what the ledger posts. Never inline it again.
+      const rev = revenueAccountFor(inv.activity);
       if (await this.je(inv.issueDate || inv.createdAt, `Invoice ${inv.invoiceNumber}`, 'INVOICE', inv.id, [
         { code: '1100', debit: total, desc: 'Accounts Receivable' },
         { code: rev, credit: net, desc: 'Revenue' },
@@ -443,20 +466,36 @@ export class AccountingService {
       if (done.has(`EXPENSE:${e.id}`)) continue;
       const amount = Number(e.amount); const vat = Number(e.vatAmount); const total = Number(e.totalAmount);
       if (await this.je(e.expenseDate || e.createdAt, `Expense ${e.expenseNumber}`, 'EXPENSE', e.id, [
-        { code: this.expenseAccountCode(e.category), debit: amount, desc: e.category || 'Expense' },
+        { code: expenseAccountCode(e.category), debit: amount, desc: e.category || 'Expense' },
         { code: '1200', debit: vat, desc: 'Input VAT' },
         { code: '2000', credit: total, desc: 'Accounts Payable' },
       ], map)) expenses++;
     }
 
+    // A payment is posted by its direction, not by assumption.
+    //
+    // Until `Payment.direction` existed every payment posted Dr 1010 / Cr 1100 —
+    // always a customer receipt — because the model could not express anything
+    // else. Account 2000 ended up with 151 credits and zero debits while the bank
+    // statements proved the suppliers had been paid. A supplier payment relieves
+    // the payable and takes the money out of the bank; a receipt does the reverse.
     const pays = await this.prisma.payment.findMany();
     for (const p of pays) {
       if (done.has(`PAYMENT:${p.id}`)) continue;
       const amount = Number(p.amount);
-      if (await this.je((p as any).paymentDate || p.createdAt, `Payment ${p.paymentNumber}`, 'PAYMENT', p.id, [
-        { code: '1010', debit: amount, desc: 'Bank' },
-        { code: '1100', credit: amount, desc: 'Accounts Receivable' },
-      ], map)) payments++;
+      const lines =
+        p.direction === 'PAYMENT'
+          ? [
+              { code: '2000', debit: amount, desc: 'Accounts Payable' },
+              { code: '1010', credit: amount, desc: 'Bank' },
+            ]
+          : [
+              { code: '1010', debit: amount, desc: 'Bank' },
+              { code: '1100', credit: amount, desc: 'Accounts Receivable' },
+            ];
+      const label = p.direction === 'PAYMENT' ? 'Supplier payment' : 'Payment';
+      if (await this.je((p as any).paymentDate || p.createdAt, `${label} ${p.paymentNumber}`, 'PAYMENT', p.id, lines, map))
+        payments++;
     }
 
     return { invoices, expenses, payments };
