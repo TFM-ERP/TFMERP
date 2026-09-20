@@ -2900,7 +2900,32 @@ export class ScripOnService {
     // Build first, as generateStage reads it: the build's own source outranks a project-level one.
     const src = asSourceText(sourceText) || asSourceText(intakeRow && intakeRow.sourceText) || '';
     const register = src ? registerDirective(transcribeRegister(src.trim()).facts) : '';
-    return (directive ? directive + '\n' : '') + (steer ? steer + '\n' : '') + (research ? '\nRESEARCH (honour for authenticity):\n' + research + '\n' : '') + '\nLOGLINE: ' + bodyOf('LOGLINE').slice(0, 400) + '\nSYNOPSIS:\n' + bodyOf('SYNOPSIS').slice(0, 1400) + '\nTREATMENT:\n' + bodyOf('TREATMENT').slice(0, 2600) + '\nBEAT MAP:\n' + bodyOf('BEATS').slice(0, 2200)
+    // ── THE PER-SCENE WRITER IS SHOWN HOW THE STORY ENDS ────────────────────────────────────────
+    //
+    // These caps were 400/1,400/2,600/2,200 and every one of them was a HEAD slice, so the writer
+    // composing scene 80 had never seen the ending of anything. Measured on V3.2: the beat map lost
+    // 82% from the tail, the treatment 69%, the synopsis 75% — on EVERY one of the 40-84 scene calls.
+    //
+    // RAISED, NOT ONLY WINDOWED, and the arithmetic is why. This string IS the cache prefix (see
+    // writeScene): over an 84-scene run it is written once and read 83 times, which at 1.25x write
+    // and 0.1x read costs 9.55x its token count rather than 84x — about 8.8x cheaper than an
+    // uncached prefix. Carrying these four stages WHOLE therefore costs cents across a whole
+    // feature, and a cap that truncates them is saving nothing worth having. The caps stay as
+    // bounds against a pathological body; on normal material nothing windows at all.
+    //
+    // windowKeepingEnd is the safety net for when a body does exceed its bound: head AND tail, with
+    // the omission marked, never the head alone.
+    const part = (kind: string, label: string, cap: number): string => {
+      const w = windowKeepingEnd(bodyOf(kind), cap);
+      if (w.dropped || (!w.text && w.total)) return '\n' + label + ' (not carried, ' + w.total + ' characters):';
+      if (!w.text) return '';
+      return '\n' + windowLabel(label, w) + ':\n' + w.text;
+    };
+    return (directive ? directive + '\n' : '') + (steer ? steer + '\n' : '') + (research ? '\nRESEARCH (honour for authenticity):\n' + research + '\n' : '')
+      + part('LOGLINE', 'LOGLINE', 3000)
+      + part('SYNOPSIS', 'SYNOPSIS', 6500)
+      + part('TREATMENT', 'TREATMENT', 9500)
+      + part('BEATS', 'BEAT MAP', 13000)
       + (register ? '\n\n' + register : '');
   }
 

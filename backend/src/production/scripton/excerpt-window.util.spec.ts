@@ -11,7 +11,7 @@ import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import {
   windowKeepingEnd, allocate, elisionMarker, windowLabel,
-  MIN_TAIL_CHARS, MIN_SIDE_CHARS, DEFAULT_HEAD_SHARE,
+  MIN_TAIL_CHARS, MIN_SIDE_CHARS, MIN_HEAD_CHARS, DEFAULT_HEAD_SHARE,
 } from './excerpt-window.util';
 
 /** A document whose end is unmistakable, shaped like a beat map: paragraphs, numbered. */
@@ -83,12 +83,31 @@ test('sent + elided always accounts for the whole document', () => {
   }
 });
 
-test('MIN_TAIL lifts a small budget off the share, and is inert on a large one', () => {
-  const small = windowKeepingEnd(BODY, 2200);
-  const tail = small.text.split(/---\n\n/)[1] || '';
+test('MIN_TAIL lifts a mid-size budget off the share, and is inert on a large one', () => {
+  const mid = windowKeepingEnd(BODY, 4000);
+  const tail = mid.text.split(/---\n\n/)[1] || '';
   assert.ok(tail.length >= MIN_TAIL_CHARS - 400, 'tail was ' + tail.length);
   // At 9,000 the share already exceeds MIN_TAIL, so overriding it changes nothing.
   assert.equal(windowKeepingEnd(BODY, 9000).sent, windowKeepingEnd(BODY, 9000, { minTail: 0 }).sent);
+});
+
+/**
+ * THE HEAD HAS A FLOOR, and 2,200 is the budget that proved it was needed. With MIN_TAIL 1,600 and
+ * no head floor, buildFeatureCtx's old beat-map budget produced a 477-character opening against a
+ * 1,600-character ending: 81% of the end, 4% of the start. Now that budget is below the floor and
+ * the part says it was not carried instead of pretending to be a window.
+ */
+test('MIN_HEAD — the tail may not eat the opening', () => {
+  const w = windowKeepingEnd(BODY, 6000);
+  const [head, tail] = w.text.split(/\n\n---[\s\S]*?---\n\n/);
+  assert.ok(head.length >= MIN_HEAD_CHARS - 300, 'head was only ' + head.length);
+  assert.ok(tail.length >= MIN_TAIL_CHARS - 300, 'tail was only ' + tail.length);
+});
+
+test('a budget that cannot give BOTH ends a floor is dropped, not degraded', () => {
+  const w = windowKeepingEnd(BODY, 2200);          // the old buildFeatureCtx beat-map budget
+  assert.equal(w.dropped, true, 'a 477-character head is not a window');
+  assert.equal(w.text, '');
 });
 
 // ── THE FLOOR: the branch that had no acceptance until it was asked for ───────────────────────
@@ -103,7 +122,7 @@ test('FLOOR — a budget under marker + 2x MIN_SIDE is DROPPED, not emitted as a
 });
 
 test('FLOOR — just above it, a real window is produced instead', () => {
-  const room = elisionMarker(BODY.length, BODY.length).length + 2 + 2 * MIN_SIDE_CHARS;
+  const room = elisionMarker(BODY.length, BODY.length).length + 2 + MIN_HEAD_CHARS + MIN_TAIL_CHARS;
   const w = windowKeepingEnd(BODY, room + 50);
   assert.equal(w.dropped, false);
   assert.ok(w.sent > 0);
