@@ -193,6 +193,33 @@ const AR: Dict = {
     'أُرشفت في {date}. مخفية من القائمة الافتراضية — لم يتغيّر شيء في الفاتورة أو أرقامها.',
   "Something went wrong sending that — the invoice hasn't changed. Check your connection and try again.":
     'حدث خطأ أثناء الإرسال — لم تتغيّر الفاتورة. تحقّق من اتصالك وحاول مرة أخرى.',
+  // Finance · invoices — void / delete (invoice lifecycle UI batch 3)
+  // 'More' already exists in the common-vocabulary block above.
+  'Void Invoice — cancel it for good': 'إلغاء الفاتورة — إلغاؤها نهائياً',
+  'Delete Invoice — erase it completely': 'حذف الفاتورة — محوها بالكامل',
+  "Can't delete — money has already moved against this invoice. Void it instead.":
+    'لا يمكن الحذف — تحرّك مبلغ مالي مقابل هذه الفاتورة بالفعل. ألغِها بدلاً من ذلك.',
+  'Void invoice {number}?': 'إلغاء الفاتورة {number}؟',
+  "This invoice has already gone out, or money has moved against it, so it can't simply be deleted. Voiding cancels it and posts a reversing entry in your books — the record stays, marked cancelled, for your audit trail. This cannot be undone.":
+    'صدرت هذه الفاتورة بالفعل، أو تحرّك مبلغ مالي مقابلها، لذا لا يمكن حذفها ببساطة. الإلغاء يلغي الفاتورة ويسجّل قيداً عكسياً في دفاترك — يبقى السجل، بعلامة ملغاة، لمسار التدقيق. لا يمكن التراجع عن هذا.',
+  'Why are you voiding this?': 'لماذا تُلغي هذه الفاتورة؟',
+  'e.g. wrong client, duplicate invoice, job cancelled': 'مثال: عميل خاطئ، فاتورة مكرّرة، إلغاء المهمة',
+  "Confirm it's you — type your login password": 'تأكيد الهوية — اكتب كلمة مرور الدخول',
+  'Void This Invoice': 'إلغاء هذه الفاتورة',
+  'Voided on {date}. Reason: "{reason}". A reversing entry was posted to the ledger.':
+    'أُلغيت في {date}. السبب: "{reason}". تم تسجيل قيد عكسي في دفتر الأستاذ.',
+  'Voided on {date}. Reason: "{reason}".': 'أُلغيت في {date}. السبب: "{reason}".',
+  'Voided on {date}.': 'أُلغيت في {date}.',
+  'Permanently delete invoice {number}?': 'حذف الفاتورة {number} نهائياً؟',
+  "This removes the invoice completely — there will be no record of it anywhere, and this cannot be undone. It's only possible because nothing has posted to your books yet.":
+    'هذا يحذف الفاتورة بالكامل — لن يبقى لها أي سجل في أي مكان، ولا يمكن التراجع عن هذا. هذا ممكن فقط لأنه لم يُسجَّل بعد شيء في دفاترك.',
+  'Type the invoice number to confirm: {number}': 'اكتب رقم الفاتورة للتأكيد: {number}',
+  'Delete Permanently': 'حذف نهائي',
+  'Why are you deleting this?': 'لماذا تحذف هذه الفاتورة؟',
+  'e.g. duplicate draft, entered by mistake, wrong client': 'مثال: مسودة مكرّرة، أُدخلت بالخطأ، عميل خاطئ',
+  'Void Instead': 'إلغاء بدلاً من ذلك',
+  'Too many wrong passwords. This is locked for 15 minutes. Try again after {time}.':
+    'كلمات مرور خاطئة كثيرة. هذا مقفل لمدة 15 دقيقة. حاول مرة أخرى بعد {time}.',
   // Finance · quotations
   'Finance · Sales': 'المالية · المبيعات', 'Quotations': 'عروض الأسعار', 'quotations total': 'إجمالي عروض الأسعار',
   'Search by number, client, or subject...': 'ابحث بالرقم أو العميل أو الموضوع…',

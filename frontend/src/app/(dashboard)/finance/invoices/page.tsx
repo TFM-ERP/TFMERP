@@ -10,7 +10,7 @@ import StatusBadge from '@/components/StatusBadge';
 import { useLocale } from '@/lib/i18n';
 import { useCan } from '@/lib/permissions';
 
-const STATUSES = ['DRAFT','SENT','PARTIALLY_PAID','PAID','OVERDUE','CANCELLED'];
+const STATUSES = ['DRAFT','SENT','PARTIALLY_PAID','PAID','OVERDUE','CANCELLED','VOIDED'];
 const RETRY_COPY = "Something went wrong sending that — the invoice hasn't changed. Check your connection and try again.";
 
 /**

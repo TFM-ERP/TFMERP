@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowLeft, CreditCard, RefreshCw, Building2, Calendar,
   FileText, Plus, X, Clock, AlertCircle, DollarSign,
   Printer, History, ChevronDown, Edit2, CheckCircle, Mail, Send,
-  Archive, ArchiveRestore
+  Archive, ArchiveRestore, Ban, Trash2
 } from 'lucide-react';
 import { financeApi } from '@/lib/api';
 import { formatCurrency, formatDate, daysUntil, cn } from '@/lib/utils';
@@ -22,6 +22,45 @@ const RETRY_COPY = "Something went wrong sending that — the invoice hasn't cha
 // The Invoice model carries only `archivedAt`, no archived-by user — the banner
 // therefore shows the date alone rather than a false or blank name.
 const ARCHIVED_BANNER_COPY = 'Archived on {date}. Hidden from the default list — nothing about the invoice or its numbers changed.';
+
+// Mirrors DELETABLE_STATUSES in backend/src/finance/invoices/invoice-lifecycle.rules.ts —
+// canDelete() refuses every other status. Kept in sync by hand since the frontend has no
+// import path into that backend-only module.
+const DELETABLE_STATUSES = ['DRAFT', 'CANCELLED'];
+
+/**
+ * The five-wrong-passwords lockout (InvoicesService.assertPassword) throws a 403 whose
+ * message is `Too many failed attempts. Try again in ${minutes} minute(s).` — this pulls
+ * the number back out so the dialog can show a real clock time instead of a countdown.
+ * Falls back to 15 (the server's LOCK_MS) if the message shape ever changes.
+ */
+function parseLockoutMinutes(message?: string): number {
+  if (!message) return 15;
+  const m = message.match(/(\d+)\s*minute/);
+  return m ? parseInt(m[1], 10) : 15;
+}
+
+/**
+ * Pulls the date and reason back out of `internalNotes` for a voided invoice.
+ *
+ * The Invoice model has no voidedAt, voidedBy or voidReason column — confirmed by
+ * reading prisma/schema.prisma — and GET /finance/invoices/:id does not include audit
+ * log rows. The only place the void's date and reason genuinely survive on the object
+ * this page already has is the stamp InvoicesService.voidInvoice concatenates onto
+ * internalNotes: `[VOIDED YYYY-MM-DD] <reason>` optionally followed by
+ * ` Reversed by journal <entryNumber> against <entryNumber>.`. There is no voided-by
+ * user anywhere in the response, so the banner never claims one.
+ */
+function parseVoidStamp(notes: string | null | undefined): { date: string; reason: string; reversed: boolean } | null {
+  if (!notes) return null;
+  const m = notes.match(/\[VOIDED (\d{4}-\d{2}-\d{2})\]\s*([\s\S]*)/);
+  if (!m) return null;
+  let reason = m[2];
+  const idx = reason.indexOf(' Reversed by journal ');
+  const reversed = idx !== -1;
+  if (reversed) reason = reason.slice(0, idx);
+  return { date: m[1], reason: reason.trim(), reversed };
+}
 
 /**
  * Archive confirm dialog. Duplicated here (not shared with the list page's
@@ -55,6 +94,253 @@ function ArchiveConfirmDialog({ invoiceNumber, submitting, error, onCancel, onCo
             {t('Archive')}
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The `More ▾` dropdown beside Change Status: Void and Delete. Both are
+ * finance:3 — the caller only renders this component at all once that check
+ * has passed, so there is no permission logic in here. Closes on an outside
+ * click or Escape, following the same pattern as `components/NotificationBell.tsx`
+ * (the one existing dropdown in this app), plus the Escape handling that one
+ * doesn't have but this design explicitly asks for.
+ */
+function MoreMenu({ invoiceStatus, onVoid, onDelete, t }: any) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onClick);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onClick);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  const deletable = DELETABLE_STATUSES.includes(invoiceStatus);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button onClick={() => setOpen(o => !o)} className="btn-secondary">
+        {t('More')} <ChevronDown size={14} />
+      </button>
+      {open && (
+        <div className="absolute end-0 mt-2 w-80 bg-white rounded-xl shadow-2xl border border-gray-100 z-50 overflow-hidden">
+          <button
+            onClick={() => { setOpen(false); onVoid(); }}
+            className="w-full text-start px-4 py-3 hover:bg-gray-50 text-sm text-red-700 flex items-center gap-2.5"
+          >
+            <Ban size={15} className="shrink-0" />
+            <span>{t('Void Invoice — cancel it for good')}</span>
+          </button>
+          <button
+            onClick={() => { if (deletable) { setOpen(false); onDelete(); } }}
+            disabled={!deletable}
+            title={!deletable ? t("Can't delete — money has already moved against this invoice. Void it instead.") : undefined}
+            className={cn(
+              'w-full text-start px-4 py-3 text-sm flex items-center gap-2.5 border-t border-gray-50',
+              deletable ? 'hover:bg-gray-50 text-red-700 cursor-pointer' : 'opacity-40 cursor-not-allowed text-gray-400'
+            )}
+          >
+            <Trash2 size={15} className="shrink-0" />
+            <span>{t('Delete Invoice — erase it completely')}</span>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Void — reason first (why), then password (who). No type-to-confirm; that
+ * friction is reserved for Delete. `locked`/`lockoutMessage` replace the
+ * whole form with the lockout notice when the five-wrong-passwords limit has
+ * been hit, shared with DeleteDialog since the backend's failure counter is
+ * keyed only by userId, not by which of the two actions was attempted.
+ */
+function VoidDialog({
+  invoiceNumber, reason, password, submitting, error, locked, lockoutMessage,
+  onReasonChange, onPasswordChange, onCancel, onConfirm, t,
+}: any) {
+  const reasonValid = reason.trim().length >= 5;
+  const passwordValid = password.length > 0;
+  const canSubmit = reasonValid && passwordValid && !submitting;
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <h2 className="font-bold text-gray-900">
+            {t('Void invoice {number}?').replace('{number}', invoiceNumber)}
+          </h2>
+          <button onClick={onCancel} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400" disabled={submitting}>
+            <X size={16} />
+          </button>
+        </div>
+
+        {locked ? (
+          <div className="px-6 py-5 space-y-4">
+            <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">{lockoutMessage}</p>
+            <div className="flex justify-end">
+              <button onClick={onCancel} className="btn-secondary">{t('Cancel')}</button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="px-6 py-4 space-y-4">
+              <p className="text-sm text-gray-600">
+                {t("This invoice has already gone out, or money has moved against it, so it can't simply be deleted. Voiding cancels it and posts a reversing entry in your books — the record stays, marked cancelled, for your audit trail. This cannot be undone.")}
+              </p>
+              <div>
+                <label className="label">{t('Why are you voiding this?')}</label>
+                <textarea
+                  className="input h-20 resize-none text-sm"
+                  placeholder={t('e.g. wrong client, duplicate invoice, job cancelled')}
+                  value={reason}
+                  onChange={e => onReasonChange(e.target.value)}
+                  disabled={submitting}
+                />
+              </div>
+              <div>
+                <label className="label">{t("Confirm it's you — type your login password")}</label>
+                <input
+                  type="password"
+                  autoComplete="current-password"
+                  className="input"
+                  value={password}
+                  onChange={e => onPasswordChange(e.target.value)}
+                  disabled={submitting}
+                />
+              </div>
+              {error && (
+                <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">{error}</div>
+              )}
+            </div>
+            <div className="flex gap-2 px-6 py-4 border-t border-gray-100">
+              <button onClick={onCancel} className="btn-secondary flex-1" disabled={submitting}>{t('Cancel')}</button>
+              <button onClick={onConfirm} disabled={!canSubmit} className="btn-danger flex-1">
+                {submitting ? <RefreshCw size={14} className="animate-spin" /> : <Ban size={14} />}
+                {t('Void This Invoice')}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Delete — invoice number typed back first, then password. The one dialog
+ * with type-to-confirm, reserved for the one genuinely irreversible action.
+ * `refusal` is the backend's own plain-English reason when canDelete() in
+ * invoice-lifecycle.rules.ts refuses (a posted journal entry, a cleared
+ * receipt, or a non-DRAFT/CANCELLED status) — every branch of that function
+ * suggests VOID and none suggest ARCHIVE, confirmed by reading it, so the
+ * recovery action here is always "Void Instead", never "Archive Instead".
+ */
+function DeleteDialog({
+  invoiceNumber, reason, confirmNumber, password, submitting,
+  error, locked, lockoutMessage, refusal,
+  onReasonChange, onConfirmNumberChange, onPasswordChange,
+  onCancel, onConfirm, onVoidInstead, t,
+}: any) {
+  const reasonValid = reason.trim().length >= 5;
+  const numberValid = confirmNumber.trim().length > 0 && confirmNumber.trim() === invoiceNumber;
+  const passwordValid = password.length > 0;
+  const canSubmit = reasonValid && numberValid && passwordValid && !submitting;
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <h2 className="font-bold text-gray-900">
+            {t('Permanently delete invoice {number}?').replace('{number}', invoiceNumber)}
+          </h2>
+          <button onClick={onCancel} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400" disabled={submitting}>
+            <X size={16} />
+          </button>
+        </div>
+
+        {refusal ? (
+          <div className="px-6 py-5 space-y-4">
+            <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">
+              {refusal}
+            </div>
+            <div className="flex gap-2">
+              <button onClick={onCancel} className="btn-secondary flex-1">{t('Cancel')}</button>
+              <button onClick={onVoidInstead} className="btn-primary flex-1">{t('Void Instead')}</button>
+            </div>
+          </div>
+        ) : locked ? (
+          <div className="px-6 py-5 space-y-4">
+            <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">{lockoutMessage}</p>
+            <div className="flex justify-end">
+              <button onClick={onCancel} className="btn-secondary">{t('Cancel')}</button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="px-6 py-4 space-y-4">
+              <p className="text-sm text-gray-600">
+                {t("This removes the invoice completely — there will be no record of it anywhere, and this cannot be undone. It's only possible because nothing has posted to your books yet.")}
+              </p>
+              <div>
+                <label className="label">{t('Why are you deleting this?')}</label>
+                <textarea
+                  className="input h-20 resize-none text-sm"
+                  placeholder={t('e.g. duplicate draft, entered by mistake, wrong client')}
+                  value={reason}
+                  onChange={e => onReasonChange(e.target.value)}
+                  disabled={submitting}
+                />
+              </div>
+              <div>
+                <label className="label">
+                  {t('Type the invoice number to confirm: {number}').replace('{number}', invoiceNumber)}
+                </label>
+                <input
+                  className="input font-mono"
+                  value={confirmNumber}
+                  onChange={e => onConfirmNumberChange(e.target.value)}
+                  disabled={submitting}
+                  autoComplete="off"
+                />
+              </div>
+              <div>
+                <label className="label">{t("Confirm it's you — type your login password")}</label>
+                <input
+                  type="password"
+                  autoComplete="current-password"
+                  className="input"
+                  value={password}
+                  onChange={e => onPasswordChange(e.target.value)}
+                  disabled={submitting}
+                />
+              </div>
+              {error && (
+                <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">{error}</div>
+              )}
+            </div>
+            <div className="flex gap-2 px-6 py-4 border-t border-gray-100">
+              <button onClick={onCancel} className="btn-secondary flex-1" disabled={submitting}>{t('Cancel')}</button>
+              <button onClick={onConfirm} disabled={!canSubmit} className="btn-danger flex-1">
+                {submitting ? <RefreshCw size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                {t('Delete Permanently')}
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -260,6 +546,7 @@ function PaymentModal({ invoice, bankAccounts, onClose, onDone }: any) {
 export default function InvoiceDetailPage() {
   const { t } = useLocale();
   const { can: canArchive, loading: canArchiveLoading } = useCan('finance', 2);
+  const { can: canLifecycle, loading: canLifecycleLoading } = useCan('finance', 3);
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [inv, setInv] = useState<any>(null);
@@ -276,6 +563,146 @@ export default function InvoiceDetailPage() {
   const [archiveDialogError, setArchiveDialogError] = useState('');
   const [unarchiving, setUnarchiving] = useState(false);
   const [lifecycleError, setLifecycleError] = useState('');
+
+  // Void dialog state.
+  const [showVoidDialog, setShowVoidDialog] = useState(false);
+  const [voidReason, setVoidReason] = useState('');
+  const [voidPassword, setVoidPassword] = useState('');
+  const [voidSubmitting, setVoidSubmitting] = useState(false);
+  const [voidError, setVoidError] = useState('');
+
+  // Delete dialog state.
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleteReason, setDeleteReason] = useState('');
+  const [deleteConfirmNumber, setDeleteConfirmNumber] = useState('');
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+  const [deleteRefusal, setDeleteRefusal] = useState('');
+
+  // Shared five-wrong-passwords lockout — InvoicesService.assertPassword keys its
+  // failure counter only by userId, not by action, so a lockout triggered from
+  // either dialog blocks both.
+  const [lockedUntil, setLockedUntil] = useState<number | null>(null);
+  const locked = lockedUntil !== null && Date.now() < lockedUntil;
+  const lockoutMessage = lockedUntil
+    ? t('Too many wrong passwords. This is locked for 15 minutes. Try again after {time}.')
+        .replace('{time}', new Date(lockedUntil).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
+    : '';
+
+  // Clears the lockout on its own once the 15 minutes are up, so the form comes
+  // back without the person having to navigate away and back.
+  useEffect(() => {
+    if (!lockedUntil) return;
+    const ms = lockedUntil - Date.now();
+    if (ms <= 0) { setLockedUntil(null); return; }
+    const timer = setTimeout(() => setLockedUntil(null), ms);
+    return () => clearTimeout(timer);
+  }, [lockedUntil]);
+
+  const openVoidDialog = () => {
+    setVoidReason('');
+    setVoidPassword('');
+    setVoidError('');
+    setShowVoidDialog(true);
+  };
+  const closeVoidDialog = () => {
+    if (voidSubmitting) return;
+    setVoidPassword('');
+    setShowVoidDialog(false);
+  };
+  const submitVoid = async () => {
+    setVoidSubmitting(true);
+    setVoidError('');
+    try {
+      await financeApi.invoices.voidInvoice(id, { password: voidPassword, reason: voidReason });
+      setShowVoidDialog(false);
+      await load();
+    } catch (e: any) {
+      const status = e?.response?.status;
+      const message: string | undefined = e?.response?.data?.message;
+      if (status === 403) {
+        setLockedUntil(Date.now() + parseLockoutMinutes(message) * 60000);
+      } else if (!e?.response) {
+        // No response at all — the request never reached the server, or never came
+        // back. Assume nothing happened, since voidInvoice is a single atomic call.
+        setVoidError(t(RETRY_COPY));
+      } else {
+        // 401 wrong password, or 400 from canVoid() (e.g. cleared receipts still
+        // outstanding) — both are already plain, full-sentence English from the
+        // backend, safe to show as-is rather than a bare code.
+        setVoidError(message || t(RETRY_COPY));
+      }
+    } finally {
+      setVoidSubmitting(false);
+      // Never kept around after the request resolves, success or failure.
+      setVoidPassword('');
+    }
+  };
+
+  const openDeleteDialog = () => {
+    setDeleteReason('');
+    setDeleteConfirmNumber('');
+    setDeletePassword('');
+    setDeleteError('');
+    setDeleteRefusal('');
+    setShowDeleteDialog(true);
+  };
+  const closeDeleteDialog = () => {
+    if (deleteSubmitting) return;
+    setDeletePassword('');
+    setDeleteRefusal('');
+    setShowDeleteDialog(false);
+  };
+  const voidInstead = () => {
+    setShowDeleteDialog(false);
+    setDeleteRefusal('');
+    setDeletePassword('');
+    openVoidDialog();
+  };
+  const submitDelete = async () => {
+    setDeleteSubmitting(true);
+    setDeleteError('');
+    setDeleteRefusal('');
+    try {
+      await financeApi.invoices.remove(id, {
+        password: deletePassword,
+        reason: deleteReason,
+        confirmNumber: deleteConfirmNumber,
+      });
+      setDeletePassword('');
+      // The invoice no longer exists — leave the detail page.
+      router.push('/finance/invoices');
+      return;
+    } catch (e: any) {
+      const status = e?.response?.status;
+      const message: string | undefined = e?.response?.data?.message;
+      if (status === 403) {
+        setLockedUntil(Date.now() + parseLockoutMinutes(message) * 60000);
+      } else if (status === 400 && message && /Type the invoice number exactly/i.test(message)) {
+        // Defensive only — the confirm button stays disabled until the numbers
+        // match, so the backend's own confirmNumber check should not be
+        // reachable in normal use. Shown plainly if it ever is (e.g. the
+        // invoice number changed server-side between load and submit).
+        setDeleteError(message);
+      } else if (status === 400 && message) {
+        // Every refusal branch of canDelete() in invoice-lifecycle.rules.ts
+        // suggests VOID (a posted journal entry, a cleared receipt, or a
+        // status outside DRAFT/CANCELLED) — confirmed by reading that file —
+        // so this is always the ledger-touched case and Void Instead is
+        // always the right recovery.
+        setDeleteRefusal(message);
+      } else if (!e?.response) {
+        setDeleteError(t(RETRY_COPY));
+      } else {
+        // 401 wrong password.
+        setDeleteError(message || t(RETRY_COPY));
+      }
+    } finally {
+      setDeleteSubmitting(false);
+      setDeletePassword('');
+    }
+  };
 
   // Composing asks the server for the message and shows it. It sends nothing.
   const compose = async () => {
@@ -352,6 +779,7 @@ export default function InvoiceDetailPage() {
   if (!inv) return null;
 
   const canRecordPayment = ['SENT','PARTIALLY_PAID','OVERDUE'].includes(inv.status);
+  const voidStamp = inv.status === 'VOIDED' ? parseVoidStamp(inv.internalNotes) : null;
   const overdueDays = daysUntil(inv.dueDate);
   const isOverdue = overdueDays !== null && overdueDays < 0 && inv.status !== 'PAID';
   const paidPct = inv.total > 0 ? Math.min(100, (Number(inv.amountPaid) / Number(inv.total)) * 100) : 0;
@@ -393,6 +821,42 @@ export default function InvoiceDetailPage() {
           t={t}
         />
       )}
+      {showVoidDialog && (
+        <VoidDialog
+          invoiceNumber={inv.invoiceNumber}
+          reason={voidReason}
+          password={voidPassword}
+          submitting={voidSubmitting}
+          error={voidError}
+          locked={locked}
+          lockoutMessage={lockoutMessage}
+          onReasonChange={setVoidReason}
+          onPasswordChange={setVoidPassword}
+          onCancel={closeVoidDialog}
+          onConfirm={submitVoid}
+          t={t}
+        />
+      )}
+      {showDeleteDialog && (
+        <DeleteDialog
+          invoiceNumber={inv.invoiceNumber}
+          reason={deleteReason}
+          confirmNumber={deleteConfirmNumber}
+          password={deletePassword}
+          submitting={deleteSubmitting}
+          error={deleteError}
+          locked={locked}
+          lockoutMessage={lockoutMessage}
+          refusal={deleteRefusal}
+          onReasonChange={setDeleteReason}
+          onConfirmNumberChange={setDeleteConfirmNumber}
+          onPasswordChange={setDeletePassword}
+          onCancel={closeDeleteDialog}
+          onConfirm={submitDelete}
+          onVoidInstead={voidInstead}
+          t={t}
+        />
+      )}
 
       <div className="p-6 max-w-5xl mx-auto space-y-6">
         {/* Header */}
@@ -422,9 +886,14 @@ export default function InvoiceDetailPage() {
                 <Edit2 size={14} /> Edit
               </Link>
             )}
-            <button onClick={() => setShowStatusModal(true)} className="btn-secondary">
-              <ChevronDown size={14} /> Change Status
-            </button>
+            {inv.status !== 'VOIDED' && (
+              <button onClick={() => setShowStatusModal(true)} className="btn-secondary">
+                <ChevronDown size={14} /> Change Status
+              </button>
+            )}
+            {!canLifecycleLoading && canLifecycle && (
+              <MoreMenu invoiceStatus={inv.status} onVoid={openVoidDialog} onDelete={openDeleteDialog} t={t} />
+            )}
             <button onClick={() => setShowHistory(h => !h)} className={cn('btn-secondary', showHistory && 'bg-gray-100')}>
               <History size={14} /> History
             </button>
@@ -499,6 +968,24 @@ export default function InvoiceDetailPage() {
           </div>
         )}
 
+        {/* Voided banner */}
+        {inv.status === 'VOIDED' && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
+            <Ban size={16} className="text-red-500 shrink-0" />
+            <p className="text-red-700 text-sm">
+              {voidStamp
+                ? (voidStamp.reversed
+                    ? t('Voided on {date}. Reason: "{reason}". A reversing entry was posted to the ledger.')
+                        .replace('{date}', formatDate(voidStamp.date))
+                        .replace('{reason}', voidStamp.reason)
+                    : t('Voided on {date}. Reason: "{reason}".')
+                        .replace('{date}', formatDate(voidStamp.date))
+                        .replace('{reason}', voidStamp.reason))
+                : t('Voided on {date}.').replace('{date}', formatDate(inv.updatedAt))}
+            </p>
+          </div>
+        )}
+
         {/* Status History Timeline */}
         {showHistory && (
           <div className="card">
@@ -564,7 +1051,7 @@ export default function InvoiceDetailPage() {
             </div>
 
             {/* Line items */}
-            <div className="card overflow-hidden">
+            <div className={cn('card overflow-hidden', inv.status === 'VOIDED' && 'opacity-50')}>
               <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50">
                 <h2 className="font-semibold text-gray-800 text-sm">Line Items</h2>
               </div>
