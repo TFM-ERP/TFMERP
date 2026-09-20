@@ -3,3 +3,7 @@ scripts/verify/shots/
 # verification-only production build (never the dev .next)
 .next-verify/
 scripts/verify/.token.json
+
+# Playwright auth setup (e2e/auth.setup.ts) — saved storageState holds a live session
+# token (tfm_token), a credential. Never commit it; it's rewritten every run.
+e2e/.auth/

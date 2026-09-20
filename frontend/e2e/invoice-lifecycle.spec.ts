@@ -29,6 +29,18 @@ import { test, expect, type Page } from 'playwright/test';
  * The account's actual permission level decides which branch several tests below run:
  * see "Void/Delete are gated by permission" for the one that says so explicitly and
  * reports (as a test annotation) which branch actually ran.
+ *
+ * ── Sign-in happens once, not once per test ─────────────────────────────────────────
+ * The backend throttles `/auth/login` to five attempts per fifteen minutes per IP
+ * (`@Throttle(5, 15 * 60 * 1000)` on `backend/src/auth/auth.controller.ts`) — a
+ * deliberate brute-force guard. With `fullyParallel` and several workers, a test suite
+ * where every test calls a `login()` helper makes one login attempt per test, per run,
+ * from the same IP — enough to trip that guard on its own. Tests below no longer log in
+ * themselves: `e2e/auth.setup.ts` runs once, first, as its own Playwright project, signs
+ * in through the real form exactly one time, and saves the resulting session so every
+ * test in the `chromium` project starts already authenticated (see `storageState` /
+ * `dependencies` in `playwright.config.ts`). A test that needs the login form itself (none
+ * currently do) would still drive it directly rather than adding a second login call.
  */
 
 const CREDS_PRESENT = Boolean(process.env.E2E_USER && process.env.E2E_PASSWORD);
@@ -41,21 +53,6 @@ test.beforeEach(() => {
 });
 
 // ── Shared helpers ────────────────────────────────────────────────────────────────
-
-/** Signs in through the real login form. Never called when credentials are absent (see above). */
-async function login(page: Page): Promise<void> {
-  await page.goto('/login');
-  // The email/password inputs have no `for`/`id` link to their <label>, so getByLabel
-  // can't find them (see report: candidate for a data-testid). `type` is stable and
-  // unique on this form.
-  await page.locator('input[type="email"]').fill(process.env.E2E_USER!);
-  await page.locator('input[type="password"]').fill(process.env.E2E_PASSWORD!);
-  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-  // On success the page does `router.push('/finance')`. If the account needs a second
-  // (2FA) factor the form stays on /login and reveals a code field instead — this wait
-  // then times out with a clear "waiting for URL" failure rather than hanging forever.
-  await page.waitForURL(/\/finance(\/|$)/, { timeout: 15_000 });
-}
 
 interface InvoiceRef {
   id: string;
@@ -96,11 +93,14 @@ async function openInvoiceDetail(page: Page, id: string): Promise<void> {
 
 const moreMenuButton = (page: Page) => page.getByRole('button', { name: 'More', exact: true });
 
-// ── Sign in and reach the list ───────────────────────────────────────────────────────
+// ── The restored session actually works ──────────────────────────────────────────────
 
-test('an authenticated user can sign in and reach the invoice list', async ({ page }) => {
-  await login(page);
+test('the restored sign-in session lands on the invoice list, not the login page', async ({ page }) => {
+  // No login() call here — the "chromium" project's storageState (written once by
+  // e2e/auth.setup.ts) is what's actually under test: if it failed to restore, the app
+  // would redirect this anonymous-looking request to /login instead of serving the list.
   await page.goto('/finance/invoices');
+  await expect(page).not.toHaveURL(/\/login/);
   await expect(page.getByRole('heading', { name: 'Invoices', exact: true })).toBeVisible();
   await expect(page.locator('table')).toBeVisible();
 });
@@ -130,7 +130,6 @@ test('Change Status never offers Voided — voiding an invoice must always go th
 // ── The archived filter ──────────────────────────────────────────────────────────────
 
 test('the archived filter is off by default, and the default list request never asks the server for archived invoices', async ({ page }) => {
-  await login(page);
   const [response] = await Promise.all([
     page.waitForResponse(r => r.request().method() === 'GET' && new URL(r.url()).pathname.endsWith('/finance/invoices')),
     page.goto('/finance/invoices'),
@@ -145,7 +144,6 @@ test('the archived filter is off by default, and the default list request never 
 });
 
 test('an archived invoice, if one exists, shows its Archived tag once the filter is switched on', async ({ page }) => {
-  await login(page);
   await page.goto('/finance/invoices');
   await page.waitForLoadState('networkidle');
 
@@ -161,7 +159,6 @@ test('an archived invoice, if one exists, shows its Archived tag once the filter
 // ── Permission gating ────────────────────────────────────────────────────────────────
 
 test('Void/Delete are gated by permission: shown with Delete disabled off-DRAFT/CANCELLED, or the whole menu is absent', async ({ page }) => {
-  await login(page);
   // SENT/PARTIALLY_PAID/PAID/OVERDUE: never DRAFT/CANCELLED (so Delete must read as
   // disabled if the menu is visible at all) and never VOIDED (so Void is always offered).
   const target = await findFirstInvoiceByStatus(page, ['SENT', 'PARTIALLY_PAID', 'PAID', 'OVERDUE']);
@@ -194,7 +191,6 @@ test('Void/Delete are gated by permission: shown with Delete disabled off-DRAFT/
 // ── The dialogs refuse bad input ─────────────────────────────────────────────────────
 
 test('Void refuses to submit with an empty reason and an empty password', async ({ page }) => {
-  await login(page);
   const target = await findFirstInvoiceByStatus(page, ['SENT', 'PARTIALLY_PAID', 'PAID', 'OVERDUE', 'DRAFT', 'CANCELLED']);
   test.skip(!target, 'No non-voided invoice exists in this environment to open Void on.');
 
@@ -213,7 +209,6 @@ test('Void refuses to submit with an empty reason and an empty password', async 
 });
 
 test('Delete refuses to submit until the invoice number is typed back exactly, and a wrong number keeps it refused', async ({ page }) => {
-  await login(page);
   // Only a DRAFT or CANCELLED invoice's Delete item is clickable at all (see the
   // permission-gating test above for the disabled case) — this test needs the dialog to
   // actually open, so it deliberately picks from the deletable statuses instead.
