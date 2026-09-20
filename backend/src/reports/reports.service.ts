@@ -79,7 +79,7 @@ export class ReportsService {
   // ── Financial ──
   private async pl(from: Date, to: Date, period: any): Promise<Report> {
     const [inv, exp] = await Promise.all([
-      this.prisma.invoice.aggregate({ where: { issueDate: { gte: from, lte: to }, status: { notIn: ['CANCELLED', 'DRAFT'] as any } }, _sum: { total: true, vatAmount: true } }),
+      this.prisma.invoice.aggregate({ where: { issueDate: { gte: from, lte: to }, status: { notIn: ['CANCELLED', 'VOIDED', 'DRAFT'] as any } }, _sum: { total: true, vatAmount: true } }),
       this.prisma.expense.groupBy({ by: ['category'], where: { expenseDate: { gte: from, lte: to }, status: { in: ['APPROVED', 'PAID'] as any } }, _sum: { totalAmount: true } }),
     ]);
     const revenue = Number(inv._sum.total || 0);
@@ -110,14 +110,15 @@ export class ReportsService {
    * Arithmetic stays on Prisma.Decimal and converts to number once, at the
    * response boundary, because the Report row shape is JSON.
    *
-   * Note: the status filter here (`notIn CANCELLED, DRAFT`) is WIDER than the
-   * one `postAll()` posts on (`in SENT, PARTIALLY_PAID, PAID, OVERDUE`) — it
-   * also admits PENDING_APPROVAL, VOIDED, REFUNDED and BAD_DEBT. This report
-   * therefore need not equal GL revenue. Left as-is: narrowing it changes which
-   * invoices appear, which is a separate decision from the VAT defect.
+   * Note: the status filter here (`notIn CANCELLED, VOIDED, DRAFT`) is WIDER
+   * than the one `postAll()` posts on (`in SENT, PARTIALLY_PAID, PAID,
+   * OVERDUE`) — it also admits PENDING_APPROVAL, REFUNDED and BAD_DEBT. This
+   * report therefore need not equal GL revenue. Left as-is: narrowing it
+   * changes which invoices appear, which is a separate decision from the VAT
+   * defect.
    */
   private async revenueByClient(from: Date, to: Date, period: any): Promise<Report> {
-    const grp = await this.prisma.invoice.groupBy({ by: ['clientId'], where: { issueDate: { gte: from, lte: to }, status: { notIn: ['CANCELLED', 'DRAFT'] as any } }, _sum: { total: true, vatAmount: true, amountDue: true }, _count: { _all: true } });
+    const grp = await this.prisma.invoice.groupBy({ by: ['clientId'], where: { issueDate: { gte: from, lte: to }, status: { notIn: ['CANCELLED', 'VOIDED', 'DRAFT'] as any } }, _sum: { total: true, vatAmount: true, amountDue: true }, _count: { _all: true } });
     const clients = await this.prisma.client.findMany({ where: { id: { in: grp.map(g => g.clientId) } }, select: { id: true, companyName: true } });
     const cmap = Object.fromEntries(clients.map(c => [c.id, c.companyName]));
     const D = Prisma.Decimal;
@@ -352,7 +353,7 @@ export class ReportsService {
 
   private async vatDetail(from: Date, to: Date, period: any): Promise<Report> {
     const [inv, exp] = await Promise.all([
-      this.prisma.invoice.findMany({ where: { issueDate: { gte: from, lte: to }, status: { notIn: ['CANCELLED', 'DRAFT'] as any } }, include: { client: { select: { companyName: true } } }, orderBy: { issueDate: 'asc' } }),
+      this.prisma.invoice.findMany({ where: { issueDate: { gte: from, lte: to }, status: { notIn: ['CANCELLED', 'VOIDED', 'DRAFT'] as any } }, include: { client: { select: { companyName: true } } }, orderBy: { issueDate: 'asc' } }),
       this.prisma.expense.aggregate({ where: { expenseDate: { gte: from, lte: to }, status: { in: ['APPROVED', 'PAID'] as any } }, _sum: { vatAmount: true } }),
     ]);
     const rows = inv.map(i => ({ date: i.issueDate, ref: i.invoiceNumber, client: (i as any).client?.companyName || '—', net: Number(i.subtotal), vat: Number(i.vatAmount) }));

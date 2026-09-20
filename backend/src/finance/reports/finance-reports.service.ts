@@ -24,7 +24,7 @@ export class FinanceReportsService {
     ] = await Promise.all([
       // Total invoiced YTD
       this.prisma.invoice.aggregate({
-        where: { status: { not: 'CANCELLED' }, issueDate: { gte: startOfYear } },
+        where: { status: { notIn: ['CANCELLED', 'VOIDED'] }, issueDate: { gte: startOfYear } },
         _sum: { total: true },
       }),
       // Total collected YTD
@@ -50,7 +50,7 @@ export class FinanceReportsService {
       }),
       // This month invoiced
       this.prisma.invoice.aggregate({
-        where: { status: { not: 'CANCELLED' }, issueDate: { gte: startOfMonth } },
+        where: { status: { notIn: ['CANCELLED', 'VOIDED'] }, issueDate: { gte: startOfMonth } },
         _sum: { total: true },
       }),
       // Recent 5 invoices

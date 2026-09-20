@@ -152,7 +152,7 @@ export class CollectionsService implements OnModuleInit, OnModuleDestroy {
     const start = from ? new Date(from) : new Date(end.getFullYear(), 0, 1);
 
     const [invAll, payAll] = await Promise.all([
-      this.prisma.invoice.findMany({ where: { clientId, status: { notIn: ['CANCELLED', 'DRAFT'] as any }, issueDate: { lte: end } }, orderBy: { issueDate: 'asc' } }),
+      this.prisma.invoice.findMany({ where: { clientId, status: { notIn: ['CANCELLED', 'VOIDED', 'DRAFT'] as any }, issueDate: { lte: end } }, orderBy: { issueDate: 'asc' } }),
       this.prisma.payment.findMany({ where: { direction: 'RECEIPT', clientId, status: 'CLEARED' as any, paymentDate: { lte: end } }, orderBy: { paymentDate: 'asc' } }),
     ]);
 
