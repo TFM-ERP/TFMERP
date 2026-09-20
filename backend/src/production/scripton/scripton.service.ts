@@ -21,6 +21,7 @@ import {
 } from './feature-length.util';
 import { draftLengthCheck } from './draft-length.util';
 import { windowKeepingEnd, windowLabel, allocate } from './excerpt-window.util';
+import { consumedStamp, hasConsumed } from './consumed-stamp.util';
 import {
   classifyLine, nextInSpeech, checkScene, checkDraftContinuity, checkPlanCast, stripExitedCast,
   collectExits, unavailableLine, dedupeScenes, repairInstruction, summariseContinuity,
@@ -1540,6 +1541,12 @@ export class ScripOnService {
     if (ai.__truncated) data.truncated = ai.__truncated; // and as a flag, so "is this stage done?" can read it
     // UNCONDITIONAL, unlike the two above: a clean run is exactly the case whose numbers were lost.
     if (ai.__ceiling) data.ceiling = ai.__ceiling;
+    // C1 — WHICH UPSTREAM VERSIONS BUILT THIS ONE. Taken from developmentSoFar's `parts` (what the
+    // block actually CARRIED, never its `omitted`) resolved against pipeline()'s own `current`, so
+    // the stamp records what was read rather than what happened to be available. See
+    // consumed-stamp.util for why it must not be re-derived from currentVersionId.
+    const consumed = consumedStamp(soFarOut.parts, stages);
+    if (hasConsumed(consumed)) data.consumed = consumed;
     const maxN = (stage.versions || []).reduce((m: number, v: any) => Math.max(m, v.n || 0), 0);
     const n = maxN + 1;
     const META = new Set(['title', 'format', 'rating', 'totalScenes', 'type', 'genre']);
@@ -2890,7 +2897,7 @@ export class ScripOnService {
    * on a small per-scene call help or crowd the scene is measured, not assumed:
    * scripts/ab-scene-register.js.
    */
-  private async buildFeatureCtx(projectId: string, buildId: string | null, stages: any[], directive = '', sourceText: any = ''): Promise<string> {
+  private async buildFeatureCtx(projectId: string, buildId: string | null, stages: any[], directive = '', sourceText: any = '', carried?: string[]): Promise<string> {
     const steer = await this.intakeSteer(projectId, buildId);
     const intakeRow: any = await (this.prisma as any).intakeProfile.findUnique({ where: { projectId } }).catch(() => null);
     // 3b-READ, as in generateStage: a build gets no research block until it has research of its own —
@@ -2919,6 +2926,7 @@ export class ScripOnService {
       const w = windowKeepingEnd(bodyOf(kind), cap);
       if (w.dropped || (!w.text && w.total)) return '\n' + label + ' (not carried, ' + w.total + ' characters):';
       if (!w.text) return '';
+      if (carried) carried.push(kind);   // C1 — emitted, so it reached the prompt
       return '\n' + windowLabel(label, w) + ':\n' + w.text;
     };
     return (directive ? directive + '\n' : '') + (steer ? steer + '\n' : '') + (research ? '\nRESEARCH (honour for authenticity):\n' + research + '\n' : '')
@@ -2954,7 +2962,7 @@ export class ScripOnService {
    * fund is NAMED rather than silently missing. The header in planScenes was corrected in the same
    * commit: a marked gap underneath a promise of completeness is still an instruction to trust it.
    */
-  private buildSpine(stages: any[]): string {
+  private buildSpine(stages: any[], carried?: string[]): string {
     const bodyOf = (k: string) => { const x: any = stages.find((y: any) => y.kind === k); return String((x && x.current && x.current.body) || ''); };
     const SPEC: { kind: string; label: string; cap: number }[] = [
       { kind: 'SYNOPSIS', label: 'SYNOPSIS', cap: 4000 },
@@ -2978,6 +2986,8 @@ export class ScripOnService {
       if (!w || w.dropped || !w.text) { dropped.push({ kind: p.label, total: p.body.length }); continue; }
       out.push(windowLabel(p.label, w) + ':\n' + w.text);
       held.push(p.label + ' ' + w.sent + '/' + w.total);
+      if (carried) carried.push(p.kind);   // C1 — emitted, so it reached the prompt
+
     }
     if (dropped.length || held.some((h) => { const [, n] = h.split(' '); const [s, t] = n.split('/'); return s !== t; })) {
       this.log.log('buildSpine: ' + held.join(', ')
@@ -4663,13 +4673,15 @@ export class ScripOnService {
       const bRow: any = await (this.prisma as any).developmentBuild.findFirst({ where: { linkedScriptId: docId } }).catch((e: any) => { this.log.warn('build lookup failed for script ' + docId + ' — falling back to an empty brief. ' + this.why(e)); return null; });
       const featBrief = (bRow && bRow.brief) || {};
       const featDirective = [await this.langDirective(featBrief), knowledgeDirective(featBrief)].filter(Boolean).join('\n');
-      const ctx = await this.buildFeatureCtx(projectId, (bRow && bRow.id) || null, stages, featDirective, featBrief.sourceText);
+      // C1 — the kinds whose bodies actually reach this writer's prompt, collected as they are emitted.
+      const carried: string[] = [];
+      const ctx = await this.buildFeatureCtx(projectId, (bRow && bRow.id) || null, stages, featDirective, featBrief.sourceText, carried);
       const ar = this.isArabicBrief((bRow && bRow.brief) || {});
       // Build the scene list that drives the whole script. The old bug: it trusted any existing SCENES list of
       // >= 20 cards and stopped there — so a partial SCENES stage (e.g. 20 cards covering only the first ~2/3)
       // produced a script that ended mid-story. Now we plan the FULL feature from the complete developed outline,
       // and only reuse the existing SCENES cards when they actually cover the whole story (>= beat count).
-      const spine = this.buildSpine(stages);
+      const spine = this.buildSpine(stages, carried);
       const beatN = this.countBeats(stages);
       // ALWAYS plan the full feature from the COMPLETE developed outline (synopsis+treatment+beats+step-outline),
       // then take the LARGER of the plan vs the existing SCENES cards. The old "existing.length >= 30 = complete"
@@ -4697,6 +4709,15 @@ export class ScripOnService {
       // Series: use the planned pilot at episode density (don't let a full-season SCENES stage override it).
       let scenes: any[] = ssc ? planned : ((planned.length >= (existing ? existing.length : 0)) ? planned : existing);
       if (!scenes || !scenes.length) scenes = (existing && existing.length) ? existing : planned;
+      // C1 — the SCENES cards are consumed only when they actually drive the script. When the
+      // planner's list wins, the developed cards reached nothing and must not be stamped.
+      if (scenes === existing && existing && existing.length) carried.push('SCENES');
+      const revConsumed = consumedStamp(carried, stages);
+      if (hasConsumed(revConsumed)) {
+        await (this.prisma as any).scriptRevision.update({ where: { id: revId }, data: { consumed: revConsumed } })
+          .catch((e: any) => this.log.warn('C1: could not stamp consumed on revision ' + revId + ' — ' + this.why(e)));
+        this.log.log('generateFeatureAsync: consumed ' + Object.keys(revConsumed).join(', '));
+      }
       // Normalise the per-scene page allocations so they add up to the page target. The planner is asked
       // for them, but models drift on arithmetic across a hundred items, so the totals are rescaled here
       // rather than trusted. A reused SCENES stage has no weights at all and gets a sane default.

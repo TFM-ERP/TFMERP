@@ -3208,6 +3208,10 @@ model ScriptRevision {
   lockedAt      DateTime?
   supersedesId  String?        // parent revision (for diffing)
   changeSummary String?
+  /// C1 — { KIND: stageVersionId } for every developed stage whose body actually reached the
+  /// writer's prompt. Taken from the resolution the prompt builder used, never re-derived: see
+  /// consumed-stamp.util.ts. Null on every revision written before 20 Sep 2026.
+  consumed      Json?
   createdAt     DateTime       @default(now())
 
   scenes    ScriptScene[]
