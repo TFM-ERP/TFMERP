@@ -140,7 +140,7 @@ export class ClientsService {
           _count: true,
         }),
         this.prisma.payment.aggregate({
-          where: { clientId: id, status: 'CLEARED' },
+          where: { direction: 'RECEIPT', clientId: id, status: 'CLEARED' },
           _sum: { amount: true },
         }),
         this.prisma.invoice.findMany({
@@ -156,7 +156,7 @@ export class ClientsService {
           take: 50,
         }),
         this.prisma.payment.findMany({
-          where: { clientId: id },
+          where: { direction: 'RECEIPT', clientId: id },
           select: { id: true, paymentNumber: true, amount: true, status: true, paymentDate: true, method: true },
           orderBy: { paymentDate: 'desc' },
           take: 20,
@@ -182,6 +182,153 @@ export class ClientsService {
       pendingInvoices,
       pendingQuotations,
       recentPayments,
+    };
+  }
+
+  /**
+   * Every transaction on one client's account, oldest first, with a running
+   * balance — the account statement a client would recognise.
+   *
+   * An invoice is a debit (what they owe), a receipt a credit (what they have
+   * paid), a credit note a negative debit. The running balance is what is owed
+   * after each line, so the last line is the current position.
+   *
+   * Cancelled and voided invoices are left out: they were never owed. Drafts
+   * are left out too — an unissued invoice is not a transaction. Bounced
+   * receipts are included but contribute nothing, because the money came back.
+   */
+  async transactions(id: string) {
+    await this.findOne(id);
+
+    const [invoices, payments] = await Promise.all([
+      this.prisma.invoice.findMany({
+        where: { clientId: id, status: { notIn: ['CANCELLED', 'VOIDED', 'DRAFT'] } },
+        select: {
+          id: true,
+          invoiceNumber: true,
+          invoiceType: true,
+          issueDate: true,
+          dueDate: true,
+          subject: true,
+          currency: true,
+          total: true,
+          amountPaid: true,
+          amountDue: true,
+          status: true,
+        },
+        orderBy: { issueDate: 'asc' },
+      }),
+      this.prisma.payment.findMany({
+        where: { direction: 'RECEIPT', clientId: id },
+        select: {
+          id: true,
+          paymentNumber: true,
+          paymentDate: true,
+          method: true,
+          reference: true,
+          currency: true,
+          amount: true,
+          status: true,
+          invoice: { select: { id: true, invoiceNumber: true } },
+        },
+        orderBy: { paymentDate: 'asc' },
+      }),
+    ]);
+
+    type Row = {
+      kind: 'INVOICE' | 'CREDIT_NOTE' | 'RECEIPT';
+      id: string;
+      date: Date;
+      ref: string;
+      description: string;
+      status: string;
+      currency: string;
+      debit: number;
+      credit: number;
+      balance: number;
+      /** For a receipt, the invoice it settles; for an invoice, what is still due. */
+      link?: { id: string; invoiceNumber: string } | null;
+      amountDue?: number;
+    };
+
+    const rows: Row[] = [];
+
+    for (const inv of invoices) {
+      const isCredit = inv.invoiceType === 'CREDIT_NOTE';
+      const amount = Number(inv.total ?? 0);
+      rows.push({
+        kind: isCredit ? 'CREDIT_NOTE' : 'INVOICE',
+        id: inv.id,
+        date: inv.issueDate,
+        ref: inv.invoiceNumber,
+        description: inv.subject || (isCredit ? 'Credit note' : 'Tax invoice'),
+        status: inv.status,
+        currency: inv.currency ?? 'AED',
+        debit: isCredit ? 0 : amount,
+        credit: isCredit ? amount : 0,
+        balance: 0,
+        amountDue: Number(inv.amountDue ?? 0),
+        link: null,
+      });
+    }
+
+    for (const p of payments) {
+      // A bounced receipt stays on the statement — it is part of the story —
+      // but the money came back, so it moves nothing.
+      const effective = p.status === 'BOUNCED' ? 0 : Number(p.amount ?? 0);
+      rows.push({
+        kind: 'RECEIPT',
+        id: p.id,
+        date: p.paymentDate,
+        ref: p.paymentNumber,
+        description: [p.method?.replace(/_/g, ' ').toLowerCase(), p.reference]
+          .filter(Boolean)
+          .join(' · '),
+        status: p.status,
+        currency: p.currency ?? 'AED',
+        debit: 0,
+        credit: effective,
+        balance: 0,
+        link: p.invoice ?? null,
+      });
+    }
+
+    rows.sort((a, b) => {
+      const d = a.date.getTime() - b.date.getTime();
+      if (d !== 0) return d;
+      // Same day: the invoice comes before the receipt that settles it.
+      if (a.kind === 'RECEIPT' && b.kind !== 'RECEIPT') return 1;
+      if (b.kind === 'RECEIPT' && a.kind !== 'RECEIPT') return -1;
+      return a.ref.localeCompare(b.ref);
+    });
+
+    let balance = 0;
+    for (const r of rows) {
+      balance = Math.round((balance + r.debit - r.credit) * 100) / 100;
+      r.balance = balance;
+    }
+
+    const invoiced = rows.reduce((s, r) => s + r.debit, 0);
+    const received = rows
+      .filter((r) => r.kind === 'RECEIPT')
+      .reduce((s, r) => s + r.credit, 0);
+    const credited = rows
+      .filter((r) => r.kind === 'CREDIT_NOTE')
+      .reduce((s, r) => s + r.credit, 0);
+
+    return {
+      rows,
+      totals: {
+        invoiced: Math.round(invoiced * 100) / 100,
+        received: Math.round(received * 100) / 100,
+        credited: Math.round(credited * 100) / 100,
+        balance,
+      },
+      counts: {
+        invoices: rows.filter((r) => r.kind === 'INVOICE').length,
+        creditNotes: rows.filter((r) => r.kind === 'CREDIT_NOTE').length,
+        receipts: rows.filter((r) => r.kind === 'RECEIPT').length,
+      },
     };
   }
 

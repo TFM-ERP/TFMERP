@@ -24,6 +24,16 @@ export class ClientsController {
   @ApiOperation({ summary: 'Sales, pending invoices/quotations and payments for a client' })
   financialSummary(@Param('id') id: string) { return this.service.financialSummary(id); }
 
+  @Get(':id/transactions')
+  @ApiOperation({
+    summary: 'Every transaction on a client account, with a running balance',
+    description:
+      'Invoices, credit notes and receipts on one timeline, oldest first. ' +
+      'Cancelled, voided and draft invoices are excluded; bounced receipts appear ' +
+      'but move nothing.',
+  })
+  transactions(@Param('id') id: string) { return this.service.transactions(id); }
+
   @Post()
   @ApiOperation({ summary: 'Create a new client with contacts' })
   create(@Body() body: any) { return this.service.create(body); }
