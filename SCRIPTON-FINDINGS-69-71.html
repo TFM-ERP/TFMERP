@@ -1,0 +1,73 @@
+<!-- Three sections for the findings document. Measured 14 Sep 2026 on cmu1ocawn0007knjtk6ycgsk5.
+     NUMBERS ARE PROVISIONAL — the document was at 68 sections when this was written, so these are
+     written as 69/70/71. Renumber if that collides.
+     NO .metrics STRIPS: I do not know the document's lbl/row/now arrangement, and inventing markup
+     is the error that had to be fixed on the way into Version 25. Send one existing tile's HTML and
+     the strips can be added. -->
+
+<section class="sec">
+  <span class="sec-no">69 — Nothing guards the order of the ladder</span>
+  <h2>A build cannot say that its SCENES predates its own BEATS</h2>
+  <div class="col">
+    <p>On the night of 14 Sep two operators generated on the same build at the same time, and the build records nothing about it. The order below is known only because both clocks were held by the people who ran them; the rows themselves are indistinguishable from an orderly ladder.</p>
+    <p>§21's guard is per-stage: <code>startStage</code> refuses a second concurrent run of the <em>same</em> stage. Two <em>different</em> stages carry no such relationship. SCENES was generated against a build whose BEATS did not yet exist, BEATS arrived twenty-eight seconds later, and the finished build now presents a complete, plausible ladder in which one rung was written before the rung it is supposed to be built on.</p>
+    <p>The stage version rows carry <code>createdAt</code>, so the order is recoverable by anyone who thinks to ask. Nothing asks. <span class="prov">A ladder that records when each rung was written but never that a rung preceded its own foundation cannot tell a reader which results are built on what.</span></p>
+    <p>This also contaminates results taken from such a build without anyone noticing: the SCENES register score in §67's scope note came from exactly this state, and the only reason it is marked uncontrolled is that the collision happened to be observed.</p>
+  </div>
+
+  <pre><code>20:42:49   SCENES  generation starts        (operator A)
+20:43:55   LOGLINE v2   289 chars written   (operator B)
+20:45:48   SCENES  v1 12,643 chars written  (operator A)  <- no BEATS existed yet
+20:46:16   BEATS   v1 11,849 chars written  (operator B)
+
+afterwards, on the build:   LOGLINE v2 · SYNOPSIS v1 · TREATMENT v1 · BEATS v1 · SCENES v1
+                            — an ordinary-looking ladder</code></pre>
+</section>
+
+<hr class="rule">
+
+<section class="sec">
+  <span class="sec-no">70 — Two checks whose trigger may not occur in this material</span>
+  <h2>A check that never fires on real output is a measurement about the check, not a pending result</h2>
+  <div class="col">
+    <p>Two instruments have now been exercised often enough that their silence is itself the finding.</p>
+    <p><strong>The era check's comparison.</strong> Nine stage bodies across three builds have carried temporal language and <strong>not one absolute year</strong>. Every expression resolved is a relative distance — “seven years earlier”, “eight years ago”, “two days later”. The comparison the check exists to make needs a stage that dates itself: an absolute year and a relative distance in one sentence. The FAITHFUL direction asks, in as many words, for a dated flashback in Sequence Four; forty scene cards delivered it as “seven years after”. This is not a check waiting for its first chance. It is a check whose trigger this material does not appear to produce, and the honest reading is that its findings path is exercised by the replay and by §57's V2.6 contradiction, and nowhere else.</p>
+    <p><strong>The truncation boundary.</strong> The predicates disagree only between 90% of the ceiling and a non-<code>max_tokens</code> stop. Two live SCENES runs landed at 82.8% and 62.0%, both <code>end_turn</code>, both making zero continuation calls — outcomes on which the old predicate and the new one agree. If SCENES routinely lands in the 60–85% band, the disagreement zone is not reachable in production, and the five-branch replay is the only evidence 0201a23 will ever have.</p>
+    <p><span class="prov">Record an unreachable trigger as a property of the instrument, not as work still pending; a check nobody can fire is not a check awaiting a run.</span></p>
+  </div>
+
+  <pre><code>ERA CHECK, live bodies
+  bodies measured              9   across 3 builds
+  absolute years found         0
+  head line, every stage       "this stage never dates the present, so there was
+                                nothing to compare it against"
+  direction asked for          a dated flashback, Sequence Four
+  material delivered           "seven years after"   (relative, no anchor)
+
+TRUNCATION BOUNDARY, live SCENES
+  cmu1o0xeh   20,693 / 25,000 = 82.8%   end_turn   0 continuations
+  cmu1ocawn   15,504 / 25,000 = 62.0%   end_turn   0 continuations
+  predicates disagree only at   >= 90% AND stop_reason != max_tokens</code></pre>
+</section>
+
+<hr class="rule">
+
+<section class="sec">
+  <span class="sec-no">71 — The character bible writes to a row twenty-five builds share</span>
+  <h2>A build's own cache is written correctly, and the shared workspace row is overwritten beside it</h2>
+  <div class="col">
+    <p><code>generateCharacterBible</code> stores its result twice: <code>:5259</code> upserts <code>intakeProfile.characterBible</code> — the one-row-per-project workspace record that every build in the ScripON Library reads — and <code>:5260</code> writes the same array to the build. Reading prefers the build's own copy (<code>:5209</code>), so generation today is not affected by what the shared row holds. That is the only reason this is quiet rather than visible.</p>
+    <p>The trigger is narrower than “every SCENES run”, and worth stating precisely: the bible is generated only when the build has no cached copy and scenes exist. Every <em>new</em> build therefore clobbers the shared row once, on its first qualifying run, last writer wins. With 25+ builds against the one workspace project, the workspace copy describes whichever build most recently had none.</p>
+    <p>Both writes are swallowed. The upsert sits in <code>try { … } catch { /* */ }</code> and the build update carries <code>.catch(() => {})</code> inside a second try — so a failed write to either place is indistinguishable from a successful one, and nothing on the build says which copy it is reading or whether the other exists.</p>
+    <p>This is §40's <code>intake.treatment</code> collision in a second field. <span class="prov">A shared-by-default row plus a per-build cache is not a migration; until the shared write is removed it is two sources of truth, one of which is silently wrong for every build but the last.</span></p>
+  </div>
+
+  <pre><code>:5209   let charBible = build.characterBible?.length ? build.characterBible : null   <- read, build first
+:5256   ai.run({ task: 'scripton.character.bible', maxTokens: 4000 })
+:5259   intakeProfile.upsert({ where: { projectId }, … characterBible: chars })      <- shared row
+        try { … } catch { /* */ }                                                    <- swallowed
+:5260   developmentBuild.update({ where: { id: build.id }, … characterBible: chars })
+        .catch(() => {})                                                             <- swallowed
+
+workspace project   cmqocmg0g00002jvk3v9666sw      builds reading it   25+</code></pre>
+</section>

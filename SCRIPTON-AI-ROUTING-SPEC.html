@@ -1,0 +1,903 @@
+<title>ScriptON Model Routing</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root{
+    --ink:#0c0d11; --panel:#14161c; --panel2:#181b22; --raise:#1d212a;
+    --hair:rgba(255,255,255,.085); --hair2:rgba(255,255,255,.14);
+    --gold:#C6A463; --gold-lit:#E6D2A2; --gold-dim:rgba(198,164,99,.13);
+    --text:#e8e6e1; --mute:#9aa1ab; --faint:#6b727d;
+    --go:#57b368; --warn:#e0a23b; --stop:#e5635f; --cool:#6ea8d8;
+    --display:"Fraunces",Georgia,"Times New Roman",serif;
+    --body:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+    --measure:74ch;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--ink); color:var(--text);
+    font-family:var(--body); font-size:15.5px; line-height:1.65;
+    -webkit-font-smoothing:antialiased;
+    background-image:radial-gradient(1100px 620px at 72% -12%, #171a23 0%, rgba(12,13,17,0) 62%);
+    background-repeat:no-repeat;
+  }
+  .wrap{max-width:1120px; margin:0 auto; padding:0 30px 120px}
+  .col{max-width:var(--measure)}
+
+  /* ---- masthead ---- */
+  header.mast{padding:64px 0 34px; border-bottom:1px solid var(--hair)}
+  .eyebrow{font-family:var(--mono); font-size:11px; letter-spacing:.22em; text-transform:uppercase; color:var(--gold); font-weight:500}
+  h1{font-family:var(--display); font-size:clamp(34px,4.6vw,52px); line-height:1.06; font-weight:600;
+     letter-spacing:-.02em; margin:16px 0 14px; text-wrap:balance; max-width:17ch}
+  h1 em{font-style:normal; background:linear-gradient(180deg,var(--gold-lit),var(--gold));
+        -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent}
+  .standfirst{color:var(--mute); font-size:17px; max-width:64ch; margin:0}
+  .meta{display:flex; flex-wrap:wrap; gap:8px; margin-top:26px}
+  .meta span{font-family:var(--mono); font-size:11px; letter-spacing:.06em; color:var(--faint);
+             border:1px solid var(--hair); border-radius:20px; padding:4px 11px}
+
+  /* ---- structure ---- */
+  h2{font-family:var(--display); font-size:27px; font-weight:600; letter-spacing:-.01em;
+     margin:0 0 6px; text-wrap:balance}
+  .sec{padding-top:56px}
+  .sec-no{font-family:var(--mono); font-size:11px; letter-spacing:.2em; color:var(--gold);
+          text-transform:uppercase; display:block; margin-bottom:12px}
+  h3{font-size:16.5px; font-weight:600; margin:30px 0 6px; letter-spacing:-.005em}
+  p{margin:11px 0}
+  a{color:var(--gold-lit); text-decoration-color:rgba(198,164,99,.4); text-underline-offset:3px}
+  a:hover{text-decoration-color:var(--gold)}
+  a:focus-visible,summary:focus-visible{outline:2px solid var(--gold); outline-offset:3px; border-radius:3px}
+  code{font-family:var(--mono); font-size:.87em; background:rgba(255,255,255,.055);
+       border:1px solid var(--hair); padding:1px 5px; border-radius:4px; color:var(--gold-lit); white-space:nowrap}
+  strong{font-weight:600; color:#f3f1ec}
+  ul{margin:11px 0; padding-left:19px} li{margin:6px 0}
+  hr.rule{border:0; border-top:1px solid var(--hair); margin:52px 0 0}
+
+  /* ---- cards ---- */
+  .card{background:linear-gradient(180deg,var(--panel),var(--panel2));
+        border:1px solid var(--hair); border-radius:13px; padding:20px 22px; margin:16px 0}
+  .card.flag{border-color:rgba(229,99,95,.42); background:linear-gradient(180deg,rgba(229,99,95,.09),rgba(229,99,95,.015))}
+  .card.key{border-color:rgba(198,164,99,.42); background:linear-gradient(180deg,rgba(198,164,99,.10),rgba(198,164,99,.015))}
+  .card h4{margin:0 0 7px; font-size:14px; font-weight:600; letter-spacing:.01em}
+  .card p:last-child{margin-bottom:0}
+  .card p:first-of-type{margin-top:0}
+
+  /* ---- tables ---- */
+  .scroll{overflow-x:auto; margin:20px 0; border:1px solid var(--hair); border-radius:12px; background:var(--panel)}
+  table{width:100%; border-collapse:collapse; font-size:13.2px; min-width:660px}
+  th,td{text-align:left; padding:11px 14px; border-bottom:1px solid var(--hair); vertical-align:top}
+  thead th{font-family:var(--mono); font-size:10.5px; letter-spacing:.1em; text-transform:uppercase;
+           color:var(--gold); font-weight:500; background:rgba(255,255,255,.022); white-space:nowrap}
+  tbody tr:last-child td{border-bottom:0}
+  tbody tr:hover td{background:rgba(255,255,255,.018)}
+  td.num{font-family:var(--mono); font-variant-numeric:tabular-nums; white-space:nowrap}
+  td.mid{color:var(--mute)}
+  .mid-note{color:var(--faint); font-size:12px; display:block; margin-top:2px; line-height:1.45}
+
+  /* ---- pills ---- */
+  .pill{display:inline-block; font-family:var(--mono); font-size:10.5px; font-weight:500;
+        letter-spacing:.05em; padding:2.5px 8px; border-radius:5px; white-space:nowrap}
+  .p-dead{background:rgba(229,99,95,.15); color:#f0918e}
+  .p-live{background:rgba(87,179,104,.14); color:#7ecb8c}
+  .p-soon{background:rgba(224,162,59,.15); color:#eab963}
+  .p-gold{background:var(--gold-dim); color:var(--gold-lit)}
+  .p-cool{background:rgba(110,168,216,.14); color:#8fc0e2}
+
+  /* ---- stage spine ---- */
+  .stage{position:relative; padding:22px 24px 22px 26px; margin:18px 0;
+         background:linear-gradient(180deg,var(--panel),var(--panel2));
+         border:1px solid var(--hair); border-radius:13px; overflow:hidden}
+  .stage::before{content:""; position:absolute; inset-inline-start:0; top:0; bottom:0; width:3px;
+                 background:linear-gradient(180deg,var(--gold-lit),rgba(198,164,99,.15))}
+  .stage-head{display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; margin-bottom:4px}
+  .stage-n{font-family:var(--mono); font-size:11px; color:var(--gold); letter-spacing:.14em}
+  .stage-name{font-family:var(--display); font-size:21px; font-weight:600; letter-spacing:-.01em}
+  .assign{display:flex; flex-wrap:wrap; gap:7px; margin:14px 0 4px}
+  .why{color:var(--mute); font-size:14.4px; margin:12px 0 0}
+  .why b{color:var(--text); font-weight:600}
+  .tasks{margin-top:15px; padding-top:13px; border-top:1px solid var(--hair)}
+  .tasks-lbl{font-family:var(--mono); font-size:10px; letter-spacing:.15em; text-transform:uppercase; color:var(--faint)}
+  .tasks code{margin:5px 6px 0 0; display:inline-block; white-space:nowrap}
+
+  /* ---- failover ladder ---- */
+  .ladder{display:flex; align-items:stretch; gap:0; flex-wrap:wrap; margin:12px 0 0}
+  .rung{flex:1 1 150px; min-width:150px; padding:11px 13px; background:rgba(255,255,255,.028);
+        border:1px solid var(--hair); border-inline-end:0}
+  .rung:first-child{border-start-start-radius:9px; border-end-start-radius:9px; background:var(--gold-dim); border-color:rgba(198,164,99,.32)}
+  .rung:last-child{border-inline-end:1px solid var(--hair); border-start-end-radius:9px; border-end-end-radius:9px}
+  .rung .t{font-family:var(--mono); font-size:9.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--faint); display:block}
+  .rung:first-child .t{color:var(--gold)}
+  .rung .m{font-family:var(--mono); font-size:12px; margin-top:4px; display:block; color:var(--text); word-break:break-word}
+  .rung .n{font-size:11.5px; color:var(--faint); margin-top:3px; display:block; line-height:1.4}
+
+  /* ---- code blocks ---- */
+  pre{margin:16px 0; padding:17px 19px; background:#0e1016; border:1px solid var(--hair);
+      border-radius:11px; overflow-x:auto; font-family:var(--mono); font-size:12.4px; line-height:1.62; color:#cfd4dd}
+  pre code{background:none; border:0; padding:0; color:inherit; white-space:pre; font-size:inherit}
+  .k{color:var(--gold-lit)} .s{color:#9fd0a8} .c{color:var(--faint); font-style:italic} .n2{color:#8fc0e2}
+
+  /* ---- tooltip demo ---- */
+  .tips{display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:12px; margin:18px 0}
+  .tip{background:var(--panel); border:1px solid var(--hair); border-radius:11px; padding:14px 16px}
+  .tip .i{display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px;
+          border-radius:50%; border:1px solid var(--gold); color:var(--gold); font-size:10px;
+          font-family:var(--mono); margin-inline-end:7px; flex:none}
+  .tip .h{display:flex; align-items:center; font-family:var(--mono); font-size:12px; color:var(--gold-lit); margin-bottom:7px}
+  .tip p{margin:0; font-size:13.3px; color:var(--mute); line-height:1.55}
+
+  details{border:1px solid var(--hair); border-radius:11px; padding:0; margin:16px 0; background:var(--panel)}
+  summary{cursor:pointer; padding:13px 17px; font-size:14px; font-weight:500; list-style:none}
+  summary::-webkit-details-marker{display:none}
+  summary::before{content:"+ "; font-family:var(--mono); color:var(--gold)}
+  details[open] summary::before{content:"– "}
+  details[open] summary{border-bottom:1px solid var(--hair)}
+  .det-body{padding:4px 17px 15px}
+
+  footer{margin-top:70px; padding-top:26px; border-top:1px solid var(--hair); color:var(--faint); font-size:13px}
+  footer a{color:var(--mute)}
+  footer ol{padding-left:19px; margin:10px 0} footer li{margin:4px 0}
+
+  @media (max-width:620px){
+    .wrap{padding:0 20px 80px}
+    .rung{flex:1 1 100%; border-inline-end:1px solid var(--hair); border-radius:0}
+    .rung:first-child{border-radius:9px 9px 0 0}
+    .rung:last-child{border-radius:0 0 9px 9px}
+  }
+  @media (prefers-reduced-motion:reduce){*{animation:none!important; transition:none!important}}
+</style>
+
+<div class="wrap">
+
+<header class="mast">
+  <span class="eyebrow">ScriptON · AI Architecture</span>
+  <h1>Routing five <em>writing stages</em> across four vendors</h1>
+  <p class="standfirst">A model-to-stage map, a settings schema, and a failover strategy for the ScriptON generation pipeline — built on the routing table already in the codebase, and on the model lineup that actually exists today.</p>
+  <div class="meta">
+    <span>31 Aug 2026</span><span>backend/src/ai/**</span><span>Anthropic-primary</span><span>4 providers</span>
+  </div>
+</header>
+
+<!-- ═══════════════ 0 · CORRECTION ═══════════════ -->
+<section class="sec">
+  <span class="sec-no">00 — Before anything else</span>
+  <h2>The models in the brief no longer exist</h2>
+  <div class="col">
+    <p>The brief asked for an evaluation of Claude 3.5 Sonnet, Claude 3 Opus and Claude 3.5 / 3 Haiku. Every one of those has been retired. This is not academic: <code>claude-3-5-sonnet-20241022</code> was the hard-coded fallback in <code>ai.service.ts</code> and a selectable option in your Engines dropdown, and your <code>AiRun</code> table shows real ScriptON calls dispatched against it.</p>
+  </div>
+
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Model in the brief</th><th>API id</th><th>Status</th><th>Replaced by</th></tr></thead>
+      <tbody>
+        <tr><td>Claude 3 Opus</td><td class="num">claude-3-opus-20240229</td><td><span class="pill p-dead">Retired 5 Jan 2026</span></td><td class="mid">Opus 5</td></tr>
+        <tr><td>Claude 3.5 Sonnet</td><td class="num">claude-3-5-sonnet-20241022</td><td><span class="pill p-dead">Retired 28 Oct 2025</span></td><td class="mid">Sonnet 5</td></tr>
+        <tr><td>Claude 3.5 Haiku</td><td class="num">claude-3-5-haiku-20241022</td><td><span class="pill p-dead">Retired 19 Feb 2026</span></td><td class="mid">Haiku 4.5</td></tr>
+        <tr><td>Claude 3 Haiku</td><td class="num">claude-3-haiku-20240307</td><td><span class="pill p-dead">Retired 20 Apr 2026</span></td><td class="mid">Haiku 4.5</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card flag col">
+    <h4>Fable 5 is not what its name suggests</h4>
+    <p>It would be reasonable to assume the model called <em>Fable</em> is Anthropic's creative-writing model and therefore the natural pick for scene and dialogue work. It is not. Fable 5 is positioned for <strong>long-horizon agentic work and demanding reasoning</strong> — codebase migrations, scientific hypothesis generation, million-token sustained tasks. It costs <strong>$10 / $50 per MTok</strong> (5× Sonnet 5 on output), thinking is always on and cannot be disabled, and it ships safety classifiers that <strong>can refuse a request outright</strong>.</p>
+    <p>For a screenwriting platform that routinely handles violence, coercion and morally hard material, that last property is a routing requirement, not a footnote. Fable 5 earns its price in exactly one place in this pipeline — see stage 05.</p>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ═══════════════ 1 · LINEUP ═══════════════ -->
+<section class="sec">
+  <span class="sec-no">01 — Comparative evaluation</span>
+  <h2>The lineup you are actually routing across</h2>
+  <div class="col">
+    <p>Anthropic first, since it holds the subscription and every default. The three challenger vendors follow — they exist in this architecture as configured fallbacks and as a hedge against a repeat of 27 August, when one bad key took the whole platform down because Anthropic was the only working engine in the chain.</p>
+  </div>
+
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Model</th><th>API id</th><th>In / Out per MTok</th><th>Context</th><th>Max out</th><th>Earliest retirement</th><th>Character</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>Fable 5</strong></td><td class="num">claude-fable-5</td>
+          <td class="num">$10 / $50</td><td class="num">1M</td><td class="num">128K</td>
+          <td><span class="pill p-live">Jun 2027</span></td>
+          <td class="mid">Long-horizon agentic reasoning. Thinking always on. Slowest, dearest, and can refuse.</td>
+        </tr>
+        <tr>
+          <td><strong>Opus 5</strong></td><td class="num">claude-opus-5</td>
+          <td class="num">$5 / $25</td><td class="num">1M</td><td class="num">128K</td>
+          <td><span class="pill p-live">Jul 2027</span></td>
+          <td class="mid">Top of the practical range. Complex reasoning at moderate latency. The craft model.</td>
+        </tr>
+        <tr>
+          <td><strong>Sonnet 5</strong></td><td class="num">claude-sonnet-5</td>
+          <td class="num">$2 / $10</td><td class="num">1M</td><td class="num">128K</td>
+          <td><span class="pill p-live">Jun 2027</span></td>
+          <td class="mid">Best speed-to-intelligence ratio. The volume workhorse for this pipeline.</td>
+        </tr>
+        <tr>
+          <td><strong>Haiku 4.5</strong></td><td class="num">claude-haiku-4-5-20251001</td>
+          <td class="num">$1 / $5</td><td class="num">200K</td><td class="num">64K</td>
+          <td><span class="pill p-dead">15 Oct 2026</span></td>
+          <td class="mid"><strong>Excluded from this architecture.</strong> Six weeks from its earliest retirement — inside the horizon rule below, so it appears in no profile, no ladder and no default.</td>
+        </tr>
+        <tr>
+          <td>Sonnet 4.6 <span class="pill p-gold">your current default</span></td><td class="num">claude-sonnet-4-6</td>
+          <td class="num">—</td><td class="num">—</td><td class="num">—</td>
+          <td><span class="pill p-soon">Feb 2027</span></td>
+          <td class="mid">170 days out — inside the 180-day default horizon. <strong>Fallback rungs only</strong>, and schedule its replacement.</td>
+        </tr>
+        <tr>
+          <td>Opus 4.8</td><td class="num">claude-opus-4-8</td>
+          <td class="num">—</td><td class="num">—</td><td class="num">—</td>
+          <td><span class="pill p-live">May 2027</span></td>
+          <td class="mid">Previous Opus generation. Keep as an in-family fallback rung.</td>
+        </tr>
+        <tr>
+          <td>GPT-5.6 Sol <span class="pill p-cool">OpenAI</span></td><td class="num">gpt-5.6-sol</td>
+          <td class="num">$4 / $20</td><td class="num">1.05M</td><td class="num">128K</td><td class="mid">—</td>
+          <td class="mid">OpenAI flagship. Nearest cross-vendor peer to Opus 5.</td>
+        </tr>
+        <tr>
+          <td>GPT-5.6 Terra <span class="pill p-cool">OpenAI</span></td><td class="num">gpt-5.6-terra</td>
+          <td class="num">$2 / $12</td><td class="num">1.05M</td><td class="num">128K</td><td class="mid">—</td>
+          <td class="mid">Balanced tier. Priced almost exactly at Sonnet 5 — the natural volume fallback.</td>
+        </tr>
+        <tr>
+          <td>Gemini 3.1 Pro <span class="pill p-cool">Google</span></td><td class="num">gemini-3.1-pro-preview</td>
+          <td class="num">$2 / $12</td><td class="num">1M</td><td class="num">—</td><td class="mid">—</td>
+          <td class="mid">Frontier tier. Rises to $4/$18 above 200K tokens — relevant on whole-script passes.</td>
+        </tr>
+        <tr>
+          <td>Gemini 3.6 Flash <span class="pill p-cool">Google</span></td><td class="num">gemini-3.6-flash</td>
+          <td class="num">$1.50 / $7.50</td><td class="num">1M</td><td class="num">—</td><td class="mid">—</td>
+          <td class="mid">Current general-purpose Flash. Replaces the <code>gemini-3.5-flash</code> your engine row is pinned to.</td>
+        </tr>
+        <tr>
+          <td>Grok 4.6 <span class="pill p-cool">xAI</span></td><td class="num">grok-4.6</td>
+          <td class="num">$2 / $6</td><td class="num">500K</td><td class="num">—</td><td class="mid">—</td>
+          <td class="mid">Cheapest output of any flagship here. Notably permissive on mature material.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card col">
+    <h4>Two things this table changes about your current setup</h4>
+    <p><strong>Output ceilings are no longer a constraint.</strong> The whole continuation-pass machinery in <code>developSceneList()</code> and <code>planScenes()</code> exists to work around an 8,192-token output cap. Every current model returns 64–128K. A 90-scene map now fits in one call — the continuation loop should stay as a safety net, but it should stop firing.</p>
+    <p><strong>Your Gemini engine is pinned to a model id that does not resolve.</strong> <code>gemini-3.5-flash</code> is in your catalog and was the model on the failing Gemini rows in <code>AiRun</code>. The current Flash tier is <code>gemini-3.6-flash</code>.</p>
+  </div>
+
+  <div class="card key col">
+    <h4>The retirement horizon rule</h4>
+    <p>No model near its retirement date may hold a default. Encode it as a computed guard rather than a hand-maintained list, so it stays true without anyone editing a table — you already learned what a stale hard-coded model id costs.</p>
+    <ul>
+      <li><strong>Inside 180 days → barred from any default.</strong> Not a profile assignment, not a primary rung.</li>
+      <li><strong>Inside 90 days → barred entirely.</strong> Removed from ladders and hidden from the model dropdown; an engine row still pinned to one is migrated forward on boot, exactly as <code>RETIRED_MODELS</code> already does for models that have passed.</li>
+      <li><strong>Surface it.</strong> Add <code>retiresOn</code> to the catalog entries and show a countdown chip in Engines &amp; Routing at 180 days. Anthropic gives at least 60 days' notice; the guard should fire long before that.</li>
+    </ul>
+    <p>Applied on 31 Aug 2026 this bars <strong>Haiku 4.5</strong> (45 days) outright and drops <strong>Sonnet 4.6</strong> (170 days) — your current live default — to fallback-only.</p>
+  </div>
+
+  <div class="card flag col">
+    <h4>The consequence: Anthropic has no cheap tier left</h4>
+    <p>Haiku 4.5 was the only sub-$1 Anthropic option, and the current lineup announces no successor. Every mechanical task that was going to run there — format validation, slugline consistency, name casing — now has two honest homes, and neither is another model call by default.</p>
+    <p><strong>Most of it should be code.</strong> Slugline grammar, character-cue casing, page counts and revision-mark consistency are deterministic checks that a parser does perfectly, instantly and for nothing. Your <code>scene-parse.util.ts</code> already does most of the work. Route only genuine judgment calls to a model.</p>
+    <p><strong>Where a model is genuinely needed,</strong> cross-vendor is now dramatically cheaper than anything Anthropic offers: <code>gpt-5.6-luna</code> at <strong>$0.20 / $1.20</strong> is a fifth of Haiku's price with five times the context.</p>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ═══════════════ 2 · STAGE MAP ═══════════════ -->
+<section class="sec">
+  <span class="sec-no">02 — Model-to-stage mapping</span>
+  <h2>Five stages, five different jobs</h2>
+  <div class="col">
+    <p>These are numbered because they are a real sequence — each stage consumes the previous stage's output, and a fault at 02 propagates to everything downstream. The assignments below are capability-tier judgments grounded in documented model characteristics: price, latency, output ceiling, and whether extended thinking helps or hurts the task. Where a call is genuinely arguable I have said so, and every one of them is A/B-testable through the same settings surface.</p>
+    <p>The governing economics: <strong>stage 03 makes 55–90 model calls per feature.</strong> Stages 01, 02 and 05 make between one and six. Craft budget belongs where the call count is low; cost discipline belongs at stage 03.</p>
+  </div>
+
+  <div class="stage">
+    <div class="stage-head"><span class="stage-n">01</span><span class="stage-name">Ideation, World-Building &amp; Narrative Structure</span></div>
+    <div class="assign">
+      <span class="pill p-gold">Opus 5</span><span class="pill p-live">temp 0.9</span><span class="pill">~3–8 calls per project</span>
+    </div>
+    <p class="why"><b>Why Opus 5.</b> This stage sets constraints every later stage inherits — the spine, the era and culture rules, the lore policy, the canon seed. An error here is not a bad paragraph, it is a bad script. It is also the stage where your <code>knowledge/</code> packs push 30K+ tokens of era, genre and conflict material into context and expect the model to hold all of it coherently. Low call volume plus high blast radius plus heavy context is the exact shape that justifies the expensive model. <b>Arguable:</b> Sonnet 5 is likely adequate for straightforward contemporary originals; the gap should widen on period and mythological work, which is most of your actual slate.</p>
+    <div class="tasks"><span class="tasks-lbl">Task strings</span><br>
+      <code>scripton.research</code><code>scripton.research.kb</code><code>scripton.adapt</code><code>scripton.adapt.one</code><code>scripton.lore</code>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="stage-head"><span class="stage-n">02</span><span class="stage-name">Story Development &amp; Beat Sheet / Outline</span></div>
+    <div class="assign">
+      <span class="pill p-gold">Opus 5</span><span class="pill p-live">temp 0.7</span><span class="pill">~4–10 calls per build</span>
+    </div>
+    <p class="why"><b>Why Opus 5.</b> This is the structural-integrity stage, and it is where your pipeline has historically failed. The bug your own comments describe — a truncated 35-card <code>SCENES</code> stage producing a script that "ended mid-story" — was a symptom of a model that could not hold the whole arc in one pass. Beat coverage is a reasoning problem, not a prose problem: every beat represented, in order, through climax <em>and</em> resolution. Opus 5's 128K output means the full map now emits in a single call, so the continuation passes stop being load-bearing. Structured JSON adherence at length also degrades fastest on cheaper models, and every one of these calls demands strict JSON.</p>
+    <div class="tasks"><span class="tasks-lbl">Task strings</span><br>
+      <code>scripton.develop.logline</code><code>scripton.develop.synopsis</code><code>scripton.develop.treatment</code><code>scripton.develop.beats</code><code>scripton.develop.scenes</code><code>scripton.feature.plan</code>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="stage-head"><span class="stage-n">03</span><span class="stage-name">Scene Construction &amp; Descriptive Action</span></div>
+    <div class="assign">
+      <span class="pill p-gold">Sonnet 5</span><span class="pill p-live">temp 0.85</span><span class="pill p-soon">55–90 calls per feature</span>
+    </div>
+    <p class="why"><b>Why Sonnet 5.</b> This is 90% of your token spend and it is a constrained, well-specified task: the slugline is given, the brief is given, the previous scene's tail is given, and the system prompt demands one page of tight action. That is a <em>compliance</em> problem more than a creative one — hit the length, land the turn, do not restate the heading. Sonnet 5 is built for exactly this speed-to-intelligence point, and at 90 calls the price difference against Opus 5 is the difference between a $2 script and a $5 one. Running Opus 5 here buys prose quality you will overwrite in the dialogue pass anyway.</p>
+    <p class="why"><b>Do not route this stage to Haiku 4.5</b> as a cost saving. Scene construction is where "technically correct, dramatically inert" shows up, and it is the hardest failure to detect automatically — your <code>mostlyStub</code> guard catches empty returns, not flat ones.</p>
+    <div class="tasks"><span class="tasks-lbl">Task strings</span><br>
+      <code>scripton.feature.scene</code><code>scripton.vertical.episode</code><code>scripton.doc.narration</code>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="stage-head"><span class="stage-n">04</span><span class="stage-name">Character Voice, Subtext &amp; Dialogue</span></div>
+    <div class="assign">
+      <span class="pill p-gold">Opus 5</span><span class="pill p-live">temp 0.95</span><span class="pill p-cool">new stage — not yet in the code</span>
+    </div>
+    <p class="why"><b>Why Opus 5.</b> Subtext is the single hardest thing on this list and the clearest separator between model tiers. Cheap models write characters who say what they mean; the whole craft is people who do not. This stage also carries the heaviest continuity load — a character's voice must stay consistent across 90 scenes and survive a rewrite — which is a long-context consistency problem on top of a craft problem.</p>
+    <p class="why"><b>Architectural note:</b> today ScriptON has no dialogue stage. Voice is whatever <code>writeScene</code> produced inline, and your dialect tooling (<code>dialectCheck</code>, <code>dialectRepairDoc</code>) only repairs register after the fact. Splitting dialogue into its own pass — cheap model drafts the scene, expensive model passes over the dialogue — is the highest-leverage quality change available, and it is what makes the stage-routing architecture worth building at all.</p>
+    <div class="tasks"><span class="tasks-lbl">Task strings (proposed)</span><br>
+      <code>scripton.dialogue.pass</code><code>scripton.dialogue.voice</code><code>scripton.dialect.check</code><code>scripton.dialect.repair</code>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="stage-head"><span class="stage-n">05</span><span class="stage-name">Script Doctoring, Proofreading &amp; Coverage</span></div>
+    <div class="assign">
+      <span class="pill p-gold">Opus 5</span><span class="pill p-live">temp 0.3</span><span class="pill">split: mechanics → Haiku 4.5</span>
+    </div>
+    <p class="why"><b>Why split it.</b> "Doctoring" is two unrelated jobs wearing one label. <b>Judgment work</b> — coverage, diagnostics, ratings, comparative notes, canon conflict detection — is analytical reasoning over a whole script and belongs on Opus 5 at low temperature. <b>Mechanical work</b> — format validation, slugline consistency, character-name casing, page counts — is deterministic checking that mostly should not be a model call at all: write it against <code>scene-parse.util.ts</code> and pay nothing. What genuinely needs judgment goes to the cheapest model on the board that is not near retirement.</p>
+    <p class="why"><b>The one place Fable 5 earns $50/MTok:</b> a full-season canon audit. Reconciling <code>CanonFact</code> bi-temporal state across every episode of a series is a genuine long-horizon reasoning task over millions of tokens — the workload Fable 5 is built for. Gate it behind an explicit user action, never a default, and give it a mandatory fallback because its safety classifiers can refuse a dark script outright.</p>
+    <div class="tasks"><span class="tasks-lbl">Task strings</span><br>
+      <code>scripton.coverage</code><code>scripton.diagnostics</code><code>scripton.rating</code><code>scripton.compare</code><code>scripton.feature.coverage</code><code>scripton.canon.verify</code><code>scripton.culture.screen</code>
+    </div>
+  </div>
+</section>
+
+
+<hr class="rule">
+
+<!-- ═══════════════ 3 · LENGTH ═══════════════ -->
+<section class="sec">
+  <span class="sec-no">03 — Complete-length generation</span>
+  <h2>Your pipeline is aiming at a short film</h2>
+  <div class="col">
+    <p>The stated goal is a 90–120 page feature running 80–110 minutes. Two independent settings in the generator make that arithmetically impossible, and they compound. This is the finding to act on before anything else in this document.</p>
+  </div>
+
+  <div class="card flag col">
+    <h4>Error one — the scene target is roughly half a feature</h4>
+    <p><code>generateFeatureAsync()</code> sets the scene count as <code>Math.min(90, Math.max(55, beatN * 1.5))</code>, defaulting to <strong>60 scenes</strong>, and <code>planScenes()</code> hard-caps its return at <code>scenes.slice(0, 100)</code>.</p>
+    <p>Across 12,000+ produced screenplays the average feature contains <strong>110 scenes</strong> — just over one scene per page against a median of 106 pages. Action averages 131. Your ceiling of 90 sits below the average feature, and your default of 60 sits at 55% of it. Even a flawless run produces a script that is structurally a novella.</p>
+  </div>
+
+  <div class="card flag col">
+    <h4>Error two — "one page" is specified as a fifth of a page</h4>
+    <p>The <code>writeScene</code> system prompt says the scene <em>"MUST fit on ONE page — roughly 8 to 16 short lines of action and dialogue COMBINED"</em>. Those two instructions contradict each other. A standard screenplay page is <strong>55 lines</strong> of 12pt Courier — which is exactly what your own <code>paginate()</code> uses (<code>const per = 55</code>). Eight to sixteen lines is a fifth of a page, not a page.</p>
+    <p><strong>Compounded:</strong> 60 scenes × ~15 lines including the heading and blanks ≈ 900 lines ≈ <strong>16 pages</strong>. That is the real output ceiling of the current configuration, and it explains a "complete" script that files as DONE and reads as an outline.</p>
+  </div>
+
+  <h3>The fix: budget pages, not scenes</h3>
+  <div class="col">
+    <p>Scene count should be derived from a page target, and each planned scene should carry an explicit page allocation that the writer is told to hit. Real features do not consist of uniform one-page scenes — they run from quarter-page cutaways to three-page set pieces — so a flat per-scene length is wrong even at the right count.</p>
+  </div>
+
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Target runtime</th><th>Genre</th><th>Pages/min</th><th>Target pages</th><th>Scenes/page</th><th>Planned scenes</th></tr></thead>
+      <tbody>
+        <tr><td class="num">80 min</td><td>Drama</td><td class="num">1.10</td><td class="num">88</td><td class="num">1.04</td><td class="num">92</td></tr>
+        <tr><td class="num">90 min</td><td>Drama</td><td class="num">1.10</td><td class="num">99</td><td class="num">1.04</td><td class="num">103</td></tr>
+        <tr style="background:rgba(198,164,99,.06)"><td class="num">100 min</td><td>Drama <span class="pill p-gold">default</span></td><td class="num">1.10</td><td class="num">110</td><td class="num">1.04</td><td class="num"><strong>114</strong></td></tr>
+        <tr><td class="num">110 min</td><td>Drama</td><td class="num">1.10</td><td class="num">121</td><td class="num">1.04</td><td class="num">126</td></tr>
+        <tr><td class="num">100 min</td><td>Action</td><td class="num">0.99</td><td class="num">99</td><td class="num">1.24</td><td class="num">123</td></tr>
+        <tr><td class="num">100 min</td><td>Comedy</td><td class="num">1.15</td><td class="num">115</td><td class="num">0.93</td><td class="num">107</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="col">
+    <p>The page-per-minute rule is a planning heuristic, not a law — across 2,520 scripts the mean ratio is <strong>1.1 pages per minute</strong> (a page runs about 55 seconds), and only 18% of scripts land within ±5% of it. It is precise enough to size a generation run and not precise enough to promise a runtime, which is exactly how the UI should present it: <em>"≈ 100 min"</em>, never <em>"100 min"</em>.</p>
+  </div>
+
+  <h3>Six changes to <code>scripton.service.ts</code></h3>
+  <div class="col">
+    <ul>
+      <li><strong>Add <code>targetPages</code> to the brief</strong> (default 105, band 90–120), and derive <code>targetMinutes = targetPages / genreRatio</code> for display.</li>
+      <li><strong>Derive the scene count from pages:</strong> <code>targetScenes = round(targetPages × sceneDensity(genre))</code> — 1.04 baseline, 1.24 action, 0.93 comedy. Replace the <code>beatN * 1.5</code> heuristic, which measures the outline rather than the film.</li>
+      <li><strong>Give every planned scene a <code>pageWeight</code></strong> ∈ {0.25, 0.5, 1, 1.5, 2, 3}, assigned by the planner from dramatic function, constrained so <code>Σ pageWeight ≈ targetPages</code>. Add it to the <code>planScenes</code> JSON contract.</li>
+      <li><strong>Pass a line budget to <code>writeScene</code>:</strong> <code>lines = round(pageWeight × 55)</code>. Replace "roughly 8 to 16 short lines" with the computed figure and a ±20% tolerance. This one edit is the difference between 16 pages and 105.</li>
+      <li><strong>Raise the plan cap</strong> from <code>slice(0, 100)</code> to <code>slice(0, ceil(targetScenes × 1.3))</code> — the current cap truncates any action feature.</li>
+      <li><strong>Close the loop.</strong> You already verify narrative completeness with <code>verifyEnding()</code>. Add <code>verifyLength()</code>: if the finished draft is under 90% of <code>targetPages</code>, do not file it as DONE — run an expansion pass over the scenes that came in furthest under their allocation. A run that reaches the final beat but lands at 70 pages is not complete.</li>
+    </ul>
+  </div>
+
+  <div class="card key col">
+    <h4>Why this matters more than model choice</h4>
+    <p>No model upgrade fixes a length target that is set too low. Opus 5 asked for 60 quarter-page scenes will produce 60 excellent quarter-page scenes and file a 16-page document. Fix the budget first; the routing in the rest of this document then determines how <em>good</em> those 110 scenes are, not how many of them there are.</p>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ═══════════════ 4 · THE FINDING ═══════════════ -->
+<section class="sec">
+  <span class="sec-no">04 — Implementation</span>
+  <h2>You already built this. One function is missing.</h2>
+  <div class="col">
+    <p>The temptation with a brief like this is to specify a new subsystem. That would be the wrong call: <code>LlmRoutingPolicy</code> already persists a <code>capability</code>, a <code>fallbackChain</code>, an <code>allowedEngineIds</code> set and two override flags, per ORG and per PROJECT. The Engines &amp; Routing UI already renders five capability tabs with reorderable failover. <code>resolveChain()</code> already honours all of it.</p>
+    <p>The entire per-stage routing feature is blocked on one function that hardcodes its answer:</p>
+  </div>
+
+<pre><code><span class="c">// llm-routing.service.ts — today</span>
+<span class="k">capabilityForTask</span>(_task?: <span class="n2">string</span>): <span class="n2">string</span> { <span class="k">return</span> <span class="s">'LLM_DEFAULT'</span>; }</code></pre>
+
+  <div class="col"><p>Replace it with a real mapping and every stage above becomes independently routable, configurable and failover-aware — with no new tables, no new endpoints and no change to <code>AiService</code>:</p></div>
+
+<pre><code><span class="c">/**
+ * Map a dotted task string (surface.purpose.stage) onto its routing capability.
+ * The five capabilities are the five writing stages: each has its own engine,
+ * its own model and its own failover ladder, set in Engines &amp; Routing.
+ * Longest-prefix wins, so 'scripton.develop.scenes' beats 'scripton.develop'.
+ */</span>
+<span class="k">const</span> TASK_CAPABILITY: <span class="n2">Array</span>&lt;[<span class="n2">string</span>, <span class="n2">string</span>]&gt; = [
+  [<span class="s">'scripton.research'</span>,          <span class="s">'IDEATION'</span>],
+  [<span class="s">'scripton.adapt'</span>,             <span class="s">'IDEATION'</span>],
+  [<span class="s">'scripton.lore'</span>,              <span class="s">'IDEATION'</span>],
+  [<span class="s">'scripton.develop'</span>,           <span class="s">'STRUCTURE'</span>],
+  [<span class="s">'scripton.feature.plan'</span>,      <span class="s">'STRUCTURE'</span>],
+  [<span class="s">'scripton.feature.scene'</span>,     <span class="s">'SCENE'</span>],
+  [<span class="s">'scripton.vertical'</span>,          <span class="s">'SCENE'</span>],
+  [<span class="s">'scripton.doc'</span>,               <span class="s">'SCENE'</span>],
+  [<span class="s">'scripton.dialogue'</span>,          <span class="s">'DIALOGUE'</span>],
+  [<span class="s">'scripton.dialect'</span>,           <span class="s">'DIALOGUE'</span>],
+  [<span class="s">'scripton.coverage'</span>,          <span class="s">'DOCTOR'</span>],
+  [<span class="s">'scripton.diagnostics'</span>,       <span class="s">'DOCTOR'</span>],
+  [<span class="s">'scripton.rating'</span>,            <span class="s">'DOCTOR'</span>],
+  [<span class="s">'scripton.compare'</span>,           <span class="s">'DOCTOR'</span>],
+  [<span class="s">'scripton.feature.coverage'</span>,  <span class="s">'DOCTOR'</span>],
+  [<span class="s">'scripton.canon'</span>,             <span class="s">'DOCTOR'</span>],
+  [<span class="s">'scripton.culture'</span>,           <span class="s">'DOCTOR'</span>],
+];
+
+<span class="k">capabilityForTask</span>(task?: <span class="n2">string</span>): <span class="n2">string</span> {
+  <span class="k">const</span> t = <span class="n2">String</span>(task || <span class="s">''</span>);
+  <span class="k">let</span> best = <span class="s">'LLM_DEFAULT'</span>, bestLen = <span class="s">0</span>;
+  <span class="k">for</span> (<span class="k">const</span> [prefix, cap] <span class="k">of</span> TASK_CAPABILITY) {
+    <span class="k">if</span> (t === prefix || t.<span class="k">startsWith</span>(prefix + <span class="s">'.'</span>)) {
+      <span class="k">if</span> (prefix.length &gt; bestLen) { best = cap; bestLen = prefix.length; }
+    }
+  }
+  <span class="k">return</span> best;
+}</code></pre>
+
+  <div class="card key col">
+    <h4>Three supporting changes</h4>
+    <p><strong>1. Widen the capability list.</strong> <code>CAPABILITIES</code> is currently <code>['LLM_DEFAULT','BREAKDOWN','DRAFTING','POLISH','LEGAL']</code> — invented before the stages were understood. Replace with <code>['LLM_DEFAULT','IDEATION','STRUCTURE','SCENE','DIALOGUE','DOCTOR','LEGAL']</code>. <code>getRouting()</code> already synthesises an empty policy for any capability with no row, so this is additive and needs no migration.</p>
+    <p><strong>2. Route <code>raw()</code> too.</strong> Vision and forced-tool calls bypass the chain entirely and pin to Anthropic. That is defensible, but they should still read their model from the capability policy rather than from an env var.</p>
+    <p><strong>3. Add per-capability generation params.</strong> <code>temperature</code> and <code>maxTokens</code> belong on the policy, not hard-coded at each call site. Scene writing wants 0.85; coverage wants 0.3. Today both inherit whatever the caller passed.</p>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ═══════════════ 4 · SCHEMA ═══════════════ -->
+<section class="sec">
+  <span class="sec-no">05 — Data schema</span>
+  <h2>AI Settings configuration state</h2>
+  <div class="col">
+    <p>This extends the existing <code>LlmRoutingPolicy</code> row rather than replacing it. Three fields are new: <code>params</code>, <code>onRefusal</code> and <code>pinPerBuild</code>. Everything else is already persisted.</p>
+  </div>
+
+<pre><code>{
+  <span class="k">"$schema"</span>: <span class="s">"scripton/ai-settings/v2"</span>,
+  <span class="k">"scope"</span>: <span class="s">"ORG"</span>,                 <span class="c">// ORG | PROJECT</span>
+  <span class="k">"projectId"</span>: <span class="k">null</span>,               <span class="c">// required when scope = PROJECT</span>
+  <span class="k">"capabilities"</span>: {
+    <span class="k">"SCENE"</span>: {
+      <span class="k">"label"</span>: <span class="s">"Scene Construction"</span>,
+      <span class="k">"defaultEngineId"</span>: <span class="s">"eng_anthropic"</span>,
+      <span class="k">"model"</span>: <span class="s">"claude-sonnet-5"</span>,
+      <span class="k">"params"</span>: {                    <span class="c">// NEW — per-stage generation controls</span>
+        <span class="k">"temperature"</span>: <span class="s">0.85</span>,
+        <span class="k">"maxTokens"</span>: <span class="s">4000</span>,
+        <span class="k">"timeoutMs"</span>: <span class="s">120000</span>,
+        <span class="k">"stream"</span>: <span class="k">null</span>              <span class="c">// null = auto (streams when maxTokens >= 6000)</span>
+      },
+      <span class="k">"fallbackChain"</span>: [            <span class="c">// ordered; each rung is engineId + model</span>
+        { <span class="k">"engineId"</span>: <span class="s">"eng_anthropic"</span>,  <span class="k">"model"</span>: <span class="s">"claude-sonnet-5"</span>,  <span class="k">"tier"</span>: <span class="s">"PRIMARY"</span> },
+        { <span class="k">"engineId"</span>: <span class="s">"eng_anthropic"</span>,  <span class="k">"model"</span>: <span class="s">"claude-sonnet-4-6"</span>,<span class="k">"tier"</span>: <span class="s">"IN_FAMILY"</span> },
+        { <span class="k">"engineId"</span>: <span class="s">"eng_openai"</span>,     <span class="k">"model"</span>: <span class="s">"gpt-5.6-terra"</span>,    <span class="k">"tier"</span>: <span class="s">"CROSS_VENDOR"</span> },
+        { <span class="k">"engineId"</span>: <span class="s">"eng_gemini"</span>,     <span class="k">"model"</span>: <span class="s">"gemini-3.6-flash"</span>, <span class="k">"tier"</span>: <span class="s">"CROSS_VENDOR"</span> }
+      ],
+      <span class="k">"allowedEngineIds"</span>: [<span class="s">"eng_anthropic"</span>, <span class="s">"eng_openai"</span>, <span class="s">"eng_gemini"</span>, <span class="s">"eng_grok"</span>],
+      <span class="k">"onRefusal"</span>: <span class="s">"SURFACE"</span>,        <span class="c">// NEW — SURFACE | TRY_PERMISSIVE | FAIL</span>
+      <span class="k">"pinPerBuild"</span>: <span class="k">true</span>,          <span class="c">// NEW — lock the engine for a build's lifetime</span>
+      <span class="k">"projectOverrideAllowed"</span>: <span class="k">true</span>,
+      <span class="k">"userMayOverride"</span>: <span class="k">false</span>
+    }
+    <span class="c">// … IDEATION, STRUCTURE, DIALOGUE, DOCTOR, LEGAL follow the same shape</span>
+  }
+}</code></pre>
+
+  <h3>UI: the model info tags</h3>
+  <div class="col"><p>Each model in the stage dropdown carries an <code>(i)</code> tag. Copy written for a screenwriter choosing a model, not for an engineer reading a spec sheet — say what it is good at and what it costs you, in that order.</p></div>
+
+  <div class="tips">
+    <div class="tip"><div class="h"><span class="i">i</span>claude-opus-5</div><p>The strongest writer available. Use it where judgment matters — structure, subtext, coverage. Roughly 2.5× the cost of Sonnet, so it earns its place on stages that run a handful of times, not hundreds.</p></div>
+    <div class="tip"><div class="h"><span class="i">i</span>claude-sonnet-5</div><p>The workhorse. Fast, capable, and the right default anywhere the pipeline makes many calls in a row — scene drafting above all. This is what a full feature should be written on.</p></div>
+    <div class="tip" style="opacity:.62"><div class="h"><span class="i">i</span>claude-haiku-4-5 <span class="pill p-dead" style="margin-inline-start:7px">barred</span></div><p>Retires as early as 15 Oct 2026 — inside the horizon rule, so it is hidden from selection. Was the cheap tier for mechanical checks; those are now code, or gpt-5.6-luna.</p></div>
+    <div class="tip"><div class="h"><span class="i">i</span>gpt-5.6-luna</div><p>The cheapest model on the board by a wide margin. Use it only where the output is a verdict — format checks, consistency scans — never for writing.</p></div>
+    <div class="tip"><div class="h"><span class="i">i</span>claude-fable-5</div><p>Built for very long, sustained analysis — a whole-season canon audit, not a scene. Five times Sonnet's cost and always deliberates before answering. It can also decline dark material, so keep a fallback set.</p></div>
+    <div class="tip"><div class="h"><span class="i">i</span>gpt-5.6-terra</div><p>OpenAI's balanced tier, priced level with Sonnet 5. The most like-for-like substitute if Anthropic is unavailable mid-draft.</p></div>
+    <div class="tip"><div class="h"><span class="i">i</span>grok-4.6</div><p>Cheapest output of any flagship here, and the most permissive on violent or explicit material. Useful as the last rung when a scene keeps getting refused elsewhere — horror and hard thriller reach for it most.</p></div>
+    <div class="tip"><div class="h"><span class="i">i</span>gpt-5.6-sol</div><p>OpenAI's flagship. Its best use here is <em>coverage</em>: notes from outside the family that wrote the script catch what the author model cannot see in itself.</p></div>
+    <div class="tip"><div class="h"><span class="i">i</span>gemini-3.1-pro</div><p>Million-token context at the lowest frontier price. Strongest on research and world-building — period detail, cultural sourcing, large ensembles. Costs more above 200K tokens.</p></div>
+    <div class="tip"><div class="h"><span class="i">i</span>gemini-3.6-flash</div><p>Google's workhorse. Good for format and consistency checks at volume. Not a prose stage — use it where the output is a verdict, not writing.</p></div>
+  </div>
+</section>
+
+
+<hr class="rule">
+
+<!-- ═══════════════ 6 · PROFILES ═══════════════ -->
+<section class="sec">
+  <span class="sec-no">06 — Engine profiles</span>
+  <h2>One switch for cost, one for craft</h2>
+  <div class="col">
+    <p>Per-stage model selection is powerful and nobody wants to operate it scene by scene. A <strong>profile</strong> sits above the capability policies: pick one, and every stage is set coherently. Individual stages stay overridable, and an override marks the profile as <code>CUSTOM</code> rather than silently misreporting.</p>
+    <p>Three profiles, because two is a false choice and four is a menu nobody reads.</p>
+  </div>
+
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Stage</th><th>Economy</th><th>Balanced <span class="pill p-gold">default</span></th><th>Master</th><th>Best Script <span class="pill p-cool">3 vendors</span></th></tr></thead>
+      <tbody>
+        <tr><td>Ideation &amp; world</td><td class="num">sonnet-5</td><td class="num">opus-5</td><td class="num">opus-5</td><td class="num">gemini-3.1-pro</td></tr>
+        <tr><td>Structure &amp; beats</td><td class="num">sonnet-5</td><td class="num">opus-5</td><td class="num">opus-5</td><td class="num">opus-5</td></tr>
+        <tr><td>Scene construction</td><td class="num">sonnet-5</td><td class="num">sonnet-5</td><td class="num">opus-5</td><td class="num">sonnet-5 <span class="pill p-gold">pinned</span></td></tr>
+        <tr><td>Dialogue &amp; subtext</td><td class="mid">— folded into scene —</td><td class="num">opus-5</td><td class="num">opus-5</td><td class="num">opus-5 <span class="pill p-gold">pinned</span></td></tr>
+        <tr><td>Doctoring &amp; coverage</td><td class="num">sonnet-5</td><td class="num">opus-5</td><td class="num">opus-5</td><td class="num">gpt-5.6-sol</td></tr>
+        <tr><td>Format mechanics</td><td class="mid">code — no model</td><td class="mid">code — no model</td><td class="mid">code — no model</td><td class="num">gpt-5.6-luna</td></tr>
+        <tr><td>Season canon audit</td><td class="mid">off</td><td class="mid">on request</td><td class="num">fable-5</td><td class="num">fable-5</td></tr>
+        <tr><td>Prompt caching</td><td><span class="pill p-live">on</span></td><td><span class="pill p-live">on</span></td><td><span class="pill p-live">on</span></td><td><span class="pill p-live">on</span></td></tr>
+        <tr style="background:rgba(198,164,99,.06)"><td><strong>Per 114-scene feature</strong></td><td class="num"><strong>≈ $1.10</strong></td><td class="num"><strong>≈ $2.99</strong></td><td class="num"><strong>≈ $3.98</strong></td><td class="num"><strong>≈ $3.05</strong></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card col">
+    <h4>What each profile actually trades</h4>
+    <p><strong>Economy</strong> drops the separate dialogue pass and runs doctoring on Sonnet 5 rather than Opus 5. Structure holds — Sonnet 5 is genuinely capable of a coherent 114-scene map — but subtext gets thinner and coverage notes get blunter. Right for exploratory drafts and for the fourth regeneration of the same act.</p>
+    <p><strong>Balanced</strong> puts Opus 5 everywhere the call count is low and Sonnet 5 where it is high. This is the profile that should ship as default.</p>
+    <p><strong>Master</strong> moves scene construction to Opus 5 as well. Honest assessment: this is the weakest-value step on the list — it triples the cost of the highest-volume stage for a quality gain that a separate Opus 5 dialogue pass already delivers more cheaply. Offer it, default away from it.</p>
+    <p><strong>Best Script</strong> is the cross-vendor profile — the strongest model from each of the three houses at the stage where its character helps most, with the weak options removed entirely. See below; it is not simply "the expensive one".</p>
+    <p><strong>Note what is <em>not</em> in the economy column:</strong> cross-vendor models. Gemini 3.6 Flash is cheaper than Sonnet 5, but mixing vendors inside a screenplay's <em>prose</em> stages costs voice consistency — the thing section 07 exists to protect. Cheaper models belong on the failover ladder, not in a default profile.</p>
+  </div>
+
+  <h3>Best Script — mixing vendors without breaking the voice</h3>
+  <div class="col">
+    <p>The instinct behind "best of each vendor" is sound, but applied naively it destroys the thing that matters most: a screenplay written by three different models does not read like one writer. The resolution is that <strong>the five stages are not equally voice-bearing.</strong></p>
+    <p>Structure, research and coverage produce <em>analysis</em> — JSON, notes, a beat map. Nobody reads their prose. Scene and dialogue produce <em>the script</em>. So Best Script mixes freely on the analytical stages and stays on a single pinned vendor for the two that reach the page.</p>
+  </div>
+
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Stage</th><th>Assigned to</th><th>Voice-bearing</th><th>Why this vendor</th></tr></thead>
+      <tbody>
+        <tr><td>Ideation &amp; research</td><td class="num">gemini-3.1-pro</td><td class="mid">no</td><td class="mid">1M context at the lowest frontier-tier price, and a different training distribution from the writer — genuinely widens the idea space at the one stage where divergence is the point.</td></tr>
+        <tr><td>Structure &amp; beats</td><td class="num">claude-opus-5</td><td class="mid">no</td><td class="mid">Long strict-JSON adherence and whole-arc reasoning. Unchanged from Balanced because nothing beats it here.</td></tr>
+        <tr style="background:rgba(198,164,99,.06)"><td>Scene construction</td><td class="num">claude-sonnet-5</td><td><span class="pill p-gold">yes — pinned</span></td><td class="mid">Single vendor, locked for the build's lifetime. Prompt-cached context makes it the cheapest capable option at 114 calls.</td></tr>
+        <tr style="background:rgba(198,164,99,.06)"><td>Dialogue &amp; subtext</td><td class="num">claude-opus-5</td><td><span class="pill p-gold">yes — pinned</span></td><td class="mid">Same house as the scene writer <em>by design</em> — a dialogue pass from a different family fights the prose underneath it.</td></tr>
+        <tr><td>Doctoring &amp; coverage</td><td class="num">gpt-5.6-sol</td><td class="mid">no</td><td class="mid">The strongest argument in the whole profile: <strong>a model should not mark its own homework.</strong> Coverage from a different family than the one that wrote the script surfaces weaknesses the author model is blind to by construction.</td></tr>
+        <tr><td>Format mechanics</td><td class="num">gemini-3.6-flash</td><td class="mid">no</td><td class="mid">Deterministic checking at $1.50/$7.50. Replaces Haiku 4.5, which is six weeks from its earliest retirement.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card col">
+    <h4>What gets removed, and why</h4>
+    <p><strong>Grok 4.6</strong> — off the default profile. Its real differentiator is permissiveness on violent and explicit material, which is a <em>fallback</em> property, not a first-choice one. It stays as the final rung when a scene is refused elsewhere.</p>
+    <p><strong>Haiku 4.5</strong> — barred outright by the horizon rule, 45 days from its earliest retirement. Not a default, not a ladder rung, not in the dropdown.</p>
+    <p><strong>Sonnet 4.6</strong> — your current live default, 170 days out. Demoted to fallback rungs only, with a replacement scheduled before February.</p>
+    <p><strong>Gemini 3.6 Flash and GPT-5.6 Terra</strong> — out of the creative stages, kept on the ladders. Capable and cheap, but neither is the best at anything here.</p>
+    <p><strong>Fable 5</strong> — never a default. Gated behind an explicit season-audit action, with a mandatory fallback because its classifiers can refuse a dark script.</p>
+    <p><strong>Prerequisite:</strong> this profile needs live OpenAI and Gemini keys. Today only Anthropic resolves, so Best Script would silently degrade to Balanced. Gate its selection on <code>usable === true</code> for all three engines and say so in the UI rather than failing quietly.</p>
+  </div>
+
+
+  <h3>Genre overlay — modifiers, not a second matrix</h3>
+  <div class="col">
+    <p>Genre changes what a script <em>needs</em>, but building a full genre × stage model matrix produces thirty cells nobody maintains and that drift the moment a model is retired. The maintainable form is a small set of <strong>modifiers</strong> applied on top of whichever profile is selected: the profile sets the tier, the genre nudges specific stages up or down and adjusts the length maths.</p>
+    <p>The first two columns are measured — scene density and page-per-minute ratio come from the 12,000-script and 2,520-script datasets. The stage deltas are reasoned from those measurements plus documented model behaviour, and each is A/B-testable through the same settings surface.</p>
+  </div>
+
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Genre</th><th>Scenes / page</th><th>Pages / min</th><th>What it stresses</th><th>Stage deltas on top of the profile</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>Action / Thriller</strong></td><td class="num">1.25</td><td class="num">0.99</td>
+          <td class="mid">Scene <em>volume</em> — 131 scenes average, the highest of any genre. Short, visual, low dialogue density.</td>
+          <td class="mid">Scene stage stays on Sonnet 5 even in Master — the volume makes Opus 5 expensive for prose that is mostly stage direction. Dialogue may tier down one step. <span class="mid-note">Pre-arm the permissive rung: sustained violence draws refusals.</span></td>
+        </tr>
+        <tr>
+          <td><strong>Comedy</strong></td><td class="num">0.93</td><td class="num">1.15</td>
+          <td class="mid">Rhythm and timing. Fewest scenes (98.5) and the most pages per minute — it is talk.</td>
+          <td class="mid"><strong>Never fold the dialogue pass into scene.</strong> Comedy is the genre where a cheaper model is most audible; Economy should refuse to drop it here. Dialogue holds at Opus 5 in every profile.</td>
+        </tr>
+        <tr>
+          <td><strong>Drama</strong></td><td class="num">1.04</td><td class="num">1.12</td>
+          <td class="mid">Subtext. The baseline case and the one the defaults are tuned for.</td>
+          <td class="mid">No deltas — this is the reference genre.</td>
+        </tr>
+        <tr>
+          <td><strong>Horror</strong></td><td class="num">1.06</td><td class="num">1.05</td>
+          <td class="mid">Atmosphere and restraint. Shortest features on average (98.6 pages), smallest casts (25.8 speaking parts).</td>
+          <td class="mid">Lower the default <code>targetPages</code> to ~98. <span class="mid-note">Highest refusal risk of any genre — set <code>onRefusal</code> to offer the permissive rung rather than only surfacing, and expect it to fire.</span></td>
+        </tr>
+        <tr>
+          <td><strong>Historical / Period</strong></td><td class="num">1.04</td><td class="num">1.10</td>
+          <td class="mid">Research load and cast size — the largest ensembles measured, 45.7 speaking characters.</td>
+          <td class="mid">Ideation tiers <em>up</em> to the widest-context model available (Gemini 3.1 Pro on Best Script, Opus 5 otherwise). Canon and character-bible depth matter more than anywhere else; consider the Fable 5 audit even on a single feature.</td>
+        </tr>
+        <tr>
+          <td><strong>Vertical micro-drama</strong></td><td class="num">—</td><td class="num">—</td>
+          <td class="mid">Episode density, hook-per-minute. Your <code>VERTICAL</code> family bypasses feature paging entirely.</td>
+          <td class="mid">Length maths does not apply — <code>seriesSceneCount()</code> governs. Economy is defensible here: episodes are short, disposable and regenerated often.</td>
+        </tr>
+        <tr>
+          <td><strong>Documentary</strong></td><td class="num">—</td><td class="num">—</td>
+          <td class="mid">Narration and factual accuracy, not scene construction.</td>
+          <td class="mid">Route the narration stage to the <em>research</em> capability, not <code>SCENE</code> — it is closer to sourced writing than to drama. Fact-sensitivity argues for the strongest available model regardless of profile.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card key col">
+    <h4>One overlay that is not a genre</h4>
+    <p><strong>Script language.</strong> Your actual slate runs Arabic as often as English, and register control — dialect, era-appropriate diction, the <code>accents</code> and <code>eras</code> knowledge packs — is the first thing to degrade when a model tiers down. For any non-English script the dialogue stage should hold at the top tier in <em>every</em> profile, Economy included, and the permissive-fallback rungs should be checked for real capability in that language before being armed. A cheaper model that writes fluent-but-wrong Arabic register is worse than a refusal, because nothing flags it.</p>
+  </div>
+
+<pre><code>{
+  <span class="k">"genre"</span>: <span class="s">"HISTORICAL"</span>,
+  <span class="k">"scriptLanguage"</span>: <span class="s">"ar"</span>,
+  <span class="k">"overlay"</span>: {
+    <span class="k">"sceneDensity"</span>: <span class="s">1.04</span>,       <span class="c">// scenes per page — drives targetScenes (§03)</span>
+    <span class="k">"pagesPerMinute"</span>: <span class="s">1.10</span>,     <span class="c">// drives the "≈ N min" estimate</span>
+    <span class="k">"targetPages"</span>: <span class="s">105</span>,
+    <span class="k">"stageDeltas"</span>: {
+      <span class="k">"IDEATION"</span>: <span class="s">"TIER_UP"</span>,      <span class="c">// widest context available in the profile</span>
+      <span class="k">"DIALOGUE"</span>: <span class="s">"HOLD_TOP"</span>      <span class="c">// non-English: never tier down, any profile</span>
+    },
+    <span class="k">"refusalRisk"</span>: <span class="s">"LOW"</span>          <span class="c">// LOW | MEDIUM | HIGH -> arms the permissive rung</span>
+  }
+}</code></pre>
+
+  <h4 style="font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin:26px 0 0">Best Script · analytical stages <span style="color:var(--gold)">· vendor-diverse ladder</span></h4>
+  <div class="ladder">
+    <div class="rung"><span class="t">Primary</span><span class="m">gpt-5.6-sol</span><span class="n">Coverage — outside eye</span></div>
+    <div class="rung"><span class="t">Tier 2</span><span class="m">gemini-3.1-pro-preview</span><span class="n">Still a different house</span></div>
+    <div class="rung"><span class="t">Tier 3</span><span class="m">claude-opus-5</span><span class="n">In-house — quarantined as SELF_REVIEW, see below</span></div>
+  </div>
+
+  <div class="card key col">
+    <h4>Self-review is quarantined, not just labelled</h4>
+    <p>If coverage falls back in-house — the model that wrote the script grading the script — the notes are still generated, because they have some value, but they are <strong>marked <code>SELF_REVIEW</code> and excluded from anything that carries weight</strong>: no coverage score, no greenlight input, no "notes addressed" count, and a visible banner on the panel saying an outside read is still pending.</p>
+    <p>The alternative — presenting self-review as ordinary coverage — is worse than having no coverage at all, because a writer acts on it believing it came from an outside eye. A model is blind to its own habits by construction; a clean score from the author model is not evidence, and the UI should not let it read as evidence.</p>
+    <p><span class="mid-note">Policy field: <code>"selfReview": "QUARANTINE"</code> — alternatives are <code>"BLOCK"</code> (produce nothing until an outside engine is available) and <code>"ALLOW"</code> (label only). Default QUARANTINE.</span></p>
+  </div>
+
+  <h4 style="font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin:26px 0 0">Best Script · prose stages <span style="color:var(--gold)">· single-vendor, pinned</span></h4>
+  <div class="ladder">
+    <div class="rung"><span class="t">Primary</span><span class="m">claude-sonnet-5</span><span class="n">Pinned at scene 1</span></div>
+    <div class="rung"><span class="t">In-family</span><span class="m">claude-sonnet-4-6</span><span class="n">Closest prose match</span></div>
+    <div class="rung"><span class="t">Pause</span><span class="m">— hold the run —</span><span class="n">Do not cross vendors mid-script</span></div>
+    <div class="rung"><span class="t">On refusal</span><span class="m">grok-4.6</span><span class="n">Per-scene, explicit opt-in</span></div>
+  </div>
+
+  <h3>The real cost lever is not the model</h3>
+  <div class="col">
+    <p>Scene generation is <strong>input-dominated</strong>: each of 110 calls re-sends the same feature context — the brief, the language directive, the knowledge pack, the spine — around 5,000 tokens, unchanged, 110 times. That is roughly 550K input tokens per feature spent re-reading identical text.</p>
+    <p>Anthropic prompt caching charges cache reads at <strong>0.1×</strong> base input and a 1-hour cache write at 2×. Sonnet 5's minimum cacheable prefix is 1,024 tokens; your context block is about five times that. Placing one <code>cache_control</code> breakpoint after the shared context collapses 550K billable input tokens to roughly 65K.</p>
+  </div>
+
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Scene stage, 110 calls</th><th>Billable input</th><th>Output</th><th>Sonnet 5</th><th>Opus 5</th></tr></thead>
+      <tbody>
+        <tr><td>No caching (today)</td><td class="num">649K</td><td class="num">33K</td><td class="num">$1.63</td><td class="num">$4.08</td></tr>
+        <tr style="background:rgba(198,164,99,.06)"><td><strong>1-hour cache on the context block</strong></td><td class="num">164K</td><td class="num">33K</td><td class="num"><strong>$0.66</strong></td><td class="num"><strong>$1.65</strong></td></tr>
+        <tr><td class="mid" colspan="5"><span class="mid-note">Saving: about 60% of the scene stage, on every profile, with no quality cost whatsoever. It requires one change in <code>providers.ts</code> — splitting the Anthropic <code>user</code> payload into content blocks so a breakpoint can be placed — because <code>callProvider</code> currently sends a single flat string.</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card col">
+    <h4>Schema addition</h4>
+    <p>The profile is one field on the settings object, resolved before the capability policies are read. It selects a named preset; the policies remain the source of truth, so an override at any stage simply wins.</p>
+  </div>
+
+<pre><code>{
+  <span class="k">"profile"</span>: <span class="s">"BALANCED"</span>,        <span class="c">// ECONOMY | BALANCED | MASTER | CUSTOM</span>
+  <span class="k">"profileLockedBy"</span>: <span class="k">null</span>,      <span class="c">// capability key that forced CUSTOM, if any</span>
+  <span class="k">"caching"</span>: {
+    <span class="k">"enabled"</span>: <span class="k">true</span>,
+    <span class="k">"ttl"</span>: <span class="s">"1h"</span>,               <span class="c">// 5m is free to refresh but a slow scene can miss it</span>
+    <span class="k">"breakpointAfter"</span>: <span class="s">"featureContext"</span>
+  },
+  <span class="k">"length"</span>: {                    <span class="c">// see section 03</span>
+    <span class="k">"targetPages"</span>: <span class="s">105</span>,
+    <span class="k">"band"</span>: [<span class="s">90</span>, <span class="s">120</span>],
+    <span class="k">"minCompletionRatio"</span>: <span class="s">0.90</span>   <span class="c">// below this the run is NOT filed as DONE</span>
+  }
+}</code></pre>
+</section>
+
+<hr class="rule">
+
+<!-- ═══════════════ 7 · FAILOVER ═══════════════ -->
+<section class="sec">
+  <span class="sec-no">07 — Resilience</span>
+  <h2>Failover that understands screenwriting</h2>
+  <div class="col">
+    <p>Generic failover treats every failure as "try the next one". That is wrong here in two specific ways, and both are cheap to fix.</p>
+  </div>
+
+  <div class="card flag col">
+    <h4>A refusal is not an outage</h4>
+    <p>When a model declines a scene on content grounds, retrying the identical prompt across four more providers spends four more calls to collect four more refusals — and then reports "no provider could complete the request", which tells the writer nothing about what actually happened. Refusal needs its own error class alongside the <code>CREDIT / RATE / AUTH / MODEL</code> kinds already in <code>providers.ts</code>, and the default policy should be <code>SURFACE</code>: stop the chain, tell the writer which scene was declined and why, and offer a single explicit retry on a more permissive engine.</p>
+  </div>
+
+  <div class="card flag col">
+    <h4>Voice consistency outranks availability</h4>
+    <p>If Anthropic rate-limits at scene 47 of 90 and the chain silently fails over, scenes 47–52 are written by a different model with a different prose instinct — inside one screenplay, under one revision colour. Nobody will know why act three reads differently. For the <code>SCENE</code> and <code>DIALOGUE</code> stages, set <code>pinPerBuild: true</code>: the first successful engine is recorded on the build version and every subsequent scene uses it. If it becomes unavailable, <strong>pause the run</strong> rather than switching mid-script, and record any forced switch on the revision so the UI can say <em>"scenes 47–52 drafted on a fallback engine"</em>.</p>
+  </div>
+
+  <h3>Tiered ladders per stage</h3>
+  <div class="col"><p>Tier 1 is always in-family — same vendor, adjacent model — because it preserves prose character. Cross-vendor is tier 2, and only reached when Anthropic as a whole is unavailable.</p></div>
+
+  <h4 style="font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin:24px 0 0">01 · Ideation &nbsp;/&nbsp; 02 · Structure</h4>
+  <div class="ladder">
+    <div class="rung"><span class="t">Primary</span><span class="m">claude-opus-5</span><span class="n">Anthropic</span></div>
+    <div class="rung"><span class="t">In-family</span><span class="m">claude-opus-4-8</span><span class="n">Prior Opus generation</span></div>
+    <div class="rung"><span class="t">In-family</span><span class="m">claude-sonnet-5</span><span class="n">Tier down, stay in voice</span></div>
+    <div class="rung"><span class="t">Cross-vendor</span><span class="m">gpt-5.6-sol</span><span class="n">Nearest peer</span></div>
+    <div class="rung"><span class="t">Last resort</span><span class="m">gemini-3.1-pro-preview</span><span class="n">Flag output as fallback</span></div>
+  </div>
+
+  <h4 style="font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin:26px 0 0">03 · Scene Construction &nbsp;<span style="color:var(--gold)">· pinned per build</span></h4>
+  <div class="ladder">
+    <div class="rung"><span class="t">Primary</span><span class="m">claude-sonnet-5</span><span class="n">Anthropic</span></div>
+    <div class="rung"><span class="t">In-family</span><span class="m">claude-sonnet-4-6</span><span class="n">Closest prose match</span></div>
+    <div class="rung"><span class="t">Cross-vendor</span><span class="m">gpt-5.6-terra</span><span class="n">Price-matched</span></div>
+    <div class="rung"><span class="t">Cross-vendor</span><span class="m">gemini-3.6-flash</span><span class="n">Volume fallback</span></div>
+    <div class="rung"><span class="t">On refusal</span><span class="m">grok-4.6</span><span class="n">Explicit opt-in only</span></div>
+  </div>
+
+  <h4 style="font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin:26px 0 0">04 · Dialogue &nbsp;<span style="color:var(--gold)">· pinned per build</span></h4>
+  <div class="ladder">
+    <div class="rung"><span class="t">Primary</span><span class="m">claude-opus-5</span><span class="n">Anthropic</span></div>
+    <div class="rung"><span class="t">In-family</span><span class="m">claude-opus-4-8</span><span class="n">Prior generation</span></div>
+    <div class="rung"><span class="t">In-family</span><span class="m">claude-sonnet-5</span><span class="n">Acceptable degradation</span></div>
+    <div class="rung"><span class="t">Cross-vendor</span><span class="m">gpt-5.6-sol</span><span class="n">Pause &amp; warn first</span></div>
+  </div>
+
+  <h4 style="font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin:26px 0 0">05 · Doctoring &amp; Coverage</h4>
+  <div class="ladder">
+    <div class="rung"><span class="t">Primary</span><span class="m">claude-opus-5</span><span class="n">Judgment work</span></div>
+    <div class="rung"><span class="t">In-family</span><span class="m">claude-sonnet-5</span><span class="n">Notes stay usable</span></div>
+    <div class="rung"><span class="t">Cross-vendor</span><span class="m">gpt-5.6-sol</span><span class="n">Second opinion by design</span></div>
+    <div class="rung"><span class="t">Mechanics</span><span class="m">— no model —</span><span class="n">Deterministic parser checks</span></div>
+  </div>
+
+  <details>
+    <summary>Retry semantics per error class — which failures advance the chain</summary>
+    <div class="det-body">
+      <div class="scroll" style="margin:8px 0 0">
+        <table>
+          <thead><tr><th>Class</th><th>Retry same engine</th><th>Advance chain</th><th>Cooldown</th><th>Rationale</th></tr></thead>
+          <tbody>
+            <tr><td class="num">RATE</td><td>after backoff</td><td>yes</td><td>1 min</td><td class="mid">Transient by definition.</td></tr>
+            <tr><td class="num">TIMEOUT</td><td>once</td><td>yes</td><td>none</td><td class="mid">May be prompt length, not the provider.</td></tr>
+            <tr><td class="num">SERVER</td><td>once</td><td>yes</td><td>none</td><td class="mid">Provider-side, usually brief.</td></tr>
+            <tr><td class="num">NETWORK</td><td>no</td><td>yes</td><td>none</td><td class="mid">Unreachable — the Local-engine case.</td></tr>
+            <tr><td class="num">CREDIT</td><td>no</td><td>yes</td><td>10 min</td><td class="mid">Will not resolve on its own.</td></tr>
+            <tr><td class="num">AUTH</td><td>no</td><td>yes</td><td>10 min</td><td class="mid">Bad key — needs a human.</td></tr>
+            <tr><td class="num">MODEL</td><td>no</td><td>yes</td><td>none</td><td class="mid">Config error. Never cool the provider — it hides the cause.</td></tr>
+            <tr><td class="num">REFUSAL</td><td>no</td><td><strong>no</strong></td><td>none</td><td class="mid">Surface to the writer. Chaining collects more refusals and burns budget.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </details>
+</section>
+
+<hr class="rule">
+
+<!-- ═══════════════ 6 · COST ═══════════════ -->
+<section class="sec">
+  <span class="sec-no">08 — Economics</span>
+  <h2>What one feature costs to generate</h2>
+  <div class="col">
+    <p>Rebased on the corrected length target from section 03 — <strong>114 scenes across 105 pages</strong>, not the 60 the generator currently plans — and with the prompt caching from section 06 switched on. Two planning calls at ~10K in / 12K out, 114 scene calls sharing a cached 5K context block, an optional dialogue pass over the same scenes, and one whole-script coverage pass.</p>
+  </div>
+
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Profile</th><th>Plan</th><th>Scenes ×114</th><th>Dialogue</th><th>Doctor</th><th>Per feature</th><th>Trade-off</th></tr></thead>
+      <tbody>
+        <tr><td>Economy</td><td class="num">$0.28</td><td class="num">$0.66</td><td class="mid">—</td><td class="num">$0.16</td><td class="num">≈ $1.10</td><td class="mid">No dialogue pass; Sonnet 5 coverage.</td></tr>
+        <tr style="background:rgba(198,164,99,.06)"><td><strong>Balanced</strong> <span class="pill p-gold">default</span></td><td class="num">$0.70</td><td class="num">$0.66</td><td class="num">$1.23</td><td class="num">$0.40</td><td class="num"><strong>≈ $2.99</strong></td><td class="mid">Opus 5 everywhere the call count is low.</td></tr>
+        <tr><td>Best Script <span class="pill p-cool">3 vendors</span></td><td class="num">$0.84</td><td class="num">$0.66</td><td class="num">$1.23</td><td class="num">$0.32</td><td class="num">≈ $3.05</td><td class="mid">Costs the same as Balanced. The gain is diversity, not price.</td></tr>
+        <tr><td>Master</td><td class="num">$0.70</td><td class="num">$1.65</td><td class="num">$1.23</td><td class="num">$0.40</td><td class="num">≈ $3.98</td><td class="mid">+33% to move scenes to Opus 5. Weakest-value step here.</td></tr>
+        <tr><td class="mid">Balanced, caching OFF</td><td class="num">$0.70</td><td class="num">$1.63</td><td class="num">$3.06</td><td class="num">$0.40</td><td class="num">≈ $5.79</td><td class="mid">What you pay today for the same output. Caching is a 48% saving.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card col">
+    <h4>The number that matters for packaging</h4>
+    <p>A complete 105-page feature — dialogue pass included — costs about <strong>$3</strong> on Balanced, and the full cost spread from cheapest to dearest profile is roughly <strong>$1 to $4</strong>. Against a ScripON seat price that entire range is close to negligible, which means profile choice should be driven by <em>craft</em>, not cost anxiety. Note too that fixing the length bug in section 03 raises the true cost of a real feature well above the figures this document originally carried — the old numbers were cheap because the pipeline was producing a sixth of a script.</p>
+    <p>The one real exposure is repeated regeneration. A per-project monthly token cap on the <code>SCENE</code> capability, using the <code>monthlyTokenCap</code> field already on <code>LlmEngine</code>, covers it.</p>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ═══════════════ 7 · DEFAULTS ═══════════════ -->
+<section class="sec">
+  <span class="sec-no">09 — Recommended defaults</span>
+  <h2>The pipeline configuration to ship</h2>
+  <div class="col"><p>This is the <strong>Balanced</strong> profile expanded — seed it as the ORG-scope policy set. Every value is overridable per project through the existing UI, and an override flips the profile to <code>CUSTOM</code> rather than misreporting. Nothing here needs a schema migration beyond the new policy fields.</p></div>
+
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Stage</th><th>Capability</th><th>Model</th><th>Temp</th><th>Max out</th><th>Pinned</th><th>On refusal</th></tr></thead>
+      <tbody>
+        <tr><td>Ideation &amp; world-building</td><td class="num">IDEATION</td><td class="num">claude-opus-5</td><td class="num">0.9</td><td class="num">8000</td><td class="mid">no</td><td class="mid">surface</td></tr>
+        <tr><td>Structure &amp; beats</td><td class="num">STRUCTURE</td><td class="num">claude-opus-5</td><td class="num">0.7</td><td class="num">32000</td><td class="mid">no</td><td class="mid">surface</td></tr>
+        <tr><td>Scene construction</td><td class="num">SCENE</td><td class="num">claude-sonnet-5</td><td class="num">0.85</td><td class="num">4000</td><td><span class="pill p-gold">yes</span></td><td class="mid">surface</td></tr>
+        <tr><td>Dialogue &amp; subtext</td><td class="num">DIALOGUE</td><td class="num">claude-opus-5</td><td class="num">0.95</td><td class="num">4000</td><td><span class="pill p-gold">yes</span></td><td class="mid">surface</td></tr>
+        <tr><td>Doctoring &amp; coverage</td><td class="num">DOCTOR</td><td class="num">claude-opus-5</td><td class="num">0.3</td><td class="num">8000</td><td class="mid">no</td><td class="mid">surface</td></tr>
+        <tr><td>Format mechanics</td><td class="num">—</td><td class="mid">deterministic code</td><td class="mid">—</td><td class="mid">—</td><td class="mid">—</td><td class="mid">—</td></tr>
+        <tr><td>Clearance &amp; legal</td><td class="num">LEGAL</td><td class="num">claude-opus-5</td><td class="num">0.0</td><td class="num">8000</td><td class="mid">no</td><td class="mid">fail</td></tr>
+        <tr><td>Season canon audit</td><td class="num">DOCTOR</td><td class="num">claude-fable-5</td><td class="num">1.0</td><td class="num">32000</td><td class="mid">no</td><td class="mid">try permissive</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card key col">
+    <h4>Build order</h4>
+    <p><strong>1. Fix the length budget first (§03).</strong> Nothing else on this list matters while the generator targets 60 quarter-page scenes. The line-budget change to <code>writeScene</code> and the page-derived scene count are the difference between a 16-page document and a feature — and they are independent of every routing decision here.<br>
+    <strong>2. Ship the horizon guard and repoint the stale engine rows</strong> — Anthropic to <code>claude-sonnet-5</code>, Gemini to <code>gemini-3.6-flash</code>, Local to a model Ollama has actually pulled. This gives you a working failover chain for the first time; on 27 August you had none.<br>
+    <strong>3. Turn on prompt caching (§06).</strong> One <code>cache_control</code> breakpoint after the feature context. Roughly 48% off every run, at zero quality cost — and the saving grows now that scene count is going up.<br>
+    <strong>4. Ship <code>capabilityForTask()</code></strong> and the widened capability list. Per-stage routing goes live with no UI work.<br>
+    <strong>5. Add <code>params</code> and profiles</strong> to the policy; remove the hard-coded temperatures from the call sites.<br>
+    <strong>6. Add the <code>REFUSAL</code> class and <code>pinPerBuild</code>.</strong> Voice consistency over availability, per §07.<br>
+    <strong>7. Build the stage 04 dialogue pass.</strong> The quality change the whole architecture exists to enable — and the prerequisite for Best Script being worth selecting.</p>
+  </div>
+</section>
+
+<footer>
+  <p><strong>Sources.</strong> Model specifications, pricing and retirement dates verified 31 Aug 2026.</p>
+  <ol>
+    <li><a href="https://platform.claude.com/docs/en/about-claude/models/overview">Claude models overview</a> — lineup, pricing, context and output limits</li>
+    <li><a href="https://platform.claude.com/docs/en/about-claude/model-deprecations">Claude model deprecations</a> — retirement dates for the models in the brief</li>
+    <li><a href="https://platform.claude.com/docs/en/about-claude/models/introducing-claude-fable-5-and-claude-mythos-5">Introducing Claude Fable 5 and Claude Mythos 5</a> — positioning, safety classifiers, always-on thinking</li>
+    <li><a href="https://www.anthropic.com/news/claude-fable-5-mythos-5">Anthropic — Claude Fable 5 and Claude Mythos 5</a></li>
+    <li><a href="https://developers.openai.com/api/docs/models">OpenAI API models</a> — GPT-5.6 Sol / Terra / Luna</li>
+    <li><a href="https://benchlm.ai/google/api-pricing">Gemini API pricing, Aug 2026</a> — 3.1 Pro, 3.6 Flash, 2.5 Flash-Lite</li>
+    <li><a href="https://benchlm.ai/xai/api-pricing">Grok API pricing, Aug 2026</a> — Grok 4.6 and 4.1 Fast</li>
+    <li><a href="https://stephenfollows.com/p/what-the-average-screenplay-contains">What the average screenplay contains</a> — 12,000+ scripts: 110 scenes, 106 median pages, genre breakdown</li>
+    <li><a href="https://stephenfollows.com/p/is-the-page-per-minute-rule-correct">Is the page-per-minute rule correct?</a> — 2,520 scripts: mean ratio 1.1, genre and length variance</li>
+    <li><a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching">Prompt caching</a> — 0.1× cache reads, 2× 1-hour writes, minimum cacheable prefix per model</li>
+  </ol>
+  <p style="margin-top:16px">Code references are to <code>backend/src/ai/{ai,llm-routing}.service.ts</code>, <code>providers.ts</code>, and <code>backend/src/production/scripton/scripton.service.ts</code> at the working tree of 31 Aug 2026. Stage assignments are capability-tier judgments from documented model characteristics, not screenwriting benchmarks — each is A/B-testable through the settings surface described in §04.</p>
+</footer>
+
+</div>

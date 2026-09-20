@@ -1,0 +1,56 @@
+<!-- One section for the findings document. Measured 14–15 Sep 2026.
+     NUMBER PROVISIONAL — written as 71; renumber to whatever is next free.
+     Metric strips use the document's own shape: .metrics > .metric > .lbl / .row > .was + .now / .sub.
+     .was is dropped where there is no before-value. -->
+
+<section class="sec">
+  <span class="sec-no">71 — Eighteen runs that were never running</span>
+  <h2>A ledger that can open a row but not close it will fill with rows that mean nothing</h2>
+  <div class="col">
+    <p><code>AiRun</code> rows are opened at <code>RUNNING</code> by <code>begin()</code> and closed by <code>finish()</code> or <code>fail()</code>. When the process dies mid-call neither runs. Eighteen such rows had accumulated between 21 Jun and 14 Sep across seven task types, and nothing in the codebase deleted, swept or aged them: the table had exactly three writers, all in <code>ai.service.ts</code>. The newest of the eighteen was made by this audit, which disconnected Prisma while a register check was still in flight — the defect producing its own most recent instance while being investigated.</p>
+
+    <p><strong>The threshold was measured, not picked.</strong> The slowest call this ledger has ever completed took 591s (p99.9 526s, p99 242s), and the longest timeout in the code is the register check's 900,000ms ceiling. One hour is 6.1× the slowest completed call and clears that ceiling, so it cannot reap a call that is genuinely still running. All eighteen orphans were already older than an hour: the two populations do not overlap, which is what makes a flat threshold safe here.</p>
+
+    <p><strong>A new status is only honest if every reader learns the word, and there were three.</strong> The API's ledger view now maps through a shared <code>runResult()</code>. The other two readers are React components, each carrying its own copy of the same ternary, whose implicit <code>else</code> paints anything unrecognised <em>green</em> — the success colour. Left alone, the sweep would have turned eighteen stuck amber rows into eighteen green ones reading ABANDONED: strictly worse than the bug. <span class="prov">A shared mapper does not cross the API boundary; a vocabulary change has as many readers as there are copies of the branch, and the type system counts none of them.</span></p>
+
+    <p><strong>What the evidence is, and what it is not.</strong> The before and after come from one instrument — the same census query, run either side. The sweep's own returned count was deliberately not the evidence. Two caveats belong on the face of this: the elapsed time between boot and sweep is unrecorded, and attribution to that particular boot rests on the server pid changing from 81065 to 97243, not on a timestamp. The transition is attributable to the sweep by construction, since <code>ABANDONED</code> is written in exactly one place in the codebase.</p>
+  </div>
+
+  <pre><code>CENSUS, identical query either side
+                    before          after
+  RUNNING           18              0
+  ABANDONED         0               18
+  DONE              2,696           2,696
+  ERROR             1,685           1,685
+
+the eighteen, by task
+  scripton.feature.scene      8      scripton.develop.scenes     1
+  scripton.develop.draft      3      scripton.develop.coverage   1
+  scripton.develop.register-check 2  scripton.develop.canon      1
+  scripton.feature.plan       2
+
+  oldest 2026-06-21   newest 2026-09-14T20:04:31Z (made by this audit)
+  all 18 older than the 1h threshold; slowest completed call ever: 591s</code></pre>
+
+  <div class="metrics">
+    <div class="metric"><span class="lbl">Stuck rows</span><div class="row"><span class="was">18</span><span class="now">0</span></div><span class="sub">RUNNING, three months' accumulation</span></div>
+    <div class="metric"><span class="lbl">Threshold margin</span><div class="row"><span class="now">6.1×</span></div><span class="sub">over the slowest call ever completed</span></div>
+    <div class="metric"><span class="lbl">Readers of the new word</span><div class="row"><span class="was">1</span><span class="now">3</span></div><span class="sub">two were React components painting green</span></div>
+    <div class="metric"><span class="lbl">Deliberate breaks</span><div class="row"><span class="now">4 of 4</span></div><span class="sub">each caught by a named test</span></div>
+  </div>
+
+  <h3>The divergence from the reaper this codebase already had</h3>
+  <div class="col">
+    <p><code>stage-jobs.util.ts</code> solved the same class of problem for stage jobs, and the new sweep diverges from it twice. Neither divergence was argued at the time — both were arrived at from AiRun's own measurements and only named afterwards, which is why they are written down here rather than left to read as taste.</p>
+    <p><strong>Flat threshold against a scaled one.</strong> <code>abandonAfterMs()</code> takes ten times a job's own ETA with a 30-minute floor, because a stage job carries an <code>estimateSec</code> and its runtimes span orders of magnitude. An <code>AiRun</code> row carries no per-row ETA, and its measured population separates cleanly — every orphan older than an hour, every completed call under ten minutes. Scaling would add a parameter to a distribution that does not need one.</p>
+    <p><strong>A new status against ERROR.</strong> The stage-job reaper marks abandoned jobs <code>ERROR</code>, deliberately: <em>“a silent lock becomes a visible failure, which is the whole point.”</em> That reasoning does not transfer, and the reason is the stronger half of the argument. <code>AiRun</code>'s ERROR bucket is <strong>attempt-inflated</strong> — provider failover writes one row per attempt, so 1,685 ERROR rows are not 1,685 failed operations, and anyone reading a failure rate off that column is reading an attempt count. Folding "we never found out" into a bucket that is already ambiguous would make a second unrecoverable distinction. A stage job has no failover and no such inflation, so ERROR stays honest there.</p>
+    <p>Worth recording that the codebase already had the <em>word</em> and no status for it: <code>StageJobVerdict</code> is <code>'' | 'expired' | 'abandoned'</code>, and the comment at <code>scripton.service.ts:1058</code> reads “AN ABANDONED JOB IS MARKED ERROR, NOT DELETED”. <span class="prov">A vocabulary that exists in comments and verdicts but not in the stored value is a distinction the data cannot carry.</span></p>
+  </div>
+
+  <h3>How the bundling was caught</h3>
+  <div class="col">
+    <p>The commit was first made by staging whole paths. One of them, <code>ScriptOnSettings.tsx</code>, was already carrying 101 insertions and 5 deletions of someone else's uncommitted work — a new panel import, an API import, a navigation block — and <code>git add &lt;path&gt;</code> swept all of it in silently. Nothing in the command's output says that a file had other changes in it.</p>
+    <p>What caught it was arithmetic, not review: the diffstat read <code>+111</code> for a change that was four lines. The fix was to reset, split the file's diff into hunks, and re-stage only the two that belonged to the commit; the other party's 108 lines were still uncommitted afterwards, and the file count was unchanged at 19.</p>
+    <p><span class="prov">Read the diffstat against your own change size before every commit: a number larger than what you wrote is the only signal that a shared path brought someone else's work with it.</span></p>
+  </div>
+</section>

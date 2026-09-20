@@ -1,0 +1,57 @@
+<!-- One section for the findings document. Measured 15 Sep 2026, 07:57 save on the ScripON Library
+     workspace (cmqocmg0g00002jvk3v9666sw), build cmu2dp6560007kn17pwugqnyu.
+     NUMBER PROVISIONAL. Metric strips use .metrics > .metric > .lbl / .row > .was + .now / .sub. -->
+
+<section class="sec">
+  <span class="sec-no">72 — Twenty settings, none of them stored</span>
+  <h2>The typed row rejected the whole save while the jsonb brief beside it took every value</h2>
+  <div class="col">
+    <p>An intake was saved at 07:57 with a 105,177-character paste and twenty auto-filled settings. The build it produced carries all of it. The <code>intake_profiles</code> row carries <strong>none of the saved fields</strong>: <code>settingEra</code> still <code>""</code>, <code>sourceText</code> still 0 characters, <code>realBased</code> and <code>researchSubject</code> still at their schema defaults, and not one of the twenty settings present. Before and after came from one instrument — the whole row, snapshotted before the save and diffed after.</p>
+    <p><strong>The timestamp is not the evidence, and a first reading of this section said it was.</strong> An early diff showed 0 of 60 columns changed with <code>updatedAt</code> frozen at the previous night's 20:46:34.217Z — and that was simply a read taken too soon. Thirty-one seconds after the build was created, a <em>different</em> writer landed on the same row: the research-notes path rewrote <code>researchNotes</code> and moved <code>updatedAt</code> to 07:57:32.868Z. Two columns of sixty, neither belonging to the intake save. So the row was writable and reachable throughout; the save's own fields are absent on their own merits. <span class="prov">On a row with more than one writer, a moved timestamp proves that something wrote and a frozen one proves only that you read before it did — neither identifies the writer.</span></p>
+    <p>This settles a mechanism that was read wrongly once already. The earlier reading was coercion — a number arriving in a Boolean column and being flattened to <code>true</code>. It is not coercion. It is <strong>rejection</strong>: nothing is written at all, and the two values that looked coerced were simply the schema defaults (<code>realBased Boolean @default(false)</code>, <code>researchSubject Boolean @default(true)</code>) still sitting where they always were. Coercion and never-written are indistinguishable from the values alone. What separates them here is field-level absence measured against a snapshot of the same row — every saved field still at its pre-save value while the brief beside it holds all of them — and not the timestamp, which another writer moved.</p>
+    <p><span class="prov">Two stores of the same fields, one typed and one jsonb, do not fail together: the permissive one accepts what the strict one refuses, and the write that fails is the one nobody is reading.</span></p>
+  </div>
+
+  <pre><code>INTAKE ROW, before and after the 07:57 save
+  columns                          60
+  columns the SAVE wrote           0
+  columns another writer wrote     2   researchNotes, updatedAt  (research-notes path,
+                                       07:57:32.868Z — 31s after the build was created)
+  settingEra              ""   (empty before the save, and after)
+  realBased               false   <- Boolean @default(false)
+  researchSubject         true    <- Boolean @default(true)
+
+THE BUILD FROM THE SAME SAVE   cmu2dp6560007kn17pwugqnyu   07:57:01.914Z
+  brief.sourceText        105,177 chars        canon ready
+  brief.settingEra        "Present day, with a prologue set seven years earlier"
+  brief.realBased         0.25   (number)
+  brief.researchSubject   0.7    (number)</code></pre>
+
+  <div class="metrics">
+    <div class="metric"><span class="lbl">Saved fields that landed</span><div class="row"><span class="now">0 of 20</span></div><span class="sub">2 columns written by another path</span></div>
+    <div class="metric"><span class="lbl">Same values in the brief</span><div class="row"><span class="now">all</span></div><span class="sub">jsonb accepted what the columns refused</span></div>
+    <div class="metric"><span class="lbl">realBased positions</span><div class="row"><span class="was">0–1</span><span class="now">2</span></div><span class="sub">every reader is a bare truthy test</span></div>
+    <div class="metric"><span class="lbl">Bodies with an absolute year</span><div class="row"><span class="now">0 of 10</span></div><span class="sub">four builds; §69 holds</span></div>
+  </div>
+
+  <h3>The era value reaches the brief and never the column</h3>
+  <div class="col">
+    <p>The analysis extracted <em>“Present day, with a prologue set seven years earlier”</em> and the intake screen showed Era empty. Two dead ends were possible: a control that cannot represent the string, or storage that never receives it. It is neither of the expected ones — the string is in <code>brief.settingEra</code> <strong>verbatim</strong>, so the control represented it perfectly, and the column is empty because the whole row write failed.</p>
+    <p>Every recent build carries era prose in its brief; the shared column has been <code>""</code> throughout. The era check reads its anchor from the brief, so it is not starved by this — but the screen a writer looks at shows blank for a value every build already has.</p>
+  </div>
+
+  <h3>A number with two positions</h3>
+  <div class="col">
+    <p><code>realBased</code> is declared <code>{ kind: 'number', min: 0, maxNum: 1 }</code> and the recommender emitted <code>0.25</code>. Every reader of it is a bare truthy test — <code>:2312</code> <code>if (i.realBased)</code>, <code>:1591</code> <code>i.realBased ? … : null</code>, <code>knowledge/index.ts:33</code> <code>if (!brief.realBased) return ''</code>. So the field has exactly <strong>two</strong> positions, 0 and not-0, and <code>0.25</code> produces a byte-identical prompt to <code>1.0</code>. A value chosen to mean “mostly invented” is indistinguishable from documentary. <code>researchSubject</code> at <code>0.7</code> has the same shape.</p>
+    <p>The defect is not that the flag is on. It is that the precision is discarded at the read, so the analysis can express a judgement the system cannot act on — and nothing reports the loss, because from the reader's side there is nothing missing.</p>
+    <p>The frontend closes the trap. The control is a two-state <code>Toggle</code> whose handler is <code>set('realBased', !f.realBased)</code>: the first click on a <code>0.25</code> writes <code>false</code>. The fraction survives exactly until a human touches the switch that displays it.</p>
+    <p>This also settles the open question about the prompt. No generation was needed to answer it: the tests are bare truthy, <code>0.25</code> is truthy, so the line <em>“Based on a real story/subject; reality level = INSPIRED”</em> is in that build's prompts by construction. <span class="prov">A question answerable from the code should never be answered by spending a generation — the code is both cheaper and harder evidence.</span></p>
+  </div>
+
+  <h3>The pair was safe by accident</h3>
+  <div class="col">
+    <p>Before the save, both builds of the controlled pair were checked through the real <code>asSourceText()</code>: 105,177 and 105,179 characters, both passing the first branch of <code>:1215</code>. So neither could fall through to <code>intake.sourceText</code> and regenerate against the new paste.</p>
+    <p>What makes that worth recording is the state of the field they were protected from: the shared <code>intake_profiles.sourceText</code> is <strong>0 characters</strong>. Any build not carrying its own copy would today regenerate against nothing at all. The pair is safe because <code>createBuild</code> copies the brief verbatim — not because anything in the system knows those builds need protecting. <span class="prov">Protection that nothing asserts is a coincidence, and a coincidence holds only until the copy it depends on stops being made.</span></p>
+    <p>This is the third field on the same shared row after <code>intake.treatment</code> and <code>characterBible</code>, and the first where the collision was avoided rather than survived.</p>
+  </div>
+</section>
