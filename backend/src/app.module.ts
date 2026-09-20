@@ -32,6 +32,7 @@ import { CrmModule } from './crm/crm.module';
 import { CrewModule } from './crew/crew.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { AccountingModule } from './accounting/accounting.module';
+import { ReportingModule } from './accounting/reporting/reporting.module';
 import { ApprovalsModule } from './approvals/approvals.module';
 import { IntegrationsModule } from './integrations/integrations.module';
 import { DashboardModule } from './dashboard/dashboard.module';
@@ -90,6 +91,7 @@ import { FilesModule } from './files/files.module';
     CrewModule,
     InventoryModule,
     AccountingModule,
+    ReportingModule,
     ApprovalsModule,
     IntegrationsModule,
     DashboardModule,

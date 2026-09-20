@@ -37,8 +37,12 @@ async function bootstrap() {
     credentials: true,
   });
 
-  // Serve uploaded files as static assets (before API prefix)
-  app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads' });
+  // Uploaded files are NOT served statically. They used to be:
+  //   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads' });
+  // which handed every supplier invoice, client address and the company TRN to
+  // anyone who could guess a filename. They now go through FilesModule at
+  // GET /api/v1/uploads/:filename, behind a Bearer token or a short-lived
+  // signed link. Stored URLs are unchanged — the client prefixes /api/v1.
 
   // API prefix
   app.setGlobalPrefix('api/v1');
