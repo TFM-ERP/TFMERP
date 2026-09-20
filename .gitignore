@@ -50,6 +50,13 @@ logs/
 coverage/
 .nyc_output/
 
+# Playwright (frontend/e2e) — local run artifacts, never commit
+playwright-report/
+test-results/
+**/playwright-report/
+**/test-results/
+frontend/.last-run.json
+
 # Caches
 .cache/
 .eslintcache

@@ -61,8 +61,7 @@ If it does render something, the render itself is not something this runner can 
 
 `node --test` intentionally stays scoped to pure logic. Anything that renders — a component
 mounting, a click, an actual page flow — is out of scope here and belongs in Playwright, which is
-already in `devDependencies` (`^1.61.1`). It isn't set up yet; getting started needs only a
-one-time browser download:
+already in `devDependencies` (`^1.61.1`). Getting started needs only a one-time browser download:
 
 ```
 cd frontend && npx playwright install chromium
@@ -72,3 +71,40 @@ cd frontend && npx playwright install chromium
 alternative (esbuild/babel/swc for JSX, jsdom for a DOM) and it's deliberately not taken: this
 project keeps `package.json` frozen — no new dependencies, in either app — and Playwright already
 covers that ground without adding anything new to install.
+
+## Running the Playwright suite
+
+The one suite that exists today is `frontend/e2e/invoice-lifecycle.spec.ts`, configured by
+`frontend/playwright.config.ts` (`testDir: './e2e'` — kept well clear of this runner's own
+`src/**/*.test.ts` glob so the two never pick up each other's files).
+
+```
+cd frontend
+E2E_USER=you@thefilmmakers.com E2E_PASSWORD='...' npm run test:e2e
+```
+
+It needs the app already running the normal way (`npm run dev` in both `frontend` and
+`backend` — the config has no `webServer` entry and never starts, stops or restarts either
+server, since this machine's dev server may be shared with someone else) and three environment
+variables, **which the person running the suite sets themselves**:
+
+| Variable        | Required | Meaning                                              |
+|------------------|----------|-------------------------------------------------------|
+| `E2E_BASE_URL`   | no       | frontend origin; defaults to `http://localhost:3000`  |
+| `E2E_USER`       | yes      | login email of an account on the running app          |
+| `E2E_PASSWORD`   | yes      | that account's password                                |
+
+If `E2E_USER` or `E2E_PASSWORD` is missing, every test skips cleanly with a message saying so —
+it never falls through to the login form and hangs, and it never reads a credential from
+anywhere else (a config file, `.env`, the shell's saved history) on its own.
+
+**This suite performs no writes, on purpose.** The app it drives talks to this company's live
+production accounting database — there is no test database to point it at instead. Voiding,
+deleting, archiving, changing status or recording a payment through this suite would be a real
+change to the real books, not a throwaway test fixture. Every test opens a dialog, checks what it
+offers or refuses (a disabled Confirm button, a hidden menu, a missing status option), and closes
+it with Cancel; none of them click a submit button that would actually mutate an invoice. Keep it
+that way when adding to this file — if a write-path test is ever genuinely needed (e.g. proving a
+void really does post a reversing journal entry), give it its own disposable draft invoice that
+the test creates and tears down itself, gated behind an explicit opt-in environment variable, and
+never let it run by default against whatever database `E2E_BASE_URL` happens to point at.
