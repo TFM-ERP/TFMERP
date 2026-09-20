@@ -152,10 +152,13 @@ export class InvoicesService {
   }
 
   async findAll(query: QueryInvoiceDto) {
-    const { status, clientId, activity, invoiceType, search, page = 1, limit = 20, overdueOnly } = query;
+    const { status, clientId, activity, invoiceType, search, page = 1, limit = 20, overdueOnly, archived } = query;
     const where: any = {};
     if (status) where.status = status;
     if (clientId) where.clientId = clientId;
+    // Archived invoices are hidden unless asked for. Archiving is not deleting:
+    // the row is untouched and the filter is the only thing that changed.
+    if (archived !== 'true') where.archivedAt = null;
     if (activity) where.activity = activity;
     if (invoiceType) where.invoiceType = invoiceType;
     if (overdueOnly) {

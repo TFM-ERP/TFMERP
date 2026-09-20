@@ -1,5 +1,6 @@
-import { IsOptional, IsEnum, IsString, IsInt, Min, IsBoolean } from 'class-validator';
+import { IsOptional, IsEnum, IsString, IsInt, Min, IsBoolean, IsBooleanString } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import { InvoiceStatus, Activity, InvoiceType } from '@prisma/client';
 
 export class QueryInvoiceDto {
@@ -11,4 +12,9 @@ export class QueryInvoiceDto {
   @IsOptional() @Transform(({ value }) => value === 'true') @IsBoolean() overdueOnly?: boolean;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) limit?: number;
+
+  @ApiPropertyOptional({ description: 'Include archived invoices. Default false.' })
+  @IsOptional()
+  @IsBooleanString()
+  archived?: string;
 }
