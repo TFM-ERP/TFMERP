@@ -84,3 +84,33 @@ export function canArchive(state: LifecycleState): Verdict {
   }
   return ALLOW;
 }
+
+/**
+ * Turns a posted journal entry's lines into the lines of its reversal: debit
+ * becomes credit and credit becomes debit, line for line. Nothing is
+ * re-derived from the invoice — only the entry that was actually posted is
+ * mirrored, so the reversal is exact even if the invoice was edited or the
+ * chart of accounts changed since.
+ *
+ * This is why the result always balances: for any set of lines (balanced or
+ * not), swapping every debit and credit swaps the two totals, so the new
+ * debit total equals the old credit total and vice versa. A balanced input
+ * (debit total == credit total) therefore reverses to an equally balanced
+ * output — see invoice-lifecycle.rules.spec.ts.
+ */
+export function buildReversalLines<D>(
+  lines: ReadonlyArray<{
+    accountId: string;
+    debit: D;
+    credit: D;
+    description?: string | null;
+  }>,
+): Array<{ accountId: string; debit: D; credit: D; description: string; sortOrder: number }> {
+  return lines.map((line, i) => ({
+    accountId: line.accountId,
+    debit: line.credit,
+    credit: line.debit,
+    description: `Reversal — ${line.description ?? ''}`.trim(),
+    sortOrder: i,
+  }));
+}

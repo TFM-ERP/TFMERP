@@ -10,7 +10,8 @@ import { QueryInvoiceDto } from './dto/query-invoice.dto';
 import { StatusService } from '../../status/status.service';
 import { sumLineItems, computeDocumentTotals } from '../totals.util';
 import * as bcrypt from 'bcryptjs';
-import { canDelete, canVoid, canArchive, LifecycleState } from './invoice-lifecycle.rules';
+import { canDelete, canVoid, canArchive, buildReversalLines, LifecycleState } from './invoice-lifecycle.rules';
+import { VoidInvoiceDto, DeleteInvoiceDto } from './dto/lifecycle.dto';
 
 // A real bcrypt hash compared against when no user is found, so a missing user takes
 // the same time as a wrong password (defeats user-enumeration via timing).
@@ -437,5 +438,205 @@ export class InvoicesService {
     }
 
     return buckets;
+  }
+
+  // ── Lifecycle: archive, unarchive, void, delete ─────────────────────────
+  //
+  // The audit write for each of these always happens AFTER the mutation it
+  // describes has actually committed, never before and never interleaved with
+  // it. `writeAudit` uses this.prisma directly, not a transaction client, so
+  // if it ran first (as the brief for this task sketched it) a rolled-back
+  // void or delete would still leave a permanent audit row claiming the
+  // action happened. Recording a false "this was voided" is worse than
+  // occasionally missing the audit row for a write that failed after it
+  // succeeded, so the mutation goes first.
+
+  /** Hides an invoice from the default list. Changes nothing else. */
+  async archive(id: string, userId: string, ip?: string) {
+    const { state, invoice } = await this.lifecycleState(id);
+    const verdict = canArchive(state);
+    if (verdict.allowed === false) throw new BadRequestException(verdict.reason);
+
+    const updated = await this.prisma.invoice.update({
+      where: { id },
+      data: { archivedAt: new Date() },
+    });
+    await this.writeAudit(userId, 'ARCHIVE', id, { invoiceNumber: invoice.invoiceNumber }, ip);
+    return updated;
+  }
+
+  /** Un-hides an invoice. The inverse of archive; nothing else changes. */
+  async unarchive(id: string, userId: string, ip?: string) {
+    const invoice = await this.prisma.invoice.findUnique({
+      where: { id },
+      select: { invoiceNumber: true },
+    });
+    if (!invoice) throw new NotFoundException(`Invoice ${id} was not found`);
+
+    const updated = await this.prisma.invoice.update({
+      where: { id },
+      data: { archivedAt: null },
+    });
+    await this.writeAudit(userId, 'UNARCHIVE', id, { invoiceNumber: invoice.invoiceNumber }, ip);
+    return updated;
+  }
+
+  /**
+   * Cancels an invoice that really happened. The number and the document stay;
+   * a reversing journal takes the money back out, so the trial balance still
+   * nets to zero and an auditor can see both halves.
+   *
+   * The status change and the reversing journal are written in one
+   * `$transaction`: either both land or neither does. An invoice marked
+   * VOIDED with its debit still sitting in Accounts Receivable, or a
+   * reversal posted against an invoice still open, is exactly the kind of
+   * half-done write that corrupts the books.
+   */
+  async voidInvoice(id: string, dto: VoidInvoiceDto, userId: string, ip?: string) {
+    await this.assertPassword(userId, dto.password, 'VOID', id, ip);
+
+    const { state, invoice } = await this.lifecycleState(id);
+    const verdict = canVoid(state);
+    if (verdict.allowed === false) throw new BadRequestException(verdict.reason);
+
+    // The only journal-writing convention in this codebase is
+    // AccountingService.je()/postAll(): SYSTEM source, POSTED status, an
+    // entryNumber from the `document_sequences` row, and a debit/credit pair
+    // per GL line that must balance before it is written. The reversal
+    // mirrors that shape exactly rather than inventing a second style.
+    const original = await this.prisma.journalEntry.findFirst({
+      where: { sourceType: 'INVOICE', sourceId: id, status: 'POSTED' },
+      include: { lines: true },
+    });
+
+    const voided = await this.prisma.$transaction(async (tx) => {
+      let reversalEntryNumber: string | null = null;
+
+      if (original) {
+        // Same atomic-increment sequence AccountingService.nextEntryNumber()
+        // and this service's own nextNumber() use (documentSequence.upsert
+        // with { increment: 1 }) — run through `tx` so a failure below rolls
+        // the counter back too, instead of the brief's find-the-max-and-add-1
+        // read, which two concurrent voids could race on.
+        const year = new Date().getFullYear();
+        const seq = await tx.documentSequence.upsert({
+          where: { prefix: 'JE' },
+          update: { lastNumber: { increment: 1 } },
+          create: { prefix: 'JE', lastNumber: 1, year },
+        });
+        reversalEntryNumber = `JE-${year}-${String(seq.lastNumber).padStart(4, '0')}`;
+
+        await tx.journalEntry.create({
+          data: {
+            entryNumber: reversalEntryNumber,
+            date: new Date(),
+            memo:
+              `Void of invoice ${invoice.invoiceNumber} — reverses ${original.entryNumber}. ` +
+              `Reason: ${dto.reason}`,
+            source: 'SYSTEM',
+            sourceType: 'INVOICE_VOID',
+            sourceId: id,
+            status: 'POSTED',
+            postedAt: new Date(),
+            lines: { create: buildReversalLines(original.lines) },
+          },
+        });
+      }
+
+      const stamp =
+        `[VOIDED ${new Date().toISOString().slice(0, 10)}] ${dto.reason}` +
+        (original ? ` Reversed by a journal against ${original.entryNumber}.` : '');
+
+      return tx.invoice.update({
+        where: { id },
+        data: {
+          status: 'VOIDED',
+          amountDue: 0,
+          internalNotes: invoice.internalNotes
+            ? `${invoice.internalNotes}\n\n${stamp}`
+            : stamp,
+        },
+      });
+    });
+
+    await this.writeAudit(
+      userId,
+      'VOID',
+      id,
+      {
+        invoiceNumber: invoice.invoiceNumber,
+        status: invoice.status,
+        total: String(invoice.total),
+        reason: dto.reason,
+        reversedEntry: original?.entryNumber ?? null,
+      },
+      ip,
+    );
+
+    return voided;
+  }
+
+  /**
+   * Removes an invoice that should never have existed. Refused the moment
+   * anything has posted against it — see invoice-lifecycle.rules.ts for why;
+   * that module, not this method, is where that judgment is made. The
+   * uploaded files stay on disk; only the rows go.
+   */
+  async remove(id: string, dto: DeleteInvoiceDto, userId: string, ip?: string) {
+    await this.assertPassword(userId, dto.password, 'DELETE', id, ip);
+
+    const { state, invoice } = await this.lifecycleState(id);
+
+    if (dto.confirmNumber.trim() !== invoice.invoiceNumber) {
+      throw new BadRequestException(
+        `Type the invoice number exactly to confirm. Expected ${invoice.invoiceNumber}.`,
+      );
+    }
+
+    const verdict = canDelete(state);
+    if (verdict.allowed === false) {
+      throw new BadRequestException(verdict.reason);
+    }
+
+    const attachments = await this.prisma.documentAttachment.findMany({
+      where: { entityType: 'INVOICE', entityId: id },
+      select: { id: true, name: true, url: true },
+    });
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.documentAttachment.deleteMany({ where: { entityType: 'INVOICE', entityId: id } });
+      await tx.invoiceItem.deleteMany({ where: { invoiceId: id } });
+      await tx.invoice.delete({ where: { id } });
+    });
+
+    await this.writeAudit(
+      userId,
+      'DELETE',
+      id,
+      {
+        invoice: {
+          invoiceNumber: invoice.invoiceNumber,
+          clientId: invoice.clientId,
+          client: invoice.client?.companyName ?? null,
+          issueDate: invoice.issueDate,
+          subtotal: String(invoice.subtotal),
+          vatAmount: String(invoice.vatAmount),
+          total: String(invoice.total),
+          status: invoice.status,
+          internalNotes: invoice.internalNotes,
+        },
+        items: invoice.items.map((i: any) => ({
+          description: i.description,
+          quantity: String(i.quantity),
+          unitPrice: String(i.unitPrice),
+          lineTotal: String(i.lineTotal),
+        })),
+        attachments,
+        reason: dto.reason,
+      },
+      ip,
+    );
+
+    return { deleted: true, invoiceNumber: invoice.invoiceNumber };
   }
 }
