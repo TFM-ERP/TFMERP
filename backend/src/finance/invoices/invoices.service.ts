@@ -527,15 +527,20 @@ export class InvoicesService {
     // mirrors that shape exactly rather than inventing a second style.
     const original = await this.prisma.journalEntry.findFirst({
       where: { sourceType: 'INVOICE', sourceId: id, status: 'POSTED' },
-      include: { lines: true },
+      include: { lines: { orderBy: { sortOrder: 'asc' } } },
     });
 
     const voided = await this.prisma.$transaction(async (tx) => {
-      // Belt-and-braces guard, in addition to the status-flip guard below:
-      // if a reversal was already posted for this invoice (e.g. the status
-      // flip below lost a race in a way this check still catches, or the
-      // invoice was left in a state where canVoid wrongly allowed a second
-      // pass), refuse rather than post a second one.
+      // This catches an already-committed prior reversal (e.g. the invoice
+      // was left in a state where canVoid wrongly allowed a second pass) —
+      // it does NOT catch a concurrent one. Under READ COMMITTED this
+      // `findFirst` cannot see another transaction's uncommitted insert, and
+      // `JournalEntry` has only `@@index([sourceType, sourceId])`, not a
+      // unique constraint, so two interleaved voids could both pass this
+      // check. The conditional `updateMany` on the invoice's status below is
+      // what actually prevents a double reversal in that case. A partial
+      // unique index on `(sourceType, sourceId) WHERE sourceType =
+      // 'INVOICE_VOID'` would close this at the database level too.
       const existingReversal = await tx.journalEntry.findFirst({
         where: { sourceType: 'INVOICE_VOID', sourceId: id },
         select: { id: true },
@@ -554,7 +559,8 @@ export class InvoicesService {
         if (!original.lines || original.lines.length === 0) {
           throw new BadRequestException(
             `Cannot void invoice ${invoice.invoiceNumber}: its posted journal entry ` +
-              `${original.entryNumber} has no lines to reverse.`,
+              `${original.entryNumber} has no lines to reverse, so it has to be corrected ` +
+              `or reversed in the journal before this invoice can be voided.`,
           );
         }
 
@@ -571,6 +577,16 @@ export class InvoicesService {
         });
         reversalEntryNumber = `JE-${year}-${String(seq.lastNumber).padStart(4, '0')}`;
       }
+
+      // `invoice.internalNotes` was read by `lifecycleState` outside and
+      // before this transaction — a note added by anyone in between would be
+      // silently overwritten by concatenating onto that stale value. Re-read
+      // it fresh through `tx`, immediately before building the stamp, and
+      // concatenate onto that instead.
+      const current = await tx.invoice.findUnique({
+        where: { id },
+        select: { internalNotes: true },
+      });
 
       const stamp =
         `[VOIDED ${new Date().toISOString().slice(0, 10)}] ${dto.reason}` +
@@ -592,8 +608,8 @@ export class InvoicesService {
         data: {
           status: 'VOIDED',
           amountDue: 0,
-          internalNotes: invoice.internalNotes
-            ? `${invoice.internalNotes}\n\n${stamp}`
+          internalNotes: current?.internalNotes
+            ? `${current.internalNotes}\n\n${stamp}`
             : stamp,
         },
       });
@@ -672,6 +688,18 @@ export class InvoicesService {
       select: { id: true, name: true, url: true },
     });
 
+    // `canDelete` only blocks deletion when a receipt has CLEARED, so a
+    // PENDING or BOUNCED payment can still be attached here. `Payment.invoiceId`
+    // is an optional relation with no explicit `onDelete`, so Prisma's default
+    // (SetNull) silently orphans that payment row when the invoice below is
+    // deleted, rather than blocking the delete — that rule is kept as-is by
+    // design. This just makes sure the audit row still records that the
+    // payment was ever attached, so the delete stays fully reconstructable.
+    const payments = await this.prisma.payment.findMany({
+      where: { invoiceId: id },
+      select: { id: true, paymentNumber: true, direction: true, status: true, amount: true },
+    });
+
     await this.prisma.$transaction(async (tx) => {
       // The audit row is the ONLY surviving copy of this invoice, its line
       // items and its attachment list once the deletes below run — so it is
@@ -702,6 +730,7 @@ export class InvoicesService {
             lineTotal: String(i.lineTotal),
           })),
           attachments,
+          payments,
           reason: dto.reason,
         },
         ip,
