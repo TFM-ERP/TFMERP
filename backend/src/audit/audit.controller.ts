@@ -2,10 +2,17 @@ import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../permissions/permissions.guard';
+import { RequirePermission } from '../permissions/require-permission.decorator';
 
+// The audit trail is a full copy of whatever record it logs (invoice totals, VAT,
+// client names, line items, payments — not just "what changed"). It belongs behind
+// the same 'setup' permission that already hides its only frontend page
+// (Setup → Audit Log) from any role without setup view access.
 @ApiTags('Audit')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
+@RequirePermission('setup', 1)
 @Controller('audit')
 export class AuditController {
   constructor(private prisma: PrismaService) {}

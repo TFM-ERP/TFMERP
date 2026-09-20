@@ -11,7 +11,7 @@ import { StatusService } from '../../status/status.service';
 import { EmailService } from '../../collections/email.service';
 import { sumLineItems, computeDocumentTotals } from '../totals.util';
 import * as bcrypt from 'bcryptjs';
-import { canDelete, canVoid, canArchive, buildReversalLines, LifecycleState } from './invoice-lifecycle.rules';
+import { canDelete, canVoid, canArchive, buildReversalLines, DELETABLE_STATUSES, LifecycleState } from './invoice-lifecycle.rules';
 import { VoidInvoiceDto, DeleteInvoiceDto } from './dto/lifecycle.dto';
 
 // A real bcrypt hash compared against when no user is found, so a missing user takes
@@ -900,9 +900,57 @@ export class InvoicesService {
         tx,
       );
 
+      // `lifecycleState` read `hasJournal`, `clearedReceipts` and `status`
+      // outside this transaction, before `canDelete` was consulted above. In
+      // the gap between that read and this transaction committing, another
+      // request can move the invoice past DRAFT/CANCELLED and a posting run
+      // can create a POSTED journal entry against it — exactly the case
+      // `canDelete` exists to block, just seen too late. Re-read the same
+      // three facts through `tx`, with the identical filters `lifecycleState`
+      // uses, and run them through the same `canDelete` function again so
+      // this path and the pre-check can never disagree on the verdict.
+      const [fresh, journals, clearedReceipts] = await Promise.all([
+        tx.invoice.findUnique({ where: { id }, select: { status: true } }),
+        tx.journalEntry.count({
+          where: { sourceType: 'INVOICE', sourceId: id, status: 'POSTED' },
+        }),
+        tx.payment.count({
+          where: { invoiceId: id, direction: 'RECEIPT', status: 'CLEARED' },
+        }),
+      ]);
+      if (!fresh) {
+        throw new BadRequestException(`Invoice ${invoice.invoiceNumber} no longer exists.`);
+      }
+      const freshVerdict = canDelete({
+        status: fresh.status,
+        hasJournal: journals > 0,
+        clearedReceipts,
+        archivedAt: invoice.archivedAt,
+      });
+      if (freshVerdict.allowed === false) {
+        throw new BadRequestException(freshVerdict.reason);
+      }
+
       await tx.documentAttachment.deleteMany({ where: { entityType: 'INVOICE', entityId: id } });
       await tx.invoiceItem.deleteMany({ where: { invoiceId: id } });
-      await tx.invoice.delete({ where: { id } });
+
+      // The re-check above and this delete are two separate statements, not
+      // one atomic step — nothing stops another transaction's status change
+      // from landing in between. The conditional `deleteMany` on status is
+      // what actually closes that gap, the same way `voidInvoice`'s
+      // conditional `updateMany` on status is what stops a double reversal:
+      // only a row still in a deletable status matches, so a status change
+      // that lands in the window (e.g. DRAFT -> SENT, followed by a posting
+      // run) makes this delete match nothing instead of removing a row a
+      // journal entry now points at.
+      const removed = await tx.invoice.deleteMany({
+        where: { id, status: { in: DELETABLE_STATUSES as InvoiceStatus[] } },
+      });
+      if (removed.count !== 1) {
+        throw new BadRequestException(
+          `Invoice ${invoice.invoiceNumber} changed status and can no longer be deleted. Refresh and try again.`,
+        );
+      }
     });
 
     return { deleted: true, invoiceNumber: invoice.invoiceNumber };
