@@ -3,16 +3,56 @@
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Plus, Search, AlertCircle, RefreshCw, FileText, ArrowRight } from 'lucide-react';
+import { Plus, Search, AlertCircle, RefreshCw, FileText, ArrowRight, Archive, ArchiveRestore, X } from 'lucide-react';
 import { financeApi } from '@/lib/api';
 import { formatCurrency, formatDate, daysUntil, cn } from '@/lib/utils';
 import StatusBadge from '@/components/StatusBadge';
 import { useLocale } from '@/lib/i18n';
+import { useCan } from '@/lib/permissions';
 
 const STATUSES = ['DRAFT','SENT','PARTIALLY_PAID','PAID','OVERDUE','CANCELLED'];
+const RETRY_COPY = "Something went wrong sending that — the invoice hasn't changed. Check your connection and try again.";
+
+/**
+ * Archive confirm dialog. Inline in this file per house style (PaymentModal /
+ * ShareModal on the detail page live in that file the same way) — there is
+ * no shared Modal/Confirm component in this app.
+ */
+function ArchiveConfirmDialog({ invoiceNumber, submitting, error, onCancel, onConfirm, t }: any) {
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <h2 className="font-bold text-gray-900">
+            {t('Archive invoice {number}?').replace('{number}', invoiceNumber)}
+          </h2>
+          <button onClick={onCancel} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400" disabled={submitting}>
+            <X size={16} />
+          </button>
+        </div>
+        <div className="px-6 py-4 space-y-3">
+          <p className="text-sm text-gray-600">
+            {t('It disappears from your invoice list. Nothing about the invoice or your numbers changes, and you can put it back any time.')}
+          </p>
+          {error && (
+            <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">{error}</div>
+          )}
+        </div>
+        <div className="flex gap-2 px-6 py-4 border-t border-gray-100">
+          <button onClick={onCancel} className="btn-secondary flex-1" disabled={submitting}>{t('Cancel')}</button>
+          <button onClick={onConfirm} className="btn-primary flex-1" disabled={submitting}>
+            {submitting ? <RefreshCw size={14} className="animate-spin" /> : <Archive size={14} />}
+            {t('Archive')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function InvoicesPage() {
   const { t } = useLocale();
+  const { can: canArchive, loading: canArchiveLoading } = useCan('finance', 2);
   const searchParams = useSearchParams();
   const [items, setItems] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
@@ -20,7 +60,15 @@ export default function InvoicesPage() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState(searchParams.get('status') || '');
   const [overdueOnly, setOverdueOnly] = useState(searchParams.get('overdueOnly') === 'true');
+  const [showArchived, setShowArchived] = useState(false);
   const [page, setPage] = useState(1);
+
+  // Archive/unarchive row action state.
+  const [archiveTarget, setArchiveTarget] = useState<any>(null); // row awaiting confirm, or null
+  const [archiveSubmitting, setArchiveSubmitting] = useState(false);
+  const [archiveDialogError, setArchiveDialogError] = useState('');
+  const [busyRowId, setBusyRowId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -28,17 +76,57 @@ export default function InvoicesPage() {
       const res = await financeApi.invoices.list({
         search, status: status || undefined,
         overdueOnly: overdueOnly ? true : undefined,
+        archived: showArchived ? 'true' : undefined,
         page, limit: 25,
       });
       setItems(res.data.items);
       setTotal(res.data.total);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
-  }, [search, status, overdueOnly, page]);
+  }, [search, status, overdueOnly, showArchived, page]);
 
   useEffect(() => { load(); }, [load]);
 
+  const confirmArchive = async () => {
+    if (!archiveTarget) return;
+    setArchiveSubmitting(true);
+    setArchiveDialogError('');
+    try {
+      await financeApi.invoices.archive(archiveTarget.id);
+      setArchiveTarget(null);
+      await load();
+    } catch (e) {
+      setArchiveDialogError(t(RETRY_COPY));
+    } finally {
+      setArchiveSubmitting(false);
+    }
+  };
+
+  const handleUnarchive = async (inv: any) => {
+    setBusyRowId(inv.id);
+    setActionError('');
+    try {
+      await financeApi.invoices.unarchive(inv.id);
+      await load();
+    } catch (e) {
+      setActionError(t(RETRY_COPY));
+    } finally {
+      setBusyRowId(null);
+    }
+  };
+
   return (
+    <>
+      {archiveTarget && (
+        <ArchiveConfirmDialog
+          invoiceNumber={archiveTarget.invoiceNumber}
+          submitting={archiveSubmitting}
+          error={archiveDialogError}
+          onCancel={() => { if (!archiveSubmitting) setArchiveTarget(null); }}
+          onConfirm={confirmArchive}
+          t={t}
+        />
+      )}
     <div className="p-6 space-y-5">
       <div className="marquee-panel flex items-center justify-between flex-wrap gap-3">
         <div>
@@ -50,6 +138,16 @@ export default function InvoicesPage() {
           <Plus size={15} /> {t('New Invoice')}
         </Link>
       </div>
+
+      {actionError && (
+        <div className="card flex items-center gap-2 text-sm text-red-700 bg-red-50 border-red-200">
+          <AlertCircle size={15} className="shrink-0" />
+          <span>{actionError}</span>
+          <button onClick={() => setActionError('')} className="ms-auto text-red-600 hover:text-red-800">
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="card p-4 flex flex-wrap gap-3 items-center">
@@ -66,6 +164,11 @@ export default function InvoicesPage() {
           <input type="checkbox" checked={overdueOnly} onChange={e => setOverdueOnly(e.target.checked)}
             className="w-4 h-4 rounded border-gray-300 text-brand-600" />
           <AlertCircle size={14} className="text-red-500" /> {t('Overdue only')}
+        </label>
+        <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+          <input type="checkbox" checked={showArchived} onChange={e => { setShowArchived(e.target.checked); setPage(1); }}
+            className="w-4 h-4 rounded border-gray-300 text-brand-600" />
+          <Archive size={14} className="text-gray-400" /> {t('Show archived invoices')}
         </label>
         <button onClick={load} className="btn-secondary">
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
@@ -108,8 +211,9 @@ export default function InvoicesPage() {
               items.map(inv => {
                 const overdueDays = daysUntil(inv.dueDate);
                 const isOverdue = overdueDays !== null && overdueDays < 0 && inv.status !== 'PAID';
+                const isArchived = !!inv.archivedAt;
                 return (
-                  <tr key={inv.id} className={cn('table-row', isOverdue && 'bg-red-50/30')}>
+                  <tr key={inv.id} className={cn('table-row', isOverdue && 'bg-red-50/30', isArchived && 'opacity-50')}>
                     <td className="table-td font-mono text-xs font-semibold text-brand-600">{inv.invoiceNumber}</td>
                     <td className="table-td font-medium">{inv.client?.companyName}</td>
                     <td className="table-td text-gray-400 text-xs">{inv.poNumber || '—'}</td>
@@ -125,12 +229,38 @@ export default function InvoicesPage() {
                       {formatCurrency(inv.amountDue)}
                     </td>
                     <td className="table-td">
-                      <StatusBadge module="Invoice" status={inv.status} size="sm" showIcon={false} showDot />
+                      <div className="flex items-center gap-1.5">
+                        <StatusBadge module="Invoice" status={inv.status} size="sm" showIcon={false} showDot />
+                        {isArchived && (
+                          <span className="badge bg-gray-100 text-gray-400 text-[10px]">{t('Archived')}</span>
+                        )}
+                      </div>
                     </td>
                     <td className="table-td">
-                      <Link href={`/finance/invoices/${inv.id}`} className="btn-ghost text-xs px-2 py-1">
-                        Open <ArrowRight size={12} />
-                      </Link>
+                      <div className="flex items-center gap-1.5">
+                        <Link href={`/finance/invoices/${inv.id}`} className="btn-ghost text-xs px-2 py-1">
+                          Open <ArrowRight size={12} />
+                        </Link>
+                        {!canArchiveLoading && canArchive && (
+                          isArchived ? (
+                            <button
+                              onClick={() => handleUnarchive(inv)}
+                              disabled={busyRowId === inv.id}
+                              className="btn-ghost text-xs px-2 py-1"
+                            >
+                              <ArchiveRestore size={12} /> {t('Unarchive')}
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => { setArchiveDialogError(''); setArchiveTarget(inv); }}
+                              disabled={busyRowId === inv.id}
+                              className="btn-ghost text-xs px-2 py-1"
+                            >
+                              <Archive size={12} /> {t('Archive')}
+                            </button>
+                          )
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -150,5 +280,6 @@ export default function InvoicesPage() {
         )}
       </div>
     </div>
+    </>
   );
 }

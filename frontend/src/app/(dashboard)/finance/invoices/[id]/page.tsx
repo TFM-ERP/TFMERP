@@ -6,15 +6,59 @@ import Link from 'next/link';
 import {
   ArrowLeft, CreditCard, RefreshCw, Building2, Calendar,
   FileText, Plus, X, Clock, AlertCircle, DollarSign,
-  Printer, History, ChevronDown, Edit2, CheckCircle, Mail, Send
+  Printer, History, ChevronDown, Edit2, CheckCircle, Mail, Send,
+  Archive, ArchiveRestore
 } from 'lucide-react';
 import { financeApi } from '@/lib/api';
 import { formatCurrency, formatDate, daysUntil, cn } from '@/lib/utils';
 import StatusBadge from '@/components/StatusBadge';
 import StatusTimeline from '@/components/StatusTimeline';
 import StatusChangeModal from '@/components/StatusChangeModal';
+import { useLocale } from '@/lib/i18n';
+import { useCan } from '@/lib/permissions';
 
 const PAYMENT_METHODS = ['BANK_TRANSFER','CHEQUE','CASH','CARD','ONLINE'];
+const RETRY_COPY = "Something went wrong sending that — the invoice hasn't changed. Check your connection and try again.";
+// The Invoice model carries only `archivedAt`, no archived-by user — the banner
+// therefore shows the date alone rather than a false or blank name.
+const ARCHIVED_BANNER_COPY = 'Archived on {date}. Hidden from the default list — nothing about the invoice or its numbers changed.';
+
+/**
+ * Archive confirm dialog. Duplicated here (not shared with the list page's
+ * copy) per house style — PaymentModal / ShareModal below are inline in this
+ * same file too, and there is no shared Modal/Confirm component in this app.
+ */
+function ArchiveConfirmDialog({ invoiceNumber, submitting, error, onCancel, onConfirm, t }: any) {
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <h2 className="font-bold text-gray-900">
+            {t('Archive invoice {number}?').replace('{number}', invoiceNumber)}
+          </h2>
+          <button onClick={onCancel} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400" disabled={submitting}>
+            <X size={16} />
+          </button>
+        </div>
+        <div className="px-6 py-4 space-y-3">
+          <p className="text-sm text-gray-600">
+            {t('It disappears from your invoice list. Nothing about the invoice or your numbers changes, and you can put it back any time.')}
+          </p>
+          {error && (
+            <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">{error}</div>
+          )}
+        </div>
+        <div className="flex gap-2 px-6 py-4 border-t border-gray-100">
+          <button onClick={onCancel} className="btn-secondary flex-1" disabled={submitting}>{t('Cancel')}</button>
+          <button onClick={onConfirm} className="btn-primary flex-1" disabled={submitting}>
+            {submitting ? <RefreshCw size={14} className="animate-spin" /> : <Archive size={14} />}
+            {t('Archive')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /**
  * Review the composed email, then send it.
@@ -214,6 +258,8 @@ function PaymentModal({ invoice, bankAccounts, onClose, onDone }: any) {
 }
 
 export default function InvoiceDetailPage() {
+  const { t } = useLocale();
+  const { can: canArchive, loading: canArchiveLoading } = useCan('finance', 2);
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [inv, setInv] = useState<any>(null);
@@ -225,6 +271,11 @@ export default function InvoiceDetailPage() {
   const [draft, setDraft] = useState<any>(null);
   const [composing, setComposing] = useState(false);
   const [sentTo, setSentTo] = useState('');
+  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
+  const [archiveSubmitting, setArchiveSubmitting] = useState(false);
+  const [archiveDialogError, setArchiveDialogError] = useState('');
+  const [unarchiving, setUnarchiving] = useState(false);
+  const [lifecycleError, setLifecycleError] = useState('');
 
   // Composing asks the server for the message and shows it. It sends nothing.
   const compose = async () => {
@@ -266,6 +317,33 @@ export default function InvoiceDetailPage() {
     await load();
   };
 
+  const confirmArchive = async () => {
+    setArchiveSubmitting(true);
+    setArchiveDialogError('');
+    try {
+      await financeApi.invoices.archive(id);
+      setShowArchiveConfirm(false);
+      await load();
+    } catch (e) {
+      setArchiveDialogError(t(RETRY_COPY));
+    } finally {
+      setArchiveSubmitting(false);
+    }
+  };
+
+  const handleUnarchive = async () => {
+    setUnarchiving(true);
+    setLifecycleError('');
+    try {
+      await financeApi.invoices.unarchive(id);
+      await load();
+    } catch (e) {
+      setLifecycleError(t(RETRY_COPY));
+    } finally {
+      setUnarchiving(false);
+    }
+  };
+
   if (loading) return (
     <div className="p-6 space-y-4">
       {[1,2,3].map(i => <div key={i} className="card h-32 animate-pulse bg-gray-50" />)}
@@ -305,6 +383,16 @@ export default function InvoiceDetailPage() {
           onClose={() => setShowStatusModal(false)}
         />
       )}
+      {showArchiveConfirm && (
+        <ArchiveConfirmDialog
+          invoiceNumber={inv.invoiceNumber}
+          submitting={archiveSubmitting}
+          error={archiveDialogError}
+          onCancel={() => { if (!archiveSubmitting) setShowArchiveConfirm(false); }}
+          onConfirm={confirmArchive}
+          t={t}
+        />
+      )}
 
       <div className="p-6 max-w-5xl mx-auto space-y-6">
         {/* Header */}
@@ -315,6 +403,9 @@ export default function InvoiceDetailPage() {
               <div className="flex items-center gap-2.5 flex-wrap">
                 <h1 className="text-xl font-bold text-gray-900 font-mono">{inv.invoiceNumber}</h1>
                 <StatusBadge module="Invoice" status={inv.status} />
+                {inv.archivedAt && (
+                  <span className="badge bg-gray-100 text-gray-400 text-[10px]">{t('Archived')}</span>
+                )}
                 <span className="badge bg-gray-100 text-gray-600 text-[10px]">{inv.invoiceType}</span>
                 {inv.activity === 'RENTAL' ? (
                   <span className="badge bg-brand-50 text-brand-700 text-[10px]">RENTAL</span>
@@ -337,6 +428,18 @@ export default function InvoiceDetailPage() {
             <button onClick={() => setShowHistory(h => !h)} className={cn('btn-secondary', showHistory && 'bg-gray-100')}>
               <History size={14} /> History
             </button>
+            {!canArchiveLoading && canArchive && (
+              inv.archivedAt ? (
+                <button onClick={handleUnarchive} disabled={unarchiving} className="btn-secondary">
+                  {unarchiving ? <RefreshCw size={14} className="animate-spin" /> : <ArchiveRestore size={14} />}
+                  {t('Unarchive')}
+                </button>
+              ) : (
+                <button onClick={() => { setArchiveDialogError(''); setShowArchiveConfirm(true); }} className="btn-secondary">
+                  <Archive size={14} /> {t('Archive')}
+                </button>
+              )
+            )}
             {canRecordPayment && (
               <button onClick={() => setShowPayModal(true)} className="btn-primary">
                 <Plus size={14} /> Record Payment
@@ -366,6 +469,32 @@ export default function InvoiceDetailPage() {
             <span>Sent to {sentTo}.</span>
             <button onClick={() => setSentTo('')} className="ml-auto text-green-600 hover:text-green-800">
               <X size={14} />
+            </button>
+          </div>
+        )}
+
+        {lifecycleError && (
+          <div className="card flex items-center gap-2 text-sm text-red-700 bg-red-50 border-red-200">
+            <AlertCircle size={15} className="shrink-0" />
+            <span>{lifecycleError}</span>
+            <button onClick={() => setLifecycleError('')} className="ml-auto text-red-600 hover:text-red-800">
+              <X size={14} />
+            </button>
+          </div>
+        )}
+
+        {/* Archived banner */}
+        {inv.archivedAt && (
+          <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-3">
+              <Archive size={16} className="text-gray-400 shrink-0" />
+              <p className="text-gray-600 text-sm">
+                {t(ARCHIVED_BANNER_COPY).replace('{date}', formatDate(inv.archivedAt))}
+              </p>
+            </div>
+            <button onClick={handleUnarchive} disabled={unarchiving} className="btn-secondary text-xs px-3 py-1.5">
+              {unarchiving ? <RefreshCw size={12} className="animate-spin" /> : <ArchiveRestore size={12} />}
+              {t('Unarchive')}
             </button>
           </div>
         )}

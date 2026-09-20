@@ -183,6 +183,16 @@ const AR: Dict = {
   'Overdue only': 'المتأخرة فقط', 'Invoice #': 'رقم الفاتورة', 'PO Ref': 'مرجع أمر الشراء',
   'Issue Date': 'تاريخ الإصدار', 'Due Date': 'تاريخ الاستحقاق', 'Amount Due': 'المبلغ المستحق',
   'd overdue': ' يوم تأخير', 'No invoices found': 'لا توجد فواتير',
+  // Finance · invoices — archive / unarchive (invoice lifecycle UI batch 2)
+  'Show archived invoices': 'إظهار الفواتير المؤرشفة',
+  'Archive': 'أرشفة', 'Unarchive': 'إلغاء الأرشفة', 'Archived': 'مؤرشفة',
+  'Archive invoice {number}?': 'أرشفة الفاتورة {number}؟',
+  'It disappears from your invoice list. Nothing about the invoice or your numbers changes, and you can put it back any time.':
+    'ستختفي من قائمة فواتيرك. لا يتغيّر شيء في الفاتورة أو أرقامك، ويمكنك إعادتها في أي وقت.',
+  'Archived on {date}. Hidden from the default list — nothing about the invoice or its numbers changed.':
+    'أُرشفت في {date}. مخفية من القائمة الافتراضية — لم يتغيّر شيء في الفاتورة أو أرقامها.',
+  "Something went wrong sending that — the invoice hasn't changed. Check your connection and try again.":
+    'حدث خطأ أثناء الإرسال — لم تتغيّر الفاتورة. تحقّق من اتصالك وحاول مرة أخرى.',
   // Finance · quotations
   'Finance · Sales': 'المالية · المبيعات', 'Quotations': 'عروض الأسعار', 'quotations total': 'إجمالي عروض الأسعار',
   'Search by number, client, or subject...': 'ابحث بالرقم أو العميل أو الموضوع…',
