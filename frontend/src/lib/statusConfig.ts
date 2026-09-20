@@ -38,7 +38,7 @@ export const INVOICE_STATUSES: Record<string, StatusDef> = {
   PAID:             { label:'Paid',             color:'bg-green-100',  textColor:'text-green-700',  borderColor:'border-green-200', dot:'#10b981', icon:'✅',  description:'Payment received in full' },
   OVERDUE:          { label:'Overdue',          color:'bg-red-100',    textColor:'text-red-700',    borderColor:'border-red-200',   dot:'#ef4444', icon:'⚠️',  description:'Past due date, payment pending' },
   CANCELLED:        { label:'Cancelled',        color:'bg-gray-100',   textColor:'text-gray-500',   borderColor:'border-gray-200',  dot:'#9ca3af', icon:'🚫',  description:'Invoice cancelled' },
-  VOIDED:           { label:'Voided',           color:'bg-gray-100',   textColor:'text-gray-400',   borderColor:'border-gray-100',  dot:'#d1d5db', icon:'🗑️',  description:'Invoice voided — not valid' },
+  VOIDED:           { label:'Voided',           color:'bg-gray-100',   textColor:'text-gray-400',   borderColor:'border-gray-100',  dot:'#d1d5db', icon:'🚫',  description:'Invoice voided — not valid' },
   REFUNDED:         { label:'Refunded',         color:'bg-purple-100', textColor:'text-purple-700', borderColor:'border-purple-200',dot:'#8b5cf6', icon:'↩️',  description:'Payment has been refunded' },
   BAD_DEBT:         { label:'Bad Debt',         color:'bg-red-200',    textColor:'text-red-800',    borderColor:'border-red-300',   dot:'#b91c1c', icon:'💀',  description:'Deemed uncollectable' },
 };
@@ -141,7 +141,7 @@ export const WORKFLOW_TRANSITIONS: Record<StatusModule, Record<string, string[]>
   Invoice: {
     DRAFT:            ['PENDING_APPROVAL', 'SENT', 'CANCELLED'],
     PENDING_APPROVAL: ['SENT', 'DRAFT', 'CANCELLED'],
-    SENT:             ['PARTIALLY_PAID', 'PAID', 'OVERDUE', 'CANCELLED', 'VOIDED'],
+    SENT:             ['PARTIALLY_PAID', 'PAID', 'OVERDUE', 'CANCELLED'],
     PARTIALLY_PAID:   ['PAID', 'OVERDUE', 'BAD_DEBT'],
     PAID:             ['REFUNDED'],
     OVERDUE:          ['PAID', 'PARTIALLY_PAID', 'BAD_DEBT', 'CANCELLED'],
@@ -209,7 +209,7 @@ export const WORKFLOW_TRANSITIONS: Record<StatusModule, Record<string, string[]>
 /** Transitions that require a mandatory note */
 export const REQUIRES_NOTES: Record<StatusModule, string[]> = {
   Quotation:   ['REVISION_REQUESTED', 'REJECTED', 'CANCELLED'],
-  Invoice:     ['CANCELLED', 'VOIDED', 'BAD_DEBT', 'REFUNDED'],
+  Invoice:     ['CANCELLED', 'BAD_DEBT', 'REFUNDED'],
   Booking:     ['CANCELLED', 'EXTENDED'],
   Asset:       ['DAMAGED', 'OUT_OF_SERVICE', 'RETIRED', 'SOLD'],
   Maintenance: ['CANCELLED', 'WARRANTY_CLAIM', 'WAITING_FOR_PARTS'],

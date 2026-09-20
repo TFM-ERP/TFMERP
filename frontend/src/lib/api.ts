@@ -143,6 +143,12 @@ export const financeApi = {
     shareSend: (id: string, body: { to: string; subject: string; html: string }) =>
       api.post(`/finance/invoices/${id}/share-send`, body),
     agingReport: () => api.get('/finance/invoices/aging-report'),
+    archive:     (id: string) => api.post(`/finance/invoices/${id}/archive`),
+    unarchive:   (id: string) => api.post(`/finance/invoices/${id}/unarchive`),
+    voidInvoice: (id: string, data: { password: string; reason: string }) =>
+                   api.post(`/finance/invoices/${id}/void`, data),
+    remove:      (id: string, data: { password: string; reason: string; confirmNumber: string }) =>
+                   api.delete(`/finance/invoices/${id}`, { data }),
   },
 
   // Payments
