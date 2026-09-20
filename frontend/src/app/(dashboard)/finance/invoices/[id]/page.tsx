@@ -16,62 +16,15 @@ import StatusTimeline from '@/components/StatusTimeline';
 import StatusChangeModal from '@/components/StatusChangeModal';
 import { useLocale } from '@/lib/i18n';
 import { useCan } from '@/lib/permissions';
+import {
+  parseVoidStamp, isLockoutMessage, computeLockoutUntil, isInvoiceDeletable,
+} from './invoice-lifecycle.logic';
 
 const PAYMENT_METHODS = ['BANK_TRANSFER','CHEQUE','CASH','CARD','ONLINE'];
 const RETRY_COPY = "Something went wrong sending that — the invoice hasn't changed. Check your connection and try again.";
 // The Invoice model carries only `archivedAt`, no archived-by user — the banner
 // therefore shows the date alone rather than a false or blank name.
 const ARCHIVED_BANNER_COPY = 'Archived on {date}. Hidden from the default list — nothing about the invoice or its numbers changed.';
-
-// Mirrors DELETABLE_STATUSES in backend/src/finance/invoices/invoice-lifecycle.rules.ts —
-// canDelete() refuses every other status. Kept in sync by hand since the frontend has no
-// import path into that backend-only module.
-const DELETABLE_STATUSES = ['DRAFT', 'CANCELLED'];
-
-/**
- * The five-wrong-passwords lockout (InvoicesService.assertPassword) throws a 403 whose
- * message is `Too many failed attempts. Try again in ${minutes} minute(s).` — this pulls
- * the number back out so the dialog can show a real clock time instead of a countdown.
- * Falls back to 15 (the server's LOCK_MS) if the message shape ever changes.
- */
-function parseLockoutMinutes(message?: string): number {
-  if (!message) return 15;
-  const m = message.match(/(\d+)\s*minute/);
-  return m ? parseInt(m[1], 10) : 15;
-}
-
-/**
- * A 403 alone doesn't mean the five-wrong-passwords lockout fired — RequirePermission
- * also returns 403, e.g. when a role changes mid-session. Only treat it as the lockout
- * when the message actually looks like the one InvoicesService.assertPassword throws:
- * `Too many failed attempts. Try again in ${minutes} minute(s).`
- * (backend/src/finance/invoices/invoices.service.ts, InvoicesService.assertPassword).
- */
-function isLockoutMessage(message?: string): boolean {
-  return !!message && /^Too many failed attempts\./.test(message);
-}
-
-/**
- * Pulls the date and reason back out of `internalNotes` for a voided invoice.
- *
- * The Invoice model has no voidedAt, voidedBy or voidReason column — confirmed by
- * reading prisma/schema.prisma — and GET /finance/invoices/:id does not include audit
- * log rows. The only place the void's date and reason genuinely survive on the object
- * this page already has is the stamp InvoicesService.voidInvoice concatenates onto
- * internalNotes: `[VOIDED YYYY-MM-DD] <reason>` optionally followed by
- * ` Reversed by journal <entryNumber> against <entryNumber>.`. There is no voided-by
- * user anywhere in the response, so the banner never claims one.
- */
-function parseVoidStamp(notes: string | null | undefined): { date: string; reason: string; reversed: boolean } | null {
-  if (!notes) return null;
-  const m = notes.match(/\[VOIDED (\d{4}-\d{2}-\d{2})\]\s*([\s\S]*)/);
-  if (!m) return null;
-  let reason = m[2];
-  const idx = reason.indexOf(' Reversed by journal ');
-  const reversed = idx !== -1;
-  if (reversed) reason = reason.slice(0, idx);
-  return { date: m[1], reason: reason.trim(), reversed };
-}
 
 /**
  * Archive confirm dialog. Duplicated here (not shared with the list page's
@@ -138,7 +91,7 @@ function MoreMenu({ invoiceStatus, onVoid, onDelete, t }: any) {
     };
   }, [open]);
 
-  const deletable = DELETABLE_STATUSES.includes(invoiceStatus);
+  const deletable = isInvoiceDeletable(invoiceStatus);
   // Voiding an already-voided invoice is refused by the backend, but only after the
   // password check runs — hide the option before that dead end is ever reachable.
   const voidable = invoiceStatus !== 'VOIDED';
@@ -643,7 +596,7 @@ export default function InvoiceDetailPage() {
       const status = e?.response?.status;
       const message: string | undefined = e?.response?.data?.message;
       if (status === 403 && isLockoutMessage(message)) {
-        setLockedUntil(Date.now() + parseLockoutMinutes(message) * 60000);
+        setLockedUntil(computeLockoutUntil(message, Date.now()));
       } else if (!e?.response) {
         // No response at all — the request never reached the server, or never came
         // back. Assume nothing happened, since voidInvoice is a single atomic call.
@@ -702,7 +655,7 @@ export default function InvoiceDetailPage() {
       const status = e?.response?.status;
       const message: string | undefined = e?.response?.data?.message;
       if (status === 403 && isLockoutMessage(message)) {
-        setLockedUntil(Date.now() + parseLockoutMinutes(message) * 60000);
+        setLockedUntil(computeLockoutUntil(message, Date.now()));
       } else if (status === 400 && message && /Type the invoice number exactly/i.test(message)) {
         // Defensive only — the confirm button stays disabled until the numbers
         // match, so the backend's own confirmNumber check should not be
