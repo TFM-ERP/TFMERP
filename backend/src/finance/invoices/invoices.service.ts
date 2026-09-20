@@ -12,6 +12,10 @@ import { sumLineItems, computeDocumentTotals } from '../totals.util';
 import * as bcrypt from 'bcryptjs';
 import { canDelete, canVoid, canArchive, LifecycleState } from './invoice-lifecycle.rules';
 
+// A real bcrypt hash compared against when no user is found, so a missing user takes
+// the same time as a wrong password (defeats user-enumeration via timing).
+const DUMMY_HASH = bcrypt.hashSync('no-such-user-constant-time-guard', 12);
+
 @Injectable()
 export class InvoicesService {
   constructor(
@@ -32,7 +36,13 @@ export class InvoicesService {
    * in with. There is no separate admin password: a shared secret makes the
    * audit log say "someone who knew it", and this makes it say who.
    */
-  private async assertPassword(userId: string, password: string, action: string): Promise<void> {
+  private async assertPassword(
+    userId: string,
+    password: string,
+    action: string,
+    invoiceId: string,
+    ip?: string,
+  ): Promise<void> {
     const now = Date.now();
     const record = this.failures.get(userId);
     if (record && record.count >= InvoicesService.MAX_FAILURES && now < record.until) {
@@ -46,12 +56,16 @@ export class InvoicesService {
       where: { id: userId },
       select: { passwordHash: true },
     });
-    const ok = user ? await bcrypt.compare(password, user.passwordHash) : false;
+    // Always run exactly one bcrypt comparison, against a dummy hash when no user is
+    // found, so a missing user takes the same time as a wrong password (defeats
+    // timing-based enumeration of which userId exists).
+    const hash = user ? user.passwordHash : DUMMY_HASH;
+    const ok = await bcrypt.compare(password, hash);
 
     if (!ok) {
       const count = (record && now < record.until ? record.count : 0) + 1;
       this.failures.set(userId, { count, until: now + InvoicesService.LOCK_MS });
-      await this.writeAudit(userId, `${action}_DENIED`, 'unknown', null);
+      await this.writeAudit(userId, `${action}_DENIED`, invoiceId, null, ip);
       throw new UnauthorizedException('That password is not correct.');
     }
 
@@ -64,6 +78,7 @@ export class InvoicesService {
     action: string,
     invoiceId: string,
     oldValue: unknown,
+    ip?: string,
   ): Promise<void> {
     await this.prisma.auditLog.create({
       data: {
@@ -72,6 +87,7 @@ export class InvoicesService {
         resource: 'Invoice',
         resourceId: invoiceId,
         oldValue: oldValue === null ? undefined : (oldValue as any),
+        ipAddress: ip || null,
       },
     });
   }

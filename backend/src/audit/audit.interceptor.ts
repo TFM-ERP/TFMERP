@@ -1,14 +1,16 @@
 import { Injectable, NestInterceptor, ExecutionContext, CallHandler } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { SKIP_AUDIT } from './skip-audit.decorator';
 
 const ACTION: Record<string, string> = { POST: 'CREATE', PUT: 'UPDATE', PATCH: 'UPDATE', DELETE: 'DELETE' };
 const isId = (s: string) => !!s && (s.length >= 20 || /^\d+$/.test(s));
 
 @Injectable()
 export class AuditInterceptor implements NestInterceptor {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private reflector: Reflector) {}
 
   intercept(ctx: ExecutionContext, next: CallHandler): Observable<any> {
     const req = ctx.switchToHttp().getRequest();
@@ -17,6 +19,10 @@ export class AuditInterceptor implements NestInterceptor {
     const url = String(req.originalUrl || req.url || '').split('?')[0];
     // skip auth/login noise
     if (url.includes('/auth/')) return next.handle();
+    // skip routes (or whole controllers) that write their own, more specific audit row
+    if (this.reflector.getAllAndOverride<boolean>(SKIP_AUDIT, [ctx.getHandler(), ctx.getClass()])) {
+      return next.handle();
+    }
 
     return next.handle().pipe(tap(() => {
       try {
