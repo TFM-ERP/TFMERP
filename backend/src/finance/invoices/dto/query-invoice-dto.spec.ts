@@ -28,6 +28,10 @@ test('QueryInvoiceDto: archived accepts the querystring values "true" and "false
   assert.equal(b.archived, 'false');
 });
 
+test('QueryInvoiceDto: archived rejects numeric string "1" (must use "true"/"false")', async () => {
+  await assert.rejects(() => pipe.transform({ archived: '1' }, meta(QueryInvoiceDto)), 'numeric string "1" rejected');
+});
+
 test('QueryInvoiceDto: archived rejects a non-boolean-string value', async () => {
   await assert.rejects(() => pipe.transform({ archived: 'yes' }, meta(QueryInvoiceDto)), 'garbled archived value');
 });
