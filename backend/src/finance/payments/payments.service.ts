@@ -6,9 +6,23 @@ import { PaymentStatus } from '@prisma/client';
 export class PaymentsService {
   constructor(private prisma: PrismaService) {}
 
-  async findAll(query: { clientId?: string; status?: PaymentStatus; page?: number; limit?: number }) {
-    const { clientId, status, page = 1, limit = 20 } = query;
+  /**
+   * Customer receipts.
+   *
+   * Scoped to `direction: 'RECEIPT'` so this screen shows exactly what it showed
+   * before supplier payments became representable. Pass `direction` explicitly to
+   * widen it — `direction: undefined` returns both sides of the cash book.
+   */
+  async findAll(query: {
+    clientId?: string;
+    status?: PaymentStatus;
+    direction?: 'RECEIPT' | 'PAYMENT';
+    page?: number;
+    limit?: number;
+  }) {
+    const { clientId, status, direction = 'RECEIPT', page = 1, limit = 20 } = query;
     const where: any = {};
+    if (direction) where.direction = direction;
     if (clientId) where.clientId = clientId;
     if (status) where.status = status;
 
@@ -58,9 +72,9 @@ export class PaymentsService {
     }
 
     const [totalCleared, totalPending, totalBounced] = await Promise.all([
-      this.prisma.payment.aggregate({ where: { ...where, status: 'CLEARED' }, _sum: { amount: true } }),
-      this.prisma.payment.aggregate({ where: { ...where, status: 'PENDING' }, _sum: { amount: true } }),
-      this.prisma.payment.aggregate({ where: { ...where, status: 'BOUNCED' }, _sum: { amount: true } }),
+      this.prisma.payment.aggregate({ where: { ...where, direction: 'RECEIPT', status: 'CLEARED' }, _sum: { amount: true } }),
+      this.prisma.payment.aggregate({ where: { ...where, direction: 'RECEIPT', status: 'PENDING' }, _sum: { amount: true } }),
+      this.prisma.payment.aggregate({ where: { ...where, direction: 'RECEIPT', status: 'BOUNCED' }, _sum: { amount: true } }),
     ]);
 
     return {

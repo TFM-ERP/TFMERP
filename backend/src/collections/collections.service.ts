@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { arSettlementNotice, collectArSettlementFacts } from '../accounting/ar-settlement-notice.util';
 import { EmailService } from './email.service';
 import { fmt, fmtD } from './collections.util';
 
@@ -70,7 +71,11 @@ export class CollectionsService implements OnModuleInit, OnModuleDestroy {
         lastReminder: lastByInv[inv.id] ? { level: lastByInv[inv.id].level, sentAt: lastByInv[inv.id].sentAt, status: lastByInv[inv.id].status } : null,
       };
     });
-    return { items, summary };
+    // Ageing reads Invoice.amountDue, which some invoices set to zero on an
+    // asserted rather than an evidenced settlement — see the util.
+    const notice = arSettlementNotice(await collectArSettlementFacts(this.prisma as any, summary.total));
+
+    return { items, summary, notice };
   }
 
   reminderLogs(invoiceId: string) {
@@ -148,7 +153,7 @@ export class CollectionsService implements OnModuleInit, OnModuleDestroy {
 
     const [invAll, payAll] = await Promise.all([
       this.prisma.invoice.findMany({ where: { clientId, status: { notIn: ['CANCELLED', 'DRAFT'] as any }, issueDate: { lte: end } }, orderBy: { issueDate: 'asc' } }),
-      this.prisma.payment.findMany({ where: { clientId, status: 'CLEARED' as any, paymentDate: { lte: end } }, orderBy: { paymentDate: 'asc' } }),
+      this.prisma.payment.findMany({ where: { direction: 'RECEIPT', clientId, status: 'CLEARED' as any, paymentDate: { lte: end } }, orderBy: { paymentDate: 'asc' } }),
     ]);
 
     const before = (d: any) => new Date(d) < start;

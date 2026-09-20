@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { REVENUE_LINES, POSTABLE_INVOICE_STATUSES, revenueAccountFor } from '../../accounting/revenue-mapping.util';
+import { netRevenue } from '../../reports/revenue-matrix.util';
 
 @Injectable()
 export class FinanceReportsService {
@@ -26,7 +29,7 @@ export class FinanceReportsService {
       }),
       // Total collected YTD
       this.prisma.payment.aggregate({
-        where: { status: 'CLEARED', paymentDate: { gte: startOfYear } },
+        where: { direction: 'RECEIPT', status: 'CLEARED', paymentDate: { gte: startOfYear } },
         _sum: { amount: true },
       }),
       // Outstanding
@@ -70,25 +73,59 @@ export class FinanceReportsService {
     };
   }
 
+  /**
+   * Monthly revenue by GL revenue line, net of VAT.
+   *
+   * Previously keyed a literal `{ RENTAL, PRODUCTION, BOTH }` object by
+   * `inv.activity` and wrote straight into it. The `Activity` enum has SEVEN
+   * values, so any PRODUCTION_SERVICE / BOOK_DESIGN / WEB_DESIGN / EVENTS
+   * invoice hit `undefined[month]` and threw — this endpoint 500'd on live data.
+   *
+   * The mapping now comes from `revenue-mapping.util`, the same one `postAll()`
+   * posts on and `revenue-matrix` groups by, so a new enum value can never
+   * reintroduce the crash: unknown activities fall to Other.
+   *
+   * Keys are the revenue-line labels, so the series a caller charts are the
+   * accounts the ledger actually holds. Measure and status filter now match the
+   * ledger too — `total - vatAmount` over posted statuses — because a series
+   * named after a GL account that does not equal that account is worse than
+   * either an unlabelled chart or a crash.
+   */
   async getRevenueByActivity(year: number) {
     const startDate = new Date(year, 0, 1);
     const endDate = new Date(year, 11, 31, 23, 59, 59);
 
     const invoices = await this.prisma.invoice.findMany({
-      where: { issueDate: { gte: startDate, lte: endDate }, status: { not: 'CANCELLED' } },
-      select: { activity: true, total: true, issueDate: true },
+      where: {
+        issueDate: { gte: startDate, lte: endDate },
+        status: { in: POSTABLE_INVOICE_STATUSES as any },
+      },
+      select: { activity: true, invoiceType: true, total: true, vatAmount: true, issueDate: true },
+      orderBy: [{ issueDate: 'asc' }, { id: 'asc' }],
     });
 
-    // Group by activity and month
-    const result: Record<string, Record<string, number>> = {
-      RENTAL: {}, PRODUCTION: {}, BOTH: {},
-    };
+    // Every line is present and zeroed, so a caller never indexes undefined.
+    const result: Record<string, Record<string, number>> = {};
+    for (const line of REVENUE_LINES) result[line.label] = {};
 
+    const byLabel = new Map(REVENUE_LINES.map(l => [l.code, l.label]));
+    const acc = new Map<string, Prisma.Decimal>();
     for (const inv of invoices) {
       const month = `${year}-${String(new Date(inv.issueDate).getMonth() + 1).padStart(2, '0')}`;
-      result[inv.activity][month] = (result[inv.activity][month] || 0) + Number(inv.total);
+      const label = byLabel.get(revenueAccountFor(inv.activity))!;
+      // Net of VAT and signed, exactly as the matrix and the ledger compute it.
+      const net = netRevenue({
+        clientId: '', clientName: '', activity: inv.activity as any,
+        invoiceType: inv.invoiceType as any, total: inv.total as any, vatAmount: inv.vatAmount as any,
+      });
+      const k = `${label}|${month}`;
+      acc.set(k, (acc.get(k) ?? new Prisma.Decimal(0)).plus(net));
     }
-
+    // Single Decimal -> number boundary, at the response.
+    for (const [k, v] of acc) {
+      const [label, month] = k.split('|');
+      result[label][month] = v.toNumber();
+    }
     return result;
   }
 
