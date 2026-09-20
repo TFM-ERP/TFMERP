@@ -8,6 +8,7 @@ import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { UpdateInvoiceDto } from './dto/update-invoice.dto';
 import { QueryInvoiceDto } from './dto/query-invoice.dto';
 import { StatusService } from '../../status/status.service';
+import { EmailService } from '../../collections/email.service';
 import { sumLineItems, computeDocumentTotals } from '../totals.util';
 import * as bcrypt from 'bcryptjs';
 import { canDelete, canVoid, canArchive, buildReversalLines, LifecycleState } from './invoice-lifecycle.rules';
@@ -22,6 +23,7 @@ export class InvoicesService {
   constructor(
     private prisma: PrismaService,
     private statusService: StatusService,
+    private email: EmailService,
   ) {}
 
   /**
@@ -398,6 +400,7 @@ export class InvoicesService {
       this.prisma.payment.create({
         data: {
           paymentNumber,
+          direction: 'RECEIPT',
           invoiceId,
           clientId: invoice.clientId,
           bankAccountId: paymentData.bankAccountId,
@@ -421,6 +424,153 @@ export class InvoicesService {
     ]);
 
     return payment;
+  }
+
+  // ── Sharing an invoice by email ─────────────────────────────────────────
+  //
+  // Two deliberate steps. `shareDraft` composes and returns; it sends nothing
+  // and stores nothing. `shareSend` is a separate call the user makes after
+  // reading what was composed. Nothing leaves this system without that second
+  // click — which is the General Manager's standing instruction, not a setting.
+
+  private money(n: any): string {
+    return Number(n ?? 0).toLocaleString('en-AE', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  }
+
+  private day(d: any): string {
+    if (!d) return '';
+    const dt = new Date(d);
+    return Number.isNaN(dt.getTime())
+      ? ''
+      : dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+
+  /** Escape anything that came from a record before it goes into an HTML body. */
+  private esc(s: any): string {
+    return String(s ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  /**
+   * Compose the email for an invoice. Returns it for review — sends nothing.
+   * The recipient is the client's billing contact where one exists, then the
+   * client's own address; when neither is on file `to` comes back empty and the
+   * caller must supply it.
+   */
+  async shareDraft(id: string) {
+    const inv = await this.findOne(id);
+    const company = await this.prisma.companyProfile.findFirst();
+
+    const contacts: any[] = (inv.client as any)?.contacts ?? [];
+    const billing = contacts.find(
+      (c) => c?.email && /billing|account|finance/i.test(`${c.role ?? ''} ${c.title ?? ''}`),
+    );
+    const primary = contacts.find((c) => c?.email && c.isPrimary) ?? contacts.find((c) => c?.email);
+    const to: string = billing?.email || primary?.email || (inv.client as any)?.email || '';
+
+    const cur = inv.currency ?? 'AED';
+    const isCredit = inv.invoiceType === 'CREDIT_NOTE';
+    const label = isCredit ? 'Credit note' : 'Tax invoice';
+    const companyName = company?.legalName || 'The Film Makers FZ LLC';
+    const due = Number(inv.amountDue ?? 0);
+
+    const subject = `${companyName} — ${label} ${inv.invoiceNumber}`;
+
+    const lines: string[] = [];
+    lines.push(`<p>Dear ${this.esc((inv.client as any)?.companyName || 'Sir or Madam')},</p>`);
+    lines.push(
+      `<p>Please find ${label.toLowerCase()} <strong>${this.esc(inv.invoiceNumber)}</strong>` +
+        (inv.issueDate ? ` dated ${this.esc(this.day(inv.issueDate))}` : '') +
+        ` for <strong>${this.esc(cur)} ${this.esc(this.money(inv.total))}</strong>.</p>`,
+    );
+    if (inv.subject) {
+      lines.push(`<p>Project: ${this.esc(inv.subject)}</p>`);
+    }
+    if (!isCredit && due > 0.005) {
+      lines.push(
+        `<p>Amount outstanding: <strong>${this.esc(cur)} ${this.esc(this.money(due))}</strong>` +
+          (inv.dueDate ? `, due ${this.esc(this.day(inv.dueDate))}` : '') +
+          `.</p>`,
+      );
+    } else if (!isCredit) {
+      lines.push(`<p>This invoice is settled in full. No payment is due.</p>`);
+    }
+
+    const bank = inv.bankAccount as any;
+    if (!isCredit && due > 0.005 && bank) {
+      const rows = [
+        ['Account name', bank.accountName],
+        ['Account number', bank.accountNumber],
+        ['IBAN', bank.iban],
+        ['Bank', bank.bankName],
+        ['Swift', bank.swift],
+      ].filter(([, v]) => !!v);
+      if (rows.length) {
+        lines.push('<p>Payment details:</p><ul>');
+        for (const [k, v] of rows) lines.push(`<li>${this.esc(k)}: ${this.esc(v)}</li>`);
+        lines.push('</ul>');
+      }
+    }
+
+    lines.push('<p>Kind regards,</p>');
+    const signature = (company as any)?.emailSignature;
+    lines.push(
+      signature
+        ? String(signature)
+        : `<p>${this.esc(companyName)}` +
+            (company?.mainPhone ? `<br/>${this.esc(company.mainPhone)}` : '') +
+            (company?.billingEmail ? `<br/>${this.esc(company.billingEmail)}` : '') +
+            (company?.website ? `<br/>${this.esc(company.website)}` : '') +
+            `</p>`,
+    );
+
+    const configured = await this.email.isConfigured();
+
+    return {
+      invoiceId: inv.id,
+      invoiceNumber: inv.invoiceNumber,
+      to,
+      subject,
+      html: lines.join('\n'),
+      // The document is not attached: it is produced by the browser's print
+      // view. The caller should attach the PDF it saves, or paste the link.
+      printUrl: `/print/invoice/${inv.id}`,
+      smtpConfigured: configured,
+      note: configured
+        ? 'Nothing has been sent. Review, then send.'
+        : 'Nothing has been sent, and sending is not available yet: SMTP is not configured (Company Management → Email).',
+    };
+  }
+
+  /**
+   * Send a reviewed draft. A separate, explicit call — never chained onto
+   * shareDraft. Throws a clear message when SMTP is not set up.
+   */
+  async shareSend(id: string, to: string, subject: string, html: string) {
+    const inv = await this.findOne(id);
+    if (!to?.trim()) throw new BadRequestException('No recipient address.');
+    if (!subject?.trim()) throw new BadRequestException('No subject.');
+    if (!html?.trim()) throw new BadRequestException('The message body is empty.');
+
+    await this.email.send(to.trim(), subject.trim(), html);
+
+    // Sending an invoice moves it out of DRAFT; a settled one is left alone.
+    if (inv.status === InvoiceStatus.DRAFT) {
+      await this.prisma.invoice.update({
+        where: { id: inv.id },
+        data: { status: InvoiceStatus.SENT, sentAt: new Date() },
+      });
+    } else if (!inv.sentAt) {
+      await this.prisma.invoice.update({ where: { id: inv.id }, data: { sentAt: new Date() } });
+    }
+
+    return { ok: true, to: to.trim(), invoiceNumber: inv.invoiceNumber };
   }
 
   async getAgingReport() {

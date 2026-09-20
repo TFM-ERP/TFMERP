@@ -57,6 +57,33 @@ export class InvoicesController {
     return this.service.updateStatus(id, status, req.user?.id, notes);
   }
 
+  @Post(':id/share-draft')
+  @ApiOperation({
+    summary: 'Compose the email for an invoice, for review',
+    description:
+      'Returns recipient, subject and body. Sends nothing and stores nothing — ' +
+      'sending is the separate POST :id/share-send call.',
+  })
+  shareDraft(@Param('id') id: string) {
+    return this.service.shareDraft(id);
+  }
+
+  @Post(':id/share-send')
+  @RequirePermission('finance', 2)
+  @ApiOperation({
+    summary: 'Send a reviewed invoice email',
+    description:
+      'Sends via the company SMTP settings. Fails with a clear message when SMTP is not configured.',
+  })
+  shareSend(
+    @Param('id') id: string,
+    @Body('to') to: string,
+    @Body('subject') subject: string,
+    @Body('html') html: string,
+  ) {
+    return this.service.shareSend(id, to, subject, html);
+  }
+
   @Post(':id/payments')
   @RequirePermission('finance', 2)
   @ApiOperation({ summary: 'Record a payment against an invoice' })
