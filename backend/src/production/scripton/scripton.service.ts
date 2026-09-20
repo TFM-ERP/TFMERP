@@ -20,6 +20,7 @@ import {
   type FeatureLengthPlan, type LineBudget, type GenreOverride, type GenreProfileRow,
 } from './feature-length.util';
 import { draftLengthCheck } from './draft-length.util';
+import { windowKeepingEnd, windowLabel, allocate } from './excerpt-window.util';
 import {
   classifyLine, nextInSpeech, checkScene, checkDraftContinuity, checkPlanCast, stripExitedCast,
   collectExits, unavailableLine, dedupeScenes, repairInstruction, summariseContinuity,
@@ -2706,6 +2707,13 @@ export class ScripOnService {
    * the word budget and the page budget back out of step.
    */
   private static readonly PAGE_BUDGET = 55;
+
+  /**
+   * The planner's outline budget. UNCHANGED at 20,000 — raising it was considered and rejected:
+   * it leaves the same failure one stage-length away, and with head+tail windowing it is no longer
+   * the thing that deletes an ending.
+   */
+  private static readonly SPINE_BUDGET = 20000;
   private paginate(text: string): { page: number; text: string }[] {
     const lines = String(text || '').replace(/\r/g, '').split('\n');
     const per = ScripOnService.PAGE_BUDGET; const pages: { page: number; text: string }[] = [];
@@ -2896,17 +2904,64 @@ export class ScripOnService {
       + (register ? '\n\n' + register : '');
   }
 
-  // The FULL developed outline, for scene PLANNING — generous limits so the planner sees the whole story
-  // (incl. the finale). buildFeatureCtx is kept lean for per-scene writing; planning needs the complete spine.
+  /**
+   * The developed outline, for scene PLANNING — and it now carries every part's ENDING.
+   *
+   * The comment here used to read "generous limits so the planner sees the whole story (incl. the
+   * finale)", which asserted the exact property it did not have. MEASURED on Jason Quick V3.2:
+   * the parts were concatenated general to specific and the joined string cut with .slice(0, 20000),
+   * so the budget was spent in ARRIVAL ORDER and the tail was eaten. SYNOPSIS 5,625 -> 4,000,
+   * TREATMENT 8,371 whole, BEAT MAP 11,996 -> 9,000 and then cut again 7,604 in, mid-word; STEP
+   * OUTLINE 14,399 -> ZERO characters. The planner never saw the step outline at all, and the 2,996
+   * characters lost off the beat map were Reyes's court application, Vex surrendering the records,
+   * and the entire Resolution/Climax beat.
+   *
+   * Two changes, and neither raises the cap — it is still 20,000.
+   *
+   * 1. THE BUDGET IS SHARED, NOT SPENT IN ORDER (allocate). Max-min fair share is order-independent,
+   *    so no part can be starved by its position. Reversing the order would only move the victim:
+   *    specific-first starves the synopsis to nothing on these same bodies.
+   * 2. EVERY PART KEEPS ITS HEAD AND ITS TAIL (windowKeepingEnd), with the interior omission marked.
+   *    An ordered document's last entries ARE its climax; taking the first N characters is the one
+   *    truncation that deletes the thing the planner is being asked to plan toward.
+   *
+   * The block says what it holds, in developmentSoFar's convention, and a part the budget cannot
+   * fund is NAMED rather than silently missing. The header in planScenes was corrected in the same
+   * commit: a marked gap underneath a promise of completeness is still an instruction to trust it.
+   */
   private buildSpine(stages: any[]): string {
     const bodyOf = (k: string) => { const x: any = stages.find((y: any) => y.kind === k); return String((x && x.current && x.current.body) || ''); };
-    const parts = [
-      bodyOf('SYNOPSIS') && ('SYNOPSIS:\n' + bodyOf('SYNOPSIS').slice(0, 4000)),
-      bodyOf('TREATMENT') && ('TREATMENT:\n' + bodyOf('TREATMENT').slice(0, 9000)),
-      bodyOf('BEATS') && ('BEAT MAP:\n' + bodyOf('BEATS').slice(0, 9000)),
-      bodyOf('STEP_OUTLINE') && ('STEP OUTLINE:\n' + bodyOf('STEP_OUTLINE').slice(0, 9000)),
-    ].filter(Boolean) as string[];
-    return parts.join('\n\n').slice(0, 20000);
+    const SPEC: { kind: string; label: string; cap: number }[] = [
+      { kind: 'SYNOPSIS', label: 'SYNOPSIS', cap: 4000 },
+      { kind: 'TREATMENT', label: 'TREATMENT', cap: 9000 },
+      { kind: 'BEATS', label: 'BEAT MAP', cap: 9000 },
+      { kind: 'STEP_OUTLINE', label: 'STEP OUTLINE', cap: 9000 },
+    ];
+    const asks = SPEC.map((p) => ({ ...p, body: bodyOf(p.kind) })).filter((p) => p.body);
+    if (!asks.length) return '';
+    // The labels and separators are reserved BEFORE the bodies are allocated — charging them
+    // afterwards is how a budget gets quietly exceeded by the thing describing it. 120 upper-bounds
+    // the longest label this can produce plus its two newlines.
+    const overhead = asks.length * 120;
+    const alloc = allocate(asks, Math.max(0, ScripOnService.SPINE_BUDGET - overhead), { floor: 600 });
+    const out: string[] = [];
+    const dropped: { kind: string; total: number }[] = [];
+    const held: string[] = [];
+    for (const p of asks) {
+      const a = alloc.find((x) => x.kind === p.kind);
+      const w = a && !a.dropped ? windowKeepingEnd(p.body, a.budget) : null;
+      if (!w || w.dropped || !w.text) { dropped.push({ kind: p.label, total: p.body.length }); continue; }
+      out.push(windowLabel(p.label, w) + ':\n' + w.text);
+      held.push(p.label + ' ' + w.sent + '/' + w.total);
+    }
+    if (dropped.length || held.some((h) => { const [, n] = h.split(' '); const [s, t] = n.split('/'); return s !== t; })) {
+      this.log.log('buildSpine: ' + held.join(', ')
+        + (dropped.length ? ' — not carried: ' + dropped.map((d) => d.kind + ' (' + d.total + ')').join(', ') : ''));
+    }
+    const note = dropped.length
+      ? '[Not carried here, for length: ' + dropped.map((d) => d.kind + ' (' + d.total.toLocaleString('en-US') + ' characters)').join(', ') + '.]\n\n'
+      : '';
+    return note + out.join('\n\n');
   }
 
   // How many beats the developed story has (so we can tell whether an existing SCENES list actually covers it).
@@ -2954,7 +3009,7 @@ export class ScripOnService {
     const sys = episode
       ? 'You are a screenwriter mapping the FIRST EPISODE (the pilot) of a series into ' + lo + '-' + hi + ' scenes. Open the series, establish the world / lead characters / central engine, and END on the episode hook or cliffhanger. Use the OPENING movement of the developed outline only — do NOT compress the whole season, and do NOT resolve the season arc. Return ONLY JSON {scenes:[{intExt, location, dayNight, brief, characters, exits, pageWeight}]} — intExt is INT or EXT; dayNight DAY or NIGHT; brief = 1-2 sentences of what happens; characters = comma list; exits = ONLY the characters who DIE or leave the story permanently in this scene, as [{name, how}] (omit the field entirely otherwise) - getting this right is what stops a murdered character answering a telephone eighty pages later, so do not guess and do not list a character who merely walks out of the room; No prose outside the JSON.' + weightRule
       : 'You are a screenwriter mapping a DEVELOPED story into a COMPLETE feature scene list for a ' + (plan ? plan.targetPages : 105) + '-page, 3-act script. Faithfully expand the GIVEN OUTLINE / BEAT MAP into ' + lo + '-' + hi + ' scenes that cover the ENTIRE story IN ORDER — from the opening beat through the midpoint, the climax AND the final resolution. EVERY numbered beat in the outline MUST be COVERED, and the LAST few scenes MUST dramatise the final beats (the climax and ending). Covering a beat does NOT mean giving it its own scene: where consecutive beats share a place and a moment, carry them in ONE scene. Never stop in the middle of the story. Return ONLY JSON {scenes:[{intExt, location, dayNight, brief, characters, exits, pageWeight}]} — intExt is INT or EXT; dayNight DAY or NIGHT; brief = 1-2 sentences of what happens; characters = comma list; exits = ONLY the characters who DIE or leave the story permanently in this scene, as [{name, how}] (omit the field entirely otherwise) - getting this right is what stops a murdered character answering a telephone eighty pages later, so do not guess and do not list a character who merely walks out of the room; No prose outside the JSON.' + densityRule + weightRule;
-    const base = (extra: string) => ctx + (spine ? '\n\n' + (episode ? 'DEVELOPED OUTLINE (dramatise its OPENING as the pilot episode):\n' : 'FULL DEVELOPED OUTLINE TO COVER (expand every beat, in order, all the way to the end):\n') + spine : '') + extra;
+    const base = (extra: string) => ctx + (spine ? '\n\n' + (episode ? 'DEVELOPED OUTLINE (dramatise its OPENING as the pilot episode):\n' : 'DEVELOPED OUTLINE TO COVER (expand every beat, in order, all the way to the end). Each section below states whether it is complete or shortened; a shortened section is missing only its MIDDLE and still runs to its own end:\n') + spine : '') + extra;
     const parse = (r: any): any[] => {
       let arr: any[] = (r && r.json && Array.isArray(r.json.scenes)) ? r.json.scenes : [];
       if (!arr.length && r && typeof r.text === 'string') { try { const m = r.text.match(/\{[\s\S]*\}/); if (m) { const j = JSON.parse(m[0]); if (Array.isArray(j.scenes)) arr = j.scenes; } } catch { /* */ } }

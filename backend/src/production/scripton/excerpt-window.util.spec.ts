@@ -45,6 +45,23 @@ test('NEGATIVE CONTROL — head-only loses the ending, in the same run', () => {
   assert.match(windowKeepingEnd(BODY, 4000).text, /JASONS ENOUGH/);
 });
 
+/**
+ * WHY THE CONTROL ABOVE PASSES minSide: 0, AND WHAT HAPPENS WHEN IT DOES NOT.
+ *
+ * `headShare: 1` alone does NOT produce head-only output: the tail is clamped up to MIN_SIDE, so a
+ * 400-character tail survives and still contains the document's end. The first integration-level
+ * negative control written against buildSpine used headShare alone, and every ending stayed
+ * PRESENT — a control that could not fail, which is the exact defect this pattern exists to catch,
+ * reproduced inside the instrument checking for it. The honest falsifier at the call site is to
+ * revert the caller to `body.slice(0, budget)`; the honest falsifier here is minSide 0.
+ */
+test('headShare 1 alone is NOT head-only — MIN_SIDE keeps a tail', () => {
+  const clamped = windowKeepingEnd(BODY, 4000, { headShare: 1, minTail: 0 });
+  assert.match(clamped.text, /JASONS ENOUGH/, 'MIN_SIDE should have preserved a tail');
+  const truly = windowKeepingEnd(BODY, 4000, { headShare: 1, minTail: 0, minSide: 0 });
+  assert.doesNotMatch(truly.text, /JASONS ENOUGH/);
+});
+
 test('the result never exceeds its budget — the marker is charged inside it', () => {
   for (const budget of [2200, 3000, 4000, 9000, 12000]) {
     const w = windowKeepingEnd(BODY, budget);
