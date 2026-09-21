@@ -9,7 +9,7 @@ import { Plus, RefreshCw, CheckCircle, XCircle, DollarSign, GitBranch } from 'lu
 import { CinematicHeader } from '@/components/CinematicHeader';
 import { useLocale } from '@/lib/i18n';
 
-const CATEGORIES = ['Fuel', 'Maintenance', 'Office', 'Crew', 'Catering', 'Equipment', 'Travel', 'Accommodation', 'Insurance', 'Legal', 'Marketing', 'Utilities', 'Other'];
+const CATEGORIES = ['Fuel', 'Maintenance', 'Office', 'Freelancers', 'Crew', 'Catering', 'Equipment', 'Travel', 'Accommodation', 'Insurance', 'Legal', 'Marketing', 'Utilities', 'Other'];
 const ACTIVITIES = ['RENTAL', 'PRODUCTION', 'BOTH'];
 
 const STATUS_STYLE: Record<string, string> = {

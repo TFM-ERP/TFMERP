@@ -23,6 +23,8 @@ describe('expenseAccountCode — the categories that exist in the data', () => {
     ['Catering', '6200'],
     ['Software & Subscriptions', '6200'],
     ['BTL Travel & Living', '5300'],
+    ['Freelancers', '5300'],
+    ['Crew', '5300'],
     ['Miscellaneous General Exp', '6900'],
     ['Equipment', '6900'],
   ];

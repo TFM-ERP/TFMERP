@@ -33,6 +33,12 @@ export const CATEGORY_ACCOUNTS: Record<string, string> = {
   // "BTL" is below-the-line, i.e. crew. Crew hotels and per-diems sit with the
   // crew cost line a reader already associates with them.
   'btl travel & living': '5300',
+  // Freelancers paid per job (camera, sound, drivers, runners, location
+  // fixers) — individuals, usually not VAT-registered. The company relies on
+  // them heavily, so they get their own category and line: 5300 Freelance &
+  // Crew Costs. 'Crew' is the same line.
+  'freelancers': '5300',
+  'crew': '5300',
   'fuel': '5100',
   'maintenance': '5200',
 
