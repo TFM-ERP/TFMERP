@@ -23,6 +23,7 @@ import { draftLengthCheck } from './draft-length.util';
 import { windowKeepingEnd, windowLabel, allocate } from './excerpt-window.util';
 import { consumedStamp, hasConsumed } from './consumed-stamp.util';
 import { preSpendGate, GATE_CHECKS } from './pre-spend-gate.util';
+import { endingEntry, mergeChecks, resolveSecondLook, type CheckSubject, type EndingVerdict } from './revision-checks.util';
 import {
   classifyLine, nextInSpeech, checkScene, checkDraftContinuity, checkPlanCast, stripExitedCast,
   collectExits, unavailableLine, dedupeScenes, repairInstruction, summariseContinuity,
@@ -3033,7 +3034,7 @@ export class ScripOnService {
   // the climax AND resolution, never stopping mid-story. Tolerant JSON parse + a continuation pass if it comes short.
   // `episode` (#45): map ONE pilot episode at the format's per-episode scene density instead of a
   // full feature — so a series targets its real per-episode volume, not the 55-90 feature band.
-  private async planScenes(ctx: string, projectId: string, spine = '', target = 55, episode = false, onBeat?: () => void, plan?: FeatureLengthPlan | null): Promise<any[]> {
+  private async planScenes(ctx: string, projectId: string, spine = '', target = 55, episode = false, onBeat?: () => void, plan?: FeatureLengthPlan | null, planVerdicts?: any[]): Promise<any[]> {
     this.planFailure.delete(projectId);   // this run's verdict only — never last run's
     // The band the planner is asked for. It used to be floored at 50-70 regardless of the film's real
     // length; it now tracks the page budget, so a 105-page feature asks for ~110 scenes, not ~60.
@@ -3186,6 +3187,7 @@ export class ScripOnService {
       for (let attempt = 0; attempt < 2; attempt++) {
         const tail = scenes.slice(-6).map((x: any, i: number) => (scenes.length - 6 + i + 1) + '. ' + String(x.brief || '')).join('\n');
         const verdict = await this.verifyPlanEnding(spine, tail, projectId);
+        if (planVerdicts) planVerdicts.push({ verdict, text: tail });
         if (verdict.complete) break;
         this.log.warn('planScenes: the plan does NOT reach the outline\'s ending (attempt ' + (attempt + 1) + '/2)'
           + (verdict.missing.length ? ' — missing: ' + verdict.missing.join('; ') : '') + '. Repairing.');
@@ -3221,6 +3223,7 @@ export class ScripOnService {
       // run, and hands over a headless script that reads as finished.
       const finalTail = scenes.slice(-6).map((x: any) => '- ' + String(x.brief || '')).join('\n');
       const last = await this.verifyPlanEnding(spine, finalTail, projectId);
+      if (planVerdicts) planVerdicts.push({ verdict: last, text: finalTail });
       if (!last.complete) {
         // Actionable half FIRST, missing beats LAST: the caller's catch truncates at 200 characters, and
         // the fixed sentence is 195 — so a long beat list is what gets cut, never the instruction.
@@ -3234,8 +3237,14 @@ export class ScripOnService {
 
   // Ending gate, plan-side twin of verifyEnding(). Same tolerant contract: any failure of the CHECK
   // itself assumes complete, so an AI outage can never block a run — only a confident "no" does.
-  private async verifyPlanEnding(spine: string, planTail: string, projectId: string): Promise<{ complete: boolean; missing: string[]; note: string }> {
-    if (!spine || !planTail) return { complete: true, missing: [], note: '' };
+  private async verifyPlanEnding(spine: string, planTail: string, projectId: string): Promise<EndingVerdict & { missing: string[]; note: string }> {
+    // A CHECK WITH NOTHING TO CHECK AGAINST DID NOT RUN. This guard returned a bare pass, so an
+    // absent outline or an empty plan recorded CLEAN — the same untyped abstention as the fail-opens
+    // below, reached earlier and without a log line to betray it. Control flow is unchanged.
+    if (!spine || !planTail) {
+      return { complete: true, missing: [], failOpen: true,
+        note: !spine ? 'no outline to check the ending against' : 'no plan to check' };
+    }
     try {
       const sys = 'You check whether a SCENE MAP covers the ending of a developed outline. You are given the OUTLINE (its final beats are the intended climax and resolution) and the LAST scenes of the scene map. Decide whether those scenes dramatise the outline\'s final beats. Return ONLY JSON {complete: true|false, missing: ["short beat name", ...], note: "one short sentence"} — list in "missing" only outline beats that the scene map does not cover, at most 4.';
       const user = 'OUTLINE (its ending = the final beats):\n' + spine.slice(-3000)
@@ -3249,16 +3258,26 @@ export class ScripOnService {
         return { complete: j.complete, missing, note: trimToSentence(j.note, 240) };
       }
       this.log.warn('verifyPlanEnding: no usable verdict — assuming the plan reaches the ending (fail-open).');
+      // F10 defect two: the fail-open still does not BLOCK — that is its purpose — but it is no
+      // longer indistinguishable from a verdict. `failOpen` is what the persisted entry types as
+      // NOT_RUN, so an abstention can never be read back as a pass.
+      return { complete: true, missing: [], note: 'no usable verdict returned by the plan-ending check', failOpen: true };
     } catch (e) {
       this.log.warn('verifyPlanEnding: check failed, assuming complete — ' + this.why(e));
+      return { complete: true, missing: [], note: 'the plan-ending check failed: ' + this.why(e), failOpen: true };
     }
-    return { complete: true, missing: [], note: '' };
+    // Unreachable — both branches above return — but an untyped pass here would be the defect.
+    return { complete: true, missing: [], note: 'the plan-ending check produced no branch verdict', failOpen: true };
   }
 
   // Coverage guard: did the finished script actually reach the outline's FINAL beats (climax + resolution)?
   // One small, tolerant AI check — any failure assumes complete, so it never raises a false alarm.
-  private async verifyEnding(spine: string, scriptTail: string, projectId: string, tailChars = 3000): Promise<{ complete: boolean; note: string }> {
-    if (!spine || !scriptTail) return { complete: true, note: '' };
+  private async verifyEnding(spine: string, scriptTail: string, projectId: string, tailChars = 3000): Promise<EndingVerdict & { note: string }> {
+    // Same defect, same reason: nothing to compare is not a pass.
+    if (!spine || !scriptTail) {
+      return { complete: true, failOpen: true,
+        note: !spine ? 'no outline to check the ending against' : 'no script text to check' };
+    }
     try {
       const sys = 'You verify whether a screenplay reached its planned ENDING. Given a developed OUTLINE (whose FINAL beats are the intended climax and resolution) and the LAST pages of the generated script, decide whether the script actually dramatises those final beats. Return ONLY JSON {complete: true|false, note: "one short sentence"}.';
       const user = 'OUTLINE (its ending = the final beats):\n' + spine.slice(-3000) + '\n\nLAST PAGES OF THE GENERATED SCRIPT:\n' + scriptTail.slice(-tailChars) + '\n\nDoes the script reach the outline\'s final beats (the climax and resolution)?';
@@ -3270,12 +3289,16 @@ export class ScripOnService {
       // freight terminal using." on screen. See trimToSentence.
       if (j && typeof j.complete === 'boolean') return { complete: j.complete, note: trimToSentence(j.note, 240) };
       this.log.warn('verifyEnding: no usable verdict returned — assuming the ending is complete (fail-open).');
+      return { complete: true, note: 'no usable verdict returned by the ending check', failOpen: true };
     } catch (e) {
       // Fail-open by design: a failed check must never raise a false alarm on a good script. But an
       // always-failing check means the coverage flag is meaningless, which is worth knowing.
       this.log.warn('verifyEnding: check failed, assuming complete — ' + this.why(e));
+      return { complete: true, note: 'the ending check failed: ' + this.why(e), failOpen: true };
     }
-    return { complete: true, note: '' };
+    // Unreachable in practice — both branches above return — but a bare `complete: true` here would
+    // be an untyped pass, which is the defect. Typed as an abstention for the same reason.
+    return { complete: true, note: 'the ending check produced no branch verdict', failOpen: true };
   }
 
   // Write ONE full scene (action + dialogue) — slug line is supplied, so the model focuses on dramatising.
@@ -4600,7 +4623,28 @@ export class ScripOnService {
    * is real and worth reading. Every page stays exactly as saved on its revision row — the same contract
    * as a cancel, reached by a different route.
    */
-  private failHeadlessDraft(docId: string, pageCount: number, sceneCount: number, coverageNote: string, reason: string, retry: string): void {
+  /**
+   * F10 — PERSIST ONE VERDICT ON THE REVISION IT IS ABOUT.
+   *
+   * The verdict used to live only in genProgress, an in-memory Map: the user was told no and the
+   * reason could not be shown twice. This merges a single typed entry into scriptRevision.checks
+   * without disturbing other kinds. Never throws — a failure to record a verdict must not fail the
+   * run that produced it, but it IS logged, because a silently unrecorded verdict is the defect.
+   */
+  private async recordRevisionCheck(revId: string, kind: string, verdict: any, text: any, subject: CheckSubject = 'revision.pageText'): Promise<void> {
+    if (!revId) return;
+    try {
+      const entry = endingEntry(kind, verdict, text, subject);
+      const row: any = await (this.prisma as any).scriptRevision.findUnique({ where: { id: revId }, select: { checks: true } });
+      await (this.prisma as any).scriptRevision.update({ where: { id: revId }, data: { checks: mergeChecks(row && row.checks, entry) } });
+      this.log.log('recordRevisionCheck: ' + kind + ' = ' + entry.state + ' on revision ' + revId
+        + (entry.state === 'NOT_RUN' ? ' — ' + entry.reason : ''));
+    } catch (e: any) {
+      this.log.warn('recordRevisionCheck: could NOT persist ' + kind + ' on revision ' + revId + ' — ' + this.why(e));
+    }
+  }
+
+  private failHeadlessDraft(docId: string, pageCount: number, sceneCount: number, coverageNote: string, reason: string, retry: string, revId?: string, text?: string): void {
     const why = String(reason || '').trim().replace(/\.+$/, '');
     const p = this.genProgress.get(docId);
     if (p) {
@@ -4614,6 +4658,9 @@ export class ScripOnService {
         + '. It was not filed as your script — your current pages are untouched, and the ' + pageCount + ' pages that were written have been saved, not discarded. Run ' + retry + ' again to write through to the climax and resolution.';
       p.lastActivityAt = Date.now();
     }
+    // F12 — THE REASON OUTLIVES THE PROCESS, and it is already stored: the awaited
+    // recordRevisionCheck one line before every call site writes this same verdict against the
+    // same text. A second fire-and-forget write here would duplicate it and race the caller.
     this.log.error('failHeadlessDraft: script ' + docId + ' wrote ' + sceneCount + ' scenes over ' + pageCount
       + ' pages but did NOT reach the outline\'s final beats — filed as ERROR, revision NOT activated.'
       + (why ? ' Verdict: ' + why : ''));
@@ -4718,7 +4765,22 @@ export class ScripOnService {
       // Heartbeat while PLANNING (planScenes runs minutes before the first scene is written, so the
       // page counter can't move — the frontend stall guard must watch this, not just `done`).
       const beat = () => { const p = this.genProgress.get(docId); if (p) { p.phase = 'PLANNING'; p.lastActivityAt = Date.now(); } };
-      const planned = await this.planScenes(ctx, projectId, spine, target, !!ssc, beat, lenPlan);
+      // F10 — verifyPlanEnding runs inside planScenes, which has no revision to write to. Its
+      // verdicts are collected here and the last one is recorded against the revision, subject
+      // 'plan.tail' because it judged the PLAN, not the script's pages.
+      const planVerdicts: any[] = [];
+      // RECORDED IN A `finally`: planScenes THROWS when the plan does not reach the ending after its
+      // repair pass, and that refusal is exactly the case worth having on the row. Recording it only
+      // on the success path would keep a verdict for every run except the one that failed.
+      let planned: any[];
+      try {
+        planned = await this.planScenes(ctx, projectId, spine, target, !!ssc, beat, lenPlan, planVerdicts);
+      } finally {
+        if (planVerdicts.length) {
+          const lastPlan = planVerdicts[planVerdicts.length - 1];
+          await this.recordRevisionCheck(revId, 'planEnding', lastPlan.verdict, lastPlan.text, 'plan.tail');
+        }
+      }
       // An EMPTY plan is a planner failure, and writing a script from whatever happens to be lying in
       // the SCENES stage is not a recovery — it is how a timed-out planning call became a 95-page draft
       // with no page weights, no exits, no continuity gate and no error message. A SHORT plan may still
@@ -4918,6 +4980,9 @@ export class ScripOnService {
         // Two independent completeness checks, because they fail independently: verifyEnding asks whether
         // the story ARRIVED, the length gate asks whether the film is FEATURE-LENGTH. A draft can pass
         // either one alone and still not be deliverable.
+        // F10 — the text this verdict judges, fingerprinted with it so a later in-place repair
+        // (dialectRepairDoc) cannot leave a stale pass standing.
+        const scriptText = pages.map((pg: any) => String((pg && pg.text) || '')).join('\n');
         let cov = await this.verifyEnding(spine, out.slice(-4).join('\n\n'), projectId);
         // Second look before an incomplete verdict is allowed to fail the whole run. The first pass reads
         // 3,000 characters of tail; one long closing scene can push the resolution out of that window, and
@@ -4926,8 +4991,12 @@ export class ScripOnService {
         if (!cov.complete) {
           const wider = await this.verifyEnding(spine, out.slice(-8).join('\n\n'), projectId, 6000);
           if (wider.complete) this.log.warn('generateFeatureAsync: the ending check disagreed with itself — the 3k-tail read said incomplete, the 6k-tail read said complete. Taking the wider read.');
-          cov = wider.complete ? wider : { complete: false, note: wider.note || cov.note };
+          // Only a REAL pass may overturn a real failure — a fail-open also says complete: true.
+          cov = resolveSecondLook(cov, wider);
         }
+        // F10 — the verdict is recorded whether it passed, failed or abstained. A fail-open lands
+        // as NOT_RUN with its reason; only a real verdict can read CLEAN.
+        await this.recordRevisionCheck(revId, 'ending', cov, scriptText, 'revision.pageText');
         const lp = lenPlan as FeatureLengthPlan;
         // Two bounds, not one. The gate used to test only "is it long enough", so a 190-page draft
         // filed as COMPLETE — a script that overshoots the feature band is no more deliverable than
@@ -4978,7 +5047,7 @@ export class ScripOnService {
         // ENDING GATE, post-write twin of the plan-side gate in planScenes. The plan gate stops a headless
         // scene map before a single scene is paid for; this one catches the case where the plan promised an
         // ending and the writing never arrived at it. Either way the run does not become the user's script.
-        if (!cov.complete) { this.failHeadlessDraft(docId, pages.length, scenes.length, notes.join(' · '), cov.note, 'Generate script'); return; }
+        if (!cov.complete) { this.failHeadlessDraft(docId, pages.length, scenes.length, notes.join(' · '), cov.note, 'Generate script', revId, scriptText); return; }
         setP({
           status: 'DONE', done: scenes.length, pageCount: pages.length,
           coverage: (!tooShort && !tooLong) ? 'COMPLETE' : tooLong ? 'LONG' : 'SHORT',
@@ -5214,7 +5283,19 @@ export class ScripOnService {
       const lenPlan: FeatureLengthPlan | null = ssc ? null : planFeatureLength(featBrief, beatN);
       const target = ssc ? ssc.scenesPerEp : (lenPlan as FeatureLengthPlan).targetScenes;
       const beat = () => { const p = this.genProgress.get(docId); if (p) { p.phase = 'PLANNING'; p.lastActivityAt = Date.now(); } };
-      const planned = await this.planScenes(ctx, projectId, spine, target, !!ssc, beat, lenPlan);
+      const planVerdicts: any[] = [];
+      // RECORDED IN A `finally`: planScenes THROWS when the plan does not reach the ending after its
+      // repair pass, and that refusal is exactly the case worth having on the row. Recording it only
+      // on the success path would keep a verdict for every run except the one that failed.
+      let planned: any[];
+      try {
+        planned = await this.planScenes(ctx, projectId, spine, target, !!ssc, beat, lenPlan, planVerdicts);
+      } finally {
+        if (planVerdicts.length) {
+          const lastPlan = planVerdicts[planVerdicts.length - 1];
+          await this.recordRevisionCheck(revId, 'planEnding', lastPlan.verdict, lastPlan.text, 'plan.tail');
+        }
+      }
       // An EMPTY plan is a planner failure, and writing a script from whatever happens to be lying in
       // the SCENES stage is not a recovery — it is how a timed-out planning call became a 95-page draft
       // with no page weights, no exits, no continuity gate and no error message. A SHORT plan may still
@@ -5365,12 +5446,17 @@ export class ScripOnService {
         // An extend writes every scene from where the draft stopped to the end of the plan, so a headless
         // result here is not 'still in progress' — it is a plan that reached the ending and writing
         // that did not. Same confirmation, same gate as a fresh run.
+        // F10 — the text this verdict judges, fingerprinted with it so a later in-place repair
+        // (dialectRepairDoc) cannot leave a stale pass standing.
+        const scriptText = pages.map((pg: any) => String((pg && pg.text) || '')).join('\n');
         let cov = await this.verifyEnding(spine, out.slice(-4).join('\n\n'), projectId);
         if (!cov.complete) {
           const wider = await this.verifyEnding(spine, out.slice(-8).join('\n\n'), projectId, 6000);
           if (wider.complete) this.log.warn('extendFeatureAsync: the ending check disagreed with itself — the 3k-tail read said incomplete, the 6k-tail read said complete. Taking the wider read.');
-          cov = wider.complete ? wider : { complete: false, note: wider.note || cov.note };
+          // Only a REAL pass may overturn a real failure — a fail-open also says complete: true.
+          cov = resolveSecondLook(cov, wider);
         }
+        await this.recordRevisionCheck(revId, 'ending', cov, scriptText, 'revision.pageText');
         const lp = lenPlan as FeatureLengthPlan;
         const tooShort = !!lenPlan && !isLengthComplete(pages.length, lp.targetPages);
         const tooLong = !!lenPlan && isLengthOver(pages.length, lp.targetPages);
@@ -5386,7 +5472,7 @@ export class ScripOnService {
         }
         // Not filed as DONE, so the extended revision is not swapped in and the shorter draft the user
         // already has stays active. The new pages are persisted on the revision, not discarded.
-        if (!cov.complete) { this.failHeadlessDraft(docId, pages.length, scenes.length, notes.join(' · '), cov.note, 'Regenerate (extend)'); return; }
+        if (!cov.complete) { this.failHeadlessDraft(docId, pages.length, scenes.length, notes.join(' · '), cov.note, 'Regenerate (extend)', revId, scriptText); return; }
         setP({
           status: 'DONE', done: scenes.length, pageCount: pages.length,
           coverage: (!tooShort && !tooLong) ? 'COMPLETE' : tooLong ? 'LONG' : 'SHORT',
