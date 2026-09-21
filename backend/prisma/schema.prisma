@@ -3208,10 +3208,23 @@ model ScriptRevision {
   lockedAt      DateTime?
   supersedesId  String?        // parent revision (for diffing)
   changeSummary String?
-  /// C1 — { KIND: stageVersionId } for every developed stage whose body actually reached the
-  /// writer's prompt. Taken from the resolution the prompt builder used, never re-derived: see
-  /// consumed-stamp.util.ts. Null on every revision written before 20 Sep 2026.
+  /// C1 — PROVENANCE, not verdict. { KIND: stageVersionId } for every developed stage whose body
+  /// actually reached the writer's prompt. Taken from the resolution the prompt builder used, never
+  /// re-derived: see consumed-stamp.util.ts. Null on every revision written before 20 Sep 2026.
   consumed      Json?
+  /// F10 — VERDICT, not provenance. Checks run against THIS revision's text:
+  /// { kind: { state: 'FINDINGS'|'CLEAN'|'NOT_RUN', reason, at, sha256 } }.
+  ///
+  /// `consumed` and `checks` are deliberately separate columns and a reader that merges them has
+  /// lost the distinction: consumed says what this script was WRITTEN FROM, checks says what was
+  /// FOUND IN IT. An abstention is stored as NOT_RUN with its reason and never as a pass — a
+  /// persisted false verdict outlives the process and reads like evidence.
+  ///
+  /// `sha256` fingerprints the text judged, because dialectRepairDoc rewrites an active revision's
+  /// pageText IN PLACE (scripton.service.ts:720) — the one path that mutates a revision's content
+  /// rather than creating a new one. A verdict can therefore outlive the text it describes; a
+  /// reader that finds a mismatch must report STALE, not CLEAN.
+  checks        Json?
   createdAt     DateTime       @default(now())
 
   scenes    ScriptScene[]
