@@ -26,7 +26,7 @@
 
 | File | Responsibility | Task |
 |---|---|---|
-| `backend/prisma/migrations/20260922100000_payment_paid_from_slips/migration.sql` | new enums + columns | 1 |
+| `backend/prisma/migrations/20260922120000_payment_paid_from_slips/migration.sql` | new enums + columns | 1 |
 | `backend/prisma/schema.prisma` | mirror of the migration | 1 |
 | `backend/src/accounting/payment-posting.util.ts` (+ `.spec.ts`) | pure credit-account + lines rule | 2 |
 | `backend/src/accounting/accounting.service.ts` | postAll uses the util | 2 |
@@ -44,7 +44,7 @@
 ### Task 1: Migration + schema (review, then apply on "apply")
 
 **Files:**
-- Create: `backend/prisma/migrations/20260922100000_payment_paid_from_slips/migration.sql`
+- Create: `backend/prisma/migrations/20260922120000_payment_paid_from_slips/migration.sql`
 - Modify: `backend/prisma/schema.prisma` (enums near `enum PaymentMethod`; `model Payment`; `model BankAccount`)
 
 **Interfaces:** Produces `PaymentSource { COMPANY_BANK, CASH_ON_HAND, OWNER }`, `AccountOwnership { COMPANY, OWNER }`, `Payment.paidFrom?`, `Payment.feeAmount?`, `Payment.beneficiary?`, `Payment.beneficiaryAccount?`, `Payment.payerAccountRef?`, `BankAccount.ownership`, `BankAccount.cardLast4?`, index `payments(reference)`.
