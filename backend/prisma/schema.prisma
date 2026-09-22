@@ -2803,6 +2803,10 @@ model ScriptDocument {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
   deletedAt        DateTime?
+  /// Archived is indefinite and never swept: the 30-day purge is keyed on deletedAt, so a document
+  /// with archivedAt set and deletedAt null cannot be reached by it. Never both — archive clears
+  /// deletedAt and trash clears archivedAt, so exclusivity is a property of the writes.
+  archivedAt       DateTime?
 
   revisions    ScriptRevision[]
   layers       AnnotationLayer[]
@@ -2810,6 +2814,7 @@ model ScriptDocument {
 
   @@index([projectId])
   @@index([masterScriptId])
+  @@index([archivedAt])
   @@map("script_documents")
 }
 
