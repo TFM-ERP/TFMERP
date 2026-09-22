@@ -3,10 +3,11 @@ import { useEffect, useRef, useState } from 'react';
 import { productionApi } from '@/lib/api';
 import { resolveScriptonProjectId } from '@/components/scripton/useScriptonProject';
 import { useLocale } from '@/lib/i18n';
+import CardActions, { CARD_ACTIONS_CSS, ICON_ARCHIVE, ICON_TRASH } from './CardActions';
 
 /** Builds — name, save, switch and promote development builds. Folded into Studio as an overlay panel
  *  (was the standalone /scripton/builds). Open loads that build into Studio; Promote snapshots into a project. */
-const CSS = `
+const CSS = CARD_ACTIONS_CSS + `
 .bld{--bg:#0b0c0f;--panel:#14161c;--hair:rgba(255,255,255,.07);--hair2:rgba(255,255,255,.13);--gold:#C6A463;--gold2:#E6D2A2;--goldink:#1a1509;--cream:#F4EEE0;--text:#E8E6E0;--mute:#9aa1ab;--faint:#6b727d;--green:#57b368;--blue:#5b8def;background:radial-gradient(1200px 600px at 50% -8%,#15171d,#0b0c0f 60%);min-height:100vh;color:var(--text);font-family:var(--sx-body)}
 .bld *{box-sizing:border-box}
 .bld .scr{display:flex;flex-direction:column;height:100vh;position:relative}
@@ -47,7 +48,7 @@ const CSS = `
    12.3px, ragged true). min-width:0 stays — a grid item defaults to min-width:auto, and the identity
    line grew long enough that it could not shrink below its track.
    Verified at 3, 2 and 1 columns, on a card with a two-line wrapped title: spill 0, overlap 0. */
-.bld .bc{background:var(--panel);border:1px solid var(--hair);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.bld .bc{position:relative;background:var(--panel);border:1px solid var(--hair);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
 .bld .r1{display:flex;align-items:center;justify-content:space-between}
 .bld .spill{font-size:10px;font-weight:800;letter-spacing:.4px;padding:4px 9px;border-radius:999px}
 .bld .spill.draft{background:rgba(154,161,171,.16);color:var(--mute)}.bld .spill.review{background:rgba(91,141,239,.16);color:#a9c4f7}.bld .spill.greenlit{background:rgba(87,179,104,.16);color:var(--green)}.bld .spill.promoted{background:rgba(198,164,99,.18);color:var(--gold2)}
@@ -322,6 +323,21 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
   /** One card. Lifted out of the map so the Recent and Recovered sections cannot drift apart. */
   const renderCard = (b: any, i = 0) => { const st = String(b.status || 'DRAFT').toUpperCase(); const dots = DOTS[st] || 2; return (
                 <div key={(b && b.id != null && !dupIds.has(String(b.id))) ? String(b.id) : ((b && b.id != null ? String(b.id) : 'noid') + '#' + i)} className="bc">
+                  {/* CORNER CLUSTER — the same two actions on every view, always visible.
+                      bin:      Archive (rescue without returning it to the board) + Delete forever
+                      archived: Unarchive is a RESTORE, not a destroy, so it stays in the footer;
+                                the corner carries Move-to-bin only
+                      active:   Archive + Move-to-bin, moved out of the footer row
+                      Every handler and every confirmation is the one that was already there. */}
+                  <CardActions actions={bin ? [
+                    { key: 'arch', icon: ICON_ARCHIVE, label: t('Keep it indefinitely, off the active board and out of the bin'), onClick: () => doArchive(b) },
+                    { key: 'purge', icon: ICON_TRASH, label: t('Delete forever'), danger: true, onClick: () => setConfirm({ kind: 'purge', b }) },
+                  ] : archived ? [
+                    { key: 'del', icon: ICON_TRASH, label: t('Move to bin'), danger: true, onClick: () => setConfirm({ kind: 'delete', b }) },
+                  ] : [
+                    { key: 'arch', icon: ICON_ARCHIVE, label: t('Keep indefinitely, off the board. No countdown, never swept.'), onClick: () => doArchive(b) },
+                    { key: 'del', icon: ICON_TRASH, label: t('Move to bin \u2014 deleted after 30 days'), danger: true, onClick: () => setConfirm({ kind: 'delete', b }) },
+                  ]} />
                   <div className="r1"><span className={'spill ' + (SPILL[st] || 'draft')} title={(st !== 'PROMOTED' && !bin && !isDemo(b)) ? t('Click to advance: Draft \u2192 Review \u2192 Greenlit') : (st === 'PROMOTED' ? t('Promoted to production') : '')} onClick={() => { if (st !== 'PROMOTED' && !bin && !isDemo(b)) cycleStatus(b); }} style={{ cursor: (st !== 'PROMOTED' && !bin && !isDemo(b)) ? 'pointer' : 'default' }}>{st}</span>{b.recovered ? <span className="when" title={t('When this build row was recreated from its orphaned stages')}>{t('recreated') + ' ' + onDate(b.createdAt)}</span> : null}</div>
                   {editId === b.id ? (
                     <input className="nm-in" autoFocus value={editName} placeholder={t('Name this build')}
@@ -393,23 +409,13 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
                     {bin ? (<>
                       <span className="when" style={{ marginRight: 'auto' }}>{daysLeft(b.deletedAt)}{t('d left in bin')}</span>
                       <span className="mini gold" onClick={() => doRestore(b)}>↩ {t('Restore')}</span>
-                      {/* Rescue WITHOUT returning it to the active board — archiving from the bin
-                          clears the countdown and leaves it out of the way. */}
-                      <span className="mini" onClick={() => doArchive(b)} title={t('Keep it indefinitely, off the active board and out of the bin')}><svg className="ico" viewBox="0 0 24 24"><path d="M3 7h18v13H3zM3 7l2-4h14l2 4M9 12h6" /></svg>{t('Archive')}</span>
-                      <span className="mini" onClick={() => setConfirm({ kind: 'purge', b })} style={{ color: '#e5635f', borderColor: 'rgba(229,99,95,.4)' }}>{t('Delete forever')}</span>
                     </>) : archived ? (<>
                       {/* NO COUNTDOWN — there isn't one. Archived is indefinite. */}
                       <span className="mini" onClick={() => openBuild(b.id)}><svg className="ico" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" /></svg>{t('Open')}</span>
                       <span className="mini gold" onClick={() => doUnarchive(b)} title={t('Put it back on the active board')}>↩ {t('Unarchive')}</span>
-                      <span className="mini" title={t('Move to bin')} onClick={() => setConfirm({ kind: 'delete', b })} style={{ marginLeft: 'auto', color: '#e5635f', borderColor: 'rgba(229,99,95,.4)' }}>✖ {t('Delete')}</span>
                     </>) : (<>
                       {(st === 'PROMOTED' || b.linkedScriptId) ? (<>{b.linkedScriptId ? (<span className="mini gold" onClick={() => openScript(b.linkedScriptId)} title={t('Open the promoted script')}><svg className="ico" viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z" /></svg>{t('Open script')}</span>) : null}<span className="mini" onClick={() => openBuild(b.id)} title={t('Open Develop \u2014 refine or re-send to production')}><svg className="ico" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" /></svg>{t('Develop')}</span></>) : (<><span className="mini" onClick={() => openBuild(b.id)}><svg className="ico" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" /></svg>{t('Open')}</span>{(st === 'GREENLIT' || st === 'REVIEW') ? (<span className="mini gold" onClick={() => openModal(b)}><svg className="ico" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14" /></svg>{t('Promote to project')}</span>) : null}</>)}
                       <span className="mini" onClick={() => openSettings(b)} title={t('View saved settings (read-only)')}><svg className="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" /><path d="M19.4 13a7 7 0 000-2l2-1.5-2-3.4-2.3 1a7 7 0 00-1.7-1L15 3h-4l-.4 2.6a7 7 0 00-1.7 1l-2.3-1-2 3.4L6.6 11a7 7 0 000 2l-2 1.5 2 3.4 2.3-1a7 7 0 001.7 1L11 21h4l.4-2.6a7 7 0 001.7-1l2.3 1 2-3.4z" /></svg>{t('Settings')}</span>
-                      {/* TWO ACTIONS WHERE THERE WAS ONE. Archive is neutral and destroys nothing;
-                          Delete is red and starts a 30-day countdown. A single ✖ meaning both is how
-                          work ends up in the bin only because there was nowhere else to put it. */}
-                      <span className="mini" style={{ marginInlineStart: 'auto' }} onClick={() => doArchive(b)} title={t('Keep indefinitely, off the board. No countdown, never swept.')}><svg className="ico" viewBox="0 0 24 24"><path d="M3 7h18v13H3zM3 7l2-4h14l2 4M9 12h6" /></svg>{t('Archive')}</span>
-                      <span className="mini" title={t('Move to bin — deleted after 30 days')} onClick={() => setConfirm({ kind: 'delete', b })} style={{ color: '#e5635f', borderColor: 'rgba(229,99,95,.4)' }}>✖ {t('Delete')}</span>
                     </>)}
                   </div>
                 </div>

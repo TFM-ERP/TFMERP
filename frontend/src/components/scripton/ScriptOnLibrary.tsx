@@ -1,6 +1,7 @@
 'use client';
 /** ScriptON Doctor — Script Library (carbon-copy of design/library.html). Slate of scripts as cinematic cards.
  *  Self-contained, namespaced `.sx`. Bound to masterScriptApi.list. */
+import CardActions, { CARD_ACTIONS_CSS, ICON_TRASH } from './CardActions';
 import React from 'react';
 import { SxRail } from './ScriptOnStudio';
 import { useLocale } from '@/lib/i18n';
@@ -8,7 +9,7 @@ import ScriptonTopBar from '@/components/scripton/topbar/ScriptonTopBar';
 
 export type SxCard = { id: string; title: string; type: string; typeColor: string; rev: string; revColor: string; pages: string; grade: string; gradeColor: string; updated: string; cover: string };
 
-const CSS = `
+const CSS = CARD_ACTIONS_CSS + `
 .sx{--bg:#0b0c0f;--panel:#14161c;--panel2:#1a1d24;--hair:rgba(255,255,255,.07);--hair2:rgba(255,255,255,.13);--gold:#C6A463;--gold2:#E6D2A2;--goldink:#1a1509;--cream:#F4EEE0;--text:#E8E6E0;--mute:#9aa1ab;--faint:#6b727d;--blue:#5b8def;--green:#57b368;--amber:#e0a23b;--violet:#8b7cf0;--pink:#d6649a;--red:#e5635f;position:relative;display:flex;flex-direction:column;height:100%;background:radial-gradient(1200px 600px at 50% -8%,#15171d,#0b0c0f 60%);color:var(--text);font-family:var(--sx-body);-webkit-font-smoothing:antialiased;overflow:hidden}
 .sx *{box-sizing:border-box;margin:0;padding:0}
 .sx:before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(700px 280px at 72% -6%,rgba(198,164,99,.09),transparent 70%);z-index:0}
@@ -57,9 +58,16 @@ const CSS = `
 .sx .libactions{display:flex;align-items:center;gap:8px;flex:none}
 .sx .libactions .search{min-width:210px}
 /* delete affordance reveals on hover and swaps with the revision pill (no overlap) */
-.sx .cardx{position:absolute;top:10px;inset-inline-end:12px;width:26px;height:26px;border-radius:8px;background:rgba(0,0,0,.55);border:1px solid rgba(240,163,160,.4);color:#f0a3a0;display:grid;place-items:center;font-size:12px;cursor:pointer;opacity:0;transition:opacity .12s;z-index:2}
-.sx .scard:hover .cardx{opacity:1}
-.sx .scard:hover .pill.rev{opacity:0}
+/* The open action is a real button stretched over the card: click anywhere, and the keyboard
+   reaches it. The icon cluster layers above it on z-index. */
+.sx .scard{position:relative}
+.sx .scard-open{position:absolute;inset:0;z-index:1;width:100%;height:100%;padding:0;margin:0;background:transparent;border:0;cursor:pointer;border-radius:inherit}
+.sx .scard-open:focus-visible{outline:2px solid #C6A463;outline-offset:-2px}
+.sx .scard > .cover,.sx .scard > .b{position:relative;z-index:0;pointer-events:none}
+/* THE REVISION PILL MOVES OFF THE TOP-INLINE-END CORNER, which the always-visible cluster now owns.
+   It sits at the BOTTOM of the cover instead, and no longer fades on hover — the two never
+   overlap, so neither has to hide the other. */
+.sx .pill.rev{top:auto;bottom:10px;inset-inline-end:10px}
 `;
 
 const RAIL: { k: string; lbl: string; d: React.ReactNode }[] = [
@@ -97,14 +105,22 @@ export default function ScriptOnLibrary(props: {
             <div className="filters">{props.filters.map((f) => (<button key={f} className={'chip' + (f === props.activeFilter ? ' on' : '')} onClick={() => props.onFilter(f)}>{t(f)}</button>))}<span style={{ marginInlineStart: 'auto' }} className="meta">{t('Sorted by recently updated')}</span></div>
             <div className="cardgrid">
               {props.cards.map((c) => (
-                <button className="scard" key={c.id} onClick={() => props.onOpen(c.id)}>
+                <div className="scard" key={c.id}>
+                  {/* THE OPEN ACTION IS STILL A REAL BUTTON, stretched over the whole card, so
+                      clicking anywhere still opens it AND the keyboard still reaches it. The card
+                      itself is a div only so the icon buttons can layer above without nesting. */}
+                  <button type="button" className="scard-open" onClick={() => props.onOpen(c.id)}
+                    aria-label={t('Open') + ' ' + c.title} />
                   <div className="cover" style={{ background: c.cover, position: 'relative' }}>
                     <span className="badge" style={{ background: 'rgba(255,255,255,.10)', color: c.typeColor }}>{c.type}</span>
                     <span className="pill rev" style={{ background: 'rgba(0,0,0,.35)', color: c.revColor }}><span className="d" style={{ background: c.revColor }} />{c.rev}</span>
-                    {props.onDelete && props.canDelete && props.canDelete(c.id) ? <span onClick={(e) => { e.stopPropagation(); props.onDelete!(c.id); }} title={t('Move to bin')} className="cardx">{'\u2715'}</span> : null}
+
                   </div>
+                  {props.onDelete && props.canDelete && props.canDelete(c.id)
+                    ? <CardActions actions={[{ key: 'del', icon: ICON_TRASH, label: t('Move to bin'), danger: true, onClick: () => props.onDelete!(c.id) }]} />
+                    : null}
                   <div className="b"><div className="ti2">{c.title}</div><div className="mrow"><span>{c.pages}</span><span>·</span><span style={{ color: c.gradeColor, fontWeight: 700 }}>{c.grade}</span><span style={{ marginInlineStart: 'auto' }}>{c.updated}</span></div></div>
-                </button>
+                </div>
               ))}
               <button className="scard add" onClick={props.onNew}><div className="plus"><svg className="ico" viewBox="0 0 24 24" style={{ width: 22, height: 22 }}><path d="M12 5v14M5 12h14" /></svg></div><div style={{ fontSize: 13, fontWeight: 600 }}>{t('New · Import · Develop')}</div></button>
             </div>
