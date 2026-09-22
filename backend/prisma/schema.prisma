@@ -122,6 +122,17 @@ enum PaymentMethod {
   ONLINE
 }
 
+enum PaymentSource {
+  COMPANY_BANK
+  CASH_ON_HAND
+  OWNER // paid personally by the GM — credits 2400 Owner Account
+}
+
+enum AccountOwnership {
+  COMPANY
+  OWNER // the GM's personal account; never offered on invoices/quotations
+}
+
 enum PaymentStatus {
   PENDING
   CLEARED
@@ -437,6 +448,8 @@ model BankAccount {
   isDefaultInvoice   Boolean  @default(false)
   isDefaultQuotation Boolean  @default(false)
   isDefaultReceiving Boolean  @default(false)
+  ownership          AccountOwnership @default(COMPANY)
+  cardLast4          String? // last 4 digits only, for matching card slips
 
   // Dedicated production account â€” one project's audit-trail bank (ADFC & co.).
   // null = company account. The incentive claim tracker blocks when the applied
@@ -749,11 +762,19 @@ model Payment {
   reference   String? // Cheque no. / transfer ref
   notes       String?
 
+  // Supplier side — where the money came from and what the slip printed.
+  paidFrom           PaymentSource? // PAYMENT direction only; null on receipts
+  feeAmount          Decimal?       @db.Decimal(15, 2) // fee on the slip → 6500
+  beneficiary        String? // as printed on the slip
+  beneficiaryAccount String? // IBAN / account as printed
+  payerAccountRef    String? // payer IBAN or card last 4 as printed
+
   clearedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([reference])
   @@map("payments")
 }
 
