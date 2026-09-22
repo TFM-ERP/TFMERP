@@ -30,11 +30,30 @@ export class ScriptService {
     return { ...doc, revisions };
   }
 
-  async list(projectId: string) {
+  /**
+   * THE SLATE'S THREE STATES, the same shape builds already use.
+   *
+   *   active   (default)  both null — on the board
+   *   archived            deletedAt null, archivedAt set — off the board, indefinite, never swept
+   *   bin                 deletedAt set — 30-day countdown
+   *
+   * `view` defaults to active, so the fifteen existing callers of this endpoint keep the list they
+   * had: every one of them passes no view, and each is a "pick the project's current script" or a
+   * board of live work. None of them should resolve to something the user has put away.
+   */
+  async list(projectId: string, view: 'active' | 'archived' | 'bin' = 'active') {
     void this.purgeExpiredDocs();
+    const where: any = { projectId };
+    if (view === 'bin') where.deletedAt = { not: null };
+    else if (view === 'archived') { where.deletedAt = null; where.archivedAt = { not: null }; }
+    else { where.deletedAt = null; where.archivedAt = null; }
+    // Each view is ordered by the date that MEANS something in it: the bin by when it was binned
+    // (the countdown the user is reading), the archived shelf by when it was put away, the active
+    // board by when it was made.
+    const orderBy: any = view === 'bin' ? { deletedAt: 'desc' } : view === 'archived' ? { archivedAt: 'desc' } : { createdAt: 'desc' };
     const docs = await this.prisma.scriptDocument.findMany({
-      where: { projectId, deletedAt: null } as any,
-      orderBy: { createdAt: 'desc' },
+      where: where as any,
+      orderBy,
       include: { revisions: { orderBy: { createdAt: 'desc' }, select: { id: true, revisionLabel: true, revisionColor: true, revisionRound: true, pageCount: true, createdAt: true } } },
     });
     return docs.map((d: any) => this.withRevisionIdentity(d));
@@ -43,12 +62,47 @@ export class ScriptService {
     const cutoff = new Date(Date.now() - 30 * 86400000);
     await (this.prisma as any).scriptDocument.deleteMany({ where: { deletedAt: { lt: cutoff } } }).catch(() => {});
   }
-  async binList(projectId: string) {
-    const docs = await (this.prisma as any).scriptDocument.findMany({ where: { projectId, deletedAt: { not: null } }, orderBy: { deletedAt: 'desc' }, include: { revisions: { orderBy: { createdAt: 'desc' }, select: { id: true, revisionLabel: true, revisionColor: true, revisionRound: true, pageCount: true, createdAt: true } } } }).catch(() => []);
-    return (docs || []).map((d: any) => this.withRevisionIdentity(d));
+  /**
+   * ONE QUERY, NOT TWO. This was a second findMany with the same include and a different order —
+   * the shape was identical, so a change to one could silently diverge from the other. The route is
+   * kept; the body is the bin view of list().
+   */
+  async binList(projectId: string) { return this.list(projectId, 'bin'); }
+
+  /**
+   * THE FOUR TRANSITIONS ARE ONE STATE MACHINE, AND NONE OF THEM MAY REPORT SUCCESS FALSELY.
+   *
+   * Every one of these used to be `.update(...).catch(() => {})` followed by `return { ok: true }`,
+   * so a write that never happened — a deleted id, a dropped connection, a constraint — answered
+   * the UI with ok. Both callers (library page doRestore and doConf) already wrap these in
+   * try/catch and flash a failure message, so the error had somewhere to go the whole time; it was
+   * being swallowed one layer below the hand that would have shown it.
+   *
+   * EXCLUSIVITY IS A PROPERTY OF THE WRITES, not a rule someone has to remember. Every transition
+   * sets BOTH columns, so a document can never be archived and binned at once, and no reader has to
+   * defend against a state the writer cannot produce.
+   */
+  private async setDocState(id: string, data: Record<string, any>): Promise<void> {
+    try {
+      await (this.prisma as any).scriptDocument.update({ where: { id }, data });
+    } catch (e: any) {
+      // P2025 is Prisma's "record to update not found" — the one failure that is the caller's
+      // fault rather than the system's, and the only one worth translating.
+      if (e && e.code === 'P2025') throw new NotFoundException('Script not found: ' + id);
+      throw e;
+    }
   }
-  async trashDocument(id: string) { await (this.prisma as any).scriptDocument.update({ where: { id }, data: { deletedAt: new Date() } }).catch(() => {}); return { ok: true }; }
-  async restoreDocument(id: string) { await (this.prisma as any).scriptDocument.update({ where: { id }, data: { deletedAt: null } }).catch(() => {}); return { ok: true }; }
+
+  /** Trash clears archivedAt: a binned slate that stayed archived would be invisible to the bin
+   *  view that is now counting it down. */
+  async trashDocument(id: string) { await this.setDocState(id, { deletedAt: new Date(), archivedAt: null }); return { ok: true }; }
+  /** Archive clears deletedAt: rescuing something from the bin by archiving it must stop the
+   *  countdown. purgeExpiredDocs is keyed on deletedAt, so an archived document is structurally
+   *  unreachable by the sweep rather than merely excluded from it. */
+  async archiveDocument(id: string) { await this.setDocState(id, { archivedAt: new Date(), deletedAt: null }); return { ok: true }; }
+  /** Back onto the active board. Unarchive is not a restore: it must not touch the bin state. */
+  async unarchiveDocument(id: string) { await this.setDocState(id, { archivedAt: null }); return { ok: true }; }
+  async restoreDocument(id: string) { await this.setDocState(id, { deletedAt: null }); return { ok: true }; }
 
   async createDocument(projectId: string, body: any, userId?: string) {
     if (!body?.title) throw new BadRequestException('A script title is required.');
