@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../common/prisma/prisma.service';
 import { revenueAccountFor, REVENUE_LINES, POSTABLE_INVOICE_STATUSES } from './revenue-mapping.util';
 import { expenseAccountCode } from './expense-mapping.util';
+import { paymentLines } from './payment-posting.util';
 
 type GlType = 'ASSET' | 'LIABILITY' | 'EQUITY' | 'INCOME' | 'EXPENSE';
 
@@ -479,26 +480,31 @@ export class AccountingService {
     // else. Account 2000 ended up with 151 credits and zero debits while the bank
     // statements proved the suppliers had been paid. A supplier payment relieves
     // the payable and takes the money out of the bank; a receipt does the reverse.
-    const pays = await this.prisma.payment.findMany();
+    //
+    // Where a supplier payment's money came from is `paidFrom` — company bank (1010),
+    // cash on hand (1000) or the GM personally (2400); see payment-posting.util.ts.
+    // Until 22 Sep 2026 every supplier payment credited 1010 regardless. A payment whose
+    // source cannot be told is skipped and returned in `unresolvedPayments`, never guessed.
+    const pays = await this.prisma.payment.findMany({ include: { bankAccount: { select: { ownership: true } } } });
+    const unresolvedPayments: string[] = [];
     for (const p of pays) {
       if (done.has(`PAYMENT:${p.id}`)) continue;
-      const amount = Number(p.amount);
-      const lines =
-        p.direction === 'PAYMENT'
-          ? [
-              { code: '2000', debit: amount, desc: 'Accounts Payable' },
-              { code: '1010', credit: amount, desc: 'Bank' },
-            ]
-          : [
-              { code: '1010', debit: amount, desc: 'Bank' },
-              { code: '1100', credit: amount, desc: 'Accounts Receivable' },
-            ];
+      const lines = paymentLines({
+        direction: p.direction === 'PAYMENT' ? 'PAYMENT' : 'RECEIPT',
+        amount: Number(p.amount),
+        feeAmount: p.feeAmount == null ? null : Number(p.feeAmount),
+        method: p.method,
+        paidFrom: p.paidFrom ?? null,
+        bankOwnership: p.bankAccount?.ownership ?? null,
+      });
+      if (!lines) { unresolvedPayments.push(p.paymentNumber); continue; }
       const label = p.direction === 'PAYMENT' ? 'Supplier payment' : 'Payment';
-      if (await this.je((p as any).paymentDate || p.createdAt, `${label} ${p.paymentNumber}`, 'PAYMENT', p.id, lines, map))
+      const memo = p.direction === 'PAYMENT' && p.reference ? `${label} ${p.paymentNumber} — ${p.reference}` : `${label} ${p.paymentNumber}`;
+      if (await this.je(p.paymentDate || p.createdAt, memo, 'PAYMENT', p.id, lines, map))
         payments++;
     }
 
-    return { invoices, expenses, payments };
+    return { invoices, expenses, payments, unresolvedPayments };
   }
 
   // ── Burden GL mapping ─────────────────────────────────────────────────────────
