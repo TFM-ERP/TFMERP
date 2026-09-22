@@ -103,3 +103,7 @@ Claude outputs/
 
 # Verification builds — kept out of .next so they never trample a running dev server
 frontend/.next-verify/
+
+# tesseract.js language models, downloaded on first OCR run
+backend/*.traineddata
+backend/uploads/tmp-slips/

@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Post, Param, Query, Body, UseGuards, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Patch, Post, Param, Query, Body, Req, UseGuards, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiConsumes } from '@nestjs/swagger';
 import { diskStorage } from 'multer';
@@ -6,6 +6,7 @@ import { extname } from 'path';
 import { randomUUID } from 'crypto';
 import { PaymentsService } from './payments.service';
 import { SlipReaderService, SLIP_TMP_DIR } from './slip-reader.service';
+import { SupplierPaymentsService, RecordPaymentDto } from './supplier-payments.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../permissions/permissions.guard';
 import { RequirePermission } from '../../permissions/require-permission.decorator';
@@ -17,7 +18,20 @@ import { PaymentStatus } from '@prisma/client';
 @RequirePermission('finance', 1)
 @Controller('finance/payments')
 export class PaymentsController {
-  constructor(private service: PaymentsService, private slips: SlipReaderService) {}
+  constructor(private service: PaymentsService, private slips: SlipReaderService, private supplier: SupplierPaymentsService) {}
+
+  /** Payments recorded against one expense, with their slips and what is still unpaid. */
+  @Get('expense/:expenseId')
+  @ApiOperation({ summary: "An expense's supplier payments, slips and unpaid balance" })
+  listForExpense(@Param('expenseId') expenseId: string) { return this.supplier.list(expenseId); }
+
+  /** Payment + slip + ledger entry, in one transaction. */
+  @Post('expense/:expenseId')
+  @RequirePermission('finance', 2)
+  @ApiOperation({ summary: 'Record a supplier payment against an expense (payment, slip and journal entry together)' })
+  record(@Param('expenseId') expenseId: string, @Body() dto: RecordPaymentDto, @Req() req: any) {
+    return this.supplier.record(expenseId, dto, req?.user?.id);
+  }
 
   /** Reads a payment slip and proposes the form's fields. Saves nothing but the temporary file. */
   @Post('read-slip')
