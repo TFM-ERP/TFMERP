@@ -7,8 +7,16 @@ import { UpdateBankAccountDto } from './dto/update-bank-account.dto';
 export class BankAccountsService {
   constructor(private prisma: PrismaService) {}
 
-  async findAll() {
+  /**
+   * Company accounts only, unless asked for everything.
+   *
+   * An OWNER account is the GM's own — it exists solely to record a payment he made
+   * himself, and must never be offered as the account to be paid into on an invoice
+   * or a quotation. Only the record-payment form asks for `includeOwner`.
+   */
+  async findAll(includeOwner = false) {
     return this.prisma.bankAccount.findMany({
+      where: includeOwner ? {} : { ownership: 'COMPANY' },
       orderBy: [{ isDefaultInvoice: 'desc' }, { bankName: 'asc' }],
     });
   }

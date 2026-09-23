@@ -88,6 +88,8 @@ export class CompanyService {
       bankAddress: b.bankAddress,
       isDefault: b.isDefaultInvoice,
       isActive: b.isActive,
+      ownership: b.ownership,
+      cardLast4: b.cardLast4,
     };
   }
 
@@ -97,18 +99,27 @@ export class CompanyService {
       if (data[k] !== undefined) out[k] = data[k] || undefined;
     }
     if (data.swift !== undefined) out.swiftCode = data.swift || undefined;
+    if (data.ownership === 'COMPANY' || data.ownership === 'OWNER') out.ownership = data.ownership;
+    if (data.cardLast4 !== undefined) out.cardLast4 = /^\d{4}$/.test(String(data.cardLast4)) ? String(data.cardLast4) : null;
     return out;
   }
 
-  async listBankAccounts() {
+  /**
+   * Company accounts only, unless asked for everything. An OWNER account is the GM's
+   * own and exists solely to record payments he made himself; it must never appear as
+   * the account to be paid into on an invoice or a quotation. Only the bank-account
+   * settings screen and the record-payment form ask for `includeOwner`.
+   */
+  async listBankAccounts(includeOwner = false) {
     const rows = await this.prisma.bankAccount.findMany({
-      where: { isActive: true },
+      where: { isActive: true, ...(includeOwner ? {} : { ownership: 'COMPANY' as const }) },
       orderBy: [{ isDefaultInvoice: 'desc' }, { bankName: 'asc' }],
     });
     return rows.map((b) => this.mapBank(b));
   }
 
   async createBankAccount(data: any) {
+    if (data?.ownership === 'OWNER') data = { ...data, isDefault: false }; // a personal account is never a default
     if (data?.isDefault) {
       await this.prisma.bankAccount.updateMany({ data: { isDefaultInvoice: false, isDefaultQuotation: false } });
     }

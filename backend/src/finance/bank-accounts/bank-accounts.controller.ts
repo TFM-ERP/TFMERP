@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { BankAccountsService } from './bank-accounts.service';
 import { CreateBankAccountDto } from './dto/create-bank-account.dto';
@@ -17,7 +17,9 @@ export class BankAccountsController {
 
   @Get()
   @ApiOperation({ summary: 'List all bank accounts' })
-  findAll() { return this.service.findAll(); }
+  findAll(@Query('includeOwner') includeOwner?: string) {
+    return this.service.findAll(includeOwner === 'true' || includeOwner === '1');
+  }
 
   @Get('defaults')
   @ApiOperation({ summary: 'Get default bank accounts for invoice/quotation/receiving' })
