@@ -4,10 +4,11 @@ import { productionApi } from '@/lib/api';
 import { resolveScriptonProjectId } from '@/components/scripton/useScriptonProject';
 import { useLocale } from '@/lib/i18n';
 import CardActions, { CARD_ACTIONS_CSS, ICON_ARCHIVE, ICON_TRASH } from './CardActions';
+import ViewSwitcher, { VIEW_SWITCHER_CSS } from './ViewSwitcher';
 
 /** Builds — name, save, switch and promote development builds. Folded into Studio as an overlay panel
  *  (was the standalone /scripton/builds). Open loads that build into Studio; Promote snapshots into a project. */
-const CSS = CARD_ACTIONS_CSS + `
+const CSS = CARD_ACTIONS_CSS + VIEW_SWITCHER_CSS + `
 .bld{--bg:#0b0c0f;--panel:#14161c;--hair:rgba(255,255,255,.07);--hair2:rgba(255,255,255,.13);--gold:#C6A463;--gold2:#E6D2A2;--goldink:#1a1509;--cream:#F4EEE0;--text:#E8E6E0;--mute:#9aa1ab;--faint:#6b727d;--green:#57b368;--blue:#5b8def;background:radial-gradient(1200px 600px at 50% -8%,#15171d,#0b0c0f 60%);min-height:100vh;color:var(--text);font-family:var(--sx-body)}
 .bld *{box-sizing:border-box}
 .bld .scr{display:flex;flex-direction:column;height:100vh;position:relative}
@@ -33,9 +34,6 @@ const CSS = CARD_ACTIONS_CSS + `
 .bld .warn{border:1px solid rgba(229,99,95,.5);background:rgba(229,99,95,.08);border-radius:12px;padding:13px 15px;display:flex;flex-direction:column;gap:5px}
 .bld .warnt{font-size:13px;font-weight:700;color:#e5635f}
 .bld .warns{font-size:11.5px;color:var(--mute);line-height:1.55}
-.bld .seg{margin-inline-start:auto;display:inline-flex;background:#15181e;border:1px solid var(--hair);border-radius:9px;padding:3px;gap:2px}
-.bld .segb{font-size:12px;font-weight:600;padding:5px 12px;border-radius:7px;cursor:pointer;color:var(--mute);white-space:nowrap}
-.bld .segb.on{color:var(--gold2);background:rgba(198,164,99,.16)}
 .bld .grid{display:grid;grid-template-columns:repeat(3,1fr);grid-auto-rows:max-content;gap:16px;align-content:start}
 /* WHY grid-auto-rows:max-content, MEASURED — do not drop it back to plain auto rows.
    Every implicit row was resolving to .bc's min-height floor (180px on the live board, 214.925px in
@@ -430,7 +428,7 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
         <div className="body">
           <div className="main">
             <div className="phead"><h1>{t('Builds')}</h1><div className="sub">{t('Name, save and switch development builds. Open loads a build into Studio; promote a finished build into a project.')}</div></div>
-            <div className="tbar">{(bin ? [] : ['All', 'Draft', 'Review', 'Greenlit', 'Promoted']).map((c) => (<span key={c} className={'chip' + (filter === c ? ' on' : '')} onClick={() => setFilter(c)}>{t(c)}</span>))}<span className="seg">{([['active', t('Active')], ['archived', '▤ ' + t('Archived')], ['bin', '✖ ' + t('Bin')]] as const).map(([v, label]) => (<span key={v} className={'segb' + (view === v ? ' on' : '')} onClick={() => switchView(v as any)}>{label}</span>))}</span></div>
+            <div className="tbar">{(bin ? [] : ['All', 'Draft', 'Review', 'Greenlit', 'Promoted']).map((c) => (<span key={c} className={'chip' + (filter === c ? ' on' : '')} onClick={() => setFilter(c)}>{t(c)}</span>))}<ViewSwitcher view={view} onView={(v) => switchView(v)} t={t} /></div>
             <div className="sections">
               {/* A state grid, and ONLY when there is a state. Left unconditional by the sections
                   change, this rendered an empty <div class="grid"> above every populated board. */}

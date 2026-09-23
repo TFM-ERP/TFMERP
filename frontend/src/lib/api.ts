@@ -845,10 +845,13 @@ export const productionApi = {
     removeRequest: (id: string) => api.delete(`/production/script-readiness/requests/${id}`),
   },
   script: {
-    list: (projectId: string) => api.get(`/production/script/project/${projectId}`),
+    // `view` is optional: omitting it keeps the active-only list every existing caller expects.
+    list: (projectId: string, view?: 'active' | 'archived' | 'bin') => api.get(`/production/script/project/${projectId}`, view ? { params: { view } } : undefined),
     binList: (projectId: string) => api.get(`/production/script/project/${projectId}/bin`),
     trash: (id: string) => api.post(`/production/script/document/${id}/trash`, {}),
     restore: (id: string) => api.post(`/production/script/document/${id}/restore`, {}),
+    archive: (id: string) => api.post(`/production/script/document/${id}/archive`, {}),
+    unarchive: (id: string) => api.post(`/production/script/document/${id}/unarchive`, {}),
     remove: (id: string) => api.delete(`/production/script/document/${id}`),
     getDocument: (id: string) => api.get(`/production/script/document/${id}`),
     getRevision: (id: string) => api.get(`/production/script/revision/${id}`),
