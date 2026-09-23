@@ -194,6 +194,18 @@ export const financeApi = {
     categories: () => api.get('/finance/expenses/categories'),
   },
 
+  // Supplier payments against an expense (payment + slip + journal entry)
+  supplierPayments: {
+    list: (expenseId: string) => api.get(`/finance/payments/expense/${expenseId}`),
+    record: (expenseId: string, data: any) => api.post(`/finance/payments/expense/${expenseId}`, data),
+    readSlip: (file: File, expenseId?: string) => {
+      const fd = new FormData();
+      fd.append('file', file);
+      if (expenseId) fd.append('expenseId', expenseId);
+      return api.post('/finance/payments/read-slip', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+    },
+  },
+
   // Suppliers
   suppliers: {
     list:             (params?: any)                        => api.get('/finance/suppliers', { params }),
