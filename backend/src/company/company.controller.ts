@@ -47,8 +47,10 @@ export class CompanyController {
 
   // Bank accounts
   @Get('bank-accounts')
-  listBankAccounts() {
-    return this.service.listBankAccounts();
+  listBankAccounts(@Query('includeOwner') includeOwner?: string) {
+    // Company accounts only, unless the caller is the settings screen or the
+    // record-payment form; the GM's personal account is never an invoice account.
+    return this.service.listBankAccounts(includeOwner === 'true' || includeOwner === '1');
   }
 
   @Post('bank-accounts')

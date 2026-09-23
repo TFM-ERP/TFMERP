@@ -64,7 +64,8 @@ export function ExpensePayments({ expenseId, onChanged }: { expenseId: string; o
 
   const load = useCallback(async () => {
     try {
-      const [p, b] = await Promise.all([financeApi.supplierPayments.list(expenseId), financeApi.bankAccounts.list()]);
+      // includeOwner: the GM's own account has to be selectable when he paid personally.
+      const [p, b] = await Promise.all([financeApi.supplierPayments.list(expenseId), financeApi.bankAccounts.list(true)]);
       setData(p.data);
       setBanks(b.data || []);
       setListError(null);

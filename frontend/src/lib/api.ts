@@ -121,7 +121,8 @@ export const financeApi = {
 
   // Bank accounts
   bankAccounts: {
-    list: () => api.get('/finance/bank-accounts'),
+    /** Company accounts only; pass true for the record-payment form, which also needs the owner's own account. */
+    list: (includeOwner = false) => api.get('/finance/bank-accounts', { params: includeOwner ? { includeOwner: true } : {} }),
     defaults: () => api.get('/finance/bank-accounts/defaults'),
     create: (data: any) => api.post('/finance/bank-accounts', data),
     update: (id: string, data: any) => api.put(`/finance/bank-accounts/${id}`, data),
@@ -1451,7 +1452,8 @@ export const companyApi = {
   expiryAlerts:  (days?: number)             => api.get('/company/expiry-alerts', { params: days ? { days } : undefined }),
   // Bank accounts
   bankAccounts: {
-    list:   ()                        => api.get('/company/bank-accounts'),
+    /** Company accounts only; the bank-account settings screen passes true to see personal ones too. */
+    list:   (includeOwner = false)    => api.get('/company/bank-accounts', { params: includeOwner ? { includeOwner: true } : {} }),
     create: (data: any)               => api.post('/company/bank-accounts', data),
     update: (id: string, data: any)   => api.put(`/company/bank-accounts/${id}`, data),
     remove: (id: string)              => api.delete(`/company/bank-accounts/${id}`),

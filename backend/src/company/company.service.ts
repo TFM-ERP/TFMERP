@@ -44,7 +44,9 @@ export class CompanyService {
         include: { locations: true, documents: true },
       });
     }
-    const bankAccounts = await this.listBankAccounts();
+    // The company profile feeds the settings screen, where the owner's own accounts
+    // must be visible and editable; invoice and quotation pickers use the filtered list.
+    const bankAccounts = await this.listBankAccounts(true);
     return { ...profile, bankAccounts };
   }
 
