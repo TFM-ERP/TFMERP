@@ -41,8 +41,21 @@ export default function ScriptOnLibraryPage() {
   const [projectId, setProjectId] = useState<string | null>(null);
   const [docIds, setDocIds] = useState<Set<string>>(new Set());
   const [buildIds, setBuildIds] = useState<Set<string>>(new Set());
-  const [binOpen, setBinOpen] = useState(false);
-  const [binItems, setBinItems] = useState<any[]>([]);
+  const [view, setView] = useState<'active' | 'archived' | 'bin'>('active');
+  // EMPTY AND ERROR ARE DIFFERENT STATES. A failed load sets this; it is never rendered as an
+  // empty shelf, because "nothing here" and "we could not look" are opposite facts.
+  const [loadErr, setLoadErr] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  /** The documents as the server sent them — the cards are a display shape and drop deletedAt,
+   *  which the bin's countdown needs. */
+  const [raw, setRaw] = useState<any[]>([]);
+  /** DEFECT 2's guard, copied from ScriptOnBuildsPanel:208-216. setView applies immediately while
+   *  setCards waits on the await, so without this the bin's Delete forever renders over live
+   *  scripts for the length of the request, and a slow first response can land after a fast
+   *  second one. */
+  const reqRef = useRef(0);
+  const mountedRef = useRef(true);
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
   const [conf, setConf] = useState<any | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const toastT = useRef<any>(null);
@@ -103,17 +116,8 @@ export default function ScriptOnLibraryPage() {
             const sr: any = await productionApi.script.list(proj.id);
             const sdocs: any[] = Array.isArray(sr.data) ? sr.data : (sr.data?.items ?? []);
             if (alive && sdocs.length) {
-              const dev: SxCard[] = sdocs.map((m: any, i: number): SxCard => {
-                const latest = (m.revisions || [])[0] || {};
-                const type = String(m.kind || 'SCRIPT');
-                return {
-                  id: m.id || ('d' + i), title: m.title || 'Untitled',
-                  type: (type === 'SCRIPT' ? 'FEATURE' : type).toUpperCase().slice(0, 12), typeColor: typeColor(type),
-                  rev: String(m.activeRevisionLabel || latest.revisionLabel || 'WHITE').toUpperCase().slice(0, 10), revColor: latest.colorCode || '#cfd3da',
-                  pages: (m.pageCount || latest.pageCount) ? ((m.pageCount || latest.pageCount) + ' pp') : '\u2014',
-                  grade: '\u2014', gradeColor: 'var(--faint)', updated: rel(m.updatedAt || m.createdAt), cover: COVERS[i % COVERS.length],
-                };
-              });
+              const dev: SxCard[] = sdocs.map(toCard);
+
               setDocIds(new Set(dev.map((d) => d.id)));
               setCards((prev) => { const base = (prev === SAMPLE) ? [] : prev; const ids = new Set(dev.map((d) => d.id)); return [...dev, ...base.filter((c) => !ids.has(c.id))]; });
             }
@@ -167,13 +171,98 @@ export default function ScriptOnLibraryPage() {
     flash(`${k[0].toUpperCase() + k.slice(1)} ${t('is a later screen in the build order.')}`);
   };
 
+  /** ONE card shape, used by the first load and by every view reload — lifted out of the effect
+   *  so the two cannot drift. Body unchanged from the inline version it replaces. */
+  const toCard = (m: any, i: number): SxCard => {
+                const latest = (m.revisions || [])[0] || {};
+                const type = String(m.kind || 'SCRIPT');
+                return {
+                  id: m.id || ('d' + i), title: m.title || 'Untitled',
+                  type: (type === 'SCRIPT' ? 'FEATURE' : type).toUpperCase().slice(0, 12), typeColor: typeColor(type),
+                  rev: String(m.activeRevisionLabel || latest.revisionLabel || 'WHITE').toUpperCase().slice(0, 10), revColor: latest.colorCode || '#cfd3da',
+                  pages: (m.pageCount || latest.pageCount) ? ((m.pageCount || latest.pageCount) + ' pp') : '\u2014',
+                  grade: '\u2014', gradeColor: 'var(--faint)', updated: rel(m.updatedAt || m.createdAt), cover: COVERS[i % COVERS.length],
+                };
+              };
+
+  /** Load the view being looked at. Every action calls this, so the board a user is on is the
+   *  board that refreshes — not always the active one. */
+  const loadView = async (pid: string, v: 'active' | 'archived' | 'bin') => {
+    const token = ++reqRef.current;
+    const live = () => mountedRef.current && token === reqRef.current;
+    setLoading(true); setLoadErr(null);
+    try {
+      const sr: any = await productionApi.script.list(pid, v);
+      if (!live()) return;
+      const sdocs: any[] = Array.isArray(sr.data) ? sr.data : (sr.data?.items ?? []);
+      const docs = sdocs.map(toCard);
+      setDocIds(new Set(sdocs.map((m: any) => m.id)));
+      setRaw(sdocs);
+      // DEFECT 1. The mount effect MERGES: the slate is documents (:122) PLUS development builds
+      // (:106) PLUS master scripts (:66). Replacing wholesale dropped everything that was not a
+      // document until a page reload.
+      //
+      // THE PREDICATE SUBTRACTS DOCUMENTS RATHER THAN ENUMERATING SOURCES. `docIds` here is the
+      // PRE-update set — setDocIds has been called but this closure still holds the old one — so a
+      // card that WAS a document and is absent from the new list has left the active view and
+      // goes; anything that was never a document stays. A master script is a different entity from
+      // a script document (master-script.service.ts:147 linkToProject creates the document with a
+      // fresh id, so the ids never coincide), and naming the sources is what dropped them: the
+      // next source added would be dropped too.
+      //
+      // Archived and bin replace outright — they are DOCUMENT views, and a build or a master
+      // script has no business on a script bin.
+      if (v === 'active') {
+        setCards((prev) => {
+          const base = (prev === SAMPLE) ? [] : prev;
+          const ids = new Set(docs.map((d) => d.id));
+          return [...docs, ...base.filter((c) => !ids.has(c.id) && !docIds.has(c.id))];
+        });
+      } else {
+        setCards(docs);
+      }
+    } catch (e: any) {
+      if (!live()) return;
+      // The server's own words, not a generic toast — a refused action must say what refused it.
+      setLoadErr(e?.response?.data?.message || t('The scripts could not be loaded.'));
+      setCards([]); setDocIds(new Set()); setRaw([]);
+    } finally { if (live()) setLoading(false); }
+  };
+  /** DEFECT 3. The chips are hidden on archived and bin, but activeFilter and search still filter
+   *  `shown` — so "Bin is empty" could render over a bin that is not, with the cause invisible.
+   *  ScriptOnBuildsPanel:224 resets the filter on switch; the search is cleared for the same
+   *  reason. */
+  const switchView = (v: 'active' | 'archived' | 'bin') => {
+    setView(v); setActiveFilter('All'); setSearch('');
+    if (projectId) void loadView(projectId, v);
+  };
+  const reload = () => { if (projectId) void loadView(projectId, view); };
+  /** One place for every action: run it, say what the server said if it refuses, reload THIS view. */
+  const act = async (fn: () => Promise<any>, okMsg: string, failMsg: string) => {
+    try { await fn(); flash(t(okMsg)); reload(); }
+    catch (e: any) { flash(e?.response?.data?.message || t(failMsg)); }
+  };
+
   const binDaysLeft = (d?: string) => { if (!d) return 30; const ms = new Date(d).getTime() + 30 * 86400000 - Date.now(); return Math.max(0, Math.ceil(ms / 86400000)); };
-  const loadBin = async () => { if (!projectId) { setBinItems([]); return; } try { const r: any = await productionApi.script.binList(projectId); setBinItems(Array.isArray(r.data) ? r.data : []); } catch { setBinItems([]); } };
   const onCardDelete = (id: string) => { const c = cards.find((x) => x.id === id); setConf({ kind: 'delete', id, title: c ? c.title : t('this script') }); };
-  const openBin = () => { setBinOpen(true); loadBin(); };
-  const doRestore = async (id: string) => { try { await productionApi.script.restore(id); setBinItems((b) => b.filter((x) => x.id !== id)); flash(t('Restored - reload to see it in the library.')); } catch { flash(t('Could not restore.')); } };
-  const doConf = async () => { const c = conf; setConf(null); if (!c) return; try { if (c.kind === 'purge') { await productionApi.script.remove(c.id); setBinItems((b) => b.filter((x) => x.id !== c.id)); flash(t('Deleted forever.')); } else { await productionApi.script.trash(c.id); setCards((cc) => cc.filter((x) => x.id !== c.id)); setDocIds((sset) => { const n = new Set(sset); n.delete(c.id); return n; }); flash(t('Moved to bin.')); } } catch { flash(t('Action failed.')); } };
-  const common = { meta: `${cards.length} ${t('scripts across the slate')}`, filters: FILTERS, activeFilter, onFilter: setActiveFilter, search, onSearch: setSearch, cards: shown, onOpen: (id: string) => router.push(buildIds.has(id) ? ('/scripton/studio?build=' + id) : docIds.has(id) ? ('/scripton/package?doc=' + id) : '/scripton/reader'), onNew: () => setAdding(true), onNav, onBack, toast, onDelete: onCardDelete, canDelete: (id: string) => docIds.has(id), onBin: openBin };
+  const doRestore = (id: string) => act(() => productionApi.script.restore(id), 'Restored.', 'Restore failed.');
+  const doArchive = (id: string) => act(() => productionApi.script.archive(id), 'Archived.', 'Archive failed.');
+  const doUnarchive = (id: string) => act(() => productionApi.script.unarchive(id), 'Back on the board.', 'Unarchive failed.');
+  /** The only confirmed actions: Move to bin (reversible but a countdown starts) and Delete
+   *  forever (irreversible). Both reload the view being looked at, and a refusal shows what the
+   *  server said rather than a generic shrug. */
+  const doConf = async () => {
+    const c = conf; setConf(null); if (!c) return;
+    if (c.kind === 'purge') await act(() => productionApi.script.remove(c.id), 'Deleted forever.', 'Delete failed.');
+    else await act(() => productionApi.script.trash(c.id), 'Moved to bin.', 'Action failed.');
+  };
+  const common = { meta: `${shown.length} ${t('scripts across the slate')}`, filters: FILTERS, activeFilter, onFilter: setActiveFilter, search, onSearch: setSearch, cards: shown, onOpen: (id: string) => router.push(buildIds.has(id) ? ('/scripton/studio?build=' + id) : docIds.has(id) ? ('/scripton/package?doc=' + id) : '/scripton/reader'), onNew: () => setAdding(true), onNav, onBack, toast, onDelete: onCardDelete, canDelete: (id: string) => docIds.has(id),
+    view, onView: switchView, error: loadErr, onRetry: reload, loading,
+    filtering: activeFilter !== 'All' || !!search.trim(),
+    onClearFilters: () => { setActiveFilter('All'); setSearch(''); },
+    onArchive: doArchive, onUnarchive: doUnarchive, onRestore: doRestore,
+    onPurge: (id: string) => { const c = cards.find((x) => x.id === id); setConf({ kind: 'purge', id, title: c ? c.title : t('this script') }); },
+    daysLeft: (c: SxCard) => { const d = raw.find((x: any) => x.id === c.id); return d ? (binDaysLeft(d.deletedAt) + t('d left in bin')) : null; } };
   // Legacy viewport library twins retired — the new shell serves every viewport (desktop-only OS).
 
   const aBtn: React.CSSProperties = { width: '100%', textAlign: 'start', background: 'rgba(198,164,99,0.14)', color: '#C6A463', border: '1px solid rgba(198,164,99,0.30)', borderRadius: 10, padding: '10px 12px', fontSize: 12.5, cursor: 'pointer', marginTop: 8 };
@@ -185,21 +274,6 @@ export default function ScriptOnLibraryPage() {
         <ScriptOnLibrary {...common} embedded />
       </ScriptonShell>
       <input ref={fileRef} type="file" accept=".pdf,.fdx,.fountain,.txt,.docx" style={{ display: 'none' }} onChange={(e) => doImport(e.target.files?.[0])} />
-      {binOpen && (
-        <div onClick={() => setBinOpen(false)} dir={dir} style={{ position: 'fixed', inset: 0, zIndex: 72, background: 'rgba(6,7,10,0.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, fontFamily: 'var(--sx-body)' }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ width: 560, maxWidth: '100%', maxHeight: '80vh', overflow: 'auto', background: '#0e1014', border: '1px solid rgba(198,164,99,0.30)', borderRadius: 16, padding: 18, color: '#E8E6E0' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}><div style={{ fontSize: 16, fontWeight: 800, color: '#E6D2A2' }}>{t('Recycle bin · scripts')}</div><button onClick={() => setBinOpen(false)} style={{ background: 'transparent', border: 'none', color: '#8b8f98', fontSize: 18, cursor: 'pointer' }}>&times;</button></div>
-            <div style={{ fontSize: 11.5, color: '#8b8f98', marginBottom: 12 }}>{t('Deleted scripts are kept for 30 days, then permanently removed.')}</div>
-            {binItems.length ? binItems.map((d: any) => (
-              <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderTop: '1px solid rgba(255,255,255,0.07)' }}>
-                <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 13, fontWeight: 700, color: '#F3ECDD', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.title || t('Untitled')}</div><div style={{ fontSize: 10.5, color: '#6b727d' }}>{binDaysLeft(d.deletedAt)} {t('days left')}</div></div>
-                <button onClick={() => doRestore(d.id)} style={{ background: 'rgba(198,164,99,0.16)', border: '1px solid rgba(198,164,99,0.4)', color: '#E6D2A2', borderRadius: 8, padding: '6px 11px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>&#8617; {t('Restore')}</button>
-                <button onClick={() => setConf({ kind: 'purge', id: d.id, title: d.title || t('this script') })} style={{ background: 'transparent', border: '1px solid rgba(229,99,95,0.4)', color: '#e5635f', borderRadius: 8, padding: '6px 11px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>{t('Delete forever')}</button>
-              </div>
-            )) : <div style={{ fontSize: 12.5, color: '#6b727d', padding: '24px 0', textAlign: 'center' }}>{t('The bin is empty.')}</div>}
-          </div>
-        </div>
-      )}
       {conf && (
         <div onClick={() => setConf(null)} dir={dir} style={{ position: 'fixed', inset: 0, zIndex: 74, background: 'rgba(6,7,10,0.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, fontFamily: 'var(--sx-body)' }}>
           <div onClick={(e) => e.stopPropagation()} style={{ width: 440, maxWidth: '100%', background: '#0e1014', border: '1px solid rgba(198,164,99,0.30)', borderRadius: 16, padding: 18, color: '#E8E6E0' }}>

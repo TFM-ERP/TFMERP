@@ -1,7 +1,8 @@
 'use client';
 /** ScriptON Doctor — Script Library (carbon-copy of design/library.html). Slate of scripts as cinematic cards.
  *  Self-contained, namespaced `.sx`. Bound to masterScriptApi.list. */
-import CardActions, { CARD_ACTIONS_CSS, ICON_TRASH } from './CardActions';
+import CardActions, { CARD_ACTIONS_CSS, ICON_ARCHIVE, ICON_TRASH } from './CardActions';
+import ViewSwitcher, { VIEW_SWITCHER_CSS, type BoardView } from './ViewSwitcher';
 import React from 'react';
 import { SxRail } from './ScriptOnStudio';
 import { useLocale } from '@/lib/i18n';
@@ -9,7 +10,7 @@ import ScriptonTopBar from '@/components/scripton/topbar/ScriptonTopBar';
 
 export type SxCard = { id: string; title: string; type: string; typeColor: string; rev: string; revColor: string; pages: string; grade: string; gradeColor: string; updated: string; cover: string };
 
-const CSS = CARD_ACTIONS_CSS + `
+const CSS = CARD_ACTIONS_CSS + VIEW_SWITCHER_CSS + `
 .sx{--bg:#0b0c0f;--panel:#14161c;--panel2:#1a1d24;--hair:rgba(255,255,255,.07);--hair2:rgba(255,255,255,.13);--gold:#C6A463;--gold2:#E6D2A2;--goldink:#1a1509;--cream:#F4EEE0;--text:#E8E6E0;--mute:#9aa1ab;--faint:#6b727d;--blue:#5b8def;--green:#57b368;--amber:#e0a23b;--violet:#8b7cf0;--pink:#d6649a;--red:#e5635f;position:relative;display:flex;flex-direction:column;height:100%;background:radial-gradient(1200px 600px at 50% -8%,#15171d,#0b0c0f 60%);color:var(--text);font-family:var(--sx-body);-webkit-font-smoothing:antialiased;overflow:hidden}
 .sx *{box-sizing:border-box;margin:0;padding:0}
 .sx:before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(700px 280px at 72% -6%,rgba(198,164,99,.09),transparent 70%);z-index:0}
@@ -68,6 +69,14 @@ const CSS = CARD_ACTIONS_CSS + `
    It sits at the BOTTOM of the cover instead, and no longer fades on hover — the two never
    overlap, so neither has to hide the other. */
 .sx .pill.rev{top:auto;bottom:10px;inset-inline-end:10px}
+/* Empty and error share a frame but never a message — see the grid. */
+.sx .sxstate{grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:48px 16px;text-align:center}
+.sx .sxstate-t{font-size:15px;font-weight:700;color:var(--text)}
+.sx .sxstate-s{font-size:12.5px;color:var(--mute);max-width:420px;line-height:1.5}
+/* Restores live in the footer: the corner means archive or destroy, never "bring it back". */
+.sx .sxfoot{position:relative;z-index:2;display:flex;align-items:center;gap:8px;padding:0 12px 12px}
+.sx .sxdays{font-size:11.5px;color:var(--mute);margin-inline-end:auto}
+.sx .btn.sxsm{padding:5px 10px;font-size:12px}
 `;
 
 const RAIL: { k: string; lbl: string; d: React.ReactNode }[] = [
@@ -84,7 +93,20 @@ const RAIL: { k: string; lbl: string; d: React.ReactNode }[] = [
 
 export default function ScriptOnLibrary(props: {
   meta: string; filters: string[]; activeFilter: string; onFilter: (f: string) => void; search: string; onSearch: (v: string) => void;
-  cards: SxCard[]; onOpen: (id: string) => void; onNew: () => void; onNav: (k: string) => void; onBack: () => void; toast?: string | null; onDelete?: (id: string) => void; canDelete?: (id: string) => boolean; onBin?: () => void;
+  cards: SxCard[]; onOpen: (id: string) => void; onNew: () => void; onNav: (k: string) => void; onBack: () => void; toast?: string | null;
+  /** The three states of the ladder, exactly as the builds board has them. */
+  view?: BoardView; onView?: (v: BoardView) => void;
+  /** EMPTY AND ERROR ARE DIFFERENT STATES. `error` set means the load FAILED — never render that
+   *  as an empty shelf, because "nothing here" and "we could not look" are opposite facts. */
+  error?: string | null; onRetry?: () => void; loading?: boolean;
+  onDelete?: (id: string) => void; canDelete?: (id: string) => boolean;
+  onArchive?: (id: string) => void; onUnarchive?: (id: string) => void;
+  onRestore?: (id: string) => void; onPurge?: (id: string) => void;
+  /** Days left before the 30-day sweep takes it, for the bin view only. */
+  daysLeft?: (c: SxCard) => string | null;
+  /** True when a search or filter is narrowing the grid — an empty result then means "nothing
+   *  matched", which is a different fact from "there is nothing here". */
+  filtering?: boolean; onClearFilters?: () => void;
   embedded?: boolean; // render only the main column inside ScriptonShell (new shell) — no hand-rolled chrome
 }) {
   const { dir, t } = useLocale();
@@ -97,14 +119,44 @@ export default function ScriptOnLibrary(props: {
               <div><h1>{t('Scripts')}</h1><div className="sub">{t('Develop, adapt, import (FDX · Fountain · Celtx · Word · PDF + OCR) — one source of truth per title.')}</div></div>
               <div className="libactions">
                 <div className="search"><svg className="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4-4" /></svg><input value={props.search} onChange={(e) => props.onSearch(e.target.value)} placeholder={t('Search title, writer, character…')} /></div>
-                {props.onBin ? <button className="btn outline" onClick={props.onBin}><svg className="ico" viewBox="0 0 24 24"><path d="M3 6h18M19 6l-1 14H6L5 6M10 11v6M14 11v6" /></svg>{t('Bin')}</button> : null}
+                {/* The bin is a VIEW now, not a drawer — the switcher replaces the bin button. */}
                 <button className="btn outline" onClick={props.onNew}><svg className="ico" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14" /></svg>{t('Import')}</button>
                 <button className="btn gold" onClick={props.onNew}><svg className="ico" viewBox="0 0 24 24" style={{ stroke: '#1a1509' }}><path d="M12 5v14M5 12h14" /></svg>{t('New script')}</button>
               </div>
             </div>
-            <div className="filters">{props.filters.map((f) => (<button key={f} className={'chip' + (f === props.activeFilter ? ' on' : '')} onClick={() => props.onFilter(f)}>{t(f)}</button>))}<span style={{ marginInlineStart: 'auto' }} className="meta">{t('Sorted by recently updated')}</span></div>
+            <div className="filters">{(props.view && props.view !== 'active' ? [] : props.filters).map((f) => (<button key={f} className={'chip' + (f === props.activeFilter ? ' on' : '')} onClick={() => props.onFilter(f)}>{t(f)}</button>))}<span style={{ marginInlineStart: 'auto' }} className="meta">{t('Sorted by recently updated')}</span></div>
+              {props.onView ? <ViewSwitcher view={props.view || 'active'} onView={props.onView} t={t} /> : null}
             <div className="cardgrid">
-              {props.cards.map((c) => (
+              {/* A FAILED LOAD NEVER RENDERS AS EMPTY. "Nothing here" and "we could not look" are
+                  opposite facts, and an empty shelf is the more reassuring of the two — which is
+                  exactly why the failure must not borrow its appearance. */}
+              {/* LOADING REPLACES THE PREVIOUS VIEW'S CARDS. The view name changes the moment the
+                  switch is clicked, but the cards arrive an await later — so without this the bin's
+                  Delete forever renders over live scripts for the length of the request. */}
+              {props.loading ? (
+                <div className="sxstate" aria-busy="true">
+                  <div className="sxstate-t">{t('Loading\u2026')}</div>
+                </div>
+              ) : props.error ? (
+                <div className="sxstate" role="alert">
+                  <div className="sxstate-t">{t('Couldn\u2019t load')}</div>
+                  <div className="sxstate-s">{props.error}</div>
+                  {props.onRetry ? <button type="button" className="btn outline" onClick={props.onRetry}>{t('Retry')}</button> : null}
+                </div>
+              ) : (!props.cards.length && props.filtering) ? (
+                <div className="sxstate">
+                  <div className="sxstate-t">{t('Nothing matched')}</div>
+                  <div className="sxstate-s">{t('No script here matches the current search or filter.')}</div>
+                  {props.onClearFilters ? <button type="button" className="btn outline" onClick={props.onClearFilters}>{t('Clear search and filters')}</button> : null}
+                </div>
+              ) : (!props.cards.length) ? (
+                <div className="sxstate">
+                  <div className="sxstate-t">{props.view === 'archived' ? t('No archived scripts')
+                    : props.view === 'bin' ? t('Bin is empty') : t('No scripts yet')}</div>
+                  <div className="sxstate-s">{props.view === 'archived' ? t('Archived scripts are kept indefinitely and never swept.')
+                    : props.view === 'bin' ? t('Deleted scripts wait 30 days here before they go.') : t('Develop or import one to begin.')}</div>
+                </div>
+              ) : props.cards.map((c) => (
                 <div className="scard" key={c.id}>
                   {/* THE OPEN ACTION IS STILL A REAL BUTTON, stretched over the whole card, so
                       clicking anywhere still opens it AND the keyboard still reaches it. The card
@@ -116,13 +168,40 @@ export default function ScriptOnLibrary(props: {
                     <span className="pill rev" style={{ background: 'rgba(0,0,0,.35)', color: c.revColor }}><span className="d" style={{ background: c.revColor }} />{c.rev}</span>
 
                   </div>
-                  {props.onDelete && props.canDelete && props.canDelete(c.id)
-                    ? <CardActions actions={[{ key: 'del', icon: ICON_TRASH, label: t('Move to bin'), danger: true, onClick: () => props.onDelete!(c.id) }]} />
-                    : null}
+                  {/* THE SAME MAPPING THE BUILDS BOARD USES, view for view:
+                        active   Archive + Move to bin
+                        archived Move to bin        (Unarchive is a RESTORE — it stays in the footer)
+                        bin      Archive + Delete forever
+                      Delete forever appears in the BIN ONLY: it is the third state of the ladder,
+                      and an irreversible action has no business on a board of live work. */}
+                  {props.canDelete && props.canDelete(c.id) ? (
+                    <CardActions actions={
+                      props.view === 'bin' ? [
+                        ...(props.onArchive ? [{ key: 'arch', icon: ICON_ARCHIVE, label: t('Keep it indefinitely, off the board and out of the bin'), onClick: () => props.onArchive!(c.id) }] : []),
+                        ...(props.onPurge ? [{ key: 'purge', icon: ICON_TRASH, label: t('Delete forever'), danger: true, onClick: () => props.onPurge!(c.id) }] : []),
+                      ] : props.view === 'archived' ? [
+                        ...(props.onDelete ? [{ key: 'del', icon: ICON_TRASH, label: t('Move to bin'), danger: true, onClick: () => props.onDelete!(c.id) }] : []),
+                      ] : [
+                        ...(props.onArchive ? [{ key: 'arch', icon: ICON_ARCHIVE, label: t('Keep indefinitely, off the board. No countdown, never swept.'), onClick: () => props.onArchive!(c.id) }] : []),
+                        ...(props.onDelete ? [{ key: 'del', icon: ICON_TRASH, label: t('Move to bin \u2014 deleted after 30 days'), danger: true, onClick: () => props.onDelete!(c.id) }] : []),
+                      ]
+                    } />
+                  ) : null}
                   <div className="b"><div className="ti2">{c.title}</div><div className="mrow"><span>{c.pages}</span><span>·</span><span style={{ color: c.gradeColor, fontWeight: 700 }}>{c.grade}</span><span style={{ marginInlineStart: 'auto' }}>{c.updated}</span></div></div>
+                  {props.view === 'bin' || props.view === 'archived' ? (
+                    <div className="sxfoot">
+                      {props.view === 'bin' && props.daysLeft && props.daysLeft(c) ? <span className="sxdays">{props.daysLeft(c)}</span> : null}
+                      {props.view === 'bin' && props.onRestore
+                        ? <button type="button" className="btn outline sxsm" onClick={() => props.onRestore!(c.id)}>{'\u21a9 ' + t('Restore')}</button> : null}
+                      {props.view === 'archived' && props.onUnarchive
+                        ? <button type="button" className="btn outline sxsm" onClick={() => props.onUnarchive!(c.id)}>{'\u21a9 ' + t('Unarchive')}</button> : null}
+                    </div>
+                  ) : null}
                 </div>
               ))}
+              {props.view && props.view !== 'active' ? null : (
               <button className="scard add" onClick={props.onNew}><div className="plus"><svg className="ico" viewBox="0 0 24 24" style={{ width: 22, height: 22 }}><path d="M12 5v14M5 12h14" /></svg></div><div style={{ fontSize: 13, fontWeight: 600 }}>{t('New · Import · Develop')}</div></button>
+              )}
             </div>
           </div></div>
   );

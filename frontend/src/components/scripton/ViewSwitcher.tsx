@@ -49,7 +49,7 @@ export default function ViewSwitcher({ view, onView, t, labels }: {
 }) {
   const tr = t || ((s: string) => s);
   return (
-    <span className="vsw" role="group">
+    <span className="vsw" role="group" aria-label={tr('Which scripts to show')}>
       {(labels || VIEW_LABELS).map(([v, glyph, word]) => (
         <button
           key={v}
