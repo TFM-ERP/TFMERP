@@ -32,6 +32,12 @@ out/
 **/build/
 .next/
 frontend/.next/
+
+# Verification builds — kept out of .next so they never trample a running dev server.
+# On 22 Sep a `next build` in this worktree overwrote the .next that its own `next dev`
+# was serving: the app came up unstyled with a dead Sign in button, mid-demo.
+frontend/.next-verify/
+frontend/.next-stale-*/
 .turbo/
 
 # Prisma local artifacts

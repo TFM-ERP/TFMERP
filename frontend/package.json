@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "next dev --port 3000",
     "build": "next build",
+    "build:verify": "NEXT_DISTDIR=.next-verify next build",
     "start": "next start",
     "lint": "next lint"
   },
