@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsBoolean, IsEnum } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, IsEnum, IsIn, Matches } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Currency } from '@prisma/client';
 
@@ -64,4 +64,18 @@ export class CreateBankAccountDto {
   @IsOptional()
   @IsBoolean()
   isDefaultReceiving?: boolean;
+
+  /** COMPANY = the company's own account; OWNER = the GM's personal account, used
+   *  only to record payments he made himself. Owner accounts are never offered on
+   *  invoices or quotations. */
+  @ApiPropertyOptional({ enum: ['COMPANY', 'OWNER'], default: 'COMPANY' })
+  @IsOptional()
+  @IsIn(['COMPANY', 'OWNER'])
+  ownership?: 'COMPANY' | 'OWNER';
+
+  /** Last 4 digits of the card on this account, for matching card slips. Never the whole number. */
+  @ApiPropertyOptional({ example: '3825' })
+  @IsOptional()
+  @Matches(/^\d{4}$/, { message: 'Card last 4 must be exactly 4 digits.' })
+  cardLast4?: string;
 }

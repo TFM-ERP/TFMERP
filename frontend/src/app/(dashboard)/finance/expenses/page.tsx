@@ -7,6 +7,7 @@ import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import Link from 'next/link';
 import { Plus, RefreshCw, CheckCircle, XCircle, DollarSign, GitBranch } from 'lucide-react';
 import { CinematicHeader } from '@/components/CinematicHeader';
+import { ExpensePayments } from '@/components/finance/ExpensePayments';
 import { useLocale } from '@/lib/i18n';
 
 const CATEGORIES = ['Fuel', 'Maintenance', 'Office', 'Freelancers', 'Crew', 'Catering', 'Equipment', 'Travel', 'Accommodation', 'Insurance', 'Legal', 'Marketing', 'Utilities', 'Other'];
@@ -29,6 +30,7 @@ export default function ExpensesPage() {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [paymentsFor, setPaymentsFor] = useState<{ id: string; number: string } | null>(null);
   const [error, setError] = useState('');
 
   const [suppliers, setSuppliers] = useState<any[]>([]);
@@ -282,7 +284,13 @@ export default function ExpensesPage() {
                     {e.status === 'APPROVED' && (
                       <button onClick={() => handleAction(e.id, 'paid')} className="text-blue-600 hover:text-blue-700 text-xs font-medium">{t('Mark Paid')}</button>
                     )}
-                    {(e.status === 'PAID' || e.status === 'REJECTED') && <span className="text-xs text-gray-300">—</span>}
+                    {e.status !== 'REJECTED' && (
+                      <>
+                        {e.status !== 'PENDING_APPROVAL' && e.status !== 'APPROVED' ? null : <span className="text-gray-300">·</span>}
+                        <button onClick={() => setPaymentsFor({ id: e.id, number: e.expenseNumber })} className="text-gray-600 hover:text-gray-900 text-xs font-medium">{t('Payments')}</button>
+                      </>
+                    )}
+                    {e.status === 'REJECTED' && <span className="text-xs text-gray-300">—</span>}
                   </div>
                 </td>
               </tr>
@@ -293,6 +301,20 @@ export default function ExpensesPage() {
           </tbody>
         </table>
       </div>
+
+      {paymentsFor && (
+        <div className="fixed inset-0 z-40 bg-black/40 flex items-start justify-center p-4 overflow-y-auto" onClick={() => setPaymentsFor(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl mt-10" onClick={ev => ev.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h2 className="font-bold text-gray-900">{t('Payments')} · {paymentsFor.number}</h2>
+              <button onClick={() => setPaymentsFor(null)} className="text-gray-400 hover:text-gray-600 text-sm">{t('Close')}</button>
+            </div>
+            <div className="px-6 py-4">
+              <ExpensePayments expenseId={paymentsFor.id} onChanged={load} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

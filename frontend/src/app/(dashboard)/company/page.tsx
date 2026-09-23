@@ -484,7 +484,7 @@ function ColorPicker({ label, value, onChange }: { label: string; value: any; on
 // ── Banking ──────────────────────────────────────────────────────────────────
 function BankingTab({ accounts, reload }: { accounts: any[]; reload: () => void }) {
   const [form, setForm] = useState<any>(null);
-  const blank = { accountName: '', bankName: '', branch: '', accountNumber: '', iban: '', swift: '', currency: 'AED', isDefault: false };
+  const blank = { accountName: '', bankName: '', branch: '', accountNumber: '', iban: '', swift: '', currency: 'AED', isDefault: false, ownership: 'COMPANY', cardLast4: '' };
   const save = async () => {
     if (form.id) await companyApi.bankAccounts.update(form.id, form);
     else await companyApi.bankAccounts.create(form);
@@ -502,7 +502,12 @@ function BankingTab({ accounts, reload }: { accounts: any[]; reload: () => void 
         {accounts.map((a) => (
           <div key={a.id} className="flex items-center justify-between rounded-lg border border-gray-200 p-3">
             <div>
-              <div className="text-sm font-medium text-gray-800">{a.bankName} {a.isDefault && <span className="ms-2 rounded bg-green-100 px-1.5 py-0.5 text-[10px] text-green-700">Default</span>}</div>
+              <div className="text-sm font-medium text-gray-800">
+                {a.bankName}
+                {a.isDefault && <span className="ms-2 rounded bg-green-100 px-1.5 py-0.5 text-[10px] text-green-700">Default</span>}
+                {a.ownership === 'OWNER' && <span className="ms-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-700">Personal</span>}
+                {a.cardLast4 && <span className="ms-2 text-[10px] text-gray-400">card …{a.cardLast4}</span>}
+              </div>
               <div className="text-xs text-gray-400">{a.accountName} · {a.iban || a.accountNumber} · {a.currency}</div>
             </div>
             <div className="flex gap-2">
@@ -525,7 +530,20 @@ function BankingTab({ accounts, reload }: { accounts: any[]; reload: () => void 
               <div><label className="label">IBAN</label><input className="input w-full" value={form.iban ?? ''} onChange={e => setForm({ ...form, iban: e.target.value })} /></div>
               <div><label className="label">SWIFT</label><input className="input w-full" value={form.swift ?? ''} onChange={e => setForm({ ...form, swift: e.target.value })} /></div>
               <div><label className="label">Currency</label><input className="input w-full" value={form.currency ?? ''} onChange={e => setForm({ ...form, currency: e.target.value })} /></div>
-              <label className="flex items-center gap-2 mt-6"><input type="checkbox" checked={!!form.isDefault} onChange={e => setForm({ ...form, isDefault: e.target.checked })} /><span className="text-sm text-gray-600">Default account</span></label>
+              <div>
+                <label className="label">Account belongs to</label>
+                <select className="input w-full" value={form.ownership ?? 'COMPANY'} onChange={e => setForm({ ...form, ownership: e.target.value, ...(e.target.value === 'OWNER' ? { isDefault: false } : {}) })}>
+                  <option value="COMPANY">The company</option>
+                  <option value="OWNER">Me personally</option>
+                </select>
+              </div>
+              <div>
+                <label className="label">Card last 4 (optional)</label>
+                <input className="input w-full" maxLength={4} inputMode="numeric" placeholder="3825" value={form.cardLast4 ?? ''} onChange={e => setForm({ ...form, cardLast4: e.target.value.replace(/\D/g, '').slice(0, 4) })} />
+              </div>
+              {form.ownership === 'OWNER'
+                ? <p className="col-span-2 text-xs text-gray-400">A personal account is used only to record payments you made yourself. It is never offered on invoices or quotations.</p>
+                : <label className="flex items-center gap-2 mt-6"><input type="checkbox" checked={!!form.isDefault} onChange={e => setForm({ ...form, isDefault: e.target.checked })} /><span className="text-sm text-gray-600">Default account</span></label>}
             </div>
             <div className="flex justify-end gap-2 mt-5">
               <button onClick={() => setForm(null)} className="px-4 py-2 text-sm text-gray-500">Cancel</button>
