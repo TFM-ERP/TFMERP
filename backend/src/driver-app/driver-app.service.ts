@@ -1,13 +1,17 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 
 @Injectable()
 export class DriverAppService {
   constructor(private prisma: PrismaService) {}
 
-  private async seq(prefix: string) {
+  /**
+   * `client` lets a caller draw the next number inside an open transaction, so a
+   * rolled-back approval does not consume an expense number.
+   */
+  private async seq(prefix: string, client: any = this.prisma) {
     const year = new Date().getFullYear();
-    const s = await this.prisma.documentSequence.upsert({
+    const s = await client.documentSequence.upsert({
       where: { prefix }, update: { lastNumber: { increment: 1 } }, create: { prefix, lastNumber: 1, year },
     });
     return `${prefix}-${year}-${String(s.lastNumber).padStart(4, '0')}`;
@@ -80,40 +84,91 @@ export class DriverAppService {
     return subs.map(s => ({ ...s, driverName: map[s.driverId] }));
   }
 
+  /**
+   * A DRIVER CLAIM IS A REQUEST, NOT A POSTING.
+   *
+   * This route carries JwtAuthGuard only — no finance permission — so an approval here
+   * must not create finance-approved cost. Every approved claim lands as an expense at
+   * PENDING_APPROVAL, which is the state the expense workflow already gates to
+   * FINANCE_MANAGER / SYSTEM_ADMIN / ACCOUNTANT (status/workflow.config.ts:159-175).
+   * Finance confirms the receipt, the VAT and the supplier before it posts.
+   *
+   * FUEL REACHES THE BOOKS TOO. It previously went to fuelLog alone and never touched
+   * the ledger. It now does both: the fuelLog still feeds fuel analytics, the odometer
+   * and profitability-by-booking (reports.service.ts:374, which reads fuelLog and never
+   * reads expenses, so there is no double count), and the expense carries the cost.
+   *
+   * NO SELF-REVIEW. A driver is tied to a user through the employee record
+   * (user.employeeId === driver.employeeId), so the same employee cannot submit a claim
+   * and approve it.
+   */
   async review(id: string, status: 'APPROVED' | 'REJECTED', userId: string, notes?: string) {
     const sub = await this.prisma.driverSubmission.findUnique({ where: { id } });
     if (!sub) throw new NotFoundException('Submission not found');
-    const updated = await this.prisma.driverSubmission.update({
-      where: { id },
-      data: { status, reviewedById: userId, reviewedAt: new Date(), reviewNotes: notes || null },
-    });
-    if (status !== 'APPROVED') return updated;
 
-    const driver = await this.prisma.driver.findUnique({ where: { id: sub.driverId }, select: { fullName: true } });
-    const amount = Number(sub.amount);
-    // Fuel with an asset + litres → a Fuel Log (feeds fuel analytics + odometer)
-    if (sub.type === 'FUEL' && sub.assetId && sub.litres && Number(sub.litres) > 0) {
-      const litres = Number(sub.litres);
-      await this.prisma.fuelLog.create({
-        data: {
-          assetId: sub.assetId, litres, costPerLitre: amount / litres, totalCost: amount,
-          odometer: sub.odometer ?? undefined, receiptUrl: sub.receiptUrl ?? undefined,
-          bookingRef: sub.bookingId ?? undefined, notes: `Driver ${driver?.fullName || ''} (approved)`,
-        },
+    const driver = await this.prisma.driver.findUnique({
+      where: { id: sub.driverId },
+      select: { fullName: true, employeeId: true },
+    });
+    const reviewer = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { employeeId: true },
+    });
+    if (driver?.employeeId && reviewer?.employeeId && driver.employeeId === reviewer.employeeId) {
+      throw new ForbiddenException(
+        'You cannot review your own submission — another reviewer must approve it',
+      );
+    }
+
+    if (status !== 'APPROVED') {
+      return this.prisma.driverSubmission.update({
+        where: { id },
+        data: { status, reviewedById: userId, reviewedAt: new Date(), reviewNotes: notes || null },
       });
-      if (sub.odometer) await this.prisma.asset.update({ where: { id: sub.assetId }, data: { currentOdometer: sub.odometer } }).catch(() => {});
-    } else {
-      // Everything else → a finance Expense
-      await this.prisma.expense.create({
+    }
+
+    const amount = Number(sub.amount);
+    const litres = sub.litres != null ? Number(sub.litres) : 0;
+    const isFuelLog = sub.type === 'FUEL' && !!sub.assetId && litres > 0;
+
+    // One transaction: the submission is never left APPROVED with no expense behind it.
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const row = await tx.driverSubmission.update({
+        where: { id },
+        data: { status, reviewedById: userId, reviewedAt: new Date(), reviewNotes: notes || null },
+      });
+
+      if (isFuelLog) {
+        await tx.fuelLog.create({
+          data: {
+            assetId: sub.assetId!, litres, costPerLitre: amount / litres, totalCost: amount,
+            odometer: sub.odometer ?? undefined, receiptUrl: sub.receiptUrl ?? undefined,
+            bookingRef: sub.bookingId ?? undefined, notes: `Driver ${driver?.fullName || ''} (approved)`,
+          },
+        });
+      }
+
+      await tx.expense.create({
         data: {
-          expenseNumber: await this.seq('EXP'), activity: 'RENTAL',
+          expenseNumber: await this.seq('EXP', tx), activity: 'RENTAL',
           category: `Driver ${sub.type}`, description: `${sub.type} — ${driver?.fullName || 'driver'}`,
-          amount, totalAmount: amount, vatAmount: 0, status: 'APPROVED' as any,
+          amount, totalAmount: amount, vatAmount: 0, status: 'PENDING_APPROVAL' as any,
           vendorName: driver?.fullName, receiptUrl: sub.receiptUrl ?? undefined,
           projectRef: sub.bookingId ?? undefined, createdById: userId,
         },
       });
+
+      return row;
+    });
+
+    // Odometer is a convenience reading, not part of the claim — a failure here must not
+    // roll back the approval, so it sits outside the transaction.
+    if (isFuelLog && sub.odometer) {
+      await this.prisma.asset
+        .update({ where: { id: sub.assetId! }, data: { currentOdometer: sub.odometer } })
+        .catch(() => {});
     }
+
     return updated;
   }
 }
