@@ -155,7 +155,7 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
     setEditId(null);
     if (!name || name === String(b.name || '')) return;
     try { await productionApi.scripton.development.renameBuild(b.id, name.slice(0, 120)); flash(t('Renamed.')); }
-    catch { flash(t('Could not rename this build.')); }
+    catch (e: any) { flash(e?.response?.data?.message || t('Could not rename this build.')); }
     await load(projectId || '', view);
   };
   // A LOAD THAT NEVER ANSWERS MUST STILL SAY SO. Without this a hung request looks identical to a
@@ -222,10 +222,10 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
   const daysLeft = (d?: string) => { if (!d) return 30; const ms = new Date(d).getTime() + 30 * 86400000 - Date.now(); return Math.max(0, Math.ceil(ms / 86400000)); };
   const isDemo = (b: any) => /^b\d$/.test(String(b && b.id));
   const switchView = (v: 'active' | 'archived' | 'bin') => { setView(v); setFilter('All'); if (projectId) load(projectId, v); };
-  const doArchive = async (b: any) => { if (isDemo(b)) { flash(t('Demo build.')); return; } try { await productionApi.scripton.development.archiveBuild(b.id); flash(t('Archived — kept indefinitely, with no countdown.')); if (projectId) await load(projectId, view); } catch { flash(t('Could not archive.')); } };
-  const doUnarchive = async (b: any) => { if (isDemo(b)) { flash(t('Demo build.')); return; } try { await productionApi.scripton.development.unarchiveBuild(b.id); flash(t('Back on the active board.')); if (projectId) await load(projectId, view); } catch { flash(t('Could not unarchive.')); } };
-  const doRestore = async (b: any) => { if (isDemo(b)) { flash(t('Demo build.')); return; } try { await productionApi.scripton.development.restoreBuild(b.id); flash(t('Restored.')); if (projectId) await load(projectId, view); } catch { flash(t('Could not restore.')); } };
-  const doConfirm = async () => { const b = confirm.b; const kind = confirm.kind; setConfirm(null); if (isDemo(b)) { flash(t('Demo build - connect a project.')); return; } try { if (kind === 'purge') { const r: any = await productionApi.scripton.development.purgeBuild(b.id); const d = r?.data?.purged || r?.purged; flash(d && d.chars ? (t('Deleted forever') + ' — ' + d.stageVersions + ' ' + t('draft(s)') + ', ' + Number(d.chars).toLocaleString() + ' ' + t('characters of writing.')) : t('Deleted forever.')); } else { await productionApi.scripton.development.deleteBuild(b.id); flash(t('Moved to bin.')); } if (projectId) await load(projectId, view); } catch { flash(t('Action failed.')); } };
+  const doArchive = async (b: any) => { if (isDemo(b)) { flash(t('Demo build.')); return; } try { await productionApi.scripton.development.archiveBuild(b.id); flash(t('Archived — kept indefinitely, with no countdown.')); if (projectId) await load(projectId, view); } catch (e: any) { flash(e?.response?.data?.message || t('Could not archive.')); } };
+  const doUnarchive = async (b: any) => { if (isDemo(b)) { flash(t('Demo build.')); return; } try { await productionApi.scripton.development.unarchiveBuild(b.id); flash(t('Back on the active board.')); if (projectId) await load(projectId, view); } catch (e: any) { flash(e?.response?.data?.message || t('Could not unarchive.')); } };
+  const doRestore = async (b: any) => { if (isDemo(b)) { flash(t('Demo build.')); return; } try { await productionApi.scripton.development.restoreBuild(b.id); flash(t('Restored.')); if (projectId) await load(projectId, view); } catch (e: any) { flash(e?.response?.data?.message || t('Could not restore.')); } };
+  const doConfirm = async () => { const b = confirm.b; const kind = confirm.kind; setConfirm(null); if (isDemo(b)) { flash(t('Demo build - connect a project.')); return; } try { if (kind === 'purge') { const r: any = await productionApi.scripton.development.purgeBuild(b.id); const d = r?.data?.purged || r?.purged; flash(d && d.chars ? (t('Deleted forever') + ' — ' + d.stageVersions + ' ' + t('draft(s)') + ', ' + Number(d.chars).toLocaleString() + ' ' + t('characters of writing.')) : t('Deleted forever.')); } else { await productionApi.scripton.development.deleteBuild(b.id); flash(t('Moved to bin.')); } if (projectId) await load(projectId, view); } catch (e: any) { flash(e?.response?.data?.message || t('Action failed.')); } };
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -299,7 +299,7 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
 
   const openBuild = (id: string) => { if (typeof window !== 'undefined') window.location.assign('/scripton/studio?build=' + id); };
   const openScript = (docId: string) => { if (docId && typeof window !== 'undefined') window.location.assign('/scripton/script?doc=' + docId); };
-  const cycleStatus = async (b: any) => { if (isDemo(b)) { flash(t('Demo build - connect a project to manage status.')); return; } const order = ['DRAFT', 'REVIEW', 'GREENLIT']; const cur = String(b.status || 'DRAFT').toUpperCase(); const next = order[(order.indexOf(cur) + 1) % order.length]; try { await productionApi.scripton.development.setBuildStatus(b.id, next); flash(t('Status') + ' \u2192 ' + next.charAt(0) + next.slice(1).toLowerCase()); if (projectId) await load(projectId, view); } catch { flash(t('Could not update status.')); } };
+  const cycleStatus = async (b: any) => { if (isDemo(b)) { flash(t('Demo build - connect a project to manage status.')); return; } const order = ['DRAFT', 'REVIEW', 'GREENLIT']; const cur = String(b.status || 'DRAFT').toUpperCase(); const next = order[(order.indexOf(cur) + 1) % order.length]; try { await productionApi.scripton.development.setBuildStatus(b.id, next); flash(t('Status') + ' \u2192 ' + next.charAt(0) + next.slice(1).toLowerCase()); if (projectId) await load(projectId, view); } catch (e: any) { flash(e?.response?.data?.message || t('Could not update status.')); } };
   const openModal = (b: any) => { setModal(b); setTarget('existing'); setNewName(b.name + ' (project)'); };
 
   const resolveVersion = async (): Promise<string | null> => {
