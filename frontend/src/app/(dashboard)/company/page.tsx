@@ -33,6 +33,25 @@ const TABS: { id: TabKey; label: string; icon: any }[] = [
 const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 const fileSrc = (v?: string) => (!v ? '' : v.startsWith('http') ? v : `${apiBase.replace('/api/v1', '')}${v}`);
 
+/**
+ * A FAILED WRITE MUST SAY SO.
+ *
+ * Six handlers in the tabs below awaited the API and did nothing with a rejection. The throw did
+ * stop `setForm(null); reload()` from running — so the dialog stayed open — but nothing was ever
+ * SHOWN, and the only trace was an unhandled rejection in the console. The user saw a form that
+ * simply refused to close.
+ *
+ * Under the levels this commit puts on the controller the likeliest rejection is now a 403, which
+ * is exactly the case that must not look like nothing happening. THE SERVER'S MESSAGE COMES FIRST:
+ * PermissionsGuard names the module it refused on, while axios's own `err.message` is only
+ * "Request failed with status code 403".
+ *
+ * `alert` is what the two upload handlers in these same tabs already use; `showToast` belongs to
+ * the page component and is not in scope inside them.
+ */
+const writeFailed = (err: any, fallback: string) =>
+  alert(err?.response?.data?.message || err?.message || fallback);
+
 export default function CompanyPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -486,11 +505,17 @@ function BankingTab({ accounts, reload }: { accounts: any[]; reload: () => void 
   const [form, setForm] = useState<any>(null);
   const blank = { accountName: '', bankName: '', branch: '', accountNumber: '', iban: '', swift: '', currency: 'AED', isDefault: false };
   const save = async () => {
-    if (form.id) await companyApi.bankAccounts.update(form.id, form);
-    else await companyApi.bankAccounts.create(form);
-    setForm(null); reload();
+    try {
+      if (form.id) await companyApi.bankAccounts.update(form.id, form);
+      else await companyApi.bankAccounts.create(form);
+      setForm(null); reload();
+    } catch (err: any) { writeFailed(err, 'Could not save the bank account.'); }
   };
-  const remove = async (id: string) => { if (confirm('Delete this bank account?')) { await companyApi.bankAccounts.remove(id); reload(); } };
+  const remove = async (id: string) => {
+    if (!confirm('Delete this bank account?')) return;
+    try { await companyApi.bankAccounts.remove(id); reload(); }
+    catch (err: any) { writeFailed(err, 'Could not delete the bank account.'); }
+  };
 
   return (
     <div>
@@ -543,11 +568,17 @@ function LocationsTab({ locations, reload }: { locations: any[]; reload: () => v
   const [form, setForm] = useState<any>(null);
   const blank = { name: '', type: 'Head Office', address: '', googleMapsUrl: '', contactNumber: '', manager: '', notes: '' };
   const save = async () => {
-    if (form.id) await companyApi.locations.update(form.id, form);
-    else await companyApi.locations.create(form);
-    setForm(null); reload();
+    try {
+      if (form.id) await companyApi.locations.update(form.id, form);
+      else await companyApi.locations.create(form);
+      setForm(null); reload();
+    } catch (err: any) { writeFailed(err, 'Could not save the location.'); }
   };
-  const remove = async (id: string) => { if (confirm('Delete this location?')) { await companyApi.locations.remove(id); reload(); } };
+  const remove = async (id: string) => {
+    if (!confirm('Delete this location?')) return;
+    try { await companyApi.locations.remove(id); reload(); }
+    catch (err: any) { writeFailed(err, 'Could not delete the location.'); }
+  };
 
   return (
     <div>
@@ -611,11 +642,17 @@ function DocumentsTab({ documents, reload }: { documents: any[]; reload: () => v
       title: form.title || resolvedType(form), type: resolvedType(form),
       fileUrl: form.fileUrl, issueDate: form.issueDate, expiryDate: form.expiryDate, notes: form.notes,
     };
-    if (form.id) await companyApi.documents.update(form.id, payload);
-    else await companyApi.documents.create(payload);
-    setForm(null); reload();
+    try {
+      if (form.id) await companyApi.documents.update(form.id, payload);
+      else await companyApi.documents.create(payload);
+      setForm(null); reload();
+    } catch (err: any) { writeFailed(err, 'Could not save the document.'); }
   };
-  const remove = async (id: string) => { if (confirm('Delete this document?')) { await companyApi.documents.remove(id); reload(); } };
+  const remove = async (id: string) => {
+    if (!confirm('Delete this document?')) return;
+    try { await companyApi.documents.remove(id); reload(); }
+    catch (err: any) { writeFailed(err, 'Could not delete the document.'); }
+  };
   const openEdit = (d: any) => {
     const known = DOCUMENT_TYPES.includes(d.type);
     setForm({ ...d, type: known ? d.type : 'Other', typeOther: known ? '' : d.type });
