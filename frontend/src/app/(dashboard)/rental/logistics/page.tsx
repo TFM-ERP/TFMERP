@@ -52,6 +52,8 @@ export default function LogisticsCommandPage() {
 
   // merged-tab data
   const [approvals, setApprovals] = useState<any[]>([]);
+  /** Why the approvals list is empty. '' means it really is empty; anything else is a failure. */
+  const [approvalsError, setApprovalsError] = useState('');
   const [incidents, setIncidents] = useState<any[]>([]);
   const [fuel, setFuel] = useState<any[]>([]);
 
@@ -61,7 +63,13 @@ export default function LogisticsCommandPage() {
   }, []);
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
-    if (tab === 'approvals') driverAppApi.pending().then(r => setApprovals(r.data || [])).catch(() => setApprovals([]));
+    // A REFUSAL IS NOT AN EMPTY QUEUE. This swallowed every failure into `[]`, and the table below
+    // then rendered "Nothing awaiting approval." — the one sentence that must never appear over a
+    // queue nobody managed to read. The claims route is rentals:2, so a Finance Manager, Production
+    // Manager or Sales user (all rentals:1) opening this tab now gets a 403: a live distinction.
+    if (tab === 'approvals') driverAppApi.pending()
+      .then(r => { setApprovals(r.data || []); setApprovalsError(''); })
+      .catch(e => { setApprovals([]); setApprovalsError(e?.response?.data?.message || e?.message || 'Could not load driver submissions.'); });
     if (tab === 'incidents') rentalApi.incidents.list({ limit: 50 }).then(r => setIncidents(r.data?.items || r.data || [])).catch(() => setIncidents([]));
     if (tab === 'fuel') rentalApi.fuel.list({ limit: 50 }).then(r => setFuel(r.data?.items || r.data || [])).catch(() => setFuel([]));
   }, [tab]);
@@ -304,7 +312,8 @@ export default function LogisticsCommandPage() {
       {/* ── Driver Approvals tab ── */}
       {tab === 'approvals' && (
         <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--border-1)' }}>
-          {approvals.length === 0 ? <div className="p-8 text-center text-sm" style={{ color: 'var(--text-3)' }}>Nothing awaiting approval.</div> : (
+          {approvalsError ? <div className="p-8 text-center text-sm" style={{ color: '#e5635f' }}>{approvalsError}</div>
+            : approvals.length === 0 ? <div className="p-8 text-center text-sm" style={{ color: 'var(--text-3)' }}>Nothing awaiting approval.</div> : (
             <table className="w-full text-sm"><thead><tr style={{ background: 'var(--surface-2)' }}>
               {['Driver', 'Type', 'Amount', 'When', ''].map(h => <th key={h} className="text-start px-4 py-2.5 text-[10px] uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>{h}</th>)}
             </tr></thead><tbody>
