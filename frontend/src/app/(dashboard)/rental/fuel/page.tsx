@@ -13,6 +13,8 @@ export default function FuelPage() {
   const [pages, setPages] = useState(1);
   const [summary, setSummary] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  /** '' means there really are no fuel logs; anything else is a failure to say out loud. */
+  const [listError, setListError] = useState('');
 
   const load = useCallback(() => {
     setLoading(true);
@@ -25,8 +27,16 @@ export default function FuelPage() {
         setTotal(listRes.data.total);
         setPages(listRes.data.pages);
         setSummary(sumRes.data);
+        setListError('');
       })
-      .catch(console.error)
+      // A CONSOLE LINE IS NOT A READER. This was .catch(console.error): both requests failed
+      // together, the list stayed empty, the summary tiles stayed blank, loading went false, and
+      // the page looked like a fleet that had never bought fuel. GET /rental/fuel and its summary
+      // are rentals:1 from this commit, so a rentals:0 role opening this page hits exactly that.
+      .catch((e: any) => {
+        setItems([]); setTotal(0); setPages(1); setSummary(null);
+        setListError(e?.response?.data?.message || e?.message || 'Could not load fuel logs.');
+      })
       .finally(() => setLoading(false));
   }, [page]);
 
@@ -58,6 +68,9 @@ export default function FuelPage() {
       )}
 
       <div className="card overflow-hidden p-0">
+        {listError && (
+          <div className="px-4 py-2.5 text-sm border-b border-red-200 bg-red-50 text-red-700">{listError}</div>
+        )}
         <table className="w-full">
           <thead>
             <tr>
@@ -91,7 +104,9 @@ export default function FuelPage() {
                 </td>
               </tr>
             ))}
-            {items.length === 0 && !loading && (
+            {/* !listError: "No fuel logs" is a claim about data we do not have, so it is
+                suppressed while the banner above the table carries the reason instead. */}
+            {items.length === 0 && !loading && !listError && (
               <tr><td colSpan={7} className="text-center py-12 text-gray-400">No fuel logs</td></tr>
             )}
           </tbody>
