@@ -56,13 +56,31 @@ export default function LogisticsCommandPage() {
   const [approvalsError, setApprovalsError] = useState('');
   const [incidents, setIncidents] = useState<any[]>([]);
   const [fuel, setFuel] = useState<any[]>([]);
+  /** The board's own read. '' means there really are no active hires. */
+  const [boardError, setBoardError] = useState('');
+  /** The incidents and fuel tabs share one slot — only one tab is ever mounted. */
+  const [tabError, setTabError] = useState('');
 
   const load = useCallback(() => {
     setLoading(true);
-    rentalApi.logistics.overview().then(r => setData(r.data)).catch(() => setData({ summary: {}, hires: [] })).finally(() => setLoading(false));
+    // A FABRICATED EMPTY SHAPE IS WORSE THAN A BLANK ONE. This caught into
+    // `{ summary: {}, hires: [] }`, which renders a complete, calm logistics board reporting zero
+    // on hire and "No active hires. Dispatch a booking to see it here." — an instruction, given to
+    // someone whose read was refused. GET /rental/logistics/overview sits on the rentals:1 floor
+    // (f94c671), so a rentals:0 role opening this page hits exactly that path.
+    rentalApi.logistics.overview()
+      .then(r => { setData(r.data); setBoardError(''); })
+      .catch(e => {
+        setData({ summary: {}, hires: [] });
+        setBoardError(e?.response?.data?.message || e?.message || 'Could not load the logistics board.');
+      })
+      .finally(() => setLoading(false));
   }, []);
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
+    // Clear the shared slot on every tab change: otherwise the incidents error stays on screen
+    // over the fuel tab until fuel's own read resolves, blaming the wrong list.
+    setTabError('');
     // A REFUSAL IS NOT AN EMPTY QUEUE. This swallowed every failure into `[]`, and the table below
     // then rendered "Nothing awaiting approval." — the one sentence that must never appear over a
     // queue nobody managed to read. The claims route is rentals:2, so a Finance Manager, Production
@@ -70,8 +88,14 @@ export default function LogisticsCommandPage() {
     if (tab === 'approvals') driverAppApi.pending()
       .then(r => { setApprovals(r.data || []); setApprovalsError(''); })
       .catch(e => { setApprovals([]); setApprovalsError(e?.response?.data?.message || e?.message || 'Could not load driver submissions.'); });
-    if (tab === 'incidents') rentalApi.incidents.list({ limit: 50 }).then(r => setIncidents(r.data?.items || r.data || [])).catch(() => setIncidents([]));
-    if (tab === 'fuel') rentalApi.fuel.list({ limit: 50 }).then(r => setFuel(r.data?.items || r.data || [])).catch(() => setFuel([]));
+    // Same rule for the other two tabs: both reads are rentals:1 (ca63cd2, 81537da), and both
+    // rendered "No incident reports." / "No fuel logs." over a list that was refused.
+    if (tab === 'incidents') rentalApi.incidents.list({ limit: 50 })
+      .then(r => { setIncidents(r.data?.items || r.data || []); setTabError(''); })
+      .catch(e => { setIncidents([]); setTabError(e?.response?.data?.message || e?.message || 'Could not load incident reports.'); });
+    if (tab === 'fuel') rentalApi.fuel.list({ limit: 50 })
+      .then(r => { setFuel(r.data?.items || r.data || []); setTabError(''); })
+      .catch(e => { setFuel([]); setTabError(e?.response?.data?.message || e?.message || 'Could not load fuel logs.'); });
   }, [tab]);
 
   const pins = useMemo(() => {
@@ -181,10 +205,25 @@ export default function LogisticsCommandPage() {
         <div>
           <div className="text-[9.5px] font-bold uppercase" style={{ letterSpacing: '.2em', color: 'var(--gold)' }}>Rentals · Live Operations</div>
           <h1 className="text-[20px] font-extrabold leading-tight" style={{ color: 'var(--text-1)' }}>Logistics Command</h1>
-          <p className="text-sm" style={{ color: 'var(--text-3)' }}>{summary.onHire ?? 0} on hire · {(data?.hires || []).reduce((a: number, h: any) => a + (h.locations?.length || 0), 0)} locations{summary.alerts ? <span className="ms-1 font-medium" style={{ color: 'var(--danger)' }}>· {summary.alerts} alert</span> : null}</p>
+          {/* A COUNT WE COULD NOT READ IS NOT ZERO. While boardError stands these figures are
+              withheld rather than shown as 0 — "0 on hire" and "Alerts 0" are assertions. */}
+          <p className="text-sm" style={{ color: 'var(--text-3)' }}>
+            {boardError
+              ? 'Figures unavailable — the board could not be read.'
+              : <>{summary.onHire ?? 0} on hire · {(data?.hires || []).reduce((a: number, h: any) => a + (h.locations?.length || 0), 0)} locations{summary.alerts ? <span className="ms-1 font-medium" style={{ color: 'var(--danger)' }}>· {summary.alerts} alert</span> : null}</>}
+          </p>
         </div>
         <button onClick={load} className="btn btn-secondary"><RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh</button>
       </div>
+
+      {/* THE BANNER GOES FIRST, above the tabs and every figure. Buried in the hires column it
+          was read after the numbers it invalidates. */}
+      {boardError && (
+        <div className="rounded-xl border px-3 py-2 mt-3 mb-1 text-[12px]"
+          style={{ borderColor: 'rgba(229,99,95,.42)', background: 'rgba(229,99,95,.08)', color: '#e5635f' }}>
+          {boardError}
+        </div>
+      )}
 
       <div className="flex gap-1 border-b mb-4" style={{ borderColor: 'var(--border-1)' }}>
         {tabBtn('map', 'Live Map & Sites')}{tabBtn('approvals', 'Driver Approvals', approvals.length)}{tabBtn('incidents', 'Incidents')}{tabBtn('fuel', 'Fuel Logs')}
@@ -198,10 +237,12 @@ export default function LogisticsCommandPage() {
           </div>
         )}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+          {/* Same rule as the header: an unread board shows — , never 0. "Alerts 0" is the one
+              that matters, because it reads as an all-clear nobody verified. */}
           {[['On hire', summary.onHire ?? 0, 'var(--text-1)'], ['On location', summary.onLocation ?? 0, '#16A34A'], ['In transit', summary.inTransit ?? 0, '#D97706'], ['Alerts', summary.alerts ?? 0, '#DC2626']].map(([l, v, c]: any) => (
             <div key={l} className="rounded-2xl border bg-white p-3.5" style={{ borderColor: 'var(--border-1)', background: 'var(--surface-1)' }}>
               <div className="text-[9px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>{l}</div>
-              <div className="text-[22px] font-extrabold" style={{ color: c }}>{v}</div>
+              <div className="text-[22px] font-extrabold" style={{ color: boardError ? 'var(--text-3)' : c }}>{boardError ? '—' : v}</div>
             </div>
           ))}
         </div>
@@ -276,7 +317,10 @@ export default function LogisticsCommandPage() {
                 {(h.locations || []).length === 0 && <div className="text-[10.5px]" style={{ color: 'var(--text-3)' }}>Add a site to this hire first (in the booking).</div>}
               </div>
             ))}
-            {(data?.hires || []).length === 0 && !loading && <div className="rounded-2xl border p-6 text-center text-sm" style={{ borderColor: 'var(--border-1)', color: 'var(--text-3)' }}>No active hires. Dispatch a booking to see it here.</div>}
+            {/* The reason lives in the banner at the top of the page, above the figures it
+                invalidates — not here, where it would be read after them. This line only has to
+                stop asserting: "No active hires" is a claim about a board nobody could read. */}
+            {(data?.hires || []).length === 0 && !loading && !boardError && <div className="rounded-2xl border p-6 text-center text-sm" style={{ borderColor: 'var(--border-1)', color: 'var(--text-3)' }}>No active hires. Dispatch a booking to see it here.</div>}
           </div>
         </div>
 
@@ -337,7 +381,8 @@ export default function LogisticsCommandPage() {
       {/* ── Incidents tab ── */}
       {tab === 'incidents' && (
         <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--border-1)' }}>
-          {incidents.length === 0 ? <div className="p-8 text-center text-sm" style={{ color: 'var(--text-3)' }}>No incident reports.</div> : (
+          {tabError ? <div className="p-8 text-center text-sm" style={{ color: '#e5635f' }}>{tabError}</div>
+            : incidents.length === 0 ? <div className="p-8 text-center text-sm" style={{ color: 'var(--text-3)' }}>No incident reports.</div> : (
             <table className="w-full text-sm"><thead><tr style={{ background: 'var(--surface-2)' }}>
               {['Asset', 'Type', 'Severity', 'Status', 'When'].map(h => <th key={h} className="text-start px-4 py-2.5 text-[10px] uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>{h}</th>)}
             </tr></thead><tbody>
@@ -358,7 +403,8 @@ export default function LogisticsCommandPage() {
       {/* ── Fuel Logs tab ── */}
       {tab === 'fuel' && (
         <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--border-1)' }}>
-          {fuel.length === 0 ? <div className="p-8 text-center text-sm" style={{ color: 'var(--text-3)' }}>No fuel logs.</div> : (
+          {tabError ? <div className="p-8 text-center text-sm" style={{ color: '#e5635f' }}>{tabError}</div>
+            : fuel.length === 0 ? <div className="p-8 text-center text-sm" style={{ color: 'var(--text-3)' }}>No fuel logs.</div> : (
             <table className="w-full text-sm"><thead><tr style={{ background: 'var(--surface-2)' }}>
               {['Asset', 'Litres', 'Cost', 'Odometer', 'When'].map(h => <th key={h} className="text-start px-4 py-2.5 text-[10px] uppercase tracking-wide" style={{ color: 'var(--text-3)' }}>{h}</th>)}
             </tr></thead><tbody>
