@@ -61,7 +61,17 @@ export class ScripOnController {
   @Post('development/version/:versionId/status') @RequirePermission('production', 2) devStatus(@Param('versionId') versionId: string, @Body() body: any) { return this.service.promoteVersion(versionId, body?.status); }
   @Get('development/compare') devCompare(@Query('a') a: string, @Query('b') b: string) { return this.service.compareVersions(a, b); }
   @Post('development/version/:versionId/read') @RequirePermission('production', 1) devRead(@Param('versionId') versionId: string) { return this.service.stageRead(versionId); }
-  @Post('development/version/:versionId/promote-to-script') @RequirePermission('production', 2) devPromoteScript(@Param('versionId') versionId: string, @Req() req: any) { return this.service.promoteToScript(versionId, req?.user?.id); }
+  /**
+   * THE WAIVER HAD NO DOOR. promoteToScript has accepted opts.waiveChecks since the second
+   * pre-spend gate was added, and this route took no body at all — so the gate at
+   * scripton.service.ts:5518 could not be waived over HTTP by any caller. The refusal told the
+   * writer to "re-run with waiveChecks" and there was no way to do it.
+   *
+   * `=== true` ON PURPOSE: only an explicit boolean true waives. A truthy string, a 1, or a
+   * stray query param does not, and an absent body does not. The waiver is one deliberate act
+   * per call — never a default, and nothing here remembers it for the next one.
+   */
+  @Post('development/version/:versionId/promote-to-script') @RequirePermission('production', 2) devPromoteScript(@Param('versionId') versionId: string, @Body() body: any, @Req() req: any) { return this.service.promoteToScript(versionId, req?.user?.id, { waiveChecks: body?.waiveChecks === true }); }
   @Post('development/script/:docId/regenerate') @RequirePermission('production', 2) devRegenerateFeature(@Param('docId') docId: string, @Body() body: any, @Req() req: any) { return this.service.regenerateFeature(docId, req?.user?.id, body?.mode === 'rewrite' ? 'rewrite' : 'extend'); }
   /** Stop a running generation. Cooperative: it lands after the scene in flight, and never activates the partial revision. */
   @Post('development/script/:docId/cancel') @RequirePermission('production', 2) devCancelFeature(@Param('docId') docId: string) { return this.service.cancelGeneration(docId); }
