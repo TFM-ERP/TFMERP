@@ -1,24 +1,7 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import {
-  classifyLine, classifyScript, nextInSpeech, looksLikeCue, readScene,
-  normaliseCharacterName, keyName, sameCharacter, splitCast,
-  collectExits, unavailableAt, unavailableLine, stripExitedCast,
-  checkScene, checkDraftContinuity, checkPlanCast,
-  normaliseForCompare, jaccard, findDuplicateScenes, dedupeScenes,
-  repairInstruction, summariseContinuity,
-  exitsAsCanonFacts, findNameDrift, canonicalForm, canonicaliseNames, properCase, trimToSentence,
-  DUPLICATE_ANYWHERE, DUPLICATE_SAME_PLACE,
-  findSecondDocument, splitAtSecondDocument, isRecalledTime,
-  CastExit,
-  findMetaCommentary, stripMetaCommentary,
-  findWrittenDeaths, collectWrittenDeaths, writtenDeathsAsExits,
-  collectPronounEvidence, findPronounDrift, checkFixedAttributes,
-  sceneDefectInstruction, checkSceneIntegrity,
-  parseSpokenClock, findAllTimeTokens, checkClockRegression, findTimeTokens,
-  checkPropContinuity, propStateAt, spineDirective, type PropEvent,
-  findFlashbackMismatches,
-  findFragmentRuns, findFalseSceneBreaks, findEchoedPhrases, headingKey,
+  classifyLine, classifyScript, nextInSpeech, looksLikeCue, readScene, normaliseCharacterName, keyName, sameCharacter, splitCast, collectExits, unavailableAt, unavailableLine, stripExitedCast, checkScene, checkDraftContinuity, checkPlanCast, normaliseForCompare, jaccard, findDuplicateScenes, dedupeScenes, repairInstruction, summariseContinuity, exitsAsCanonFacts, findNameDrift, canonicalForm, canonicaliseNames, properCase, trimToSentence, DUPLICATE_ANYWHERE, DUPLICATE_SAME_PLACE, findSecondDocument, splitAtSecondDocument, isRecalledTime, CastExit, findMetaCommentary, stripMetaCommentary, findWrittenDeaths, collectWrittenDeaths, writtenDeathsAsExits, collectPronounEvidence, findPronounDrift, checkFixedAttributes, sceneDefectInstruction, checkSceneIntegrity, parseSpokenClock, findAllTimeTokens, checkClockRegression, findTimeTokens, checkPropContinuity, propStateAt, spineDirective, type PropEvent, findFlashbackMismatches, findFragmentRuns, findFalseSceneBreaks, findEchoedPhrases, headingKey, collectNameForms,
 } from './continuity.util';
 
 // ── the classifier, lifted out of paginate() ────────────────────────────────────────────────
@@ -1129,4 +1112,118 @@ test('the loudest echo is reported first', () => {
   assert.equal(echo.length, 2);
   assert.equal(echo[0].scenes.length, 6);
   assert.match(echo[0].phrase, /holds its breath/);
+});
+
+// ── NAME DRIFT: THE FOUR MEASURED FALSE POSITIVES (2 Oct, Jason Quick) ────────────────────────
+//
+// verifyAndRepair logged "scene 30 — name corrected to ALEXANDER QUICK" and the page was left
+// reading "A headline resolves: ALEXANDER QUICK —". The substitution is gone from the service; these
+// pin the collector so the finding that drove it is not raised in the first place. Every fixture
+// below is the real shape from revision cmuqy7say000bkn0guamrubkg.
+
+/** A cue and its speech, as the writer emits them: name, newline, line. */
+const cueThen = (cue: string, line: string) => cue + '\n' + line;
+
+test('(a) a capitalised run does NOT cross a line break — a cue is not part of its speech', () => {
+  const sc = [{ text: '1  INT. CAR - NIGHT\n\n' + cueThen('JASON', 'Drive.') + '\n\nJASON QUICK grips the wheel.\n' }];
+  const forms = collectNameForms(sc, ['JASON QUICK']);
+  const got = (forms.get('JASON') || []).map((f) => f.form);
+  assert.deepEqual(got, ['JASON QUICK'], 'got ' + JSON.stringify(got) + ' — "JASON DRIVE" is a cue plus a word');
+});
+
+test('(a) and it holds for the whole measured draft — no cue-plus-word forms survive', () => {
+  // Three real pairs from the 2 Oct draft that produced phantom names.
+  const sc = [{ text: [cueThen('JASON', "That's not what I said."), cueThen('SOPHIE', 'No.'),
+    cueThen('ALEXANDER', 'You will sit down.')].join('\n\n') }];
+  const all = [...collectNameForms(sc, ['JASON QUICK', 'SOPHIE QUICK', 'ALEXANDER QUICK']).values()]
+    .reduce((a: any[], v: any[]) => a.concat(v), []).map((f: any) => f.form);
+  assert.deepEqual(all, [], 'these runs are cue + first word of speech: ' + JSON.stringify(all));
+});
+
+test("(b) a possessive is the same name — ADRIAN COLE'S is ADRIAN COLE, both apostrophes", () => {
+  for (const apo of ["'", '’']) {
+    const sc = [{ text: '1  INT. DOCK - DAY\n\nADRIAN COLE' + apo + 'S launch idles.\n' },
+                { text: '2  INT. DOCK - DAY\n\nADRIAN COLE steps off.\n' }];
+    const forms = (collectNameForms(sc, ['ADRIAN COLE']).get('ADRIAN') || []).map((f) => f.form);
+    assert.deepEqual(forms, ['ADRIAN COLE'], apo + ' produced ' + JSON.stringify(forms));
+    assert.equal(findNameDrift(sc.map((x, i) => ({ heading: String(i), text: x.text })), ['ADRIAN COLE'], []).length, 0);
+  }
+});
+
+test('(c) the presence test reads the SAME filtered prose as the collector, not the heading', () => {
+  /*
+   * This has to be built so the fix is actually exercised: a real drift must exist somewhere, and
+   * the WRONG form must appear in a third scene ONLY inside its heading. Reading raw text there
+   * reports a scene for a spelling the collector never saw in its prose. (A first version of this
+   * test used a scene with no collected forms at all, so the presence test was never reached and
+   * the test passed with the fix reverted — it proved nothing.)
+   */
+  const sc = [
+    { heading: '1  INT. DOCK - DAY', text: '1  INT. DOCK - DAY\n\nADRIAN COLE steps off.\n' },
+    { heading: '2  INT. DOCK - DAY', text: '2  INT. DOCK - DAY\n\nADRIAN COLSE waits.\n' },
+    { heading: "3  INT. ADRIAN COLSE'S BOAT - DAY", text: "3  INT. ADRIAN COLSE'S BOAT - DAY\n\nRain on the glass.\n" },
+  ];
+  const f = findNameDrift(sc, ['ADRIAN COLE'], []);
+  const scenes = f.map((x) => x.sceneIndex + 1);
+  assert.deepEqual(scenes, [2], 'only scene 2 has the misspelling in its PROSE; got ' + JSON.stringify(scenes));
+  // And the heading is not evidence either way for the collector.
+  assert.deepEqual([...collectNameForms([sc[2]], ['ADRIAN COLE']).values()], [],
+    'a heading is ours — it is never evidence of a character spelling');
+});
+
+test('(d) a run that STARTS with a registered name is that name plus words', () => {
+  const sc = [{ heading: '1  INT. OFFICE - DAY',
+    text: "1  INT. OFFICE - DAY\n\nA headline resolves: ALEXANDER QUICK'S SON ALIVE —\n\nALEXANDER QUICK stands.\n" }];
+  const forms = (collectNameForms(sc, ['ALEXANDER QUICK']).get('ALEXANDER') || []).map((f) => f.form);
+  assert.deepEqual(forms, ['ALEXANDER QUICK'], 'got ' + JSON.stringify(forms));
+  assert.equal(findNameDrift(sc, ['ALEXANDER QUICK'], []).length, 0, 'the measured headline case');
+});
+
+test('(d) a run that IS a registered name entire is left alone', () => {
+  const sc = [{ text: '1  INT. A - DAY\n\nALEXANDER QUICK signs.\n' }];
+  assert.deepEqual((collectNameForms(sc, ['ALEXANDER QUICK']).get('ALEXANDER') || []).map((f) => f.form),
+    ['ALEXANDER QUICK']);
+});
+
+test('(fifth rule) two REGISTERED names sharing a key are two people, not one misspelled', () => {
+  // keyName reduces both to "ATTACKER". Scene 2 of the draft has both cues.
+  const sc = [{ heading: '2  EXT. GATE - NIGHT',
+    text: '2  EXT. GATE - NIGHT\n\nATTACKER ONE (O.S.) moves left.\n\nATTACKER TWO (O.S.) follows.\n' }];
+  assert.equal(findNameDrift(sc, ['ATTACKER ONE', 'ATTACKER TWO'], []).length, 0);
+  // But an UNregistered variant of a registered name is still drift.
+  const sc2 = [{ heading: '1', text: '1  INT. A - DAY\n\nATTACKER ONE waits.\n' },
+               { heading: '2', text: '2  INT. B - DAY\n\nATTACKER THREE waits.\n' }];
+  assert.equal(findNameDrift(sc2, ['ATTACKER ONE'], []).length, 1, 'ATTACKER THREE is not on the cast');
+});
+
+test('THE CONTRACT THAT MUST SURVIVE — a genuine middle-name variant is still reported', () => {
+  const sc = [{ heading: '1', text: '1  INT. A - DAY\n\nJASON ANDREW QUICK signs.\n' },
+              { heading: '2', text: '2  INT. B - DAY\n\nJASON RICHARD QUICK signs again.\n' }];
+  const f = findNameDrift(sc, ['JASON ANDREW QUICK'], []);
+  assert.equal(f.length, 1, 'suppressing this would be the opposite defect');
+  assert.equal(f[0].kind, 'NAME_DRIFT');
+});
+
+test('NEGATIVE CONTROL — the OLD collector produced the cue-plus-word name', () => {
+  // The previous rule, reconstructed: match the run regex over the lines JOINED, so \s+ crosses
+  // the newline between a cue and its speech.
+  const RUN = /\b\p{Lu}[\p{Ll}\p{Lu}'’-]+(?:\s+\p{Lu}[\p{Ll}\p{Lu}'’-]+)+/gu;
+  const joined = cueThen('JASON', 'Drive.');
+  // The regex captures the newline inside the run; normaliseCharacterName then collapses \s+ to a
+  // single space, which is where "JASON\nDRIVE" became the name "JASON DRIVE".
+  const raw = joined.match(RUN) || [];
+  assert.deepEqual(raw, ['JASON\nDrive'], 'the run crossed the line break: ' + JSON.stringify(raw));
+  const old = raw.map((r) => normaliseCharacterName(r));
+  assert.ok(old.indexOf('JASON DRIVE') >= 0, 'the old form is the defect: ' + JSON.stringify(old));
+  // And the collector no longer yields it.
+  const now = (collectNameForms([{ text: joined }], ['JASON QUICK']).get('JASON') || []).map((f) => f.form);
+  assert.deepEqual(now, []);
+});
+
+test("NEGATIVE CONTROL — without possessive folding, ADRIAN COLE'S reads as a second name", () => {
+  const two = [{ form: "ADRIAN COLE'S", count: 1 }, { form: 'ADRIAN COLE', count: 1 }];
+  assert.notEqual(two[0].form, two[1].form, 'unfolded they are two forms — the defect');
+  const sc = [{ heading: '1', text: "1  INT. A - DAY\n\nADRIAN COLE'S launch idles.\n" },
+              { heading: '2', text: '2  INT. B - DAY\n\nADRIAN COLE steps off.\n' }];
+  assert.equal(findNameDrift(sc, ['ADRIAN COLE'], []).length, 0, 'folded, they are one name');
 });

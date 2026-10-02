@@ -27,7 +27,7 @@ import { endingEntry, mergeChecks, resolveSecondLook, type CheckSubject, type En
 import {
   classifyLine, nextInSpeech, checkScene, checkDraftContinuity, checkPlanCast, stripExitedCast,
   collectExits, unavailableLine, dedupeScenes, repairInstruction, summariseContinuity,
-  exitsAsCanonFacts, findNameDrift, canonicaliseNames, splitCast, trimToSentence,
+  exitsAsCanonFacts, findNameDrift, splitCast, trimToSentence,
   classifyScript, normaliseCharacterName,
   splitAtSecondDocument,
   type LineKind, type CastExit, type ContinuityFinding,
@@ -4113,34 +4113,27 @@ export class ScripOnService {
       const current = String(out[slot(i)] || '');
       if (!current) continue;
 
-      // A name is a substitution, not a rewrite. Sending a four-character correction to a language
-      // model would risk an entire working scene to fix a middle name.
+      // REPORTED, NEVER SUBSTITUTED.
+      //
+      // This branch used to canonicalise the name in place. Two drafts running, it got it wrong in
+      // the same way twice: on 1 Sep it rewrote "Vale Meridian" to "Vale Man" twenty times, in
+      // prose and in every heading; on 2 Oct it logged "scene 30 — name corrected to ALEXANDER
+      // QUICK" and left the page reading "A headline resolves: ALEXANDER QUICK —". What words it
+      // removed is UNKNOWN: the pre-repair text of scene 30 is stored nowhere, so the loss is
+      // visible only as a sentence that no longer parses. The spec fixture
+      // "ALEXANDER QUICK'S SON ALIVE" reproduces the mechanism; it is not the lost line.
+      // Both passed the guards in front of them — a word-count
+      // ceiling and a re-run of the same sweep — because both were small, well-formed edits of the
+      // wrong text. The check that found the drift is not evidence about what the sentence means.
+      //
+      // So a NAME_DRIFT is now a report and nothing else: logged at warn WITH its detail and its
+      // competing forms, never counted in `repaired`, never sent to repairScene. The writer decides.
+      // canonicaliseNames stays in the util with its own specs — it is a sound function that was
+      // being asked an unsound question.
       if (f.kind === 'NAME_DRIFT') {
-        // CONFIRMED LIKE EVERY OTHER REPAIR. This branch used to substitute and move on, on the
-        // argument that "a name is a substitution, not a rewrite" — which is true, and was beside
-        // the point. On 1 Sep it rewrote "Vale Meridian" to "Vale Man" twenty times, in prose AND
-        // in every scene heading, and nothing downstream noticed. An unverified edit is not a safe
-        // edit because it is small; it is an unobserved one.
-        const bodyOnly = current.startsWith(header) ? current.slice(header.length).replace(/^\n+/, '') : current;
-        const fixedBody = canonicaliseNames(bodyOnly, f.names.slice(1), f.names[0]);
-        if (fixedBody === bodyOnly) { setP({ note: 'Repairing continuity — ' + repaired + ' of ' + found + ' fixed.' }); continue; }
-        const candidate = current.startsWith(header) ? header + '\n\n' + fixedBody : fixedBody;
-        // A name correction changes a handful of words. Anything larger is not a name correction.
-        const wasW = (bodyOnly.match(/\S+/g) || []).length;
-        const nowW = (fixedBody.match(/\S+/g) || []).length;
-        const reshaped = wasW > 0 && Math.abs(nowW - wasW) > Math.max(6, wasW * 0.1);
-        // And the check has to actually be cleared — re-run the same sweep on the corrected scene.
-        const stillDrifting = findNameDrift(
-          [{ heading: header, text: candidate }], tracked, facts,
-        ).length > 0;
-        if (reshaped || stillDrifting) {
-          this.log.warn('verifyAndRepair: REJECTED the name correction in scene ' + (i + 1)
-            + (reshaped ? ' — it changed ' + wasW + ' words to ' + nowW + '.' : ' — the drift is still there afterwards.'));
-          setP({ note: 'Repairing continuity — ' + repaired + ' of ' + found + ' fixed.' });
-          continue;
-        }
-        out[slot(i)] = candidate; repaired++;
-        this.log.log('verifyAndRepair: scene ' + (i + 1) + ' — name corrected to ' + f.names[0] + '.');
+        this.log.warn('verifyAndRepair: NAME_DRIFT in scene ' + (i + 1) + ' — ' + f.detail
+          + ' Forms here: ' + f.names.slice(1).map((n: string) => '"' + n + '"').join(', ')
+          + '; elsewhere "' + f.names[0] + '". NOT repaired — a name is reported, never substituted.');
         setP({ note: 'Repairing continuity — ' + repaired + ' of ' + found + ' fixed.' });
         continue;
       }

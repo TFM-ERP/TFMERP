@@ -720,26 +720,69 @@ export interface NameForm { form: string; count: number; firstScene: number }
  * JASON ANDREW QUICK and Jason Richard Quick both resolve to JASON, and are then two forms of one
  * person. Single-token uses (plain "Jason") are ignored: they cannot disagree with anything.
  */
+/**
+ * Prose only. A slug line is a LOCATION, and reading it as a name is how "VALE MERIDIAN EXECUTIVE
+ * FLOOR" became a spelling of a character on 1 Sep — and then how the repair rewrote every heading
+ * in the screenplay. Headings are supplied by us; they are never evidence of drift.
+ *
+ * Exported shape is LINES, not joined text, because the collector must match within a line and the
+ * presence test in findNameDrift must look at exactly the same prose the collector read. When those
+ * two disagreed, a form found in filtered prose was confirmed against raw text that still had the
+ * heading in it.
+ */
+function proseLines(text: any): string[] {
+  return String(text || '')
+    .split('\n')
+    .filter((ln) => { const t = ln.trim(); return !(SLUG_RE.test(t) || AR_SLUG_RE.test(t) || TRANS_RE.test(t)); });
+}
+
+/**
+ * A POSSESSIVE IS THE SAME PERSON. "ADRIAN COLE'S" and "ADRIAN COLE" are one name, and on the
+ * 2 Oct draft treating them as two was most of the drift this check reported. Both apostrophes,
+ * because the writer emits the typographic one.
+ */
+function dropPossessives(norm: string): string {
+  return String(norm || '').split(' ').map((t) => t.replace(/['’][Ss]$/u, '')).filter(Boolean).join(' ');
+}
+
+/**
+ * A RUN THAT STARTS WITH A KNOWN NAME IS THAT NAME PLUS WORDS, not a new spelling of it.
+ * "ALEXANDER QUICK'S SON ALIVE" in a headline is ALEXANDER QUICK followed by two more capitals;
+ * read whole it looked like a fourth way of spelling him. The longest registered prefix wins, and
+ * a run that IS a registered name entire is left alone — it is not "a name plus words".
+ */
+function trimToRegisteredPrefix(norm: string, registeredFull: Set<string>): string {
+  const toks = String(norm || '').split(' ').filter(Boolean);
+  if (toks.length < 3 || registeredFull.has(norm)) return norm;
+  for (let n = toks.length - 1; n >= 2; n--) {
+    const prefix = toks.slice(0, n).join(' ');
+    if (registeredFull.has(prefix)) return prefix;
+  }
+  return norm;
+}
+
 export function collectNameForms(
   written: Array<{ text: string }>,
   tracked: string[],
 ): Map<string, NameForm[]> {
-  const keys = (Array.isArray(tracked) ? tracked : []).map((t) => keyName(t)).filter((k) => k.length >= 3);
+  const trackedNorm = (Array.isArray(tracked) ? tracked : [])
+    .map((t) => dropPossessives(normaliseCharacterName(t))).filter(Boolean);
+  const registeredFull = new Set(trackedNorm);
+  const keys = trackedNorm.map((t) => keyName(t)).filter((k) => k.length >= 3);
   const byKey = new Map<string, NameForm[]>();
   if (!keys.length) return byKey;
   const RUN = /\b\p{Lu}[\p{Ll}\p{Lu}'’-]+(?:\s+\p{Lu}[\p{Ll}\p{Lu}'’-]+)+/gu;
   const list = Array.isArray(written) ? written : [];
   for (let i = 0; i < list.length; i++) {
-    // Prose only. A slug line is a LOCATION, and reading it as a name is how "VALE MERIDIAN
-    // EXECUTIVE FLOOR" became a spelling of a character on 1 Sep — and then how the repair rewrote
-    // every heading in the screenplay. Headings are supplied by us; they are never evidence of drift.
-    const text = String((list[i] && list[i].text) || '')
-      .split('\n')
-      .filter((ln) => { const t = ln.trim(); return !(SLUG_RE.test(t) || AR_SLUG_RE.test(t) || TRANS_RE.test(t)); })
-      .join('\n');
-    const runs = text.match(RUN) || [];
+    // ONE RUN NEVER CROSSES A LINE BREAK. Matched over joined text, \s+ swallowed the newline
+    // between a speaker cue and its speech, so "JASON" + "DRIVE." became the name "JASON DRIVE" —
+    // and on the 2 Oct draft that manufactured over a hundred phantom spellings ("JASON THAT'S"
+    // ten times, "ALEXANDER YOU" five). Per line, a cue is a cue and its speech is its own line.
+    for (const line of proseLines((list[i] && list[i].text) || '')) {
+    const runs = line.match(RUN) || [];
     for (const run of runs) {
-      const norm = normaliseCharacterName(run);
+      let norm = dropPossessives(normaliseCharacterName(run));
+      norm = trimToRegisteredPrefix(norm, registeredFull);
       const toks = norm ? norm.split(' ') : [];
       if (toks.length < 2) continue;
       const k = keyName(norm);
@@ -749,6 +792,7 @@ export function collectNameForms(
       if (hit) hit.count++;
       else forms.push({ form: norm, count: 1, firstScene: i });
       byKey.set(k, forms);
+    }
     }
   }
   return byKey;
@@ -815,7 +859,7 @@ export function findNameDrift(
   const registered = Array.from(new Set(
     (Array.isArray(tracked) ? tracked : []).concat(
       (Array.isArray(facts) ? facts : []).map((f) => String((f && f.subject) || '')),
-    ).map((t) => normaliseCharacterName(t)).filter(Boolean),
+    ).map((t) => dropPossessives(normaliseCharacterName(t))).filter(Boolean),
   ));
   byKey.forEach((forms, key) => {
     if (forms.length < 2) return;
@@ -823,11 +867,20 @@ export function findNameDrift(
     // '' means the registry recognised none of the spellings. Two unknown forms of an unknown name
     // is not a fact we can act on, and acting on it anyway is precisely the 1 Sep failure.
     if (!canonical) return;
-    const wrong = forms.filter((f) => f.form !== canonical);
+    // A FIFTH RULE, BEYOND THE FOUR MEASURED ONES, AND SAID OUT LOUD: a form that is ITSELF a
+    // registered name is not a misspelling of another registered name. keyName reduces a name to
+    // its first substantial token, so ATTACKER ONE and ATTACKER TWO — two separate cues in scene 2
+    // of the 2 Oct draft, both on the cast — share the key "ATTACKER" and were reported as drift of
+    // each other. Two people are not one person spelled two ways. This does not weaken the
+    // middle-name case: JASON RICHARD QUICK is not registered when JASON ANDREW QUICK is the cast
+    // entry, so that drift is still reported (spec :323).
+    const wrong = forms.filter((f) => f.form !== canonical && registered.indexOf(f.form) < 0);
     if (!wrong.length) return;
     const list = Array.isArray(written) ? written : [];
     for (let i = 0; i < list.length; i++) {
-      const text = String((list[i] && list[i].text) || '');
+      // THE SAME PROSE THE COLLECTOR READ. This was raw text, heading included — so a scene could
+      // be reported for a form the collector had never seen in it.
+      const text = proseLines((list[i] && list[i].text) || '').join('\n');
       const here = wrong.filter((w) => text.indexOf(properCase(w.form)) >= 0 || text.indexOf(w.form) >= 0);
       if (!here.length) continue;
       out.push({
