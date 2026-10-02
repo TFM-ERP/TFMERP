@@ -1227,3 +1227,77 @@ test("NEGATIVE CONTROL — without possessive folding, ADRIAN COLE'S reads as a 
               { heading: '2', text: '2  INT. B - DAY\n\nADRIAN COLE steps off.\n' }];
   assert.equal(findNameDrift(sc, ['ADRIAN COLE'], []).length, 0, 'folded, they are one name');
 });
+
+// ── ONE NAME WRITTEN LONG AND SHORT, AND WHO IS A DIFFERENT PERSON ───────────────────────────
+//
+// Commit A reported JASON QUICK against JASON ALEXANDER QUICK on the 2 Oct draft and argued it was
+// a true positive. It is not: the bible's register names "Jason Alexander Quick" as his identity,
+// and the finding count was an artefact of how the cast list happened to be spelled — the same text
+// gave 0 findings spelled JASON, 2 spelled JASON QUICK, 1 spelled JASON ALEXANDER QUICK.
+
+/** Scenes with a one-line body each, the shape findNameDrift is given in production. */
+const body = (...bodies: string[]) => bodies.map((b, i) => ({
+  heading: String(i + 1), text: (i + 1) + '  INT. ROOM - DAY\n\n' + b + '\n',
+}));
+
+test('(A2-a) a shorter spelling inside a longer one is ONE name, not drift', () => {
+  assert.equal(findNameDrift(body('JASON QUICK waits.', 'JASON ALEXANDER QUICK signs.'), ['JASON QUICK'], []).length, 0);
+  // and the other way round — which spelling is on the cast list must not change the answer
+  assert.equal(findNameDrift(body('JASON QUICK waits.', 'JASON ALEXANDER QUICK signs.'), ['JASON ALEXANDER QUICK'], []).length, 0);
+});
+
+test('(A2-a) the count no longer flips with the cast spelling', () => {
+  const scenes = body('JASON QUICK waits.', 'JASON ALEXANDER QUICK signs.', 'JASON ALEXANDER QUICK leaves.');
+  const counts = ['JASON', 'JASON QUICK', 'JASON ALEXANDER QUICK']
+    .map((cast) => findNameDrift(scenes, [cast], []).length);
+  assert.deepEqual(counts, [0, 0, 0], 'spelled JASON / JASON QUICK / JASON ALEXANDER QUICK: ' + JSON.stringify(counts));
+});
+
+test('(A2-a) but a form that conflicts with a MORE-USED form is still reported', () => {
+  // Both long forms are compatible with the canonical; they are not compatible with each other.
+  const f = findNameDrift(body('JASON QUICK waits.', 'JASON ANDREW QUICK signs.',
+    'JASON ANDREW QUICK signs again.', 'JASON RICHARD QUICK signs.'), ['JASON QUICK'], []);
+  const forms = [...new Set(f.flatMap((x) => x.names.slice(1)))];
+  assert.deepEqual(forms, ['JASON RICHARD QUICK'],
+    'the rarer of two incompatible middle names is the one to report; got ' + JSON.stringify(forms));
+});
+
+test('(A2-b) two registered forms are different people only when the LAST token differs', () => {
+  // Different last token: two people.
+  assert.equal(findNameDrift(body('ATTACKER ONE moves.', 'ATTACKER TWO follows.'),
+    ['ATTACKER ONE', 'ATTACKER TWO'], []).length, 0);
+  // Same first and last, different middle: one person, still reported even though both are cast.
+  assert.equal(findNameDrift(body('JASON ANDREW QUICK signs.', 'JASON RICHARD QUICK signs again.'),
+    ['JASON ANDREW QUICK', 'JASON RICHARD QUICK'], []).length, 1,
+    'the first version of this rule excused any registered form and hid this contradiction');
+});
+
+test('(A2) THE CONTRACT STILL HOLDS — spec :323 reports', () => {
+  const f = findNameDrift(body('JASON ANDREW QUICK signs.', 'JASON RICHARD QUICK signs again.'),
+    ['JASON ANDREW QUICK'], []);
+  assert.equal(f.length, 1);
+  assert.equal(f[0].kind, 'NAME_DRIFT');
+});
+
+test('NEGATIVE CONTROL (A2-a) — without subsumption, the long form is reported as drift', () => {
+  // The rule it replaced: anything that is not the canonical string is wrong.
+  const forms = [{ form: 'JASON QUICK', count: 3 }, { form: 'JASON ALEXANDER QUICK', count: 2 }];
+  const canonical = 'JASON QUICK';
+  const oldWrong = forms.filter((f) => f.form !== canonical).map((f) => f.form);
+  assert.deepEqual(oldWrong, ['JASON ALEXANDER QUICK'], 'the old rule reported it — the defect');
+  // and the collector no longer does
+  assert.equal(findNameDrift(body('JASON QUICK waits.', 'JASON ALEXANDER QUICK signs.'), ['JASON QUICK'], []).length, 0);
+});
+
+test('NEGATIVE CONTROL (A2-b) — the WIDE fifth rule hid a real middle-name contradiction', () => {
+  const registered = ['JASON ANDREW QUICK', 'JASON RICHARD QUICK'];
+  const canonical = 'JASON ANDREW QUICK';
+  const other = 'JASON RICHARD QUICK';
+  // The wide rule: any registered form is excused.
+  assert.equal(registered.indexOf(other) >= 0, true, 'the wide rule would have excused it — the defect');
+  // The narrow rule: excused only if the last token differs.
+  const lastOf = (n: string) => n.split(' ').slice(-1)[0];
+  assert.equal(lastOf(other) === lastOf(canonical), true, 'same last token, so one person');
+  assert.equal(findNameDrift(body('JASON ANDREW QUICK signs.', 'JASON RICHARD QUICK signs again.'),
+    registered, []).length, 1, 'and it is reported');
+});

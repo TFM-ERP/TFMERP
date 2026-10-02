@@ -847,6 +847,44 @@ export function canonicalForm(forms: NameForm[], facts: CanonFactCore[], registe
  * A character written under more than one full name. Exact, not inferred: two spellings resolving to
  * one key name is a contradiction whatever the story is about.
  */
+/**
+ * ONE NAME, WRITTEN LONG AND SHORT. JASON QUICK's tokens appear in order inside JASON ALEXANDER
+ * QUICK, so they are two spellings of one identity rather than two identities — the bible's own
+ * register names "Jason Alexander Quick" as who he is. Reporting them as drift made the count an
+ * artefact of how the cast list happened to be spelled: on the 2 Oct draft the same text yielded
+ * 0 findings spelled JASON, 2 spelled JASON QUICK and 1 spelled JASON ALEXANDER QUICK.
+ *
+ * Subsequence, not prefix: a middle name is inserted, not appended.
+ */
+function subsumes(shorter: string, longer: string): boolean {
+  const x = String(shorter || '').split(' ').filter(Boolean);
+  const y = String(longer || '').split(' ').filter(Boolean);
+  if (!x.length || x.length > y.length) return false;
+  let i = 0;
+  for (const t of y) if (i < x.length && t === x[i]) i++;
+  return i === x.length;
+}
+
+/** Two forms of one name: identical, or one contained in the other in order. */
+function compatibleForms(a: string, b: string): boolean {
+  return a === b || subsumes(a, b) || subsumes(b, a);
+}
+
+/**
+ * TWO REGISTERED FORMS ARE DIFFERENT PEOPLE ONLY WHEN THEIR LAST TOKEN DIFFERS.
+ *
+ * The first version of this rule excused any form that appeared on the cast list, which was too
+ * wide: with JASON ANDREW QUICK and JASON RICHARD QUICK both registered and both in the prose, a
+ * genuine contradiction went unreported. ATTACKER ONE and ATTACKER TWO differ in the last token
+ * and are two people; ANDREW and RICHARD share it and are one person written two ways.
+ */
+function differentRegisteredPeople(a: string, b: string): boolean {
+  const at = String(a || '').split(' ').filter(Boolean);
+  const bt = String(b || '').split(' ').filter(Boolean);
+  if (!at.length || !bt.length) return false;
+  return at[at.length - 1] !== bt[bt.length - 1];
+}
+
 export function findNameDrift(
   written: Array<{ heading: string; text: string }>,
   tracked: string[],
@@ -867,14 +905,29 @@ export function findNameDrift(
     // '' means the registry recognised none of the spellings. Two unknown forms of an unknown name
     // is not a fact we can act on, and acting on it anyway is precisely the 1 Sep failure.
     if (!canonical) return;
-    // A FIFTH RULE, BEYOND THE FOUR MEASURED ONES, AND SAID OUT LOUD: a form that is ITSELF a
-    // registered name is not a misspelling of another registered name. keyName reduces a name to
-    // its first substantial token, so ATTACKER ONE and ATTACKER TWO — two separate cues in scene 2
-    // of the 2 Oct draft, both on the cast — share the key "ATTACKER" and were reported as drift of
-    // each other. Two people are not one person spelled two ways. This does not weaken the
-    // middle-name case: JASON RICHARD QUICK is not registered when JASON ANDREW QUICK is the cast
-    // entry, so that drift is still reported (spec :323).
-    const wrong = forms.filter((f) => f.form !== canonical && registered.indexOf(f.form) < 0);
+    /*
+     * ONLY FORMS THAT CONFLICT. Three filters, in order:
+     *
+     *   1. the canonical itself is never drift;
+     *   2. a registered form is a different PERSON only when its last token differs from the
+     *      canonical's (ATTACKER ONE / ATTACKER TWO) — sharing it means one person written two
+     *      ways, which is still reportable;
+     *   3. a form conflicts when it is NOT a longer-or-shorter spelling of the canonical, or when
+     *      it is not a longer-or-shorter spelling of some form used MORE OFTEN than it is.
+     *
+     * The second half of (3) is what keeps the real contradiction visible. With canonical JASON
+     * QUICK, JASON ANDREW QUICK twice and JASON RICHARD QUICK once, both long forms are compatible
+     * with the canonical — but they are not compatible with each other, so the rarer one is
+     * reported against the commoner one and ANDREW is left alone.
+     */
+    const conflicts = (f: NameForm) =>
+      !compatibleForms(f.form, canonical)
+      || forms.some((g) => g.count > f.count && !compatibleForms(f.form, g.form));
+    const wrong = forms.filter((f) => {
+      if (f.form === canonical) return false;
+      if (registered.indexOf(f.form) >= 0 && differentRegisteredPeople(f.form, canonical)) return false;
+      return conflicts(f);
+    });
     if (!wrong.length) return;
     const list = Array.isArray(written) ? written : [];
     for (let i = 0; i < list.length; i++) {
