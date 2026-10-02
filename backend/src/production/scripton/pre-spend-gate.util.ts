@@ -36,6 +36,13 @@ export interface CheckRead {
   state: CheckState;
   /** Register-check line numbers, when it has them. */
   lines: number[];
+  /**
+   * WHAT IS WRONG, NOT ONLY WHERE. A register finding reached the reader as "2 of 105 lines
+   * contradicted … Line(s): 36, 52." and nothing more — and the reader is the person being asked
+   * to waive it. A line number is not something anyone can weigh. Each stored item carries a
+   * `why`; this is that, one entry per item, so the refusal says what the contradiction IS.
+   */
+  items: Array<{ line: number | null; why: string }>;
   detail: string;
 }
 
@@ -71,14 +78,23 @@ const brief = (s: string, max = 110): string => {
 
 /** eraCheck / keepCheck publish their own state; registerCheck does not and is derived. */
 export function readCheck(name: string, value: any): CheckRead {
-  const out = (state: CheckState, detail: string, lines: number[] = []): CheckRead => ({ check: name, state, lines, detail });
+  const out = (state: CheckState, detail: string, lines: number[] = [], items: CheckRead['items'] = []): CheckRead =>
+    ({ check: name, state, lines, items, detail });
   if (value == null) return out('NOT_RUN', 'no ' + name + ' is stored on this version');
 
   if (name === 'registerCheck') {
     const items = arr(value.items);
     if (items.length) {
       const lines = items.map((i: any) => Number(i && i.line)).filter((n: number) => isFinite(n) && n > 0);
-      return out('FINDINGS', String(value.summary || (items.length + ' contradiction(s)')), lines);
+      // `why` is the stored reason. It falls back to `rule` rather than to nothing: a rule quoted
+      // beside the line is still grounds a reader can judge, where a bare number is not. An item
+      // with neither says so outright, because silence would read as "no reason to worry".
+      const detailed = items.map((i: any) => {
+        const n = Number(i && i.line);
+        const why = String((i && (i.why || i.rule)) || '').replace(/\s+/g, ' ').trim();
+        return { line: isFinite(n) && n > 0 ? n : null, why: why || 'no reason recorded on this item' };
+      });
+      return out('FINDINGS', String(value.summary || (items.length + ' contradiction(s)')), lines, detailed);
     }
     // RAN AND FAILED IS NOT CLEAN. The error shape stores ok:false / contradicted:null with an
     // empty items array, which is byte-identical to a clean result everywhere except these fields.
@@ -97,6 +113,18 @@ export function readCheck(name: string, value: any): CheckRead {
   if (state === 'NO FINDINGS' || state === 'NO MISSES') return out('CLEAN', String(value.summary || 'nothing found'));
   // A stored object with no state we recognise has told us nothing.
   return out('NOT_RUN', 'the stored ' + name + ' has no recognisable verdict');
+}
+
+/**
+ * A WAIVER IS A BOOLEAN TRUE, NOTHING ELSE.
+ *
+ * Both gates tested `!opts?.waiveChecks`, and generate-async spreads the raw request body into
+ * startStage — so waiveChecks of '0', 'false', 1, {} or [] all waived a gate whose entire purpose
+ * is to be hard to pass. It lives here rather than inline in the two `if`s so the rule is one thing
+ * with one test, instead of a condition repeated 4,000 lines apart and able to drift.
+ */
+export function isWaived(opts?: { waiveChecks?: unknown } | null): boolean {
+  return !!opts && (opts as any).waiveChecks === true;
 }
 
 export const GATE_CHECKS = ['registerCheck', 'eraCheck', 'keepCheck'];
@@ -156,6 +184,9 @@ export function gateText(report: GateReport): string {
     for (const { kind, c } of findings) {
       out.push('  ' + kind + ' — ' + c.check + ': ' + c.detail
         + (c.lines.length ? '  Line(s): ' + c.lines.join(', ') + '.' : ''));
+      // One line per contradiction, under its stage. This is the part a person can actually weigh,
+      // and it is what the summary line was standing in for.
+      for (const it of c.items) out.push('      line ' + (it.line == null ? '?' : it.line) + ': ' + brief(it.why, 240));
     }
   }
 

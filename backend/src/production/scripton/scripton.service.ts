@@ -22,7 +22,7 @@ import {
 import { draftLengthCheck } from './draft-length.util';
 import { windowKeepingEnd, windowLabel, allocate } from './excerpt-window.util';
 import { consumedStamp, hasConsumed } from './consumed-stamp.util';
-import { preSpendGate, GATE_CHECKS, markPreSpendRefusal, errorTextForJob } from './pre-spend-gate.util';
+import { preSpendGate, GATE_CHECKS, markPreSpendRefusal, errorTextForJob, isWaived } from './pre-spend-gate.util';
 import { endingEntry, mergeChecks, resolveSecondLook, type CheckSubject, type EndingVerdict } from './revision-checks.util';
 import {
   classifyLine, nextInSpeech, checkScene, checkDraftContinuity, checkPlanCast, stripExitedCast,
@@ -1384,7 +1384,10 @@ export class ScripOnService {
         .map((st: any) => ({ id: st.current && st.current.id, kind: st.kind, data: st.current && st.current.data }))
         .filter((v: any) => v.id);
       const gate = preSpendGate(consumed, gateVersions, { checks: GATE_CHECKS });
-      if (gate.stop && !opts?.waiveChecks) {
+      // isWaived is === true, not truthy. generate-async spreads the raw request body into
+      // startStage, so a stray waiveChecks of '0', 'false' or 1 would have waived a gate that
+      // exists to be hard to pass. One predicate, one test, both gates.
+      if (gate.stop && !isWaived(opts)) {
         // Marked so startStage's catch keeps it whole: why() would cap it at 300 characters and
         // flatten the line breaks, which is how the findings and this sentence went missing.
         throw markPreSpendRefusal(new BadRequestException(gate.text
@@ -5521,7 +5524,8 @@ export class ScripOnService {
       if (st && st.current && st.current.id) featureConsumed[k] = st.current.id;
     }
     const featureGate = preSpendGate(featureConsumed, stages.map((st: any) => ({ id: st.current && st.current.id, kind: st.kind, data: st.current && st.current.data })).filter((v: any) => v.id), { checks: GATE_CHECKS });
-    if (featureGate.stop && !opts?.waiveChecks) {
+    // The same predicate as the DRAFT gate above.
+    if (featureGate.stop && !isWaived(opts)) {
       throw markPreSpendRefusal(new BadRequestException(featureGate.text
         + '\n\nNo script document has been created and nothing has been spent. Amend the upstream'
         + ' stage, or re-run with waiveChecks to proceed on the record above.'));

@@ -6,7 +6,7 @@
  */
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { preSpendGate, readCheck, gateText, markPreSpendRefusal, isPreSpendRefusal, errorTextForJob } from './pre-spend-gate.util';
+import { preSpendGate, readCheck, gateText, markPreSpendRefusal, isPreSpendRefusal, errorTextForJob, isWaived } from './pre-spend-gate.util';
 
 /** The real stored shape, from STEP_OUTLINE on Jason Quick V3.2. */
 const WITH_ITEMS = {
@@ -278,5 +278,105 @@ test('EVERY pre-spend gate refusal in the service is marked', () => {
   for (const t of throwsOnGateText) {
     assert.match(t, /markPreSpendRefusal\(/,
       'a gate refusal is thrown unmarked, so why() will cap it at 300 chars: ' + t.replace(/\s+/g, ' ').slice(0, 90));
+  }
+});
+
+// ── WHAT IS WRONG, NOT ONLY WHERE (commit 3) ──────────────────────────────────────────────────
+//
+// The refusal said "2 of 105 lines contradicted … Line(s): 36, 52." A person asked to waive that
+// has been told where to look and nothing about what is wrong. Each stored item carries a `why`.
+
+const TWO_ITEMS = {
+  ok: true, checked: 105, contradicted: 2,
+  summary: 'REGISTER CHECK: 2 of 105 lines contradicted (1.9%) — 29. Continuity foundations 1',
+  items: [
+    { line: 36, rule: 'Thomas admits his role to Nora before the Boston meeting.', draft: 'Cape Breton', why: 'staged at the rescue station, not Boston' },
+    { line: 52, rule: 'Nora never learns of the bracelet before the inquest.', draft: 'pier', why: 'she recognises the bracelet eleven scenes early' },
+  ],
+};
+
+test('a register finding carries one item per contradiction — line AND why', () => {
+  const c = readCheck('registerCheck', TWO_ITEMS);
+  assert.equal(c.state, 'FINDINGS');
+  assert.deepEqual(c.lines, [36, 52]);
+  assert.deepEqual(c.items, [
+    { line: 36, why: 'staged at the rescue station, not Boston' },
+    { line: 52, why: 'she recognises the bracelet eleven scenes early' },
+  ]);
+});
+
+test('gateText prints one line per contradiction, under its stage', () => {
+  const t = gate({ registerCheck: TWO_ITEMS }).text;
+  assert.match(t, /^ {6}line 36: staged at the rescue station, not Boston$/m);
+  assert.match(t, /^ {6}line 52: she recognises the bracelet eleven scenes early$/m);
+  // Under the stage line, not before it.
+  assert.ok(t.indexOf('STEP_OUTLINE — registerCheck') < t.indexOf('line 36:'));
+});
+
+test('the reason is readable early — not pushed past where the old cut fell', () => {
+  const t = gate({ registerCheck: TWO_ITEMS }).text;
+  assert.ok(t.indexOf('staged at the rescue station') < 400,
+    'the first reason starts at ' + t.indexOf('staged at the rescue station'));
+});
+
+test('why falls back to the rule, and an item with neither says so', () => {
+  const noWhy = readCheck('registerCheck', { ok: true, contradicted: 1, items: [{ line: 7, rule: 'The bracelet is buried with Agnes.' }] });
+  assert.deepEqual(noWhy.items, [{ line: 7, why: 'The bracelet is buried with Agnes.' }]);
+  const neither = readCheck('registerCheck', { ok: true, contradicted: 1, items: [{ line: 9 }] });
+  assert.deepEqual(neither.items, [{ line: 9, why: 'no reason recorded on this item' }],
+    'silence here would read as "no reason to worry"');
+  const noLine = readCheck('registerCheck', { ok: true, contradicted: 1, items: [{ why: 'contradicts the ending' }] });
+  assert.deepEqual(noLine.items, [{ line: null, why: 'contradicts the ending' }]);
+  assert.match(gate({ registerCheck: { ok: true, contradicted: 1, items: [{ why: 'contradicts the ending' }] } }).text,
+    /^ {6}line \?: contradicts the ending$/m, 'a missing line number prints ? rather than being dropped');
+});
+
+test('a CLEAN or NOT_RUN check carries no items', () => {
+  assert.deepEqual(readCheck('registerCheck', ZERO_ITEMS).items, []);
+  assert.deepEqual(readCheck('registerCheck', null).items, []);
+  assert.deepEqual(readCheck('eraCheck', { state: 'FINDINGS', findings: [1], summary: 'two datings' }).items, [],
+    'only the register check stores per-item reasons today');
+});
+
+test('NEGATIVE CONTROL — the OLD summary-only rendering told the reader only where to look', () => {
+  const c = readCheck('registerCheck', TWO_ITEMS);
+  // What the line used to be, reconstructed.
+  const old = '  STEP_OUTLINE — registerCheck: ' + c.detail + '  Line(s): ' + c.lines.join(', ') + '.';
+  assert.ok(!old.includes('staged at the rescue station'), 'the old line carried no reason — the defect');
+  assert.ok(!old.includes('eleven scenes early'));
+  assert.match(gate({ registerCheck: TWO_ITEMS }).text, /staged at the rescue station/);
+});
+
+// ── the waiver is a boolean, not a truthy value ───────────────────────────────────────────────
+
+test('isWaived: a waiver is boolean true and nothing else', () => {
+  assert.equal(isWaived({ waiveChecks: true }), true);
+  // Every one of these is reachable: generate-async spreads the raw request body into startStage.
+  for (const v of ['0', 'false', 'true', 1, 0, {}, [], 'yes', null, undefined] as any[])
+    assert.equal(isWaived({ waiveChecks: v }), false, JSON.stringify(v) + ' must not waive a gate');
+  assert.equal(isWaived({}), false);
+  assert.equal(isWaived(null), false);
+  assert.equal(isWaived(undefined), false);
+});
+
+test('NEGATIVE CONTROL — the truthy form it replaced waived on values nobody meant', () => {
+  const truthyForm = (opts?: any) => !!(opts && opts.waiveChecks);   // what both gates used to test
+  for (const v of ['0', 'false', 1, 'no', {}, []] as any[]) {
+    assert.equal(truthyForm({ waiveChecks: v }), true, JSON.stringify(v) + ' passed the old gate');
+    assert.equal(isWaived({ waiveChecks: v }), false, 'and is refused now');
+  }
+  // Both agree on the only value that should ever waive.
+  assert.equal(truthyForm({ waiveChecks: true }), true);
+  assert.equal(isWaived({ waiveChecks: true }), true);
+});
+
+test('BOTH gates call isWaived — neither keeps its own condition', () => {
+  const src = require('fs').readFileSync(
+    require('path').join(__dirname, 'scripton.service.ts'), 'utf8');
+  const stops = src.match(/if \((?:gate|featureGate)\.stop && [^)]*\)\)? \{/g) || [];
+  assert.equal(stops.length, 2, 'expected the DRAFT and promote gate stop branches; found ' + stops.length);
+  for (const line of stops) {
+    assert.match(line, /!isWaived\(opts\)/, 'a gate still has its own waiver condition: ' + line);
+    assert.doesNotMatch(line, /!opts\?\.waiveChecks/, 'the truthy form is the defect');
   }
 });
