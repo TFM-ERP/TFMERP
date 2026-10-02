@@ -22,7 +22,7 @@ import {
 import { draftLengthCheck } from './draft-length.util';
 import { windowKeepingEnd, windowLabel, allocate } from './excerpt-window.util';
 import { consumedStamp, hasConsumed } from './consumed-stamp.util';
-import { preSpendGate, GATE_CHECKS } from './pre-spend-gate.util';
+import { preSpendGate, GATE_CHECKS, markPreSpendRefusal, errorTextForJob } from './pre-spend-gate.util';
 import { endingEntry, mergeChecks, resolveSecondLook, type CheckSubject, type EndingVerdict } from './revision-checks.util';
 import {
   classifyLine, nextInSpeech, checkScene, checkDraftContinuity, checkPlanCast, stripExitedCast,
@@ -1127,7 +1127,11 @@ export class ScripOnService {
       })
       .catch((e: any) => {
         const j = this.stageJobs.get(key);
-        const msg = this.why(e);
+        // A GATE REFUSAL IS THE ONE ERROR MEANT TO BE READ, so it is recorded verbatim — full
+        // length, line breaks intact. Every other failure keeps why()'s 300-character cap and
+        // whitespace collapse: those are exception messages, not a report for a person. The choice
+        // lives in pre-spend-gate.util so it is covered by a test rather than by this line.
+        const msg = errorTextForJob(e, (x) => this.why(x));
         if (j) { j.status = 'ERROR'; j.finishedAt = Date.now(); j.elapsedSec = Math.round((j.finishedAt - j.startedAt) / 1000); j.error = msg; }
         this.log.error('startStage: ' + kind + ' FAILED for project ' + projectId + ' after ' + (j ? j.elapsedSec : '?') + 's — ' + msg);
       });
@@ -1381,9 +1385,11 @@ export class ScripOnService {
         .filter((v: any) => v.id);
       const gate = preSpendGate(consumed, gateVersions, { checks: GATE_CHECKS });
       if (gate.stop && !opts?.waiveChecks) {
-        throw new BadRequestException(gate.text
+        // Marked so startStage's catch keeps it whole: why() would cap it at 300 characters and
+        // flatten the line breaks, which is how the findings and this sentence went missing.
+        throw markPreSpendRefusal(new BadRequestException(gate.text
           + '\n\nNothing has been generated and nothing has been spent. Amend the upstream stage, or'
-          + ' re-run with waiveChecks to proceed on the record above.');
+          + ' re-run with waiveChecks to proceed on the record above.'));
       }
       if (gate.stop) this.log.warn('generateStage DRAFT: PRE-SPEND FINDINGS WAIVED —\n' + gate.text);
       else this.log.log('generateStage DRAFT: ' + gate.text);
@@ -5516,9 +5522,9 @@ export class ScripOnService {
     }
     const featureGate = preSpendGate(featureConsumed, stages.map((st: any) => ({ id: st.current && st.current.id, kind: st.kind, data: st.current && st.current.data })).filter((v: any) => v.id), { checks: GATE_CHECKS });
     if (featureGate.stop && !opts?.waiveChecks) {
-      throw new BadRequestException(featureGate.text
+      throw markPreSpendRefusal(new BadRequestException(featureGate.text
         + '\n\nNo script document has been created and nothing has been spent. Amend the upstream'
-        + ' stage, or re-run with waiveChecks to proceed on the record above.');
+        + ' stage, or re-run with waiveChecks to proceed on the record above.'));
     }
     if (featureGate.stop) this.log.warn('promoteToScript: PRE-SPEND FINDINGS WAIVED —\n' + featureGate.text);
     else this.log.log('promoteToScript: ' + featureGate.text);

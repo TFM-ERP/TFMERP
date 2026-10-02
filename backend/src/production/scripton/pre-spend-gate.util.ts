@@ -124,9 +124,20 @@ export function preSpendGate(
 }
 
 /**
- * THREE DIFFERENT RENDERINGS. If CLEAN and NOT_RUN read the same to a person, this module has
- * reproduced the defect it exists to end — so they use different verbs and NOT_RUN says outright
- * that it is not a pass.
+ * THREE DIFFERENT RENDERINGS, WORST FIRST. If CLEAN and NOT_RUN read the same to a person, this
+ * module has reproduced the defect it exists to end — so they use different verbs and NOT_RUN says
+ * outright that it is not a pass.
+ *
+ * THE ORDER IS THE FIX. This used to walk the consumed versions in ladder order and print all three
+ * states inline, so a refusal opened with LOGLINE's two clean lines. On Jason Quick (build
+ * cmuqt6rki0007kn6r70s5ernv, 2 Oct) the writer saw 299 characters of it: the header, LOGLINE
+ * registerCheck clean, LOGLINE eraCheck clean — and then it stopped. The finding that caused the
+ * stop and the sentence saying what to do about it were both below the cut. A refusal whose reason
+ * is off-screen is indistinguishable from a refusal with no reason.
+ *
+ * So: FINDINGS first, because that is what the stop is about. NOT RUN second, because silence is not
+ * evidence and the reader has to decide about it. Clean last and as ONE COUNT LINE — "checked, clean"
+ * needs no argument and, printed per check, it is what pushed everything else off the screen.
  */
 export function gateText(report: GateReport): string {
   if (!report.reads.length) return 'PRE-SPEND CHECK: nothing recorded as consumed, so there is nothing to read.';
@@ -134,22 +145,63 @@ export function gateText(report: GateReport): string {
   out.push(report.stop
     ? 'PRE-SPEND CHECK — STOPPED. The versions this stage is about to be written from carry stored findings:'
     : 'PRE-SPEND CHECK — no stored findings on the versions about to be consumed:');
-  for (const r of report.reads) {
-    for (const c of r.checks) {
-      if (c.state === 'FINDINGS') {
-        out.push('  ' + r.kind + ' — ' + c.check + ': FINDINGS. ' + c.detail
-          + (c.lines.length ? '  Line(s): ' + c.lines.join(', ') + '.' : ''));
-      } else if (c.state === 'CLEAN') {
-        out.push('  ' + r.kind + ' — ' + c.check + ': checked, clean. ' + brief(c.detail));
-      } else {
-        out.push('  ' + r.kind + ' — ' + c.check + ': NOT RUN — ' + brief(c.detail) + '. This is NOT a pass; nothing has been checked here.');
-      }
+
+  // Ladder order is kept WITHIN each state, so a reader can still place a finding in the ladder.
+  const inState = (s: CheckState) =>
+    report.reads.flatMap((r) => r.checks.filter((c) => c.state === s).map((c) => ({ kind: r.kind, c })));
+
+  const findings = inState('FINDINGS');
+  if (findings.length) {
+    out.push('FINDINGS (' + findings.length + ') — this is the stop:');
+    for (const { kind, c } of findings) {
+      out.push('  ' + kind + ' — ' + c.check + ': ' + c.detail
+        + (c.lines.length ? '  Line(s): ' + c.lines.join(', ') + '.' : ''));
     }
   }
+
+  const notRun = inState('NOT_RUN');
+  if (notRun.length) {
+    // "NOT a pass" stays capitalised: an existing test pins that emphasis and it is the whole
+    // reason this state is rendered separately at all.
+    out.push('NOT RUN (' + notRun.length + ') — this is NOT a pass; nothing has been checked here:');
+    for (const { kind, c } of notRun) out.push('  ' + kind + ' — ' + c.check + ': ' + brief(c.detail));
+  }
+
+  const clean = inState('CLEAN');
+  if (clean.length) out.push(clean.length + ' other check(s): checked, clean.');
+
   if (report.stop) {
     out.push('Amend the upstream stage, or re-run with the findings waived to proceed anyway.');
   } else if (report.notRun) {
     out.push('Nothing blocks this run, but ' + report.notRun + ' check(s) never ran — their silence is not evidence.');
   }
   return out.join('\n');
+}
+
+/**
+ * A GATE REFUSAL MUST REACH THE READER WHOLE — marked on the error, not sniffed from its text.
+ *
+ * startStage records a failure through why(), which caps at 300 characters AND collapses every run
+ * of whitespace, so a gate refusal arrived truncated and with its line breaks gone. The cap is right
+ * for an exception message; it is wrong for the one error whose entire purpose is to be read. This
+ * flag lets that one path opt out without loosening anything else, and without matching on a string
+ * prefix that a reworded header would silently break.
+ */
+export const PRE_SPEND_REFUSAL = '__preSpendRefusal';
+export function markPreSpendRefusal<T>(e: T): T {
+  try { (e as any)[PRE_SPEND_REFUSAL] = true; } catch { /* a frozen error is still throwable */ }
+  return e;
+}
+export function isPreSpendRefusal(e: any): boolean {
+  return !!(e && (e as any)[PRE_SPEND_REFUSAL] === true);
+}
+
+/**
+ * What a stage job records for a failure. Lives here rather than inline in startStage's catch so
+ * the choice itself is testable: a one-line ternary in the service would have been the only
+ * untested part of this repair, and it is the part that decides whether the reader sees the
+ * finding. `why` is passed in so the cap stays the service's own.
+ */
+export function errorTextForJob(e: any, why: (e: any) => string): string {
+  return isPreSpendRefusal(e) ? String((e && e.message) || e) : why(e);
 }
