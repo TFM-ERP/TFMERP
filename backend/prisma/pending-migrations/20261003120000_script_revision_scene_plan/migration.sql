@@ -8,7 +8,17 @@
 -- the accident that rule exists to prevent.
 --
 -- ON "apply", IN THIS ORDER:
---   1. take the backup below and verify its row count against SELECT count(*) FROM script_revisions
+--
+--   1. THE BACKUP. The rows, not the schema — no --schema-only and no --data-only, or it restores
+--      nothing. Run from the repo root:
+--
+--        pg_dump "$DATABASE_URL" -t script_revisions \
+--          -f "Claude outputs/captures/db-backup-20261003-script_revisions-pre-scenePlan.sql"
+--
+--      Then VERIFY it before trusting it: the dump's COPY/INSERT row count must equal
+--
+--        SELECT count(*) FROM script_revisions;        -- 43 at the time of writing
+--
 --   2. confirm the accounting session is not mid-`migrate deploy`
 --   3. move this directory to backend/prisma/migrations/20261003120000_script_revision_scene_plan
 --   4. npm run migrate:deploy      (NEVER migrate dev, db push, or migrate diff output)
