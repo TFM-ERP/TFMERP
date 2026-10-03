@@ -27,6 +27,7 @@ import {
   endingEntry, mergeChecks, resolveSecondLook, findingsEntry, sweepFailed, EXPECTED_CHECKS,
   type CheckSubject, type CheckEntry, type EndingVerdict,
 } from './revision-checks.util';
+import { checkSurface, surfaceSummary } from './check-surface.util';
 import {
   classifyLine, nextInSpeech, checkScene, checkDraftContinuity, checkPlanCast, stripExitedCast,
   collectExits, unavailableLine, dedupeScenes, repairInstruction, summariseContinuity,
@@ -5700,7 +5701,10 @@ export class ScripOnService {
     // Build-exact coverage: only coverage filed against THIS build's own script document — never the project's
     // "latest" (that is a different build in the shared workspace). No coverage yet → null, not someone else's.
     const coverage = doc ? await (this.prisma as any).coverageReport.findFirst({ where: { documentId: doc.id }, orderBy: { createdAt: 'desc' } }).catch(() => null) : null;
-    let rev: any = null; if (doc && doc.activeRevisionId) rev = await (this.prisma as any).scriptRevision.findUnique({ where: { id: doc.activeRevisionId }, select: { id: true, pageCount: true, revisionLabel: true } }).catch(() => null);
+    // Plan 01 task 2 — `checks` and `pageText` join this select so the stored verdicts can be shown
+    // AND staleness can be judged. pageText is read, hashed and discarded; it is never in the
+    // payload. Without it every row would read UNCHECKED, which is honest but useless.
+    let rev: any = null; if (doc && doc.activeRevisionId) rev = await (this.prisma as any).scriptRevision.findUnique({ where: { id: doc.activeRevisionId }, select: { id: true, pageCount: true, revisionLabel: true, checks: true, pageText: true } }).catch(() => null);
     const proj: any = await (this.prisma as any).productionProject.findUnique({ where: { id: projectId }, select: { id: true, title: true, scriponWorkspace: true } }).catch(() => null);
     // Title comes from the build (e.g. "Try"), not the shared "ScripON Library" workspace project.
     const projTitle = (build && build.name) || (proj && !proj.scriponWorkspace && proj.title) || (doc && doc.title) || 'Project';
@@ -5713,10 +5717,35 @@ export class ScripOnService {
     }
     if (!charBible && coverage && Array.isArray(coverage.characters) && coverage.characters.length) charBible = coverage.characters;
     const briefObj: any = (build && build.brief) || null;
+    // Hashed here and the text dropped: pageText was read only so staleness could be judged, and a
+    // 100 KB field has no business in a dossier payload.
+    const checkRows = checkSurface(rev && rev.checks, {
+      'revision.pageText': (rev && Array.isArray(rev.pageText))
+        ? rev.pageText.map((pg: any) => String((pg && pg.text) || '')).join('\n')
+        : undefined,
+    });
     return {
       project: { id: projectId, title: projTitle },
       build: build ? { id: build.id, name: build.name, status: build.status, brief: build.brief || null, characterBible: build.characterBible || null, promotedVersionId: build.promotedVersionId || null, linkedProjectId: build.linkedProjectId || null } : null,
-      script: doc ? { docId: doc.id, title: doc.title, revisionId: rev ? rev.id : (doc.activeRevisionId || null), pageCount: rev ? rev.pageCount : null } : null,
+      /**
+       * Plan 01 task 2 — the checks reach a reader.
+       *
+       * One row per expected check, so a check that never ran is a row saying ABSENT rather than a
+       * gap nobody notices. On the 2 Oct run this column held `ending: CLEAN` and
+       * `planEnding: NOT_RUN` and NOTHING displayed either of them — a finished 122-page script
+       * showed no sign that one of its two checks had abstained.
+       *
+       * `checkSummary` is what a one-line banner needs. Its `allClear` is false while anything is
+       * unchecked, by design: "0 findings" over six checks that never ran is an all-clear asserted
+       * on an unread board.
+       */
+      script: doc ? {
+        docId: doc.id, title: doc.title,
+        revisionId: rev ? rev.id : (doc.activeRevisionId || null),
+        pageCount: rev ? rev.pageCount : null,
+        checks: checkRows,
+        checkSummary: surfaceSummary(checkRows),
+      } : null,
       stages: byKind,
       coverage: coverage || null,
       brief: briefObj,
