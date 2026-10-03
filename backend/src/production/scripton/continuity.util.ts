@@ -920,13 +920,33 @@ export function findNameDrift(
      * with the canonical — but they are not compatible with each other, so the rarer one is
      * reported against the commoner one and ANDREW is left alone.
      */
-    const conflicts = (f: NameForm) =>
-      !compatibleForms(f.form, canonical)
-      || forms.some((g) => g.count > f.count && !compatibleForms(f.form, g.form));
+    /**
+     * The form this one conflicts WITH, or '' when it conflicts with nothing. Returning the rival
+     * rather than a boolean is what lets the detail line name it: it used to name the canonical,
+     * so a scene reported for contradicting JASON ANDREW QUICK was told it should read JASON QUICK.
+     *
+     * "More often" alone had no answer on a tie. Two single-use middle names cancelled each other
+     * out and the scene reported nothing at all — worse than the over-reporting it replaced,
+     * because a contradiction between exactly two spellings is the ordinary case. The tie is broken
+     * the way canonicalForm breaks it (:842): count descending, then firstScene ascending, so the
+     * spelling that appeared first stands and the later one is reported against it.
+     */
+    const rivalFor = (f: NameForm): string => {
+      if (!compatibleForms(f.form, canonical)) return canonical;
+      const rival = forms
+        .filter((g) => g.form !== f.form && !compatibleForms(f.form, g.form))
+        .sort((a, b) => (b.count - a.count) || (a.firstScene - b.firstScene))
+        .find((g) => g.count > f.count || (g.count === f.count && g.firstScene < f.firstScene));
+      return rival ? rival.form : '';
+    };
+    const rivalOf = new Map<string, string>();
     const wrong = forms.filter((f) => {
       if (f.form === canonical) return false;
       if (registered.indexOf(f.form) >= 0 && differentRegisteredPeople(f.form, canonical)) return false;
-      return conflicts(f);
+      const r = rivalFor(f);
+      if (!r) return false;
+      rivalOf.set(f.form, r);
+      return true;
     });
     if (!wrong.length) return;
     const list = Array.isArray(written) ? written : [];
@@ -941,8 +961,11 @@ export function findNameDrift(
         sceneIndex: i,
         heading: String((list[i] && list[i].heading) || ''),
         names: [canonical].concat(here.map((w) => w.form)),
-        detail: key + ' is written as ' + here.map((w) => '"' + w.form + '"').join(' and ')
-          + ' here, but as "' + canonical + '" elsewhere.',
+        // NAME THE FORM IT ACTUALLY CONFLICTS WITH. Per clause, because two forms in one scene can
+        // each contradict a different spelling; the single-form case reads as it always did.
+        detail: key + ' is written as ' + here
+          .map((w) => '"' + w.form + '" here, but as "' + (rivalOf.get(w.form) || canonical) + '" elsewhere')
+          .join('; and as ') + '.',
         repairable: true,
       });
     }

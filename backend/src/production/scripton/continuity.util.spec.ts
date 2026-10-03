@@ -1301,3 +1301,63 @@ test('NEGATIVE CONTROL (A2-b) — the WIDE fifth rule hid a real middle-name con
   assert.equal(findNameDrift(body('JASON ANDREW QUICK signs.', 'JASON RICHARD QUICK signs again.'),
     registered, []).length, 1, 'and it is reported');
 });
+
+// ── THE TIE, AND NAMING THE RIVAL ─────────────────────────────────────────────────────────────
+//
+// A2 reported only a form that conflicted with a form used MORE often. On a tie that test has no
+// answer, so two single-use middle names cancelled each other and the scene reported nothing —
+// worse than the over-reporting it replaced, because two competing spellings is the ordinary case.
+// At fcccee7 both were reported; at 56186e8 neither was.
+
+test('(A3) A TIE IS BROKEN BY WHICHEVER APPEARED FIRST — the later one is reported', () => {
+  const f = findNameDrift(body('JASON QUICK waits.', 'JASON ANDREW QUICK signs.',
+    'JASON RICHARD QUICK signs again.'), ['JASON QUICK'], []);
+  const forms = [...new Set(f.flatMap((x) => x.names.slice(1)))];
+  assert.deepEqual(forms, ['JASON RICHARD QUICK'],
+    'Andrew is in scene 2 and Richard in scene 3, both once; got ' + JSON.stringify(forms));
+  assert.equal(f.length, 1);
+});
+
+test('(A3) and the tie-break follows the order of appearance, not the alphabet', () => {
+  // Richard first this time: Andrew becomes the later one and is the one reported.
+  const f = findNameDrift(body('JASON QUICK waits.', 'JASON RICHARD QUICK signs.',
+    'JASON ANDREW QUICK signs again.'), ['JASON QUICK'], []);
+  assert.deepEqual([...new Set(f.flatMap((x) => x.names.slice(1)))], ['JASON ANDREW QUICK']);
+});
+
+test('(A3) the detail names the form it ACTUALLY conflicts with', () => {
+  const f = findNameDrift(body('JASON QUICK waits.', 'JASON ANDREW QUICK signs.',
+    'JASON RICHARD QUICK signs again.'), ['JASON QUICK'], []);
+  assert.match(f[0].detail, /written as "JASON RICHARD QUICK" here/);
+  assert.match(f[0].detail, /but as "JASON ANDREW QUICK" elsewhere/,
+    'it used to name the canonical — telling the reader to write JASON QUICK, which is not the conflict');
+  assert.doesNotMatch(f[0].detail, /but as "JASON QUICK" elsewhere/);
+});
+
+test('(A3) a form that conflicts with the CANONICAL still names the canonical', () => {
+  // Nothing subsumes anything here, so the canonical is the real counterpart.
+  const f = findNameDrift(body('JASON ANDREW QUICK signs.', 'JASON RICHARD QUICK signs again.'),
+    ['JASON ANDREW QUICK'], []);
+  assert.match(f[0].detail, /but as "JASON ANDREW QUICK" elsewhere/);
+});
+
+test('NEGATIVE CONTROL (A3) — without the tie half, two single-use spellings cancel out', () => {
+  // The A2 rule, reconstructed: a rival must be used strictly more often.
+  const forms = [{ form: 'JASON QUICK', count: 1, firstScene: 0 },
+    { form: 'JASON ANDREW QUICK', count: 1, firstScene: 1 },
+    { form: 'JASON RICHARD QUICK', count: 1, firstScene: 2 }];
+  const subseq = (a: string, b: string) => {
+    const x = a.split(' '); const y = b.split(' '); let i = 0;
+    for (const t of y) if (i < x.length && t === x[i]) i++;
+    return i === x.length;
+  };
+  const compat = (a: string, b: string) => a === b || subseq(a, b) || subseq(b, a);
+  const canonical = 'JASON QUICK';
+  const oldWrong = forms.filter((f) => f.form !== canonical
+    && (!compat(f.form, canonical) || forms.some((g) => g.count > f.count && !compat(f.form, g.form))));
+  assert.deepEqual(oldWrong.map((f) => f.form), [], 'strictly-more-often reported nothing — the defect');
+  // With the tie half, the later one is reported.
+  const f = findNameDrift(body('JASON QUICK waits.', 'JASON ANDREW QUICK signs.',
+    'JASON RICHARD QUICK signs again.'), ['JASON QUICK'], []);
+  assert.deepEqual([...new Set(f.flatMap((x) => x.names.slice(1)))], ['JASON RICHARD QUICK']);
+});
