@@ -3202,6 +3202,14 @@ model ScriptRevision {
   pdfUrl        String         // /uploads/<file>
   pageCount     Int            @default(0)
   pageText      Json?          // [{ page, text }] captured at upload (anchor source)
+  /// The scene list this script was written FROM, as planned, before any scene was written.
+  /// NOT the ScriptScene rows: those come from re-parsing the WRITTEN pages, and on the 2 Oct run
+  /// that produced 85 rows from an 81-scene plan — the difference is four unnumbered CONTINUOUS
+  /// sub-headings. Every nameDrift / ledger / flashback finding is a disagreement between the plan
+  /// and the page, and the plan half used to be discarded the moment a run ended.
+  /// NULL means "this revision predates the column", never "written from no plan": a planning
+  /// failure stores null, and a plan that genuinely had no scenes stores an empty one.
+  scenePlan     Json?
   // SYS-14 V3-B: AI Director — per-line delivery, { [sceneOrdinal]: { [segIdx]: { tag, take } } }
   lineDirections Json?
   uploadedById  String?
