@@ -4126,31 +4126,30 @@ export class ScripOnService {
     setP({ phase: 'VERIFYING', note: 'Final checks — continuity.' });
     const findings = sweep();
     const found = findings.length;
+    /**
+     * A CLEAN CONTINUITY SWEEP IS NOT A REASON TO STOP AUDITING THE DRAFT.
+     *
+     * This used to `return` here, and that early return sat ABOVE the ledger, writtenDeaths, clock,
+     * flashback, density and echo blocks — so a draft with NO continuity finding was audited by none
+     * of them. Six sweeps that exist to catch what continuity cannot see only ever ran on drafts
+     * that had already failed a different check. A clean first sweep was the one case where they
+     * were most worth running.
+     *
+     * They are all pure and report-only — no model call, no database access, not one `await` in the
+     * 233 lines they occupy — so running them on every draft costs nothing but the arithmetic.
+     *
+     * What the early return guarded was the REPAIR loop, and that still only runs when there is
+     * something to repair: `findings.slice(...)` is empty when `found` is 0, so the loop is already
+     * a no-op and needs no guard of its own.
+     */
     if (!found) {
       this.log.log('verifyAndRepair: continuity clean across ' + (scenes.length - startIdx) + ' written scene(s) — '
-        + exits.length + ' exit(s) and ' + tracked.length + ' name(s) tracked.');
-      /**
-       * SIX SWEEPS DO NOT RUN ON A CLEAN DRAFT, AND THAT IS RECORDED RATHER THAN HIDDEN.
-       *
-       * This early return sits ABOVE the ledger, writtenDeaths, clock, flashback, density and echo
-       * blocks, so a draft with no continuity finding is never audited by any of them. Task 1B does
-       * not change that — moving six sweeps onto the clean path alters what runs on every clean
-       * draft, and that wants a ruling, not a side effect of a storage commit. What it does change
-       * is that the revision now SAYS SO: NOT_RUN with the reason, which is the difference between
-       * a check that was skipped and a check nobody ever wired up.
-       *
-       * nameDrift is the exception: it ran, as half of sweep(), and found nothing.
-       */
-      sweeps.nameDrift = { found: [] };
-      for (const k of ['ledger', 'writtenDeaths', 'clock', 'flashback', 'density', 'echo']) {
-        sweeps[k] = { found: null, error: 'not reached: the continuity sweep found nothing, and these sweeps run only on the repair path below it' };
-      }
-      setP({ note: '' });
-      return { found: 0, repaired: 0, residue: [], sweeps };
+        + exits.length + ' exit(s) and ' + tracked.length + ' name(s) tracked. Continuing to the whole-draft sweeps.');
+    } else {
+      this.log.warn('verifyAndRepair: ' + found + ' continuity issue(s) — '
+        + findings.slice(0, 8).map((f) => 'sc ' + (f.sceneIndex + 1) + ' ' + f.kind).join('; '));
+      setP({ phase: 'REPAIRING', note: found + ' continuity issue' + (found === 1 ? '' : 's') + ' found — repairing.' });
     }
-    this.log.warn('verifyAndRepair: ' + found + ' continuity issue(s) — '
-      + findings.slice(0, 8).map((f) => 'sc ' + (f.sceneIndex + 1) + ' ' + f.kind).join('; '));
-    setP({ phase: 'REPAIRING', note: found + ' continuity issue' + (found === 1 ? '' : 's') + ' found — repairing.' });
 
     let repaired = 0;
     for (const f of findings.slice(0, ScripOnService.MAX_CONTINUITY_REPAIRS)) {
@@ -4207,8 +4206,10 @@ export class ScripOnService {
       setP({ note: 'Repairing continuity — ' + repaired + ' of ' + found + ' fixed.' });
     }
 
-    const residue = sweep();
-    this.log.log('verifyAndRepair: ' + repaired + ' of ' + found + ' repaired, ' + residue.length + ' unresolved.');
+    // Nothing was repaired on a clean draft, so there is nothing to re-sweep: `findings` was already
+    // empty and a second full sweep would return the same empty array at full cost.
+    const residue = found ? sweep() : [];
+    if (found) this.log.log('verifyAndRepair: ' + repaired + ' of ' + found + ' repaired, ' + residue.length + ' unresolved.');
 
     // MECHANISM D — the whole-draft ledger audit. REPORTED, never repaired.
     //
