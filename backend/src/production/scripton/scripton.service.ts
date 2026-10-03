@@ -23,7 +23,10 @@ import { draftLengthCheck } from './draft-length.util';
 import { windowKeepingEnd, windowLabel, allocate } from './excerpt-window.util';
 import { consumedStamp, hasConsumed } from './consumed-stamp.util';
 import { preSpendGate, GATE_CHECKS, markPreSpendRefusal, errorTextForJob, isWaived } from './pre-spend-gate.util';
-import { endingEntry, mergeChecks, resolveSecondLook, type CheckSubject, type EndingVerdict } from './revision-checks.util';
+import {
+  endingEntry, mergeChecks, resolveSecondLook, findingsEntry, sweepFailed, EXPECTED_CHECKS,
+  type CheckSubject, type CheckEntry, type EndingVerdict,
+} from './revision-checks.util';
 import {
   classifyLine, nextInSpeech, checkScene, checkDraftContinuity, checkPlanCast, stripExitedCast,
   collectExits, unavailableLine, dedupeScenes, repairInstruction, summariseContinuity,
@@ -93,6 +96,14 @@ const SCENE_STUB = '(The scene continues.)';
  * Numbers (scene/location/INT-EXT/DAY-NIGHT/page counts, per-character Scenes-%) are COMPUTED
  * from the scene model; the AI writes the prose around those facts. Governed via AiService.
  */
+/**
+ * Plan 01 task 1B — what the eight end-of-run sweeps produced, on the way to the revision.
+ *
+ * `found: null` is NO RESULT (it threw, or it was never reached). `found: []` is "it ran and found
+ * nothing". Those are different facts about a script and the whole point of the three-state shape.
+ */
+type SweepResults = Record<string, { found: any[] | null; error?: string }>;
+
 @Injectable()
 export class ScripOnService {
   /**
@@ -4091,7 +4102,19 @@ export class ScripOnService {
     docId: string, out: string[], scenes: any[], exits: CastExit[], facts: CanonFactCore[],
     ctx: string, projectId: string, ar: boolean, startIdx: number, setP: (patch: any) => void,
     ledger?: { reg: EntityRegistry; facts: StateFact[]; places?: PlaceObservation[]; transit?: Set<number> },
-  ): Promise<{ found: number; repaired: number; residue: ContinuityFinding[] }> {
+  ): Promise<{ found: number; repaired: number; residue: ContinuityFinding[]; sweeps: SweepResults }> {
+    /**
+     * Plan 01 task 1B — WHAT EACH SWEEP ACTUALLY PRODUCED, carried out to the caller.
+     *
+     * No database write happens in here. The caller already fingerprints the `ending` verdict
+     * against the SAVED page text, and these sweeps judge the same draft — so they are stored
+     * against the same text by the same caller. Fingerprinting them here against the in-progress
+     * `view()` would make all seven read STALE the instant the pages were filed.
+     *
+     * `found: null` means the sweep produced NO RESULT. `found: []` means it ran and found nothing.
+     * findingsEntry keeps those apart; collapsing them is how a sweep that never ran reads as a pass.
+     */
+    const sweeps: SweepResults = {};
     const slot = (i: number) => i - startIdx + 1;
     const headOf = (i: number) => (i + 1) + '  ' + this.slugOf(scenes[i] || {}, ar);
     const view = () => scenes.map((_: any, i: number) => ({ heading: headOf(i), text: i < startIdx ? '' : String(out[slot(i)] || '') }));
@@ -4106,8 +4129,24 @@ export class ScripOnService {
     if (!found) {
       this.log.log('verifyAndRepair: continuity clean across ' + (scenes.length - startIdx) + ' written scene(s) — '
         + exits.length + ' exit(s) and ' + tracked.length + ' name(s) tracked.');
+      /**
+       * SIX SWEEPS DO NOT RUN ON A CLEAN DRAFT, AND THAT IS RECORDED RATHER THAN HIDDEN.
+       *
+       * This early return sits ABOVE the ledger, writtenDeaths, clock, flashback, density and echo
+       * blocks, so a draft with no continuity finding is never audited by any of them. Task 1B does
+       * not change that — moving six sweeps onto the clean path alters what runs on every clean
+       * draft, and that wants a ruling, not a side effect of a storage commit. What it does change
+       * is that the revision now SAYS SO: NOT_RUN with the reason, which is the difference between
+       * a check that was skipped and a check nobody ever wired up.
+       *
+       * nameDrift is the exception: it ran, as half of sweep(), and found nothing.
+       */
+      sweeps.nameDrift = { found: [] };
+      for (const k of ['ledger', 'writtenDeaths', 'clock', 'flashback', 'density', 'echo']) {
+        sweeps[k] = { found: null, error: 'not reached: the continuity sweep found nothing, and these sweeps run only on the repair path below it' };
+      }
       setP({ note: '' });
-      return { found: 0, repaired: 0, residue: [] };
+      return { found: 0, repaired: 0, residue: [], sweeps };
     }
     this.log.warn('verifyAndRepair: ' + found + ' continuity issue(s) — '
       + findings.slice(0, 8).map((f) => 'sc ' + (f.sceneIndex + 1) + ' ' + f.kind).join('; '));
@@ -4185,6 +4224,7 @@ export class ScripOnService {
         places: (led as any).places || [],
         transitScenes: (led as any).transit || [],
       });
+      sweeps.ledger = { found: found2 };
       if (found2.length) {
         this.log.warn('ledger: ' + found2.length + ' identity/state finding(s) across the draft —');
         for (const f of found2.slice(0, 20)) this.log.warn('  [' + f.kind + '] ' + ledgerFindingInstruction(f));
@@ -4193,6 +4233,7 @@ export class ScripOnService {
       }
     } catch (e: any) {
       // The ledger is a report. It must never be able to fail a run that produced a script.
+      sweeps.ledger = { found: null, error: this.why(e) };
       this.log.warn('ledger: audit skipped — ' + this.why(e));
     }
 
@@ -4211,6 +4252,7 @@ export class ScripOnService {
     try {
       const invented = collectWrittenDeaths(view(), tracked);
       const newExits = writtenDeathsAsExits(invented, exits);
+      sweeps.writtenDeaths = { found: invented.filter((x) => newExits.some((n) => n.name === x.name)) };
       if (newExits.length) {
         this.log.warn('writtenDeaths: ' + newExits.length + ' character(s) die in the prose that the plan never declared —');
         for (const d of invented.filter((x) => newExits.some((n) => n.name === x.name))) {
@@ -4225,6 +4267,7 @@ export class ScripOnService {
         }
       }
     } catch (e: any) {
+      sweeps.writtenDeaths = { found: null, error: this.why(e) };
       this.log.warn('writtenDeaths: check skipped — ' + this.why(e));
     }
 
@@ -4239,6 +4282,10 @@ export class ScripOnService {
     // seconds once they are told where to look — sending the scene to a model to be rewritten would
     // risk a page of prose to save a keystroke.
     try {
+      // DELIBERATELY NOT STORED. 5 of 5 false on the only measured run (2 Oct), every one a pronoun
+      // attributed to the wrong person. It keeps its log line and is absent from EXPECTED_CHECKS:
+      // five false claims in the column that carries `ending: CLEAN` would make the whole column
+      // unreadable. Re-adding it needs a fixture that shows a true positive. See plan 01 task 1.
       const attrs = checkFixedAttributes(view(), tracked);
       if (attrs.length) {
         this.log.warn('fixedAttributes: ' + attrs.length + ' character(s) change a fixed property mid-draft —');
@@ -4279,6 +4326,7 @@ export class ScripOnService {
         for (const t of findAllTimeTokens(i, draft[i].text)) clocks.push(t);
       }
       const back = checkClockRegression(clocks as any, recalled);
+      sweeps.clock = { found: back };
       if (back.length) {
         this.log.warn('clock: ' + back.length + ' regression(s) — the story clock runs backwards —');
         for (const b of back.slice(0, 10)) this.log.warn('  ' + b.detail);
@@ -4286,6 +4334,7 @@ export class ScripOnService {
         this.log.log('clock: ' + clocks.length + ' time reference(s) across the draft, none of them backwards.');
       }
     } catch (e: any) {
+      sweeps.clock = { found: null, error: this.why(e) };
       this.log.warn('clock: check skipped — ' + this.why(e));
     }
 
@@ -4310,6 +4359,7 @@ export class ScripOnService {
         draft.map((d: any) => ({ heading: String((d && d.heading) || ''), text: String((d && d.text) || '') })),
         plannedRecalled,
       );
+      sweeps.flashback = { found: flash };
       if (flash.length) {
         const unmarked = flash.filter((f) => f.kind === 'UNMARKED_ON_THE_PAGE').length;
         this.log.warn('flashback: ' + flash.length + ' scene(s) where the plan and the page disagree about time — '
@@ -4319,6 +4369,7 @@ export class ScripOnService {
         this.log.log('flashback: ' + plannedRecalled.size + ' planned memory scene(s), all of them marked on the page.');
       }
     } catch (e: any) {
+      sweeps.flashback = { found: null, error: this.why(e) };
       this.log.warn('flashback: check skipped — ' + this.why(e));
     }
 
@@ -4366,17 +4417,30 @@ export class ScripOnService {
         this.log.log('density: ' + written + ' written scene(s), no fragment stretches and no repeated headings.');
       }
 
+      // Both density sub-checks land in ONE entry: a repeated heading and a stretch that never
+      // lands are both "the shape of the draft", and splitting them would put two rows on the
+      // surface for one question.
+      sweeps.density = { found: (fake as any[]).concat(frag as any[]) };
       const echo = findEchoedPhrases(draft);
+      sweeps.echo = { found: echo };
       if (echo.length) {
         this.log.log('echo: ' + echo.length + ' phrase(s) the draft returns to — motif or tic, the writer decides —');
         for (const e of echo.slice(0, 6)) this.log.log('  ' + e.detail);
       }
     } catch (e: any) {
+      // One try wraps density AND echo, so a throw loses both. Recorded as both.
+      if (!sweeps.density) sweeps.density = { found: null, error: this.why(e) };
+      if (!sweeps.echo) sweeps.echo = { found: null, error: this.why(e) };
       this.log.warn('density: check skipped — ' + this.why(e));
     }
 
+    // NAME DRIFT IS WHAT SURVIVED. The repair loop no longer substitutes names (fcccee7), so every
+    // drift it saw is still in `residue` — but filtering the residue rather than re-sweeping is what
+    // keeps this honest if a future repair ever does fix one.
+    sweeps.nameDrift = { found: residue.filter((f) => f.kind === 'NAME_DRIFT') };
+
     setP({ note: '' });
-    return { found, repaired, residue };
+    return { found, repaired, residue, sweeps };
   }
 
   private async writeScene(ctx: string, sc: any, header: string, storySoFar: string, prevTail: string, projectId: string, budget?: LineBudget, unavailable = '', canon = '', canonNames?: Iterable<string>, spine = ''): Promise<string> {
@@ -4659,6 +4723,44 @@ export class ScripOnService {
         + (entry.state === 'NOT_RUN' ? ' — ' + entry.reason : ''));
     } catch (e: any) {
       this.log.warn('recordRevisionCheck: could NOT persist ' + kind + ' on revision ' + revId + ' — ' + this.why(e));
+    }
+  }
+
+  /**
+   * Plan 01 task 1B — STORE WHAT THE SWEEPS FOUND, in one write.
+   *
+   * recordRevisionCheck does a read and a write per entry, which is right for the one ending
+   * verdict and wrong for seven at once. This merges them all into the stored blob and writes once,
+   * so a seven-entry record cannot half-land.
+   *
+   * `text` is the SAVED page text — the same text the `ending` verdict is fingerprinted against, so
+   * a later in-place repair (dialectRepairDoc, :720) stales all of them together or none of them.
+   *
+   * Report-only, like every sweep feeding it: a failure to store is logged and never fails a run
+   * that produced a script.
+   */
+  private async recordSweepChecks(revId: string, sweeps: SweepResults | null | undefined, text: any): Promise<void> {
+    if (!revId || !sweeps) return;
+    const kinds = Object.keys(sweeps).filter((k) => EXPECTED_CHECKS.indexOf(k) >= 0);
+    if (!kinds.length) return;
+    try {
+      const entries: CheckEntry[] = kinds.map((k) => {
+        const r = sweeps[k];
+        // A sweep that threw, or was never reached, carries its reason rather than an empty array.
+        if (r && r.found === null) return sweepFailed(k, r.error || 'the sweep produced no result', text);
+        return findingsEntry(k, r ? r.found : null, text);
+      });
+      const row: any = await (this.prisma as any).scriptRevision.findUnique({ where: { id: revId }, select: { checks: true } });
+      let blob: any = (row && row.checks) || null;
+      for (const e of entries) blob = mergeChecks(blob, e);
+      await (this.prisma as any).scriptRevision.update({ where: { id: revId }, data: { checks: blob } });
+      const say = entries.map((e) => e.kind + '=' + e.state + (e.items && e.items.length ? '(' + e.items.length + ')' : '')).join(' ');
+      this.log.log('recordSweepChecks: ' + entries.length + ' sweep(s) stored on revision ' + revId + ' — ' + say);
+      for (const e of entries) {
+        if (e.state === 'NOT_RUN') this.log.warn('recordSweepChecks: ' + e.kind + ' NOT_RUN — ' + e.reason);
+      }
+    } catch (e: any) {
+      this.log.warn('recordSweepChecks: could NOT persist the sweeps on revision ' + revId + ' — ' + this.why(e));
     }
   }
 
@@ -4990,6 +5092,12 @@ export class ScripOnService {
       out.push('FADE OUT.');
       const pages = this.paginate(out.join('\n\n'));
       await saveRev(pages);
+      // Plan 01 task 1B — the text the sweeps are stored against is the SAVED page text, hoisted
+      // above the series/feature split so a pilot build records its sweeps too (it skips the
+      // feature ending check, not the continuity sweeps). The `ending` verdict below reuses this
+      // same value, so every entry on the revision stales together or not at all.
+      const savedText = pages.map((pg: any) => String((pg && pg.text) || '')).join('\n');
+      await this.recordSweepChecks(revId, contin.sweeps, savedText);
       if (ssc) {
         // #45: a series build delivers the PILOT episode at its per-episode density; the full season
         // is episodes × per-ep. Don't run the feature ending-check (the pilot ends on a cliffhanger).
@@ -5000,7 +5108,7 @@ export class ScripOnService {
         // either one alone and still not be deliverable.
         // F10 — the text this verdict judges, fingerprinted with it so a later in-place repair
         // (dialectRepairDoc) cannot leave a stale pass standing.
-        const scriptText = pages.map((pg: any) => String((pg && pg.text) || '')).join('\n');
+        const scriptText = savedText;
         let cov = await this.verifyEnding(spine, out.slice(-4).join('\n\n'), projectId);
         // Second look before an incomplete verdict is allowed to fail the whole run. The first pass reads
         // 3,000 characters of tail; one long closing scene can push the resolution out of that window, and
@@ -5458,6 +5566,12 @@ export class ScripOnService {
       out.push('FADE OUT.');
       const pages = this.paginate(out.join('\n\n'));
       await saveRev(pages);
+      // Plan 01 task 1B — the text the sweeps are stored against is the SAVED page text, hoisted
+      // above the series/feature split so a pilot build records its sweeps too (it skips the
+      // feature ending check, not the continuity sweeps). The `ending` verdict below reuses this
+      // same value, so every entry on the revision stales together or not at all.
+      const savedText = pages.map((pg: any) => String((pg && pg.text) || '')).join('\n');
+      await this.recordSweepChecks(revId, contin.sweeps, savedText);
       if (ssc) {
         setP({ status: 'DONE', done: scenes.length, pageCount: pages.length, coverage: 'COMPLETE', scenesPerEp: ssc.scenesPerEp, seasonScenes: ssc.seasonScenes, coverageNote: 'Pilot episode: ' + scenes.length + ' scenes at ~' + featBrief.minutesPerEp + ' min/ep · full season ≈ ' + ssc.seasonScenes + ' scenes (' + ssc.episodes + ' ep × ' + ssc.scenesPerEp + ').' + (continNote ? ' · ' + continNote : '') });
       } else {
@@ -5466,7 +5580,7 @@ export class ScripOnService {
         // that did not. Same confirmation, same gate as a fresh run.
         // F10 — the text this verdict judges, fingerprinted with it so a later in-place repair
         // (dialectRepairDoc) cannot leave a stale pass standing.
-        const scriptText = pages.map((pg: any) => String((pg && pg.text) || '')).join('\n');
+        const scriptText = savedText;
         let cov = await this.verifyEnding(spine, out.slice(-4).join('\n\n'), projectId);
         if (!cov.complete) {
           const wider = await this.verifyEnding(spine, out.slice(-8).join('\n\n'), projectId, 6000);
