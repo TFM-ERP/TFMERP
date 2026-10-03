@@ -10,7 +10,7 @@ import { strict as assert } from 'node:assert';
 import {
   fingerprint, checkEntry, endingEntry, mergeChecks, readCheckEntry, readChecks, resolveSecondLook,
   EXPECTED_CHECKS, SUBJECT_OF, CAN_DETECT, LATIN_SHARE_FLOOR, latinShare, findingsEntry, sweepFailed,
-  shouldRecheckPlanEnding, registerEntry,
+  shouldRecheckPlanEnding, registerEntry, sceneOfQuote,
 } from './revision-checks.util';
 import { findFalseSceneBreaks, findEchoedPhrases } from './continuity.util';
 import { loadCapture, missingCapture, captureText } from './capture-fixture.util';
@@ -570,4 +570,78 @@ test('TASK 6 — CONTROL: no bible must not read as clean, and must not be absen
   const e = registerEntry(null, SCRIPT_WITH_QUOTE, { lines: 0 });
   assert.notEqual(e.state, 'CLEAN');
   assert.notEqual(e, null, 'a guard that skips the call must still leave a row behind');
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// TASK 6 FIX — sceneOfQuote MUST READ THE PRINTED SCENE NUMBER, NOT COUNT HEADINGS.
+//
+// Measured on JQ2-FINAL-script.json: 85 slug lines, 81 of them numbered 1..81 (the plan had 81),
+// and FOUR unnumbered "- CONTINUOUS" sub-headings. Counting all 85 inflates every answer by the
+// number of CONTINUOUS headings above it, which is also why 85 ScriptScene rows came out of an
+// 81-scene plan.
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+
+const JQ2 = loadCapture('JQ2-FINAL-script.json');
+const jq2Text = (): string => {
+  const pt: any = (JQ2 as any).pageText;
+  return pt.map((p: any) => String((p && p.text) || '')).join('\n');
+};
+
+test('TASK 6 FIX — the printed scene number wins over the heading count',
+  JQ2 ? {} : { skip: missingCapture('JQ2-FINAL-script.json') }, () => {
+    const t = jq2Text();
+    // counted / printed, measured on this capture before the fix: 45/41, 27/25, 80/76
+    assert.equal(sceneOfQuote(t, "Dad would've buried it"), 41);
+    assert.equal(sceneOfQuote(t, 'Have you tried the lamb?'), 25);
+    assert.equal(sceneOfQuote(t, 'What day is it.'), 76);
+  });
+
+test('TASK 6 FIX — CONTROL: counting headings is wrong by the CONTINUOUS sub-headings above',
+  JQ2 ? {} : { skip: missingCapture('JQ2-FINAL-script.json') }, () => {
+    const t = jq2Text();
+    for (const [q, counted] of [["Dad would've buried it", 45], ['Have you tried the lamb?', 27], ['What day is it.', 80]] as Array<[string, number]>) {
+      assert.notEqual(sceneOfQuote(t, q), counted, 'the count must not be the answer for ' + q);
+    }
+  });
+
+test('TASK 6 FIX — an unnumbered sub-heading belongs to the scene above', () => {
+  const t = [
+    '41  INT. KITCHEN - NIGHT', '', 'He opens the drawer.', '',
+    'EXT. DOCK ROAD - CONTINUOUS', '', "Dad would've buried it in the yard.", '',
+    '42  INT. CAR - DAY', '', 'She drives.',
+  ].join('\n');
+  assert.equal(sceneOfQuote(t, "Dad would've buried it"), 41, 'not 42, and not a count');
+  assert.equal(sceneOfQuote(t, 'She drives'), 42);
+  assert.equal(sceneOfQuote(t, 'He opens the drawer'), 41);
+});
+
+test('TASK 6 FIX — a script that prints NO numbers falls back to counting', () => {
+  const t = [
+    'INT. KITCHEN - NIGHT', '', 'He opens the drawer.', '',
+    'INT. CAR - DAY', '', 'She drives.', '',
+    'EXT. ROAD - DAY', '', 'The car turns.',
+  ].join('\n');
+  assert.equal(sceneOfQuote(t, 'He opens the drawer'), 1);
+  assert.equal(sceneOfQuote(t, 'She drives'), 2);
+  assert.equal(sceneOfQuote(t, 'The car turns'), 3);
+});
+
+test('TASK 6 FIX — a quote above the first numbered heading cannot be placed', () => {
+  const t = ['FADE IN:', '', 'A title card.', '', '1  INT. ROOM - DAY', '', 'He waits.'].join('\n');
+  assert.equal(sceneOfQuote(t, 'A title card'), null, 'before any scene — null, not 0 and not 1');
+  assert.equal(sceneOfQuote(t, 'He waits'), 1);
+});
+
+test('TASK 6 FIX — a suffixed number reads as its scene', () => {
+  const t = ['12A  INT. HALL - DAY', '', 'The door is ajar.'].join('\n');
+  assert.equal(sceneOfQuote(t, 'The door is ajar'), 12);
+});
+
+test('TASK 6 FIX — empty script text says "no script text", not "no bible"', () => {
+  const e = registerEntry(null, '', { lines: 105 });
+  assert.equal(e.state, 'NOT_RUN');
+  assert.match(e.reason, /no script text/);
+  assert.equal(/no bible/.test(e.reason), false, 'there IS a bible — 105 register lines');
+  // and the other way round still reads as no bible
+  assert.match(registerEntry(null, 'FADE IN:', { lines: 0 }).reason, /no bible/);
 });

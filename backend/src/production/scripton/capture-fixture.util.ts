@@ -53,10 +53,19 @@ export function loadCapture(file: string): CapturedScript | null {
     const p = join(CAPTURES_DIR, file);
     if (!existsSync(p)) return null;
     const j = JSON.parse(readFileSync(p, 'utf8'));
+    if (!j || typeof j !== 'object') return null;
+    /**
+     * TWO CAPTURE SHAPES, ONE DOOR. The task-0 captures put pageText at the root; the earlier
+     * JQ2-FINAL capture nests it under `revision`. Normalising here keeps every fixture test on the
+     * same skip-by-name path — the alternative was a second reader in one spec, which would have
+     * duplicated the skip logic and quietly lost the named skip on whichever copy drifted.
+     */
+    const pageText = Array.isArray(j.pageText) ? j.pageText
+      : (j.revision && Array.isArray(j.revision.pageText) ? j.revision.pageText : null);
     // A file that exists but carries none of the shape is as absent as a missing one, and saying so
     // is better than a test failing deep inside on `undefined.map`.
-    if (!j || !Array.isArray(j.pageText) || !Array.isArray(j.cueCast)) return null;
-    return j as CapturedScript;
+    if (!pageText) return null;
+    return { ...j, pageText, cueCast: Array.isArray(j.cueCast) ? j.cueCast : [] } as CapturedScript;
   } catch {
     return null;
   }

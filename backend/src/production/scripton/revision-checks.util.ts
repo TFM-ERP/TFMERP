@@ -569,6 +569,11 @@ export function registerEntry(
     countsAsFinding: state === 'FINDINGS',
   });
 
+  // THE TEXT FIRST. With no script text nothing can have been checked whatever the register holds,
+  // and saying "no bible" there names the wrong absence — the bible may be sitting right beside it.
+  if (!String(text == null ? '' : text).trim()) {
+    return build('NOT_RUN', 'no script text — there are no pages to check against the register');
+  }
   if (opts && Number(opts.lines) === 0) {
     return build('NOT_RUN',
       'no bible — there are no register lines to check against, so nothing about this script has been verified against a source');
@@ -592,30 +597,63 @@ export function registerEntry(
     items);
 }
 
+/** The scene number a slug line prints, if it prints one. "12A  INT. HALL - DAY" -> 12. */
+const SCENE_NUM_RE = /^(\d{1,4})[A-Za-z]?[.)]?\s+/;
+
+const isSlugLine = (t: string): boolean => SLUG_RE.test(t) || AR_SLUG_RE.test(t);
+
 /**
- * Which scene contains this exact quote, 1-based, or null.
+ * Which scene contains this exact quote, or null.
  *
- * Scenes are split on the slug lines the script itself carries, so this counts the same boundaries
- * paginate and parseScenes do without importing either — a quote in the body of scene 2 answers 2.
- * A quote that appears nowhere answers null, and an empty quote answers null rather than 1.
+ * THE SCRIPT'S OWN NUMBER, NOT A COUNT OF HEADINGS. Counting was wrong on every real draft, and
+ * measurably so: JQ2-FINAL carries 85 slug lines, 81 of them numbered 1..81 — the plan had 81 — and
+ * FOUR unnumbered "- CONTINUOUS" sub-headings. Counting inflated each answer by however many
+ * CONTINUOUS headings sat above it: "Dad would've buried it" counted 45 against a printed 41,
+ * "Have you tried the lamb?" 27 against 25, "What day is it." 80 against 76. A register finding
+ * sent to scene 45 of a script whose scene 41 is the problem is a finding a reader cannot use. (The
+ * same four headings are why 85 ScriptScene rows came out of an 81-scene plan.)
+ *
+ * AN UNNUMBERED HEADING BELONGS TO THE SCENE ABOVE. That is what CONTINUOUS means: the same scene,
+ * a new vantage. It does not advance the answer.
+ *
+ * COUNTING IS THE FALLBACK, not the rule — used only when the script prints no numbers anywhere,
+ * where the ordinal is all there is. Decided before the walk so a draft that starts numbering
+ * halfway through cannot switch modes mid-script.
+ *
+ * A quote above the first numbered heading answers null: it is in no scene, and 1 would be a guess.
  */
 export function sceneOfQuote(text: any, quote: any): number | null {
   const q = String(quote == null ? '' : quote).replace(/\s+/g, ' ').trim();
   if (!q) return null;
   const body = String(text == null ? '' : text);
-  const flat = body.replace(/\s+/g, ' ');
-  if (flat.indexOf(q) < 0) return null;
+  // A fast path only — the walk below returns null for an absent quote on its own.
+  if (body.replace(/\s+/g, ' ').indexOf(q) < 0) return null;
+
   const lines = body.split('\n');
-  let scene = 0;
+  const anyPrinted = lines.some((ln) => {
+    const t = ln.trim();
+    return isSlugLine(t) && SCENE_NUM_RE.test(t);
+  });
+
+  let current: number | null = null;
+  let counted = 0;
   let seen = '';
   for (const ln of lines) {
-    if (SLUG_RE.test(ln.trim()) || AR_SLUG_RE.test(ln.trim())) {
-      scene++;
+    const t = ln.trim();
+    if (isSlugLine(t)) {
+      const m = SCENE_NUM_RE.exec(t);
+      if (anyPrinted) {
+        // Only a numbered heading moves the answer; an unnumbered one continues the scene above.
+        if (m) current = parseInt(m[1], 10);
+      } else {
+        counted++;
+        current = counted;
+      }
       seen = '';
       continue;
     }
     seen = (seen + ' ' + ln).replace(/\s+/g, ' ');
-    if (seen.indexOf(q) >= 0) return scene > 0 ? scene : null;
+    if (seen.indexOf(q) >= 0) return current;
   }
   return null;
 }

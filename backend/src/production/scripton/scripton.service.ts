@@ -4957,7 +4957,8 @@ export class ScripOnService {
   ): Promise<CheckEntry> {
     const lines = registerLines(facts || []);
     if (!lines.length || !String(text || '').trim()) {
-      const e = registerEntry(null, text, { lines: 0 });
+      // The REAL count: registerEntry decides which absence to name, and it checks the text first.
+      const e = registerEntry(null, text, { lines: lines.length });
       this.log.warn('registerCheckOnScript: ' + e.reason);
       return e;
     }
