@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
+import { loadCapture, missingCapture } from './capture-fixture.util';
 import {
   classifyLine, classifyScript, nextInSpeech, looksLikeCue, readScene, normaliseCharacterName, keyName, sameCharacter, splitCast, collectExits, unavailableAt, unavailableLine, stripExitedCast, checkScene, checkDraftContinuity, checkPlanCast, normaliseForCompare, jaccard, findDuplicateScenes, dedupeScenes, repairInstruction, summariseContinuity, exitsAsCanonFacts, findNameDrift, canonicalForm, canonicaliseNames, properCase, trimToSentence, DUPLICATE_ANYWHERE, DUPLICATE_SAME_PLACE, findSecondDocument, splitAtSecondDocument, isRecalledTime, CastExit, findMetaCommentary, stripMetaCommentary, findWrittenDeaths, collectWrittenDeaths, writtenDeathsAsExits, collectPronounEvidence, findPronounDrift, checkFixedAttributes, sceneDefectInstruction, checkSceneIntegrity, parseSpokenClock, findAllTimeTokens, checkClockRegression, findTimeTokens, checkPropContinuity, propStateAt, spineDirective, type PropEvent, findFlashbackMismatches, findFragmentRuns, findFalseSceneBreaks, findEchoedPhrases, headingKey, collectNameForms, tightenSpeakerCues, SLUG_RE, TRANS_RE,
 } from './continuity.util';
@@ -1496,3 +1497,53 @@ test('NEGATIVE CONTROL (B2-3) — refusing an all-caps follower leaves a shout a
   assert.equal(classifyScript('MUSA\n\nTHE MERCY.')[2].kind, 'action');
   assert.equal(classifyScript(tightenSpeakerCues('MUSA\n\nTHE MERCY.', SPEAKERS))[1].kind, 'dialogue');
 });
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// PLAN 01 TASK 0 STEP 2 — THE LANGUAGE CASE, ON REAL DRAFTS.
+//
+// The claim here is about real scripts, so it is made against real scripts. Both skip BY NAME when
+// their capture is not on the machine; the screenplays stay out of the repo.
+//
+// What this pins: the Arabic blindness is the \p{Lu} RUN regex at collectNameForms, and NOTHING
+// ELSE. The cast is real (looksLikeCue reads Arabic cues), the key names are real, the early return
+// at the top of collectNameForms is NOT taken — and the result is still empty. Without this test the
+// Arabic NOT_RUN rule would rest on an argument instead of a measurement.
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+
+const DAS_CAP = loadCapture('DAS-script.json');
+const MM_CAP = loadCapture('MM-script.json');
+
+test('ARABIC (داس) — a real cast, real key names, and still zero name forms',
+  DAS_CAP ? {} : { skip: missingCapture('DAS-script.json') }, () => {
+    const c = DAS_CAP!;
+    assert.ok(c.script.arabicShare > 0.9, 'arabicShare=' + c.script.arabicShare);
+    assert.ok(c.script.latin > 0, 'a real Arabic screenplay still carries Latin: ' + c.script.latin + ' letters');
+
+    const cast = c.cueCast.map((x) => x.name);
+    assert.equal(cast.length, 37, 'looksLikeCue found this many speakers in an Arabic draft');
+
+    const keys = cast.map((n) => keyName(n)).filter((k) => k.length >= 3);
+    assert.equal(keys.length, 36,
+      'collectNameForms returns early only when NO key is >= 3 chars — it does not here, so the zero below is real');
+
+    assert.equal(collectNameForms(c.pageText, cast).size, 0,
+      'zero forms from a real cast: the blindness is the \\p{Lu} RUN regex, not an empty-cast shortcut');
+  });
+
+test('MINUTEMEN — the same call on a Latin draft finds forms',
+  MM_CAP ? {} : { skip: missingCapture('MM-script.json') }, () => {
+    const c = MM_CAP!;
+    assert.equal(c.script.latinShare, 1);
+    const cast = c.cueCast.map((x) => x.name);
+    assert.equal(cast.length, 12);
+    assert.equal(cast.map((n) => keyName(n)).filter((k) => k.length >= 3).length, 12);
+    assert.equal(collectNameForms(c.pageText, cast).size, 4,
+      'the contrast that makes the Arabic zero mean something');
+  });
+
+test('CONTROL — an empty cast returns an empty Map in EITHER language, which is why the tests above pass their own cast',
+  (DAS_CAP && MM_CAP) ? {} : { skip: missingCapture('DAS-script.json / MM-script.json') }, () => {
+    assert.equal(collectNameForms(DAS_CAP!.pageText, []).size, 0);
+    assert.equal(collectNameForms(MM_CAP!.pageText, []).size, 0,
+      'a Latin draft also returns 0 with no cast — so an empty-cast probe proves nothing about language');
+  });

@@ -11,6 +11,8 @@ import {
   fingerprint, checkEntry, endingEntry, mergeChecks, readCheckEntry, readChecks, resolveSecondLook,
   EXPECTED_CHECKS, SUBJECT_OF, CAN_DETECT, LATIN_SHARE_FLOOR, latinShare, findingsEntry, sweepFailed,
 } from './revision-checks.util';
+import { findFalseSceneBreaks, findEchoedPhrases } from './continuity.util';
+import { loadCapture, missingCapture, captureText } from './capture-fixture.util';
 
 const TEXT = 'FADE IN:\n\nEXT. PIER - NIGHT\n\nHe files the shaft true.\n\nFADE OUT.';
 
@@ -375,3 +377,59 @@ test('TASK 1C — CONTROL: a bare Number() cast invents a location', () => {
   assert.equal(Number(true), 1);
   assert.equal(findingsEntry('flashback', [{ sceneIndex: null, kind: 'X', detail: 'd' }], TEXT).items![0].scene, null);
 });
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// PLAN 01 TASK 1 STEP 7 — THE SHAPE ON A DRAFT IT WAS NOT MEASURED ON (standing rule 1).
+//
+// MINUTEMEN is the right second story on merit, not availability: it is the draft the density and
+// echo thresholds were calibrated against, so its findings are known-positive. Skips BY NAME when
+// the capture is absent — the screenplay stays out of the repo.
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+
+const MM = loadCapture('MM-script.json');
+
+test('MINUTEMEN — density is FINDINGS with its real count, and every kind lands in a valid state',
+  MM ? {} : { skip: missingCapture('MM-script.json') }, () => {
+    const c = MM!;
+    const text = captureText(c);
+    const heads = c.sceneRows.map((s) => String(s.slugline || ''));
+    // The scene rows carry no page weights (the column is null on this revision), so this asserts on
+    // findFalseSceneBreaks, which keys on repeated headings and does not need them. findFragmentRuns
+    // would be reading zeros and is deliberately not asserted here.
+    const pages = c.sceneRows.map(() => 0);
+    const fake = findFalseSceneBreaks(heads, pages);
+    assert.equal(fake.length, 10, 'the figure the density threshold was calibrated against');
+
+    const e = findingsEntry('density', fake, text);
+    assert.equal(e.state, 'FINDINGS');
+    assert.equal(e.items!.length, 10);
+    assert.equal(e.countsAsFinding, true);
+    assert.equal(e.subject, 'revision.pageText');
+    assert.equal(e.sha256, fingerprint(text));
+    // located, not just counted
+    assert.ok(e.items!.every((i) => i.scene === null || i.scene > 0));
+    assert.ok(e.items!.some((i) => /same heading/i.test(i.detail)));
+  });
+
+test('MINUTEMEN — echo is INFO on a real draft, and does not count as a finding',
+  MM ? {} : { skip: missingCapture('MM-script.json') }, () => {
+    const c = MM!;
+    const echo = findEchoedPhrases(c.pageText);
+    assert.equal(echo.length, 1, 'measured: one phrase this draft returns to');
+    const e = findingsEntry('echo', echo, captureText(c));
+    assert.equal(e.state, 'INFO');
+    assert.equal(e.countsAsFinding, false);
+    assert.equal(e.items!.length, 1);
+  });
+
+test('MINUTEMEN — every expected check produces a valid entry, and the Latin detectors are not blind',
+  MM ? {} : { skip: missingCapture('MM-script.json') }, () => {
+    const text = captureText(MM!);
+    for (const k of EXPECTED_CHECKS) {
+      const ran = findingsEntry(k, [], text);
+      assert.ok(['FINDINGS', 'CLEAN', 'INFO', 'NOT_RUN'].indexOf(ran.state) >= 0, k);
+      assert.notEqual(ran.state, 'NOT_RUN', k + ' reads blind on a Latin draft');
+      const absent = findingsEntry(k, null, text);
+      assert.equal(absent.state, 'NOT_RUN', k + ' must distinguish no-result from empty');
+    }
+  });
