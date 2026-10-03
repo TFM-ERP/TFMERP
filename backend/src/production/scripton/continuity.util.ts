@@ -102,70 +102,82 @@ export interface ClassifiedLine {
  * nextInSpeech('blank') is false, deliberately — a blank line ends a speech. So when the writer
  * emits a cue, a blank, then the line, classifyLine sees the line with inSpeech false and calls it
  * ACTION. The page renders a character's words as stage direction. Measured on the 2 Oct draft:
- * scenes 5-12 of revision cmuqy7say000bkn0guamrubkg.
+ * 99 cues whose speech did not classify as dialogue, 112 gaps, in scenes 5-12.
+ *
+ * ONLY UNDER A LINE THAT NAMES A SPEAKER. The first version of this acted under any line that
+ * satisfied looksLikeCue when the next line contained a lower-case letter — and every action
+ * paragraph contains one, so it joined "BANG" to "The door flies open.", "THE DOOR SLAMS OPEN" to
+ * "Jason turns.", and "SUPER: SEVEN YEARS EARLIER" to "Rain." Its own doc comment claimed beats
+ * were left alone; nothing had tested that. A line names a speaker only when:
+ *
+ *   (i)  it carries a cue extension — (CONT'D), (O.S.), (V.O.), (O.C.) — which no action beat does;
+ *   (ii) or its base matches one of the speakers the caller knows about, by sameCharacter.
+ *
+ * With no list, (i) alone applies: the conservative half, and the one that cannot misfire.
+ *
+ * (MORE) stays on a cue line for rendering, but is NOT on its own evidence of a speaker: it is a
+ * page-break artefact and the brief names four markers, not five.
  *
  * Two normalisations, both on the WRITING side only. looksLikeCue, classifyLine, nextInSpeech and
  * paginate are untouched: PAGE_BUDGET is calibrated on them, and a classifier that accepted a
  * blank inside a speech would change every page count in the system.
  *
- *   (a) the blank line(s) between a cue and its speech are removed;
- *   (b) a prose parenthetical on the cue line moves to its own line beneath it. (CONT'D), (O.S.),
- *       (V.O.), (O.C.) and (MORE) are part of the cue and stay on it.
+ *   (a) the blank line(s) between a speaker and their speech are removed;
+ *   (b) a prose parenthetical on the speaker's line moves to its own line beneath it.
  *
- * WHAT IT MUST NOT DO is turn an all-caps action beat into a speaker. looksLikeCue is permissive —
- * short, upper-case, no terminal punctuation — so "BLACK." is safe on its full stop but a beat like
- * "THE DOOR SLAMS OPEN" is not. So the blank is closed only when the following line reads as
- * speech: it has a lower-case letter, and it is not itself a cue, slug or transition. An action
- * beat following a bare all-caps line is left exactly where it is.
+ * Under a named speaker the speech is taken whatever its case — an all-caps shout is still speech —
+ * unless the next line is itself a cue, a slug or a transition.
  *
  * Pure, and idempotent: running it twice is running it once.
  */
 const CUE_EXT_RE = /^\((?:CONT'?D|CONTINUED|O\.?S\.?|V\.?O\.?|O\.?C\.?|MORE)\)$/i;
+/** The four that identify a speaker on their own. (MORE) renders but does not identify. */
+const SPEAKER_EXT_RE = /^\((?:CONT'?D|CONTINUED|O\.?S\.?|V\.?O\.?|O\.?C\.?)\)$/i;
 
-export function tightenSpeakerCues(text: string): string {
+export function tightenSpeakerCues(text: string, knownSpeakers?: readonly string[] | null): string {
+  const known = (Array.isArray(knownSpeakers) ? knownSpeakers : [])
+    .map((n) => String(n || '').trim()).filter(Boolean);
   const lines = String(text || '').replace(/\r/g, '').split('\n');
   const out: string[] = [];
 
-  /** Reads as spoken words rather than a beat: has lower case, and is not a cue/slug/transition. */
-  const looksLikeSpeech = (t: string): boolean => {
-    if (!t) return false;
-    if (SLUG_RE.test(t) || AR_SLUG_RE.test(t) || TRANS_RE.test(t)) return false;
-    if (looksLikeCue(t)) return false;
-    return /\p{Ll}/u.test(t);
+  const isSlugOrTrans = (t: string) => SLUG_RE.test(t) || AR_SLUG_RE.test(t) || TRANS_RE.test(t);
+
+  /** Does this line NAME a speaker? Never a slug, a transition, or a bare all-caps beat. */
+  const namesSpeaker = (base: string, hasSpeakerExt: boolean): boolean => {
+    if (!base || isSlugOrTrans(base) || !looksLikeCue(base)) return false;
+    if (hasSpeakerExt) return true;
+    return known.some((k) => sameCharacter(k, base));
   };
+
+  /** The speech under a named speaker: anything that is not another cue, a slug or a transition. */
+  const isSpeech = (t: string) => !!t && !isSlugOrTrans(t) && !looksLikeCue(t);
 
   for (let i = 0; i < lines.length; i++) {
     const raw = lines[i];
     const t = raw.trim();
 
-    // (b) split a prose parenthetical off the cue line, keeping any cue extensions on it.
+    // Peel any trailing parenthetical off, so the base can be tested on its own.
     let cueLine = raw;
     let splitParen = '';
-    const m = t.match(/^(.*?)\s*(\([^)\n]*\))$/u);
-    if (m && m[1] && !CUE_EXT_RE.test(m[2])) {
-      const base = m[1].trim();
-      // The base may itself end in an extension: "NORA (CONT'D) (at the helm)".
-      const baseNoExt = base.replace(/\s*\([^)\n]*\)\s*$/u, '').trim();
-      if (looksLikeCue(baseNoExt)) { cueLine = base; splitParen = m[2]; }
+    let base = t.replace(/\s*\([^)\n]*\)\s*$/u, '').trim();
+    let hasSpeakerExt = false;
+    for (const m of t.match(/\([^)\n]*\)/gu) || []) if (SPEAKER_EXT_RE.test(m)) hasSpeakerExt = true;
+
+    const trailing = t.match(/^(.*?)\s*(\([^)\n]*\))$/u);
+    if (trailing && trailing[1] && !CUE_EXT_RE.test(trailing[2])) {
+      const kept = trailing[1].trim();
+      const keptBase = kept.replace(/\s*\([^)\n]*\)\s*$/u, '').trim();
+      if (namesSpeaker(keptBase, hasSpeakerExt)) { cueLine = kept; splitParen = trailing[2]; base = keptBase; }
     }
 
     out.push(cueLine);
     if (splitParen) out.push(splitParen);
 
-    // (a) close the blank(s) between this cue and its speech.
-    //
-    // SLUG AND TRANSITION FIRST, exactly as classifyLine orders it (:69-72). looksLikeCue is only
-    // "short, upper case, no terminal punctuation", which "EXT. DOCK ROAD - CONTINUOUS" satisfies
-    // at 27 characters — so without this the blank under a short slug was closed and the action
-    // beneath it became a slug's speech. Six scenes of the 2 Oct draft, found by running this over
-    // the captured revision. classifyLine never had the bug because it tests slugs first.
-    const cueBase = cueLine.trim().replace(/\s*\([^)\n]*\)\s*$/u, '').trim();
-    const isCueHere = !SLUG_RE.test(cueBase) && !AR_SLUG_RE.test(cueBase) && !TRANS_RE.test(cueBase)
-      && (looksLikeCue(cueBase) || !!splitParen);
-    if (!isCueHere) continue;
+    if (!namesSpeaker(base, hasSpeakerExt)) continue;
     let j = i + 1;
     while (j < lines.length && !lines[j].trim()) j++;
-    if (j > i + 1 && j < lines.length && (looksLikeSpeech(lines[j].trim()) || lines[j].trim().charAt(0) === '(')) {
+    if (j > i + 1 && j < lines.length
+      && (isSpeech(lines[j].trim()) || lines[j].trim().charAt(0) === '(')) {
       i = j - 1;   // swallow the blanks; the loop picks up at the speech line
     }
   }

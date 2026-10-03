@@ -25,14 +25,23 @@ import { consumedStamp, hasConsumed } from './consumed-stamp.util';
 import { preSpendGate, GATE_CHECKS, markPreSpendRefusal, errorTextForJob, isWaived } from './pre-spend-gate.util';
 import { endingEntry, mergeChecks, resolveSecondLook, type CheckSubject, type EndingVerdict } from './revision-checks.util';
 import {
-  classifyLine, nextInSpeech, checkScene, checkDraftContinuity, checkPlanCast, stripExitedCast, collectExits,
-  unavailableLine, dedupeScenes, repairInstruction, summariseContinuity, exitsAsCanonFacts, findNameDrift,
-  splitCast, trimToSentence, classifyScript, normaliseCharacterName, splitAtSecondDocument, type LineKind,
-  type CastExit, type ContinuityFinding, checkSceneIntegrity, sceneDefectInstruction, shortenSlugLocation,
-  findTimeTokens, checkStatedTimeOrder, findAllTimeTokens, checkClockRegression, isRecalledTime,
-  checkPropContinuity, spineDirective, isPropState, type PropEvent, findMetaCommentary, stripMetaCommentary,
-  collectWrittenDeaths, writtenDeathsAsExits, checkFixedAttributes, findFlashbackMismatches, findFragmentRuns,
-  findFalseSceneBreaks, findEchoedPhrases, type SceneDefect, type TimeToken, tightenSpeakerCues,
+  classifyLine, nextInSpeech, checkScene, checkDraftContinuity, checkPlanCast, stripExitedCast,
+  collectExits, unavailableLine, dedupeScenes, repairInstruction, summariseContinuity,
+  exitsAsCanonFacts, findNameDrift, splitCast, trimToSentence,
+  classifyScript, normaliseCharacterName,
+  splitAtSecondDocument,
+  type LineKind, type CastExit, type ContinuityFinding,
+  checkSceneIntegrity, sceneDefectInstruction, shortenSlugLocation,
+  findTimeTokens, checkStatedTimeOrder,
+  findAllTimeTokens, checkClockRegression, isRecalledTime,
+  checkPropContinuity, spineDirective, isPropState, type PropEvent,
+  findMetaCommentary, stripMetaCommentary,
+  collectWrittenDeaths, writtenDeathsAsExits,
+  checkFixedAttributes,
+  findFlashbackMismatches,
+  findFragmentRuns, findFalseSceneBreaks, findEchoedPhrases,
+  type SceneDefect, type TimeToken,
+  tightenSpeakerCues,
 } from './continuity.util';
 import {
   createRegistry, registerEntity, resolveEntity, allForms, auditLedger, ledgerFindingInstruction,
@@ -3309,7 +3318,7 @@ export class ScripOnService {
    * Shared by the writer and the continuity repair pass: a repair that skipped any of these would
    * reintroduce, into an already-good scene, exactly the defects the writer strips out.
    */
-  private cleanSceneText(raw: string): string {
+  private cleanSceneText(raw: string, speakers?: readonly string[]): string {
     const cleaned = String(raw || '')
       .replace(/^```[a-z]*\s*/i, '').replace(/```\s*$/i, '').trim()
       // The model occasionally emits markdown emphasis, which reached the page raw: a real draft
@@ -3340,7 +3349,12 @@ export class ScripOnService {
     // get: the inline-parenthetical split above can itself leave a cue and its speech apart.
     // Writing side only — looksLikeCue, classifyLine, nextInSpeech and paginate are untouched,
     // because PAGE_BUDGET is calibrated on them.
-    return tightenSpeakerCues(stripped);
+    //
+    // THE NAMES MATTER. Without them only an extension-marked cue qualifies, which is the half
+    // that cannot misfire; with them a plain "NORA" is recognised too. A caller that passes
+    // nothing gets the conservative behaviour rather than a guess: this used to act under any
+    // all-caps short line, which joined "BANG" to "The door flies open."
+    return tightenSpeakerCues(stripped, speakers);
   }
 
   /**
@@ -3758,7 +3772,7 @@ export class ScripOnService {
       + '\n\nRewrite it now, corrected.';
     try {
       const r: any = await this.ai.run({ task: 'scripton.feature.repair', system: sys, user, maxTokens: budget.maxTokens, temperature: 0.6, timeoutMs: 120000, projectId, refType: 'Project', refId: projectId });
-      const fixed = this.cleanSceneText(String((r && r.text) || ''));
+      const fixed = this.cleanSceneText(String((r && r.text) || ''), splitCast(sc && sc.characters));
       // A repair can start a second document exactly as a first draft can, and this one is handed
       // the scene as written — which is a document boundary in the prompt itself.
       const cut = splitAtSecondDocument(fixed);
@@ -4129,7 +4143,7 @@ export class ScripOnService {
       if (f.kind === 'NAME_DRIFT') {
         this.log.warn('verifyAndRepair: NAME_DRIFT in scene ' + (i + 1) + ' — ' + f.detail
           + ' Forms here: ' + f.names.slice(1).map((n: string) => '"' + n + '"').join(', ')
-          + '; elsewhere "' + f.names[0] + '". NOT repaired — a name is reported, never substituted.');
+          + '. NOT repaired — a name is reported, never substituted.');
         setP({ note: 'Repairing continuity — ' + repaired + ' of ' + found + ' fixed.' });
         continue;
       }
@@ -4415,7 +4429,13 @@ export class ScripOnService {
       + '\nTARGET LENGTH: ' + b.target + ' lines (' + b.pages + ' page' + (b.pages === 1 ? '' : 's') + ').'
       + '\n\n' + lengthRule
       + '\n\nWrite this scene in full now.';
-    const clean = (raw: string) => this.cleanSceneText(raw);
+    // The scene's own cast, plus the run's canon vocabulary where the caller has it — the same
+    // two sources tracked is built from, so a speaker the writer was told about is a speaker this
+    // recognises.
+    const sceneSpeakers = Array.from(new Set(
+      splitCast(sc && sc.characters).concat(Array.from(canonNames || [])).map(String).filter(Boolean),
+    ));
+    const clean = (raw: string) => this.cleanSceneText(raw, sceneSpeakers);
     // What the last attempt got wrong, in words, appended to the next attempt's prompt.
     //
     // The gate used to detect a broken scene and retry the IDENTICAL request, which asks the model
