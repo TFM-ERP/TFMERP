@@ -33,6 +33,7 @@ import {
   type Slice, type PlanStateFailure, type PlanStateFailureKind,
 } from './plan-state-slices.util';
 import { checkSurface, surfaceSummary } from './check-surface.util';
+import { scenePlanFor } from './scene-plan.util';
 import {
   classifyLine, nextInSpeech, checkScene, checkDraftContinuity, checkPlanCast, stripExitedCast,
   collectExits, unavailableLine, dedupeScenes, repairInstruction, summariseContinuity,
@@ -5355,6 +5356,21 @@ export class ScripOnService {
       // same value, so every entry on the revision stales together or not at all.
       const savedText = pages.map((pg: any) => String((pg && pg.text) || '')).join('\n');
       /**
+       * Plan 01 task 5 — THE PLAN THE SCRIPT WAS WRITTEN FROM, STORED.
+       *
+       * `planned` is the planner's own list. The ScriptScene rows are NOT it: materialiseScenes
+       * re-parses the written pages, and on the 2 Oct run that gave 85 rows from an 81-scene plan.
+       * Every nameDrift / ledger / flashback finding is a disagreement between this and the page,
+       * and until now the plan half was discarded when the run ended.
+       *
+       * scenePlanFor returns null for a planning failure and a stored empty plan for a plan that
+       * genuinely had no scenes — the column's comment depends on those being different. Both
+       * feature paths go through the one function so neither can drift from the other.
+       */
+      await (this.prisma as any).scriptRevision.update({
+        where: { id: revId }, data: { scenePlan: scenePlanFor(planned) as any },
+      }).catch((e: any) => this.log.warn('scenePlan not stored on revision ' + revId + ' — ' + this.why(e)));
+      /**
        * Plan 01 task 3A — planState is stored on SUCCESS too, not only on failure.
        *
        * An entry that appears only when something went wrong cannot tell a reader "this run read
@@ -5862,6 +5878,21 @@ export class ScripOnService {
       // feature ending check, not the continuity sweeps). The `ending` verdict below reuses this
       // same value, so every entry on the revision stales together or not at all.
       const savedText = pages.map((pg: any) => String((pg && pg.text) || '')).join('\n');
+      /**
+       * Plan 01 task 5 — THE PLAN THE SCRIPT WAS WRITTEN FROM, STORED.
+       *
+       * `planned` is the planner's own list. The ScriptScene rows are NOT it: materialiseScenes
+       * re-parses the written pages, and on the 2 Oct run that gave 85 rows from an 81-scene plan.
+       * Every nameDrift / ledger / flashback finding is a disagreement between this and the page,
+       * and until now the plan half was discarded when the run ended.
+       *
+       * scenePlanFor returns null for a planning failure and a stored empty plan for a plan that
+       * genuinely had no scenes — the column's comment depends on those being different. Both
+       * feature paths go through the one function so neither can drift from the other.
+       */
+      await (this.prisma as any).scriptRevision.update({
+        where: { id: revId }, data: { scenePlan: scenePlanFor(planned) as any },
+      }).catch((e: any) => this.log.warn('scenePlan not stored on revision ' + revId + ' — ' + this.why(e)));
       /**
        * Plan 01 task 3A — planState is stored on SUCCESS too, not only on failure.
        *
