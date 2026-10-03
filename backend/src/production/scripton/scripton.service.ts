@@ -25,6 +25,7 @@ import { consumedStamp, hasConsumed } from './consumed-stamp.util';
 import { preSpendGate, GATE_CHECKS, markPreSpendRefusal, errorTextForJob, isWaived } from './pre-spend-gate.util';
 import {
   endingEntry, mergeChecks, resolveSecondLook, findingsEntry, sweepFailed, EXPECTED_CHECKS,
+  shouldRecheckPlanEnding,
   type CheckSubject, type CheckEntry, type EndingVerdict,
 } from './revision-checks.util';
 import {
@@ -3220,9 +3221,13 @@ export class ScripOnService {
     // map" did not — the planner has been told twice, in the system prompt, that the last scenes must
     // dramatise the ending, and ignored it both times. Telling it what is missing is a different ask.
     if (spine && scenes.length && !episode) {
+      // Plan 01 task 3B — what the loop last concluded, and whether the plan changed under it.
+      let loopVerdict: any = null;
+      let planRepairs = 0;
       for (let attempt = 0; attempt < 2; attempt++) {
         const tail = scenes.slice(-6).map((x: any, i: number) => (scenes.length - 6 + i + 1) + '. ' + String(x.brief || '')).join('\n');
         const verdict = await this.verifyPlanEnding(spine, tail, projectId);
+        loopVerdict = verdict;
         if (planVerdicts) planVerdicts.push({ verdict, text: tail });
         if (verdict.complete) break;
         this.log.warn('planScenes: the plan does NOT reach the outline\'s ending (attempt ' + (attempt + 1) + '/2)'
@@ -3250,6 +3255,7 @@ export class ScripOnService {
           const added = d.scenes.length - scenes.length;
           scenes = d.scenes;
           if (added <= 0) { this.log.warn('planScenes: ending repair added nothing new on attempt ' + (attempt + 1) + '.'); continue; }
+          planRepairs++;
           this.log.log('planScenes: ending repair added ' + added + ' scenes — plan now ' + scenes.length + '.');
         } catch (e) {
           this.log.warn('planScenes: ending repair failed on attempt ' + (attempt + 1) + ' — ' + this.why(e));
@@ -3258,7 +3264,25 @@ export class ScripOnService {
       // Last check. Failing HERE costs three planning calls; failing after the write costs the whole
       // run, and hands over a headless script that reads as finished.
       const finalTail = scenes.slice(-6).map((x: any) => '- ' + String(x.brief || '')).join('\n');
-      const last = await this.verifyPlanEnding(spine, finalTail, projectId);
+      /**
+       * Plan 01 task 3B — THE REPEAT THAT DESTROYED A GOOD ANSWER.
+       *
+       * This check used to run unconditionally. On 2 Oct the loop above broke on a TYPED verdict at
+       * 12:42:39 (out 310, end_turn, 196 chars) and this call ran six seconds later, spent all 400
+       * of its tokens on thinking, emitted 33 characters, and abstained — and because it is pushed
+       * last, its abstention is what reached the revision. The record then said NOT_RUN about a plan
+       * that had been checked and had passed.
+       *
+       * So it is skipped only after a TYPED verdict with nothing repaired. An abstention still gets
+       * it, because an abstention never answered; a repair still gets it, because the plan it would
+       * be vouching for is no longer the plan that was judged.
+       */
+      const last = shouldRecheckPlanEnding(loopVerdict, { repaired: planRepairs })
+        ? await this.verifyPlanEnding(spine, finalTail, projectId)
+        : loopVerdict;
+      if (last === loopVerdict) {
+        this.log.log('planScenes: the plan-ending check already returned a verdict and nothing was repaired — not re-asking.');
+      }
       if (planVerdicts) planVerdicts.push({ verdict: last, text: finalTail });
       if (!last.complete) {
         // Actionable half FIRST, missing beats LAST: the caller's catch truncates at 200 characters, and
@@ -3286,18 +3310,41 @@ export class ScripOnService {
       const user = 'OUTLINE (its ending = the final beats):\n' + spine.slice(-3000)
         + '\n\nLAST SCENES OF THE SCENE MAP:\n' + planTail.slice(-2000)
         + '\n\nDoes the scene map reach the outline\'s climax AND resolution?';
-      const r: any = await this.ai.run({ task: 'scripton.feature.coverage', system: sys, user, maxTokens: 400, timeoutMs: 60000, projectId, refType: 'Project', refId: projectId });
+    /**
+     * Plan 01 task 3B — THE CEILING WAS TOO SMALL FOR THE ANSWER PLUS THE THINKING.
+     *
+     * Measured on the one call that worked: out 310 tokens for 196 characters of JSON. 196 chars of
+     * verdict is about 50 tokens, so roughly 260 of those 310 were thinking — and a ceiling of 400
+     * left a thinking budget of about 90. The next call spent all 400 and emitted 33 characters.
+     *
+     * 1500 IS NOT A MEASURED NUMBER. It is ~5x the observed thinking plus the verdict, chosen with
+     * margin because the alternative is another silent cap. Which is exactly why the abstention
+     * below now records the stop reason: the next run's row says whether 1500 was enough, instead
+     * of leaving the question to be re-derived from a token count.
+     *
+     * Raising it costs nothing. Ceilings are not billed; output tokens are, and this call spends
+     * about 310 of them.
+     */
+      const COVERAGE_MAXTOK = 1500;
+      const r: any = await this.ai.run({ task: 'scripton.feature.coverage', system: sys, user, maxTokens: COVERAGE_MAXTOK, timeoutMs: 60000, projectId, refType: 'Project', refId: projectId });
       let j: any = (r && r.json) || null;
       if (!j && r && typeof r.text === 'string') { try { const m = r.text.match(/\{[\s\S]*\}/); if (m) j = JSON.parse(m[0]); } catch { /* */ } }
       if (j && typeof j.complete === 'boolean') {
         const missing = Array.isArray(j.missing) ? j.missing.map((x: any) => String(x).slice(0, 120)).slice(0, 4) : [];
         return { complete: j.complete, missing, note: trimToSentence(j.note, 240) };
       }
-      this.log.warn('verifyPlanEnding: no usable verdict — assuming the plan reaches the ending (fail-open).');
+      // A CEILING STOP IS ITS OWN REASON. The 2 Oct row said only "no usable verdict returned by
+      // the plan-ending check", so the cause — a 400-token ceiling spent on thinking — could not be
+      // read back from the revision at all. stoppedAtCeiling is the provider's own account.
+      const cut = stoppedAtCeiling({ outputTokens: r?.usage?.output_tokens, maxTokens: COVERAGE_MAXTOK, stopReason: r?.stopReason });
+      const why = cut
+        ? 'the plan-ending check was cut off at its ' + COVERAGE_MAXTOK + '-token ceiling'
+        : 'no usable verdict returned by the plan-ending check';
+      this.log.warn('verifyPlanEnding: ' + why + ' — assuming the plan reaches the ending (fail-open).');
       // F10 defect two: the fail-open still does not BLOCK — that is its purpose — but it is no
       // longer indistinguishable from a verdict. `failOpen` is what the persisted entry types as
       // NOT_RUN, so an abstention can never be read back as a pass.
-      return { complete: true, missing: [], note: 'no usable verdict returned by the plan-ending check', failOpen: true };
+      return { complete: true, missing: [], note: why, failOpen: true };
     } catch (e) {
       this.log.warn('verifyPlanEnding: check failed, assuming complete — ' + this.why(e));
       return { complete: true, missing: [], note: 'the plan-ending check failed: ' + this.why(e), failOpen: true };
@@ -3317,15 +3364,21 @@ export class ScripOnService {
     try {
       const sys = 'You verify whether a screenplay reached its planned ENDING. Given a developed OUTLINE (whose FINAL beats are the intended climax and resolution) and the LAST pages of the generated script, decide whether the script actually dramatises those final beats. Return ONLY JSON {complete: true|false, note: "one short sentence"}.';
       const user = 'OUTLINE (its ending = the final beats):\n' + spine.slice(-3000) + '\n\nLAST PAGES OF THE GENERATED SCRIPT:\n' + scriptTail.slice(-tailChars) + '\n\nDoes the script reach the outline\'s final beats (the climax and resolution)?';
-      const r: any = await this.ai.run({ task: 'scripton.feature.coverage', system: sys, user, maxTokens: 300, timeoutMs: 60000, projectId, refType: 'Project', refId: projectId });
+      // Plan 01 task 3B — same reasoning as verifyPlanEnding: 300 was below the thinking budget.
+      const COVERAGE_MAXTOK = 1500;
+      const r: any = await this.ai.run({ task: 'scripton.feature.coverage', system: sys, user, maxTokens: COVERAGE_MAXTOK, timeoutMs: 60000, projectId, refType: 'Project', refId: projectId });
       let j: any = (r && r.json) || null;
       if (!j && r && typeof r.text === 'string') { try { const m = r.text.match(/\{[\s\S]*\}/); if (m) j = JSON.parse(m[0]); } catch { /* */ } }
       // Trimmed at a sentence, not a flat character count: this note is now shown to a writer as the
       // reason a finished draft was rejected, and the 200-char cut produced "...through a Baltimore
       // freight terminal using." on screen. See trimToSentence.
       if (j && typeof j.complete === 'boolean') return { complete: j.complete, note: trimToSentence(j.note, 240) };
-      this.log.warn('verifyEnding: no usable verdict returned — assuming the ending is complete (fail-open).');
-      return { complete: true, note: 'no usable verdict returned by the ending check', failOpen: true };
+      const cut = stoppedAtCeiling({ outputTokens: r?.usage?.output_tokens, maxTokens: COVERAGE_MAXTOK, stopReason: r?.stopReason });
+      const why = cut
+        ? 'the ending check was cut off at its ' + COVERAGE_MAXTOK + '-token ceiling'
+        : 'no usable verdict returned by the ending check';
+      this.log.warn('verifyEnding: ' + why + ' — assuming the ending is complete (fail-open).');
+      return { complete: true, note: why, failOpen: true };
     } catch (e) {
       // Fail-open by design: a failed check must never raise a false alarm on a good script. But an
       // always-failing check means the coverage flag is meaningless, which is worth knowing.

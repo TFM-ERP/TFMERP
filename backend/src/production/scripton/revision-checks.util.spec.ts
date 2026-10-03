@@ -10,6 +10,7 @@ import { strict as assert } from 'node:assert';
 import {
   fingerprint, checkEntry, endingEntry, mergeChecks, readCheckEntry, readChecks, resolveSecondLook,
   EXPECTED_CHECKS, SUBJECT_OF, CAN_DETECT, LATIN_SHARE_FLOOR, latinShare, findingsEntry, sweepFailed,
+  shouldRecheckPlanEnding,
 } from './revision-checks.util';
 import { findFalseSceneBreaks, findEchoedPhrases } from './continuity.util';
 import { loadCapture, missingCapture, captureText } from './capture-fixture.util';
@@ -433,3 +434,63 @@ test('MINUTEMEN — every expected check produces a valid entry, and the Latin d
       assert.equal(absent.state, 'NOT_RUN', k + ' must distinguish no-result from empty');
     }
   });
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// PLAN 01 TASK 3B — THE REPEAT PLAN-ENDING CHECK.
+//
+// Measured on 2 Oct, two scripton.feature.coverage calls six seconds apart, both at ceiling 400:
+//
+//   12:42:39.881Z  out 310  stop end_turn    196 chars  A USABLE VERDICT
+//   12:42:45.868Z  out 400  stop max_tokens   33 chars  cut off — and THIS is the one that stored
+//
+// The full log carries exactly ONE "no usable verdict" line, at 4:42:52 PM, immediately followed by
+// recordRevisionCheck: planEnding = NOT_RUN. So the first call answered and logged nothing (success
+// on that path is silent) and the unconditional final check overwrote it with an abstention.
+//
+// The rule is narrow on purpose: skip the repeat ONLY after a TYPED verdict. An abstention has not
+// answered, and re-asking it is the one case where a second call earns its $0.017.
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+
+test('TASK 3B — a typed pass is not re-asked; an abstention is', () => {
+  assert.equal(shouldRecheckPlanEnding({ complete: true, failOpen: false }, { repaired: 0 }), false);
+  assert.equal(shouldRecheckPlanEnding({ complete: true }, { repaired: 0 }), false, 'absent failOpen is a typed pass');
+  assert.equal(shouldRecheckPlanEnding({ complete: true, failOpen: true }, { repaired: 0 }), true,
+    'an abstention has not answered — it is the one case worth asking twice');
+});
+
+test('TASK 3B — a repair means the plan changed, so the verdict must be re-taken', () => {
+  assert.equal(shouldRecheckPlanEnding({ complete: true, failOpen: false }, { repaired: 1 }), true,
+    'a typed pass on a plan that has since been repaired is a verdict about different scenes');
+  assert.equal(shouldRecheckPlanEnding({ complete: false, failOpen: false }, { repaired: 1 }), true);
+});
+
+test('TASK 3B — no verdict at all is always re-asked', () => {
+  assert.equal(shouldRecheckPlanEnding(null, { repaired: 0 }), true);
+  assert.equal(shouldRecheckPlanEnding(undefined, { repaired: 0 }), true);
+  assert.equal(shouldRecheckPlanEnding({}, { repaired: 0 }), true, 'neither complete nor incomplete');
+  assert.equal(shouldRecheckPlanEnding({ complete: false }, { repaired: 0 }), true);
+});
+
+test('TASK 3B — CONTROL: skipping on any complete:true makes an abstention permanent', () => {
+  const naive = (v: any) => !v.complete;
+  assert.equal(naive({ complete: true, failOpen: true }), false, 'the defect: never asks again');
+  assert.equal(shouldRecheckPlanEnding({ complete: true, failOpen: true }, { repaired: 0 }), true);
+});
+
+test('TASK 3B — CONTROL: always re-asking is what destroyed the good answer', () => {
+  // the 2 Oct sequence: a typed pass, then an unconditional repeat that was cut off
+  const typed = { complete: true, failOpen: false };
+  assert.equal(shouldRecheckPlanEnding(typed, { repaired: 0 }), false,
+    'the repeat that overwrote a usable verdict no longer happens');
+});
+
+test('TASK 3B — a ceiling stop is its own NOT_RUN reason, not the generic one', () => {
+  const e = endingEntry('planEnding', {
+    complete: true, failOpen: true,
+    note: 'the plan-ending check was cut off at its 400-token ceiling',
+  }, 'tail', 'plan.tail');
+  assert.equal(e.state, 'NOT_RUN');
+  assert.match(e.reason, /cut off at its 400-token ceiling/);
+  assert.equal(/no usable verdict/.test(e.reason), false,
+    'the measured run stored the generic reason, so the cause was unreadable from the row');
+});

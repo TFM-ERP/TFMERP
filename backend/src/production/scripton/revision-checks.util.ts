@@ -471,3 +471,38 @@ export function sweepFailed(kind: string, err: any, text: any,
     countsAsFinding: false,
   };
 }
+
+/**
+ * SHOULD THE PLAN-ENDING CHECK BE ASKED AGAIN? Only when the first answer was not an answer.
+ *
+ * WHAT HAPPENED ON 2 OCT. planScenes checks the plan's ending inside a repair loop, breaks out as
+ * soon as a verdict says complete — and then runs an unconditional "last check" on the final tail.
+ * Two scripton.feature.coverage calls landed six seconds apart, both at ceiling 400:
+ *
+ *   12:42:39.881Z  out 310  stop end_turn    196 chars   A USABLE VERDICT
+ *   12:42:45.868Z  out 400  stop max_tokens   33 chars   cut off — and this is the one that stored
+ *
+ * The full log carries exactly ONE "no usable verdict" line. So the first call answered and logged
+ * nothing, because success on that path is silent, and the repeat replaced a real verdict with an
+ * abstention. The record then said NOT_RUN about a plan that had in fact been checked and passed.
+ *
+ * THE CONDITION IS NARROW, DELIBERATELY. Skipping on any `complete: true` would make an abstention
+ * permanent — a fail-open also says complete: true, which is the same conflation resolveSecondLook
+ * exists to stop one function above this. So:
+ *
+ *   typed verdict, nothing repaired   -> do NOT ask again. The answer stands.
+ *   ABSTENTION                        -> ask again. It never answered.
+ *   anything repaired                 -> ask again. The plan is not the plan that was judged.
+ *   no verdict at all                 -> ask again.
+ */
+export function shouldRecheckPlanEnding(
+  verdict: { complete?: boolean; failOpen?: boolean } | null | undefined,
+  opts?: { repaired?: number } | null,
+): boolean {
+  const repaired = Number((opts && opts.repaired) || 0) > 0;
+  if (repaired) return true;
+  const v = verdict || null;
+  if (!v || typeof v.complete !== 'boolean') return true;
+  if (v.failOpen) return true;
+  return v.complete !== true;
+}
