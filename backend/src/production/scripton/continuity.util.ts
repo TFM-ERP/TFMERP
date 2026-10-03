@@ -921,7 +921,28 @@ export function canonicalForm(forms: NameForm[], facts: CanonFactCore[], registe
   const reg = registered
     ? new Set(Array.from(registered).map((r) => normaliseCharacterName(r)).filter(Boolean))
     : null;
-  const known = (form: string) => canonParts.some((c) => statesName(c, form)) || (!!reg && reg.has(form));
+  /**
+   * A REGISTERED NAME SHORTER THAN EVERY WRITTEN FORM STILL RECOGNISES THE PERSON.
+   *
+   * `reg.has(form)` alone needs the registry to hold a spelling the page actually used. Cast a
+   * character as ALDER and let the pages write ALDER VOSS and ALDER VANCE and nothing matched, so
+   * `pool` came back empty, canonicalForm returned '' and findNameDrift abandoned the key — two
+   * different surnames on one registered given name, reported as nothing.
+   *
+   * This is NOT the "nothing recognised" case the comment below guards. The registry does recognise
+   * the person; it simply does not pin the full spelling. A registered name contained in a written
+   * form IN ORDER is the same relation subsumes already uses everywhere else in this file, so
+   * ALDER vouches for ALDER VOSS while BRENN vouches for nothing.
+   *
+   * It cannot resurrect the JASON ALEXANDER QUICK false positive: when the registry DOES hold a
+   * written spelling, that spelling becomes canonical and the longer one is compatible with it, so
+   * it is still not reported.
+   *
+   * No r !== form guard: reg.has(form) is checked first and short-circuits, so an exact match never
+   * reaches this.
+   */
+  const vouched = (form: string) => !!reg && Array.from(reg).some((r) => subsumes(r, form));
+  const known = (form: string) => canonParts.some((c) => statesName(c, form)) || (!!reg && reg.has(form)) || vouched(form);
   const stated = list.filter((f) => known(f.form));
   // With a registry and nothing recognised, we do not know which spelling is right — and guessing is
   // how the last one went wrong. Returning '' means "no repair", which is the correct answer.

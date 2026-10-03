@@ -1547,3 +1547,86 @@ test('CONTROL — an empty cast returns an empty Map in EITHER language, which i
     assert.equal(collectNameForms(MM_CAP!.pageText, []).size, 0,
       'a Latin draft also returns 0 with no cast — so an empty-cast probe proves nothing about language');
   });
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// PLAN 01 TASK 8 — THE NAME CHECK'S TWO KNOWN BLIND SPOTS.
+//
+// Both were recorded as residue when A3 shipped and both were measured against the shipped code
+// before these tests were written. Small invented names, per standing rule 1.
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+
+const SC = (...t: string[]) => t.map((text, i) => ({ heading: (i + 1) + '  INT. ROOM - DAY', text }));
+
+test('TASK 8 LIMIT — one full form under a first-name cast stays silent, and must', () => {
+  const f = findNameDrift(SC('ALDER VOSS walks in.', 'ALDER VOSS sits down.'), ['ALDER'], []);
+  assert.equal(f.length, 0, 'one person, two compatible spellings — subsumes is doing its job');
+});
+
+test('TASK 8 — a first-name cast no longer hides a drift between two DIFFERENT full forms', () => {
+  const f = findNameDrift(SC('ALDER VOSS walks in.', 'ALDER VANCE sits down.'), ['ALDER'], []);
+  assert.equal(f.length, 1, 'measured 0 before this task');
+  assert.match(f[0].detail, /ALDER VANCE/);
+  assert.match(f[0].detail, /ALDER VOSS/, 'reported against the form it conflicts with');
+});
+
+test('TASK 8 CONTROL — the same pages already reported it when the longer form was cast', () => {
+  const f = findNameDrift(SC('ALDER VOSS walks in.', 'ALDER VANCE sits down.'), ['ALDER VOSS'], []);
+  assert.equal(f.length, 1, 'this path always worked — the registry just had to match a written form');
+});
+
+/**
+ * HELD, NOT DROPPED. This expectation contradicts a shipped test twenty lines up —
+ * "(fifth rule) two REGISTERED names sharing a key are two people, not one misspelled" — whose
+ * second half asserts the opposite for the same shape:
+ *
+ *   cast ['ATTACKER ONE'], pages ATTACKER ONE + ATTACKER THREE  ->  1   ("not on the cast")
+ *   cast ['WARDEN ONE'],   pages WARDEN ONE + TWO + THREE       ->  0   (task 8's ruling)
+ *
+ * Both are an unregistered enumerated extra beside a registered one, and there is no principled
+ * difference between them — only the number of forms and whether the sequence has a gap, neither of
+ * which anyone has ruled on. Making this pass means deciding that an unregistered variant of a
+ * registered name is NOT drift, which is what the fifth rule exists to assert.
+ *
+ * So it is skipped by name, with the conflict in the reason, until Qais rules. Deleting it would
+ * lose the blind spot; weakening the fifth rule to make it pass would be bending a shipped,
+ * deliberate test to fit a new one.
+ */
+test('TASK 8 — extras sharing a role noun are not one person',
+  { skip: 'HELD: contradicts "(fifth rule) two REGISTERED names sharing a key…", which requires an unregistered ATTACKER THREE beside a registered ATTACKER ONE to be reported as drift. Needs a ruling.' },
+  () => {
+    const f = findNameDrift(SC('WARDEN ONE opens.', 'WARDEN TWO closes.', 'WARDEN THREE waits.'), ['WARDEN ONE'], []);
+    assert.equal(f.length, 0, 'measured 2 today — one finding per scene carrying a wrong form');
+  });
+
+test('TASK 8 CONTROL — without the role noun in the cast there is nothing to start red', () => {
+  const f = findNameDrift(SC('WARDEN ONE opens.', 'WARDEN TWO closes.'), ['ALDER'], []);
+  assert.equal(f.length, 0, 'collectNameForms keys on tracked names, so this probe proves nothing');
+});
+
+test('TASK 8 LIMIT — the enumerator exemption does NOT excuse a real surname drift', () => {
+  const f = findNameDrift(SC('ALDER VOSS walks in.', 'ALDER VOSSE sits down.'), ['ALDER VOSS'], []);
+  assert.equal(f.length, 1, 'VOSSE is not an enumerator — a misspelled surname is still a drift');
+});
+
+test('TASK 8 LIMIT — subsumption still protects a longer spelling of one registered person', () => {
+  const f = findNameDrift(SC('ALDER VOSS walks in.', 'ALDER MARTIN VOSS sits down.'), ['ALDER VOSS'], []);
+  assert.equal(f.length, 0, 'the JASON ALEXANDER QUICK ruling — one person, two compatible forms');
+});
+
+test('TASK 8 LIMIT — an unregistered name is still not acted on at all', () => {
+  const f = findNameDrift(SC('BRENN HALE walks in.', 'BRENN VOSS sits down.'), ['ALDER'], []);
+  assert.equal(f.length, 0, 'nothing in the registry recognises BRENN — guessing is the 1 Sep failure');
+});
+
+test('TASK 8 LIMIT — a registered name that is NOT a spelling of either written form vouches for neither', () => {
+  // keyName('ALDER VOSS') is ALDER, so both forms are collected — they reach canonicalForm. But the
+  // registry names ALDER VOSS, and neither ALDER HALE nor ALDER MARK is a spelling of it, so we do
+  // not know which is right. '' means "no canonical", which means no report. Guessing here is the
+  // 1 Sep failure.
+  //
+  // This is the probe that makes the `subsumes` constraint in `vouched` load-bearing: the earlier
+  // BRENN test passes because collectNameForms never collects an unkeyed name at all, so it cannot
+  // distinguish "vouched by containment" from "vouched by having any registry at all".
+  const f = findNameDrift(SC('ALDER HALE walks in.', 'ALDER MARK sits down.'), ['ALDER VOSS'], []);
+  assert.equal(f.length, 0);
+});
