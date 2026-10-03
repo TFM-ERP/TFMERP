@@ -19,12 +19,21 @@ import { join } from 'node:path';
  * skipping prints the test's name and its reason, so a run on a machine without the captures says
  * which assertions did not happen and why, rather than reporting a smaller green total.
  *
- * The folder is overridable with SCRIPTON_CAPTURES so this is not welded to one machine; the default
- * is where the captures were written.
+ * THE DEFAULT IS RESOLVED FROM THIS FILE, NOT HARD-CODED TO ONE MACHINE. It was an absolute path
+ * under one home directory, which would have skipped every fixture test for everyone else while
+ * reporting a smaller green total — the exact failure the skip-by-name design exists to avoid. The
+ * captures live in the sibling checkout, so the default walks up to this repo's root and across.
+ *
+ * The depth is the same under ts-node and under dist: `backend/src/production/scripton` and
+ * `backend/dist/production/scripton` are both four levels below the repo root.
+ *
+ * SCRIPTON_CAPTURES overrides it for anyone whose layout differs.
  */
 
+const REPO_ROOT = join(__dirname, '..', '..', '..', '..');
+
 export const CAPTURES_DIR = process.env.SCRIPTON_CAPTURES
-  || '/Users/qandil/Projects/TFM-System/Claude outputs/captures';
+  || join(REPO_ROOT, '..', 'TFM-System', 'Claude outputs', 'captures');
 
 /** One captured revision: the shape written by the read-only capture (plan 01 task 0). */
 export interface CapturedScript {
