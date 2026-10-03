@@ -123,6 +123,51 @@ const CSS = `
 .sx.doctor[data-vp="mobile"] .phead h1{font-size:20px}
 `;
 
+/**
+ * Plan 01 task 7 — ONE ROW PER CHECK, INCLUDING THE CHECKS THAT NEVER RAN.
+ *
+ * checkSurface on the backend returns one of these per EXPECTED_CHECKS entry, so a check nobody
+ * wired up is a row saying ABSENT rather than a gap in a list. Mirrored here rather than imported
+ * because the frontend does not import from backend/src.
+ */
+export type SxCheckRow = {
+  kind: string;
+  display: 'FINDINGS' | 'CLEAN' | 'INFO' | 'NOT_RUN' | 'STALE' | 'ABSENT';
+  reason: string;
+  isPass: boolean;
+  countsAsFinding: boolean;
+  staleness: 'FRESH' | 'STALE' | 'UNCHECKED';
+  at: string | null;
+  items: Array<{ scene: number | null; kind: string; detail: string }>;
+};
+export type SxCheckSummary = {
+  findings: number; notRun: number; clean: number; info: number; stale: number; absent: number;
+  allClear: boolean;
+};
+
+/**
+ * SIX STATES, SEPARATED IN WORDS AND NOT ONLY IN COLOUR.
+ *
+ * CLEAN must not be the quiet default: on the 2 Oct revision nine of eleven checks were ABSENT and
+ * one had abstained, and the page showed a finished 122-page script with no sign of either. A
+ * colour alone would have been read as decoration.
+ */
+const CHECK_STATE: Record<string, { word: string; c: string; note: string }> = {
+  FINDINGS: { word: 'found something', c: 'var(--red)', note: 'ran and found something' },
+  CLEAN: { word: 'clean', c: 'var(--green)', note: 'ran and found nothing' },
+  INFO: { word: 'for information', c: 'var(--blue)', note: 'an observation, not a verdict' },
+  NOT_RUN: { word: 'DID NOT RUN', c: 'var(--amber)', note: 'this is NOT a pass' },
+  STALE: { word: 'OUT OF DATE', c: 'var(--amber)', note: 'the pages changed after this verdict' },
+  ABSENT: { word: 'NEVER RECORDED', c: 'var(--faint)', note: 'nothing ever wrote a result' },
+};
+
+const CHECK_LABEL: Record<string, string> = {
+  ending: 'Ending reached', planEnding: 'Plan reaches the ending', planState: 'Plan state read',
+  nameDrift: 'Name drift', ledger: 'Identity & state', writtenDeaths: 'Deaths written on the page',
+  clock: 'Story clock', flashback: 'Flashbacks', density: 'Shape of the draft',
+  echo: 'Repeated phrases', register: 'Against the source register',
+};
+
 export type DoctorCanvasProps = {
   title: string; revisionLabel: string; revisionColor: string; meta: string;
   coverageRaw: any | null; analytics: any | null; diagnostics: any[] | null;
@@ -130,6 +175,9 @@ export type DoctorCanvasProps = {
   onGenerate: () => void; onRunDiag: () => void; onAction: (k: string) => void;
   onNav: (k: string) => void; onBack: () => void; onFullReport: () => void;
   toast?: string | null; vp: 'mobile' | 'tablet' | 'desktop';
+  /** null = the read carried no checks at all, which is NOT an all-clear. See the panel below. */
+  checks?: SxCheckRow[] | null;
+  checkSummary?: SxCheckSummary | null;
 };
 
 export default function ScriptonDoctor(props: DoctorCanvasProps) {
@@ -217,10 +265,61 @@ export default function ScriptonDoctor(props: DoctorCanvasProps) {
                           <span className="dtag" style={{ background: r.tagColor + '29', color: r.tagColor }}>{r.tag}</span>
                         </div>
                       )) : <div className="muted">{t('Run diagnostics to surface per-scene notes.')}</div>}
-                      {/* Conflict detector — kernel-degraded */}
+                      {/*
+                        Plan 01 task 7 — THE CHECKS, AS ROWS.
+                        This printed one generic sentence whatever the revision actually knew about
+                        itself. The 2 Oct revision stored `ending: CLEAN` and `planEnding: NOT_RUN`
+                        and showed neither; nine more checks had never written a row at all.
+                      */}
                       <div className="conflict">
-                        <div className="ct">{t('Conflict Detector')}</div>
-                        <div className="cn">{props.kernelInert === false ? <>{t('No continuity conflicts in the current pass.')} <span className="ok">✓</span></> : t('Continuity is grounded in your pages. Stage a pass to check it against canon.')}</div>
+                        <div className="ct">{t('Checks on this revision')}</div>
+                        {!props.checks ? (
+                          /* NOT an empty panel: an empty panel over an unread column is the
+                             rental/logistics "Alerts 0" defect — an all-clear nobody computed. */
+                          <div className="cn">{t('This revision carries no record of any check — not even that one was skipped. Nothing here has been verified.')}</div>
+                        ) : (<>
+                          <div className="cn" style={{ marginBottom: 6 }}>
+                            {props.checkSummary && props.checkSummary.allClear
+                              ? <>{t('Every check ran and found nothing.')} <span className="ok">✓</span></>
+                              : (
+                                <>
+                                  {props.checkSummary ? props.checkSummary.findings : 0} {t('finding(s)')}
+                                  {' · '}
+                                  <strong style={{ color: 'var(--amber)' }}>
+                                    {props.checkSummary ? props.checkSummary.notRun : 0} {t('not checked')}
+                                  </strong>
+                                  {props.checkSummary && props.checkSummary.info
+                                    ? ' · ' + props.checkSummary.info + ' ' + t('for information') : ''}
+                                </>
+                              )}
+                          </div>
+                          {props.checks.map((c) => {
+                            const st = CHECK_STATE[c.display] || CHECK_STATE.ABSENT;
+                            return (
+                              <div className="drow" key={c.kind} style={{ alignItems: 'flex-start' }}>
+                                <div className="dmid">
+                                  <div className="dslug">{t(CHECK_LABEL[c.kind] || c.kind)}</div>
+                                  <div className="dnote">
+                                    <span style={{ color: st.c, fontWeight: 700 }}>{t(st.word)}</span>
+                                    {' — '}{c.reason || t(st.note)}
+                                  </div>
+                                  {c.items && c.items.length ? (
+                                    <div className="dnote" style={{ opacity: 0.85, marginTop: 3 }}>
+                                      {c.items.slice(0, 4).map((it, j) => (
+                                        <div key={j}>
+                                          {it.scene == null ? t('scene ?') : t('scene') + ' ' + it.scene}: {it.detail}
+                                        </div>
+                                      ))}
+                                      {c.items.length > 4
+                                        ? <div>{'+ ' + (c.items.length - 4) + ' ' + t('more')}</div> : null}
+                                    </div>
+                                  ) : null}
+                                </div>
+                                <span className="dtag" style={{ background: st.c + '29', color: st.c }}>{t(st.word)}</span>
+                              </div>
+                            );
+                          })}
+                        </>)}
                       </div>
                     </div>
 

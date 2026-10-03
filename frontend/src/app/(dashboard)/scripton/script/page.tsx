@@ -62,6 +62,14 @@ export default function ScriptOnScriptPage() {
   const [text, setText] = useState('');
   const [pages, setPages] = useState<Pg[]>([]);
   const [info, setInfo] = useState<any>({});
+  /**
+   * Plan 01 task 7 — the one line where a run actually ends.
+   *
+   * A table in the Doctor is only marginally better than a log line for a writer who has just
+   * watched a generation finish and is looking at THIS page. null means no record of any check,
+   * which is not the same as nothing found — so it is never initialised to a zeroed summary.
+   */
+  const [ckSum, setCkSum] = useState<any>(null);
   const [docId, setDocId] = useState('');
   const [regening, setRegening] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -140,6 +148,8 @@ export default function ScriptOnScriptPage() {
           try {
             const pk: any = await productionApi.scripton.development.getPackage({ docId: docParam });
             const pd: any = pk.data || {}; const br: any = pd.brief || {}; const cov: any = pd.coverage || {};
+            // The checks ride on the read this page already makes — no extra request.
+            if (alive) setCkSum((pd.script && pd.script.checkSummary) || null);
             // versionLabel is the writer's own draft name, typed at intake and stored in the build's
             // brief. It is NOT revLabel: that is the WGA revision colour, which two builds of the same
             // film share. This is what tells those two builds apart on the page.
@@ -454,6 +464,32 @@ export default function ScriptOnScriptPage() {
           {looksUnfinished ? <button onClick={() => doRegen('rewrite')} disabled={regening} style={{ background: regening ? '#3a2f1a' : '#5b3d12', color: '#E6D2A2', border: '1px solid rgba(198,164,99,.5)', borderRadius: 9, padding: '8px 12px', fontSize: 12.5, fontWeight: 700, cursor: regening ? 'default' : 'pointer' }} title="Re-run the scene-by-scene feature writer for this script">{regening ? ('⟳ ' + t('Regenerating…')) : ('⟳ ' + t('Retry generation'))}</button> : null}
           {docId && !looksUnfinished ? <button onClick={() => doRegen('extend')} disabled={regening} style={{ background: '#1b1e25', color: '#E6D2A2', border: '1px solid rgba(198,164,99,.4)', borderRadius: 9, padding: '7px 12px', fontSize: 12.5, fontWeight: 700, cursor: regening ? 'default' : 'pointer' }} title="Keep every existing page and write the missing scenes through the ending (preserves your draft)">{regening ? ('⟳ ' + t('Working…')) : ('⟳ ' + t('Complete the script'))}</button> : null}
           {docId && !looksUnfinished ? <button onClick={() => { if (window.confirm(t('Full rewrite: re-write the whole feature from the developed outline. Your current pages are preserved as a prior revision until the new one finishes. Continue?'))) doRegen('rewrite'); }} disabled={regening} style={{ background: '#1b1e25', color: '#9aa1ab', border: '1px solid rgba(255,255,255,.1)', borderRadius: 9, padding: '7px 12px', fontSize: 12.5, cursor: regening ? 'default' : 'pointer' }} title="Re-plan and re-write the whole feature from the outline (kept as a new revision)">{t('Full rewrite')}</button> : null}
+          {/*
+            Plan 01 task 7 — counts, with what was NOT checked leading when anything was not.
+            "0 findings" over checks that never ran is the rental/logistics "Alerts 0" defect: an
+            all-clear asserted on an unread board. allClear is false while anything is unchecked,
+            so this cannot print a clean verdict the backend did not compute. echo is excluded from
+            the count upstream (countsAsFinding is false for INFO).
+          */}
+          {ckSum ? (
+            <button
+              onClick={() => { window.location.href = '/scripton/doctor'; }}
+              title={t('Open the Doctor for the full list, including the checks that did not run')}
+              style={{
+                background: '#1b1e25',
+                color: ckSum.allClear ? '#57b368' : (ckSum.notRun ? '#e0a23b' : '#e5635f'),
+                border: '1px solid rgba(255,255,255,.1)', borderRadius: 9, padding: '7px 12px',
+                fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
+              }}
+            >
+              {ckSum.allClear
+                ? ('✓ ' + t('every check ran, nothing found'))
+                : (ckSum.notRun
+                  ? (ckSum.notRun + ' ' + t('not checked')
+                    + (ckSum.findings ? ' · ' + ckSum.findings + ' ' + t('finding(s)') : ''))
+                  : (ckSum.findings + ' ' + t('finding(s)')))}
+            </button>
+          ) : null}
           {protReq ? (
             <>
               <span title={t('Review Protection is on — raw export is disabled. Manage in Settings → Review Protection.')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#C6A463', fontWeight: 700, padding: '6px 10px', border: '1px solid rgba(198,164,99,.3)', borderRadius: 9, background: 'rgba(198,164,99,.08)' }}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 13, height: 13 }}><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z" /></svg>{t('Protected')}</span>

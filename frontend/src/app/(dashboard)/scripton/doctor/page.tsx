@@ -71,6 +71,9 @@ function buildGauges(c: any): SxGauge[] {
 }
 
 export default function ScriptOnDoctorPage() {
+  // Plan 01 task 7 — null means "no record", which is not the same as "nothing found".
+  const [checks, setChecks] = useState<any[] | null>(null);
+  const [checkSummary, setCheckSummary] = useState<any>(null);
   const router = useRouter();
   const { t } = useLocale();
   const vp = useViewport();
@@ -118,6 +121,19 @@ export default function ScriptOnDoctorPage() {
         let c: any = null; try { const cr: any = await productionApi.scripton.latestCoverage(proj.id); c = cr.data || null; } catch { /* */ }
         let aData: any = null; try { const a: any = await productionApi.scripton.analytics(proj.id); aData = a.data; } catch { /* */ }
         let nData: any[] = []; try { const nn: any = await productionApi.scripton.notes(proj.id); nData = Array.isArray(nn.data) ? nn.data : []; } catch { /* */ }
+        /**
+         * Plan 01 task 7 — the stored checks, from the read that already resolves this document.
+         *
+         * LEFT NULL ON FAILURE, NEVER []. An empty array would render as "every check ran and found
+         * nothing" over a request that never arrived; null renders as "no record of any check",
+         * which is what a failed read actually means.
+         */
+        let ckData: any[] | null = null; let ckSum: any = null;
+        try {
+          const pk: any = await productionApi.scripton.development.getPackage({ projectId: proj.id });
+          const sc: any = pk?.data?.script;
+          if (sc && Array.isArray(sc.checks)) { ckData = sc.checks; ckSum = sc.checkSummary || null; }
+        } catch { /* leave null — see above */ }
         if (!alive) return;
         setProjectId(proj.id); setTitle(doc?.title || proj.name || proj.title || 'Script');
         if (rev) { setRevLabel(rev.revisionLabel || 'CURRENT'); setRevColor(rev.hex || '#ffffff'); }
@@ -125,6 +141,7 @@ export default function ScriptOnDoctorPage() {
         setCovRaw(c || null);
         if (c) { setCov(buildCoverage(c)); setGauges(buildGauges(c)); } else { setCov(null); setGauges(NEUTRAL_GAUGES); }
         setAn(aData); setNotesV2(nData);
+        setChecks(ckData); setCheckSummary(ckSum);
       } catch { /* keep sample */ }
     })();
     return () => { alive = false; };
@@ -218,6 +235,7 @@ export default function ScriptOnDoctorPage() {
       title={title} revisionLabel={revLabel} revisionColor={revColor}
       meta={t('Coverage · diagnostics · continuity · fixes — grounded in your pages')}
       coverageRaw={covRaw} analytics={an} diagnostics={diag}
+      checks={checks} checkSummary={checkSummary}
       covLoading={covLoading} diagLoading={diagLoading} kernelInert
       onGenerate={generate} onRunDiag={runDiag} onAction={onAction}
       onNav={onNav} onBack={onBack} onFullReport={() => onAction('package')}
