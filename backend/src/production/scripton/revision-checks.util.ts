@@ -334,7 +334,14 @@ const BLIND_REASON: Record<string, string> = {
   flashback: 'the flashback check cannot read memory markers in this script — its markers are Latin',
 };
 
+/**
+ * A number, or nothing. The explicit rejections are not defensive clutter — they are the bug this
+ * function had: `Number(null)` is 0 and `Number('')` is 0, so a finding carrying `sceneIndex: null`
+ * resolved to 0 and then to scene 1, pointing a reader at the first page of the script for a defect
+ * that has no location at all. `Number(true)` is 1, with the same consequence.
+ */
 const num = (v: any): number | null => {
+  if (v === null || v === undefined || v === '' || typeof v === 'boolean') return null;
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 };
@@ -342,18 +349,24 @@ const num = (v: any): number | null => {
 /**
  * Where a finding sits, from whichever field the sweep that produced it happens to use.
  *
- *   scenes[0]    ledger, echo         already 1-based scene numbers
+ *   scenes[]     ledger, echo         1-based scene numbers — the LATEST of them; see below
  *   sceneIndex   continuity, flashback, writtenDeaths   0-based -> +1
  *   from         density runs         already 1-based (findFragmentRuns emits start + 1)
  *
  * ClockRegression carries neither, so it resolves to null — which is the honest answer and the
  * reason `scene` is nullable rather than defaulted.
+ *
+ * A SPAN POINTS AT WHERE IT GOES WRONG, NOT WHERE IT STARTED. A REDISCOVERY over scenes [12, 40]
+ * reads "WARD already learned this in scene 12": scene 12 is where the knowledge was legitimately
+ * acquired and there is nothing to fix there. Scene 40 is the page that contradicts it. Sending a
+ * reader to 12 sends them to the scene that is fine — so the latest scene in the span wins, by
+ * maximum rather than by last element, because nothing guarantees the array is sorted.
  */
 function sceneOf(f: any): number | null {
   if (!f || typeof f !== 'object') return null;
   if (Array.isArray(f.scenes) && f.scenes.length) {
-    const n = num(f.scenes[0]);
-    if (n !== null) return n;
+    const ns = f.scenes.map(num).filter((n: number | null): n is number => n !== null);
+    if (ns.length) return Math.max(...ns);
   }
   const idx = num(f.sceneIndex);
   if (idx !== null) return idx + 1;

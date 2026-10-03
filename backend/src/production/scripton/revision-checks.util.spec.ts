@@ -188,7 +188,7 @@ test('TASK 1A — findings carry structured items: scene, kind, detail', () => {
   assert.equal(e.state, 'FINDINGS');
   assert.equal(e.items!.length, 2);
   assert.deepEqual(Object.keys(e.items![0]).sort(), ['detail', 'kind', 'scene']);
-  assert.equal(e.items![0].scene, 12, 'scenes[0] locates it');
+  assert.equal(e.items![0].scene, 40, 'the LATER scene — where it goes wrong, not where it started');
   assert.equal(e.items![1].scene, 58, 'sceneIndex is 0-based; the item is 1-based');
   assert.ok(e.items!.some((i) => /WARD already learned/.test(i.detail)),
     'the detail line the log keyword filter dropped');
@@ -293,7 +293,9 @@ test('TASK 1A — echo is INFO: stored with its items, never FINDINGS, never cou
   const e = findingsEntry('echo', [{ phrase: "Doesn't look up.", scenes: [7, 19, 44], detail: '"Doesn\'t look up." in 3 scenes' }], EN);
   assert.equal(e.state, 'INFO');
   assert.equal(e.items!.length, 1);
-  assert.equal(e.items![0].scene, 7);
+  // 1C applies to echo too: the anchor is the most recent return, not the first. Every scene in the
+  // span is in the detail either way.
+  assert.equal(e.items![0].scene, 44);
   assert.equal(e.countsAsFinding, false);
   assert.notEqual(e.state as string, 'FINDINGS');
 });
@@ -329,4 +331,47 @@ test('TASK 1A — items survive mergeChecks beside the existing kinds', () => {
   assert.deepEqual(Object.keys(blob).sort(), ['ending', 'ledger']);
   assert.equal((blob as any).ledger.items.length, 1);
   assert.equal((blob as any).ending.state, 'CLEAN');
+});
+
+// ── 1C — WHERE A MULTI-SCENE FINDING POINTS ──────────────────────────────────────────────────
+
+test('TASK 1C — a finding spanning two scenes points at the LATER one', () => {
+  // REDISCOVERY scenes [12, 40] reads "WARD already learned this in scene 12". Scene 12 is where
+  // the knowledge was legitimately acquired; scene 40 is the page that is wrong. A reader sent to
+  // 12 finds nothing to fix there.
+  const e = findingsEntry('ledger', [{ kind: 'REDISCOVERY', scenes: [12, 40], detail: 'WARD already learned this in scene 12.' }], TEXT);
+  assert.equal(e.items![0].scene, 40);
+});
+
+test('TASK 1C — the later scene, not the last element: the array need not be sorted', () => {
+  const e = findingsEntry('ledger', [{ kind: 'REDISCOVERY', scenes: [40, 12], detail: 'd' }], TEXT);
+  assert.equal(e.items![0].scene, 40, 'max, not scenes[scenes.length - 1]');
+});
+
+test('TASK 1C — one scene still points at itself, and junk still yields null', () => {
+  assert.equal(findingsEntry('ledger', [{ kind: 'X', scenes: [7], detail: 'd' }], TEXT).items![0].scene, 7);
+  assert.equal(findingsEntry('ledger', [{ kind: 'X', scenes: [], detail: 'd' }], TEXT).items![0].scene, null);
+  assert.equal(findingsEntry('ledger', [{ kind: 'X', scenes: ['a', null], detail: 'd' }], TEXT).items![0].scene, null);
+});
+
+test('TASK 1C — CONTROL: scenes[0] sends the reader to the scene that is fine', () => {
+  const f = { kind: 'REDISCOVERY', scenes: [12, 40], detail: 'd' };
+  assert.equal(f.scenes[0], 12, 'the old rule');
+  assert.equal(findingsEntry('ledger', [f], TEXT).items![0].scene, 40, 'the rule now');
+});
+
+test('TASK 1C — a null location is null, not scene 1: Number(null) is 0 and 0 + 1 is a lie', () => {
+  assert.equal(findingsEntry('flashback', [{ sceneIndex: null, kind: 'X', detail: 'd' }], TEXT).items![0].scene, null);
+  assert.equal(findingsEntry('flashback', [{ sceneIndex: undefined, kind: 'X', detail: 'd' }], TEXT).items![0].scene, null);
+  assert.equal(findingsEntry('flashback', [{ sceneIndex: '', kind: 'X', detail: 'd' }], TEXT).items![0].scene, null);
+  assert.equal(findingsEntry('flashback', [{ sceneIndex: true, kind: 'X', detail: 'd' }], TEXT).items![0].scene, null);
+  assert.equal(findingsEntry('flashback', [{ sceneIndex: 0, kind: 'X', detail: 'd' }], TEXT).items![0].scene, 1,
+    'a REAL index 0 is scene 1 — that one is not a lie');
+});
+
+test('TASK 1C — CONTROL: a bare Number() cast invents a location', () => {
+  assert.equal(Number(null), 0, 'the defect');
+  assert.equal(Number(''), 0);
+  assert.equal(Number(true), 1);
+  assert.equal(findingsEntry('flashback', [{ sceneIndex: null, kind: 'X', detail: 'd' }], TEXT).items![0].scene, null);
 });
