@@ -25,7 +25,7 @@ import { consumedStamp, hasConsumed } from './consumed-stamp.util';
 import { preSpendGate, GATE_CHECKS, markPreSpendRefusal, errorTextForJob, isWaived } from './pre-spend-gate.util';
 import {
   endingEntry, mergeChecks, resolveSecondLook, findingsEntry, sweepFailed, EXPECTED_CHECKS,
-  shouldRecheckPlanEnding,
+  shouldRecheckPlanEnding, registerEntry,
   type CheckSubject, type CheckEntry, type EndingVerdict,
 } from './revision-checks.util';
 import {
@@ -124,6 +124,12 @@ type SweepResults = Record<string, {
    * run, not a defect in the plan, so it must not turn a CLEAN entry into FINDINGS.
    */
   note?: string;
+  /**
+   * An entry the caller already built, because its states cannot be derived from a findings array.
+   * The register check is the case: "no bible", "ran and failed" and "clean" are three different
+   * things that all present as zero items.
+   */
+  preBuilt?: CheckEntry;
 }>;
 
 @Injectable()
@@ -3513,23 +3519,41 @@ export class ScripOnService {
    * as data.registerCheck. Report-only: nothing is blocked, regenerated or hidden on the result.
    * A failed check is stored as failed — never as a clean pass — see parseRegisterCheck.
    */
-  async checkAgainstRegister(versionId: string, kind: string, body: string, facts: CanonFactCore[], projectId?: string | null): Promise<any> {
-    const lines = registerLines(facts);
-    if (!lines.length || !String(body || '').trim()) return null;
+  /**
+   * Plan 01 task 6 — THE CALL, WITHOUT THE SAVE.
+   *
+   * checkAgainstRegister did two things in one method: it made the call, then it read and rewrote
+   * stageVersion.data.registerCheck. A finished SCRIPT has no stageVersion, so pointing the old
+   * method at a revision would either fail its findUnique or — worse — write the script's verdict
+   * onto whatever version id was passed. This is the call on its own, so both paths share it and
+   * neither inherits the other's storage.
+   *
+   * `ref` is only the ledger's refType/refId for cost attribution; nothing is written through it.
+   */
+  private async runRegisterCheck(
+    kind: string, body: string, lines: ReturnType<typeof registerLines>,
+    projectId?: string | null, ref?: { refType: string; refId: string } | null,
+  ): Promise<any> {
     const at = new Date().toISOString();
-    let registerCheck: any;
     try {
       const r: any = await this.ai.run({ task: 'scripton.develop.register-check', system: REGISTER_CHECK_SYSTEM,
         // 15 minutes: the ceiling at the ~60 tokens/s measured on opus-5 is ~9 minutes. Streamed (ai.run
         // streams anything this size), so a stalled call still dies on the 120s idle abort.
         user: registerCheckUser(lines, kind, body), maxTokens: REGISTER_CHECK_MAXTOK, timeoutMs: 900000,
-        projectId: projectId || null, refType: 'StageVersion', refId: versionId });
+        projectId: projectId || null, refType: (ref && ref.refType) || null, refId: (ref && ref.refId) || null });
       const text = String((r && r.text) || '') || (r && r.json ? JSON.stringify(r.json) : '');
-      registerCheck = { ...parseRegisterCheck(text, lines, body), at, model: (r && r.model) || null, stopReason: (r && r.stopReason) || null };
+      return { ...parseRegisterCheck(text, lines, body), at, model: (r && r.model) || null, stopReason: (r && r.stopReason) || null };
     } catch (e) {
-      registerCheck = { ok: false, checked: lines.length, contradicted: null, rate: null, items: [], at,
+      return { ok: false, checked: lines.length, contradicted: null, rate: null, items: [], at,
         error: String(this.why(e)).slice(0, 400), summary: 'REGISTER CHECK FAILED: ' + String(this.why(e)).slice(0, 200) };
     }
+  }
+
+  async checkAgainstRegister(versionId: string, kind: string, body: string, facts: CanonFactCore[], projectId?: string | null): Promise<any> {
+    const lines = registerLines(facts);
+    if (!lines.length || !String(body || '').trim()) return null;
+    // Behaviour unchanged: the same call, then the same stageVersion save it always did.
+    const registerCheck: any = await this.runRegisterCheck(kind, body, lines, projectId, { refType: 'StageVersion', refId: versionId });
     const v: any = await (this.prisma as any).stageVersion.findUnique({ where: { id: versionId }, select: { data: true } }).catch(() => null);
     if (v) {
       await (this.prisma as any).stageVersion.update({ where: { id: versionId }, data: { data: { ...((v && v.data) || {}), registerCheck } } })
@@ -4904,6 +4928,65 @@ export class ScripOnService {
    * Report-only, like every sweep feeding it: a failure to store is logged and never fails a run
    * that produced a script.
    */
+  /**
+   * Plan 01 task 6 — THE REGISTER CHECK ON THE FINISHED SCRIPT. Report-only.
+   *
+   * It found the Cape Breton contradiction in STEP_OUTLINE step 13 on 20 Sep — the finding 79
+   * scenes were then written on top of — and it has never been pointed at the finished script,
+   * which is where a contradiction finally lands on a page.
+   *
+   * IT MUST NOT REPAIR. fcccee7 removed name substitution from verifyAndRepair for a measured
+   * reason: with two drafts running, the repair edited the wrong text and both edits passed the
+   * guards in front of them because they were small. This over 122 pages would be that mistake at
+   * 81 scenes' scale. So it stores an entry and changes nothing.
+   *
+   * AND IT MUST NOT LOOK LIKE A STALL. The script page gives up on a cold heartbeat after
+   * STALL_MS = 420000 — seven minutes — while this call's own ceiling is timeoutMs 900000, fifteen.
+   * The DRAFT check took 152s, comfortably inside; a slower one is not. The page's own comment says
+   * it watches the heartbeat precisely because a counter cannot move during one long call, and that
+   * poll has no cancel: a false "timed out" leaves the user watching nothing while the run finishes
+   * unseen, and a second click starts a duplicate run on the same document. So this sets a phase and
+   * keeps lastActivityAt moving for as long as it waits.
+   *
+   * NO BIBLE IS A ROW, NOT A SILENCE. With no register lines the old method returned null AND the
+   * stage call site never entered it (`if (registerFacts.length)`), so there were two separate
+   * silences. registerEntry records NOT_RUN naming the reason instead.
+   */
+  private async registerCheckOnScript(
+    docId: string, revId: string, text: string, facts: CanonFactCore[], projectId?: string | null,
+  ): Promise<CheckEntry> {
+    const lines = registerLines(facts || []);
+    if (!lines.length || !String(text || '').trim()) {
+      const e = registerEntry(null, text, { lines: 0 });
+      this.log.warn('registerCheckOnScript: ' + e.reason);
+      return e;
+    }
+    const p = this.genProgress.get(docId);
+    const beat = setInterval(() => {
+      const q = this.genProgress.get(docId);
+      if (q) q.lastActivityAt = Date.now();
+    }, 30000);
+    if (p) { p.phase = 'CHECKING'; p.note = 'Checking the finished script against the source register.'; p.lastActivityAt = Date.now(); }
+    try {
+      const report = await this.runRegisterCheck('SCRIPT', text, lines, projectId, { refType: 'ScriptRevision', refId: revId });
+      const e = registerEntry(report, text);
+      this.log.log('registerCheckOnScript: ' + e.state + ' — ' + e.reason);
+      for (const it of (e.items || []).slice(0, 20)) {
+        this.log.warn('  [REGISTER] ' + (it.scene == null ? 'scene ?' : 'scene ' + it.scene) + ': ' + it.detail);
+      }
+      return e;
+    } catch (e: any) {
+      // It must never be able to fail a run that produced a script.
+      const entry = registerEntry({ ok: false, checked: lines.length, contradicted: null, items: [], error: this.why(e) }, text);
+      this.log.warn('registerCheckOnScript: ' + entry.reason);
+      return entry;
+    } finally {
+      clearInterval(beat);
+      const q = this.genProgress.get(docId);
+      if (q) { q.note = ''; q.lastActivityAt = Date.now(); }
+    }
+  }
+
   private async recordSweepChecks(revId: string, sweeps: SweepResults | null | undefined, text: any): Promise<void> {
     if (!revId || !sweeps) return;
     const kinds = Object.keys(sweeps).filter((k) => EXPECTED_CHECKS.indexOf(k) >= 0);
@@ -4914,9 +4997,11 @@ export class ScripOnService {
         // A sweep that threw, or was never reached, carries its reason rather than an empty array.
         // A per-entry text wins: planState's fingerprint belongs over the plan, not the page.
         const subjectText = (r && r.text !== undefined) ? r.text : text;
-        const e = (r && r.found === null)
-          ? sweepFailed(k, r.error || 'the sweep produced no result', subjectText)
-          : findingsEntry(k, r ? r.found : null, subjectText);
+        const e = (r && r.preBuilt)
+          ? r.preBuilt
+          : (r && r.found === null)
+            ? sweepFailed(k, r.error || 'the sweep produced no result', subjectText)
+            : findingsEntry(k, r ? r.found : null, subjectText);
         // A note rides on the reason, never on the state: see SweepResults.note.
         return (r && r.note) ? { ...e, reason: e.reason + ' · ' + r.note } : e;
       });
@@ -5276,8 +5361,12 @@ export class ScripOnService {
        * Its subject is the plan, so it carries its own text to be fingerprinted over: hashing a
        * plan-side verdict against the page would make its staleness meaningless.
        */
+      // Plan 01 task 6 — awaited BEFORE the run reports DONE, so the entry is on the row when the
+      // page first reads it. Report-only: pageText is not touched by it.
+      const registerRow = await this.registerCheckOnScript(docId, revId, savedText, canonFacts, projectId);
       await this.recordSweepChecks(revId, {
         ...contin.sweeps,
+        register: { found: [], text: savedText, preBuilt: registerRow },
         planState: {
           /**
            * Task 3D — A WHOLESALE THROW IS NOT A CLEAN SWEEP.
@@ -5780,8 +5869,12 @@ export class ScripOnService {
        * Its subject is the plan, so it carries its own text to be fingerprinted over: hashing a
        * plan-side verdict against the page would make its staleness meaningless.
        */
+      // Plan 01 task 6 — awaited BEFORE the run reports DONE, so the entry is on the row when the
+      // page first reads it. Report-only: pageText is not touched by it.
+      const registerRow = await this.registerCheckOnScript(docId, revId, savedText, canonFacts, projectId);
       await this.recordSweepChecks(revId, {
         ...contin.sweeps,
+        register: { found: [], text: savedText, preBuilt: registerRow },
         planState: {
           /**
            * Task 3D — A WHOLESALE THROW IS NOT A CLEAN SWEEP.

@@ -10,7 +10,7 @@ import { strict as assert } from 'node:assert';
 import {
   fingerprint, checkEntry, endingEntry, mergeChecks, readCheckEntry, readChecks, resolveSecondLook,
   EXPECTED_CHECKS, SUBJECT_OF, CAN_DETECT, LATIN_SHARE_FLOOR, latinShare, findingsEntry, sweepFailed,
-  shouldRecheckPlanEnding,
+  shouldRecheckPlanEnding, registerEntry,
 } from './revision-checks.util';
 import { findFalseSceneBreaks, findEchoedPhrases } from './continuity.util';
 import { loadCapture, missingCapture, captureText } from './capture-fixture.util';
@@ -493,4 +493,81 @@ test('TASK 3B — a ceiling stop is its own NOT_RUN reason, not the generic one'
   assert.match(e.reason, /cut off at its 400-token ceiling/);
   assert.equal(/no usable verdict/.test(e.reason), false,
     'the measured run stored the generic reason, so the cause was unreadable from the row');
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// PLAN 01 TASK 6 — THE REGISTER CHECK AGAINST THE FINISHED SCRIPT.
+//
+// The check that found the Cape Breton contradiction in STEP_OUTLINE step 13 on 20 Sep — the
+// finding 79 scenes were then written on top of — has never been pointed at the finished script,
+// which is where a contradiction finally lands on a page.
+//
+// A register ITEM is { line, section, rule, draft, why } and `line` is a REGISTER line number, not
+// a script line and not a scene. The only thing locating it on the page is `draft`, an exact quote.
+// So the scene must be FOUND, and null when the quote is not there.
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+
+const SCRIPT_WITH_QUOTE = [
+  'FADE IN:', '', '1  INT. WARD - DAY', '', 'A chart on the wall.', '',
+  '2  EXT. HARBOUR - DAY', '', 'He admitted it in Boston, not here.', '', 'FADE OUT.',
+].join('\n');
+
+const REG_ITEM = {
+  line: 39, section: 'document', rule: 'Thomas is admitted in Boston.',
+  draft: 'He admitted it in Boston, not here.', why: 'The draft places the admission in Cape Breton.',
+};
+
+test('TASK 6 — a register item becomes {scene, kind, detail} by locating its quote', () => {
+  const e = findingsEntry('register', [REG_ITEM], SCRIPT_WITH_QUOTE);
+  assert.equal(e.state, 'FINDINGS');
+  assert.equal(e.items!.length, 1);
+  assert.equal(e.items![0].kind, 'REGISTER');
+  assert.equal(e.items![0].scene, 2, 'the scene whose text contains item.draft');
+  assert.match(e.items![0].detail, /register line 39/);
+  assert.match(e.items![0].detail, /Cape Breton/, 'the why — not the line number alone');
+  assert.match(e.items![0].detail, /Boston/, 'and the rule it contradicts');
+});
+
+test('TASK 6 — a quote that is not on the page is scene null, never guessed', () => {
+  const e = findingsEntry('register', [REG_ITEM], 'FADE IN:\n\n1  INT. ROOM - DAY\n\nNothing matching.\n');
+  assert.equal(e.items![0].scene, null);
+  assert.match(e.items![0].detail, /register line 39/, 'the finding survives losing its location');
+});
+
+test('TASK 6 — CONTROL: guessing scene 1 sends the reader to the wrong page', () => {
+  const e = findingsEntry('register', [REG_ITEM], 'FADE IN:\n\n1  INT. ROOM - DAY\n\nNothing matching.\n');
+  assert.notEqual(e.items![0].scene, 1);
+  assert.equal(e.items![0].scene, null);
+});
+
+test('TASK 6 — the error shape is NOT_RUN; zero items with a verdict is CLEAN', () => {
+  const errored = { ok: false, checked: 105, contradicted: null, rate: null, items: [], error: 'timeout' };
+  const zero = { ok: true, checked: 105, contradicted: 0, rate: 0, items: [] };
+  assert.equal(registerEntry(errored, SCRIPT_WITH_QUOTE).state, 'NOT_RUN');
+  assert.match(registerEntry(errored, SCRIPT_WITH_QUOTE).reason, /timeout/);
+  assert.equal(registerEntry(zero, SCRIPT_WITH_QUOTE).state, 'CLEAN');
+  assert.match(registerEntry(zero, SCRIPT_WITH_QUOTE).reason, /105/);
+});
+
+test('TASK 6 — CONTROL: the error shape read loosely becomes a pass', () => {
+  const errored = { ok: false, checked: 105, contradicted: null, rate: null, items: [] };
+  const lenient = (v: any) => (v.items.length ? 'FINDINGS' : 'CLEAN');
+  assert.equal(lenient(errored), 'CLEAN',
+    'ok:false / contradicted:null is byte-identical to a clean result but for those fields');
+  assert.equal(registerEntry(errored, SCRIPT_WITH_QUOTE).state, 'NOT_RUN');
+});
+
+test('TASK 6 — NO BIBLE: zero register lines stores NOT_RUN "no bible", not nothing and not CLEAN', () => {
+  const e = registerEntry(null, SCRIPT_WITH_QUOTE, { lines: 0 });
+  assert.equal(e.state, 'NOT_RUN');
+  assert.match(e.reason, /no bible/);
+  assert.match(e.reason, /no register lines to check against/);
+  assert.equal(e.countsAsFinding, false);
+  assert.equal(e.subject, 'revision.pageText');
+});
+
+test('TASK 6 — CONTROL: no bible must not read as clean, and must not be absent', () => {
+  const e = registerEntry(null, SCRIPT_WITH_QUOTE, { lines: 0 });
+  assert.notEqual(e.state, 'CLEAN');
+  assert.notEqual(e, null, 'a guard that skips the call must still leave a row behind');
 });

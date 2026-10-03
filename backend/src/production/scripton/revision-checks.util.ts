@@ -1,4 +1,7 @@
 import { createHash } from 'node:crypto';
+// SLUG_RE / AR_SLUG_RE only: the scene boundaries a script declares, so a register quote can be
+// placed on a page without importing a parser or duplicating the patterns.
+import { SLUG_RE, AR_SLUG_RE } from './continuity.util';
 
 /**
  * F10 — A VERDICT ABOUT A PROMOTED SCRIPT, WRITTEN DOWN.
@@ -388,9 +391,31 @@ function detailOf(kind: string, f: any): string {
   return 'no detail was recorded on this ' + kind + ' finding';
 }
 
+/**
+ * A register item is shaped unlike every other finding: { line, section, rule, draft, why }, where
+ * `line` is a REGISTER line number and the only thing tying it to a page is `draft`, an exact
+ * quote. Mapped generically it yields no location and no readable detail, so it is mapped here —
+ * behind checkItems, so there is ONE door and findingsEntry cannot be called into the wrong one.
+ */
+export function registerItems(text: any, items: any): CheckItem[] {
+  if (!Array.isArray(items)) return [];
+  return items.map((it: any) => {
+    const line = num(it && it.line);
+    const rule = String((it && it.rule) || '').replace(/\s+/g, ' ').trim();
+    const why = String((it && it.why) || '').replace(/\s+/g, ' ').trim();
+    return {
+      scene: sceneOfQuote(text, it && it.draft),
+      kind: 'REGISTER',
+      detail: 'register line ' + (line === null ? '?' : line)
+        + (rule ? ' ("' + rule + '")' : '') + (why ? ' — ' + why : ''),
+    };
+  });
+}
+
 /** Normalise any sweep's findings into located, legible items. */
-export function checkItems(kind: string, findings: any): CheckItem[] {
+export function checkItems(kind: string, findings: any, text?: any): CheckItem[] {
   if (!Array.isArray(findings)) return [];
+  if (String(kind) === 'register') return registerItems(text, findings);
   return findings.map((f) => ({
     scene: sceneOf(f),
     kind: String((f && f.kind) || kind).toUpperCase(),
@@ -432,7 +457,7 @@ export function findingsEntry(
     return build('NOT_RUN', 'the ' + k + ' sweep did not run, so nothing is known either way', []);
   }
 
-  const items = checkItems(k, findings);
+  const items = checkItems(k, findings, text);
 
   if (items.length) {
     if (isInfo) {
@@ -463,9 +488,13 @@ export function sweepFailed(kind: string, err: any, text: any,
   subject: CheckSubject = SUBJECT_OF[String(kind)] || 'revision.pageText', now: Date = new Date(),
 ): CheckEntry {
   const why = String((err && err.message) || err || '').replace(/\s+/g, ' ').trim().slice(0, 300);
+  // SAY IT ONCE. The caller's own reason already describes a failure ("the plan-state extraction
+  // failed outright — …"), and this sentence used to prepend a second one, so the row read "the
+  // planState sweep failed … — the plan-state extraction failed outright — …". The framing is this
+  // function's job; the specifics are the caller's.
   return {
     ...checkEntry(String(kind || 'unknown'), 'NOT_RUN',
-      'the ' + String(kind) + ' sweep failed, so nothing is known either way — ' + (why || 'no reason was reported'),
+      'the ' + String(kind) + ' check produced no result, so nothing is known either way — ' + (why || 'no reason was reported'),
       text, subject, now),
     items: [],
     countsAsFinding: false,
@@ -505,4 +534,88 @@ export function shouldRecheckPlanEnding(
   if (!v || typeof v.complete !== 'boolean') return true;
   if (v.failOpen) return true;
   return v.complete !== true;
+}
+
+/**
+ * THE REGISTER CHECK, AS A ROW ON THE REVISION.
+ *
+ * WHY IT NEEDS ITS OWN ENTRY BUILDER. A register item is { line, section, rule, draft, why } and
+ * `line` is a REGISTER line number — not a script line, not a scene. checkItems would read no
+ * location from it at all and no detail worth printing, and the generic FINDINGS summary would say
+ * "1 register finding" where the useful sentence is the rule it contradicts.
+ *
+ * THE SCENE IS FOUND, NOT DERIVED. The only thing tying a contradiction to a page is `draft`, an
+ * exact quote the model lifted out of the script. So the quote is searched for, and the answer is
+ * null when it is not there — a guessed scene number sends a reader to a page with nothing wrong
+ * on it, which is worse than sending them nowhere, because they will look, find nothing, and
+ * distrust the finding.
+ *
+ * NO BIBLE IS NOT CLEAN, AND NOT ABSENT. checkAgainstRegister returns null when there are no
+ * register lines, and the stage call site is guarded by `if (registerFacts.length)` so the method
+ * is not even entered — two separate silences. `opts.lines === 0` is the case, and it records
+ * NOT_RUN naming the reason, because "no contradictions found" about a script checked against
+ * nothing is the strongest possible false statement this column can carry.
+ *
+ * RAN AND FAILED IS NOT CLEAN EITHER. The error shape is ok:false / contradicted:null with an empty
+ * items array — byte-identical to a clean result everywhere except those two fields.
+ */
+export function registerEntry(
+  report: any, text: any, opts?: { lines?: number } | null, now: Date = new Date(),
+): CheckEntry {
+  const subject: CheckSubject = SUBJECT_OF.register || 'revision.pageText';
+  const build = (state: CheckState, reason: string, items: CheckItem[] = []): CheckEntry => ({
+    ...checkEntry('register', state, reason, text, subject, now),
+    items,
+    countsAsFinding: state === 'FINDINGS',
+  });
+
+  if (opts && Number(opts.lines) === 0) {
+    return build('NOT_RUN',
+      'no bible — there are no register lines to check against, so nothing about this script has been verified against a source');
+  }
+  if (report == null) {
+    return build('NOT_RUN', 'the register check produced no result, so nothing is known either way');
+  }
+  if (report.ok === false || report.contradicted == null) {
+    const err = String(report.error || '').replace(/\s+/g, ' ').trim().slice(0, 300);
+    return build('NOT_RUN', 'the register check ran and failed, so nothing is known either way'
+      + (err ? ' — ' + err : ''));
+  }
+
+  const items = registerItems(text, report.items);
+
+  if (!items.length) {
+    return build('CLEAN', 'no contradictions against ' + (num(report.checked) ?? '?') + ' register line(s)');
+  }
+  return build('FINDINGS',
+    items.length + ' of ' + (num(report.checked) ?? '?') + ' register line(s) contradicted by the script',
+    items);
+}
+
+/**
+ * Which scene contains this exact quote, 1-based, or null.
+ *
+ * Scenes are split on the slug lines the script itself carries, so this counts the same boundaries
+ * paginate and parseScenes do without importing either — a quote in the body of scene 2 answers 2.
+ * A quote that appears nowhere answers null, and an empty quote answers null rather than 1.
+ */
+export function sceneOfQuote(text: any, quote: any): number | null {
+  const q = String(quote == null ? '' : quote).replace(/\s+/g, ' ').trim();
+  if (!q) return null;
+  const body = String(text == null ? '' : text);
+  const flat = body.replace(/\s+/g, ' ');
+  if (flat.indexOf(q) < 0) return null;
+  const lines = body.split('\n');
+  let scene = 0;
+  let seen = '';
+  for (const ln of lines) {
+    if (SLUG_RE.test(ln.trim()) || AR_SLUG_RE.test(ln.trim())) {
+      scene++;
+      seen = '';
+      continue;
+    }
+    seen = (seen + ' ' + ln).replace(/\s+/g, ' ');
+    if (seen.indexOf(q) >= 0) return scene > 0 ? scene : null;
+  }
+  return null;
 }
