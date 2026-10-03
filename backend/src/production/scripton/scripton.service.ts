@@ -118,6 +118,12 @@ type SweepResults = Record<string, {
    * meaningless in the one place it matters.
    */
   text?: any;
+  /**
+   * Something worth recording that is NOT a finding, appended to the stored reason. Task 3C's
+   * near-ceiling notes land here: a planning call that spent 94% of its budget is a fact about the
+   * run, not a defect in the plan, so it must not turn a CLEAN entry into FINDINGS.
+   */
+  note?: string;
 }>;
 
 @Injectable()
@@ -3071,7 +3077,29 @@ export class ScripOnService {
   // the climax AND resolution, never stopping mid-story. Tolerant JSON parse + a continuation pass if it comes short.
   // `episode` (#45): map ONE pilot episode at the format's per-episode scene density instead of a
   // full feature — so a series targets its real per-episode volume, not the 55-90 feature band.
-  private async planScenes(ctx: string, projectId: string, spine = '', target = 55, episode = false, onBeat?: () => void, plan?: FeatureLengthPlan | null, planVerdicts?: any[]): Promise<any[]> {
+  private async planScenes(ctx: string, projectId: string, spine = '', target = 55, episode = false, onBeat?: () => void, plan?: FeatureLengthPlan | null, planVerdicts?: any[], ceilingNotes?: string[]): Promise<any[]> {
+    /**
+     * Plan 01 task 3C — A PLANNING CALL THAT CAME CLOSE. Detected and recorded; nothing else.
+     *
+     * On 2 Oct the continuation call used 14,097 of 15,000 output tokens — 94% — and stopped
+     * `end_turn`. It was NOT cut off, so stoppedAtCeiling is correctly false and nothing anywhere
+     * noticed. A call that close is the next truncation, and the only reason anyone knows about
+     * this one is that someone read the ledger weeks later.
+     *
+     * No retry, no resize, no behaviour change: raising a planning ceiling changes what the model
+     * is allowed to produce, and that is a decision for a person holding the next run's numbers.
+     */
+    const PLAN_MAXTOK = 15000;
+    const noteCeiling = (label: string, r: any) => {
+      const cap = { outputTokens: r?.usage?.output_tokens, maxTokens: PLAN_MAXTOK, stopReason: r?.stopReason };
+      if (!nearCeiling(cap)) return;
+      const pct = Math.round(100 * (Number(cap.outputTokens) || 0) / PLAN_MAXTOK);
+      const cut = stoppedAtCeiling(cap);
+      const msg = label + ' used ' + cap.outputTokens + ' of ' + PLAN_MAXTOK + ' tokens (' + pct + '%)'
+        + (cut ? ' and WAS cut off at the ceiling' : ' without stopping at the ceiling — the next one may');
+      this.log.warn('planScenes: ' + msg);
+      if (ceilingNotes) ceilingNotes.push(msg);
+    };
     this.planFailure.delete(projectId);   // this run's verdict only — never last run's
     // The band the planner is asked for. It used to be floored at 50-70 regardless of the film's real
     // length; it now tracks the page budget, so a 105-page feature asks for ~110 scenes, not ~60.
@@ -3133,6 +3161,7 @@ export class ScripOnService {
           : '\nMap the FIRST ' + firstSlice.ask + ' scenes now, in order from the opening beat. The finished map will run to '
             + lo + '-' + hi + ' scenes in total.\n' + planSliceInstruction(firstSlice)
             + '\nReturn ONLY JSON {scenes:[...]}.'), maxTokens: 15000, timeoutMs: 230000, projectId, refType: 'Project', refId: projectId });
+      noteCeiling('the first planning pass', r);
       scenes = dedupeScenes(parse(r)).scenes;
       if (!scenes.length) {
         this.log.warn('planScenes: the model returned no parseable scenes on the first pass (project ' + projectId + ') — the draft will fall back to the existing SCENES cards.');
@@ -3175,6 +3204,7 @@ export class ScripOnService {
             : '\nContinue from scene ' + slice.from + '. Return the NEXT ' + slice.ask + ' scenes only, in order, and do NOT repeat any scene listed above.\n'
               + planSliceInstruction(slice, barren > 0)
               + '\nReturn ONLY JSON {scenes:[...]}.')), maxTokens: 15000, timeoutMs: 230000, projectId, refType: 'Project', refId: projectId });
+        noteCeiling('planning continuation ' + (scenes.length ? 'after ' + scenes.length + ' scenes' : ''), cont);
         const more = parse(cont);
         if (more.length) {
           const d = dedupeScenes(scenes.concat(more));
@@ -3244,6 +3274,7 @@ export class ScripOnService {
               + ' Do NOT repeat or restate any scene already mapped. Return ONLY JSON {scenes:[...]} for the MISSING scenes.'),
             maxTokens: 15000, timeoutMs: 230000, projectId, refType: 'Project', refId: projectId,
           });
+          noteCeiling('the ending repair', fix);
           const more = parse(fix);
           if (!more.length) { this.log.warn('planScenes: ending repair returned no scenes on attempt ' + (attempt + 1) + '.'); continue; }
           // Without this dedupe the repair pass is a duplicate-climax machine: whenever the ending
@@ -4882,8 +4913,11 @@ export class ScripOnService {
         // A sweep that threw, or was never reached, carries its reason rather than an empty array.
         // A per-entry text wins: planState's fingerprint belongs over the plan, not the page.
         const subjectText = (r && r.text !== undefined) ? r.text : text;
-        if (r && r.found === null) return sweepFailed(k, r.error || 'the sweep produced no result', subjectText);
-        return findingsEntry(k, r ? r.found : null, subjectText);
+        const e = (r && r.found === null)
+          ? sweepFailed(k, r.error || 'the sweep produced no result', subjectText)
+          : findingsEntry(k, r ? r.found : null, subjectText);
+        // A note rides on the reason, never on the state: see SweepResults.note.
+        return (r && r.note) ? { ...e, reason: e.reason + ' · ' + r.note } : e;
       });
       const row: any = await (this.prisma as any).scriptRevision.findUnique({ where: { id: revId }, select: { checks: true } });
       let blob: any = (row && row.checks) || null;
@@ -5024,12 +5058,13 @@ export class ScripOnService {
       // verdicts are collected here and the last one is recorded against the revision, subject
       // 'plan.tail' because it judged the PLAN, not the script's pages.
       const planVerdicts: any[] = [];
+      const planCeilingNotes: string[] = [];
       // RECORDED IN A `finally`: planScenes THROWS when the plan does not reach the ending after its
       // repair pass, and that refusal is exactly the case worth having on the row. Recording it only
       // on the success path would keep a verdict for every run except the one that failed.
       let planned: any[];
       try {
-        planned = await this.planScenes(ctx, projectId, spine, target, !!ssc, beat, lenPlan, planVerdicts);
+        planned = await this.planScenes(ctx, projectId, spine, target, !!ssc, beat, lenPlan, planVerdicts, planCeilingNotes);
       } finally {
         if (planVerdicts.length) {
           const lastPlan = planVerdicts[planVerdicts.length - 1];
@@ -5242,7 +5277,16 @@ export class ScripOnService {
        */
       await this.recordSweepChecks(revId, {
         ...contin.sweeps,
-        planState: { found: planState.failures, text: JSON.stringify(scenes || []) },
+        planState: {
+          found: planState.failures,
+          text: JSON.stringify(scenes || []),
+          // 3C — recorded on the row, not folded into the state: a near-miss is a fact about the
+          // run, not a defect in the plan state.
+          note: [
+            planCeilingNotes.length ? planCeilingNotes.length + ' planning call(s) near the ceiling: ' + planCeilingNotes.join('; ') : '',
+            planState.nearMisses ? planState.nearMisses + ' plan-state call(s) near the ceiling' : '',
+          ].filter(Boolean).join(' · ') || undefined,
+        },
       }, savedText);
       if (ssc) {
         // #45: a series build delivers the PILOT episode at its per-episode density; the full season
@@ -5556,12 +5600,13 @@ export class ScripOnService {
       const target = ssc ? ssc.scenesPerEp : (lenPlan as FeatureLengthPlan).targetScenes;
       const beat = () => { const p = this.genProgress.get(docId); if (p) { p.phase = 'PLANNING'; p.lastActivityAt = Date.now(); } };
       const planVerdicts: any[] = [];
+      const planCeilingNotes: string[] = [];
       // RECORDED IN A `finally`: planScenes THROWS when the plan does not reach the ending after its
       // repair pass, and that refusal is exactly the case worth having on the row. Recording it only
       // on the success path would keep a verdict for every run except the one that failed.
       let planned: any[];
       try {
-        planned = await this.planScenes(ctx, projectId, spine, target, !!ssc, beat, lenPlan, planVerdicts);
+        planned = await this.planScenes(ctx, projectId, spine, target, !!ssc, beat, lenPlan, planVerdicts, planCeilingNotes);
       } finally {
         if (planVerdicts.length) {
           const lastPlan = planVerdicts[planVerdicts.length - 1];
@@ -5727,7 +5772,16 @@ export class ScripOnService {
        */
       await this.recordSweepChecks(revId, {
         ...contin.sweeps,
-        planState: { found: planState.failures, text: JSON.stringify(scenes || []) },
+        planState: {
+          found: planState.failures,
+          text: JSON.stringify(scenes || []),
+          // 3C — recorded on the row, not folded into the state: a near-miss is a fact about the
+          // run, not a defect in the plan state.
+          note: [
+            planCeilingNotes.length ? planCeilingNotes.length + ' planning call(s) near the ceiling: ' + planCeilingNotes.join('; ') : '',
+            planState.nearMisses ? planState.nearMisses + ' plan-state call(s) near the ceiling' : '',
+          ].filter(Boolean).join(' · ') || undefined,
+        },
       }, savedText);
       if (ssc) {
         setP({ status: 'DONE', done: scenes.length, pageCount: pages.length, coverage: 'COMPLETE', scenesPerEp: ssc.scenesPerEp, seasonScenes: ssc.seasonScenes, coverageNote: 'Pilot episode: ' + scenes.length + ' scenes at ~' + featBrief.minutesPerEp + ' min/ep · full season ≈ ' + ssc.seasonScenes + ' scenes (' + ssc.episodes + ' ep × ' + ssc.scenesPerEp + ').' + (continNote ? ' · ' + continNote : '') });
