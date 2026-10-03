@@ -25,22 +25,14 @@ import { consumedStamp, hasConsumed } from './consumed-stamp.util';
 import { preSpendGate, GATE_CHECKS, markPreSpendRefusal, errorTextForJob, isWaived } from './pre-spend-gate.util';
 import { endingEntry, mergeChecks, resolveSecondLook, type CheckSubject, type EndingVerdict } from './revision-checks.util';
 import {
-  classifyLine, nextInSpeech, checkScene, checkDraftContinuity, checkPlanCast, stripExitedCast,
-  collectExits, unavailableLine, dedupeScenes, repairInstruction, summariseContinuity,
-  exitsAsCanonFacts, findNameDrift, splitCast, trimToSentence,
-  classifyScript, normaliseCharacterName,
-  splitAtSecondDocument,
-  type LineKind, type CastExit, type ContinuityFinding,
-  checkSceneIntegrity, sceneDefectInstruction, shortenSlugLocation,
-  findTimeTokens, checkStatedTimeOrder,
-  findAllTimeTokens, checkClockRegression, isRecalledTime,
-  checkPropContinuity, spineDirective, isPropState, type PropEvent,
-  findMetaCommentary, stripMetaCommentary,
-  collectWrittenDeaths, writtenDeathsAsExits,
-  checkFixedAttributes,
-  findFlashbackMismatches,
-  findFragmentRuns, findFalseSceneBreaks, findEchoedPhrases,
-  type SceneDefect, type TimeToken,
+  classifyLine, nextInSpeech, checkScene, checkDraftContinuity, checkPlanCast, stripExitedCast, collectExits,
+  unavailableLine, dedupeScenes, repairInstruction, summariseContinuity, exitsAsCanonFacts, findNameDrift,
+  splitCast, trimToSentence, classifyScript, normaliseCharacterName, splitAtSecondDocument, type LineKind,
+  type CastExit, type ContinuityFinding, checkSceneIntegrity, sceneDefectInstruction, shortenSlugLocation,
+  findTimeTokens, checkStatedTimeOrder, findAllTimeTokens, checkClockRegression, isRecalledTime,
+  checkPropContinuity, spineDirective, isPropState, type PropEvent, findMetaCommentary, stripMetaCommentary,
+  collectWrittenDeaths, writtenDeathsAsExits, checkFixedAttributes, findFlashbackMismatches, findFragmentRuns,
+  findFalseSceneBreaks, findEchoedPhrases, type SceneDefect, type TimeToken, tightenSpeakerCues,
 } from './continuity.util';
 import {
   createRegistry, registerEntity, resolveEntity, allForms, auditLedger, ledgerFindingInstruction,
@@ -3344,7 +3336,11 @@ export class ScripOnService {
     if (stripped !== cleaned) {
       this.log.warn('cleanSceneText: dropped model meta-commentary — ' + findMetaCommentary(cleaned).join(' | '));
     }
-    return stripped;
+    // CLOSE THE GAP BETWEEN A SPEAKER AND THEIR SPEECH. Last, so it sees the text the page will
+    // get: the inline-parenthetical split above can itself leave a cue and its speech apart.
+    // Writing side only — looksLikeCue, classifyLine, nextInSpeech and paginate are untouched,
+    // because PAGE_BUDGET is calibrated on them.
+    return tightenSpeakerCues(stripped);
   }
 
   /**

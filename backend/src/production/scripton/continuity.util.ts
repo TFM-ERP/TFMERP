@@ -96,6 +96,82 @@ export interface ClassifiedLine {
  * non-blank line is dialogue or a parenthetical. "BANG" followed by a blank line and an action
  * paragraph is an action beat, not a character called BANG.
  */
+/**
+ * CLOSE THE GAP BETWEEN A SPEAKER AND THEIR SPEECH.
+ *
+ * nextInSpeech('blank') is false, deliberately — a blank line ends a speech. So when the writer
+ * emits a cue, a blank, then the line, classifyLine sees the line with inSpeech false and calls it
+ * ACTION. The page renders a character's words as stage direction. Measured on the 2 Oct draft:
+ * scenes 5-12 of revision cmuqy7say000bkn0guamrubkg.
+ *
+ * Two normalisations, both on the WRITING side only. looksLikeCue, classifyLine, nextInSpeech and
+ * paginate are untouched: PAGE_BUDGET is calibrated on them, and a classifier that accepted a
+ * blank inside a speech would change every page count in the system.
+ *
+ *   (a) the blank line(s) between a cue and its speech are removed;
+ *   (b) a prose parenthetical on the cue line moves to its own line beneath it. (CONT'D), (O.S.),
+ *       (V.O.), (O.C.) and (MORE) are part of the cue and stay on it.
+ *
+ * WHAT IT MUST NOT DO is turn an all-caps action beat into a speaker. looksLikeCue is permissive —
+ * short, upper-case, no terminal punctuation — so "BLACK." is safe on its full stop but a beat like
+ * "THE DOOR SLAMS OPEN" is not. So the blank is closed only when the following line reads as
+ * speech: it has a lower-case letter, and it is not itself a cue, slug or transition. An action
+ * beat following a bare all-caps line is left exactly where it is.
+ *
+ * Pure, and idempotent: running it twice is running it once.
+ */
+const CUE_EXT_RE = /^\((?:CONT'?D|CONTINUED|O\.?S\.?|V\.?O\.?|O\.?C\.?|MORE)\)$/i;
+
+export function tightenSpeakerCues(text: string): string {
+  const lines = String(text || '').replace(/\r/g, '').split('\n');
+  const out: string[] = [];
+
+  /** Reads as spoken words rather than a beat: has lower case, and is not a cue/slug/transition. */
+  const looksLikeSpeech = (t: string): boolean => {
+    if (!t) return false;
+    if (SLUG_RE.test(t) || AR_SLUG_RE.test(t) || TRANS_RE.test(t)) return false;
+    if (looksLikeCue(t)) return false;
+    return /\p{Ll}/u.test(t);
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i];
+    const t = raw.trim();
+
+    // (b) split a prose parenthetical off the cue line, keeping any cue extensions on it.
+    let cueLine = raw;
+    let splitParen = '';
+    const m = t.match(/^(.*?)\s*(\([^)\n]*\))$/u);
+    if (m && m[1] && !CUE_EXT_RE.test(m[2])) {
+      const base = m[1].trim();
+      // The base may itself end in an extension: "NORA (CONT'D) (at the helm)".
+      const baseNoExt = base.replace(/\s*\([^)\n]*\)\s*$/u, '').trim();
+      if (looksLikeCue(baseNoExt)) { cueLine = base; splitParen = m[2]; }
+    }
+
+    out.push(cueLine);
+    if (splitParen) out.push(splitParen);
+
+    // (a) close the blank(s) between this cue and its speech.
+    //
+    // SLUG AND TRANSITION FIRST, exactly as classifyLine orders it (:69-72). looksLikeCue is only
+    // "short, upper case, no terminal punctuation", which "EXT. DOCK ROAD - CONTINUOUS" satisfies
+    // at 27 characters — so without this the blank under a short slug was closed and the action
+    // beneath it became a slug's speech. Six scenes of the 2 Oct draft, found by running this over
+    // the captured revision. classifyLine never had the bug because it tests slugs first.
+    const cueBase = cueLine.trim().replace(/\s*\([^)\n]*\)\s*$/u, '').trim();
+    const isCueHere = !SLUG_RE.test(cueBase) && !AR_SLUG_RE.test(cueBase) && !TRANS_RE.test(cueBase)
+      && (looksLikeCue(cueBase) || !!splitParen);
+    if (!isCueHere) continue;
+    let j = i + 1;
+    while (j < lines.length && !lines[j].trim()) j++;
+    if (j > i + 1 && j < lines.length && (looksLikeSpeech(lines[j].trim()) || lines[j].trim().charAt(0) === '(')) {
+      i = j - 1;   // swallow the blanks; the loop picks up at the speech line
+    }
+  }
+  return out.join('\n');
+}
+
 export function classifyScript(text: string): ClassifiedLine[] {
   const lines = String(text || '').replace(/\r/g, '').split('\n');
   const out: ClassifiedLine[] = [];

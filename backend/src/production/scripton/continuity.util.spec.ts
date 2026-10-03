@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import {
-  classifyLine, classifyScript, nextInSpeech, looksLikeCue, readScene, normaliseCharacterName, keyName, sameCharacter, splitCast, collectExits, unavailableAt, unavailableLine, stripExitedCast, checkScene, checkDraftContinuity, checkPlanCast, normaliseForCompare, jaccard, findDuplicateScenes, dedupeScenes, repairInstruction, summariseContinuity, exitsAsCanonFacts, findNameDrift, canonicalForm, canonicaliseNames, properCase, trimToSentence, DUPLICATE_ANYWHERE, DUPLICATE_SAME_PLACE, findSecondDocument, splitAtSecondDocument, isRecalledTime, CastExit, findMetaCommentary, stripMetaCommentary, findWrittenDeaths, collectWrittenDeaths, writtenDeathsAsExits, collectPronounEvidence, findPronounDrift, checkFixedAttributes, sceneDefectInstruction, checkSceneIntegrity, parseSpokenClock, findAllTimeTokens, checkClockRegression, findTimeTokens, checkPropContinuity, propStateAt, spineDirective, type PropEvent, findFlashbackMismatches, findFragmentRuns, findFalseSceneBreaks, findEchoedPhrases, headingKey, collectNameForms,
+  classifyLine, classifyScript, nextInSpeech, looksLikeCue, readScene, normaliseCharacterName, keyName, sameCharacter, splitCast, collectExits, unavailableAt, unavailableLine, stripExitedCast, checkScene, checkDraftContinuity, checkPlanCast, normaliseForCompare, jaccard, findDuplicateScenes, dedupeScenes, repairInstruction, summariseContinuity, exitsAsCanonFacts, findNameDrift, canonicalForm, canonicaliseNames, properCase, trimToSentence, DUPLICATE_ANYWHERE, DUPLICATE_SAME_PLACE, findSecondDocument, splitAtSecondDocument, isRecalledTime, CastExit, findMetaCommentary, stripMetaCommentary, findWrittenDeaths, collectWrittenDeaths, writtenDeathsAsExits, collectPronounEvidence, findPronounDrift, checkFixedAttributes, sceneDefectInstruction, checkSceneIntegrity, parseSpokenClock, findAllTimeTokens, checkClockRegression, findTimeTokens, checkPropContinuity, propStateAt, spineDirective, type PropEvent, findFlashbackMismatches, findFragmentRuns, findFalseSceneBreaks, findEchoedPhrases, headingKey, collectNameForms, tightenSpeakerCues,
 } from './continuity.util';
 
 // ── the classifier, lifted out of paginate() ────────────────────────────────────────────────
@@ -1360,4 +1360,86 @@ test('NEGATIVE CONTROL (A3) — without the tie half, two single-use spellings c
   const f = findNameDrift(body('JASON QUICK waits.', 'JASON ANDREW QUICK signs.',
     'JASON RICHARD QUICK signs again.'), ['JASON QUICK'], []);
   assert.deepEqual([...new Set(f.flatMap((x) => x.names.slice(1)))], ['JASON RICHARD QUICK']);
+});
+
+// ── COMMIT B: THE GAP BETWEEN A SPEAKER AND THEIR SPEECH ──────────────────────────────────────
+//
+// nextInSpeech('blank') is false by design, so a cue, a blank, then the line made classifyLine read
+// the line as ACTION with inSpeech false — a character's words rendered as stage direction.
+// Measured on revision cmuqy7say000bkn0guamrubkg: 99 cues across the draft whose speech did not
+// classify as dialogue, 112 gaps, concentrated in eight consecutive scenes.
+
+test('(B-a) the blank between a cue and its speech is closed', () => {
+  assert.equal(tightenSpeakerCues('JASON\n\nSecond hook.'), 'JASON\nSecond hook.');
+  assert.equal(tightenSpeakerCues('JASON\n\n\n\nSecond hook.'), 'JASON\nSecond hook.',
+    'however many blanks there are');
+});
+
+test('(B-a) and the speech then classifies as DIALOGUE, which is the whole point', () => {
+  const before = classifyScript('JASON\n\nSecond hook.');
+  assert.equal(before[2].kind, 'action', 'the defect: a blank ends the speech');
+  const after = classifyScript(tightenSpeakerCues('JASON\n\nSecond hook.'));
+  assert.equal(after[0].kind, 'cue');
+  assert.equal(after[1].kind, 'dialogue');
+});
+
+test('(B-b) a prose parenthetical moves to its own line under the cue', () => {
+  assert.equal(tightenSpeakerCues('NORA (at the helm, shouting back)\n\nComing round.'),
+    'NORA\n(at the helm, shouting back)\nComing round.');
+});
+
+test("(B-b) (CONT'D), (O.S.), (V.O.), (O.C.) and (MORE) stay on the cue line", () => {
+  for (const ext of ["(CONT'D)", '(O.S.)', '(V.O.)', '(O.C.)', '(MORE)']) {
+    assert.equal(tightenSpeakerCues('JASON ' + ext + '\n\nSecond hook.'),
+      'JASON ' + ext + '\nSecond hook.', ext + ' is part of the cue, not a parenthetical');
+  }
+});
+
+test('(B-b) an extension AND a prose parenthetical: the extension stays, the prose splits', () => {
+  assert.equal(tightenSpeakerCues("NORA (CONT'D) (at the helm)\n\nComing round."),
+    "NORA (CONT'D)\n(at the helm)\nComing round.");
+});
+
+test('(B-3) an all-caps action beat does NOT become a speaker', () => {
+  const black = 'BLACK.\n\nA gull cries somewhere out of frame.';
+  assert.equal(tightenSpeakerCues(black), black, 'BLACK. ends in a full stop, so it is not a cue');
+  // and the follower must have a lower-case letter to be taken as speech at all
+  const caps = 'JASON\n\nTHE MERCY.';
+  assert.equal(tightenSpeakerCues(caps), caps,
+    'an all-caps follower is left alone — joining it would risk reading a beat as dialogue');
+});
+
+test('(B-3) a SHORT SLUG is not a cue — the bug the fixture caught', () => {
+  // looksLikeCue('EXT. DOCK ROAD - CONTINUOUS') is true: 27 chars, upper case, no terminal stop.
+  // classifyLine never misfires because it tests SLUG_RE first (:69-72); the first version of
+  // tightenSpeakerCues did not, and closed the blank under six slugs of the captured draft.
+  assert.equal(looksLikeCue('EXT. DOCK ROAD - CONTINUOUS'), true, 'the trap');
+  const slug = 'EXT. DOCK ROAD - CONTINUOUS\n\nHe comes out onto cracked tarmac.';
+  assert.equal(tightenSpeakerCues(slug), slug);
+  const trans = 'CUT TO:\n\nThe kettle is still whistling.';
+  assert.equal(tightenSpeakerCues(trans), trans);
+});
+
+test('(B) idempotent — running it twice is running it once', () => {
+  for (const t of ['JASON\n\nSecond hook.', 'NORA (at the helm)\n\nComing round.',
+    'BLACK.\n\nA gull cries.', 'EXT. DOCK - DAY\n\nHe waits.', '', '\n\n']) {
+    const once = tightenSpeakerCues(t);
+    assert.equal(tightenSpeakerCues(once), once, JSON.stringify(t));
+  }
+});
+
+test('NEGATIVE CONTROL (B) — without the slug guard, a slug swallows the action beneath it', () => {
+  // The first version, reconstructed: treat any looksLikeCue line as a cue.
+  const lines = 'EXT. DOCK ROAD - CONTINUOUS\n\nHe comes out onto cracked tarmac.'.split('\n');
+  const naive: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    naive.push(lines[i]);
+    if (!looksLikeCue(lines[i].trim())) continue;
+    let j = i + 1; while (j < lines.length && !lines[j].trim()) j++;
+    if (j > i + 1 && j < lines.length) i = j - 1;
+  }
+  assert.equal(naive.join('\n'), 'EXT. DOCK ROAD - CONTINUOUS\nHe comes out onto cracked tarmac.',
+    'the defect: the slug closed its own blank');
+  // The shipped version keeps it.
+  assert.match(tightenSpeakerCues(lines.join('\n')), /CONTINUOUS\n\nHe comes out/);
 });
