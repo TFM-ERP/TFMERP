@@ -4989,6 +4989,34 @@ export class ScripOnService {
     }
   }
 
+  /**
+   * Plan 01 task 5 — STORE THE PLAN BEFORE THE FIRST SCENE IS WRITTEN.
+   *
+   * It was written after saveRev, at the end of the run, which meant a run that died mid-script —
+   * a provider outage, a restart, the low-memory killer — lost the plan it had been writing from
+   * and left a half-written revision nothing could be compared against. The plan is known at
+   * planning time and revId exists there already (planEnding is recorded against it), so there is
+   * no reason to wait for the last page to persist the first fact.
+   *
+   * Written ONCE per run, through this one function on both feature paths, so neither can drift.
+   * Report-only: a store that fails is logged and can never fail a run that is about to produce a
+   * script.
+   */
+  private async storeScenePlan(
+    revId: string, handed: any[], source: 'planner' | 'cards', wroteFrom?: number | null,
+  ): Promise<void> {
+    if (!revId) return;
+    const plan = scenePlanFor(handed, source, { wroteFrom: wroteFrom == null ? null : wroteFrom });
+    try {
+      await (this.prisma as any).scriptRevision.update({ where: { id: revId }, data: { scenePlan: plan as any } });
+      this.log.log('storeScenePlan: ' + (plan ? plan.count + ' scene(s) from the ' + source : 'no plan')
+        + (plan && plan.wroteFrom != null ? ', writing from index ' + plan.wroteFrom : '')
+        + ' stored on revision ' + revId + ' BEFORE writing.');
+    } catch (e: any) {
+      this.log.warn('storeScenePlan: could NOT store the plan on revision ' + revId + ' — ' + this.why(e));
+    }
+  }
+
   private async recordSweepChecks(revId: string, sweeps: SweepResults | null | undefined, text: any): Promise<void> {
     if (!revId || !sweeps) return;
     const kinds = Object.keys(sweeps).filter((k) => EXPECTED_CHECKS.indexOf(k) >= 0);
@@ -5169,6 +5197,13 @@ export class ScripOnService {
       // Series: use the planned pilot at episode density (don't let a full-season SCENES stage override it).
       let scenes: any[] = ssc ? planned : ((planned.length >= (existing ? existing.length : 0)) ? planned : existing);
       if (!scenes || !scenes.length) scenes = (existing && existing.length) ? existing : planned;
+      /**
+       * WHICH LIST WON, recorded where the choice is actually made rather than guessed later.
+       * `scenes` is reassigned twice more below — applyPageWeights re-weights it and
+       * stripExitedCast rewrites its cast — so an identity test after those would compare against
+       * a list that no longer exists. Decided here, once.
+       */
+      const planSource: 'planner' | 'cards' = scenes === planned ? 'planner' : 'cards';
       // C1 — the SCENES cards are consumed only when they actually drive the script. When the
       // planner's list wins, the developed cards reached nothing and must not be stamped.
       if (scenes === existing && existing && existing.length) carried.push('SCENES');
@@ -5259,6 +5294,8 @@ export class ScripOnService {
         await saveRev(pages); setP({ status: 'DONE', total: pages.length, done: pages.length, pageCount: pages.length });
         return;
       }
+      // Plan 01 task 5 — the list the writer is about to be handed, stored before the first scene.
+      await this.storeScenePlan(revId, scenes, planSource);
       setP({
         total: scenes.length, phase: 'WRITING', note: '',
         targetPages: lenPlan ? lenPlan.targetPages : null,
@@ -5355,21 +5392,6 @@ export class ScripOnService {
       // feature ending check, not the continuity sweeps). The `ending` verdict below reuses this
       // same value, so every entry on the revision stales together or not at all.
       const savedText = pages.map((pg: any) => String((pg && pg.text) || '')).join('\n');
-      /**
-       * Plan 01 task 5 — THE PLAN THE SCRIPT WAS WRITTEN FROM, STORED.
-       *
-       * `planned` is the planner's own list. The ScriptScene rows are NOT it: materialiseScenes
-       * re-parses the written pages, and on the 2 Oct run that gave 85 rows from an 81-scene plan.
-       * Every nameDrift / ledger / flashback finding is a disagreement between this and the page,
-       * and until now the plan half was discarded when the run ended.
-       *
-       * scenePlanFor returns null for a planning failure and a stored empty plan for a plan that
-       * genuinely had no scenes — the column's comment depends on those being different. Both
-       * feature paths go through the one function so neither can drift from the other.
-       */
-      await (this.prisma as any).scriptRevision.update({
-        where: { id: revId }, data: { scenePlan: scenePlanFor(planned) as any },
-      }).catch((e: any) => this.log.warn('scenePlan not stored on revision ' + revId + ' — ' + this.why(e)));
       /**
        * Plan 01 task 3A — planState is stored on SUCCESS too, not only on failure.
        *
@@ -5737,6 +5759,8 @@ export class ScripOnService {
         throw new Error(this.whyThePlanWasEmpty(projectId));
       }
       let scenes: any[] = ssc ? planned : ((planned.length >= existing.length) ? planned : existing);
+      // Same reasoning as the fresh path: decided before scenes is reassigned.
+      const planSource: 'planner' | 'cards' = scenes === planned ? 'planner' : 'cards';
       if (lenPlan && scenes.length) scenes = applyPageWeights(scenes, lenPlan.targetPages);
       // Same continuity state as a fresh run — an extend writes real scenes and can resurrect
       // somebody just as easily. See generateFeatureAsync for why these two exist.
@@ -5805,6 +5829,10 @@ export class ScripOnService {
       const existingText = (existingPages || []).map((p: any) => String(p.text || '')).join('\n');
       const haveN = (existingText.match(/^\s*\d+\s{2,}\S/gmu) || []).length || Math.max(1, Math.round((existingPages.length || 1) / 1.7));
       const startIdx = Math.min(haveN, scenes.length);
+      // Plan 01 task 5 — before the first scene, and before the early return below: a run that
+      // writes nothing still records the list it was checked against, and the index it would have
+      // started from.
+      await this.storeScenePlan(revId, scenes, planSource, startIdx);
       if (startIdx >= scenes.length) { setP({ status: 'DONE', done: scenes.length, total: scenes.length, pageCount: existingPages.length, coverage: 'COMPLETE', coverageNote: 'Script already covers the full planned scene list.' }); return; }
       setP({
         total: scenes.length, done: startIdx, phase: 'WRITING', note: '',
@@ -5878,21 +5906,6 @@ export class ScripOnService {
       // feature ending check, not the continuity sweeps). The `ending` verdict below reuses this
       // same value, so every entry on the revision stales together or not at all.
       const savedText = pages.map((pg: any) => String((pg && pg.text) || '')).join('\n');
-      /**
-       * Plan 01 task 5 — THE PLAN THE SCRIPT WAS WRITTEN FROM, STORED.
-       *
-       * `planned` is the planner's own list. The ScriptScene rows are NOT it: materialiseScenes
-       * re-parses the written pages, and on the 2 Oct run that gave 85 rows from an 81-scene plan.
-       * Every nameDrift / ledger / flashback finding is a disagreement between this and the page,
-       * and until now the plan half was discarded when the run ended.
-       *
-       * scenePlanFor returns null for a planning failure and a stored empty plan for a plan that
-       * genuinely had no scenes — the column's comment depends on those being different. Both
-       * feature paths go through the one function so neither can drift from the other.
-       */
-      await (this.prisma as any).scriptRevision.update({
-        where: { id: revId }, data: { scenePlan: scenePlanFor(planned) as any },
-      }).catch((e: any) => this.log.warn('scenePlan not stored on revision ' + revId + ' — ' + this.why(e)));
       /**
        * Plan 01 task 3A — planState is stored on SUCCESS too, not only on failure.
        *
