@@ -9,6 +9,7 @@ import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import {
   fingerprint, checkEntry, endingEntry, mergeChecks, readCheckEntry, readChecks, resolveSecondLook,
+  EXPECTED_CHECKS, SUBJECT_OF, CAN_DETECT, LATIN_SHARE_FLOOR, latinShare, findingsEntry, sweepFailed,
 } from './revision-checks.util';
 
 const TEXT = 'FADE IN:\n\nEXT. PIER - NIGHT\n\nHe files the shaft true.\n\nFADE OUT.';
@@ -146,4 +147,186 @@ test('SECOND LOOK — null/garbage inputs do not produce a pass', () => {
   assert.equal(resolveSecondLook(null, null).complete, false);
   assert.equal(resolveSecondLook(REAL_FAIL, null).complete, false);
   assert.deepEqual(resolveSecondLook(REAL_FAIL, ABSTENTION).missing, ['climax']);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// PLAN 01 TASK 1A — THE SHAPE: one EXPECTED_CHECKS, items on every entry, and a CLEAN that
+// requires a detector which could have fired.
+//
+// House pattern holds: every rule below ships with the switch that falsifies it. The decisive
+// tests are (a) [] and null are different facts, (b) an empty result from a blind detector is
+// NOT_RUN and never CLEAN, and (c) echo can never render as a finding.
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+
+const AR = 'داس\n\nمشهد 3 - خارجي - سطح السفينة - نهار\n\nالقائد يقف فوق طاولة الخرائط.\n\nالشيخ محمد\nمن رأس الخيمة إلى أبوظبي.';
+const EN = 'FADE IN:\n\nINT. CAPSULE - DAY\n\nMercer sets the pot down. Precisely.\n\nMERCER\nI am aware.';
+
+test('TASK 1A — EXPECTED_CHECKS is the single list, planState is on it, fixedAttributes is not', () => {
+  assert.deepEqual([...EXPECTED_CHECKS], [
+    'ending', 'planEnding', 'planState',
+    'nameDrift', 'ledger', 'writtenDeaths', 'clock', 'flashback', 'density', 'echo',
+    'register',
+  ]);
+  assert.equal(EXPECTED_CHECKS.includes('fixedAttributes' as any), false,
+    '5 of 5 false on the only measured run; re-adding it needs a fixture showing a true positive');
+});
+
+test('TASK 1A — every expected check declares the subject its sha is taken over', () => {
+  assert.equal(SUBJECT_OF.ending, 'revision.pageText');
+  assert.equal(SUBJECT_OF.planEnding, 'plan.tail', 'verifyPlanEnding judges the plan tail, not the page');
+  assert.equal(SUBJECT_OF.planState, 'plan');
+  assert.equal(SUBJECT_OF.register, 'revision.pageText');
+  for (const k of EXPECTED_CHECKS) assert.ok(SUBJECT_OF[k], k + ' has no subject');
+});
+
+test('TASK 1A — findings carry structured items: scene, kind, detail', () => {
+  const found = [
+    { kind: 'REDISCOVERY', entityId: 'WARD', scenes: [12, 40], detail: 'WARD already learned this in scene 12.' },
+    { kind: 'SPEAKS_AFTER_EXIT', sceneIndex: 57, heading: 'INT. HALL', names: ['CALLUM'], detail: 'CALLUM speaks after leaving.' },
+  ];
+  const e = findingsEntry('ledger', found, TEXT);
+  assert.equal(e.state, 'FINDINGS');
+  assert.equal(e.items!.length, 2);
+  assert.deepEqual(Object.keys(e.items![0]).sort(), ['detail', 'kind', 'scene']);
+  assert.equal(e.items![0].scene, 12, 'scenes[0] locates it');
+  assert.equal(e.items![1].scene, 58, 'sceneIndex is 0-based; the item is 1-based');
+  assert.ok(e.items!.some((i) => /WARD already learned/.test(i.detail)),
+    'the detail line the log keyword filter dropped');
+  assert.equal(/WARD already learned/.test(e.reason), false, 'the body is not packed into the sentence');
+  assert.equal(e.sha256, fingerprint(TEXT));
+  assert.equal(e.subject, 'revision.pageText');
+  assert.equal(e.countsAsFinding, true);
+});
+
+test('TASK 1A — a finding that cannot be placed is scene null, not 0 and not omitted', () => {
+  const e = findingsEntry('clock', [{ detail: 'the story clock runs backwards' }], TEXT);
+  assert.equal(e.items!.length, 1);
+  assert.equal(e.items![0].scene, null);
+  assert.equal('scene' in e.items![0], true);
+});
+
+test('TASK 1A — a written death composes a detail, because it has none of its own', () => {
+  const e = findingsEntry('writtenDeaths', [{ name: 'KANE', sceneIndex: 115, how: 'shot', evidence: 'Kane drops.' }], TEXT);
+  assert.equal(e.state, 'FINDINGS');
+  assert.equal(e.items![0].scene, 116);
+  assert.match(e.items![0].detail, /KANE/);
+  assert.match(e.items![0].detail, /Kane drops\./, 'the evidence is the part a person can weigh');
+});
+
+test('TASK 1A — [] from a sweep that RAN is CLEAN; null is NOT_RUN', () => {
+  assert.equal(findingsEntry('flashback', [], EN).state, 'CLEAN');
+  assert.equal(findingsEntry('flashback', null, EN).state, 'NOT_RUN');
+  assert.match(findingsEntry('flashback', null, EN).reason, /did not run/);
+  assert.equal(findingsEntry('flashback', undefined, EN).state, 'NOT_RUN');
+});
+
+test('TASK 1A — CONTROL: the lenient read makes a sweep that never ran look clean', () => {
+  const lenient = (f: any) => ((f || []).length ? 'FINDINGS' : 'CLEAN');
+  assert.equal(lenient(null), 'CLEAN', 'the defect this shape exists to end');
+  assert.equal(findingsEntry('flashback', null, EN).state, 'NOT_RUN');
+});
+
+test('TASK 1A — an empty result from a detector that could not fire is NOT_RUN, never CLEAN', () => {
+  assert.equal(findingsEntry('nameDrift', [], EN).state, 'CLEAN');
+  const arabic = findingsEntry('nameDrift', [], AR);
+  assert.equal(arabic.state, 'NOT_RUN');
+  assert.match(arabic.reason, /cannot read names in this script/);
+  assert.equal(arabic.countsAsFinding, false);
+});
+
+test('TASK 1A — CONTROL: without canDetect an Arabic draft reports clean sweeps', () => {
+  const lenient = (f: any) => ((f || []).length ? 'FINDINGS' : 'CLEAN');
+  assert.equal(lenient([]), 'CLEAN', 'the false all-clear');
+  for (const k of ['nameDrift', 'ledger', 'writtenDeaths', 'clock', 'flashback']) {
+    assert.equal(findingsEntry(k, [], AR).state, 'NOT_RUN', k + ' reported CLEAN on Arabic');
+  }
+});
+
+test('TASK 1A — the detectors declare their own reach', () => {
+  for (const k of ['nameDrift', 'ledger', 'writtenDeaths', 'clock', 'flashback']) {
+    assert.equal(CAN_DETECT[k](AR), false, k + ' claims it can read Arabic');
+    assert.equal(CAN_DETECT[k](EN), true, k + ' cannot read English');
+  }
+  for (const k of ['density', 'echo']) {
+    assert.equal(CAN_DETECT[k](AR), true, k + ' should read any script');
+    assert.equal(CAN_DETECT[k](EN), true);
+  }
+});
+
+test('TASK 1A — the decision is a SHARE of letters, not the presence of a character', () => {
+  assert.equal(LATIN_SHARE_FLOOR, 0.5);
+  assert.equal(latinShare(EN), 1);
+  assert.ok(latinShare(AR) < 0.05, 'measured on the real fixture: 1.6%');
+});
+
+test('TASK 1A — MIXED: an English page with one Arabic line stays readable', () => {
+  const page = EN + '\nالشيخ محمد يقف عند الباب.\n';
+  assert.ok(latinShare(page) > LATIN_SHARE_FLOOR);
+  assert.equal(CAN_DETECT.nameDrift(page), true, 'one Arabic line must not blind the name check');
+});
+
+test('TASK 1A — MIXED: an Arabic page with a few Latin words does not become readable', () => {
+  const page = AR + "\n(CONT'D)  INT. HARBOUR - DAY  SUPER: 1761\n";
+  assert.ok(latinShare(page) < LATIN_SHARE_FLOOR);
+  assert.equal(CAN_DETECT.nameDrift(page), false, 'that Latin is stage furniture, not names');
+});
+
+test('TASK 1A — CONTROL: presence-based detection gets both mixed cases wrong', () => {
+  // A real Arabic screenplay is not pure Arabic. The measured 164-page fixture carries 2,404 Latin
+  // letters — (CONT'D), SUPER:, transliterated names — at 1.6% of all its letters, so a presence
+  // test on Latin passes it as readable. This control uses that realistic shape, not pure Arabic.
+  const AR_REAL = AR + "\n(CONT'D)  SUPER: 1761\n";
+  assert.ok(latinShare(AR_REAL) < LATIN_SHARE_FLOOR, 'still an Arabic script by share');
+
+  const byArabicPresence = (t: string) => !/[؀-ۿ]/.test(t);
+  assert.equal(byArabicPresence(EN + '\nالشيخ محمد يقف.'), false,
+    'presence of Arabic would blind the name check on an English page');
+
+  const byLatinPresence = (t: string) => /\p{Script=Latin}/u.test(t);
+  assert.equal(byLatinPresence(AR_REAL), true,
+    'presence of Latin would call this Arabic script readable');
+
+  assert.equal(CAN_DETECT.nameDrift(AR_REAL), false, 'the share rule gets both right');
+});
+
+test('TASK 1A — echo is INFO: stored with its items, never FINDINGS, never counted', () => {
+  const e = findingsEntry('echo', [{ phrase: "Doesn't look up.", scenes: [7, 19, 44], detail: '"Doesn\'t look up." in 3 scenes' }], EN);
+  assert.equal(e.state, 'INFO');
+  assert.equal(e.items!.length, 1);
+  assert.equal(e.items![0].scene, 7);
+  assert.equal(e.countsAsFinding, false);
+  assert.notEqual(e.state as string, 'FINDINGS');
+});
+
+test('TASK 1A — echo that found nothing is still INFO, never a verdict', () => {
+  assert.equal(findingsEntry('echo', [], EN).state, 'INFO');
+});
+
+test('TASK 1A — CONTROL: echo as FINDINGS makes every motif a defect', () => {
+  const asFindings = (items: any[]) => (items.length ? 'FINDINGS' : 'CLEAN');
+  assert.equal(asFindings([{ phrase: 'x' }]), 'FINDINGS', 'the defect');
+  assert.notEqual(findingsEntry('echo', [{ phrase: 'x', scenes: [1], detail: 'x' }], EN).state, 'FINDINGS');
+});
+
+test('TASK 1A — a thrown sweep is NOT_RUN with the thrown reason', () => {
+  const e = sweepFailed('ledger', new Error('audit skipped — boom'), TEXT);
+  assert.equal(e.state, 'NOT_RUN');
+  assert.match(e.reason, /boom/);
+  assert.equal(e.countsAsFinding, false);
+});
+
+test('TASK 1A — an INFO entry survives a round trip through the reader', () => {
+  const e = findingsEntry('echo', [{ phrase: 'x', scenes: [3], detail: 'x in 1 scene' }], EN);
+  const back = readCheckEntry(e, EN)!;
+  assert.equal(back.display, 'INFO', 'INFO must not degrade to NOT_RUN on read');
+  assert.equal(back.stale, false);
+});
+
+test('TASK 1A — items survive mergeChecks beside the existing kinds', () => {
+  const ending = endingEntry('ending', { complete: true, note: 'reached' }, TEXT);
+  const ledger = findingsEntry('ledger', [{ kind: 'X', scenes: [2], detail: 'd' }], TEXT);
+  const blob = mergeChecks(mergeChecks(null, ending), ledger);
+  assert.deepEqual(Object.keys(blob).sort(), ['ending', 'ledger']);
+  assert.equal((blob as any).ledger.items.length, 1);
+  assert.equal((blob as any).ending.state, 'CLEAN');
 });

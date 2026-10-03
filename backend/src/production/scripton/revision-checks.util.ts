@@ -81,9 +81,28 @@ export function resolveSecondLook(
   return { complete: false, note: w.note || f.note || '', missing: w.missing || f.missing || [], failOpen: false };
 }
 
-export type CheckState = 'FINDINGS' | 'CLEAN' | 'NOT_RUN';
+/**
+ * FOUR STATES. `INFO` is the fourth and it is not a verdict either way.
+ *
+ * `echo` reports phrases a draft returns to, and the sweep itself says what it is: logged at
+ * log.log, not log.warn, as "motif or tic, the writer decides". A recurring line is as often the
+ * point of a script as it is a defect in one, so echo may never render as FINDINGS and may never
+ * be counted in a findings total — but it still has to be STORED, items and all, or it joins the
+ * list of things this module exists to stop losing.
+ */
+export type CheckState = 'FINDINGS' | 'CLEAN' | 'INFO' | 'NOT_RUN';
 /** What the sha256 was taken over. Only `revision.pageText` can go stale against a revision. */
-export type CheckSubject = 'revision.pageText' | 'plan.tail' | 'none';
+export type CheckSubject = 'revision.pageText' | 'plan.tail' | 'plan' | 'none';
+
+/**
+ * ONE FINDING, LOCATED AND LEGIBLE. Counts locate; bodies decide.
+ *
+ * The register check once reached a reader as "2 of 105 lines contradicted … Line(s): 36, 52." and
+ * nothing else — and that reader was the person being asked to waive it. `reason` is the sentence;
+ * this is the part a person can actually weigh. `scene` is null rather than 0 or absent when a
+ * finding cannot be placed: a guessed scene number is worse than an admitted gap.
+ */
+export interface CheckItem { scene: number | null; kind: string; detail: string }
 
 export interface CheckEntry {
   kind: string;
@@ -93,12 +112,16 @@ export interface CheckEntry {
   at: string;
   sha256: string;
   subject: CheckSubject;
+  /** The bodies. Absent on the two ending checks, which have a note and nothing to enumerate. */
+  items?: CheckItem[];
+  /** Derived, and stored so a reader never has to re-derive it: only FINDINGS counts. */
+  countsAsFinding?: boolean;
 }
 
 /** What a reader gets back: the stored entry, plus whether it still describes the text in hand. */
 export interface CheckRead extends CheckEntry {
   stale: boolean;
-  /** FINDINGS / CLEAN / NOT_RUN / STALE — what to SHOW. STALE outranks the stored state. */
+  /** FINDINGS / CLEAN / INFO / NOT_RUN / STALE — what to SHOW. STALE outranks the stored state. */
   display: CheckState | 'STALE';
 }
 
@@ -166,13 +189,16 @@ export function mergeChecks(existing: any, entry: CheckEntry): Record<string, Ch
  */
 export function readCheckEntry(entry: any, currentText: any): CheckRead | null {
   if (!entry || typeof entry !== 'object') return null;
+  const state = (['FINDINGS', 'CLEAN', 'INFO', 'NOT_RUN'].indexOf(entry.state) >= 0 ? entry.state : 'NOT_RUN') as CheckState;
   const e: CheckEntry = {
     kind: String(entry.kind || 'unknown'),
-    state: (['FINDINGS', 'CLEAN', 'NOT_RUN'].indexOf(entry.state) >= 0 ? entry.state : 'NOT_RUN') as CheckState,
+    state,
     reason: String(entry.reason || ''),
     at: String(entry.at || ''),
     sha256: String(entry.sha256 || ''),
-    subject: (['revision.pageText', 'plan.tail', 'none'].indexOf(entry.subject) >= 0 ? entry.subject : 'none') as CheckSubject,
+    subject: (['revision.pageText', 'plan.tail', 'plan', 'none'].indexOf(entry.subject) >= 0 ? entry.subject : 'none') as CheckSubject,
+    ...(Array.isArray(entry.items) ? { items: entry.items as CheckItem[] } : {}),
+    countsAsFinding: state === 'FINDINGS',
   };
   const comparable = e.subject === 'revision.pageText' && !!e.sha256;
   const stale = comparable && fingerprint(currentText) !== e.sha256;
@@ -185,4 +211,250 @@ export function readChecks(checks: any, currentText: any): CheckRead[] {
   return Object.keys(checks)
     .map((k) => readCheckEntry({ ...(checks as any)[k], kind: (checks as any)[k]?.kind || k }, currentText))
     .filter((x): x is CheckRead => !!x);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// PLAN 01 TASK 1A — THE SHAPE FOR THE EIGHT END-OF-RUN SWEEPS
+//
+// WHY THIS IS HERE AND NOT IN A NEW FILE. The plan said "create revision-findings.util.ts". That
+// was written before anyone looked: this module already owns the entry, the merge, the fingerprint
+// and the per-subject staleness rule. A second module would have meant two CheckEntry shapes and
+// two state unions — the "one EXPECTED_CHECKS in one file" rule broken one level up, by the commit
+// that introduced the rule.
+//
+// WHAT THE RUN OF 2 OCT MEASURED. `recordRevisionCheck` is called for `ending` and `planEnding`
+// and nothing else, so the revision's checks column held two entries. Eight sweeps ran after the
+// script was written and reached a log only — and seven of the eight can finish SILENT when they
+// find nothing: writtenDeaths, fixedAttributes and echo have no else branch at all, while clock
+// speaks only above 8 time references, flashback only with a planned memory scene, and density
+// only above 40 written scenes. Only `ledger` always says something. A finding whose single home
+// is stdout is one restart from gone, and the stdout of the run before this one is already gone.
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * THE ONE LIST. A kind that is not here gets no row, and a row that is not here cannot be shown —
+ * so adding a sweep means adding it in exactly one place.
+ *
+ * `fixedAttributes` IS DELIBERATELY ABSENT. On its only measured run it reported 5 of 5 false, every
+ * one a pronoun attributed to the wrong person. Storing that would put five false claims on the same
+ * column that carries `ending: CLEAN`, and the next reader would have no way to tell which to trust.
+ * A check that reports five defects in a draft containing none is worse than no check. Re-adding it
+ * needs a fixture that shows a true positive, and the test on this constant is what makes that a
+ * deliberate act rather than a one-line edit.
+ */
+export const EXPECTED_CHECKS: readonly string[] = [
+  'ending', 'planEnding', 'planState',
+  'nameDrift', 'ledger', 'writtenDeaths', 'clock', 'flashback', 'density', 'echo',
+  'register',
+];
+
+/**
+ * What each check's fingerprint is taken over. Not decoration: `readCheckEntry` only staleness-
+ * checks `revision.pageText`, so a check listed against the wrong subject either never goes stale
+ * when it should, or reads STALE on every revision ever written.
+ */
+export const SUBJECT_OF: Record<string, CheckSubject> = {
+  ending: 'revision.pageText',
+  planEnding: 'plan.tail',      // verifyPlanEnding is handed planTail; it never sees the page
+  planState: 'plan',
+  nameDrift: 'revision.pageText',
+  ledger: 'revision.pageText',
+  writtenDeaths: 'revision.pageText',
+  clock: 'revision.pageText',
+  flashback: 'revision.pageText',
+  density: 'revision.pageText',
+  echo: 'revision.pageText',
+  register: 'revision.pageText',
+};
+
+/** Checks that report observations rather than verdicts. See the CheckState comment. */
+export const INFO_CHECKS: ReadonlySet<string> = new Set(['echo']);
+
+/**
+ * A CLEAN FROM A DETECTOR THAT COULD NOT HAVE FIRED IS A FALSE ALL-CLEAR.
+ *
+ * `collectNameForms` matches names with /\b\p{Lu}[\p{Ll}\p{Lu}'’-]+…/gu. Arabic has no letter case,
+ * so \p{Lu} matches nothing in it and the sweep returns [] on every Arabic script ever written.
+ * Measured on a real 164-page Arabic draft: its cast IS recoverable — looksLikeCue accepts the
+ * Arabic block and found 37 speakers, 36 of them yielding a key name — and collectNameForms still
+ * returns 0 forms. The draft is readable; only its names are not. Read as CLEAN that is eight clean
+ * sweeps over a script nothing checked.
+ *
+ * AND THE TEST IS A SHARE, NEVER THE PRESENCE OF A CHARACTER. Both naive rules fail on real drafts,
+ * in opposite directions: that Arabic draft contains 2,404 Latin letters — (CONT'D), SUPER:,
+ * transliterated names — so "contains Latin ⇒ readable" passes it at 1.6% Latin; and "contains
+ * Arabic ⇒ unreadable" would blind the name check on an English page with one Arabic line in it.
+ *
+ * 0.5 is a starting value with margin on both sides, not a measurement: the two real scripts sit at
+ * 1.6% and 100%, so the floor is nowhere near either.
+ */
+export const LATIN_SHARE_FLOOR = 0.5;
+
+/** Latin letters as a share of ALL letters. No letters at all reads as 1: nothing to be blind to. */
+export function latinShare(text: any): number {
+  const s = String(text == null ? '' : text);
+  const letters = (s.match(/\p{L}/gu) || []).length;
+  if (!letters) return 1;
+  const latin = (s.match(/\p{Script=Latin}/gu) || []).length;
+  return latin / letters;
+}
+
+const LATIN_ONLY = ['nameDrift', 'ledger', 'writtenDeaths', 'clock', 'flashback'];
+
+/**
+ * Could this detector have fired on this text? Keyed by check, because the answer is a property of
+ * the detector and not of the script.
+ *
+ *   nameDrift      collectNameForms' RUN regex is \p{Lu}-anchored
+ *   ledger         readScene's cue extraction is \p{Lu}-anchored
+ *   writtenDeaths  English predicate and hedge regexes
+ *   clock          CLOCK_WORD is English number words
+ *   flashback      RECALLED_TIME_RE is Latin
+ *   density        visual-line counting and heading keys — language-neutral (AR_SLUG_RE reads Arabic)
+ *   echo           whitespace word repetition — language-neutral
+ *
+ * The two ending checks, planState and register are model calls and are not script-bound.
+ */
+export const CAN_DETECT: Record<string, (text: any) => boolean> = EXPECTED_CHECKS.reduce(
+  (acc, kind) => {
+    acc[kind] = LATIN_ONLY.indexOf(kind) >= 0
+      ? (text: any) => latinShare(text) >= LATIN_SHARE_FLOOR
+      : () => true;
+    return acc;
+  },
+  {} as Record<string, (text: any) => boolean>,
+);
+
+/** What a blind detector says instead of nothing. One phrase per check, naming what it cannot read. */
+const BLIND_REASON: Record<string, string> = {
+  nameDrift: 'the name check cannot read names in this script — it matches capitalised runs, and this script has no letter case',
+  ledger: 'the ledger cannot read speaker cues in this script — cue extraction matches capitalised runs',
+  writtenDeaths: 'the written-death check cannot read death predicates in this script — its predicates are English',
+  clock: 'the clock check cannot read spoken times in this script — its number words are English',
+  flashback: 'the flashback check cannot read memory markers in this script — its markers are Latin',
+};
+
+const num = (v: any): number | null => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+};
+
+/**
+ * Where a finding sits, from whichever field the sweep that produced it happens to use.
+ *
+ *   scenes[0]    ledger, echo         already 1-based scene numbers
+ *   sceneIndex   continuity, flashback, writtenDeaths   0-based -> +1
+ *   from         density runs         already 1-based (findFragmentRuns emits start + 1)
+ *
+ * ClockRegression carries neither, so it resolves to null — which is the honest answer and the
+ * reason `scene` is nullable rather than defaulted.
+ */
+function sceneOf(f: any): number | null {
+  if (!f || typeof f !== 'object') return null;
+  if (Array.isArray(f.scenes) && f.scenes.length) {
+    const n = num(f.scenes[0]);
+    if (n !== null) return n;
+  }
+  const idx = num(f.sceneIndex);
+  if (idx !== null) return idx + 1;
+  const from = num(f.from);
+  if (from !== null) return from;
+  return null;
+}
+
+/** A written death has no `detail` of its own, so one is composed from what it does carry. */
+function detailOf(kind: string, f: any): string {
+  const d = String((f && f.detail) || '').replace(/\s+/g, ' ').trim();
+  if (d) return d;
+  if (f && f.name) {
+    const how = String(f.how || '').trim();
+    const ev = String(f.evidence || '').trim();
+    return String(f.name) + (how ? ' — ' + how : '') + (ev ? ' ("' + ev + '")' : '');
+  }
+  if (f && f.phrase) return '"' + String(f.phrase) + '"';
+  return 'no detail was recorded on this ' + kind + ' finding';
+}
+
+/** Normalise any sweep's findings into located, legible items. */
+export function checkItems(kind: string, findings: any): CheckItem[] {
+  if (!Array.isArray(findings)) return [];
+  return findings.map((f) => ({
+    scene: sceneOf(f),
+    kind: String((f && f.kind) || kind).toUpperCase(),
+    detail: detailOf(kind, f),
+  }));
+}
+
+const plural = (n: number, one: string, many = one + 's') => n + ' ' + (n === 1 ? one : many);
+
+/**
+ * Build the entry for one end-of-run sweep.
+ *
+ * THE THREE DISTINCTIONS THIS EXISTS TO KEEP, in the order they bite:
+ *
+ *   null vs []        null means the sweep produced NO RESULT. [] means it ran and found nothing.
+ *                     Collapsing them is how a sweep that never ran reads as a pass.
+ *   blind vs clean    [] from a detector that could not have fired is NOT_RUN, never CLEAN.
+ *   INFO vs FINDINGS  echo observes; it does not judge. It is stored, and it is never a finding.
+ *
+ * `canDetect` can be passed explicitly when the caller already knows (a sweep that threw, say);
+ * otherwise it is asked of CAN_DETECT with the text in hand.
+ */
+export function findingsEntry(
+  kind: string, findings: any, text: any,
+  subject: CheckSubject = SUBJECT_OF[kind] || 'revision.pageText',
+  opts?: { canDetect?: boolean } | null,
+  now: Date = new Date(),
+): CheckEntry {
+  const k = String(kind || 'unknown');
+  const isInfo = INFO_CHECKS.has(k);
+  const build = (state: CheckState, reason: string, items: CheckItem[]): CheckEntry => ({
+    ...checkEntry(k, state, reason, text, subject, now),
+    items,
+    countsAsFinding: state === 'FINDINGS',
+  });
+
+  // A sweep that produced no result at all. Not an empty result — no result.
+  if (findings == null) {
+    return build('NOT_RUN', 'the ' + k + ' sweep did not run, so nothing is known either way', []);
+  }
+
+  const items = checkItems(k, findings);
+
+  if (items.length) {
+    if (isInfo) {
+      return build('INFO', plural(items.length, 'phrase') + ' the draft returns to — motif or tic, the writer decides', items);
+    }
+    return build('FINDINGS', plural(items.length, k + ' finding'), items);
+  }
+
+  // Nothing found. Whether that is CLEAN depends on whether anything COULD have been found.
+  const canDetect = (opts && typeof opts.canDetect === 'boolean')
+    ? opts.canDetect
+    : (CAN_DETECT[k] ? CAN_DETECT[k](text) : true);
+  if (!canDetect) {
+    const share = Math.round(latinShare(text) * 1000) / 10;
+    return build('NOT_RUN',
+      (BLIND_REASON[k] || 'the ' + k + ' check cannot read this script') + ' (Latin letters are ' + share + '% of all letters)',
+      []);
+  }
+  if (isInfo) return build('INFO', 'no phrase the draft returns to', []);
+  return build('CLEAN', 'the ' + k + ' sweep ran and found nothing', []);
+}
+
+/**
+ * A sweep that THREW. Every one of the eight is wrapped in a try/catch that logs "check skipped"
+ * and moves on, which leaves the revision unable to tell a skipped sweep from a clean one.
+ */
+export function sweepFailed(kind: string, err: any, text: any,
+  subject: CheckSubject = SUBJECT_OF[String(kind)] || 'revision.pageText', now: Date = new Date(),
+): CheckEntry {
+  const why = String((err && err.message) || err || '').replace(/\s+/g, ' ').trim().slice(0, 300);
+  return {
+    ...checkEntry(String(kind || 'unknown'), 'NOT_RUN',
+      'the ' + String(kind) + ' sweep failed, so nothing is known either way — ' + (why || 'no reason was reported'),
+      text, subject, now),
+    items: [],
+    countsAsFinding: false,
+  };
 }
