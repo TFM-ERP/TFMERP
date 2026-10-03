@@ -10,8 +10,10 @@ import { strict as assert } from 'node:assert';
 import {
   TOKENS_PER_SCENE_OBSERVED, HEADROOM, NEAR_CEILING,
   planStateSlices, halve, retryPlan, whyFailed, nearCeiling, ceilingFailure, sliceLabel,
+  readSpanWithRetry, MAX_HALVINGS, type Slice,
 } from './plan-state-slices.util';
 import { stoppedAtCeiling } from '../../ai/empty-output.util';
+import { findingsEntry, sweepFailed } from './revision-checks.util';
 
 test('TASK 3A — a slice is sized so the expected output fits the ceiling with headroom', () => {
   // 10,099 output tokens for scenes 51-81 = 31 scenes = 325.8. The only COMPLETE measurement of
@@ -152,4 +154,145 @@ test('TASK 3C — CONTROL: stoppedAtCeiling alone misses it, which is why it wen
 
 test('TASK 3C — a call that DID stop at the ceiling is also near it, by definition', () => {
   assert.equal(nearCeiling({ outputTokens: 16000, maxTokens: 16000, stopReason: 'max_tokens' }), true);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// PLAN 01 TASK 3D — THE FAULTS IN 3A's WIRING.
+//
+// 3A stored a lost span and a wholesale failure, but neither said anything a reader could use:
+// a 50-scene gap reached the revision as scene null, "no detail was recorded on this planState
+// finding". That is worse than the log line it replaced, because it looks like a record.
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+
+test('TASK 3D — a real ceilingFailure through the real findingsEntry names the span and the cause', () => {
+  const f = ceilingFailure({ start: 0, end: 49 }, 'CEILING', 2);
+  const e = findingsEntry('planState', [f], 'TEXT');
+  assert.equal(e.state, 'FINDINGS');
+  assert.equal(e.items!.length, 1);
+  const it = e.items![0];
+  assert.match(it.detail, /scenes 1-50/, 'the span');
+  assert.match(it.detail, /cut off at its ceiling/, 'the cause');
+  assert.match(it.detail, /no knowledge or geography/, 'what was lost');
+  assert.equal(it.kind, 'CEILING');
+  assert.equal(it.scene, 1, 'a lost span is anchored where the gap begins');
+  assert.equal(e.subject, 'plan', 'planState judges the plan, not the page');
+});
+
+test('TASK 3D — CONTROL: without detail/scenes the item says nothing at all', () => {
+  const bare = { state: 'NOT_RUN', reason: 'scenes 1-50 was cut off', scenesLost: 50, slice: { start: 0, end: 49 }, kind: 'CEILING' };
+  const e = findingsEntry('planState', [bare], 'TEXT');
+  assert.match(e.items![0].detail, /no detail was recorded/, 'the 3A defect, reproduced');
+  assert.equal(e.items![0].scene, null);
+  // and the fix
+  const fixed = findingsEntry('planState', [ceilingFailure({ start: 0, end: 49 }, 'CEILING', 2)], 'TEXT');
+  assert.doesNotMatch(fixed.items![0].detail, /no detail was recorded/);
+});
+
+test('TASK 3D — an unparseable span says so, and a one-scene span reads as one scene', () => {
+  const u = findingsEntry('planState', [ceilingFailure({ start: 10, end: 10 }, 'UNPARSEABLE', 0)], 'T');
+  assert.match(u.items![0].detail, /scene 11/);
+  assert.match(u.items![0].detail, /nothing that could be parsed/);
+  assert.equal(u.items![0].scene, 11);
+  assert.equal(u.items![0].kind, 'UNPARSEABLE');
+});
+
+// ── THE RETRY KEEPS WHAT SUCCEEDED ──────────────────────────────────────────────────────────
+
+const rowsFor = (s: Slice) => Array.from({ length: s.end - s.start + 1 }, (_, i) => ({ n: s.start + i + 1 }));
+
+test('TASK 3D — a half that succeeded is not re-asked', async () => {
+  // the first half answers, the second does not until its quarters are asked
+  const asked: string[] = [];
+  const ask = async (s: Slice) => {
+    asked.push(sliceLabel(s));
+    if (s.start === 0 && s.end === 35) return { fail: 'CEILING' as const };   // the whole span
+    if (s.start === 18 && s.end === 35) return { fail: 'CEILING' as const };  // the second half
+    return { rows: rowsFor(s) };
+  };
+  const out = await readSpanWithRetry({ start: 0, end: 35 }, ask);
+  assert.equal(out.calls, 5, 'whole + 2 halves + 2 quarters of the half that failed');
+  assert.equal(out.failures.length, 0);
+  assert.equal(out.rows.length, 36, 'every scene came back exactly once');
+  assert.deepEqual(asked, ['scenes 1-36', 'scenes 1-18', 'scenes 19-36', 'scenes 19-27', 'scenes 28-36']);
+});
+
+test('TASK 3D — CONTROL: re-asking the whole partition costs 7 where 5 would do', async () => {
+  const ask = async (s: Slice) => (
+    (s.start === 0 && s.end === 35) || (s.start === 18 && s.end === 35)
+      ? { fail: 'CEILING' as const } : { rows: rowsFor(s) }
+  );
+  const kept = await readSpanWithRetry({ start: 0, end: 35 }, ask);
+  // the 3A loop: whole, then BOTH halves, then ALL FOUR quarters, discarding the good half twice
+  const wholePartition = 1 + 2 + 4;
+  assert.equal(kept.calls, 5);
+  assert.ok(kept.calls < wholePartition, kept.calls + ' < ' + wholePartition);
+});
+
+test('TASK 3D — only the sub-span that failed is reported lost, not the whole slice', async () => {
+  // halve({18,35}) splits at 26, so the second half's quarters are {18,26} and {27,35}
+  const ask = async (s: Slice) => (
+    (s.start === 0 && s.end === 35) || (s.start === 18 && s.end === 35) || (s.start === 27 && s.end === 35)
+      ? { fail: 'CEILING' as const } : { rows: rowsFor(s) }
+  );
+  const out = await readSpanWithRetry({ start: 0, end: 35 }, ask);
+  assert.equal(out.failures.length, 1);
+  assert.equal(out.failures[0].scenesLost, 9, 'scenes 28-36 only — the other 27 were read');
+  assert.match(out.failures[0].reason, /scenes 28-36/);
+  assert.equal(out.rows.length, 27);
+  assert.equal(out.failures[0].scenes[0], 28, 'anchored where the gap begins');
+});
+
+test('TASK 3D — CONTROL: reporting the whole slice would claim 36 lost scenes where 9 are', async () => {
+  const ask = async (s: Slice) => (
+    (s.start === 0 && s.end === 35) || (s.start === 18 && s.end === 35) || (s.start === 27 && s.end === 35)
+      ? { fail: 'CEILING' as const } : { rows: rowsFor(s) }
+  );
+  const out = await readSpanWithRetry({ start: 0, end: 35 }, ask);
+  const wholeSlice = ceilingFailure({ start: 0, end: 35 }, 'CEILING', 2);
+  assert.equal(wholeSlice.scenesLost, 36, 'the 3A behaviour: the entire slice declared lost');
+  assert.equal(out.failures.reduce((a, f) => a + f.scenesLost, 0), 9, 'what was actually lost');
+});
+
+test('TASK 3D — everything failing is bounded at two halvings and loses nothing silently', async () => {
+  let calls = 0;
+  const ask = async () => { calls++; return { fail: 'CEILING' as const }; };
+  const out = await readSpanWithRetry({ start: 0, end: 35 }, ask);
+  assert.equal(out.calls, 7, 'whole + 2 + 4, and no further');
+  assert.equal(out.rows.length, 0);
+  assert.equal(out.failures.reduce((a, f) => a + f.scenesLost, 0), 36, 'every lost scene is accounted for');
+});
+
+test('TASK 3D — a span of one scene is not halved; it is reported', async () => {
+  const out = await readSpanWithRetry({ start: 4, end: 4 }, async () => ({ fail: 'UNPARSEABLE' as const }));
+  assert.equal(out.calls, 1);
+  assert.equal(out.failures.length, 1);
+  assert.equal(out.failures[0].scenesLost, 1);
+});
+
+test('TASK 3D — a span that answers first time costs one call', async () => {
+  const out = await readSpanWithRetry({ start: 0, end: 35 }, async (s) => ({ rows: rowsFor(s) }));
+  assert.equal(out.calls, 1);
+  assert.equal(out.rows.length, 36);
+  assert.deepEqual(out.failures, []);
+});
+
+test('TASK 3D — extractPlanState throwing outright reaches the row as NOT_RUN, with the reason', () => {
+  // Both catch fallbacks returned `failures: []`, and an empty array means "ran, found nothing".
+  // So the one case where NOTHING was read recorded the strongest possible statement about the plan.
+  const clean = findingsEntry('planState', [], 'TEXT');
+  assert.equal(clean.state, 'CLEAN', 'an empty failure list IS clean — that part was right');
+
+  const threw = sweepFailed('planState', new Error('Connection terminated unexpectedly'), 'TEXT');
+  assert.equal(threw.state, 'NOT_RUN');
+  assert.match(threw.reason, /Connection terminated unexpectedly/);
+  assert.equal(threw.countsAsFinding, false);
+  assert.equal(threw.subject, 'plan', 'it judges the plan, so it is fingerprinted over the plan');
+});
+
+test('TASK 3D — CONTROL: the throw path and the clean path must not produce the same state', () => {
+  const asIfClean = findingsEntry('planState', [], 'TEXT');          // what 3A stored on a throw
+  const honest = sweepFailed('planState', new Error('boom'), 'TEXT');
+  assert.equal(asIfClean.state, 'CLEAN', 'the 3A defect');
+  assert.notEqual(honest.state, asIfClean.state);
+  assert.equal(honest.state, 'NOT_RUN');
 });

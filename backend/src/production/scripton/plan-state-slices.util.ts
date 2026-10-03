@@ -101,6 +101,14 @@ export function retryPlan(s: Slice, rounds = 2): Slice[][] {
 export type PlanStateFailureKind = 'CEILING' | 'UNPARSEABLE';
 
 /**
+ * Halvings allowed below the original slice. Two takes 36 scenes to nine, which is well inside any
+ * ceiling this call has used; if nine cannot be read, the problem is not the size.
+ */
+export const MAX_HALVINGS = 2;
+
+export type AskResult = { rows: any[] } | { fail: PlanStateFailureKind; why?: string };
+
+/**
  * WHY A CALL FAILED — STOP REASON FIRST, PARSE SECOND.
  *
  * The order is the rule. A cut-off call is a FACT THE PROVIDER REPORTS; an unparseable body is an
@@ -149,6 +157,22 @@ export interface PlanStateFailure {
   scenesLost: number;
   slice: Slice;
   kind: PlanStateFailureKind;
+  /**
+   * THE SAME WORDS, WHERE checkItems WILL FIND THEM.
+   *
+   * findingsEntry turns a sweep's findings into items through checkItems, which reads `detail` for
+   * the body and `scenes` for the location. This shape carried neither, so a lost 50-scene span
+   * reached the revision as `{ scene: null, kind: 'CEILING', detail: 'no detail was recorded on
+   * this planState finding' }` — a row that looks like a record and says nothing. That is worse
+   * than the log line it replaced.
+   */
+  detail: string;
+  /**
+   * The scene a reader should open: the FIRST of the span, because the gap begins there. A span is
+   * not a defect at a point — the detail carries the whole range — and a single-element array keeps
+   * it clear of the rule that a multi-scene finding points at its latest scene.
+   */
+  scenes: number[];
 }
 
 /**
@@ -163,12 +187,62 @@ export function ceilingFailure(slice: Slice, kind: PlanStateFailureKind, halving
   const what = kind === 'CEILING'
     ? 'was cut off at its ceiling every time'
     : 'returned nothing that could be parsed';
+  const reason = sliceLabel({ start, end }) + ' ' + what + ', after ' + halvings + ' halving'
+    + (halvings === 1 ? '' : 's') + ' — the ledger has no knowledge or geography for this span';
   return {
     state: 'NOT_RUN',
-    reason: sliceLabel({ start, end }) + ' ' + what + ', after ' + halvings + ' halving'
-      + (halvings === 1 ? '' : 's') + ' — the ledger has no knowledge or geography for this span',
+    reason,
     scenesLost: lost,
     slice: { start, end },
     kind,
+    detail: reason,
+    scenes: [start + 1],
   };
+}
+
+/**
+ * READ A SPAN, KEEPING WHATEVER CAME BACK.
+ *
+ * The first wiring of this retry re-asked the WHOLE partition each round and threw away a half that
+ * had already answered: whole slice, then both halves, then all four quarters — up to seven calls,
+ * with the good half paid for twice and discarded twice. It also reported the entire original slice
+ * as lost when any part of it failed, so 28 scenes that had been read fine were recorded as gone.
+ *
+ * This descends instead. A half that answers is kept and never asked again; only the half that
+ * failed is halved. One half failing costs five calls where the partition cost seven, and the
+ * failure that reaches the revision names ONLY the sub-span actually lost.
+ *
+ * `ask` is injected so the descent is testable without a model: the call-count assertions in the
+ * spec are the whole point of this function existing separately from the service.
+ */
+export async function readSpanWithRetry(
+  sl: Slice,
+  ask: (s: Slice) => Promise<AskResult>,
+  maxHalvings = MAX_HALVINGS,
+  onHalve?: (s: Slice, why: string) => void,
+): Promise<{ rows: any[]; failures: PlanStateFailure[]; calls: number }> {
+  let calls = 0;
+
+  const walk = async (s: Slice, depth: number): Promise<{ rows: any[]; failures: PlanStateFailure[] }> => {
+    calls++;
+    const res = await ask(s);
+    if ('rows' in res) return { rows: Array.isArray(res.rows) ? res.rows : [], failures: [] };
+
+    const halves = depth < maxHalvings ? halve(s) : [];
+    // Out of halvings, or a single scene that cannot be split: this span is lost, and it says so.
+    if (!halves.length) return { rows: [], failures: [ceilingFailure(s, res.fail, depth)] };
+
+    if (onHalve) onHalve(s, String(res.why || res.fail));
+    const rows: any[] = [];
+    const failures: PlanStateFailure[] = [];
+    for (const h of halves) {
+      const r = await walk(h, depth + 1);
+      rows.push(...r.rows);
+      failures.push(...r.failures);
+    }
+    return { rows, failures };
+  };
+
+  const out = await walk(sl, 0);
+  return { rows: out.rows, failures: out.failures, calls };
 }

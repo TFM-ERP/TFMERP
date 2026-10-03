@@ -29,7 +29,7 @@ import {
   type CheckSubject, type CheckEntry, type EndingVerdict,
 } from './revision-checks.util';
 import {
-  planStateSlices, retryPlan, whyFailed, nearCeiling, ceilingFailure, sliceLabel,
+  planStateSlices, whyFailed, nearCeiling, sliceLabel, readSpanWithRetry, MAX_HALVINGS,
   type Slice, type PlanStateFailure, type PlanStateFailureKind,
 } from './plan-state-slices.util';
 import { checkSurface, surfaceSummary } from './check-surface.util';
@@ -3253,11 +3253,13 @@ export class ScripOnService {
     if (spine && scenes.length && !episode) {
       // Plan 01 task 3B — what the loop last concluded, and whether the plan changed under it.
       let loopVerdict: any = null;
+      let loopTail = '';
       let planRepairs = 0;
       for (let attempt = 0; attempt < 2; attempt++) {
         const tail = scenes.slice(-6).map((x: any, i: number) => (scenes.length - 6 + i + 1) + '. ' + String(x.brief || '')).join('\n');
         const verdict = await this.verifyPlanEnding(spine, tail, projectId);
         loopVerdict = verdict;
+        loopTail = tail;
         if (planVerdicts) planVerdicts.push({ verdict, text: tail });
         if (verdict.complete) break;
         this.log.warn('planScenes: the plan does NOT reach the outline\'s ending (attempt ' + (attempt + 1) + '/2)'
@@ -3311,10 +3313,19 @@ export class ScripOnService {
       const last = shouldRecheckPlanEnding(loopVerdict, { repaired: planRepairs })
         ? await this.verifyPlanEnding(spine, finalTail, projectId)
         : loopVerdict;
+      /**
+       * Task 3D — THE VERDICT IS FINGERPRINTED OVER THE TEXT IT ACTUALLY JUDGED.
+       *
+       * When the repeat is skipped, `last` is the loop's verdict, taken over the in-loop `tail` —
+       * which is formatted differently from `finalTail` ("12. brief" against "- brief"). Pushing it
+       * with finalTail stamped a verdict with the hash of text it never saw, so the surface would
+       * report FRESH or STALE on a comparison that means nothing.
+       */
+      const lastText = last === loopVerdict ? loopTail : finalTail;
       if (last === loopVerdict) {
         this.log.log('planScenes: the plan-ending check already returned a verdict and nothing was repaired — not re-asking.');
       }
-      if (planVerdicts) planVerdicts.push({ verdict: last, text: finalTail });
+      if (planVerdicts) planVerdicts.push({ verdict: last, text: lastText });
       if (!last.complete) {
         // Actionable half FIRST, missing beats LAST: the caller's catch truncates at 200 characters, and
         // the fixed sentence is 195 — so a long beat list is what gets cut, never the instruction.
@@ -3961,7 +3972,7 @@ export class ScripOnService {
    */
   private async extractPlanState(
     scenes: any[], reg: EntityRegistry, projectId: string,
-  ): Promise<{ facts: StateFact[]; places: PlaceObservation[]; transit: Set<number>; clock: Map<number, number>; props: PropEvent[]; designators: string[]; recalled: Set<number>; failures: PlanStateFailure[]; nearMisses: number }> {
+  ): Promise<{ facts: StateFact[]; places: PlaceObservation[]; transit: Set<number>; clock: Map<number, number>; props: PropEvent[]; designators: string[]; recalled: Set<number>; failures: PlanStateFailure[]; nearMisses: number; threw?: string }> {
     const empty = { facts: [] as StateFact[], places: [] as PlaceObservation[], transit: new Set<number>(), clock: new Map<number, number>(), props: [] as PropEvent[], designators: [] as string[], recalled: new Set<number>(), failures: [] as PlanStateFailure[], nearMisses: 0 };
     const list = Array.isArray(scenes) ? scenes : [];
     if (!list.length) return empty;
@@ -4071,33 +4082,23 @@ export class ScripOnService {
     };
 
     for (const sl of planStateSlices(list.length, { maxTokens: PLAN_STATE_MAXTOK })) {
-      let rows: any[] | null = null;
-      const first = await askSlice(sl);
-      if ('rows' in first) {
-        rows = first.rows;
-      } else {
-        let lastKind: PlanStateFailureKind = first.fail;
-        this.log.warn('extractPlanState: ' + sliceLabel(sl) + ' ' + first.why + ' — halving and retrying.');
-        for (const attemptSlices of retryPlan(sl)) {
-          const got: any[] = [];
-          let whole = true;
-          for (const sub of attemptSlices) {
-            const res = await askSlice(sub);
-            if ('rows' in res) { got.push(...res.rows); continue; }
-            lastKind = res.fail;
-            whole = false;
-            break;
-          }
-          if (whole) { rows = got; break; }
-        }
-        if (rows === null) {
-          // THE SPAN IS LOST, AND IT SAYS SO. This is what `continue` used to do silently.
-          const f = ceilingFailure(sl, lastKind, 2);
-          planFailures.push(f);
-          this.log.warn('extractPlanState: ' + f.reason);
-        }
+      /**
+       * Task 3D — THE DESCENT KEEPS WHAT CAME BACK.
+       *
+       * The first wiring re-asked the whole partition each round and discarded a half that had
+       * already answered — seven calls where five do, with the good half paid for twice — and then
+       * declared the ENTIRE slice lost when any part of it failed, so scenes that had been read
+       * fine were recorded as gone. readSpanWithRetry descends per branch: a half that answers is
+       * kept, only the half that failed is halved, and the failure names only the sub-span lost.
+       */
+      const span = await readSpanWithRetry(sl, askSlice, MAX_HALVINGS, (s, why) => {
+        this.log.warn('extractPlanState: ' + sliceLabel(s) + ' ' + why + ' — halving and retrying that part only.');
+      });
+      for (const f of span.failures) {
+        planFailures.push(f);
+        this.log.warn('extractPlanState: ' + f.reason);
       }
-      if (rows === null) continue;
+      const rows: any[] = span.rows;
 
       for (const row of rows) {
         const n = Number(row && row.n);
@@ -5118,7 +5119,7 @@ export class ScripOnService {
       // fields cannot carry. It mutates `ledgerSeed.reg` by registering the vessels and objects the
       // story declares, which is why it runs before the writer starts rather than beside it.
       const planState = await this.extractPlanState(scenes, ledgerSeed.reg, projectId)
-        .catch((e: any) => { this.log.warn('extractPlanState: skipped — ' + this.why(e)); return { facts: [] as StateFact[], places: [] as PlaceObservation[], transit: new Set<number>(), clock: new Map<number, number>(), props: [] as PropEvent[], designators: [] as string[], recalled: new Set<number>(), failures: [] as PlanStateFailure[], nearMisses: 0 }; });
+        .catch((e: any) => { this.log.warn('extractPlanState: skipped — ' + this.why(e)); return { facts: [] as StateFact[], places: [] as PlaceObservation[], transit: new Set<number>(), clock: new Map<number, number>(), props: [] as PropEvent[], designators: [] as string[], recalled: new Set<number>(), failures: [] as PlanStateFailure[], nearMisses: 0, threw: this.why(e) }; });
       /**
        * THE SPINE, handed to each scene as it is written.
        *
@@ -5278,7 +5279,16 @@ export class ScripOnService {
       await this.recordSweepChecks(revId, {
         ...contin.sweeps,
         planState: {
-          found: planState.failures,
+          /**
+           * Task 3D — A WHOLESALE THROW IS NOT A CLEAN SWEEP.
+           *
+           * Both catch fallbacks returned `failures: []`, and an empty array means "it ran and
+           * found nothing" — so extractPlanState throwing outright recorded planState as CLEAN:
+           * the strongest possible statement about a plan nobody read. `threw` carries the reason
+           * through, and `found: null` is what findingsEntry turns into NOT_RUN.
+           */
+          found: planState.threw ? null : planState.failures,
+          error: planState.threw ? 'the plan-state extraction failed outright — ' + planState.threw : undefined,
           text: JSON.stringify(scenes || []),
           // 3C — recorded on the row, not folded into the state: a near-miss is a fact about the
           // run, not a defect in the plan state.
@@ -5641,7 +5651,7 @@ export class ScripOnService {
       // fields cannot carry. It mutates `ledgerSeed.reg` by registering the vessels and objects the
       // story declares, which is why it runs before the writer starts rather than beside it.
       const planState = await this.extractPlanState(scenes, ledgerSeed.reg, projectId)
-        .catch((e: any) => { this.log.warn('extractPlanState: skipped — ' + this.why(e)); return { facts: [] as StateFact[], places: [] as PlaceObservation[], transit: new Set<number>(), clock: new Map<number, number>(), props: [] as PropEvent[], designators: [] as string[], recalled: new Set<number>(), failures: [] as PlanStateFailure[], nearMisses: 0 }; });
+        .catch((e: any) => { this.log.warn('extractPlanState: skipped — ' + this.why(e)); return { facts: [] as StateFact[], places: [] as PlaceObservation[], transit: new Set<number>(), clock: new Map<number, number>(), props: [] as PropEvent[], designators: [] as string[], recalled: new Set<number>(), failures: [] as PlanStateFailure[], nearMisses: 0, threw: this.why(e) }; });
       /**
        * THE SPINE, handed to each scene as it is written.
        *
@@ -5773,7 +5783,16 @@ export class ScripOnService {
       await this.recordSweepChecks(revId, {
         ...contin.sweeps,
         planState: {
-          found: planState.failures,
+          /**
+           * Task 3D — A WHOLESALE THROW IS NOT A CLEAN SWEEP.
+           *
+           * Both catch fallbacks returned `failures: []`, and an empty array means "it ran and
+           * found nothing" — so extractPlanState throwing outright recorded planState as CLEAN:
+           * the strongest possible statement about a plan nobody read. `threw` carries the reason
+           * through, and `found: null` is what findingsEntry turns into NOT_RUN.
+           */
+          found: planState.threw ? null : planState.failures,
+          error: planState.threw ? 'the plan-state extraction failed outright — ' + planState.threw : undefined,
           text: JSON.stringify(scenes || []),
           // 3C — recorded on the row, not folded into the state: a near-miss is a fact about the
           // run, not a defect in the plan state.
