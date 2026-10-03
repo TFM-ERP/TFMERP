@@ -994,6 +994,46 @@ function differentRegisteredPeople(a: string, b: string): boolean {
   return at[at.length - 1] !== bt[bt.length - 1];
 }
 
+/**
+ * The words and figures a screenplay uses to number its extras. No story names: these are the
+ * ordinals and digits any draft reaches for, and nothing else belongs here — every word on this
+ * list is a word the name check stops reading as a misspelling.
+ *
+ * Single letters are included because SOLDIER A / SOLDIER B is the other common form.
+ */
+const ENUMERATOR = new Set([
+  'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE', 'TEN', 'ELEVEN', 'TWELVE',
+  'FIRST', 'SECOND', 'THIRD', 'FOURTH', 'FIFTH',
+  'A', 'B', 'C', 'D', 'E', 'F',
+]);
+
+const isEnumeratorToken = (t: string): boolean => ENUMERATOR.has(t) || /^\d{1,3}$/.test(t);
+
+/**
+ * TWO NAMES IDENTICAL EXCEPT FOR A TRAILING NUMBER ARE DIFFERENT PEOPLE. Never drift, registered
+ * or not. (Ruled.)
+ *
+ * differentRegisteredPeople exempts a pair only when BOTH spellings are on the cast list, which is
+ * right for names — an unregistered form whose last token differs is usually the misspelling we
+ * want to report. It is wrong for extras: a plan that casts WARDEN ONE and then writes WARDEN TWO
+ * and WARDEN THREE has not misspelled anything, it has three guards, and the check told the writer
+ * to rename two of them.
+ *
+ * THE TEST IS NARROW ON BOTH SIDES. The prefixes must be IDENTICAL and both last tokens must be
+ * enumerators, so WARDEN HALE and WARDEN HALL stay reportable — HALL is not a number — and GUARD
+ * ONE and WARDEN TWO are not quietly treated as one family.
+ */
+function enumeratedApart(a: string, b: string): boolean {
+  const at = String(a || '').split(' ').filter(Boolean);
+  const bt = String(b || '').split(' ').filter(Boolean);
+  if (at.length < 2 || bt.length < 2 || at.length !== bt.length) return false;
+  const la = at[at.length - 1];
+  const lb = bt[bt.length - 1];
+  if (la === lb) return false;
+  if (!isEnumeratorToken(la) || !isEnumeratorToken(lb)) return false;
+  return at.slice(0, -1).join(' ') === bt.slice(0, -1).join(' ');
+}
+
 export function findNameDrift(
   written: Array<{ heading: string; text: string }>,
   tracked: string[],
@@ -1052,6 +1092,8 @@ export function findNameDrift(
     const wrong = forms.filter((f) => {
       if (f.form === canonical) return false;
       if (registered.indexOf(f.form) >= 0 && differentRegisteredPeople(f.form, canonical)) return false;
+      // Enumerated extras are different people whether or not the plan bothered to cast them all.
+      if (enumeratedApart(f.form, canonical)) return false;
       const r = rivalFor(f);
       if (!r) return false;
       rivalOf.set(f.form, r);

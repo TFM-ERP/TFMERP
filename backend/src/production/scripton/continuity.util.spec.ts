@@ -1191,10 +1191,15 @@ test('(fifth rule) two REGISTERED names sharing a key are two people, not one mi
   const sc = [{ heading: '2  EXT. GATE - NIGHT',
     text: '2  EXT. GATE - NIGHT\n\nATTACKER ONE (O.S.) moves left.\n\nATTACKER TWO (O.S.) follows.\n' }];
   assert.equal(findNameDrift(sc, ['ATTACKER ONE', 'ATTACKER TWO'], []).length, 0);
-  // But an UNregistered variant of a registered name is still drift.
+  // RULED (plan 01 task 8): two names identical except for a trailing number are different people,
+  // registered or not. This half asserted the opposite — that an unregistered ATTACKER THREE beside
+  // a registered ATTACKER ONE is drift — and the two expectations cannot both hold. Being off the
+  // cast list makes an extra undeclared, not misnamed; telling the writer to rename their third
+  // attacker is a false finding, and the enumerator is the signal that separates it from a
+  // misspelled surname. The surname case is pinned directly below.
   const sc2 = [{ heading: '1', text: '1  INT. A - DAY\n\nATTACKER ONE waits.\n' },
                { heading: '2', text: '2  INT. B - DAY\n\nATTACKER THREE waits.\n' }];
-  assert.equal(findNameDrift(sc2, ['ATTACKER ONE'], []).length, 1, 'ATTACKER THREE is not on the cast');
+  assert.equal(findNameDrift(sc2, ['ATTACKER ONE'], []).length, 0, 'a third attacker is a third person');
 });
 
 test('THE CONTRACT THAT MUST SURVIVE — a genuine middle-name variant is still reported', () => {
@@ -1574,29 +1579,24 @@ test('TASK 8 CONTROL — the same pages already reported it when the longer form
   assert.equal(f.length, 1, 'this path always worked — the registry just had to match a written form');
 });
 
-/**
- * HELD, NOT DROPPED. This expectation contradicts a shipped test twenty lines up —
- * "(fifth rule) two REGISTERED names sharing a key are two people, not one misspelled" — whose
- * second half asserts the opposite for the same shape:
- *
- *   cast ['ATTACKER ONE'], pages ATTACKER ONE + ATTACKER THREE  ->  1   ("not on the cast")
- *   cast ['WARDEN ONE'],   pages WARDEN ONE + TWO + THREE       ->  0   (task 8's ruling)
- *
- * Both are an unregistered enumerated extra beside a registered one, and there is no principled
- * difference between them — only the number of forms and whether the sequence has a gap, neither of
- * which anyone has ruled on. Making this pass means deciding that an unregistered variant of a
- * registered name is NOT drift, which is what the fifth rule exists to assert.
- *
- * So it is skipped by name, with the conflict in the reason, until Qais rules. Deleting it would
- * lose the blind spot; weakening the fifth rule to make it pass would be bending a shipped,
- * deliberate test to fit a new one.
- */
-test('TASK 8 — extras sharing a role noun are not one person',
-  { skip: 'HELD: contradicts "(fifth rule) two REGISTERED names sharing a key…", which requires an unregistered ATTACKER THREE beside a registered ATTACKER ONE to be reported as drift. Needs a ruling.' },
-  () => {
-    const f = findNameDrift(SC('WARDEN ONE opens.', 'WARDEN TWO closes.', 'WARDEN THREE waits.'), ['WARDEN ONE'], []);
-    assert.equal(f.length, 0, 'measured 2 today — one finding per scene carrying a wrong form');
-  });
+test('TASK 8 — extras sharing a role noun are not one person', () => {
+  const f = findNameDrift(SC('WARDEN ONE opens.', 'WARDEN TWO closes.', 'WARDEN THREE waits.'), ['WARDEN ONE'], []);
+  assert.equal(f.length, 0, 'measured 2 before the ruling — one finding per scene carrying a wrong form');
+});
+
+test('TASK 8 CONTROL — a differing SURNAME is still drift: HALL is not a number', () => {
+  const f = findNameDrift(SC('WARDEN HALE opens.', 'WARDEN HALL closes.'), ['WARDEN HALE'], []);
+  assert.equal(f.length, 1, 'the enumerator exemption must not swallow a misspelled surname');
+  assert.match(f[0].detail, /WARDEN HALL/);
+});
+
+test('TASK 8 CONTROL — the exemption needs IDENTICAL prefixes, not just two enumerators', () => {
+  // GUARD TWO and WARDEN ONE share a key only if keyName agrees; they are not one family either way.
+  assert.equal(findNameDrift(SC('WARDEN ONE opens.', 'WARDEN 2 closes.'), ['WARDEN ONE'], []).length, 0,
+    'a digit is an enumerator too');
+  assert.equal(findNameDrift(SC('WARDEN ONE opens.', 'WARDEN ONE SENIOR closes.'), ['WARDEN ONE'], []).length, 0,
+    'a longer spelling of one registered extra is compatible, not drift');
+});
 
 test('TASK 8 CONTROL — without the role noun in the cast there is nothing to start red', () => {
   const f = findNameDrift(SC('WARDEN ONE opens.', 'WARDEN TWO closes.'), ['ALDER'], []);
@@ -1629,4 +1629,12 @@ test('TASK 8 LIMIT — a registered name that is NOT a spelling of either writte
   // distinguish "vouched by containment" from "vouched by having any registry at all".
   const f = findNameDrift(SC('ALDER HALE walks in.', 'ALDER MARK sits down.'), ['ALDER VOSS'], []);
   assert.equal(f.length, 0);
+});
+
+test('TASK 8 LIMIT — the exemption needs the prefix IDENTICAL, not merely two enumerators', () => {
+  // Both key to WARDEN and both end in an enumerator, but NORTH and SOUTH differ, so these are not
+  // "identical except for a trailing number" and the ruling does not exempt them. Under-exempting
+  // costs a false finding; over-exempting would quietly fuse two families of extras into one.
+  const f = findNameDrift(SC('WARDEN NORTH ONE opens.', 'WARDEN SOUTH TWO closes.'), ['WARDEN NORTH ONE'], []);
+  assert.equal(f.length, 1, 'reported — the prefixes are not the same name');
 });
