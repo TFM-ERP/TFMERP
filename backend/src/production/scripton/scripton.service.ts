@@ -27,6 +27,10 @@ import {
   endingEntry, mergeChecks, resolveSecondLook, findingsEntry, sweepFailed, EXPECTED_CHECKS,
   type CheckSubject, type CheckEntry, type EndingVerdict,
 } from './revision-checks.util';
+import {
+  planStateSlices, retryPlan, whyFailed, nearCeiling, ceilingFailure, sliceLabel,
+  type Slice, type PlanStateFailure, type PlanStateFailureKind,
+} from './plan-state-slices.util';
 import { checkSurface, surfaceSummary } from './check-surface.util';
 import {
   classifyLine, nextInSpeech, checkScene, checkDraftContinuity, checkPlanCast, stripExitedCast,
@@ -103,7 +107,17 @@ const SCENE_STUB = '(The scene continues.)';
  * `found: null` is NO RESULT (it threw, or it was never reached). `found: []` is "it ran and found
  * nothing". Those are different facts about a script and the whole point of the three-state shape.
  */
-type SweepResults = Record<string, { found: any[] | null; error?: string }>;
+type SweepResults = Record<string, {
+  found: any[] | null;
+  error?: string;
+  /**
+   * The text THIS entry's fingerprint is taken over, when it is not the saved page text. planState
+   * judges the PLAN (SUBJECT_OF.planState is 'plan'), so hashing it against the page would stamp a
+   * plan-side verdict with a page-side fingerprint — the mismatch that makes per-subject staleness
+   * meaningless in the one place it matters.
+   */
+  text?: any;
+}>;
 
 @Injectable()
 export class ScripOnService {
@@ -3863,8 +3877,8 @@ export class ScripOnService {
    */
   private async extractPlanState(
     scenes: any[], reg: EntityRegistry, projectId: string,
-  ): Promise<{ facts: StateFact[]; places: PlaceObservation[]; transit: Set<number>; clock: Map<number, number>; props: PropEvent[]; designators: string[]; recalled: Set<number> }> {
-    const empty = { facts: [] as StateFact[], places: [] as PlaceObservation[], transit: new Set<number>(), clock: new Map<number, number>(), props: [] as PropEvent[], designators: [] as string[], recalled: new Set<number>() };
+  ): Promise<{ facts: StateFact[]; places: PlaceObservation[]; transit: Set<number>; clock: Map<number, number>; props: PropEvent[]; designators: string[]; recalled: Set<number>; failures: PlanStateFailure[]; nearMisses: number }> {
+    const empty = { facts: [] as StateFact[], places: [] as PlaceObservation[], transit: new Set<number>(), clock: new Map<number, number>(), props: [] as PropEvent[], designators: [] as string[], recalled: new Set<number>(), failures: [] as PlanStateFailure[], nearMisses: 0 };
     const list = Array.isArray(scenes) ? scenes : [];
     if (!list.length) return empty;
 
@@ -3908,34 +3922,98 @@ export class ScripOnService {
     const designators = new Set<string>();
     const openedAt = new Map<string, StateFact>();
     let recordedAt = 0;
-    const CHUNK = 50;
+    /**
+     * Plan 01 task 3A — THE SLICE IS SIZED FROM A MEASURED COST, AND A FAILURE DOES NOT VANISH.
+     *
+     * This was `const CHUNK = 50` against `maxTokens: 16000`. The arithmetic nobody did: the one
+     * call that completed emitted 326 output tokens per scene, so 50 scenes needed 16,300 of a
+     * 16,000 ceiling — the request could not fit before it was sent. On 2 Oct scenes 1-50 of 81 came
+     * back truncated, the parse threw, and the catch ran `continue`: the run carried on with no
+     * knowledge and no geography for 62% of the plan, and the closing tally reported its partial
+     * figures as though they were whole.
+     *
+     * Now: slices that fit with headroom, a retry bounded at two halvings, and a span that still
+     * cannot be read leaves a typed failure behind for the caller to store.
+     */
+    const PLAN_STATE_MAXTOK = 16000;
+    const planFailures: PlanStateFailure[] = [];
+    let planNearMisses = 0;
 
-    for (let start = 0; start < list.length; start += CHUNK) {
-      const slice = list.slice(start, start + CHUNK);
-      const lines = slice.map((sc: any, k: number) => {
-        const n = start + k + 1;
+    /** One attempt at one slice: the parsed rows, or why it failed. */
+    const askSlice = async (sl: Slice): Promise<{ rows: any[] } | { fail: PlanStateFailureKind; why: string }> => {
+      const lines = list.slice(sl.start, sl.end + 1).map((sc: any, k: number) => {
+        const n = sl.start + k + 1;
         return n + '. ' + this.slugOf(sc || {}) + ' | ' + String((sc && sc.brief) || '').slice(0, 220)
           + ' | cast: ' + splitCast(sc && sc.characters).join(', ');
       }).join('\n');
       const user = 'CAST (the only names you may use):\n' + cast.join(', ')
-        + '\n\nSCENES ' + (start + 1) + '-' + (start + slice.length) + ':\n' + lines;
-      let rows: any[] = [];
+        + '\n\nSCENES ' + (sl.start + 1) + '-' + (sl.end + 1) + ':\n' + lines;
+      let r: any = null;
       try {
-        const r: any = await this.ai.run({
+        r = await this.ai.run({
           task: 'scripton.feature.plan', system: sys, user,
-          maxTokens: 16000, timeoutMs: 180000, projectId, refType: 'Project', refId: projectId,
+          maxTokens: PLAN_STATE_MAXTOK, timeoutMs: 180000, projectId, refType: 'Project', refId: projectId,
         });
-        const parsed = JSON.parse(String((r && r.text) || '{}').replace(/^[^{]*/, '').replace(/[^}]*$/, ''));
-        rows = Array.isArray(parsed && parsed.scenes) ? parsed.scenes : [];
-        for (const d of (Array.isArray(parsed && parsed.designators) ? parsed.designators : [])) {
-          const name = String(d || '').trim();
-          if (name && name.length <= 40) designators.add(name);
-        }
       } catch (e: any) {
-        this.log.warn('extractPlanState: scenes ' + (start + 1) + '-' + (start + slice.length)
-          + ' returned nothing usable — the ledger loses knowledge and geography for this span. ' + this.why(e));
-        continue;
+        return { fail: 'UNPARSEABLE', why: 'the call itself failed — ' + this.why(e) };
       }
+      const cap = { outputTokens: r?.usage?.output_tokens, maxTokens: PLAN_STATE_MAXTOK, stopReason: r?.stopReason };
+      // 3C — a call that came CLOSE. Reported, never acted on: no retry, no resize. planScenes call 2
+      // used 94% of its ceiling on 2 Oct and stopped end_turn, so stoppedAtCeiling was correctly
+      // false and nothing noticed. The next run's row is how a person decides to raise it.
+      if (nearCeiling(cap) && !stoppedAtCeiling(cap)) {
+        planNearMisses++;
+        this.log.warn('extractPlanState: ' + sliceLabel(sl) + ' used ' + cap.outputTokens + ' of '
+          + PLAN_STATE_MAXTOK + ' tokens — it did not stop at the ceiling, but the next one may.');
+      }
+      const body = String((r && r.text) || '').replace(/^[^{]*/, '').replace(/[^}]*$/, '');
+      // STOP REASON FIRST, PARSE SECOND. The body was unparseable on 2 Oct BECAUSE the call was cut
+      // off; reading the parse first blames the model and retries the same impossible request.
+      const failed = whyFailed(cap, body);
+      if (failed) {
+        return {
+          fail: failed,
+          why: failed === 'CEILING'
+            ? 'was cut off at its ' + PLAN_STATE_MAXTOK + '-token ceiling'
+            : 'returned nothing that could be parsed',
+        };
+      }
+      const parsed = JSON.parse(body || '{}');
+      for (const d of (Array.isArray(parsed && parsed.designators) ? parsed.designators : [])) {
+        const name = String(d || '').trim();
+        if (name && name.length <= 40) designators.add(name);
+      }
+      return { rows: Array.isArray(parsed && parsed.scenes) ? parsed.scenes : [] };
+    };
+
+    for (const sl of planStateSlices(list.length, { maxTokens: PLAN_STATE_MAXTOK })) {
+      let rows: any[] | null = null;
+      const first = await askSlice(sl);
+      if ('rows' in first) {
+        rows = first.rows;
+      } else {
+        let lastKind: PlanStateFailureKind = first.fail;
+        this.log.warn('extractPlanState: ' + sliceLabel(sl) + ' ' + first.why + ' — halving and retrying.');
+        for (const attemptSlices of retryPlan(sl)) {
+          const got: any[] = [];
+          let whole = true;
+          for (const sub of attemptSlices) {
+            const res = await askSlice(sub);
+            if ('rows' in res) { got.push(...res.rows); continue; }
+            lastKind = res.fail;
+            whole = false;
+            break;
+          }
+          if (whole) { rows = got; break; }
+        }
+        if (rows === null) {
+          // THE SPAN IS LOST, AND IT SAYS SO. This is what `continue` used to do silently.
+          const f = ceilingFailure(sl, lastKind, 2);
+          planFailures.push(f);
+          this.log.warn('extractPlanState: ' + f.reason);
+        }
+      }
+      if (rows === null) continue;
 
       for (const row of rows) {
         const n = Number(row && row.n);
@@ -4041,7 +4119,7 @@ export class ScripOnService {
       for (const b of bad.slice(0, 10)) this.log.warn('  prop: ' + b.detail);
     }
     if (designators.size) this.log.log('extractPlanState: ' + designators.size + ' locked designator(s) — ' + Array.from(designators).slice(0, 12).join(', '));
-    return { facts, places: expanded, transit, clock, props, designators: Array.from(designators), recalled: recalledScenes };
+    return { facts, places: expanded, transit, clock, props, designators: Array.from(designators), recalled: recalledScenes, failures: planFailures, nearMisses: planNearMisses };
   }
 
   private cueCounts(view: { heading: string; text: string }[]): Map<string, number> {
@@ -4749,8 +4827,10 @@ export class ScripOnService {
       const entries: CheckEntry[] = kinds.map((k) => {
         const r = sweeps[k];
         // A sweep that threw, or was never reached, carries its reason rather than an empty array.
-        if (r && r.found === null) return sweepFailed(k, r.error || 'the sweep produced no result', text);
-        return findingsEntry(k, r ? r.found : null, text);
+        // A per-entry text wins: planState's fingerprint belongs over the plan, not the page.
+        const subjectText = (r && r.text !== undefined) ? r.text : text;
+        if (r && r.found === null) return sweepFailed(k, r.error || 'the sweep produced no result', subjectText);
+        return findingsEntry(k, r ? r.found : null, subjectText);
       });
       const row: any = await (this.prisma as any).scriptRevision.findUnique({ where: { id: revId }, select: { checks: true } });
       let blob: any = (row && row.checks) || null;
@@ -4950,7 +5030,7 @@ export class ScripOnService {
       // fields cannot carry. It mutates `ledgerSeed.reg` by registering the vessels and objects the
       // story declares, which is why it runs before the writer starts rather than beside it.
       const planState = await this.extractPlanState(scenes, ledgerSeed.reg, projectId)
-        .catch((e: any) => { this.log.warn('extractPlanState: skipped — ' + this.why(e)); return { facts: [] as StateFact[], places: [] as PlaceObservation[], transit: new Set<number>(), clock: new Map<number, number>(), props: [] as PropEvent[], designators: [] as string[], recalled: new Set<number>() }; });
+        .catch((e: any) => { this.log.warn('extractPlanState: skipped — ' + this.why(e)); return { facts: [] as StateFact[], places: [] as PlaceObservation[], transit: new Set<number>(), clock: new Map<number, number>(), props: [] as PropEvent[], designators: [] as string[], recalled: new Set<number>(), failures: [] as PlanStateFailure[], nearMisses: 0 }; });
       /**
        * THE SPINE, handed to each scene as it is written.
        *
@@ -5099,7 +5179,18 @@ export class ScripOnService {
       // feature ending check, not the continuity sweeps). The `ending` verdict below reuses this
       // same value, so every entry on the revision stales together or not at all.
       const savedText = pages.map((pg: any) => String((pg && pg.text) || '')).join('\n');
-      await this.recordSweepChecks(revId, contin.sweeps, savedText);
+      /**
+       * Plan 01 task 3A — planState is stored on SUCCESS too, not only on failure.
+       *
+       * An entry that appears only when something went wrong cannot tell a reader "this run read
+       * the whole plan" from "this version predates the check". `failures` empty is the CLEAN case.
+       * Its subject is the plan, so it carries its own text to be fingerprinted over: hashing a
+       * plan-side verdict against the page would make its staleness meaningless.
+       */
+      await this.recordSweepChecks(revId, {
+        ...contin.sweeps,
+        planState: { found: planState.failures, text: JSON.stringify(scenes || []) },
+      }, savedText);
       if (ssc) {
         // #45: a series build delivers the PILOT episode at its per-episode density; the full season
         // is episodes × per-ep. Don't run the feature ending-check (the pilot ends on a cliffhanger).
@@ -5452,7 +5543,7 @@ export class ScripOnService {
       // fields cannot carry. It mutates `ledgerSeed.reg` by registering the vessels and objects the
       // story declares, which is why it runs before the writer starts rather than beside it.
       const planState = await this.extractPlanState(scenes, ledgerSeed.reg, projectId)
-        .catch((e: any) => { this.log.warn('extractPlanState: skipped — ' + this.why(e)); return { facts: [] as StateFact[], places: [] as PlaceObservation[], transit: new Set<number>(), clock: new Map<number, number>(), props: [] as PropEvent[], designators: [] as string[], recalled: new Set<number>() }; });
+        .catch((e: any) => { this.log.warn('extractPlanState: skipped — ' + this.why(e)); return { facts: [] as StateFact[], places: [] as PlaceObservation[], transit: new Set<number>(), clock: new Map<number, number>(), props: [] as PropEvent[], designators: [] as string[], recalled: new Set<number>(), failures: [] as PlanStateFailure[], nearMisses: 0 }; });
       /**
        * THE SPINE, handed to each scene as it is written.
        *
@@ -5573,7 +5664,18 @@ export class ScripOnService {
       // feature ending check, not the continuity sweeps). The `ending` verdict below reuses this
       // same value, so every entry on the revision stales together or not at all.
       const savedText = pages.map((pg: any) => String((pg && pg.text) || '')).join('\n');
-      await this.recordSweepChecks(revId, contin.sweeps, savedText);
+      /**
+       * Plan 01 task 3A — planState is stored on SUCCESS too, not only on failure.
+       *
+       * An entry that appears only when something went wrong cannot tell a reader "this run read
+       * the whole plan" from "this version predates the check". `failures` empty is the CLEAN case.
+       * Its subject is the plan, so it carries its own text to be fingerprinted over: hashing a
+       * plan-side verdict against the page would make its staleness meaningless.
+       */
+      await this.recordSweepChecks(revId, {
+        ...contin.sweeps,
+        planState: { found: planState.failures, text: JSON.stringify(scenes || []) },
+      }, savedText);
       if (ssc) {
         setP({ status: 'DONE', done: scenes.length, pageCount: pages.length, coverage: 'COMPLETE', scenesPerEp: ssc.scenesPerEp, seasonScenes: ssc.seasonScenes, coverageNote: 'Pilot episode: ' + scenes.length + ' scenes at ~' + featBrief.minutesPerEp + ' min/ep · full season ≈ ' + ssc.seasonScenes + ' scenes (' + ssc.episodes + ' ep × ' + ssc.scenesPerEp + ').' + (continNote ? ' · ' + continNote : '') });
       } else {
