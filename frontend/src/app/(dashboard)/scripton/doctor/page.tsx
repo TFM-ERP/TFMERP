@@ -114,7 +114,15 @@ export default function ScriptOnDoctorPage() {
         if (!proj?.id) return;
         const dr: any = await productionApi.script.list(proj.id);
         const docs = Array.isArray(dr.data) ? dr.data : (dr.data?.items ?? []);
-        const doc = docs[0];
+        /**
+         * Plan 01 task 7 fix 3 — THE ADDRESS DECIDES WHEN IT SAYS SO.
+         *
+         * The script page links here for the full list of checks on a PARTICULAR script. Reading
+         * nothing from the address meant that link always landed on docs[0], so the reader was shown
+         * another document's checks under the heading they had just clicked from.
+         */
+        const wantDoc = new URLSearchParams(window.location.search).get('doc') || '';
+        const doc = (wantDoc && docs.find((d: any) => d && d.id === wantDoc)) || docs[0];
         const revId = doc?.activeRevisionId || doc?.revisions?.[0]?.id;
         if (revId) { try { const rv: any = await productionApi.script.getRevision(revId); if (alive) setActiveRev(rv.data); } catch { /* */ } }
         const rev = doc?.revisions?.find((r: any) => r.id === revId) || doc?.revisions?.[0];
@@ -130,7 +138,15 @@ export default function ScriptOnDoctorPage() {
          */
         let ckData: any[] | null = null; let ckSum: any = null;
         try {
-          const pk: any = await productionApi.scripton.development.getPackage({ projectId: proj.id });
+          /**
+           * Plan 01 task 7 fix 1 — docId, NOT projectId alone.
+           *
+           * developmentPackage with no docId falls back to findFirst by createdAt desc with NO
+           * archived or deleted filter (service :6058), while this page names docs[0] of the ACTIVE
+           * list. Archive or bin the newest document and the two disagree: one script's title over
+           * another script's checks. Naming the document removes the question.
+           */
+          const pk: any = await productionApi.scripton.development.getPackage({ docId: doc.id, projectId: proj.id });
           const sc: any = pk?.data?.script;
           if (sc && Array.isArray(sc.checks)) { ckData = sc.checks; ckSum = sc.checkSummary || null; }
         } catch { /* leave null — see above */ }

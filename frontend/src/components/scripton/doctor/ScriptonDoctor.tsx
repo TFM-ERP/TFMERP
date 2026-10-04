@@ -14,6 +14,7 @@ import ScriptonShell from '@/components/scripton/ScriptonShell';
 import {
   scorecardTiles, verdictBanner, sceneFlowBars, arcPoints, diagRows, TRANSFORM_TILES,
   type DiagRow,
+  tint, checkRowView, checkSummaryLine,
 } from './scripton-doctor.logic';
 
 const firstSentence = (s?: string) => {
@@ -145,29 +146,6 @@ export type SxCheckSummary = {
   allClear: boolean;
 };
 
-/**
- * SIX STATES, SEPARATED IN WORDS AND NOT ONLY IN COLOUR.
- *
- * CLEAN must not be the quiet default: on the 2 Oct revision nine of eleven checks were ABSENT and
- * one had abstained, and the page showed a finished 122-page script with no sign of either. A
- * colour alone would have been read as decoration.
- */
-const CHECK_STATE: Record<string, { word: string; c: string; note: string }> = {
-  FINDINGS: { word: 'found something', c: 'var(--red)', note: 'ran and found something' },
-  CLEAN: { word: 'clean', c: 'var(--green)', note: 'ran and found nothing' },
-  INFO: { word: 'for information', c: 'var(--blue)', note: 'an observation, not a verdict' },
-  NOT_RUN: { word: 'DID NOT RUN', c: 'var(--amber)', note: 'this is NOT a pass' },
-  STALE: { word: 'OUT OF DATE', c: 'var(--amber)', note: 'the pages changed after this verdict' },
-  ABSENT: { word: 'NEVER RECORDED', c: 'var(--faint)', note: 'nothing ever wrote a result' },
-};
-
-const CHECK_LABEL: Record<string, string> = {
-  ending: 'Ending reached', planEnding: 'Plan reaches the ending', planState: 'Plan state read',
-  nameDrift: 'Name drift', ledger: 'Identity & state', writtenDeaths: 'Deaths written on the page',
-  clock: 'Story clock', flashback: 'Flashbacks', density: 'Shape of the draft',
-  echo: 'Repeated phrases', register: 'Against the source register',
-};
-
 export type DoctorCanvasProps = {
   title: string; revisionLabel: string; revisionColor: string; meta: string;
   coverageRaw: any | null; analytics: any | null; diagnostics: any[] | null;
@@ -206,9 +184,9 @@ export default function ScriptonDoctor(props: DoctorCanvasProps) {
                 {/* Verdict banner */}
                 {v.hasData ? (
                   <div className="verdict">
-                    <div className="gchip" style={{ color: v.gradeColor, background: v.gradeColor + '29' }}>{v.grade}</div>
+                    <div className="gchip" style={{ color: v.gradeColor, background: tint(v.gradeColor) }}>{v.grade}</div>
                     <div className="vmid">
-                      {v.rec ? <span className="vrec" style={{ background: v.recColor + '29', color: v.recColor }}>{v.rec}</span> : null}
+                      {v.rec ? <span className="vrec" style={{ background: tint(v.recColor), color: v.recColor }}>{v.rec}</span> : null}
                       <div className="vlog">{v.logline || t('Coverage complete — open the full report for the breakdown.')}</div>
                     </div>
                     <div className="vright">
@@ -262,7 +240,9 @@ export default function ScriptonDoctor(props: DoctorCanvasProps) {
                       {rows.length ? rows.slice(0, 6).map((r, i) => (
                         <div className="drow" key={i}>
                           <div className="dmid"><div className="dslug">{r.scene} · {r.slug || t('scene')}</div>{r.note ? <div className="dnote">{r.note}</div> : null}</div>
-                          <span className="dtag" style={{ background: r.tagColor + '29', color: r.tagColor }}>{r.tag}</span>
+                          {/* tint(), not string concatenation: 'var(--green)' + '29' is not a colour,
+                              so this tag has had no background since it was written. */}
+                          <span className="dtag" style={{ background: tint(r.tagColor), color: r.tagColor }}>{r.tag}</span>
                         </div>
                       )) : <div className="muted">{t('Run diagnostics to surface per-scene notes.')}</div>}
                       {/*
@@ -278,32 +258,25 @@ export default function ScriptonDoctor(props: DoctorCanvasProps) {
                              rental/logistics "Alerts 0" defect — an all-clear nobody computed. */
                           <div className="cn">{t('This revision carries no record of any check — not even that one was skipped. Nothing here has been verified.')}</div>
                         ) : (<>
-                          <div className="cn" style={{ marginBottom: 6 }}>
-                            {props.checkSummary && props.checkSummary.allClear
-                              ? <>{t('Every check ran and found nothing.')} <span className="ok">✓</span></>
-                              : (
-                                <>
-                                  {props.checkSummary ? props.checkSummary.findings : 0} {t('finding(s)')}
-                                  {' · '}
-                                  <strong style={{ color: 'var(--amber)' }}>
-                                    {props.checkSummary ? props.checkSummary.notRun : 0} {t('not checked')}
-                                  </strong>
-                                  {props.checkSummary && props.checkSummary.info
-                                    ? ' · ' + props.checkSummary.info + ' ' + t('for information') : ''}
-                                </>
-                              )}
-                          </div>
-                          {props.checks.map((c) => {
-                            const st = CHECK_STATE[c.display] || CHECK_STATE.ABSENT;
+                          {(() => {
+                            const line = checkSummaryLine(props.checkSummary);
+                            return line ? (
+                              <div className="cn" style={{ marginBottom: 6, color: line.color, fontWeight: 700 }}>
+                                {t(line.text)}
+                              </div>
+                            ) : null;
+                          })()}
+                          {props.checks.map((row) => {
+                            const c = checkRowView(row);
                             return (
                               <div className="drow" key={c.kind} style={{ alignItems: 'flex-start' }}>
                                 <div className="dmid">
-                                  <div className="dslug">{t(CHECK_LABEL[c.kind] || c.kind)}</div>
+                                  <div className="dslug">{t(c.label)}</div>
                                   <div className="dnote">
-                                    <span style={{ color: st.c, fontWeight: 700 }}>{t(st.word)}</span>
-                                    {' — '}{c.reason || t(st.note)}
+                                    <span style={{ color: c.color, fontWeight: 700 }}>{t(c.word)}</span>
+                                    {' — '}{c.reason}
                                   </div>
-                                  {c.items && c.items.length ? (
+                                  {c.items.length ? (
                                     <div className="dnote" style={{ opacity: 0.85, marginTop: 3 }}>
                                       {c.items.slice(0, 4).map((it, j) => (
                                         <div key={j}>
@@ -315,7 +288,7 @@ export default function ScriptonDoctor(props: DoctorCanvasProps) {
                                     </div>
                                   ) : null}
                                 </div>
-                                <span className="dtag" style={{ background: st.c + '29', color: st.c }}>{t(st.word)}</span>
+                                <span className="dtag" style={{ background: c.bg, color: c.color }}>{t(c.word)}</span>
                               </div>
                             );
                           })}

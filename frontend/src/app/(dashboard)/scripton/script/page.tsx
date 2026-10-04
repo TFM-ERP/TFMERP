@@ -70,6 +70,23 @@ export default function ScriptOnScriptPage() {
    * which is not the same as nothing found — so it is never initialised to a zeroed summary.
    */
   const [ckSum, setCkSum] = useState<any>(null);
+  /**
+   * Plan 01 task 7 fix 2 — RE-READ WHEN A RUN FINISHES, WHATEVER THE END STATE.
+   *
+   * The summary was read once, in a mount effect with [] deps. refreshText() already runs as scenes
+   * land, so the pages on screen were the new revision's while this line still described the
+   * previous one — a stale "0 not checked" over a draft whose checks had just been written, or the
+   * reverse. stop() is the one place every end state passes through (DONE, ERROR and CANCELLED all
+   * call it), so the re-read belongs there rather than in the DONE branch alone.
+   */
+  const readChecks = async (docIdForChecks: string) => {
+    if (!docIdForChecks) return;
+    try {
+      const pk: any = await productionApi.scripton.development.getPackage({ docId: docIdForChecks });
+      // null, never {} — no record of any check is not the same as nothing found.
+      setCkSum((pk?.data?.script && pk.data.script.checkSummary) || null);
+    } catch { setCkSum(null); }
+  };
   const [docId, setDocId] = useState('');
   const [regening, setRegening] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -292,6 +309,8 @@ export default function ScriptOnScriptPage() {
       setRegening(false);
       setCancelling(false);
       if (msg) setGenErr(msg);
+      // Fix 2 — every end state comes through here, so the line can never describe the run before.
+      void readChecks(docId || '');
       // The rail badge exists to tell someone who WALKED AWAY that the draft landed. If the overlay
       // is on screen they have already been told, so clear it; if it was minimised, leave it beating
       // until they come back and click it. The functional updater reads the live value without
@@ -473,7 +492,7 @@ export default function ScriptOnScriptPage() {
           */}
           {ckSum ? (
             <button
-              onClick={() => { window.location.href = '/scripton/doctor'; }}
+              onClick={() => { window.location.href = '/scripton/doctor' + (docId ? '?doc=' + encodeURIComponent(docId) : ''); }}
               title={t('Open the Doctor for the full list, including the checks that did not run')}
               style={{
                 background: '#1b1e25',

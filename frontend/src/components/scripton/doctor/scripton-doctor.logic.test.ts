@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   scorecardTiles, verdictBanner, sceneFlowBars, arcPoints, diagRows, letterFromScore, TRANSFORM_TILES,
+  tint, SX_HEX, CHECK_STATE, checkRowView, checkSummaryLine,
 } from './scripton-doctor.logic.ts';
 
 test('scorecardTiles always returns the 5 fixed categories', () => {
@@ -79,4 +80,75 @@ test('TRANSFORM_TILES is the 2×4 grid wired to actions', () => {
   ]);
   assert.equal(TRANSFORM_TILES.find((t) => t.key === 'budgetfit')!.action, 'budgetfit');
   assert.equal(TRANSFORM_TILES.find((t) => t.key === 'genre')!.action, 'format');
+});
+
+// ── PLAN 01 TASK 7 — the check rows and the summary line ────────────────────────────────────
+
+test('tint produces a VALID colour, which var() concatenation does not', () => {
+  assert.equal(tint('var(--red)'), '#e5635f29');
+  assert.equal(tint('var(--green)'), '#57b36829');
+  assert.equal(tint('#e5635f'), '#e5635f29');
+  // the bug this replaces: a custom property cannot be concatenated into a colour
+  assert.equal('var(--red)' + '29', 'var(--red)29');
+  assert.notEqual(tint('var(--red)'), 'var(--red)29');
+  // and anything unrecognised is still a colour, not an invisible tag
+  assert.equal(tint('nonsense'), 'rgba(255,255,255,.06)');
+  assert.equal(tint(''), 'rgba(255,255,255,.06)');
+});
+
+test('every tint is syntactically a colour', () => {
+  const ok = (v: string) => /^#[0-9a-fA-F]{8}$/.test(v) || /^rgba\([\d.,\s]+\)$/.test(v);
+  for (const k of Object.keys(SX_HEX)) assert.ok(ok(tint(k)), k + ' -> ' + tint(k));
+  for (const s of Object.values(CHECK_STATE)) assert.ok(ok(tint(s.color)), s.color);
+});
+
+test('the six states are distinguished IN WORDS, not only in colour', () => {
+  const words = Object.values(CHECK_STATE).map((s) => s.word);
+  assert.equal(words.length, 6);
+  assert.equal(new Set(words).size, 6, 'no two states may read the same');
+  // the two amber states share a colour, so the words are the only thing separating them
+  assert.equal(CHECK_STATE.NOT_RUN.color, CHECK_STATE.STALE.color);
+  assert.notEqual(CHECK_STATE.NOT_RUN.word, CHECK_STATE.STALE.word);
+  assert.match(CHECK_STATE.NOT_RUN.note, /NOT a pass/);
+});
+
+test('an unknown display degrades to NEVER RECORDED, never to clean', () => {
+  assert.equal(checkRowView({ kind: 'ledger', display: 'TOTALLY_FINE' }).word, CHECK_STATE.ABSENT.word);
+  assert.equal(checkRowView(null).word, CHECK_STATE.ABSENT.word);
+  assert.notEqual(checkRowView({ display: 'nonsense' }).word, CHECK_STATE.CLEAN.word);
+});
+
+test('a row carries its label, its reason and its items', () => {
+  const v = checkRowView({ kind: 'register', display: 'FINDINGS', reason: '1 of 105 contradicted', items: [{ scene: 41, kind: 'REGISTER', detail: 'register line 39' }] });
+  assert.equal(v.label, 'Against the source register');
+  assert.equal(v.reason, '1 of 105 contradicted');
+  assert.equal(v.items.length, 1);
+  assert.equal(v.bg, '#e5635f29');
+  // a row with no reason of its own still says something
+  assert.equal(checkRowView({ kind: 'ledger', display: 'NOT_RUN' }).reason, CHECK_STATE.NOT_RUN.note);
+});
+
+test('the summary line leads with what was NOT checked', () => {
+  assert.equal(checkSummaryLine({ findings: 0, notRun: 10, allClear: false })!.text, '10 not checked');
+  assert.equal(checkSummaryLine({ findings: 3, notRun: 2, allClear: false })!.text, '2 not checked · 3 finding(s)');
+  assert.match(checkSummaryLine({ findings: 0, notRun: 10, allClear: false })!.text, /not checked/);
+});
+
+test('CONTROL — it never prints "0 findings" over checks nobody ran', () => {
+  const naive = (s: any) => s.findings + ' finding(s)';
+  assert.equal(naive({ findings: 0, notRun: 10 }), '0 finding(s)', 'the defect');
+  assert.notEqual(checkSummaryLine({ findings: 0, notRun: 10, allClear: false })!.text, '0 finding(s)');
+});
+
+test('the clean verdict is printed ONLY when the backend computed it', () => {
+  assert.match(checkSummaryLine({ findings: 0, notRun: 0, allClear: true })!.text, /every check ran/);
+  // zero findings and zero not-run but allClear withheld: do not invent the all-clear
+  assert.doesNotMatch(checkSummaryLine({ findings: 0, notRun: 0, allClear: false })!.text, /every check ran/);
+  assert.equal(checkSummaryLine({ findings: 0, notRun: 0, allClear: false })!.text, '0 finding(s)');
+});
+
+test('no record at all is null, which is not "nothing found"', () => {
+  assert.equal(checkSummaryLine(null), null);
+  assert.equal(checkSummaryLine(undefined), null);
+  assert.equal(checkSummaryLine('x'), null);
 });

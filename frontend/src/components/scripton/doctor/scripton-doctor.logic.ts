@@ -88,3 +88,106 @@ export const TRANSFORM_TILES: TransformTile[] = [
   { key: 'humour', name: 'Humour injection', desc: 'by culture', dot: 'var(--teal)', action: 'humour' },
   { key: 'character', name: 'Add / remove character', desc: 'redistribute', dot: 'var(--blue)', action: 'character' },
 ];
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// PLAN 01 TASK 7 — THE CHECKS, AS A READER SEES THEM.
+//
+// Pure, and here rather than inline in the component for one reason: this directory already has a
+// logic module with a node:test suite beside it (scripton-doctor.logic.test.ts, run with
+// `npx tsx --test`). The first version of task 7 put these maps in the .tsx and reported "there is
+// no frontend test runner" — which is true of package.json and false of this folder.
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * The .sx palette, by variable name. Needed because a CSS custom property cannot be concatenated
+ * into a colour: `'var(--red)' + '29'` is `var(--red)29`, which is not a colour at all, so the
+ * element gets NO background. The tag tints in this file have had that bug since they were written.
+ */
+export const SX_HEX: Record<string, string> = {
+  'var(--red)': '#e5635f',
+  'var(--green)': '#57b368',
+  'var(--amber)': '#e0a23b',
+  'var(--blue)': '#5b8def',
+  'var(--faint)': '#6b727d',
+  'var(--violet)': '#8b7cf0',
+};
+
+/**
+ * A translucent wash of a colour, valid whether it arrives as a var() name or a hex.
+ * Unknown input falls back to a neutral rather than producing an invalid value, because an
+ * invisible tag is how this went unnoticed.
+ */
+export function tint(color: string, alpha = '29'): string {
+  const c = String(color || '');
+  const hex = SX_HEX[c] || (/^#[0-9a-fA-F]{6}$/.test(c) ? c : '');
+  return hex ? hex + alpha : 'rgba(255,255,255,.06)';
+}
+
+export type CheckDisplay = 'FINDINGS' | 'CLEAN' | 'INFO' | 'NOT_RUN' | 'STALE' | 'ABSENT';
+
+/**
+ * SIX STATES, SEPARATED IN WORDS AND NOT ONLY IN COLOUR. CLEAN must not be the quiet default: on
+ * the 2 Oct revision nine of eleven checks had never written a row and one had abstained, and the
+ * page showed a finished 122-page script with no sign of either. A colour alone reads as decoration.
+ */
+export const CHECK_STATE: Record<CheckDisplay, { word: string; color: string; note: string }> = {
+  FINDINGS: { word: 'found something', color: 'var(--red)', note: 'ran and found something' },
+  CLEAN: { word: 'clean', color: 'var(--green)', note: 'ran and found nothing' },
+  INFO: { word: 'for information', color: 'var(--blue)', note: 'an observation, not a verdict' },
+  NOT_RUN: { word: 'DID NOT RUN', color: 'var(--amber)', note: 'this is NOT a pass' },
+  STALE: { word: 'OUT OF DATE', color: 'var(--amber)', note: 'the pages changed after this verdict' },
+  ABSENT: { word: 'NEVER RECORDED', color: 'var(--faint)', note: 'nothing ever wrote a result' },
+};
+
+export const CHECK_LABEL: Record<string, string> = {
+  ending: 'Ending reached', planEnding: 'Plan reaches the ending', planState: 'Plan state read',
+  nameDrift: 'Name drift', ledger: 'Identity & state', writtenDeaths: 'Deaths written on the page',
+  clock: 'Story clock', flashback: 'Flashbacks', density: 'Shape of the draft',
+  echo: 'Repeated phrases', register: 'Against the source register',
+};
+
+export type CheckRowView = {
+  kind: string; label: string; word: string; color: string; bg: string;
+  reason: string; items: Array<{ scene: number | null; kind: string; detail: string }>;
+};
+
+/** One row, ready to render. An unknown display degrades to ABSENT, never to CLEAN. */
+export function checkRowView(row: any): CheckRowView {
+  const kind = String((row && row.kind) || 'unknown');
+  const display = (CHECK_STATE as any)[row && row.display] ? (row.display as CheckDisplay) : 'ABSENT';
+  const st = CHECK_STATE[display];
+  return {
+    kind,
+    label: CHECK_LABEL[kind] || kind,
+    word: st.word,
+    color: st.color,
+    bg: tint(st.color),
+    reason: String((row && row.reason) || st.note),
+    items: Array.isArray(row && row.items) ? row.items : [],
+  };
+}
+
+/**
+ * The one line a writer sees where a run ends.
+ *
+ * WHAT WAS NOT CHECKED LEADS whenever anything was not. "0 findings" over ten checks nobody ran is
+ * the rental/logistics "Alerts 0" defect — an all-clear asserted on an unread board. The clean
+ * verdict is printed only when the backend's own allClear is true, which is false while anything is
+ * unchecked, so this cannot claim something nobody computed. `null` is no record at all, which is
+ * not the same as nothing found.
+ */
+export function checkSummaryLine(sum: any): { text: string; color: string } | null {
+  if (!sum || typeof sum !== 'object') return null;
+  const findings = Number(sum.findings) || 0;
+  const notRun = Number(sum.notRun) || 0;
+  if (sum.allClear === true) {
+    return { text: '✓ every check ran, nothing found', color: 'var(--green)' };
+  }
+  if (notRun > 0) {
+    return {
+      text: notRun + ' not checked' + (findings ? ' · ' + findings + ' finding(s)' : ''),
+      color: 'var(--amber)',
+    };
+  }
+  return { text: findings + ' finding(s)', color: findings ? 'var(--red)' : 'var(--faint)' };
+}
