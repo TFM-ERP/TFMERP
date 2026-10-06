@@ -376,3 +376,99 @@ test('CLOSE-OUT 2 — CONTROL: logging the discard leaves the row saying "found 
   assert.equal(silent, '', 'the defect: the whole planned clock went, and the row was clean');
   assert.match(planStateNote(plan, { clockDiscardedAt: 1 }), /clock/i);
 });
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// CLOSE-OUT 1b — jsonb DOES NOT KEEP KEY ORDER, SO THE SUBJECT MUST NOT DEPEND ON IT.
+//
+// 70234b7 hashed the in-memory plan; a reader hashes the plan read back from the column. Postgres
+// normalises jsonb key order, and on the real revision the two differ:
+//
+//   written     intExt,location,dayNight,brief,characters,exits,pageWeight,heading
+//   read back   brief,exits,intExt,heading,dayNight,location,characters,pageWeight
+//
+// JSON.stringify follows insertion order, so the subjects differed and the row still read STALE on
+// every revision — the same symptom as run 1, one layer further in. The subject is now built from
+// POSITIONAL tuples, which have no key order to lose.
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+
+/** What Postgres does to a jsonb document: same content, keys in its own order. */
+const reorder = (v: any): any => {
+  if (Array.isArray(v)) return v.map(reorder);
+  if (v && typeof v === 'object') {
+    const out: any = {};
+    for (const k of Object.keys(v).sort((a, b) => (a.length - b.length) || a.localeCompare(b))) out[k] = reorder(v[k]);
+    return out;
+  }
+  return v;
+};
+
+test('CLOSE-OUT 1b — the subject survives a round trip through jsonb key reordering', () => {
+  const stored = scenePlanFor(PLAN_3, 'cards', { plannerCount: 7, cardsCount: 34 })!;
+  const readBack = reorder(stored);
+  assert.notDeepEqual(Object.keys(stored.scenes[0]), Object.keys(readBack.scenes[0]),
+    'the probe must actually reorder, or it proves nothing');
+  assert.equal(scenePlanSubject(stored), scenePlanSubject(readBack),
+    'the subject must not depend on key order, because the column does not preserve it');
+});
+
+test('CLOSE-OUT 1b — exits survive reordering too', () => {
+  const withExits = scenePlanFor(
+    [{ intExt: 'EXT', location: 'ROAD', dayNight: 'DAY', brief: 'b', characters: 'A', pageWeight: 1, exits: [{ name: 'BREE', how: 'killed' }] }],
+    'planner')!;
+  const back = reorder(withExits);
+  assert.deepEqual(Object.keys(back.scenes[0].exits[0]), ['how', 'name'], 'the probe reordered the exit');
+  assert.equal(scenePlanSubject(withExits), scenePlanSubject(back));
+});
+
+test('CLOSE-OUT 1b — the real column key order is handled', () => {
+  // the order Postgres actually returned on revision cmuwdflav001ykn1ym2dw69kl
+  const stored = scenePlanFor(PLAN_3, 'cards')!;
+  const asColumn = {
+    at: stored.at, count: stored.count, scenes: stored.scenes.map((s: any) => ({
+      brief: s.brief, exits: s.exits, intExt: s.intExt, heading: s.heading,
+      dayNight: s.dayNight, location: s.location, characters: s.characters, pageWeight: s.pageWeight,
+    })), source: stored.source, wroteFrom: stored.wroteFrom,
+  };
+  assert.equal(scenePlanSubject(stored), scenePlanSubject(asColumn as any));
+});
+
+test('CLOSE-OUT 1b — it still changes when the CONTENT changes', () => {
+  const a = scenePlanFor(PLAN_3, 'cards')!;
+  assert.notEqual(scenePlanSubject(a), scenePlanSubject(scenePlanFor(PLAN_3.slice(0, 2), 'cards')!));
+  assert.notEqual(scenePlanSubject(a), scenePlanSubject(scenePlanFor(PLAN_3, 'planner')!));
+  const edited = JSON.parse(JSON.stringify(PLAN_3)); edited[0].brief = 'different';
+  assert.notEqual(scenePlanSubject(a), scenePlanSubject(scenePlanFor(edited, 'cards')!));
+});
+
+test('CLOSE-OUT 1b — CONTROL: a key-order-dependent subject reads STALE after the round trip', () => {
+  const stored = scenePlanFor(PLAN_3, 'cards')!;
+  const naive = (p: any) => JSON.stringify({ count: p.count, source: p.source, wroteFrom: p.wroteFrom, scenes: p.scenes });
+  assert.notEqual(naive(stored), naive(reorder(stored)), 'the 70234b7 defect, reproduced');
+  assert.equal(scenePlanSubject(stored), scenePlanSubject(reorder(stored)));
+});
+
+test('CLOSE-OUT 1b — EVERY field in the tuple is part of what is verified', () => {
+  // Without this, dropping a field from the subject breaks no test: a plan could change in that
+  // field and the verdict would still read FRESH. One probe per field, varied alone.
+  const base = [{
+    intExt: 'INT', location: 'KITCHEN', dayNight: 'NIGHT', brief: 'b', characters: 'A',
+    exits: [{ name: 'BREE', how: 'killed' }], pageWeight: 1,
+  }];
+  const subject = scenePlanSubject(scenePlanFor(base, 'cards')!);
+  const variants: Array<[string, any]> = [
+    ['intExt', { intExt: 'EXT' }],
+    ['location', { location: 'HALL' }],
+    ['dayNight', { dayNight: 'DAY' }],
+    ['brief', { brief: 'different' }],
+    ['characters', { characters: 'B' }],
+    ['pageWeight', { pageWeight: 2 }],
+    ['exits.name', { exits: [{ name: 'ALDER', how: 'killed' }] }],
+    ['exits.how', { exits: [{ name: 'BREE', how: 'drowned' }] }],
+  ];
+  for (const [field, patch] of variants) {
+    const changed = scenePlanSubject(scenePlanFor([{ ...base[0], ...patch }], 'cards')!);
+    assert.notEqual(changed, subject, field + ' is not part of the subject — a change there would read FRESH');
+  }
+  // heading is derived from intExt/location/dayNight, so it moves with them rather than alone
+  assert.equal(scenePlanFor(base, 'cards')!.scenes[0].heading, 'INT. KITCHEN - NIGHT');
+});

@@ -232,10 +232,20 @@ export function planStateNote(
  */
 export function scenePlanSubject(plan: StoredScenePlan | null | undefined): string {
   if (!plan || typeof plan !== 'object') return '';
-  return JSON.stringify({
-    count: plan.count,
-    source: plan.source,
-    wroteFrom: plan.wroteFrom,
-    scenes: plan.scenes,
-  });
+  const scenes = Array.isArray(plan.scenes) ? plan.scenes : [];
+  // POSITIONAL TUPLES, NOT OBJECTS. JSON.stringify follows insertion order and Postgres normalises
+  // jsonb key order, so an object-shaped subject differs between the plan written and the plan read
+  // back — measured on the real column: written intExt,location,dayNight,brief,characters,exits,
+  // pageWeight,heading; read back brief,exits,intExt,heading,dayNight,location,characters,
+  // pageWeight. A tuple has no key order to lose, so the fixed field order below IS the format.
+  return JSON.stringify([
+    plan.count,
+    plan.source,
+    plan.wroteFrom === undefined ? null : plan.wroteFrom,
+    scenes.map((sc: any) => [
+      sc && sc.intExt, sc && sc.location, sc && sc.dayNight, sc && sc.brief, sc && sc.characters,
+      (Array.isArray(sc && sc.exits) ? sc.exits : []).map((e: any) => [e && e.name, e && e.how]),
+      sc && sc.pageWeight, sc && sc.heading,
+    ]),
+  ]);
 }
