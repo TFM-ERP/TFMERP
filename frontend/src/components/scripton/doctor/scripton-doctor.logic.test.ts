@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   scorecardTiles, verdictBanner, sceneFlowBars, arcPoints, diagRows, letterFromScore, TRANSFORM_TILES,
   tint, SX_HEX, CHECK_STATE, checkRowView, checkSummaryLine,
+  isRevisionReady,
 } from './scripton-doctor.logic.ts';
 
 test('scorecardTiles always returns the 5 fixed categories', () => {
@@ -151,4 +152,29 @@ test('no record at all is null, which is not "nothing found"', () => {
   assert.equal(checkSummaryLine(null), null);
   assert.equal(checkSummaryLine(undefined), null);
   assert.equal(checkSummaryLine('x'), null);
+});
+
+test('isRevisionReady — with no expected id, whatever is active is the answer', () => {
+  assert.equal(isRevisionReady({ revisionId: 'r1' }), true);
+  assert.equal(isRevisionReady({ revisionId: 'r1' }, ''), true);
+  assert.equal(isRevisionReady({ revisionId: 'r1' }, null), true);
+});
+
+test('isRevisionReady — a read describing the PREVIOUS revision is not ready', () => {
+  assert.equal(isRevisionReady({ revisionId: 'old' }, 'new'), false,
+    'DONE is reported before activeRevisionId switches, so this read is the old draft');
+  assert.equal(isRevisionReady({ revisionId: 'new' }, 'new'), true);
+});
+
+test('isRevisionReady — a read with no revision at all is not ready either', () => {
+  assert.equal(isRevisionReady(null, 'new'), false);
+  assert.equal(isRevisionReady({}, 'new'), false);
+  assert.equal(isRevisionReady({ revisionId: '' }, 'new'), false);
+  assert.equal(isRevisionReady({ revisionId: null }, 'new'), false);
+});
+
+test('CONTROL — accepting any read shows the old revision’s result under the new pages', () => {
+  const naive = (_s: any, _w: string) => true;
+  assert.equal(naive({ revisionId: 'old' }, 'new'), true, 'the defect');
+  assert.equal(isRevisionReady({ revisionId: 'old' }, 'new'), false);
 });

@@ -4,6 +4,7 @@
  *  document (Save as PDF). Wrapped in the ScriptON rail shell so it keeps ScriptON context. */
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { checkSummaryLine, isRevisionReady } from '@/components/scripton/doctor/scripton-doctor.logic';
 import { productionApi } from '@/lib/api';
 import { SxRail } from '@/components/scripton/shared/sx';
 import { markScriptonGenerating, clearScriptonGenerating, isScriptonGenerating } from '@/components/scripton/useScriptonGenerating';
@@ -79,13 +80,34 @@ export default function ScriptOnScriptPage() {
    * reverse. stop() is the one place every end state passes through (DONE, ERROR and CANCELLED all
    * call it), so the re-read belongs there rather than in the DONE branch alone.
    */
-  const readChecks = async (docIdForChecks: string) => {
+  const readChecks = async (docIdForChecks: string, expectRev?: string) => {
     if (!docIdForChecks) return;
-    try {
-      const pk: any = await productionApi.scripton.development.getPackage({ docId: docIdForChecks });
-      // null, never {} — no record of any check is not the same as nothing found.
-      setCkSum((pk?.data?.script && pk.data.script.checkSummary) || null);
-    } catch { setCkSum(null); }
+    /**
+     * IT CAN LAND EARLY, so it waits for the revision the run actually wrote.
+     *
+     * regenerateFeature returns the new revision's id, but the run reports DONE and only THEN
+     * materialises its scenes and switches activeRevisionId (service :5712-5717) — and
+     * developmentPackage reads the ACTIVE revision. On an 85-scene script materialiseScenes is not
+     * instant, so a read fired the moment DONE appears describes the PREVIOUS revision.
+     *
+     * Three tries, two seconds apart. If the switch still has not happened the line is left EMPTY:
+     * showing the old draft's counts under the new draft's pages is worse than showing nothing,
+     * because nothing on screen would say which revision they belonged to. A fetch that throws is
+     * treated as a try that did not answer, for the same reason.
+     */
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const pk: any = await productionApi.scripton.development.getPackage({ docId: docIdForChecks });
+        const sc: any = pk?.data?.script;
+        if (isRevisionReady(sc, expectRev)) {
+          // null, never {} — no record of any check is not the same as nothing found.
+          setCkSum((sc && sc.checkSummary) || null);
+          return;
+        }
+      } catch { /* a try that did not answer; fall through to the wait */ }
+      if (attempt < 2) await new Promise((r) => setTimeout(r, 2000));
+    }
+    setCkSum(null);
   };
   const [docId, setDocId] = useState('');
   const [regening, setRegening] = useState(false);
@@ -262,7 +284,13 @@ export default function ScriptOnScriptPage() {
     // Remember the run OUTSIDE this screen, so the rail can show it from anywhere in ScriptON —
     // and so "Continue in background" stops meaning "the generation disappears".
     markScriptonGenerating(docId, mode);
-    try { await productionApi.scripton.development.regenerateFeature(docId, mode); }
+    // The id of the revision THIS run writes. The re-read below waits for it rather than trusting
+    // whatever is active the moment DONE appears — see readChecks.
+    let expectRev = '';
+    try {
+      const rr: any = await productionApi.scripton.development.regenerateFeature(docId, mode);
+      expectRev = String(rr?.data?.revisionId || '');
+    }
     catch (e: any) { setRegening(false); setGenErr(e?.response?.data?.message || t('Could not start generation — check AI Engines & Routing.')); return; }
     // Refresh the visible text as scenes land, and keep polling the progress endpoint until it is actually DONE —
     // not just until the first incremental save (the old bug made a full regen look "finished" after ~3 scenes).
@@ -309,8 +337,9 @@ export default function ScriptOnScriptPage() {
       setRegening(false);
       setCancelling(false);
       if (msg) setGenErr(msg);
-      // Fix 2 — every end state comes through here, so the line can never describe the run before.
-      void readChecks(docId || '');
+      // Every end state comes through here, so the line can never describe the run before — and it
+      // waits for THIS run's revision to become the active one.
+      void readChecks(docId || '', expectRev);
       // The rail badge exists to tell someone who WALKED AWAY that the draft landed. If the overlay
       // is on screen they have already been told, so clear it; if it was minimised, leave it beating
       // until they come back and click it. The functional updater reads the live value without
@@ -490,25 +519,28 @@ export default function ScriptOnScriptPage() {
             so this cannot print a clean verdict the backend did not compute. echo is excluded from
             the count upstream (countsAsFinding is false for INFO).
           */}
-          {ckSum ? (
-            <button
-              onClick={() => { window.location.href = '/scripton/doctor' + (docId ? '?doc=' + encodeURIComponent(docId) : ''); }}
-              title={t('Open the Doctor for the full list, including the checks that did not run')}
-              style={{
-                background: '#1b1e25',
-                color: ckSum.allClear ? '#57b368' : (ckSum.notRun ? '#e0a23b' : '#e5635f'),
-                border: '1px solid rgba(255,255,255,.1)', borderRadius: 9, padding: '7px 12px',
-                fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
-              }}
-            >
-              {ckSum.allClear
-                ? ('✓ ' + t('every check ran, nothing found'))
-                : (ckSum.notRun
-                  ? (ckSum.notRun + ' ' + t('not checked')
-                    + (ckSum.findings ? ' · ' + ckSum.findings + ' ' + t('finding(s)') : ''))
-                  : (ckSum.findings + ' ' + t('finding(s)')))}
-            </button>
-          ) : null}
+          {(() => {
+            /**
+             * ONE RULE, FROM THE TESTED MODULE. This composed the same sentence inline, which meant
+             * two implementations of "what was not checked leads" and only one of them covered by a
+             * test — and the covered one was not the page the rule was written for.
+             */
+            const line = checkSummaryLine(ckSum);
+            if (!line) return null;
+            return (
+              <button
+                onClick={() => { window.location.href = '/scripton/doctor' + (docId ? '?doc=' + encodeURIComponent(docId) : ''); }}
+                title={t('Open the Doctor for the full list, including the checks that did not run')}
+                style={{
+                  background: '#1b1e25', color: line.color,
+                  border: '1px solid rgba(255,255,255,.1)', borderRadius: 9, padding: '7px 12px',
+                  fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
+                }}
+              >
+                {t(line.text)}
+              </button>
+            );
+          })()}
           {protReq ? (
             <>
               <span title={t('Review Protection is on — raw export is disabled. Manage in Settings → Review Protection.')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#C6A463', fontWeight: 700, padding: '6px 10px', border: '1px solid rgba(198,164,99,.3)', borderRadius: 9, background: 'rgba(198,164,99,.08)' }}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 13, height: 13 }}><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z" /></svg>{t('Protected')}</span>

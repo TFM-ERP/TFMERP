@@ -191,3 +191,22 @@ export function checkSummaryLine(sum: any): { text: string; color: string } | nu
   }
   return { text: findings + ' finding(s)', color: findings ? 'var(--red)' : 'var(--faint)' };
 }
+
+/**
+ * Does this package read describe the revision we are waiting for?
+ *
+ * WHY THE QUESTION EXISTS. regenerateFeature returns the NEW revision's id, but the run reports
+ * status DONE and only THEN materialises its scenes and switches scriptDocument.activeRevisionId
+ * (service :5712-5717). developmentPackage reads the active revision, so a read fired the moment
+ * DONE appears can describe the PREVIOUS revision — and on an 85-scene script materialiseScenes is
+ * not instant. Showing that read is worse than showing nothing: it reports the old draft's checks
+ * under the new draft's pages, and nothing on screen says which.
+ *
+ * With no expected id (the ordinary page load) whatever is active is the right answer.
+ */
+export function isRevisionReady(script: any, expectRev?: string | null): boolean {
+  const want = String(expectRev || '').trim();
+  if (!want) return true;
+  const got = String((script && script.revisionId) || '').trim();
+  return !!got && got === want;
+}
