@@ -86,7 +86,7 @@ export default function ScriptOnDoctorPage() {
   const [revColor, setRevColor] = useState('#ffffff');
   const [gauges, setGauges] = useState<SxGauge[]>(NEUTRAL_GAUGES);
   const [cov, setCov] = useState<SxCoverage>(null);
-  const [covRaw, setCovRaw] = useState<any | null>(null); // raw latestCoverage for the new single-canvas
+  const [covRaw, setCovRaw] = useState<any | null>(null); // this document's own coverage, from developmentPackage (build-exact) — null means THIS script has none
   const [actHealth, setActHealth] = useState(SAMPLE_ACT);
   const [tab, setTab] = useState<SxTab>('Coverage');
   const [covLoading, setCovLoading] = useState(false);
@@ -126,9 +126,25 @@ export default function ScriptOnDoctorPage() {
         const revId = doc?.activeRevisionId || doc?.revisions?.[0]?.id;
         if (revId) { try { const rv: any = await productionApi.script.getRevision(revId); if (alive) setActiveRev(rv.data); } catch { /* */ } }
         const rev = doc?.revisions?.find((r: any) => r.id === revId) || doc?.revisions?.[0];
-        let c: any = null; try { const cr: any = await productionApi.scripton.latestCoverage(proj.id); c = cr.data || null; } catch { /* */ }
-        let aData: any = null; try { const a: any = await productionApi.scripton.analytics(proj.id); aData = a.data; } catch { /* */ }
-        let nData: any[] = []; try { const nn: any = await productionApi.scripton.notes(proj.id); nData = Array.isArray(nn.data) ? nn.data : []; } catch { /* */ }
+        /**
+         * CLOSE-OUT 4 — THIS DOCUMENT'S COVERAGE, NOT THE PROJECT'S NEWEST.
+         *
+         * All three were asked BY PROJECT, and the ScripON Library hosts many documents under one
+         * projectId. Seen on "Lost": it has no coverage of its own, the project's only report
+         * belongs to a different document, and latestCoverage returned that — so a 1521 logline and
+         * a C- sat above Lost's own checks with nothing saying they were someone else's.
+         *
+         * developmentPackage already resolves coverage build-exactly (by documentId, never the
+         * project's latest), so it is the honest source and is read below. analytics and notes are
+         * scoped to THIS revision, which both endpoints accept — analytics through resolveRevision,
+         * notes through its revisionId query.
+         */
+        let aData: any = null;
+        let nData: any[] = [];
+        if (revId) {
+          try { const a: any = await productionApi.scripton.analytics(proj.id, { revisionId: revId }); aData = a.data; } catch { /* */ }
+          try { const nn: any = await productionApi.scripton.notes(proj.id, revId); nData = Array.isArray(nn.data) ? nn.data : []; } catch { /* */ }
+        }
         /**
          * Plan 01 task 7 — the stored checks, from the read that already resolves this document.
          *
@@ -136,7 +152,7 @@ export default function ScriptOnDoctorPage() {
          * nothing" over a request that never arrived; null renders as "no record of any check",
          * which is what a failed read actually means.
          */
-        let ckData: any[] | null = null; let ckSum: any = null;
+        let ckData: any[] | null = null; let ckSum: any = null; let c: any = null;
         try {
           /**
            * Plan 01 task 7 fix 1 — docId, NOT projectId alone.
@@ -149,6 +165,8 @@ export default function ScriptOnDoctorPage() {
           const pk: any = await productionApi.scripton.development.getPackage({ docId: doc.id, projectId: proj.id });
           const sc: any = pk?.data?.script;
           if (sc && Array.isArray(sc.checks)) { ckData = sc.checks; ckSum = sc.checkSummary || null; }
+          // CLOSE-OUT 4 — build-exact: null here means "THIS script has no coverage", not "none exists".
+          c = pk?.data?.coverage || null;
         } catch { /* leave null — see above */ }
         if (!alive) return;
         setProjectId(proj.id); setTitle(doc?.title || proj.name || proj.title || 'Script');

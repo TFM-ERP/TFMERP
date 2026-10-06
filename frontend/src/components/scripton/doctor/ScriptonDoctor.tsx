@@ -197,7 +197,7 @@ export default function ScriptonDoctor(props: DoctorCanvasProps) {
                 ) : (
                   <div className="verdict">
                     <div className="gchip" style={{ color: 'var(--faint)', background: 'rgba(255,255,255,.05)' }}>—</div>
-                    <div className="vmid"><div className="vlog">{t('No coverage yet — generate it to read the verdict, scorecard and notes.')}</div></div>
+                    <div className="vmid"><div className="vlog">{t('No coverage for THIS script yet — generate it to read the verdict, scorecard and notes.')}</div></div>
                     <div className="vright"><button className="btn gold" disabled={props.covLoading} onClick={props.onGenerate}>{props.covLoading ? t('Generating…') : t('Generate coverage')}</button></div>
                   </div>
                 )}
