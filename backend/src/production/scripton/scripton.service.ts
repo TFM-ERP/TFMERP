@@ -33,7 +33,7 @@ import {
   type Slice, type PlanStateFailure, type PlanStateFailureKind,
 } from './plan-state-slices.util';
 import { checkSurface, surfaceSummary } from './check-surface.util';
-import { scenePlanFor } from './scene-plan.util';
+import { scenePlanFor, scenePlanSubject } from './scene-plan.util';
 import {
   classifyLine, nextInSpeech, checkScene, checkDraftContinuity, checkPlanCast, stripExitedCast,
   collectExits, unavailableLine, dedupeScenes, repairInstruction, summariseContinuity,
@@ -5004,9 +5004,9 @@ export class ScripOnService {
    */
   private async storeScenePlan(
     revId: string, handed: any[], source: 'planner' | 'cards', wroteFrom?: number | null,
-  ): Promise<void> {
-    if (!revId) return;
+  ): Promise<ReturnType<typeof scenePlanFor>> {
     const plan = scenePlanFor(handed, source, { wroteFrom: wroteFrom == null ? null : wroteFrom });
+    if (!revId) return plan;
     try {
       await (this.prisma as any).scriptRevision.update({ where: { id: revId }, data: { scenePlan: plan as any } });
       this.log.log('storeScenePlan: ' + (plan ? plan.count + ' scene(s) from the ' + source : 'no plan')
@@ -5015,6 +5015,8 @@ export class ScripOnService {
     } catch (e: any) {
       this.log.warn('storeScenePlan: could NOT store the plan on revision ' + revId + ' — ' + this.why(e));
     }
+    // Returned so the planState verdict can be fingerprinted over the SAME content the column holds.
+    return plan;
   }
 
   private async recordSweepChecks(revId: string, sweeps: SweepResults | null | undefined, text: any): Promise<void> {
@@ -5295,7 +5297,7 @@ export class ScripOnService {
         return;
       }
       // Plan 01 task 5 — the list the writer is about to be handed, stored before the first scene.
-      await this.storeScenePlan(revId, scenes, planSource);
+      const storedPlan = await this.storeScenePlan(revId, scenes, planSource);
       setP({
         total: scenes.length, phase: 'WRITING', note: '',
         targetPages: lenPlan ? lenPlan.targetPages : null,
@@ -5417,7 +5419,16 @@ export class ScripOnService {
            */
           found: planState.threw ? null : planState.failures,
           error: planState.threw ? 'the plan-state extraction failed outright — ' + planState.threw : undefined,
-          text: JSON.stringify(scenes || []),
+          /**
+           * CLOSE-OUT 1 — FINGERPRINTED OVER WHAT THE COLUMN HOLDS.
+           *
+           * This was JSON.stringify(scenes), the raw handed array. Run 1 stored planState CLEAN and
+           * a reader saw STALE: the column keeps the normalised projection, so the hash could not be
+           * reproduced from anything available and the row read STALE for ever. scenePlanSubject is
+           * derived from the stored projection and excludes `at`, so a reader with the column in
+           * hand computes the same value.
+           */
+          text: scenePlanSubject(storedPlan),
           // 3C — recorded on the row, not folded into the state: a near-miss is a fact about the
           // run, not a defect in the plan state.
           note: [
@@ -5832,7 +5843,7 @@ export class ScripOnService {
       // Plan 01 task 5 — before the first scene, and before the early return below: a run that
       // writes nothing still records the list it was checked against, and the index it would have
       // started from.
-      await this.storeScenePlan(revId, scenes, planSource, startIdx);
+      const storedPlan = await this.storeScenePlan(revId, scenes, planSource, startIdx);
       if (startIdx >= scenes.length) { setP({ status: 'DONE', done: scenes.length, total: scenes.length, pageCount: existingPages.length, coverage: 'COMPLETE', coverageNote: 'Script already covers the full planned scene list.' }); return; }
       setP({
         total: scenes.length, done: startIdx, phase: 'WRITING', note: '',
@@ -5931,7 +5942,16 @@ export class ScripOnService {
            */
           found: planState.threw ? null : planState.failures,
           error: planState.threw ? 'the plan-state extraction failed outright — ' + planState.threw : undefined,
-          text: JSON.stringify(scenes || []),
+          /**
+           * CLOSE-OUT 1 — FINGERPRINTED OVER WHAT THE COLUMN HOLDS.
+           *
+           * This was JSON.stringify(scenes), the raw handed array. Run 1 stored planState CLEAN and
+           * a reader saw STALE: the column keeps the normalised projection, so the hash could not be
+           * reproduced from anything available and the row read STALE for ever. scenePlanSubject is
+           * derived from the stored projection and excludes `at`, so a reader with the column in
+           * hand computes the same value.
+           */
+          text: scenePlanSubject(storedPlan),
           // 3C — recorded on the row, not folded into the state: a near-miss is a fact about the
           // run, not a defect in the plan state.
           note: [
@@ -6070,7 +6090,7 @@ export class ScripOnService {
     // Plan 01 task 2 — `checks` and `pageText` join this select so the stored verdicts can be shown
     // AND staleness can be judged. pageText is read, hashed and discarded; it is never in the
     // payload. Without it every row would read UNCHECKED, which is honest but useless.
-    let rev: any = null; if (doc && doc.activeRevisionId) rev = await (this.prisma as any).scriptRevision.findUnique({ where: { id: doc.activeRevisionId }, select: { id: true, pageCount: true, revisionLabel: true, checks: true, pageText: true } }).catch(() => null);
+    let rev: any = null; if (doc && doc.activeRevisionId) rev = await (this.prisma as any).scriptRevision.findUnique({ where: { id: doc.activeRevisionId }, select: { id: true, pageCount: true, revisionLabel: true, checks: true, pageText: true, scenePlan: true } }).catch(() => null);
     const proj: any = await (this.prisma as any).productionProject.findUnique({ where: { id: projectId }, select: { id: true, title: true, scriponWorkspace: true } }).catch(() => null);
     // Title comes from the build (e.g. "Try"), not the shared "ScripON Library" workspace project.
     const projTitle = (build && build.name) || (proj && !proj.scriponWorkspace && proj.title) || (doc && doc.title) || 'Project';
@@ -6089,6 +6109,10 @@ export class ScripOnService {
       'revision.pageText': (rev && Array.isArray(rev.pageText))
         ? rev.pageText.map((pg: any) => String((pg && pg.text) || '')).join('\n')
         : undefined,
+      // CLOSE-OUT 1 — the plan subject, so planState can be judged instead of reading UNCHECKED.
+      // Undefined when the column is NULL: a revision that predates the column has nothing to
+      // compare, and UNCHECKED is the honest answer there.
+      plan: (rev && rev.scenePlan) ? scenePlanSubject(rev.scenePlan as any) : undefined,
     });
     return {
       project: { id: projectId, title: projTitle },

@@ -8,7 +8,9 @@ import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { scenePlanFor, PLANNER_FIELDS } from './scene-plan.util';
+import { scenePlanFor, PLANNER_FIELDS, scenePlanSubject } from './scene-plan.util';
+import { findingsEntry } from './revision-checks.util';
+import { checkSurface } from './check-surface.util';
 
 /** The planner's own contract, from scripton.service.ts:3082's parse(). */
 const PLAN_3 = [
@@ -235,4 +237,64 @@ test('WIRING — both paths go through the ONE function, and it decides the sour
 test('WIRING — the extend path records the index it wrote from; the fresh path does not', () => {
   assert.equal(SERVICE.includes('await this.storeScenePlan(revId, scenes, planSource, startIdx);'), true);
   assert.equal(SERVICE.includes('await this.storeScenePlan(revId, scenes, planSource);'), true);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// CLOSE-OUT 1 — THE planState FINGERPRINT MUST BE OVER WHAT IS STORED.
+//
+// Run 1 proved it: the entry was stored CLEAN and read back STALE. The fingerprint was taken over
+// JSON.stringify(scenes) — the RAW handed array — while the column stores the normalised
+// projection, so no reader could reproduce the hash from anything available. A verdict that reads
+// STALE forever means nothing, which is exactly why readCheckEntry refuses to staleness-check
+// plan.tail. Making `plan` comparable and then hashing something unstorable was worse than leaving
+// it uncomparable.
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+
+test('CLOSE-OUT 1 — the subject is reproducible from the column', () => {
+  const stored = scenePlanFor(PLAN_3, 'cards', { wroteFrom: null }, new Date('2026-10-06T07:44:50Z'))!;
+  // a second store of the same list, a minute later: same content, different `at`
+  const again = scenePlanFor(PLAN_3, 'cards', { wroteFrom: null }, new Date('2026-10-06T07:45:50Z'))!;
+  assert.notEqual(stored.at, again.at);
+  assert.equal(scenePlanSubject(stored), scenePlanSubject(again),
+    'the subject must not depend on WHEN it was taken, or it cannot be reproduced');
+});
+
+test('CLOSE-OUT 1 — the subject changes when the plan changes', () => {
+  const a = scenePlanFor(PLAN_3, 'cards')!;
+  assert.notEqual(scenePlanSubject(a), scenePlanSubject(scenePlanFor(PLAN_3.slice(0, 2), 'cards')!), 'fewer scenes');
+  assert.notEqual(scenePlanSubject(a), scenePlanSubject(scenePlanFor(PLAN_3, 'planner')!), 'a different source');
+  assert.notEqual(scenePlanSubject(a), scenePlanSubject(scenePlanFor(PLAN_3, 'cards', { wroteFrom: 2 })!), 'a different index');
+});
+
+test('CLOSE-OUT 1 — no plan is an empty subject, not a crash', () => {
+  assert.equal(scenePlanSubject(null), '');
+  assert.equal(scenePlanSubject(undefined), '');
+});
+
+test('CLOSE-OUT 1 — FRESH against the column, STALE when the column changes', () => {
+  const stored = scenePlanFor(PLAN_3, 'cards')!;
+  const entry = findingsEntry('planState', [], scenePlanSubject(stored));
+  assert.equal(entry.state, 'CLEAN');
+  assert.equal(entry.subject, 'plan');
+
+  // a reader with the column in hand
+  const fresh = checkSurface({ planState: entry }, { plan: scenePlanSubject(stored) });
+  const row = fresh.find((r) => r.kind === 'planState')!;
+  assert.equal(row.staleness, 'FRESH');
+  assert.equal(row.display, 'CLEAN', 'the run-1 defect: this read STALE on a clean verdict');
+
+  // the column is rewritten with a different plan
+  const changed = scenePlanFor(PLAN_3.slice(0, 2), 'cards')!;
+  const after = checkSurface({ planState: entry }, { plan: scenePlanSubject(changed) });
+  assert.equal(after.find((r) => r.kind === 'planState')!.display, 'STALE');
+});
+
+test('CLOSE-OUT 1 — CONTROL: hashing the raw handed list cannot be verified from the column', () => {
+  const stored = scenePlanFor(PLAN_3, 'cards')!;
+  const raw = findingsEntry('planState', [], JSON.stringify(PLAN_3));          // what run 1 did
+  const read = checkSurface({ planState: raw }, { plan: scenePlanSubject(stored) });
+  assert.equal(read.find((r) => r.kind === 'planState')!.display, 'STALE', 'the defect, reproduced');
+  const fixed = findingsEntry('planState', [], scenePlanSubject(stored));
+  assert.equal(checkSurface({ planState: fixed }, { plan: scenePlanSubject(stored) })
+    .find((r) => r.kind === 'planState')!.display, 'CLEAN');
 });

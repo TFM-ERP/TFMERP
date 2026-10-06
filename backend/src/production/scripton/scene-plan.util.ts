@@ -145,3 +145,27 @@ export function scenePlanFor(
     })),
   };
 }
+
+/**
+ * THE SUBJECT A planState VERDICT IS FINGERPRINTED OVER — reproducible from the column.
+ *
+ * Run 1 stored planState CLEAN and a reader saw STALE. The hash had been taken over
+ * JSON.stringify(scenes), the RAW handed array, while the column stores the normalised projection:
+ * no reader could reproduce it from anything available, so the row read STALE for ever. That is the
+ * failure readCheckEntry avoids by refusing to staleness-check plan.tail at all — making `plan`
+ * comparable and then hashing something unstorable was worse than leaving it uncomparable.
+ *
+ * `at` IS EXCLUDED DELIBERATELY. It changes on every store, so including it would make the
+ * fingerprint depend on WHEN it was taken rather than on what it describes, and a second store of
+ * an identical plan would read as a change. What is hashed is the content: the count, where the
+ * list came from, where writing began, and the scenes themselves.
+ */
+export function scenePlanSubject(plan: StoredScenePlan | null | undefined): string {
+  if (!plan || typeof plan !== 'object') return '';
+  return JSON.stringify({
+    count: plan.count,
+    source: plan.source,
+    wroteFrom: plan.wroteFrom,
+    scenes: plan.scenes,
+  });
+}
