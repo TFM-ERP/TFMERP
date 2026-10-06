@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   scorecardTiles, verdictBanner, sceneFlowBars, arcPoints, diagRows, letterFromScore, TRANSFORM_TILES,
   tint, SX_HEX, CHECK_STATE, checkRowView, checkSummaryLine,
-  isRevisionReady,
+  isRevisionReady, solidColor,
 } from './scripton-doctor.logic.ts';
 
 test('scorecardTiles always returns the 5 fixed categories', () => {
@@ -177,4 +177,36 @@ test('CONTROL — accepting any read shows the old revision’s result under the
   const naive = (_s: any, _w: string) => true;
   assert.equal(naive({ revisionId: 'old' }, 'new'), true, 'the defect');
   assert.equal(isRevisionReady({ revisionId: 'old' }, 'new'), false);
+});
+
+test('solidColor resolves a .sx variable for surfaces that do not define it', () => {
+  // .rdroot (the script page) defines --gold2 --goldink --hair --faint --mute and nothing else
+  assert.equal(solidColor('var(--amber)'), '#e0a23b');
+  assert.equal(solidColor('var(--red)'), '#e5635f');
+  assert.equal(solidColor('var(--green)'), '#57b368');
+  assert.equal(solidColor('#abcdef'), '#abcdef');
+});
+
+test('solidColor never returns an undefined custom property', () => {
+  for (const s of Object.values(CHECK_STATE)) {
+    assert.doesNotMatch(solidColor(s.color), /var\(/, s.color + ' stayed a variable');
+    assert.match(solidColor(s.color), /^#[0-9a-fA-F]{6}$/);
+  }
+  // every colour the summary line can produce
+  for (const sum of [{ allClear: true }, { findings: 0, notRun: 3 }, { findings: 2, notRun: 0 }, { findings: 0, notRun: 0 }]) {
+    const line = checkSummaryLine(sum)!;
+    assert.doesNotMatch(solidColor(line.color), /var\(/);
+  }
+});
+
+test('CONTROL — passing var() straight through leaves the line colourless off .sx', () => {
+  const line = checkSummaryLine({ findings: 0, notRun: 10, allClear: false })!;
+  assert.match(line.color, /^var\(/, 'the module speaks in variables, which is right for the Doctor');
+  assert.doesNotMatch(solidColor(line.color), /^var\(/, 'and the page must resolve them');
+});
+
+test('solidColor falls back to a literal, not to nothing', () => {
+  assert.equal(solidColor('nonsense'), '#9aa1ab');
+  assert.equal(solidColor(''), '#9aa1ab');
+  assert.equal(solidColor('var(--not-a-colour)'), '#9aa1ab');
 });

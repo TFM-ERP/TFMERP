@@ -4,7 +4,7 @@
  *  document (Save as PDF). Wrapped in the ScriptON rail shell so it keeps ScriptON context. */
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { checkSummaryLine, isRevisionReady } from '@/components/scripton/doctor/scripton-doctor.logic';
+import { checkSummaryLine, isRevisionReady, solidColor } from '@/components/scripton/doctor/scripton-doctor.logic';
 import { productionApi } from '@/lib/api';
 import { SxRail } from '@/components/scripton/shared/sx';
 import { markScriptonGenerating, clearScriptonGenerating, isScriptonGenerating } from '@/components/scripton/useScriptonGenerating';
@@ -72,7 +72,7 @@ export default function ScriptOnScriptPage() {
    */
   const [ckSum, setCkSum] = useState<any>(null);
   /**
-   * Plan 01 task 7 fix 2 — RE-READ WHEN A RUN FINISHES, WHATEVER THE END STATE.
+   * Plan 01 task 7 — RE-READ WHEN A RUN FINISHES, WHATEVER THE END STATE.
    *
    * The summary was read once, in a mount effect with [] deps. refreshText() already runs as scenes
    * land, so the pages on screen were the new revision's while this line still described the
@@ -331,15 +331,25 @@ export default function ScriptOnScriptPage() {
     let lastChange = Date.now();
     let errSince = 0;
     let poll: ReturnType<typeof setInterval> | null = null;
-    const stop = (msg: string | null) => {
+    /**
+     * `landed` says whether this run produced a NEW active revision.
+     *
+     * Only DONE does. On ERROR, CANCELLED, a stall or lost contact the backend leaves
+     * activeRevisionId pointing at the OLD revision on purpose — "your current pages are safe" —
+     * so waiting for expectRev there would time out after three tries and blank a line that
+     * correctly describes the script still on screen. Those paths read what is ACTIVE, which is
+     * exactly the revision the reader is looking at.
+     */
+    const stop = (msg: string | null, landed = false) => {
       if (poll) clearInterval(poll);
       poll = null;
       setRegening(false);
       setCancelling(false);
       if (msg) setGenErr(msg);
-      // Every end state comes through here, so the line can never describe the run before — and it
-      // waits for THIS run's revision to become the active one.
-      void readChecks(docId || '', expectRev);
+      // Every end state comes through here, so the line can never describe the run before. Only a
+      // run that LANDED waits for its own revision; the rest read what is active, because that is
+      // the revision whose pages are on screen.
+      void readChecks(docId || '', landed ? expectRev : undefined);
       // The rail badge exists to tell someone who WALKED AWAY that the draft landed. If the overlay
       // is on screen they have already been told, so clear it; if it was minimised, leave it beating
       // until they come back and click it. The functional updater reads the live value without
@@ -397,7 +407,7 @@ export default function ScriptOnScriptPage() {
         // A stop the operator asked for is not a failure: report what was written and leave the
         // current script exactly as it was. The partial draft stays in the revisions list.
         if (lastSt.status === 'CANCELLED') { stop(lastSt.note || t('Generation stopped. Your current script is unchanged.')); return; }
-        stop(null);
+        stop(null, true);
         setGenPct(100);
         setCovWarn(lastSt && lastSt.coverage === 'SHORT' ? (lastSt.coverageNote || t('This draft may not reach the planned ending — consider regenerating.')) : null);
       }
@@ -532,7 +542,9 @@ export default function ScriptOnScriptPage() {
                 onClick={() => { window.location.href = '/scripton/doctor' + (docId ? '?doc=' + encodeURIComponent(docId) : ''); }}
                 title={t('Open the Doctor for the full list, including the checks that did not run')}
                 style={{
-                  background: '#1b1e25', color: line.color,
+                  // .rdroot defines --gold2 --goldink --hair --faint --mute and nothing else, so
+                  // var(--amber) here is an undefined property and the line renders colourless.
+                  background: '#1b1e25', color: solidColor(line.color),
                   border: '1px solid rgba(255,255,255,.1)', borderRadius: 9, padding: '7px 12px',
                   fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
                 }}

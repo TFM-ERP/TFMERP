@@ -210,3 +210,20 @@ export function isRevisionReady(script: any, expectRev?: string | null): boolean
   const got = String((script && script.revisionId) || '').trim();
   return !!got && got === want;
 }
+
+/**
+ * The literal colour behind a .sx variable, for surfaces that do not define it.
+ *
+ * The .sx palette is declared per component. The script page's root is .rdroot, which defines only
+ * --gold2, --goldink, --hair, --faint and --mute — so a `var(--amber)` handed to it is an undefined
+ * custom property, the declaration is dropped, and the element inherits. The summary line was
+ * therefore colourless on the one surface it was written for, while being correct in the Doctor.
+ *
+ * A hex passes through. Anything unrecognised falls back to --mute's literal value rather than to
+ * an undefined variable, because invisible is the failure mode being fixed.
+ */
+export function solidColor(color: string): string {
+  const c = String(color || '');
+  if (SX_HEX[c]) return SX_HEX[c];
+  return /^#[0-9a-fA-F]{3,8}$/.test(c) ? c : '#9aa1ab';
+}
