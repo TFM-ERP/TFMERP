@@ -14,7 +14,7 @@ import { seriesSceneCount } from './series-scene-count.util';
 import { SCENE_SYSTEM_PROMPT, sceneLengthRule } from './scene-prompt.util';
 import {
   planFeatureLength, applyPageWeights, lineBudgetFor, snapPageWeight, countVisualLines,
-  expansionCandidates, isLengthComplete, isLengthOver, completionRatio,
+  expansionCandidates, isLengthComplete, isLengthOver, completionRatio, lengthFinding,
   remainingBudgetScale, LINES_PER_PAGE, planSliceBudget, planSliceInstruction, MIN_PLANNED_SCENES,
   genreProfileTable,
   type FeatureLengthPlan, type LineBudget, type GenreOverride, type GenreProfileRow,
@@ -5417,8 +5417,28 @@ export class ScripOnService {
       // Plan 01 task 6 — awaited BEFORE the run reports DONE, so the entry is on the row when the
       // page first reads it. Report-only: pageText is not touched by it.
       const registerRow = await this.registerCheckOnScript(docId, revId, savedText, canonFacts, projectId);
+      /**
+       * CLOSE-OUT 4 — THE DRAFT'S LENGTH, ONTO THE DENSITY ROW.
+       *
+       * Run 1 wrote 19 pages against a target of 12 and recorded it in two places that do not
+       * outlive the process: a log line and genProgress.coverageNote, an in-memory Map. The
+       * revision carried no trace of it.
+       *
+       * Density is the right row — it already reports the other two shape defects — and this is
+       * appended HERE because recordSweepChecks runs now, while tooShort/tooLong are computed about
+       * fifty lines below, after the row is already written.
+       *
+       * A density sweep that THREW keeps `found: null`: a length finding must not resurrect a sweep
+       * that produced no result, or NOT_RUN would silently become FINDINGS.
+       */
+      const lenItem = lengthFinding(pages.length, lenPlan ? lenPlan.targetPages : 0);
+      const densitySweep = contin.sweeps.density;
+      const densityWithLength = (densitySweep && Array.isArray(densitySweep.found) && lenItem)
+        ? { ...densitySweep, found: densitySweep.found.concat([lenItem as any]) }
+        : densitySweep;
       await this.recordSweepChecks(revId, {
         ...contin.sweeps,
+        ...(densityWithLength ? { density: densityWithLength } : {}),
         register: { found: [], text: savedText, preBuilt: registerRow },
         planState: {
           /**
@@ -5943,8 +5963,28 @@ export class ScripOnService {
       // Plan 01 task 6 — awaited BEFORE the run reports DONE, so the entry is on the row when the
       // page first reads it. Report-only: pageText is not touched by it.
       const registerRow = await this.registerCheckOnScript(docId, revId, savedText, canonFacts, projectId);
+      /**
+       * CLOSE-OUT 4 — THE DRAFT'S LENGTH, ONTO THE DENSITY ROW.
+       *
+       * Run 1 wrote 19 pages against a target of 12 and recorded it in two places that do not
+       * outlive the process: a log line and genProgress.coverageNote, an in-memory Map. The
+       * revision carried no trace of it.
+       *
+       * Density is the right row — it already reports the other two shape defects — and this is
+       * appended HERE because recordSweepChecks runs now, while tooShort/tooLong are computed about
+       * fifty lines below, after the row is already written.
+       *
+       * A density sweep that THREW keeps `found: null`: a length finding must not resurrect a sweep
+       * that produced no result, or NOT_RUN would silently become FINDINGS.
+       */
+      const lenItem = lengthFinding(pages.length, lenPlan ? lenPlan.targetPages : 0);
+      const densitySweep = contin.sweeps.density;
+      const densityWithLength = (densitySweep && Array.isArray(densitySweep.found) && lenItem)
+        ? { ...densitySweep, found: densitySweep.found.concat([lenItem as any]) }
+        : densitySweep;
       await this.recordSweepChecks(revId, {
         ...contin.sweeps,
+        ...(densityWithLength ? { density: densityWithLength } : {}),
         register: { found: [], text: savedText, preBuilt: registerRow },
         planState: {
           /**

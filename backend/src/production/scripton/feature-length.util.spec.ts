@@ -10,7 +10,7 @@ import {
   isLengthOver, remainingBudgetScale, WORDS_PER_PAGE,
   TOKENS_PER_WORD, CAP_HEADROOM, MIN_SCENE_TOKENS, OBSERVED_OVERRUN,
   DELIVERY_FACTOR, MIN_ASK_WORDS,
-  planSliceBudget, planSliceInstruction, MIN_PLAN_SLICE, blendProfiles, applyGenreOverrides,
+  planSliceBudget, planSliceInstruction, MIN_PLAN_SLICE, blendProfiles, applyGenreOverrides, lengthFinding,
 } from './feature-length.util';
 
 test('genre resolution falls back cleanly and reads the Json genres array', () => {
@@ -801,4 +801,65 @@ test('genreProfileTable renders overrides for the panel WITHOUT touching the und
     assert.equal(r.sceneDensity, c.sceneDensity, r.key + ' moved and should not have');
     assert.equal(r.provenance, c.provenance, r.key + ' changed provenance and should not have');
   }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// PLAN 01 CLOSE-OUT 4 — LENGTH AS A FINDING ON THE RECORD.
+//
+// Run 1 wrote 19 pages against a target of 12 and said so in exactly two places that do not
+// outlive the process: a log line, and genProgress.coverageNote — an in-memory Map. The revision
+// itself carried no trace, so a reader opening the script later had no way to know it overran. It
+// belongs on the density row: "the shape of the draft" is the question it answers.
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+
+test('CLOSE-OUT 4 — an over-length draft becomes a located density finding', () => {
+  const f = lengthFinding(19, 12)!;
+  assert.notEqual(f, null);
+  assert.equal(f.kind, 'LENGTH');
+  assert.match(f.detail, /19 pages against a target of 12/);
+  assert.match(f.detail, /over/i);
+  assert.equal(f.scenes.length, 0, 'length is a property of the whole draft, not of one scene');
+});
+
+test('CLOSE-OUT 4 — an under-length draft is a finding too, and says which way', () => {
+  const f = lengthFinding(6, 12)!;
+  assert.match(f.detail, /6 pages against a target of 12/);
+  assert.match(f.detail, /short/i);
+  assert.doesNotMatch(f.detail, /over/i);
+});
+
+test('CLOSE-OUT 4 — a draft on target is NOT a finding', () => {
+  assert.equal(lengthFinding(12, 12), null);
+  assert.equal(lengthFinding(11, 12), null, 'inside the completion band');
+});
+
+test('CLOSE-OUT 4 — it agrees with the gates that decide the run', () => {
+  // the finding must not contradict isLengthComplete / isLengthOver, or the row and the status
+  // would disagree about the same draft
+  for (const [pages, target] of [[19, 12], [6, 12], [12, 12], [11, 12], [130, 105], [40, 105]] as Array<[number, number]>) {
+    const over = isLengthOver(pages, target);
+    const short = !isLengthComplete(pages, target);
+    const f = lengthFinding(pages, target);
+    assert.equal(!!f, over || short, pages + '/' + target + ' — finding presence must match the gates');
+    if (f && over) assert.match(f.detail, /over/i, pages + '/' + target);
+    if (f && short) assert.match(f.detail, /short/i, pages + '/' + target);
+  }
+});
+
+test('CLOSE-OUT 4 — no target means no judgement, not a false finding', () => {
+  assert.equal(lengthFinding(19, 0), null);
+  assert.equal(lengthFinding(19, null as any), null);
+  assert.equal(lengthFinding(0, 12), null, 'a draft with no pages is a different failure, reported elsewhere');
+  // THE GUARD IS NOT REDUNDANT, and this is the probe that shows it. isLengthOver carries a hard
+  // cap (MAX_TARGET_PAGES = 115) that fires whatever the target is, so without the target check a
+  // 500-page draft with no target would report "over length — 500 pages against a target of 0".
+  assert.equal(isLengthOver(500, 0), true, 'the hard cap fires with no target');
+  assert.equal(lengthFinding(500, 0), null, 'and the finding still withholds judgement');
+});
+
+test('CLOSE-OUT 4 — CONTROL: the log line and coverageNote do not outlive the process', () => {
+  // what run 1 recorded on the revision about its own length
+  const onTheRevision = null;
+  assert.equal(onTheRevision, null, 'the defect');
+  assert.notEqual(lengthFinding(19, 12), null);
 });
