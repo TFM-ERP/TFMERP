@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   scorecardTiles, verdictBanner, sceneFlowBars, arcPoints, diagRows, letterFromScore, TRANSFORM_TILES,
   tint, SX_HEX, CHECK_STATE, checkRowView, checkSummaryLine,
-  isRevisionReady, solidColor,
+  isRevisionReady, solidColor, itemWhere,
 } from './scripton-doctor.logic.ts';
 
 test('scorecardTiles always returns the 5 fixed categories', () => {
@@ -209,4 +209,36 @@ test('solidColor falls back to a literal, not to nothing', () => {
   assert.equal(solidColor('nonsense'), '#9aa1ab');
   assert.equal(solidColor(''), '#9aa1ab');
   assert.equal(solidColor('var(--not-a-colour)'), '#9aa1ab');
+});
+
+test('itemWhere — a whole-draft item is not a scene the system failed to find', () => {
+  assert.equal(itemWhere({ kind: 'LENGTH', scene: null }), 'the whole draft');
+  assert.equal(itemWhere({ kind: 'CLOCK_DISCARDED', scene: null }), 'the whole draft');
+  assert.equal(itemWhere({ kind: 'NO_EXIT_GATE', scene: null }), 'the whole draft');
+});
+
+test('itemWhere — a located item names its scene', () => {
+  assert.equal(itemWhere({ kind: 'REDISCOVERY', scene: 19 }), 'scene 19');
+  assert.equal(itemWhere({ kind: 'LENGTH', scene: 4 }), 'scene 4', 'a real scene wins over the kind');
+});
+
+test('itemWhere — a finding that SHOULD have a scene and lost it says so differently', () => {
+  assert.equal(itemWhere({ kind: 'REGISTER', scene: null }), 'scene not identified');
+  assert.equal(itemWhere({ kind: 'REDISCOVERY', scene: null }), 'scene not identified');
+  assert.notEqual(itemWhere({ kind: 'REGISTER', scene: null }), itemWhere({ kind: 'LENGTH', scene: null }),
+    'an unlocated defect and a whole-draft one must not read the same');
+});
+
+test('itemWhere — junk is not a scene', () => {
+  assert.equal(itemWhere(null), 'scene not identified');
+  assert.equal(itemWhere({}), 'scene not identified');
+  assert.equal(itemWhere({ kind: 'LENGTH', scene: 0 }), 'the whole draft', 'scene 0 is not a scene');
+  assert.equal(itemWhere({ kind: 'REGISTER', scene: 0 }), 'scene not identified');
+});
+
+test('CONTROL — "scene ?" for everything conflates two different facts', () => {
+  const naive = (it: any) => (it.scene == null ? 'scene ?' : 'scene ' + it.scene);
+  assert.equal(naive({ kind: 'LENGTH', scene: null }), naive({ kind: 'REGISTER', scene: null }),
+    'the defect: the same phrase for "has no location" and "lost its location"');
+  assert.notEqual(itemWhere({ kind: 'LENGTH', scene: null }), itemWhere({ kind: 'REGISTER', scene: null }));
 });

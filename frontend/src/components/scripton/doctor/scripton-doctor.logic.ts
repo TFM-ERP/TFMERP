@@ -227,3 +227,21 @@ export function solidColor(color: string): string {
   if (SX_HEX[c]) return SX_HEX[c];
   return /^#[0-9a-fA-F]{3,8}$/.test(c) ? c : '#9aa1ab';
 }
+
+/**
+ * Where an item sits, in words a reader can act on.
+ *
+ * A whole-draft item carries no scene — LENGTH, CLOCK_DISCARDED and NO_EXIT_GATE are properties of
+ * the draft, not of one page — and the row printed "scene ?" for them, which reads as a defect the
+ * system failed to locate rather than one that has no location. Those two cases are different and
+ * must not share a phrase: "scene ?" stays for a finding that SHOULD have a scene and lost it.
+ */
+const WHOLE_DRAFT = new Set(['LENGTH', 'CLOCK_DISCARDED', 'NO_EXIT_GATE']);
+
+export function itemWhere(item: { scene?: number | null; kind?: string } | null | undefined): string {
+  const kind = String((item && item.kind) || '').toUpperCase();
+  const scene = item && item.scene;
+  if (typeof scene === 'number' && Number.isFinite(scene) && scene > 0) return 'scene ' + scene;
+  if (WHOLE_DRAFT.has(kind)) return 'the whole draft';
+  return 'scene not identified';
+}

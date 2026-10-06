@@ -14,7 +14,7 @@ import ScriptonShell from '@/components/scripton/ScriptonShell';
 import {
   scorecardTiles, verdictBanner, sceneFlowBars, arcPoints, diagRows, TRANSFORM_TILES,
   type DiagRow,
-  tint, checkRowView, checkSummaryLine,
+  tint, checkRowView, checkSummaryLine, itemWhere,
 } from './scripton-doctor.logic';
 
 const firstSentence = (s?: string) => {
@@ -280,7 +280,9 @@ export default function ScriptonDoctor(props: DoctorCanvasProps) {
                                     <div className="dnote" style={{ opacity: 0.85, marginTop: 3 }}>
                                       {c.items.slice(0, 4).map((it, j) => (
                                         <div key={j}>
-                                          {it.scene == null ? t('scene ?') : t('scene') + ' ' + it.scene}: {it.detail}
+                                          {/* itemWhere, not "scene ?": a whole-draft item has no
+                                              location, which is not the same as having lost one. */}
+                                          {t(itemWhere(it))}: {it.detail}
                                         </div>
                                       ))}
                                       {c.items.length > 4
