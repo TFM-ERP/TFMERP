@@ -72,6 +72,15 @@ export default function ScriptOnScriptPage() {
    */
   const [ckSum, setCkSum] = useState<any>(null);
   /**
+   * CLOSE-OUT 5 — Qais did not notice the line: in the toolbar it reads as one more button.
+   *
+   * It stays there, because that is where it belongs once the page is just being read. But the
+   * moment a run ENDS is when the counts matter most and when nobody is scanning a toolbar, so the
+   * same line is also shown as a banner beside the coverage warning — the place this page already
+   * uses to tell someone something about the draft that just landed.
+   */
+  const [justRan, setJustRan] = useState(false);
+  /**
    * Plan 01 task 7 — RE-READ WHEN A RUN FINISHES, WHATEVER THE END STATE.
    *
    * The summary was read once, in a mount effect with [] deps. refreshText() already runs as scenes
@@ -346,6 +355,7 @@ export default function ScriptOnScriptPage() {
       setRegening(false);
       setCancelling(false);
       if (msg) setGenErr(msg);
+      setJustRan(true);
       // Every end state comes through here, so the line can never describe the run before. Only a
       // run that LANDED waits for its own revision; the rest read what is active, because that is
       // the revision whose pages are on screen.
@@ -568,6 +578,25 @@ export default function ScriptOnScriptPage() {
           {dlMsg ? <div style={{ position: 'fixed', insetInlineEnd: 18, bottom: 18, zIndex: 80, maxWidth: 460, background: '#0e1014', color: '#E6D2A2', border: '1px solid rgba(198,164,99,.45)', borderRadius: 10, padding: '9px 13px', fontSize: 12.5, lineHeight: 1.5 }}>{dlMsg}</div> : null}
         </div>
         <div className="rdscroll">
+          {(() => {
+            // CLOSE-OUT 5 — the same rule as the toolbar line, one implementation, shown where the
+            // run ended. Only after a run in THIS view: on an ordinary page load the toolbar is
+            // where it belongs, and a banner on every visit would be the thing nobody reads.
+            if (!justRan || loading || err) return null;
+            const line = checkSummaryLine(ckSum);
+            if (!line) return null;
+            const c = solidColor(line.color);
+            return (
+              <div style={{ maxWidth: 820, margin: '0 auto 18px', background: '#15181e', border: '1px solid ' + c + '66', color: c, borderRadius: 10, padding: '11px 15px', fontSize: 12.5, lineHeight: 1.55, display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 15, lineHeight: 1 }}>◍</span>
+                <span style={{ fontWeight: 700 }}>{t(line.text)}</span>
+                <button
+                  onClick={() => { window.location.href = '/scripton/doctor' + (docId ? '?doc=' + encodeURIComponent(docId) : ''); }}
+                  style={{ marginInlineStart: 'auto', background: 'transparent', border: '1px solid ' + c + '66', color: c, borderRadius: 8, padding: '5px 10px', fontSize: 12, cursor: 'pointer' }}
+                >{t('Open the Doctor')} →</button>
+              </div>
+            );
+          })()}
           {covWarn && !loading && !err ? <div style={{ maxWidth: 820, margin: '0 auto 18px', background: '#2a1e0e', border: '1px solid rgba(224,162,59,.5)', color: '#e7c277', borderRadius: 10, padding: '11px 15px', fontSize: 12.5, lineHeight: 1.55, display: 'flex', alignItems: 'flex-start', gap: 10 }}><span style={{ fontSize: 15, lineHeight: 1 }}>⚠</span><span>{covWarn} {t('Use Regenerate to rebuild the full story.')}</span></div> : null}
           {loading ? <div style={{ textAlign: 'center', color: '#6b727d', marginTop: 90 }}>{t('Loading the script…')}</div>
             : err ? <div style={{ textAlign: 'center', color: '#e9a8a6', marginTop: 90 }}>{err}</div>
