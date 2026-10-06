@@ -8,9 +8,9 @@ import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { scenePlanFor, PLANNER_FIELDS, scenePlanSubject, planStateNote } from './scene-plan.util';
+import { scenePlanFor, PLANNER_FIELDS, scenePlanSubject, planStateNote, planStateFindings } from './scene-plan.util';
 import { findingsEntry } from './revision-checks.util';
-import { checkSurface } from './check-surface.util';
+import { checkSurface, surfaceSummary } from './check-surface.util';
 
 /** The planner's own contract, from scripton.service.ts:3082's parse(). */
 const PLAN_3 = [
@@ -346,35 +346,45 @@ test('CLOSE-OUT 3 — a list that declares no exits says so', () => {
   assert.equal(scenePlanFor(PLAN_3, 'planner')!.exitsDeclared, 1, 'PLAN_3 has one');
 });
 
-test('CLOSE-OUT 2 + 3 — the planState note names the clock discard and the missing exits', () => {
+test('CLOSE-OUT 2 + 3 — the clock and the missing exits are FINDINGS; the counts are the note', () => {
+  // RULED: as notes these could ride under a CLEAN state and an allClear summary. The division is
+  // now findings for what was never checked, note for what is only provenance.
   const plan = scenePlanFor(PLAN_3.map((x: any) => ({ ...x, exits: undefined })), 'cards', { plannerCount: 7, cardsCount: 34 })!;
+  const f = planStateFindings(plan, { clockDiscardedAt: 1 });
+  const joined = f.map((x) => x.detail).join(' · ');
+  assert.match(joined, /clock/i);
+  assert.match(joined, /1 point/, 'how many points, not just that it happened');
+  assert.match(joined, /discarded/i);
+  assert.match(joined, /no exits/i);
+  assert.match(joined, /cards/, 'and which list it came from');
+
   const note = planStateNote(plan, { clockDiscardedAt: 1 });
-  assert.match(note, /clock/i);
-  assert.match(note, /1 point/, 'how many points, not just that it happened');
-  assert.match(note, /discarded/i);
-  assert.match(note, /no exits/i);
-  assert.match(note, /cards/, 'and which list it came from');
   assert.match(note, /7/); assert.match(note, /34/);
+  assert.doesNotMatch(note, /clock/i, 'the clock is no longer a note');
 });
 
 test('CLOSE-OUT 2 — a clock that ran forwards says nothing about the clock', () => {
   const plan = scenePlanFor(PLAN_3, 'planner', { plannerCount: 3, cardsCount: 0 })!;
-  const note = planStateNote(plan, { clockDiscardedAt: 0 });
-  assert.doesNotMatch(note, /clock/i, 'silence is right when there is nothing to report');
-  assert.doesNotMatch(note, /no exits/i, 'PLAN_3 declares one');
+  assert.deepEqual(planStateFindings(plan, { clockDiscardedAt: 0 }), [],
+    'silence is right when there is nothing to report');
+  assert.doesNotMatch(planStateNote(plan, { clockDiscardedAt: 0 }), /no exits/i, 'PLAN_3 declares one');
 });
 
-test('CLOSE-OUT 2 — nothing to say at all is an empty note, not a sentence about nothing', () => {
+test('CLOSE-OUT 2 — nothing to say at all is an empty note and no findings', () => {
   const plan = scenePlanFor(PLAN_3, 'planner')!;
   assert.equal(planStateNote(plan, { clockDiscardedAt: 0 }), '');
   assert.equal(planStateNote(null, { clockDiscardedAt: 0 }), '');
+  assert.deepEqual(planStateFindings(plan, { clockDiscardedAt: 0 }), []);
 });
 
 test('CLOSE-OUT 2 — CONTROL: logging the discard leaves the row saying "found nothing"', () => {
   const plan = scenePlanFor(PLAN_3, 'planner', { plannerCount: 3, cardsCount: 0 })!;
-  const silent = '';   // what run 1 recorded
+  const silent = '';   // what run 1 recorded on the revision
   assert.equal(silent, '', 'the defect: the whole planned clock went, and the row was clean');
-  assert.match(planStateNote(plan, { clockDiscardedAt: 1 }), /clock/i);
+  const f = planStateFindings(plan, { clockDiscardedAt: 1 });
+  assert.equal(f.length, 1);
+  assert.match(f[0].detail, /clock/i);
+  assert.equal(findingsEntry('planState', f, 'T').state, 'FINDINGS', 'and the state says so');
 });
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────
@@ -471,4 +481,71 @@ test('CLOSE-OUT 1b — EVERY field in the tuple is part of what is verified', ()
   }
   // heading is derived from intExt/location/dayNight, so it moves with them rather than alone
   assert.equal(scenePlanFor(base, 'cards')!.scenes[0].heading, 'INT. KITCHEN - NIGHT');
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// CLOSE-OUT 2b — A DISCARDED CLOCK AND A MISSING EXIT GATE ARE FINDINGS, NOT NOTES.
+//
+// As notes they rode on the reason while the state stayed CLEAN, so surfaceSummary could report
+// allClear over a draft written with NO planned clock and NO exit gate — an all-clear about a draft
+// that two of its guards never covered. A planner-sourced zero stays a note: the planner looked and
+// declared none, which is an answer. The two counts stay a note: provenance, not a defect.
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+
+test('CLOSE-OUT 2b — a clock discarded in full is a FINDING', () => {
+  const plan = scenePlanFor(PLAN_3, 'planner')!;
+  const f = planStateFindings(plan, { clockDiscardedAt: 1 });
+  assert.equal(f.length, 1);
+  assert.equal(f[0].kind, 'CLOCK_DISCARDED');
+  assert.match(f[0].detail, /1 point/);
+  assert.match(f[0].detail, /no planned clock/);
+  assert.equal(f[0].scenes.length, 0, 'the whole draft, not one scene');
+});
+
+test('CLOSE-OUT 2b — a cards-sourced plan that CANNOT declare exits is a FINDING', () => {
+  const cards = scenePlanFor(PLAN_3.map((x: any) => ({ ...x, exits: undefined })), 'cards')!;
+  const f = planStateFindings(cards, { clockDiscardedAt: 0 });
+  assert.equal(f.length, 1);
+  assert.equal(f[0].kind, 'NO_EXIT_GATE');
+  assert.match(f[0].detail, /no exits/i);
+  assert.match(f[0].detail, /cards/);
+});
+
+test('CLOSE-OUT 2b — a PLANNER-sourced zero stays a note, not a finding', () => {
+  const planner = scenePlanFor(PLAN_3.map((x: any) => ({ ...x, exits: undefined })), 'planner')!;
+  assert.deepEqual(planStateFindings(planner, { clockDiscardedAt: 0 }), [],
+    'the planner looked and declared none — that is an answer, not a gap');
+  assert.match(planStateNote(planner, { clockDiscardedAt: 0 }), /no exits/i);
+});
+
+test('CLOSE-OUT 2b — the counts stay a note', () => {
+  const plan = scenePlanFor(PLAN_3, 'cards', { plannerCount: 7, cardsCount: 34 })!;
+  assert.deepEqual(planStateFindings(plan, { clockDiscardedAt: 0 }), []);
+  assert.match(planStateNote(plan, { clockDiscardedAt: 0 }), /planner 7 vs cards 34/);
+});
+
+test('CLOSE-OUT 2b — both at once is two findings', () => {
+  const cards = scenePlanFor(PLAN_3.map((x: any) => ({ ...x, exits: undefined })), 'cards', { plannerCount: 7, cardsCount: 34 })!;
+  const f = planStateFindings(cards, { clockDiscardedAt: 3 });
+  assert.deepEqual(f.map((x) => x.kind).sort(), ['CLOCK_DISCARDED', 'NO_EXIT_GATE']);
+});
+
+test('CLOSE-OUT 2b — a clean plan with a clock yields no findings at all', () => {
+  const plan = scenePlanFor(PLAN_3, 'planner')!;   // PLAN_3 declares one exit
+  assert.deepEqual(planStateFindings(plan, { clockDiscardedAt: 0 }), []);
+  assert.deepEqual(planStateFindings(null, { clockDiscardedAt: 0 }), []);
+});
+
+test('CLOSE-OUT 2b — CONTROL: as notes, the summary could call it all clear', () => {
+  const cards = scenePlanFor(PLAN_3.map((x: any) => ({ ...x, exits: undefined })), 'cards')!;
+  // what 50f8bec did: the facts on the reason, state untouched
+  const asNote = findingsEntry('planState', [], scenePlanSubject(cards));
+  assert.equal(asNote.state, 'CLEAN');
+  assert.equal(surfaceSummary(checkSurface({ planState: asNote }, { plan: scenePlanSubject(cards) })).findings, 0,
+    'the defect: no planned clock, no exit gate, and nothing counted');
+  // now, as findings
+  const asFindings = findingsEntry('planState', planStateFindings(cards, { clockDiscardedAt: 1 }), scenePlanSubject(cards));
+  assert.equal(asFindings.state, 'FINDINGS');
+  assert.equal(asFindings.items.length, 2);
+  assert.equal(surfaceSummary(checkSurface({ planState: asFindings }, { plan: scenePlanSubject(cards) })).allClear, false);
 });

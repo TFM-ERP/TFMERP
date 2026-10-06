@@ -194,21 +194,67 @@ export function scenePlanFor(
  *   THE UNDECLARED EXITS. 0 of 34, because the cards carry no exits field. Said plainly, with the
  *   source beside it, so the zero cannot be read as "nobody dies in this film".
  */
+export interface PlanStateFinding { kind: 'CLOCK_DISCARDED' | 'NO_EXIT_GATE'; scenes: number[]; detail: string }
+
+/**
+ * TWO THINGS THAT ARE FINDINGS, NOT NOTES.
+ *
+ * As notes they rode on the entry's reason while its state stayed CLEAN, so surfaceSummary could
+ * report allClear over a draft that two of its own guards never covered. An all-clear is a claim
+ * about what was checked, and neither of these was.
+ *
+ *   CLOCK_DISCARDED  extractPlanState drops the WHOLE planned clock when it runs backwards at any
+ *                    point. The draft was then written with no planned clock at all, so every
+ *                    downstream time check had nothing to work from. Whether to discard is plan 4;
+ *                    that it HAPPENED is a finding either way.
+ *   NO_EXIT_GATE     a cards-sourced plan cannot declare an exit — sceneCards maps five fields and
+ *                    no `exits` — so the exit gate that stops a dead character speaking eighty
+ *                    pages later had no input. Not "nobody dies": nobody could say.
+ *
+ * A PLANNER-SOURCED ZERO IS NOT HERE. The planner was asked for exits and declared none; that is an
+ * answer, and reporting it as a finding would cry wolf on every film where nobody dies. It stays a
+ * note. So do the two counts — provenance, not a defect.
+ *
+ * `scenes` is empty on both: each is a property of the whole draft, and naming a scene would send a
+ * reader somewhere to look for something that is not there.
+ */
+export function planStateFindings(
+  plan: StoredScenePlan | null | undefined,
+  facts?: { clockDiscardedAt?: number } | null,
+): PlanStateFinding[] {
+  const out: PlanStateFinding[] = [];
+  const dropped = Number((facts && facts.clockDiscardedAt) || 0);
+  if (dropped > 0) {
+    out.push({
+      kind: 'CLOCK_DISCARDED',
+      scenes: [],
+      detail: 'the planned clock ran backwards at ' + dropped + ' point' + (dropped === 1 ? '' : 's')
+        + ' and was discarded in full — this draft was written with no planned clock, so no time check had anything to read',
+    });
+  }
+  if (plan && plan.count > 0 && plan.exitsDeclared === 0 && plan.source === 'cards') {
+    out.push({
+      kind: 'NO_EXIT_GATE',
+      scenes: [],
+      detail: 'no exits could be declared for any of ' + plan.count + ' scene(s): the plan came from the cards,'
+        + ' and the SCENES cards carry no exits field — so the exit gate had no input, which is not the same as nobody dying',
+    });
+  }
+  return out;
+}
+
+/**
+ * What is worth recording but is not a defect: a planner-sourced zero, and the provenance of the
+ * list that won. Appended to the entry's reason, leaving its state alone.
+ */
 export function planStateNote(
   plan: StoredScenePlan | null | undefined,
   facts?: { clockDiscardedAt?: number } | null,
 ): string {
   const bits: string[] = [];
-  const dropped = Number((facts && facts.clockDiscardedAt) || 0);
-  if (dropped > 0) {
-    bits.push('the planned clock ran backwards at ' + dropped + ' point' + (dropped === 1 ? '' : 's')
-      + ' and was discarded in full — this draft was written with no planned clock');
-  }
-  if (plan && plan.count > 0 && plan.exitsDeclared === 0) {
-    const where = plan.source === 'cards'
-      ? ' (the SCENES cards carry no exits field, so a cards-sourced plan cannot declare one)'
-      : '';
-    bits.push('no exits declared in ' + plan.count + ' scene(s) from the ' + plan.source + where);
+  if (plan && plan.count > 0 && plan.exitsDeclared === 0 && plan.source !== 'cards') {
+    bits.push('no exits declared in ' + plan.count + ' scene(s) from the ' + plan.source
+      + ' — the planner was asked and declared none');
   }
   if (plan && plan.plannerCount != null && plan.cardsCount != null) {
     bits.push('planner ' + plan.plannerCount + ' vs cards ' + plan.cardsCount + ' — the ' + plan.source + ' won');

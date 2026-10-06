@@ -33,7 +33,7 @@ import {
   type Slice, type PlanStateFailure, type PlanStateFailureKind,
 } from './plan-state-slices.util';
 import { checkSurface, surfaceSummary } from './check-surface.util';
-import { scenePlanFor, scenePlanSubject, planStateNote } from './scene-plan.util';
+import { scenePlanFor, scenePlanSubject, planStateNote, planStateFindings } from './scene-plan.util';
 import {
   classifyLine, nextInSpeech, checkScene, checkDraftContinuity, checkPlanCast, stripExitedCast,
   collectExits, unavailableLine, dedupeScenes, repairInstruction, summariseContinuity,
@@ -5449,7 +5449,18 @@ export class ScripOnService {
            * the strongest possible statement about a plan nobody read. `threw` carries the reason
            * through, and `found: null` is what findingsEntry turns into NOT_RUN.
            */
-          found: planState.threw ? null : planState.failures,
+          /**
+           * CLOSE-OUT 2b — THE DISCARDED CLOCK AND THE MISSING EXIT GATE ARE FINDINGS.
+           *
+           * As notes they rode under a CLEAN state, so the summary could report allClear over a
+           * draft that two of its own guards never covered: no planned clock for any time check to
+           * read, and no exits for the gate that stops a dead character speaking. A planner-sourced
+           * zero and the two counts stay on the note — the first is an answer, the second is
+           * provenance.
+           */
+          found: planState.threw ? null : (planState.failures as any[]).concat(
+            planStateFindings(storedPlan, { clockDiscardedAt: planState.clockDiscardedAt }) as any[],
+          ),
           error: planState.threw ? 'the plan-state extraction failed outright — ' + planState.threw : undefined,
           /**
            * CLOSE-OUT 1 — FINGERPRINTED OVER WHAT THE COLUMN HOLDS.
@@ -5466,7 +5477,8 @@ export class ScripOnService {
           note: [
             planCeilingNotes.length ? planCeilingNotes.length + ' planning call(s) near the ceiling: ' + planCeilingNotes.join('; ') : '',
             planState.nearMisses ? planState.nearMisses + ' plan-state call(s) near the ceiling' : '',
-            // CLOSE-OUT 2 + 3 — the discarded clock, the undeclared exits, and which list won.
+            // CLOSE-OUT 2 + 3 — what is provenance rather than a defect: a planner-sourced zero,
+            // and which list won. The clock and the missing exit gate are FINDINGS above.
             planStateNote(storedPlan, { clockDiscardedAt: planState.clockDiscardedAt }),
           ].filter(Boolean).join(' · ') || undefined,
         },
@@ -5995,7 +6007,18 @@ export class ScripOnService {
            * the strongest possible statement about a plan nobody read. `threw` carries the reason
            * through, and `found: null` is what findingsEntry turns into NOT_RUN.
            */
-          found: planState.threw ? null : planState.failures,
+          /**
+           * CLOSE-OUT 2b — THE DISCARDED CLOCK AND THE MISSING EXIT GATE ARE FINDINGS.
+           *
+           * As notes they rode under a CLEAN state, so the summary could report allClear over a
+           * draft that two of its own guards never covered: no planned clock for any time check to
+           * read, and no exits for the gate that stops a dead character speaking. A planner-sourced
+           * zero and the two counts stay on the note — the first is an answer, the second is
+           * provenance.
+           */
+          found: planState.threw ? null : (planState.failures as any[]).concat(
+            planStateFindings(storedPlan, { clockDiscardedAt: planState.clockDiscardedAt }) as any[],
+          ),
           error: planState.threw ? 'the plan-state extraction failed outright — ' + planState.threw : undefined,
           /**
            * CLOSE-OUT 1 — FINGERPRINTED OVER WHAT THE COLUMN HOLDS.
@@ -6012,7 +6035,8 @@ export class ScripOnService {
           note: [
             planCeilingNotes.length ? planCeilingNotes.length + ' planning call(s) near the ceiling: ' + planCeilingNotes.join('; ') : '',
             planState.nearMisses ? planState.nearMisses + ' plan-state call(s) near the ceiling' : '',
-            // CLOSE-OUT 2 + 3 — the discarded clock, the undeclared exits, and which list won.
+            // CLOSE-OUT 2 + 3 — what is provenance rather than a defect: a planner-sourced zero,
+            // and which list won. The clock and the missing exit gate are FINDINGS above.
             planStateNote(storedPlan, { clockDiscardedAt: planState.clockDiscardedAt }),
           ].filter(Boolean).join(' · ') || undefined,
         },
