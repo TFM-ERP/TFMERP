@@ -8,7 +8,7 @@ import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { scenePlanFor, PLANNER_FIELDS, scenePlanSubject } from './scene-plan.util';
+import { scenePlanFor, PLANNER_FIELDS, scenePlanSubject, planStateNote } from './scene-plan.util';
 import { findingsEntry } from './revision-checks.util';
 import { checkSurface } from './check-surface.util';
 
@@ -235,8 +235,22 @@ test('WIRING — both paths go through the ONE function, and it decides the sour
 });
 
 test('WIRING — the extend path records the index it wrote from; the fresh path does not', () => {
-  assert.equal(SERVICE.includes('await this.storeScenePlan(revId, scenes, planSource, startIdx);'), true);
-  assert.equal(SERVICE.includes('await this.storeScenePlan(revId, scenes, planSource);'), true);
+  // The GUARANTEE, not the literal call text: an earlier version of this test pinned the exact
+  // argument list and went red the moment a new argument was added, which says nothing about
+  // whether the index is still passed. Each call site is read to its closing paren instead.
+  const calls = allOf(/await this\.storeScenePlan\(/g).map((i) => {
+    let depth = 0;
+    for (let j = i; j < SERVICE.length; j++) {
+      if (SERVICE[j] === '(') depth++;
+      else if (SERVICE[j] === ')') { depth--; if (depth === 0) return SERVICE.slice(i, j + 1); }
+    }
+    return SERVICE.slice(i, i + 400);
+  });
+  assert.equal(calls.length, 2, 'one call per feature path');
+  const withIndex = calls.filter((c) => /\bstartIdx\b/.test(c));
+  assert.equal(withIndex.length, 1, 'exactly one path writes from an index — the extend path');
+  // and both now carry the two counts, so "which list won" is checkable on either path
+  assert.equal(calls.filter((c) => /plannerCount/.test(c) && /cardsCount/.test(c)).length, 2);
 });
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────
@@ -297,4 +311,68 @@ test('CLOSE-OUT 1 — CONTROL: hashing the raw handed list cannot be verified fr
   const fixed = findingsEntry('planState', [], scenePlanSubject(stored));
   assert.equal(checkSurface({ planState: fixed }, { plan: scenePlanSubject(stored) })
     .find((r) => r.kind === 'planState')!.display, 'CLEAN');
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// CLOSE-OUT 2 + 3 — WHAT RUN 1 KNEW AND DID NOT WRITE DOWN.
+//
+// Run 1 logged "the planned clock runs backwards at 1 point(s) — dropping it" and nothing reached
+// the revision: the whole planned clock was discarded and the row said the sweep "found nothing".
+// And the plan it stored carried 0 exits across all 34 scenes — not because the planner declared
+// none, but because sceneCards (:2949) maps five fields and no `exits` at all, so a cards-sourced
+// plan structurally CANNOT declare one. Neither fact was anywhere a reader would find it.
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+
+test('CLOSE-OUT 3 — the plan records both counts, so "cards won" is checkable', () => {
+  const s = scenePlanFor(PLAN_3, 'cards', { plannerCount: 7, cardsCount: 34 })!;
+  assert.equal(s.source, 'cards');
+  assert.equal(s.plannerCount, 7);
+  assert.equal(s.cardsCount, 34);
+  // run 1: the planner's own list was never stored, and could only be INFERRED from output tokens
+  assert.notEqual(s.plannerCount, s.cardsCount);
+});
+
+test('CLOSE-OUT 3 — unknown counts are null, never 0', () => {
+  const s = scenePlanFor(PLAN_3, 'planner')!;
+  assert.equal(s.plannerCount, null, 'a caller that did not say must not read as "the planner returned none"');
+  assert.equal(s.cardsCount, null);
+  assert.equal(scenePlanFor(PLAN_3, 'cards', { plannerCount: 0, cardsCount: 0 })!.plannerCount, 0,
+    'a real zero is a real zero');
+});
+
+test('CLOSE-OUT 3 — a list that declares no exits says so', () => {
+  const none = scenePlanFor(PLAN_3.map((x: any) => ({ ...x, exits: undefined })), 'cards')!;
+  assert.equal(none.exitsDeclared, 0);
+  assert.equal(scenePlanFor(PLAN_3, 'planner')!.exitsDeclared, 1, 'PLAN_3 has one');
+});
+
+test('CLOSE-OUT 2 + 3 — the planState note names the clock discard and the missing exits', () => {
+  const plan = scenePlanFor(PLAN_3.map((x: any) => ({ ...x, exits: undefined })), 'cards', { plannerCount: 7, cardsCount: 34 })!;
+  const note = planStateNote(plan, { clockDiscardedAt: 1 });
+  assert.match(note, /clock/i);
+  assert.match(note, /1 point/, 'how many points, not just that it happened');
+  assert.match(note, /discarded/i);
+  assert.match(note, /no exits/i);
+  assert.match(note, /cards/, 'and which list it came from');
+  assert.match(note, /7/); assert.match(note, /34/);
+});
+
+test('CLOSE-OUT 2 — a clock that ran forwards says nothing about the clock', () => {
+  const plan = scenePlanFor(PLAN_3, 'planner', { plannerCount: 3, cardsCount: 0 })!;
+  const note = planStateNote(plan, { clockDiscardedAt: 0 });
+  assert.doesNotMatch(note, /clock/i, 'silence is right when there is nothing to report');
+  assert.doesNotMatch(note, /no exits/i, 'PLAN_3 declares one');
+});
+
+test('CLOSE-OUT 2 — nothing to say at all is an empty note, not a sentence about nothing', () => {
+  const plan = scenePlanFor(PLAN_3, 'planner')!;
+  assert.equal(planStateNote(plan, { clockDiscardedAt: 0 }), '');
+  assert.equal(planStateNote(null, { clockDiscardedAt: 0 }), '');
+});
+
+test('CLOSE-OUT 2 — CONTROL: logging the discard leaves the row saying "found nothing"', () => {
+  const plan = scenePlanFor(PLAN_3, 'planner', { plannerCount: 3, cardsCount: 0 })!;
+  const silent = '';   // what run 1 recorded
+  assert.equal(silent, '', 'the defect: the whole planned clock went, and the row was clean');
+  assert.match(planStateNote(plan, { clockDiscardedAt: 1 }), /clock/i);
 });

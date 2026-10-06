@@ -65,6 +65,24 @@ export interface StoredScenePlan {
   at: string;
   source: ScenePlanSource;
   /**
+   * BOTH COUNTS, SO "THE CARDS WON" IS CHECKABLE RATHER THAN ASSERTED.
+   *
+   * `source` says which list the writer got; these say what the alternative was. On run 1 the cards
+   * won 34 to roughly 7, and that 7 could only be INFERRED from the planning call's output tokens
+   * because the planner's own list is stored nowhere. null means the caller did not say — never 0,
+   * which would read as "the planner returned none".
+   */
+  plannerCount: number | null;
+  cardsCount: number | null;
+  /**
+   * How many scenes in the stored list declare an exit.
+   *
+   * Run 1 stored 0 of 34, and the reason was not that the planner saw no deaths: sceneCards maps
+   * five fields and no `exits` at all, so a cards-sourced plan CANNOT declare one. A zero here with
+   * source 'cards' is a statement about the pipeline, not about the story.
+   */
+  exitsDeclared: number;
+  /**
    * The index this run began writing at, on the extend path. NULL means "not an extend" — 0 would
    * say an extend found nothing written, which is a different fact and a real one.
    */
@@ -123,27 +141,79 @@ export function planHeading(sc: any): string {
 export function scenePlanFor(
   handed: any,
   source: ScenePlanSource = 'unknown',
-  opts?: { wroteFrom?: number | null } | null,
+  opts?: {
+    wroteFrom?: number | null;
+    /** What the planner's own list held, and what the SCENES cards held. See StoredScenePlan. */
+    plannerCount?: number | null;
+    cardsCount?: number | null;
+  } | null,
   now: Date = new Date(),
 ): StoredScenePlan | null {
   if (!Array.isArray(handed)) return null;
   const from = opts && opts.wroteFrom != null ? Number(opts.wroteFrom) : null;
+  const num = (v: any): number | null => {
+    if (v == null) return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+  const scenes = handed.map((sc: any) => ({
+    intExt: str(sc && sc.intExt),
+    location: str(sc && sc.location),
+    dayNight: str(sc && sc.dayNight),
+    brief: str(sc && sc.brief),
+    characters: str(sc && sc.characters),
+    exits: exitsOf(sc && sc.exits),
+    pageWeight: weight(sc && sc.pageWeight),
+    heading: planHeading(sc),
+  }));
   return {
     count: handed.length,
     at: now.toISOString(),
     source,
     wroteFrom: Number.isFinite(from as number) ? (from as number) : null,
-    scenes: handed.map((sc: any) => ({
-      intExt: str(sc && sc.intExt),
-      location: str(sc && sc.location),
-      dayNight: str(sc && sc.dayNight),
-      brief: str(sc && sc.brief),
-      characters: str(sc && sc.characters),
-      exits: exitsOf(sc && sc.exits),
-      pageWeight: weight(sc && sc.pageWeight),
-      heading: planHeading(sc),
-    })),
+    plannerCount: num(opts && opts.plannerCount),
+    cardsCount: num(opts && opts.cardsCount),
+    exitsDeclared: scenes.filter((x) => x.exits.length > 0).length,
+    scenes,
   };
+}
+
+/**
+ * WHAT THE RUN KNEW AND THE ROW DID NOT SAY.
+ *
+ * Appended to the planState entry's reason, never folded into its state: none of this is a defect
+ * in the plan state, and a clean sweep must stay clean. Two facts, both measured on run 1 and both
+ * reaching nothing but a log line:
+ *
+ *   THE DISCARDED CLOCK. extractPlanState drops the WHOLE planned clock when it runs backwards at
+ *   any point (clock.clear()), on the sound grounds that handing a broken timeline to a hundred
+ *   scene prompts spreads the damage. Run 1 discarded it at 1 point and the row still read "the
+ *   planState sweep ran and found nothing" — so a reader could not tell a draft written WITH a
+ *   planned clock from one written without. The discard rule is untouched; only the silence is.
+ *
+ *   THE UNDECLARED EXITS. 0 of 34, because the cards carry no exits field. Said plainly, with the
+ *   source beside it, so the zero cannot be read as "nobody dies in this film".
+ */
+export function planStateNote(
+  plan: StoredScenePlan | null | undefined,
+  facts?: { clockDiscardedAt?: number } | null,
+): string {
+  const bits: string[] = [];
+  const dropped = Number((facts && facts.clockDiscardedAt) || 0);
+  if (dropped > 0) {
+    bits.push('the planned clock ran backwards at ' + dropped + ' point' + (dropped === 1 ? '' : 's')
+      + ' and was discarded in full — this draft was written with no planned clock');
+  }
+  if (plan && plan.count > 0 && plan.exitsDeclared === 0) {
+    const where = plan.source === 'cards'
+      ? ' (the SCENES cards carry no exits field, so a cards-sourced plan cannot declare one)'
+      : '';
+    bits.push('no exits declared in ' + plan.count + ' scene(s) from the ' + plan.source + where);
+  }
+  if (plan && plan.plannerCount != null && plan.cardsCount != null) {
+    bits.push('planner ' + plan.plannerCount + ' vs cards ' + plan.cardsCount + ' — the ' + plan.source + ' won');
+  }
+  return bits.join(' · ');
 }
 
 /**

@@ -33,7 +33,7 @@ import {
   type Slice, type PlanStateFailure, type PlanStateFailureKind,
 } from './plan-state-slices.util';
 import { checkSurface, surfaceSummary } from './check-surface.util';
-import { scenePlanFor, scenePlanSubject } from './scene-plan.util';
+import { scenePlanFor, scenePlanSubject, planStateNote } from './scene-plan.util';
 import {
   classifyLine, nextInSpeech, checkScene, checkDraftContinuity, checkPlanCast, stripExitedCast,
   collectExits, unavailableLine, dedupeScenes, repairInstruction, summariseContinuity,
@@ -3997,8 +3997,8 @@ export class ScripOnService {
    */
   private async extractPlanState(
     scenes: any[], reg: EntityRegistry, projectId: string,
-  ): Promise<{ facts: StateFact[]; places: PlaceObservation[]; transit: Set<number>; clock: Map<number, number>; props: PropEvent[]; designators: string[]; recalled: Set<number>; failures: PlanStateFailure[]; nearMisses: number; threw?: string }> {
-    const empty = { facts: [] as StateFact[], places: [] as PlaceObservation[], transit: new Set<number>(), clock: new Map<number, number>(), props: [] as PropEvent[], designators: [] as string[], recalled: new Set<number>(), failures: [] as PlanStateFailure[], nearMisses: 0 };
+  ): Promise<{ facts: StateFact[]; places: PlaceObservation[]; transit: Set<number>; clock: Map<number, number>; props: PropEvent[]; designators: string[]; recalled: Set<number>; failures: PlanStateFailure[]; nearMisses: number; clockDiscardedAt: number; threw?: string }> {
+    const empty = { facts: [] as StateFact[], places: [] as PlaceObservation[], transit: new Set<number>(), clock: new Map<number, number>(), props: [] as PropEvent[], designators: [] as string[], recalled: new Set<number>(), failures: [] as PlanStateFailure[], nearMisses: 0, clockDiscardedAt: 0 };
     const list = Array.isArray(scenes) ? scenes : [];
     if (!list.length) return empty;
 
@@ -4058,6 +4058,7 @@ export class ScripOnService {
     const PLAN_STATE_MAXTOK = 16000;
     const planFailures: PlanStateFailure[] = [];
     let planNearMisses = 0;
+    let clockDiscardedAt = 0;
 
     /** One attempt at one slice: the parsed rows, or why it failed. */
     const askSlice = async (sl: Slice): Promise<{ rows: any[] } | { fail: PlanStateFailureKind; why: string }> => {
@@ -4216,6 +4217,10 @@ export class ScripOnService {
         // cannot keep it straight, handing it to 139 scene prompts would only spread the damage.
         this.log.warn('extractPlanState: the planned clock runs backwards at ' + backwards
           + ' point(s) — dropping it rather than handing a broken timeline to the writer.');
+        // CLOSE-OUT 2 — the DISCARD is the fact a reader needs, and it reached nothing but this
+        // line. The rule is untouched (whether to discard is plan 4); the count travels out so the
+        // planState row can say the draft was written with no planned clock.
+        clockDiscardedAt = backwards;
         clock.clear();
       } else {
         this.log.log('extractPlanState: clock planned for ' + times.length + ' scene(s), '
@@ -4229,7 +4234,7 @@ export class ScripOnService {
       for (const b of bad.slice(0, 10)) this.log.warn('  prop: ' + b.detail);
     }
     if (designators.size) this.log.log('extractPlanState: ' + designators.size + ' locked designator(s) — ' + Array.from(designators).slice(0, 12).join(', '));
-    return { facts, places: expanded, transit, clock, props, designators: Array.from(designators), recalled: recalledScenes, failures: planFailures, nearMisses: planNearMisses };
+    return { facts, places: expanded, transit, clock, props, designators: Array.from(designators), recalled: recalledScenes, failures: planFailures, nearMisses: planNearMisses, clockDiscardedAt };
   }
 
   private cueCounts(view: { heading: string; text: string }[]): Map<string, number> {
@@ -5003,9 +5008,15 @@ export class ScripOnService {
    * script.
    */
   private async storeScenePlan(
-    revId: string, handed: any[], source: 'planner' | 'cards', wroteFrom?: number | null,
+    revId: string, handed: any[], source: 'planner' | 'cards',
+    counts?: { plannerCount?: number | null; cardsCount?: number | null } | null,
+    wroteFrom?: number | null,
   ): Promise<ReturnType<typeof scenePlanFor>> {
-    const plan = scenePlanFor(handed, source, { wroteFrom: wroteFrom == null ? null : wroteFrom });
+    const plan = scenePlanFor(handed, source, {
+      wroteFrom: wroteFrom == null ? null : wroteFrom,
+      plannerCount: counts ? counts.plannerCount : null,
+      cardsCount: counts ? counts.cardsCount : null,
+    });
     if (!revId) return plan;
     try {
       await (this.prisma as any).scriptRevision.update({ where: { id: revId }, data: { scenePlan: plan as any } });
@@ -5243,7 +5254,7 @@ export class ScripOnService {
       // fields cannot carry. It mutates `ledgerSeed.reg` by registering the vessels and objects the
       // story declares, which is why it runs before the writer starts rather than beside it.
       const planState = await this.extractPlanState(scenes, ledgerSeed.reg, projectId)
-        .catch((e: any) => { this.log.warn('extractPlanState: skipped — ' + this.why(e)); return { facts: [] as StateFact[], places: [] as PlaceObservation[], transit: new Set<number>(), clock: new Map<number, number>(), props: [] as PropEvent[], designators: [] as string[], recalled: new Set<number>(), failures: [] as PlanStateFailure[], nearMisses: 0, threw: this.why(e) }; });
+        .catch((e: any) => { this.log.warn('extractPlanState: skipped — ' + this.why(e)); return { facts: [] as StateFact[], places: [] as PlaceObservation[], transit: new Set<number>(), clock: new Map<number, number>(), props: [] as PropEvent[], designators: [] as string[], recalled: new Set<number>(), failures: [] as PlanStateFailure[], nearMisses: 0, clockDiscardedAt: 0, threw: this.why(e) }; });
       /**
        * THE SPINE, handed to each scene as it is written.
        *
@@ -5297,7 +5308,8 @@ export class ScripOnService {
         return;
       }
       // Plan 01 task 5 — the list the writer is about to be handed, stored before the first scene.
-      const storedPlan = await this.storeScenePlan(revId, scenes, planSource);
+      const storedPlan = await this.storeScenePlan(revId, scenes, planSource,
+        { plannerCount: planned.length, cardsCount: existing ? existing.length : 0 });
       setP({
         total: scenes.length, phase: 'WRITING', note: '',
         targetPages: lenPlan ? lenPlan.targetPages : null,
@@ -5434,6 +5446,8 @@ export class ScripOnService {
           note: [
             planCeilingNotes.length ? planCeilingNotes.length + ' planning call(s) near the ceiling: ' + planCeilingNotes.join('; ') : '',
             planState.nearMisses ? planState.nearMisses + ' plan-state call(s) near the ceiling' : '',
+            // CLOSE-OUT 2 + 3 — the discarded clock, the undeclared exits, and which list won.
+            planStateNote(storedPlan, { clockDiscardedAt: planState.clockDiscardedAt }),
           ].filter(Boolean).join(' · ') || undefined,
         },
       }, savedText);
@@ -5792,7 +5806,7 @@ export class ScripOnService {
       // fields cannot carry. It mutates `ledgerSeed.reg` by registering the vessels and objects the
       // story declares, which is why it runs before the writer starts rather than beside it.
       const planState = await this.extractPlanState(scenes, ledgerSeed.reg, projectId)
-        .catch((e: any) => { this.log.warn('extractPlanState: skipped — ' + this.why(e)); return { facts: [] as StateFact[], places: [] as PlaceObservation[], transit: new Set<number>(), clock: new Map<number, number>(), props: [] as PropEvent[], designators: [] as string[], recalled: new Set<number>(), failures: [] as PlanStateFailure[], nearMisses: 0, threw: this.why(e) }; });
+        .catch((e: any) => { this.log.warn('extractPlanState: skipped — ' + this.why(e)); return { facts: [] as StateFact[], places: [] as PlaceObservation[], transit: new Set<number>(), clock: new Map<number, number>(), props: [] as PropEvent[], designators: [] as string[], recalled: new Set<number>(), failures: [] as PlanStateFailure[], nearMisses: 0, clockDiscardedAt: 0, threw: this.why(e) }; });
       /**
        * THE SPINE, handed to each scene as it is written.
        *
@@ -5843,7 +5857,8 @@ export class ScripOnService {
       // Plan 01 task 5 — before the first scene, and before the early return below: a run that
       // writes nothing still records the list it was checked against, and the index it would have
       // started from.
-      const storedPlan = await this.storeScenePlan(revId, scenes, planSource, startIdx);
+      const storedPlan = await this.storeScenePlan(revId, scenes, planSource,
+        { plannerCount: planned.length, cardsCount: existing ? existing.length : 0 }, startIdx);
       if (startIdx >= scenes.length) { setP({ status: 'DONE', done: scenes.length, total: scenes.length, pageCount: existingPages.length, coverage: 'COMPLETE', coverageNote: 'Script already covers the full planned scene list.' }); return; }
       setP({
         total: scenes.length, done: startIdx, phase: 'WRITING', note: '',
@@ -5957,6 +5972,8 @@ export class ScripOnService {
           note: [
             planCeilingNotes.length ? planCeilingNotes.length + ' planning call(s) near the ceiling: ' + planCeilingNotes.join('; ') : '',
             planState.nearMisses ? planState.nearMisses + ' plan-state call(s) near the ceiling' : '',
+            // CLOSE-OUT 2 + 3 — the discarded clock, the undeclared exits, and which list won.
+            planStateNote(storedPlan, { clockDiscardedAt: planState.clockDiscardedAt }),
           ].filter(Boolean).join(' · ') || undefined,
         },
       }, savedText);
