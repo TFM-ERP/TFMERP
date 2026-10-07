@@ -10,7 +10,7 @@ import { strict as assert } from 'node:assert';
 import {
   fingerprint, checkEntry, endingEntry, mergeChecks, readCheckEntry, readChecks, resolveSecondLook,
   EXPECTED_CHECKS, SUBJECT_OF, CAN_DETECT, LATIN_SHARE_FLOOR, latinShare, findingsEntry, sweepFailed,
-  shouldRecheckPlanEnding, registerEntry, sceneOfQuote,
+  shouldRecheckPlanEnding, registerEntry, sceneOfQuote, registerItems,
 } from './revision-checks.util';
 import { findFalseSceneBreaks, findEchoedPhrases } from './continuity.util';
 import { loadCapture, missingCapture, captureText } from './capture-fixture.util';
@@ -754,4 +754,54 @@ test('an ordinary clean reply is still CLEAN, and an ordinary finding still FIND
   const e = registerEntry(regReport({ items: [regItem(1, 'A line of script.')], contradicted: 1 }), PAGES);
   assert.equal(e.state, 'FINDINGS');
   assert.doesNotMatch(e.reason, /at least/, 'nothing was cut off, so nothing is incomplete');
+});
+
+/**
+ * THE DOCTOR'S LINE NAMES THE KIND OF RULE — Plan 01 close-out 2, follow-up 2.
+ *
+ * The script is fed three kinds at once (REGISTER, PROHIBITION, ORDERING) and the same source rule
+ * often arrives as two of them — measured on one real canon, two pairs share a sourceOffset and are
+ * the same rule restated. Without the kind on the row, those read as two unrelated findings.
+ *
+ * An item with NO kind keeps the wording it has: a ladder check carries one kind by definition, and
+ * so does any row stored before the kind existed.
+ */
+const RULE_ROW = (over: Record<string, any> = {}) => ({
+  line: 7, section: 'CHARACTERS', rule: 'Do not take the late ferry.',
+  draft: 'He took the late ferry.', why: 'he takes it in scene 3', quoteFound: true, ...over,
+});
+const RULE_TEXT = '1  INT. JETTY - NIGHT\n\nHe took the late ferry.';
+
+test('a script rule item names its kind, and says "rule line"', () => {
+  const [item] = registerItems(RULE_TEXT, [RULE_ROW({ kind: 'PROHIBITION' })]);
+  assert.match(item.detail, /^rule line 7 \[PROHIBITION\]/);
+  assert.match(item.detail, /Do not take the late ferry\./);
+  assert.match(item.detail, /he takes it in scene 3/);
+  assert.equal(item.kind, 'REGISTER', 'the ROW is still the register check; the kind is the rule\'s');
+});
+
+test('each of the three kinds prints its own name', () => {
+  for (const k of ['REGISTER', 'PROHIBITION', 'ORDERING']) {
+    const [item] = registerItems(RULE_TEXT, [RULE_ROW({ kind: k })]);
+    assert.match(item.detail, new RegExp('^rule line 7 \\[' + k + '\\]'));
+  }
+});
+
+test('CONTROL: an item with no kind is unchanged — ladder checks and older rows', () => {
+  const [item] = registerItems(RULE_TEXT, [RULE_ROW()]);
+  assert.match(item.detail, /^register line 7 \("Do not take the late ferry\."\) — he takes it in scene 3$/,
+    'a ladder check carries one kind by definition; inventing a label for it would be noise');
+  assert.doesNotMatch(item.detail, /\[/);
+});
+
+test('the scene still comes from the quote, kind or no kind', () => {
+  const withKind = registerItems(RULE_TEXT, [RULE_ROW({ kind: 'ORDERING' })])[0];
+  const without = registerItems(RULE_TEXT, [RULE_ROW()])[0];
+  assert.equal(withKind.scene, without.scene);
+  assert.equal(withKind.scene, 1);
+});
+
+test('a missing line number still reads "?" either way', () => {
+  assert.match(registerItems(RULE_TEXT, [RULE_ROW({ line: null, kind: 'ORDERING' })])[0].detail, /^rule line \? \[ORDERING\]/);
+  assert.match(registerItems(RULE_TEXT, [RULE_ROW({ line: null })])[0].detail, /^register line \?/);
 });

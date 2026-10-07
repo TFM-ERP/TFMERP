@@ -404,10 +404,25 @@ export function registerItems(text: any, items: any): CheckItem[] {
     const line = num(it && it.line);
     const rule = String((it && it.rule) || '').replace(/\s+/g, ' ').trim();
     const why = String((it && it.why) || '').replace(/\s+/g, ' ').trim();
+    /**
+     * WHICH KIND OF RULE WAS BROKEN.
+     *
+     * A finished script is fed three kinds at once — REGISTER, PROHIBITION, ORDERING — and the same
+     * source rule frequently arrives as two of them: measured on one real canon, two pairs share a
+     * sourceOffset and are one rule restated across kinds. Without the kind on the row they read as
+     * two unrelated findings, which is the thing feeding all three kinds was ruled to make legible.
+     *
+     * AN ITEM WITH NO KIND IS LEFT EXACTLY AS IT WAS. A ladder check adjudicates REGISTER lines
+     * only, so a label there would be noise, and a row stored before the kind existed has nothing
+     * to print. The wording changes with the kind — "rule line 7 [PROHIBITION]" against the old
+     * "register line 7" — because with three kinds in play "register line" names the wrong set.
+     */
+    const ruleKind = String((it && it.kind) || '').trim();
     return {
       scene: sceneOfQuote(text, it && it.draft),
       kind: 'REGISTER',
-      detail: 'register line ' + (line === null ? '?' : line)
+      detail: (ruleKind ? 'rule line ' : 'register line ') + (line === null ? '?' : line)
+        + (ruleKind ? ' [' + ruleKind + ']' : '')
         + (rule ? ' ("' + rule + '")' : '') + (why ? ' — ' + why : ''),
     };
   });
