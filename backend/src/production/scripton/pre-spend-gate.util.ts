@@ -38,6 +38,8 @@ export interface CheckRead {
   state: CheckState;
   /** Register-check line numbers, when it has them. */
   lines: number[];
+  /** See CheckAdvice. Present only when this finding knows a better closing line than "amend". */
+  advice?: CheckAdvice;
   /**
    * WHAT IS WRONG, NOT ONLY WHERE. A register finding reached the reader as "2 of 105 lines
    * contradicted … Line(s): 36, 52." and nothing more — and the reader is the person being asked
@@ -47,6 +49,19 @@ export interface CheckRead {
   items: Array<{ line: number | null; why: string }>;
   detail: string;
 }
+
+/**
+ * WHAT WOULD ACTUALLY HELP, when this finding is the only thing stopping the run.
+ *
+ * Every stop ends "Amend the upstream stage, or re-run with the findings waived to proceed anyway."
+ * For an UNPROVEN keep check that is wrong twice over: nothing in the treatment is known to be
+ * wrong, and amending it cannot change whether the checker quoted accurately. The reader's job there
+ * is to read the quote against the draft — so the check that knows its own situation says what it is,
+ * and gateText uses it when there is nothing else to amend.
+ *
+ * Set by readCheck. Absent on every other finding, which is how gateText knows to keep the default.
+ */
+export type CheckAdvice = string;
 
 export interface ConsumedRead { kind: string; versionId: string; checks: CheckRead[] }
 
@@ -80,8 +95,9 @@ const brief = (s: string, max = 110): string => {
 
 /** eraCheck / keepCheck publish their own state; registerCheck does not and is derived. */
 export function readCheck(name: string, value: any): CheckRead {
-  const out = (state: CheckState, detail: string, lines: number[] = [], items: CheckRead['items'] = []): CheckRead =>
-    ({ check: name, state, lines, items, detail });
+  const out = (state: CheckState, detail: string, lines: number[] = [], items: CheckRead['items'] = [],
+    advice?: CheckAdvice): CheckRead =>
+    ({ check: name, state, lines, items, detail, ...(advice ? { advice } : {}) });
   if (value == null) return out('NOT_RUN', 'no ' + name + ' is stored on this version');
 
   if (name === 'registerCheck') {
@@ -142,8 +158,27 @@ export function readCheck(name: string, value: any): CheckRead {
    */
   if (state === 'UNPROVEN') {
     const n = arr(value.unproven).length;
+    /**
+     * WHICH CLOSING LINE IS TRUE DEPENDS ON THE ROW, NOT ON THE COMMIT.
+     *
+     * The plan had this commit ship the pre-re-ask sentence and 2B.2 replace it. But a keepCheck
+     * stored before the re-ask existed has not been asked twice and never will be, so after 2B.2 the
+     * gate would claim a second ask that never happened for every row already on disk. The record
+     * says which is true: KeepReaskRecord is absent when nobody asked twice, and carries `failed`
+     * when the second call did not land — and a failed second call settled nothing, so the first
+     * sentence still holds there.
+     */
+    const reask = value.reask;
+    const asked = !!reask && !reask.failed;
+    const advice = asked
+      ? 'The checker was asked again and still could not quote the words.'
+        + ' Read the quote above against the draft, then waive to proceed.'
+      : 'Nothing in the upstream stage is known to be wrong: the checker quoted words that are not'
+        + ' in the draft, so its own evidence failed.'
+        + ' Read the quote above against the draft, then waive to proceed.';
     return out('FINDINGS', String(value.summary
-      || (n + ' thing(s) claimed but not shown — the checker quoted words that are not in the draft')));
+      || (n + ' thing(s) claimed but not shown — the checker quoted words that are not in the draft')),
+      [], [], advice);
   }
   if (state === 'FINDINGS' || state === 'MISSES') {
     const n = arr(value.findings).length || arr(value.items).length || Number(value.misses) || 0;
@@ -267,7 +302,10 @@ export function gateText(report: GateReport): string {
   }
 
   if (report.stop) {
-    out.push('Amend the upstream stage, or re-run with the findings waived to proceed anyway.');
+    // ONLY when every finding knows a better line. One other finding and amending IS the remedy for
+    // it, so the default returns — a mixed stop must not be softened by the one that is not a defect.
+    const advised = findings.length && findings.every(({ c }) => !!c.advice) ? findings[0].c.advice : null;
+    out.push(advised || 'Amend the upstream stage, or re-run with the findings waived to proceed anyway.');
   } else if (report.notRun) {
     out.push('Nothing blocks this run, but ' + report.notRun + ' check(s) never ran — their silence is not evidence.');
   }

@@ -520,3 +520,81 @@ test('CONTROL: readCheck and registerEntry agree on every cut-off shape', () => 
     }));
   }
 });
+
+/**
+ * WHEN THE ONLY STOP IS UNPROVEN, "AMEND THE UPSTREAM STAGE" IS NOT TRUE.
+ * Plan 01 close-out 2, commit 2B.1a.
+ *
+ * Every stop ends "Amend the upstream stage, or re-run with the findings waived to proceed anyway."
+ * On an UNPROVEN-only stop that is wrong twice over: nothing in the treatment is known to be wrong,
+ * and amending it cannot change whether the checker quoted accurately. The reader's actual job is to
+ * read the quote against the draft.
+ *
+ * WHICH SENTENCE IS TRUE DEPENDS ON THE ROW, NOT ON THE COMMIT. The plan had 2B.1a land the
+ * pre-re-ask wording and 2B.2 replace it. But a stored keepCheck written before the re-ask existed
+ * has not been asked twice and never will be, so after 2B.2 the gate would claim a second ask that
+ * never happened for every row already on disk. The record itself says which is true: KeepReaskRecord
+ * is absent when nobody asked twice, present when they did, and carries `failed` when the second
+ * call did not land. Both sentences therefore ship here, chosen per row.
+ */
+const UNPROVEN_BASE = {
+  state: 'UNPROVEN', misses: [],
+  unproven: ['the 3 a.m. arrival — the checker claimed this is in the draft but quoted words that are not: "7. 03:50"'],
+  summary: 'KEEP CHECK — claimed but not shown: the 3 a.m. arrival',
+};
+const AMEND = /Amend the upstream stage/;
+const gateFor = (keep: any, extra?: any) => preSpendGate(
+  { TREATMENT: 'v6', BEATS: 'v3' },
+  [{ id: 'v6', kind: 'TREATMENT', data: { ...CLEAN_TWO, keepCheck: keep } },
+   { id: 'v3', kind: 'BEATS', data: { ...CLEAN_TWO, ...(extra || {}) } }],
+);
+
+test('UNPROVEN alone, never asked twice: the gate says the evidence failed, not "amend"', () => {
+  const g = gateFor(UNPROVEN_BASE);
+  assert.equal(g.stop, true);
+  assert.doesNotMatch(g.text, AMEND, 'nothing in the treatment is known to be wrong:\n' + g.text);
+  assert.match(g.text, /its own evidence failed/);
+  assert.match(g.text, /Read the quote above against the draft, then waive to proceed\./);
+});
+
+test('UNPROVEN alone, asked twice and still unproven: the gate says so', () => {
+  const g = gateFor({ ...UNPROVEN_BASE, reask: { asked: 1, proved: 0, absent: 0, stillUnproven: 1 } });
+  assert.doesNotMatch(g.text, AMEND);
+  assert.match(g.text, /asked again and still could not quote the words/);
+});
+
+test('UNPROVEN alone, and the second call FAILED: no second ask is claimed', () => {
+  const g = gateFor({ ...UNPROVEN_BASE, reask: { asked: 1, proved: 0, absent: 0, stillUnproven: 1, failed: 'timed out' } });
+  assert.doesNotMatch(g.text, AMEND);
+  assert.match(g.text, /its own evidence failed/, 'a failed second call settled nothing, so the first sentence still holds');
+  assert.doesNotMatch(g.text, /asked again and still could not quote/);
+});
+
+test('CONTROL: a MISSES stop still says "Amend the upstream stage"', () => {
+  const g = gateFor({ state: 'MISSES', misses: ['the brass key'], unproven: [], summary: 'KEEP CHECK — not found: the brass key' });
+  assert.equal(g.stop, true);
+  assert.match(g.text, AMEND, 'there amending IS the remedy');
+});
+
+test('CONTROL: a MIXED stop still says "Amend the upstream stage"', () => {
+  const g = gateFor(UNPROVEN_BASE, {
+    registerCheck: { ok: true, checked: 26, contradicted: 1, items: [{ line: 7, section: null, rule: 'r', draft: 'd', why: 'w', quoteFound: true }], summary: '1 of 26' },
+  });
+  assert.equal(g.findings, 2);
+  assert.match(g.text, AMEND, 'something else IS wrong upstream, and amending is the remedy for it');
+});
+
+test('CONTROL: a gate that does not stop carries neither sentence', () => {
+  const g = gateFor({ state: 'NO MISSES', summary: 'KEEP CHECK — nothing missing' });
+  assert.equal(g.stop, false);
+  assert.doesNotMatch(g.text, AMEND);
+  assert.doesNotMatch(g.text, /waive to proceed/);
+});
+
+test('both UNPROVEN sentences point at the draft and never say "amend"', () => {
+  for (const keep of [UNPROVEN_BASE, { ...UNPROVEN_BASE, reask: { asked: 1, proved: 0, absent: 0, stillUnproven: 1 } }]) {
+    const t = gateFor(keep).text;
+    assert.match(t, /Read the quote above against the draft/);
+    assert.doesNotMatch(t, /amend/i);
+  }
+});
