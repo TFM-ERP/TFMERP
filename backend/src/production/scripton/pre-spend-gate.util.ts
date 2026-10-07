@@ -106,6 +106,21 @@ export function readCheck(name: string, value: any): CheckRead {
 
   const state = String(value.state || '').toUpperCase();
   if (state === 'NOT RUN' || state === 'NOT_RUN') return out('NOT_RUN', String(value.reason || value.summary || 'recorded as NOT RUN'));
+  /**
+   * UNPROVEN STOPS, AND IT IS NOT "MISSING".
+   *
+   * The keep check's fourth state: the checker claimed a thing is in the draft and quoted words that
+   * are not. Nothing has been shown either way, so it is not a pass — but it is not the draft
+   * missing anything either, and the one time it was reported as such the refusal was waived twice
+   * with a blanket boolean that cleared every other finding on those versions. The stored summary
+   * already says "claimed but not shown"; the fallback here says it too, for a row written before
+   * that wording existed.
+   */
+  if (state === 'UNPROVEN') {
+    const n = arr(value.unproven).length;
+    return out('FINDINGS', String(value.summary
+      || (n + ' thing(s) claimed but not shown — the checker quoted words that are not in the draft')));
+  }
   if (state === 'FINDINGS' || state === 'MISSES') {
     const n = arr(value.findings).length || arr(value.items).length || Number(value.misses) || 0;
     return out('FINDINGS', String(value.summary || (n + ' ' + (state === 'MISSES' ? 'miss(es)' : 'finding(s)'))));
@@ -129,6 +144,26 @@ export function isWaived(opts?: { waiveChecks?: unknown } | null): boolean {
 
 export const GATE_CHECKS = ['registerCheck', 'eraCheck', 'keepCheck'];
 
+/**
+ * THE KEEP CHECK IS WRITTEN ON TREATMENT AND NOWHERE ELSE.
+ *
+ * Run 2's refusal ran to fourteen lines. One was the finding. FIVE were "no keepCheck is stored on
+ * this version", for LOGLINE, SYNOPSIS, BEATS, SCENES and STEP_OUTLINE — none of which ever stores
+ * one, because generateStage runs the keep check on TREATMENT alone. Those five absences are a fact
+ * about the pipeline, not about the material, and printing them as unran checks both buried the one
+ * line that mattered and inflated notRun fivefold in a report whose whole job is to be read before
+ * a waiver.
+ *
+ * Skipped, not defaulted to clean: a TREATMENT with no stored keepCheck still reads NOT RUN, because
+ * there the absence IS the fact. One standing line replaces the five.
+ */
+export const KEEP_CHECK_STAGE = 'TREATMENT';
+
+export function checksForStage(kind: string, checks: string[]): string[] {
+  const k = String(kind || '').toUpperCase();
+  return checks.filter((c) => c !== 'keepCheck' || k === KEEP_CHECK_STAGE);
+}
+
 export function preSpendGate(
   consumed: Record<string, string> | null | undefined,
   versions: Array<{ id: string; kind?: string; data?: any }>,
@@ -140,7 +175,7 @@ export function preSpendGate(
     const versionId = String((consumed as any)[kind]);
     const row = (versions || []).find((v) => v && v.id === versionId);
     const data = (row && row.data) || null;
-    reads.push({ kind, versionId, checks: checks.map((c) => readCheck(c, data ? data[c] : null)) });
+    reads.push({ kind, versionId, checks: checksForStage(kind, checks).map((c) => readCheck(c, data ? data[c] : null)) });
   }
   const all = reads.reduce<CheckRead[]>((a, r) => a.concat(r.checks), []);
   const findings = all.filter((c) => c.state === 'FINDINGS').length;
@@ -200,6 +235,12 @@ export function gateText(report: GateReport): string {
 
   const clean = inState('CLEAN');
   if (clean.length) out.push(clean.length + ' other check(s): checked, clean.');
+
+  // The five lines, as one. Printed only when a consumed stage actually had it skipped — with
+  // TREATMENT the sole stage consumed, nothing was skipped and the note would be noise.
+  if (report.reads.some((r) => String(r.kind || '').toUpperCase() !== KEEP_CHECK_STAGE)) {
+    out.push('keepCheck: the keep check covers ' + KEEP_CHECK_STAGE + ' only.');
+  }
 
   if (report.stop) {
     out.push('Amend the upstream stage, or re-run with the findings waived to proceed anyway.');

@@ -380,3 +380,78 @@ test('BOTH gates call isWaived — neither keeps its own condition', () => {
     assert.doesNotMatch(line, /!opts\?\.waiveChecks/, 'the truthy form is the defect');
   }
 });
+
+/**
+ * THE GATE LEARNS UNPROVEN, AND STOPS PRINTING FIVE ABSENCES THAT ARE STRUCTURAL.
+ * Plan 01 close-out 2, commit 2A.2.
+ *
+ * Run 2's refusal was fourteen lines long. One was the finding. Five were "no keepCheck is stored on
+ * this version" for LOGLINE, SYNOPSIS, BEATS, SCENES and STEP_OUTLINE — stages that never store one,
+ * because the keep check runs on TREATMENT alone. Five lines of noise around the one line that
+ * mattered, in a refusal whose whole purpose is to be read before a waiver.
+ */
+const KEEP_STAGES = { LOGLINE: 'v1', SYNOPSIS: 'v2', BEATS: 'v3', SCENES: 'v4', STEP_OUTLINE: 'v5', TREATMENT: 'v6' };
+const CLEAN_TWO = { registerCheck: ZERO_ITEMS, eraCheck: { state: 'NO FINDINGS' } };
+const keepVersions = (treatmentData: any) => [
+  { id: 'v1', kind: 'LOGLINE', data: { ...CLEAN_TWO } },
+  { id: 'v2', kind: 'SYNOPSIS', data: { ...CLEAN_TWO } },
+  { id: 'v3', kind: 'BEATS', data: { ...CLEAN_TWO } },
+  { id: 'v4', kind: 'SCENES', data: { ...CLEAN_TWO } },
+  { id: 'v5', kind: 'STEP_OUTLINE', data: { ...CLEAN_TWO } },
+  { id: 'v6', kind: 'TREATMENT', data: { ...CLEAN_TWO, ...(treatmentData === undefined ? {} : { keepCheck: treatmentData }) } },
+];
+
+const UNPROVEN_KEEP = {
+  state: 'UNPROVEN',
+  misses: [],
+  unproven: ['the 3 a.m. arrival — the checker claimed this is in the draft but quoted words that are not: "7. 03:50 — THE THIRD DOOR."'],
+  summary: 'KEEP CHECK — claimed but not shown: the 3 a.m. arrival — the checker claimed this is in the draft but quoted words that are not: "7. 03:50 — THE THIRD DOOR."',
+};
+const MISSES_KEEP = { state: 'MISSES', misses: ['the brass key'], unproven: [], summary: 'KEEP CHECK — not found: the brass key' };
+
+test('UNPROVEN at the gate is a FINDINGS that stops, in its own words', () => {
+  const r = readCheck('keepCheck', UNPROVEN_KEEP);
+  assert.equal(r.state, 'FINDINGS', 'nothing was shown either way, and that is not a pass');
+  assert.match(r.detail, /claimed but not shown/);
+});
+
+test('the five stages that never store a keepCheck no longer each print one', () => {
+  const g = preSpendGate(KEEP_STAGES, keepVersions({ state: 'NO MISSES', summary: 'KEEP CHECK — nothing missing' }));
+  const keepLines = g.text.split('\n').filter((l) => l.includes('keepCheck'));
+  assert.equal(keepLines.length, 1, 'six keepCheck lines became one:\n' + g.text);
+  assert.match(keepLines[0], /the keep check covers TREATMENT only/);
+  assert.equal(g.notRun, 0, 'five structural absences are not five unran checks');
+  assert.equal(g.stop, false);
+});
+
+test('a TREATMENT consumed with NO keepCheck stored still prints NOT RUN', () => {
+  const g = preSpendGate(KEEP_STAGES, keepVersions(undefined));
+  assert.match(g.text, /TREATMENT — keepCheck: no keepCheck is stored on this version/,
+    'the collapse removes the five structural absences, never the one real one:\n' + g.text);
+  assert.equal(g.notRun, 1);
+});
+
+test('an UNPROVEN keepCheck on the TREATMENT stops the gate', () => {
+  const g = preSpendGate(KEEP_STAGES, keepVersions(UNPROVEN_KEEP));
+  assert.equal(g.stop, true);
+  assert.equal(g.findings, 1);
+});
+
+test('CONTROL: the text the gate PRINTS never says "not found" for an unproven claim', () => {
+  const g = preSpendGate(KEEP_STAGES, keepVersions(UNPROVEN_KEEP));
+  // This is the control that matters: the printed refusal is what stopped the build twice.
+  assert.doesNotMatch(g.text, /not found/i, g.text);
+  assert.match(g.text, /claimed but not shown/);
+});
+
+test('CONTROL: a genuinely named-absent thing still stops, and still says not found', () => {
+  const g = preSpendGate(KEEP_STAGES, keepVersions(MISSES_KEEP));
+  assert.equal(g.stop, true);
+  assert.match(g.text, /not found: the brass key/);
+});
+
+test('CONTROL: the standing keepCheck line appears only when a stage was actually skipped', () => {
+  const only = preSpendGate({ TREATMENT: 'v6' }, keepVersions(MISSES_KEEP));
+  assert.doesNotMatch(only.text, /covers TREATMENT only/,
+    'with TREATMENT the only consumed stage, nothing was skipped and the note would be noise');
+});
