@@ -4,7 +4,7 @@
  *  document (Save as PDF). Wrapped in the ScriptON rail shell so it keeps ScriptON context. */
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { checkSummaryLine, isRevisionReady, solidColor } from '@/components/scripton/doctor/scripton-doctor.logic';
+import { checkSummaryLine, isRevisionReady, solidColor, isFirstSightOfRevision, defaultSeenStore } from '@/components/scripton/doctor/scripton-doctor.logic';
 import { productionApi } from '@/lib/api';
 import { SxRail } from '@/components/scripton/shared/sx';
 import { markScriptonGenerating, clearScriptonGenerating, isScriptonGenerating } from '@/components/scripton/useScriptonGenerating';
@@ -78,8 +78,15 @@ export default function ScriptOnScriptPage() {
    * moment a run ENDS is when the counts matter most and when nobody is scanning a toolbar, so the
    * same line is also shown as a banner beside the coverage warning — the place this page already
    * uses to tell someone something about the draft that just landed.
+   *
+   * TWO WAYS IN, BECAUSE ONE WAS NOT ENOUGH. stop() only fires for a run FOLLOWED on this page. A
+   * first generation is followed from studio/page.tsx and this page then opens as an ordinary load:
+   * no stop(), no flag, no banner. That is the path "Lost" took, which is why its counts were never
+   * put in front of anyone. So the banner also shows the FIRST time a document's active revision
+   * differs from the last one seen in this browser — once, because asking records.
    */
   const [justRan, setJustRan] = useState(false);
+  const [firstSight, setFirstSight] = useState(false);
   /**
    * Plan 01 task 7 — RE-READ WHEN A RUN FINISHES, WHATEVER THE END STATE.
    *
@@ -191,6 +198,8 @@ export default function ScriptOnScriptPage() {
         const dateStr = new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
         const baseInfo: any = { revLabel: d.revisionLabel || 'White Draft', date: dateStr };
         setTitle(ttl); setRevLabel(d.revisionLabel || 'WHITE'); setText(joined); setPages(mapped); setInfo(baseInfo); setRevId(revId); setLoading(false);
+        // Asked once per load, and it records — so a reload of the same revision does not re-show it.
+        if (isFirstSightOfRevision(docParam || docId, revId, defaultSeenStore())) setFirstSight(true);
         let info2: any = baseInfo;
         if (docParam) {
           try {
@@ -582,7 +591,7 @@ export default function ScriptOnScriptPage() {
             // CLOSE-OUT 5 — the same rule as the toolbar line, one implementation, shown where the
             // run ended. Only after a run in THIS view: on an ordinary page load the toolbar is
             // where it belongs, and a banner on every visit would be the thing nobody reads.
-            if (!justRan || loading || err) return null;
+            if ((!justRan && !firstSight) || loading || err) return null;
             const line = checkSummaryLine(ckSum);
             if (!line) return null;
             const c = solidColor(line.color);

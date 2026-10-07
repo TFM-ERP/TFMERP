@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   scorecardTiles, verdictBanner, sceneFlowBars, arcPoints, diagRows, letterFromScore, TRANSFORM_TILES,
   tint, SX_HEX, CHECK_STATE, checkRowView, checkSummaryLine,
-  isRevisionReady, solidColor, itemWhere,
+  isRevisionReady, solidColor, itemWhere, isFirstSightOfRevision, defaultSeenStore,
 } from './scripton-doctor.logic.ts';
 
 test('scorecardTiles always returns the 5 fixed categories', () => {
@@ -241,4 +241,67 @@ test('CONTROL — "scene ?" for everything conflates two different facts', () =>
   assert.equal(naive({ kind: 'LENGTH', scene: null }), naive({ kind: 'REGISTER', scene: null }),
     'the defect: the same phrase for "has no location" and "lost its location"');
   assert.notEqual(itemWhere({ kind: 'LENGTH', scene: null }), itemWhere({ kind: 'REGISTER', scene: null }));
+});
+
+// ── THE BANNER ON A FIRST OPEN, NOT ONLY AFTER A RUN IN VIEW ─────────────────────────────────
+
+const fakeStore = (seed: Record<string, string> = {}) => {
+  const m = new Map(Object.entries(seed));
+  return { get: (k: string) => m.get(k) ?? null, set: (k: string, v: string) => { m.set(k, v); }, _m: m };
+};
+
+test('isFirstSightOfRevision — a revision never seen before is a first sight', () => {
+  const s = fakeStore();
+  assert.equal(isFirstSightOfRevision('doc1', 'revA', s), true);
+});
+
+test('isFirstSightOfRevision — and asking again says no, because asking records', () => {
+  const s = fakeStore();
+  assert.equal(isFirstSightOfRevision('doc1', 'revA', s), true);
+  assert.equal(isFirstSightOfRevision('doc1', 'revA', s), false, 'a reload must not show it again');
+  assert.equal(isFirstSightOfRevision('doc1', 'revA', s), false);
+});
+
+test('isFirstSightOfRevision — a NEW revision of the same document is a first sight again', () => {
+  const s = fakeStore();
+  isFirstSightOfRevision('doc1', 'revA', s);
+  assert.equal(isFirstSightOfRevision('doc1', 'revB', s), true, 'a regenerate produces a new revision');
+  assert.equal(isFirstSightOfRevision('doc1', 'revB', s), false);
+});
+
+test('isFirstSightOfRevision — documents are remembered separately', () => {
+  const s = fakeStore();
+  isFirstSightOfRevision('doc1', 'revA', s);
+  assert.equal(isFirstSightOfRevision('doc2', 'revA', s), true, 'another script, same revision id, still new here');
+  assert.equal(isFirstSightOfRevision('doc1', 'revA', s), false);
+});
+
+test('isFirstSightOfRevision — nothing to identify is not a first sight, and records nothing', () => {
+  const s = fakeStore();
+  assert.equal(isFirstSightOfRevision('', 'revA', s), false);
+  assert.equal(isFirstSightOfRevision('doc1', '', s), false);
+  assert.equal(isFirstSightOfRevision(null, null, s), false);
+  assert.equal(s._m.size, 0, 'an unanswerable question must not write a memory');
+});
+
+test('CONTROL — not recording turns the banner into every-reload noise', () => {
+  const s = fakeStore();
+  const naive = (doc: string, rev: string) => s.get('scripton.seenRevision.' + doc) !== rev;   // asks, never records
+  assert.equal(naive('doc1', 'revA'), true);
+  assert.equal(naive('doc1', 'revA'), true, 'the defect: true for ever');
+  assert.equal(isFirstSightOfRevision('doc1', 'revA', s), true);
+  assert.equal(isFirstSightOfRevision('doc1', 'revA', s), false);
+});
+
+test('defaultSeenStore — survives a localStorage that throws on access', () => {
+  const realWindow = (globalThis as any).window;
+  (globalThis as any).window = { get localStorage(): any { throw new Error('blocked'); } };
+  try {
+    const s = defaultSeenStore();
+    assert.equal(s.get('k'), null, 'a throwing read is null, not a crash');
+    s.set('k', 'v');
+    assert.equal(s.get('k'), 'v', 'and the in-memory fallback still remembers for the session');
+  } finally {
+    if (realWindow === undefined) delete (globalThis as any).window; else (globalThis as any).window = realWindow;
+  }
 });

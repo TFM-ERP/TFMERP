@@ -245,3 +245,55 @@ export function itemWhere(item: { scene?: number | null; kind?: string } | null 
   if (WHOLE_DRAFT.has(kind)) return 'the whole draft';
   return 'scene not identified';
 }
+
+/**
+ * HAS THIS REVISION BEEN SEEN BEFORE IN THIS BROWSER?
+ *
+ * The end-of-run banner was gated on a flag set in the script page's own stop(), which only fires
+ * for a run FOLLOWED on that page. A first generation is followed from studio/page.tsx and the
+ * script page then opens as an ordinary load — no stop(), no flag, no banner. That is the path
+ * "Lost" took, which is why its counts were never put in front of anyone.
+ *
+ * So: the first time a document's active revision is a DIFFERENT one from the last seen, the
+ * banner shows. Recording the id is part of asking, because a question answered twice must answer
+ * differently the second time — otherwise the banner returns on every reload and becomes the thing
+ * nobody reads, which is the defect and not a second copy of it.
+ */
+export interface SeenStore { get(key: string): string | null; set(key: string, value: string): void }
+
+const MEMORY = new Map<string, string>();
+
+/**
+ * localStorage when it works, an in-process Map when it does not.
+ *
+ * Private windows and blocked site data make localStorage throw on ACCESS, not just on write. The
+ * fallback keeps first-sight-per-session rather than degrading to "every reload" — showing the
+ * banner forever is worse than showing it once per session, and never showing it hides a real
+ * result.
+ */
+export function defaultSeenStore(): SeenStore {
+  return {
+    get(key) {
+      try { return window.localStorage.getItem(key); } catch { return MEMORY.get(key) ?? null; }
+    },
+    set(key, value) {
+      try { window.localStorage.setItem(key, value); } catch { MEMORY.set(key, value); }
+    },
+  };
+}
+
+export function isFirstSightOfRevision(
+  docId: string | null | undefined,
+  revisionId: string | null | undefined,
+  store: SeenStore,
+): boolean {
+  const doc = String(docId || '').trim();
+  const rev = String(revisionId || '').trim();
+  // With nothing to identify, there is no question to answer — and nothing to record either.
+  if (!doc || !rev) return false;
+  const key = 'scripton.seenRevision.' + doc;
+  const last = store.get(key);
+  if (last === rev) return false;
+  store.set(key, rev);
+  return true;
+}
