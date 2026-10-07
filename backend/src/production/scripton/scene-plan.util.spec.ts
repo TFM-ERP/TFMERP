@@ -8,7 +8,7 @@ import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { scenePlanFor, PLANNER_FIELDS, scenePlanSubject, planStateNote, planStateFindings } from './scene-plan.util';
+import { scenePlanFor, PLANNER_FIELDS, scenePlanSubject, planStateNote, planStateFindings, clockBackwardPairs, CLOCK_PAIRS_SHOWN } from './scene-plan.util';
 import { findingsEntry } from './revision-checks.util';
 import { checkSurface, surfaceSummary } from './check-surface.util';
 
@@ -551,4 +551,108 @@ test('CLOSE-OUT 2b — CONTROL: as notes, the summary could call it all clear', 
   assert.equal(asFindings.state, 'FINDINGS');
   assert.equal(asFindings.items.length, 2);
   assert.equal(surfaceSummary(checkSurface({ planState: asFindings }, { plan: scenePlanSubject(cards) })).allClear, false);
+});
+
+/**
+ * CLOCK_DISCARDED NAMES ITS POINTS — Plan 01 close-out 2, commit 3.1.
+ *
+ * extractPlanState drops the WHOLE planned clock when it runs backwards at any point, on the sound
+ * grounds that handing a broken timeline to a hundred scene prompts would spread the damage. Only
+ * the COUNT survived clock.clear(), so the finding could say "2 points" and nothing more — and the
+ * planning model's reply is not persisted either, so the read-out could not enumerate them from
+ * anything. The pairs are kept before the map is cleared and travel onto the finding.
+ *
+ * `scenes` STAYS EMPTY. 26a53f5 ruled that CLOCK_DISCARDED carries no scene on purpose: it is a
+ * property of the draft, and at a midnight crossing the scene it would name is not even at fault —
+ * the scene is right and the rule reading it is wrong.
+ *
+ * A different story from the fixtures above, per the standing rule: an invented morning schedule.
+ */
+const MORNING = [
+  { scene: 1, minutes: 7 * 60 + 30 },
+  { scene: 2, minutes: 8 * 60 + 15 },
+  { scene: 3, minutes: 9 * 60 },
+];
+const pairDetail = (pairs: any[], dropped = pairs.length) =>
+  planStateFindings(null, { clockDiscardedAt: dropped, clockBackwards: pairs }).find((f) => f.kind === 'CLOCK_DISCARDED')!;
+
+test('a monotonic schedule has no backward pair', () => {
+  assert.deepEqual(clockBackwardPairs(MORNING), []);
+});
+
+test('one step backwards is one pair, with both scenes and both times', () => {
+  const p = clockBackwardPairs([MORNING[0], MORNING[1], { scene: 3, minutes: 8 * 60 }]);
+  assert.equal(p.length, 1);
+  assert.deepEqual(p[0], { fromScene: 2, fromMinutes: 495, toScene: 3, toMinutes: 480 });
+});
+
+test('two steps backwards are two pairs, in scene order', () => {
+  const p = clockBackwardPairs([
+    { scene: 1, minutes: 600 }, { scene: 2, minutes: 540 },
+    { scene: 3, minutes: 700 }, { scene: 4, minutes: 660 },
+  ]);
+  assert.equal(p.length, 2);
+  assert.deepEqual(p.map((x) => x.toScene), [2, 4]);
+});
+
+test('equal adjacent times are not a step backwards', () => {
+  assert.deepEqual(clockBackwardPairs([{ scene: 1, minutes: 480 }, { scene: 2, minutes: 480 }]), []);
+});
+
+test('the pairs are read in scene order whatever order they arrive in', () => {
+  const shuffled = [{ scene: 3, minutes: 480 }, { scene: 1, minutes: 450 }, { scene: 2, minutes: 495 }];
+  assert.deepEqual(clockBackwardPairs(shuffled), clockBackwardPairs([...shuffled].sort((a, b) => a.scene - b.scene)));
+});
+
+test('clockBackwardPairs().length is the count extractPlanState computes — six shapes', () => {
+  const shapes = [
+    [], [{ scene: 1, minutes: 60 }],
+    MORNING,
+    [{ scene: 1, minutes: 480 }, { scene: 2, minutes: 480 }],
+    [{ scene: 1, minutes: 1380 }, { scene: 2, minutes: 0 }],
+    [{ scene: 1, minutes: 600 }, { scene: 2, minutes: 540 }, { scene: 3, minutes: 700 }, { scene: 4, minutes: 660 }],
+  ];
+  for (const times of shapes) {
+    const sorted = [...times].sort((a, b) => a.scene - b.scene).map((t) => [t.scene, t.minutes]);
+    // the expression in extractPlanState, verbatim
+    const backwards = sorted.filter((t, i) => i > 0 && t[1] < sorted[i - 1][1]).length;
+    assert.equal(clockBackwardPairs(times).length, backwards, JSON.stringify(times));
+  }
+});
+
+test('CONTROL: the finding NAMES the points — scene and time, both sides', () => {
+  const f = pairDetail(clockBackwardPairs([MORNING[0], MORNING[1], { scene: 3, minutes: 8 * 60 }]));
+  assert.match(f.detail, /scene 2 08:15 → scene 3 08:00/,
+    'only the count used to survive clock.clear(); the pairs are the fact a reader needs');
+});
+
+test('CONTROL: scenes stays EMPTY on CLOCK_DISCARDED, pairs or none — 26a53f5', () => {
+  assert.deepEqual(pairDetail(clockBackwardPairs([{ scene: 1, minutes: 600 }, { scene: 2, minutes: 540 }])).scenes, []);
+  assert.deepEqual(pairDetail([], 2).scenes, [], 'a whole-draft finding says "the whole draft", never a scene');
+});
+
+test('more pairs than are shown: the first few, then a count', () => {
+  const many = Array.from({ length: 9 }, (_, i) => ({ fromScene: i * 2 + 1, fromMinutes: 600, toScene: i * 2 + 2, toMinutes: 540 }));
+  const f = pairDetail(many);
+  assert.equal((f.detail.match(/scene \d+ \d\d:\d\d → scene \d+ \d\d:\d\d/g) || []).length, CLOCK_PAIRS_SHOWN);
+  assert.match(f.detail, new RegExp('and ' + (9 - CLOCK_PAIRS_SHOWN) + ' more'));
+});
+
+test('the count still leads, and the loss is still named', () => {
+  const f = pairDetail(clockBackwardPairs([{ scene: 1, minutes: 1380 }, { scene: 2, minutes: 0 }]));
+  assert.match(f.detail, /ran backwards at 1 point and was discarded in full/);
+  assert.match(f.detail, /the writer was given no planned time for any scene/);
+  assert.match(f.detail, /the page-side clock check still ran/);
+});
+
+test('no pairs supplied: the finding is unchanged from before this commit', () => {
+  const f = pairDetail([], 2);
+  assert.match(f.detail, /ran backwards at 2 points and was discarded in full/);
+  assert.doesNotMatch(f.detail, /→/, 'nothing to name, so nothing is claimed');
+});
+
+test('the full planned clock goes on the NOTE, with a count, not on the finding', () => {
+  const note = planStateNote(null, { clockDiscardedAt: 1, clockPlanned: MORNING });
+  assert.match(note, /planned clock: scene 1 07:30 · scene 2 08:15 · scene 3 09:00/);
+  assert.match(note, /3 scenes timed/);
 });

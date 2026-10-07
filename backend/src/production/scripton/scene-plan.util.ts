@@ -196,6 +196,60 @@ export function scenePlanFor(
  */
 export interface PlanStateFinding { kind: 'CLOCK_DISCARDED' | 'NO_EXIT_GATE'; scenes: number[]; detail: string }
 
+/** One scene's planned time, in minutes since midnight — the shape extractPlanState's clock map holds. */
+export interface ClockPoint { scene: number; minutes: number }
+/** Two adjacent planned times where the later scene is earlier on the clock. */
+export interface ClockPair { fromScene: number; fromMinutes: number; toScene: number; toMinutes: number }
+
+/** How many pairs the finding names before it falls back to a count. */
+export const CLOCK_PAIRS_SHOWN = 6;
+/** How many planned times the note lists before it falls back to a count. */
+export const CLOCK_POINTS_SHOWN = 12;
+
+const hhmm = (m: number): string =>
+  String(Math.floor(m / 60) % 24).padStart(2, '0') + ':' + String(((m % 60) + 60) % 60).padStart(2, '0');
+
+const sortedPoints = (times: ClockPoint[] | null | undefined): ClockPoint[] =>
+  (Array.isArray(times) ? times : [])
+    .filter((t) => t && Number.isFinite(Number(t.scene)) && Number.isFinite(Number(t.minutes)))
+    .map((t) => ({ scene: Number(t.scene), minutes: Number(t.minutes) }))
+    .sort((a, b) => a.scene - b.scene);
+
+/**
+ * WHERE THE PLANNED CLOCK GOES BACKWARDS — the fact clock.clear() destroyed.
+ *
+ * extractPlanState counts these and then drops the whole clock, so the stored finding could say
+ * "2 points" and nothing else. The planning model's reply is not persisted, so a reader had no
+ * second source: the read-out for run 2 could not enumerate the two points from anything at all.
+ *
+ * The same comparison extractPlanState makes, in the same order (sorted by scene, each against the
+ * one before), so `clockBackwardPairs(times).length` is the count it reports. A spec asserts that
+ * identity across six shapes rather than trusting two expressions to agree. Equal adjacent times are
+ * not a step backwards, which is why this is `<` and not `<=`.
+ */
+export function clockBackwardPairs(times: ClockPoint[] | null | undefined): ClockPair[] {
+  const pts = sortedPoints(times);
+  const out: ClockPair[] = [];
+  for (let i = 1; i < pts.length; i++) {
+    if (pts[i].minutes < pts[i - 1].minutes) {
+      out.push({
+        fromScene: pts[i - 1].scene, fromMinutes: pts[i - 1].minutes,
+        toScene: pts[i].scene, toMinutes: pts[i].minutes,
+      });
+    }
+  }
+  return out;
+}
+
+/** "scene 9 00:30 → scene 10 00:00", the first few, then how many were not named. */
+function pairsPhrase(pairs: ClockPair[]): string {
+  if (!pairs.length) return '';
+  const shown = pairs.slice(0, CLOCK_PAIRS_SHOWN)
+    .map((p) => 'scene ' + p.fromScene + ' ' + hhmm(p.fromMinutes) + ' → scene ' + p.toScene + ' ' + hhmm(p.toMinutes));
+  const rest = pairs.length - shown.length;
+  return shown.join('; ') + (rest > 0 ? '; and ' + rest + ' more' : '');
+}
+
 /**
  * TWO THINGS THAT ARE FINDINGS, NOT NOTES.
  *
@@ -217,21 +271,29 @@ export interface PlanStateFinding { kind: 'CLOCK_DISCARDED' | 'NO_EXIT_GATE'; sc
  * answer, and reporting it as a finding would cry wolf on every film where nobody dies. It stays a
  * note. So do the two counts — provenance, not a defect.
  *
- * `scenes` is empty on both: each is a property of the whole draft, and naming a scene would send a
- * reader somewhere to look for something that is not there.
+ * `scenes` is empty on both, and STAYS empty now that CLOCK_DISCARDED can name its points (26a53f5).
+ * Each is a property of the whole draft, and a scene number here would send a reader somewhere to
+ * look for something that is not there. At a midnight crossing the scene it would name is not even
+ * at fault: the scene is right and the rule that read it is wrong. The points belong in the detail,
+ * where they are evidence, not in `scenes`, where they would be a location.
  */
 export function planStateFindings(
   plan: StoredScenePlan | null | undefined,
-  facts?: { clockDiscardedAt?: number } | null,
+  facts?: { clockDiscardedAt?: number; clockBackwards?: ClockPair[] } | null,
 ): PlanStateFinding[] {
   const out: PlanStateFinding[] = [];
   const dropped = Number((facts && facts.clockDiscardedAt) || 0);
   if (dropped > 0) {
+    const where = pairsPhrase(Array.isArray(facts && facts.clockBackwards) ? (facts as any).clockBackwards : []);
     out.push({
       kind: 'CLOCK_DISCARDED',
       scenes: [],
       detail: 'the planned clock ran backwards at ' + dropped + ' point' + (dropped === 1 ? '' : 's')
-        + ' and was discarded in full — the writer was given no planned time for any scene'
+        + ' and was discarded in full'
+        // Absent on a revision written before the pairs were kept: the count is then all there is,
+        // and claiming points would be worse than saying less.
+        + (where ? ' — ' + where : '')
+        + ' — the writer was given no planned time for any scene'
         + ' (the page-side clock check still ran, against the written pages)',
     });
   }
@@ -252,9 +314,19 @@ export function planStateFindings(
  */
 export function planStateNote(
   plan: StoredScenePlan | null | undefined,
-  facts?: { clockDiscardedAt?: number } | null,
+  facts?: { clockDiscardedAt?: number; clockPlanned?: ClockPoint[] } | null,
 ): string {
   const bits: string[] = [];
+  // THE CLOCK THE PLANNER DID PRODUCE. The finding names where it broke; this says what it was, so a
+  // reader can see whether a 23:00-to-05:55 night was planned straight and misread, or planned
+  // wrong. It is a note, not a finding: the values themselves are not a defect.
+  const pts = sortedPoints(facts && facts.clockPlanned);
+  if (pts.length) {
+    const shown = pts.slice(0, CLOCK_POINTS_SHOWN).map((t) => 'scene ' + t.scene + ' ' + hhmm(t.minutes));
+    bits.push('planned clock: ' + shown.join(' · ')
+      + (pts.length > shown.length ? ' · and ' + (pts.length - shown.length) + ' more' : '')
+      + ' (' + pts.length + ' scene' + (pts.length === 1 ? '' : 's') + ' timed)');
+  }
   if (plan && plan.count > 0 && plan.exitsDeclared === 0 && plan.source !== 'cards') {
     bits.push('no exits declared in ' + plan.count + ' scene(s) from the ' + plan.source
       + ' — the planner was asked and declared none');
