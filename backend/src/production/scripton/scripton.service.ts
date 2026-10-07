@@ -65,6 +65,7 @@ import { truncationFlag, truncationOf, nextStageRefusal, approvalRefusal, script
 import { continuationUser, joinContinuation, DRAFT_CONTINUATION_PASSES } from './prose-continuation.util';
 import { registerLines, registerCheckUser, parseRegisterCheck, REGISTER_CHECK_SYSTEM, REGISTER_CHECK_MAXTOK } from './canon/register-check.util';
 import { KEEP_CHECK_SYSTEM, KEEP_CHECK_MAXTOK, keepCheckUser, parseKeepCheck, keepSent, keepCheckNotRun, keepCheckOutcome } from './canon/keep-check.util';
+import { scriptRegisterLines, RegisterLine, RULE_KINDS } from './canon/register-check.util';
 import { splitKeep } from './canon/keep-items.util';
 import { developmentSoFar } from './development-so-far.util';
 import { resolveStoryYear, storyYearInputsSha, storedStoryYearIsFresh, storedAsResult, makeStoredStoryYear, datingPairs, StoryYearForBuild } from './story-year.util';
@@ -4978,16 +4979,63 @@ export class ScripOnService {
    * stage call site never entered it (`if (registerFacts.length)`), so there were two separate
    * silences. registerEntry records NOT_RUN naming the reason instead.
    */
+  /**
+   * THE RULE LINES FOR A FINISHED SCRIPT, FROM THE BUILD'S OWN STORED CANON.
+   *
+   * Both feature paths used to hand registerCheckOnScript `exitsAsCanonFacts(exits)` — kind
+   * CHARACTER — while registerLines keeps kind REGISTER, so the list was empty on every script ever
+   * generated and the row read "no bible" even on builds with a bible and 91 stored facts.
+   *
+   * THE LADDER'S CHAIN, NOT THE BRIEF ALONE. generateStage resolves brief.sourceText -> the intake
+   * profile's sourceText -> opts.seed, each through asSourceText (:1286-1288). There is no seed on
+   * the script path, but there IS an intake profile, and reading only the brief would report a build
+   * whose source lives there as having none. asSourceText also rejects a bare number however long,
+   * which is what keeps `brief.seed` — a six-digit randomness seed on at least one real project —
+   * from becoming the source material.
+   *
+   * READ-ONLY. extract: false, always. A script run must never pay for a canon extraction and must
+   * never wait for one; a source that has never been extracted is an answer, not a reason to spend.
+   */
+  private async scriptRuleLinesFor(
+    bRow: any, projectId?: string | null,
+  ): Promise<{ lines: RegisterLine[]; notRunReason: string | null }> {
+    const brief = (bRow && bRow.brief) || {};
+    let src = asSourceText(brief.sourceText);
+    if (!src && projectId) {
+      const intakeRow: any = await (this.prisma as any).intakeProfile
+        .findUnique({ where: { projectId } }).catch(() => null);
+      src = asSourceText(intakeRow && intakeRow.sourceText);
+    }
+    let canonRead = false;
+    let facts: CanonFactCore[] | null = null;
+    if (src) {
+      try {
+        const got = await this.loadSourceCanon(projectId || '', src, { extract: false });
+        if (got) { canonRead = true; facts = got.facts; }
+      } catch (e: any) {
+        // A read that FAILED is not a source without rules. Say which it was, in its own words —
+        // scriptRegisterLines cannot know the difference from its inputs.
+        this.log.warn('scriptRuleLinesFor: the stored canon could not be read — ' + this.why(e));
+        return { lines: [], notRunReason: 'the rules could not be read — the stored canon for this'
+          + ' source could not be loaded (' + String(this.why(e)).slice(0, 160) + ')' };
+      }
+    }
+    return scriptRegisterLines({ sourceChars: src.length, canonRead, facts });
+  }
+
   private async registerCheckOnScript(
-    docId: string, revId: string, text: string, facts: CanonFactCore[], projectId?: string | null,
+    docId: string, revId: string, text: string, rules: { lines: RegisterLine[]; notRunReason: string | null },
+    projectId?: string | null,
   ): Promise<CheckEntry> {
-    const lines = registerLines(facts || []);
+    const lines = (rules && rules.lines) || [];
     if (!lines.length || !String(text || '').trim()) {
       // The REAL count: registerEntry decides which absence to name, and it checks the text first.
-      const e = registerEntry(null, text, { lines: lines.length });
+      const e = registerEntry(null, text, { lines: lines.length, notRunReason: rules && rules.notRunReason });
       this.log.warn('registerCheckOnScript: ' + e.reason);
       return e;
     }
+    this.log.log('registerCheckOnScript: checking the script against ' + lines.length + ' rule line(s) — '
+      + RULE_KINDS.map((k) => lines.filter((l) => l.kind === k).length + ' ' + k).join(', '));
     const p = this.genProgress.get(docId);
     const beat = setInterval(() => {
       const q = this.genProgress.get(docId);
@@ -5436,7 +5484,8 @@ export class ScripOnService {
        */
       // Plan 01 task 6 — awaited BEFORE the run reports DONE, so the entry is on the row when the
       // page first reads it. Report-only: pageText is not touched by it.
-      const registerRow = await this.registerCheckOnScript(docId, revId, savedText, canonFacts, projectId);
+      const scriptRules = await this.scriptRuleLinesFor(bRow, projectId);
+      const registerRow = await this.registerCheckOnScript(docId, revId, savedText, scriptRules, projectId);
       /**
        * CLOSE-OUT 4 — THE DRAFT'S LENGTH, ONTO THE DENSITY ROW.
        *
@@ -6000,7 +6049,8 @@ export class ScripOnService {
        */
       // Plan 01 task 6 — awaited BEFORE the run reports DONE, so the entry is on the row when the
       // page first reads it. Report-only: pageText is not touched by it.
-      const registerRow = await this.registerCheckOnScript(docId, revId, savedText, canonFacts, projectId);
+      const scriptRules = await this.scriptRuleLinesFor(bRow, projectId);
+      const registerRow = await this.registerCheckOnScript(docId, revId, savedText, scriptRules, projectId);
       /**
        * CLOSE-OUT 4 — THE DRAFT'S LENGTH, ONTO THE DENSITY ROW.
        *
