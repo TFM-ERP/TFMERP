@@ -557,13 +557,19 @@ test('TASK 6 — CONTROL: the error shape read loosely becomes a pass', () => {
   assert.equal(registerEntry(errored, SCRIPT_WITH_QUOTE).state, 'NOT_RUN');
 });
 
-test('TASK 6 — NO BIBLE: zero register lines stores NOT_RUN "no bible", not nothing and not CLEAN', () => {
+test('TASK 6 — NO RULE LINES: zero lines stores NOT_RUN, not nothing and not CLEAN', () => {
+  // The STATE is what task 6 established and it is unchanged. The SENTENCE moved to the caller in
+  // close-out 2 commit 1.2: "no bible" was printed on every script ever generated, including builds
+  // with a real bible, because the list handed to the check is empty by construction.
   const e = registerEntry(null, SCRIPT_WITH_QUOTE, { lines: 0 });
   assert.equal(e.state, 'NOT_RUN');
-  assert.match(e.reason, /no bible/);
-  assert.match(e.reason, /no register lines to check against/);
+  assert.match(e.reason, /no rule lines to check against/);
+  assert.doesNotMatch(e.reason, /no bible/i, 'the caller says which absence it is');
   assert.equal(e.countsAsFinding, false);
   assert.equal(e.subject, 'revision.pageText');
+  // and a caller that DOES know replaces it outright
+  const named = registerEntry(null, SCRIPT_WITH_QUOTE, { lines: 0, notRunReason: 'the source is 212 characters — too short' });
+  assert.match(named.reason, /^the source is 212 characters/);
 });
 
 test('TASK 6 — CONTROL: no bible must not read as clean, and must not be absent', () => {
@@ -642,6 +648,110 @@ test('TASK 6 FIX — empty script text says "no script text", not "no bible"', (
   assert.equal(e.state, 'NOT_RUN');
   assert.match(e.reason, /no script text/);
   assert.equal(/no bible/.test(e.reason), false, 'there IS a bible — 105 register lines');
-  // and the other way round still reads as no bible
-  assert.match(registerEntry(null, 'FADE IN:', { lines: 0 }).reason, /no bible/);
+  // and the other way round still names the missing LIST, not the missing text
+  assert.match(registerEntry(null, 'FADE IN:', { lines: 0 }).reason, /no rule lines to check against/);
+});
+
+/**
+ * THE REGISTER ROW SAYS WHICH ABSENCE IT IS, AND A CUT-OFF REPLY IS NOT A PASS.
+ * Plan 01 close-out 2, commit 1.2.
+ *
+ * The row has read "no bible" on every script ever generated, because the list handed to the check
+ * is empty by construction (exits are kind CHARACTER; registerLines keeps kind REGISTER). The
+ * sentence is the caller's now — scriptRegisterLines decides which of four absences it is.
+ *
+ * And the parser SALVAGES: a reply truncated just after `"contradictions": [` recovers no complete
+ * objects, is still treated as an answer, and stores contradicted 0 — a clean pass over however many
+ * rules were fed. Zero items after a cut-off is NOT_RUN. One or more is FINDINGS saying the list is
+ * incomplete, because NOT_RUN there would hide contradictions already found.
+ */
+const regReport = (over: Record<string, any> = {}) => ({
+  ok: true, checked: 193, contradicted: 0, rate: 0, items: [], invalid: 0,
+  salvaged: false, stopReason: 'end_turn', ...over,
+});
+const regItem = (line: number, draft: string) => ({ line, section: null, rule: 'r' + line, draft, why: 'w', quoteFound: true });
+const PAGES = 'A line of script.\n\nAnother line.';
+
+test('the register NOT_RUN sentence is the caller\'s, not a fixed one', () => {
+  const e = registerEntry(null, PAGES, { lines: 0, notRunReason: 'a source with no rule facts — nothing to check' });
+  assert.equal(e.state, 'NOT_RUN');
+  assert.match(e.reason, /^a source with no rule facts/);
+});
+
+test('CONTROL: "no bible" appears nowhere, in any casing, for any input', () => {
+  const cases: any[] = [
+    [null, '', { lines: 0, notRunReason: 'no source on this build — nothing to check' }],
+    [null, PAGES, { lines: 0, notRunReason: 'the rules could not be read — nothing to check' }],
+    [null, PAGES, { lines: 3 }],
+    [regReport(), PAGES, null],
+    [regReport({ ok: false, contradicted: null, error: 'boom' }), PAGES, null],
+    [regReport({ items: [regItem(1, 'A line of script.')], contradicted: 1 }), PAGES, null],
+  ];
+  for (const [rep, txt, opts] of cases) {
+    const e = registerEntry(rep, txt, opts);
+    assert.doesNotMatch(e.reason, /no bible/i, JSON.stringify(opts));
+  }
+});
+
+test('the other three NOT_RUN branches keep their own sentences', () => {
+  assert.match(registerEntry(null, '', { lines: 5 }).reason, /^no script text/);
+  assert.match(registerEntry(null, PAGES, { lines: 5 }).reason, /produced no result/);
+  assert.match(registerEntry(regReport({ ok: false, contradicted: null, error: 'timeout' }), PAGES).reason, /ran and failed/);
+});
+
+test('cut off at the ceiling with NOTHING reported is NOT_RUN, never CLEAN', () => {
+  const e = registerEntry(regReport({ stopReason: 'max_tokens' }), PAGES);
+  assert.equal(e.state, 'NOT_RUN', 'contradicted 0 after a truncation is not a clean pass');
+  assert.match(e.reason, /cut off before it reported anything/);
+});
+
+test('a salvaged reply with nothing reported is NOT_RUN too', () => {
+  const e = registerEntry(regReport({ salvaged: true }), PAGES);
+  assert.equal(e.state, 'NOT_RUN');
+});
+
+test('cut off WITH contradictions is FINDINGS, and says the list is incomplete', () => {
+  const items = [regItem(1, 'A line of script.'), regItem(2, 'Another line.')];
+  const e = registerEntry(regReport({ stopReason: 'max_tokens', items, contradicted: 2 }), PAGES);
+  assert.equal(e.state, 'FINDINGS', 'NOT_RUN here would hide contradictions already found');
+  assert.match(e.reason, /at least 2/);
+  assert.match(e.reason, /cut off/);
+  assert.match(e.reason, /incomplete/);
+});
+
+test('a salvaged reply with contradictions is FINDINGS-incomplete too', () => {
+  const items = [regItem(1, 'A line of script.')];
+  const e = registerEntry(regReport({ salvaged: true, items, contradicted: 1 }), PAGES);
+  assert.equal(e.state, 'FINDINGS');
+  assert.match(e.reason, /at least 1/);
+});
+
+test('CONTROL: a cut-off reply still REPORTS its items, not a count alone', () => {
+  const items = [regItem(1, 'A line of script.'), regItem(2, 'Another line.')];
+  const e = registerEntry(regReport({ salvaged: true, items, contradicted: 2 }), PAGES);
+  assert.equal((e.items || []).length, 2,
+    'widening the cut-off rule into "any salvage is unknown" would discard real findings');
+});
+
+test('CONTROL: no reason ever claims a number of lines were ADJUDICATED', () => {
+  const shapes: any[] = [
+    [regReport({ stopReason: 'max_tokens' }), PAGES, null],
+    [regReport({ salvaged: true }), PAGES, null],
+    [regReport({ stopReason: 'max_tokens', items: [regItem(1, 'A line of script.')], contradicted: 1 }), PAGES, null],
+    [regReport(), PAGES, null],
+    [null, PAGES, { lines: 0, notRunReason: 'no source on this build' }],
+  ];
+  for (const [rep, txt, opts] of shapes) {
+    const e = registerEntry(rep, txt, opts);
+    // The reply lists contradictions only; nothing adjudicates line by line, so no such count exists.
+    assert.doesNotMatch(e.reason, /adjudicat/i, e.reason);
+    assert.doesNotMatch(e.reason, /\bof \d+ lines had\b/i, e.reason);
+  }
+});
+
+test('an ordinary clean reply is still CLEAN, and an ordinary finding still FINDINGS', () => {
+  assert.equal(registerEntry(regReport(), PAGES).state, 'CLEAN');
+  const e = registerEntry(regReport({ items: [regItem(1, 'A line of script.')], contradicted: 1 }), PAGES);
+  assert.equal(e.state, 'FINDINGS');
+  assert.doesNotMatch(e.reason, /at least/, 'nothing was cut off, so nothing is incomplete');
 });

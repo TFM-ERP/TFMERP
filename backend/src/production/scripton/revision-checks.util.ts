@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 // placed on a page without importing a parser or duplicating the patterns.
 import { SLUG_RE, AR_SLUG_RE } from './continuity.util';
 
+import { registerReplyCutOff } from './canon/register-check.util';
 /**
  * F10 — A VERDICT ABOUT A PROMOTED SCRIPT, WRITTEN DOWN.
  *
@@ -560,7 +561,7 @@ export function shouldRecheckPlanEnding(
  * items array — byte-identical to a clean result everywhere except those two fields.
  */
 export function registerEntry(
-  report: any, text: any, opts?: { lines?: number } | null, now: Date = new Date(),
+  report: any, text: any, opts?: { lines?: number; notRunReason?: string | null } | null, now: Date = new Date(),
 ): CheckEntry {
   const subject: CheckSubject = SUBJECT_OF.register || 'revision.pageText';
   const build = (state: CheckState, reason: string, items: CheckItem[] = []): CheckEntry => ({
@@ -574,9 +575,23 @@ export function registerEntry(
   if (!String(text == null ? '' : text).trim()) {
     return build('NOT_RUN', 'no script text — there are no pages to check against the register');
   }
+  /**
+   * WHICH ABSENCE IT IS, IN THE CALLER'S WORDS.
+   *
+   * This said "no bible" on every script ever generated — including builds with a real bible and a
+   * stored canon — because the list handed to the check is empty by construction: the feature paths
+   * pass exitsAsCanonFacts (kind CHARACTER) and registerLines keeps kind REGISTER. The absence was
+   * real; the reason was wrong, and it named the one thing that was not missing.
+   *
+   * scriptRegisterLines decides between four of them (no source / too short for rules to have been
+   * stored / the canon could not be read / a canon with no rule facts) and hands the sentence here.
+   * The fallback is deliberately vague rather than guessing: a caller that gives no reason has not
+   * told us which absence this is.
+   */
   if (opts && Number(opts.lines) === 0) {
-    return build('NOT_RUN',
-      'no bible — there are no register lines to check against, so nothing about this script has been verified against a source');
+    const why = String((opts && opts.notRunReason) || '').trim();
+    return build('NOT_RUN', why
+      || 'there are no rule lines to check against, so nothing about this script has been verified against a source');
   }
   if (report == null) {
     return build('NOT_RUN', 'the register check produced no result, so nothing is known either way');
@@ -588,6 +603,37 @@ export function registerEntry(
   }
 
   const items = registerItems(text, report.items);
+
+  /**
+   * A REPLY THAT WAS CUT OFF IS NOT A CLEAN PASS — AND NOT A SILENCE EITHER.
+   *
+   * parseRegisterCheck salvages. When the JSON will not parse it recovers whatever complete objects
+   * it can, and it accepts the result EVEN WHEN EMPTY so long as `"contradictions": [` appeared. So
+   * a reply truncated just after that token yields rows = [], contradicted = 0, and a summary
+   * reading "0 of 193 lines contradicted (0%)". That is a clean pass over 193 rules nobody answered
+   * about. Latent today — of 65 stored stage registerChecks, none is salvaged and none stopped at
+   * max_tokens — because one register line and ~300 output tokens never came close to a ceiling.
+   * Item 1 is about to put ~193 lines through the same parser.
+   *
+   * ZERO ITEMS -> NOT_RUN. Nothing was reported, and nothing is known either way.
+   *
+   * ONE OR MORE -> FINDINGS, saying the list is incomplete. NOT_RUN here would hide contradictions
+   * the checker DID find, which is a worse failure than the one being fixed. "At least K" is the
+   * whole wording: it is never presented as complete.
+   *
+   * AND NO COUNT OF ADJUDICATED LINES. The reply lists contradictions only; nothing walks the rules
+   * one by one, so "<N> of <M> lines had been adjudicated" would state a number nobody measured.
+   */
+  if (registerReplyCutOff(report)) {
+    if (!items.length) {
+      return build('NOT_RUN', 'the register check\'s reply was cut off before it reported anything,'
+        + ' so nothing is known either way');
+    }
+    return build('FINDINGS',
+      'at least ' + items.length + ' contradiction' + (items.length === 1 ? '' : 's')
+      + ' against ' + (num(report.checked) ?? '?') + ' register line(s) — the reply was cut off, so the list is incomplete',
+      items);
+  }
 
   if (!items.length) {
     return build('CLEAN', 'no contradictions against ' + (num(report.checked) ?? '?') + ' register line(s)');
