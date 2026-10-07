@@ -145,11 +145,20 @@ test('the three rule kinds become lines; nothing else does', () => {
   assert.deepEqual(got.lines.map((l) => l.n), [1, 2, 3]);
 });
 
-test('no source at all: the brief, the intake profile and the seed were all checked', () => {
+test('no source at all: the sentence names what was ACTUALLY checked', () => {
   const got = scriptRegisterLines({ sourceChars: 0, canonRead: false, facts: null });
   assert.equal(got.lines.length, 0);
   assert.match(got.notRunReason!, /^no source on this build/);
-  assert.match(got.notRunReason!, /brief, the intake profile and the seed/);
+  assert.match(got.notRunReason!, /the brief and the intake profile/);
+});
+
+test('CONTROL: the sentence does not claim a seed was checked', () => {
+  // generateStage's chain is brief -> intake profile -> opts.seed (:1286-1288). There IS no seed on
+  // the script path: scriptRuleLinesFor reads the first two and stops. Naming a third source that
+  // was never consulted would send a reader to look for one.
+  const got = scriptRegisterLines({ sourceChars: 0, canonRead: false, facts: null });
+  assert.doesNotMatch(got.notRunReason!, /seed/i,
+    'the resolver reads the brief and the intake profile only; a seed is never consulted');
 });
 
 test('a source too short for rules to exist says so, with the count', () => {

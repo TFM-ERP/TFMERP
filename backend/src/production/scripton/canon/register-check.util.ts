@@ -110,8 +110,17 @@ export function scriptRegisterLines(input: {
   const none = (reason: string) => ({ lines: [] as RegisterLine[], notRunReason: reason });
 
   if (chars <= 0) {
-    return none('no source on this build — the brief, the intake profile and the seed were all'
-      + ' checked and none holds source material, so there is nothing to check this script against');
+    /**
+     * NAME WHAT WAS CHECKED, NOT WHAT THE LADDER CHECKS.
+     *
+     * This read "the brief, the intake profile and the seed were all checked", borrowed from
+     * generateStage's chain (:1286-1288). There is no seed on the script path: scriptRuleLinesFor
+     * reads brief.sourceText, then the intake profile, and stops. Naming a third source that was
+     * never consulted sends a reader to look for one, which is the same class of mistake as the
+     * "no bible" sentence this function exists to replace — a reason that describes the wrong thing.
+     */
+    return none('no source on this build — the brief and the intake profile were both checked and'
+      + ' neither holds source material, so there is nothing to check this script against');
   }
   if (chars < CANON_MIN_SOURCE_CHARS) {
     return none('the source is ' + chars + ' characters — too short for rules to have been stored,'
