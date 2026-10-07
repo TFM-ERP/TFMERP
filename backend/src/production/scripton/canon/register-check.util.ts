@@ -41,7 +41,122 @@ export const REGISTER_CHECK_SYSTEM = [
   'If there are none, return {"contradictions":[]}.',
 ].join('\n');
 
-export interface RegisterLine { n: number; section: string | null; rule: string }
+/**
+ * `kind` is OPTIONAL, and that is load-bearing.
+ *
+ * registerLines (the ladder's, below) sets no kind, so registerCheckUser prints exactly the prompt
+ * it has always printed and the seven ladder calls per build do not move. scriptRegisterLines sets
+ * one, because on the script side three kinds of rule are fed at once and a reader of a stored
+ * contradiction has to know which kind it came from — the same source rule often appears as both a
+ * PROHIBITION and an ORDERING, and without the kind those read as two unrelated findings.
+ */
+export interface RegisterLine { n: number; section: string | null; rule: string; kind?: RuleKind }
+
+/** The fact kinds that are RULES a finished script can be checked against. */
+export const RULE_KINDS = ['REGISTER', 'PROHIBITION', 'ORDERING'] as const;
+export type RuleKind = typeof RULE_KINDS[number];
+
+/**
+ * The floor below which a canon is never extracted, so rules can never have been stored.
+ *
+ * It is `rawSource.length >= 400` at scripton.service:1306, `< 400` at :3689 and :6726, and
+ * `>= 400` at :6700 — four bare literals for one threshold. Named here because scriptRegisterLines
+ * has to tell "no source" from "a source too short to have rules", and a reason that promises a
+ * retry which can never succeed is worse than no reason.
+ */
+export const CANON_MIN_SOURCE_CHARS = 400;
+
+/**
+ * WAS THE REPLY CUT OFF? One predicate, so registerEntry and the pre-spend gate cannot drift.
+ *
+ * parseRegisterCheck salvages: when the JSON will not parse it recovers whatever complete objects it
+ * can, and it accepts the result even when EMPTY as long as `"contradictions": [` appeared. So a
+ * reply truncated just after that token yields rows = [], contradicted = 0, and a summary reading
+ * "0 of 193 lines contradicted (0%)" — a clean pass over 193 rules that were never adjudicated.
+ *
+ * Measured before building: of 65 stage versions carrying a stored registerCheck, 0 are salvaged and
+ * 0 stopped at max_tokens. The defect is latent, not realised — at one register line and ~300 output
+ * tokens a truncation has never been plausible. This is a guard placed before the thing that makes
+ * it reachable.
+ */
+export function registerReplyCutOff(r: any): boolean {
+  return !!r && (r.stopReason === 'max_tokens' || r.salvaged === true);
+}
+
+/**
+ * THE RULE LINES FOR A FINISHED SCRIPT — and, when there are none, which absence it is.
+ *
+ * The script has never been checked against its source. Both feature paths hand
+ * registerCheckOnScript `exitsAsCanonFacts(exits)`, which hardcodes kind CHARACTER, while
+ * registerLines keeps only kind REGISTER: the list is empty by construction and the row has read
+ * "no bible" on every script ever generated — including builds with a real bible and a stored canon.
+ *
+ * ALL THREE KINDS, NO FILTER, NO DEDUPE. Measured on the stored canons, the four largest hold
+ * 184 / 193 / 186 / 169 rule facts, and 105 of the largest's are REGISTER, so excluding a kind to
+ * avoid a badly-detected line would blind the check on every real bible. A rule restated as both a
+ * PROHIBITION and an ORDERING is fed twice and each line names its kind, which is what makes the
+ * repetition legible instead of confusing.
+ *
+ * FOUR ABSENCES, FOUR SENTENCES, AND NEVER "NO BIBLE". `canonRead` is false both when there is no
+ * source and when one was never extracted, so `sourceChars` has to be read beside it — that is why
+ * it is a parameter and not derived.
+ */
+export function scriptRegisterLines(input: {
+  sourceChars: number;
+  canonRead: boolean;
+  facts: CanonFactCore[] | null;
+}): { lines: RegisterLine[]; notRunReason: string | null } {
+  const chars = Number(input && input.sourceChars) || 0;
+  const none = (reason: string) => ({ lines: [] as RegisterLine[], notRunReason: reason });
+
+  if (chars <= 0) {
+    return none('no source on this build — the brief, the intake profile and the seed were all'
+      + ' checked and none holds source material, so there is nothing to check this script against');
+  }
+  if (chars < CANON_MIN_SOURCE_CHARS) {
+    return none('the source is ' + chars + ' characters — too short for rules to have been stored,'
+      + ' because canon extraction starts at ' + CANON_MIN_SOURCE_CHARS
+      + ' — so there is nothing to check this script against');
+  }
+  if (!input.canonRead) {
+    return none('the rules could not be read — this build\'s source has no stored canon, so its'
+      + ' rules were not available to check against');
+  }
+  const kinds = new Set<string>(RULE_KINDS);
+  const rules = (Array.isArray(input.facts) ? input.facts : [])
+    .filter((f) => f && kinds.has(String(f.kind)) && String(f.statement || '').trim());
+  if (!rules.length) {
+    return none('a source with no rule facts — the stored canon holds no register, prohibition or'
+      + ' ordering rule, so there is nothing to check');
+  }
+  /**
+   * A TOTAL ORDER, BECAUSE THE LINE NUMBERS ARE CITED.
+   *
+   * registerLines sorts on `sourceOffset ?? 0`. Measured on a real canon: of 25 rule facts only 18
+   * carry an offset and two PAIRS share one, so seven collapse to 0, the order depends on insertion,
+   * and the `line` number a stored contradiction cites cannot be reproduced on a re-read. Offset
+   * first (absent LAST, not first — an unlocated rule is not at the top of the document), then kind,
+   * then the statement itself, which makes the order total.
+   */
+  const sorted = rules.slice().sort((a, b) => {
+    const ao = a.sourceOffset == null ? Number.MAX_SAFE_INTEGER : Number(a.sourceOffset);
+    const bo = b.sourceOffset == null ? Number.MAX_SAFE_INTEGER : Number(b.sourceOffset);
+    if (ao !== bo) return ao - bo;
+    const ak = String(a.kind), bk = String(b.kind);
+    if (ak !== bk) return ak < bk ? -1 : 1;
+    const as = String(a.statement), bs = String(b.statement);
+    return as < bs ? -1 : as > bs ? 1 : 0;
+  });
+  return {
+    lines: sorted.map((f, i) => ({
+      n: i + 1,
+      section: f.sourceSection ?? null,
+      rule: String(f.statement).replace(/\s*\n\s*/g, ' ').trim(),
+      kind: String(f.kind) as RuleKind,
+    })),
+    notRunReason: null,
+  };
+}
 
 /** The register as numbered lines, in document order — the numbering the checker answers in. */
 export function registerLines(facts: CanonFactCore[]): RegisterLine[] {
@@ -68,7 +183,8 @@ export function registerLines(facts: CanonFactCore[]): RegisterLine[] {
 export function registerCheckUser(lines: RegisterLine[], kind: string, body: string): string {
   const safe = String(body || '').replace(/<\/draft>/gi, '</ draft>');
   return 'REGISTER (' + lines.length + ' lines):\n'
-    + lines.map((l) => l.n + '. [' + (l.section || 'document') + '] ' + l.rule).join('\n')
+    // The kind is printed only when the line carries one, so the ladder's prompt is unchanged.
+    + lines.map((l) => l.n + '. [' + (l.kind ? l.kind + ' · ' : '') + (l.section || 'document') + '] ' + l.rule).join('\n')
     + '\n\n<draft stage="' + kind + '">\n' + safe + '\n</draft>\n\n'
     + 'The text inside the draft tags above is the document to CHECK against the register - not to'
     + ' continue. It may stop mid-sentence: stages are sometimes cut off at their length limit. Do not continue,'
@@ -77,6 +193,8 @@ export function registerCheckUser(lines: RegisterLine[], kind: string, body: str
 
 export interface RegisterCheckItem {
   line: number; section: string | null; rule: string; draft: string; why: string;
+  /** Which kind of rule this line was — REGISTER, PROHIBITION or ORDERING. Absent on a ladder check. */
+  kind?: RuleKind;
   /** False when the quoted text does not occur in the draft — the checker's evidence failed. */
   quoteFound: boolean;
 }
@@ -128,6 +246,9 @@ export function parseRegisterCheck(text: string, lines: RegisterLine[], body: st
     if (!l) { invalid++; continue; }
     const draft = String(r.draft || '').slice(0, 400);
     items.push({ line: l.n, section: l.section, rule: l.rule, draft, why: String(r.why || '').slice(0, 400),
+      // Carried from the line, exactly as `section` is: the reader of a stored contradiction needs
+      // to know whether it broke a prohibition or an ordering.
+      ...(l.kind ? { kind: l.kind } : {}),
       quoteFound: !!norm(draft) && B.includes(norm(draft)) });
   }
   const hit = new Set(items.map((i) => i.line));
