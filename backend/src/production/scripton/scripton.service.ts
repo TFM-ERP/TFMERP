@@ -64,7 +64,8 @@ import { transcribeRegister, REGISTER_VERSION } from './canon/canon-register.uti
 import { truncationFlag, truncationOf, nextStageRefusal, approvalRefusal, scriptRefusal } from './stage-truncation.util';
 import { continuationUser, joinContinuation, DRAFT_CONTINUATION_PASSES } from './prose-continuation.util';
 import { registerLines, registerCheckUser, parseRegisterCheck, REGISTER_CHECK_SYSTEM, REGISTER_CHECK_MAXTOK } from './canon/register-check.util';
-import { KEEP_CHECK_SYSTEM, KEEP_CHECK_MAXTOK, keepCheckUser, parseKeepCheck, keepSent, keepCheckNotRun, keepCheckOutcome } from './canon/keep-check.util';
+import { KEEP_CHECK_SYSTEM, KEEP_CHECK_MAXTOK, keepCheckUser, parseKeepCheck, keepSent, keepCheckNotRun, keepCheckOutcome,
+  KEEP_REASK_SYSTEM, KEEP_REASK_MAXTOK, keepReaskUser, parseKeepReask, applyKeepReask, keepUnprovenThings } from './canon/keep-check.util';
 import { scriptRegisterLines, RegisterLine, RULE_KINDS } from './canon/register-check.util';
 import { splitKeep } from './canon/keep-items.util';
 import { developmentSoFar } from './development-so-far.util';
@@ -3670,7 +3671,42 @@ export class ScripOnService {
         user: keepCheckUser(items, lead, 'TREATMENT', body), maxTokens: KEEP_CHECK_MAXTOK, timeoutMs: 900000,
         projectId: projectId || null, refType: 'StageVersion', refId: versionId });
       const text = String((r && r.text) || '') || (r && r.json ? JSON.stringify(r.json) : '');
-      keepCheck = keepCheckOutcome(parseKeepCheck(text, items, body), { ...meta, at: new Date().toISOString(), model: (r && r.model) || null, stopReason: (r && r.stopReason) || null });
+      const report = parseKeepCheck(text, items, body);
+      /**
+       * THE SECOND ASK — ONLY WHEN THERE IS SOMETHING TO ASK ABOUT.
+       *
+       * Measured on run 2: the checker reported "Rashid at 3 a.m." as present and quoted
+       * "7. 03:50 — THE THIRD DOOR", a line it had composed from two scene headings. The beat WAS in
+       * the draft — two entries later it proved the same beat with a quote that matched — and the
+       * gate stopped the build on it twice, each waiver clearing every other finding on those
+       * versions because waiveChecks is a blanket boolean.
+       *
+       * keepUnprovenThings empty means no call: an unconditional re-ask would bill every run for a
+       * question nobody has. One call for the lot, never one per thing.
+       *
+       * AND ITS FAILURE IS NOT A VERDICT. The first ask produced a usable result; throwing it away
+       * because the second call died would be worse than the defect being fixed. So the catch is
+       * around the re-ask alone, and applyKeepReask records the failure while promoting and demoting
+       * nothing.
+       */
+      const unproven = keepUnprovenThings(report);
+      let finalReport = report;
+      if (unproven.length) {
+        try {
+          const r2: any = await this.ai.run({ task: 'scripton.develop.keep-check', system: KEEP_REASK_SYSTEM,
+            user: keepReaskUser(unproven, 'TREATMENT', body), maxTokens: KEEP_REASK_MAXTOK, timeoutMs: 300000,
+            projectId: projectId || null, refType: 'StageVersion', refId: versionId });
+          const t2 = String((r2 && r2.text) || '') || (r2 && r2.json ? JSON.stringify(r2.json) : '');
+          finalReport = applyKeepReask(report, unproven, parseKeepReask(t2, unproven), body);
+        } catch (e) {
+          finalReport = applyKeepReask(report, unproven, null, body, String(this.why(e)).slice(0, 200));
+        }
+        const rk = finalReport.reask;
+        this.log.log('checkAgainstKeep: asked again about ' + unproven.length + ' unproven claim(s) — '
+          + (rk && rk.failed ? 'the second call failed: ' + rk.failed
+            : (rk ? rk.proved + ' proved, ' + rk.absent + ' named absent, ' + rk.stillUnproven + ' still unproven' : 'no result')));
+      }
+      keepCheck = keepCheckOutcome(finalReport, { ...meta, at: new Date().toISOString(), model: (r && r.model) || null, stopReason: (r && r.stopReason) || null });
     } catch (e) {
       keepCheck = keepCheckNotRun('the check failed: ' + String(this.why(e)).slice(0, 300), { ...meta, at: new Date().toISOString() });
     }
