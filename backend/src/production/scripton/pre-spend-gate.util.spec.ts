@@ -7,6 +7,7 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { preSpendGate, readCheck, gateText, markPreSpendRefusal, isPreSpendRefusal, errorTextForJob, isWaived } from './pre-spend-gate.util';
+import { registerEntry } from './revision-checks.util';
 
 /** The real stored shape, from STEP_OUTLINE on Jason Quick V3.2. */
 const WITH_ITEMS = {
@@ -454,4 +455,68 @@ test('CONTROL: the standing keepCheck line appears only when a stage was actuall
   const only = preSpendGate({ TREATMENT: 'v6' }, keepVersions(MISSES_KEEP));
   assert.doesNotMatch(only.text, /covers TREATMENT only/,
     'with TREATMENT the only consumed stage, nothing was skipped and the note would be noise');
+});
+
+/**
+ * THE CUT-OFF RULE, AT THE GATE TOO — Plan 01 close-out 2, commit 1.2b.
+ *
+ * readCheck derives registerCheck's state itself, because the stored object publishes no `state`:
+ * items -> FINDINGS, else ok === false || contradicted == null -> NOT_RUN, else CLEAN. A
+ * truncated-empty reply stores ok: true, contradicted: 0, items: [] — so it reads CLEAN here, on
+ * every ladder stage, and would clear a stage for spending. Same defect as 1.2, second place.
+ *
+ * ONE PREDICATE. registerReplyCutOff lives in register-check.util and is imported by registerEntry
+ * and by readCheck, so the two cannot grow separate copies of the rule.
+ */
+const regStored = (over: Record<string, any> = {}) => ({
+  at: '2026-10-07T06:00:00.000Z', ok: true, checked: 193, contradicted: 0, rate: 0, invalid: 0,
+  items: [], salvaged: false, stopReason: 'end_turn',
+  summary: 'REGISTER CHECK: 0 of 193 lines contradicted (0%)', ...over,
+});
+const regStoredItem = (line: number) => ({ line, section: null, rule: 'r' + line, draft: 'A line of script.', why: 'w' + line, quoteFound: true });
+
+test('a reply cut off at the ceiling with nothing reported is NOT_RUN at the gate, not CLEAN', () => {
+  const r = readCheck('registerCheck', regStored({ stopReason: 'max_tokens' }));
+  assert.equal(r.state, 'NOT_RUN', 'contradicted 0 after a truncation cleared stages for spending');
+  assert.match(r.detail, /cut off before it reported anything/);
+});
+
+test('a salvaged reply with nothing reported is NOT_RUN at the gate', () => {
+  assert.equal(readCheck('registerCheck', regStored({ salvaged: true })).state, 'NOT_RUN');
+});
+
+test('cut off WITH contradictions is FINDINGS at the gate, and says the list is incomplete', () => {
+  const r = readCheck('registerCheck', regStored({
+    stopReason: 'max_tokens', contradicted: 2, items: [regStoredItem(7), regStoredItem(52)],
+  }));
+  assert.equal(r.state, 'FINDINGS');
+  assert.match(r.detail, /at least 2/);
+  assert.match(r.detail, /incomplete/);
+  assert.deepEqual(r.lines, [7, 52], 'the line numbers still travel');
+  assert.equal(r.items.length, 2, 'and so do the reasons');
+});
+
+test('CONTROL: an ordinary clean register check is still CLEAN', () => {
+  const r = readCheck('registerCheck', regStored());
+  assert.equal(r.state, 'CLEAN', 'the guard must not swallow every clean pass — that would stop every build');
+});
+
+test('CONTROL: readCheck and registerEntry agree on every cut-off shape', () => {
+  const PAGES = 'A line of script.\n\nAnother line.';
+  const shapes = [
+    regStored(),
+    regStored({ stopReason: 'max_tokens' }),
+    regStored({ salvaged: true }),
+    regStored({ stopReason: 'max_tokens', contradicted: 1, items: [regStoredItem(7)] }),
+    regStored({ salvaged: true, contradicted: 1, items: [regStoredItem(7)] }),
+    regStored({ contradicted: 1, items: [regStoredItem(7)] }),
+    regStored({ ok: false, contradicted: null, error: 'boom' }),
+  ];
+  for (const st of shapes) {
+    const gate = readCheck('registerCheck', st).state;
+    const row = registerEntry(st, PAGES).state;
+    assert.equal(gate, row, 'gate ' + gate + ' vs row ' + row + ' on ' + JSON.stringify({
+      stopReason: st.stopReason, salvaged: st.salvaged, items: st.items.length, ok: st.ok,
+    }));
+  }
 });

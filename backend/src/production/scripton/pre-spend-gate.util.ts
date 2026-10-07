@@ -29,6 +29,8 @@
  * Pure; never throws.
  */
 
+import { registerReplyCutOff } from './canon/register-check.util';
+
 export type CheckState = 'FINDINGS' | 'CLEAN' | 'NOT_RUN';
 
 export interface CheckRead {
@@ -84,6 +86,19 @@ export function readCheck(name: string, value: any): CheckRead {
 
   if (name === 'registerCheck') {
     const items = arr(value.items);
+    /**
+     * THE SAME CUT-OFF RULE AS registerEntry, FROM THE SAME PREDICATE.
+     *
+     * This branch derives the state itself, because the stored registerCheck publishes none. Its
+     * rule was: items -> FINDINGS, else ok === false || contradicted == null -> NOT_RUN, else CLEAN.
+     * A reply truncated just after `"contradictions": [` stores ok: true, contradicted: 0, items: []
+     * — byte-identical to a clean result in every field this branch reads — so it read CLEAN here,
+     * on every ladder stage, and would clear a stage for spending on 193 rules nobody answered about.
+     *
+     * registerReplyCutOff is imported rather than re-expressed, so the row and the gate cannot
+     * disagree about what "cut off" means. A control asserts they agree on every shape.
+     */
+    const cutOff = registerReplyCutOff(value);
     if (items.length) {
       const lines = items.map((i: any) => Number(i && i.line)).filter((n: number) => isFinite(n) && n > 0);
       // `why` is the stored reason. It falls back to `rule` rather than to nothing: a rule quoted
@@ -94,7 +109,16 @@ export function readCheck(name: string, value: any): CheckRead {
         const why = String((i && (i.why || i.rule)) || '').replace(/\s+/g, ' ').trim();
         return { line: isFinite(n) && n > 0 ? n : null, why: why || 'no reason recorded on this item' };
       });
-      return out('FINDINGS', String(value.summary || (items.length + ' contradiction(s)')), lines, detailed);
+      // Cut off WITH contradictions is still a stop, and is never presented as the whole list:
+      // NOT_RUN here would hide contradictions the checker did find.
+      return out('FINDINGS', cutOff
+        ? 'at least ' + items.length + ' contradiction' + (items.length === 1 ? '' : 's')
+          + ' against ' + (value.checked ?? '?') + ' register line(s) — the reply was cut off, so the list is incomplete'
+        : String(value.summary || (items.length + ' contradiction(s)')), lines, detailed);
+    }
+    if (cutOff) {
+      return out('NOT_RUN', 'the register check\'s reply was cut off before it reported anything,'
+        + ' so nothing is known either way');
     }
     // RAN AND FAILED IS NOT CLEAN. The error shape stores ok:false / contradicted:null with an
     // empty items array, which is byte-identical to a clean result everywhere except these fields.
