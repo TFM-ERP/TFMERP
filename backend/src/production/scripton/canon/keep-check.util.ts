@@ -192,7 +192,8 @@ export function parseKeepCheck(text: string, items: string[], body: string): Kee
     + (count('UNPROVEN') ? ' · ' + count('UNPROVEN') + ' claimed found with no quote in the draft' : '')
     + (count('NOT REPORTED') ? ' · ' + count('NOT REPORTED') + ' NOT REPORTED by the checker' : '')
     + (missingNames.length ? ' — not found: ' + missingNames.join('; ') : '')
-    + (unverifiedQuotes ? ' · ' + unverifiedQuotes + ' quoted passage(s) NOT FOUND in the draft (not counted as found)' : '')
+    + (unverifiedQuotes ? ' · ' + unverifiedQuotes + ' quoted passage(s) are not in the draft, so'
+      + ' those things are unproven rather than missing (not counted as found)' : '')
     + (notVerbatim ? ' · ' + notVerbatim + ' quoted line(s) claimed found whose words are not in the draft (not counted as found)' : '')
     + (invalid ? ' · ' + invalid + ' row(s) named no item' : '')
     + (salvaged ? ' · recovered from malformed JSON' : '');
@@ -207,7 +208,22 @@ export function parseKeepCheck(text: string, items: string[], body: string): Kee
 // not run — a version with no result must not look like a version with nothing missing (SYNOPSIS v2's
 // register check was killed by a restart and left no trace at all).
 
-export type KeepCheckState = 'NO MISSES' | 'MISSES' | 'NOT RUN';
+/**
+ * FOUR STATES. UNPROVEN was folded into MISSES and that cost a build two blanket waivers.
+ *
+ * Run 2's TREATMENT named NOTHING absent (`missing: []`) and proved fifteen of sixteen things. The
+ * sixteenth was claimed found on a line the checker had composed from two scene headings — "7. 03:50
+ * — THE THIRD DOOR", where the draft has "7. 03:00 — THE COURTEOUS HOUR" and "8. 03:50 — THE THIRD
+ * DOOR". That is a bad citation, not an absent beat, and two entries later the same item proved the
+ * same beat with a quote that does match. It was stored "MISSES — not found: Rashid at 3 a.m.", the
+ * gate stopped the build on it twice, and because waiveChecks is a blanket boolean each waiver
+ * cleared every other finding on those versions too. A false positive on an all-or-nothing lever
+ * teaches the operator to pull it.
+ *
+ * So UNPROVEN stops — nothing has been shown either way, and that is not a pass — but it stops in
+ * its own words and is never reported as the draft missing something.
+ */
+export type KeepCheckState = 'NO MISSES' | 'MISSES' | 'UNPROVEN' | 'NOT RUN';
 
 /** The Keep a TREATMENT prompt carried — or why it carried none. Mirrors directionSteerText. */
 export function keepSent(buildId: any, dirRow: any): { keep: string | null; reason: string | null } {
@@ -222,27 +238,78 @@ export function keepCheckNotRun(reason: string, extra?: Record<string, any>): an
   return { state: 'NOT RUN' as KeepCheckState, reason, misses: null, summary: 'KEEP CHECK DID NOT RUN: ' + reason, ...(extra || {}) };
 }
 
+/** The suffix that marks an item the checker never answered on, so the summary can give it its own verb. */
+const NOT_CHECKED = ' (not checked)';
+
 /**
- * Everything not confirmed present, in item order. Unconfirmed is listed, never dropped: an item the
- * checker never reported, or a "found" whose quote is not in the draft, is not a pass.
+ * WHAT IS NOT ON THE PAGE, in item order — and only that.
+ *
+ * Two kinds, both of which stop: a thing the checker NAMED as absent, and an item it never reported
+ * at all. The third kind — claimed present, quoted on words the draft does not hold — used to be
+ * appended here and is now keepUnproven's. Folding it in made a mis-citation indistinguishable from
+ * a missing beat, and the headline word was "not found".
  */
 export function keepMisses(report: KeepCheckReport): string[] {
   const out: string[] = [];
   for (const it of report.items) {
-    if (it.status === 'NOT REPORTED') { out.push(it.text + ' (not checked)'); continue; }
+    if (it.status === 'NOT REPORTED') { out.push(it.text + NOT_CHECKED); continue; }
     out.push(...it.missing);
-    for (const f of it.found) if (!f.quoteFound) out.push((f.thing || 'item ' + it.item) + ' (the quoted words are not in the draft)');
   }
   return out;
 }
 
-/** The stored result. No count and no fraction — the per-item audit is kept for traceability only. */
+/**
+ * Claimed present on words that are not in the draft — neither proved nor shown missing.
+ *
+ * The quote travels with it, because the quote is the whole evidence: a reader who can see
+ * "7. 03:50 — THE THIRD DOOR" beside a draft that says "8. 03:50" can tell a bad citation from a
+ * missing beat in one glance, and that is the judgement this check kept taking away from them.
+ */
+export function keepUnproven(report: KeepCheckReport): string[] {
+  const out: string[] = [];
+  for (const it of report.items) {
+    for (const f of it.found) {
+      if (f.quoteFound) continue;
+      out.push((f.thing || 'item ' + it.item)
+        + ' — the checker claimed this is in the draft but quoted words that are not: "'
+        + String(f.quote || '').replace(/\s+/g, ' ').trim() + '"');
+    }
+  }
+  return out;
+}
+
+/**
+ * The stored result. No count and no fraction — the per-item audit is kept for traceability only.
+ *
+ * THREE FACTS, THREE VERBS. They used to share one sentence that opened "not found", which is a
+ * claim about the DRAFT, and only one of the three is:
+ *
+ *   named absent   the checker says it is not there           "not found"
+ *   not reported   the checker said nothing about the item     "not checked"
+ *   unproven       claimed there, quoted words that are not    "claimed but not shown"
+ *
+ * THE PARSER'S OWN SENTENCE IS STILL NOT STORED, AND THAT IS DELIBERATE. It distinguishes these
+ * three too, which is why keeping it looked like the fix — but it opens "N of M items named and
+ * found", and never showing a score is a standing rule here: a draft that had never seen the Keep
+ * list once scored 6 of 10, because a draft and its Keep share a source. The spec's `noScore`
+ * control refuses it. The composed summary below draws the same distinction with three verbs and no
+ * arithmetic, so the sentence is reworded at the parser (where it is logged) and composed afresh
+ * here (where it is stored).
+ */
 export function keepCheckOutcome(report: KeepCheckReport, meta: Record<string, any>): any {
   if (!report.ok) return keepCheckNotRun('the check failed: ' + report.summary.replace(/^KEEP CHECK FAILED: /, ''), meta);
   const misses = keepMisses(report);
-  const state: KeepCheckState = misses.length ? 'MISSES' : 'NO MISSES';
+  const unproven = keepUnproven(report);
+  // MISSES is the stronger claim and wins when both are present: something IS named absent.
+  const state: KeepCheckState = misses.length ? 'MISSES' : (unproven.length ? 'UNPROVEN' : 'NO MISSES');
   const items = report.items.map((i) => ({ item: i.item, text: i.text, status: i.status, found: i.found, missing: i.missing, lines: i.lines }));
-  return { state, misses, items, salvaged: report.salvaged, invalid: report.invalid, ...meta,
-    summary: misses.length ? 'KEEP CHECK — not found: ' + misses.join('; ')
+  const namedAbsent = misses.filter((m) => !m.endsWith(NOT_CHECKED));
+  const notChecked = misses.filter((m) => m.endsWith(NOT_CHECKED)).map((m) => m.slice(0, -NOT_CHECKED.length));
+  const parts: string[] = [];
+  if (namedAbsent.length) parts.push('not found: ' + namedAbsent.join('; '));
+  if (notChecked.length) parts.push('not checked: ' + notChecked.join('; '));
+  if (unproven.length) parts.push('claimed but not shown: ' + unproven.join('; '));
+  return { state, misses, unproven, items, salvaged: report.salvaged, invalid: report.invalid, ...meta,
+    summary: parts.length ? 'KEEP CHECK — ' + parts.join(' · ')
       : 'KEEP CHECK — nothing named in the KEEP list is missing from the draft (presence only; not a judgment of how it is used)' };
 }

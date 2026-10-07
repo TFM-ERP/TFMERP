@@ -8,7 +8,7 @@
  */
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { KEEP_CHECK_SYSTEM, keepCheckUser, parseKeepCheck, quotedLines, keepSent, keepCheckOutcome, keepCheckNotRun, keepMisses } from './keep-check.util';
+import { KEEP_CHECK_SYSTEM, keepCheckUser, parseKeepCheck, quotedLines, keepSent, keepCheckOutcome, keepCheckNotRun, keepMisses, keepUnproven } from './keep-check.util';
 import { splitKeep } from './keep-items.util';
 
 const ITEMS = [
@@ -75,7 +75,7 @@ test('THE CHECKER\'S EVIDENCE IS CHECKED: a quote not in the draft is flagged an
   assert.equal(r.thingsFound, 1);
   assert.equal(r.unverifiedQuotes, 1);
   assert.equal(r.thingsMissing, 0, 'claimed-and-unproven is not the same as named-as-absent');
-  assert.match(r.summary, /1 quoted passage\(s\) NOT FOUND in the draft \(not counted as found\)/);
+  assert.match(r.summary, /1 quoted passage\(s\) are not in the draft, so those things are unproven rather than missing/);
 });
 
 test('an unverified quote beside a verified one makes the item PARTIAL, not FOUND', () => {
@@ -256,8 +256,16 @@ test('UNCONFIRMED IS LISTED, NEVER DROPPED: an unreported item and an unproven q
     { item: 1, found: [{ thing: 'bracelet clasp', quote: 'Celeste knows him by the clasp' }], missing: [] },
     { item: 2, found: [{ thing: 'the line', quote: "You don't get to disappear" }], missing: [] },
   ] }), ITEMS, DRAFT);
-  assert.deepEqual(keepMisses(rep), ['bracelet clasp (the quoted words are not in the draft)', ITEMS[2] + ' (not checked)']);
-  assert.equal(keepCheckOutcome(rep, {}).state, 'MISSES');
+  // The unproven quote moved to keepUnproven: a mis-citation and an absent beat are two facts.
+  assert.deepEqual(keepMisses(rep), [ITEMS[2] + ' (not checked)']);
+  assert.equal(keepUnproven(rep).length, 1);
+  assert.match(keepUnproven(rep)[0], /bracelet clasp/);
+  // Still stops, and for the right reason: item 3 was never reported.
+  const o = keepCheckOutcome(rep, {});
+  assert.equal(o.state, 'MISSES');
+  assert.match(o.summary, /not checked: /);
+  assert.match(o.summary, /claimed but not shown: /);
+  assert.doesNotMatch(o.summary, /not found/i, 'nothing was named absent');
 });
 
 test('A FAILED CHECK IS STORED AS NOT RUN — never as NO MISSES, never with a score', () => {
@@ -284,4 +292,125 @@ test('keepSent: only a picked row with a non-blank keep sends one; every other c
   assert.match(String(keepSent('b', { legacyText: 'old text', keep: JASIN }).reason), /inherited project text/, 'a legacy row sends legacyText, never its keep');
   assert.match(String(keepSent('b', { legacyText: null, keep: '  ' }).reason), /has no KEEP list/);
   assert.equal(keepSent('b', { legacyText: null, keep: '  ' }).keep, null);
+});
+
+/**
+ * UNPROVEN IS NOT "NOT FOUND" — Plan 01 close-out 2, item 2A.
+ *
+ * Measured on run 2: a TREATMENT whose checker named nothing absent (`missing: []`) and proved
+ * fifteen of sixteen things was stored as `MISSES — not found: <thing>`, because one "found" quoted
+ * a line it had composed from two scene headings. The gate stopped the build on it twice and both
+ * waivers were blanket, so a false positive here clears every other finding too.
+ *
+ * Three different facts, three different verbs:
+ *   named absent    the checker says it is not there          -> misses,    "not found"
+ *   not reported    the checker said nothing about the item    -> misses,    "not checked"
+ *   unproven        claimed there, quoted words that are not   -> unproven,  "claimed but not shown"
+ *
+ * A different story from the fixtures above, per the standing rule: invented, two items, no quotes
+ * inside the item text so the parser's own quoted-line rule does not add missings of its own.
+ */
+const K_ITEMS = ['the brass key', 'the locked shed'];
+const K_DRAFT = 'She turned the brass key over in her palm. The shed stayed shut until morning.';
+const K_REPLY = (rows: any[]) => JSON.stringify({ items: rows });
+
+const kOutcome = (rows: any[]) => keepCheckOutcome(parseKeepCheck(K_REPLY(rows), K_ITEMS, K_DRAFT), {});
+
+// item 1 proved, item 2 named absent by the checker
+const NAMED_ABSENT = [
+  { item: 1, found: [{ thing: 'the brass key', quote: 'She turned the brass key over in her palm' }] },
+  { item: 2, missing: ['the locked shed'] },
+];
+// item 1 claimed found on words that are not in the draft; NOTHING named absent
+const UNPROVEN_ONLY = [
+  { item: 1, found: [{ thing: 'the brass key', quote: 'She dropped the brass key down the drain' }] },
+  { item: 2, found: [{ thing: 'the locked shed', quote: 'The shed stayed shut until morning' }] },
+];
+// both at once
+const BOTH = [
+  { item: 1, found: [{ thing: 'the brass key', quote: 'She dropped the brass key down the drain' }] },
+  { item: 2, missing: ['the locked shed'] },
+];
+// everything proved
+const ALL_PROVED = [
+  { item: 1, found: [{ thing: 'the brass key', quote: 'She turned the brass key over in her palm' }] },
+  { item: 2, found: [{ thing: 'the locked shed', quote: 'The shed stayed shut until morning' }] },
+];
+
+test('a thing the checker names absent is a MISS, and nothing is unproven', () => {
+  const o = kOutcome(NAMED_ABSENT);
+  assert.equal(o.state, 'MISSES');
+  assert.deepEqual(o.misses, ['the locked shed']);
+  assert.deepEqual(o.unproven, []);
+});
+
+test('a claim quoted on words the draft does not hold is UNPROVEN, and misses stays empty', () => {
+  const o = kOutcome(UNPROVEN_ONLY);
+  assert.equal(o.state, 'UNPROVEN', 'an unproven claim is not a miss');
+  assert.deepEqual(o.misses, [], 'nothing was named absent, so nothing is missing');
+  assert.equal(o.unproven.length, 1);
+  assert.match(o.unproven[0], /the brass key/);
+  assert.match(o.unproven[0], /quoted words that are not/);
+});
+
+test('named absent and unproven at once: MISSES, each in its own list', () => {
+  const o = kOutcome(BOTH);
+  assert.equal(o.state, 'MISSES', 'something IS named absent, so the stronger state wins');
+  assert.deepEqual(o.misses, ['the locked shed']);
+  assert.equal(o.unproven.length, 1);
+});
+
+test('everything proved: NO MISSES, both lists empty', () => {
+  const o = kOutcome(ALL_PROVED);
+  assert.equal(o.state, 'NO MISSES');
+  assert.deepEqual(o.misses, []);
+  assert.deepEqual(o.unproven, []);
+});
+
+test('an item the checker never reported stops, and says NOT CHECKED rather than not found', () => {
+  const o = kOutcome([{ item: 1, found: [{ thing: 'the brass key', quote: 'She turned the brass key over in her palm' }] }]);
+  assert.equal(o.state, 'MISSES');
+  assert.equal(o.misses.length, 1);
+  assert.match(o.misses[0], /not checked/);
+  assert.doesNotMatch(String(o.summary), /not found/i, 'nothing was named absent: "not found" would be a claim about the draft');
+});
+
+test('CONTROL: the distinction is carried WITHOUT the parser\'s score', () => {
+  const r = parseKeepCheck(K_REPLY(UNPROVEN_ONLY), K_ITEMS, K_DRAFT);
+  const o = keepCheckOutcome(r, {});
+  // Keeping report.summary verbatim was the obvious fix and it is the wrong one: that sentence opens
+  // "N of M items named and found". The composed summary must tell unproven from missing on its own.
+  assert.ok(!('parserSummary' in o), 'the parser sentence carries a score and must not be stored');
+  noScore(o);
+  assert.match(String(o.summary), /claimed but not shown: /);
+  assert.doesNotMatch(String(o.summary), /not found/i);
+  // and the parser's own sentence, which IS logged, no longer says "NOT FOUND" either
+  assert.doesNotMatch(String(r.summary), /not found/i);
+});
+
+test('CONTROL: an unproven-only result never says "not found", in any casing, anywhere it is read', () => {
+  const r = parseKeepCheck(K_REPLY(UNPROVEN_ONLY), K_ITEMS, K_DRAFT);
+  const o = keepCheckOutcome(r, {});
+  // The parser's sentence is kept and the gate prints it, so BOTH must be clean.
+  assert.doesNotMatch(String(r.summary), /not found/i, 'the parser said "NOT FOUND in the draft"');
+  assert.doesNotMatch(String(o.summary), /not found/i);
+  assert.doesNotMatch(J(o.unproven), /not found/i);
+});
+
+test('CONTROL: a genuinely named-absent thing still says "not found" — the phrase is true there', () => {
+  const o = kOutcome(NAMED_ABSENT);
+  assert.match(String(o.summary), /not found/i,
+    'the rewording must not be applied indiscriminately: a thing the checker says is absent IS not found');
+});
+
+test('CONTROL: UNPROVEN is a state of its own, not folded into either neighbour', () => {
+  assert.equal(kOutcome(UNPROVEN_ONLY).state, 'UNPROVEN');
+  assert.notEqual(kOutcome(UNPROVEN_ONLY).state, 'MISSES');
+  assert.notEqual(kOutcome(UNPROVEN_ONLY).state, 'NO MISSES');
+});
+
+test('keepMisses carries named-absent and not-reported only — never an unproven quote', () => {
+  const r = parseKeepCheck(K_REPLY(UNPROVEN_ONLY), K_ITEMS, K_DRAFT);
+  assert.deepEqual(keepMisses(r), [], 'the !quoteFound loop belonged to keepUnproven');
+  assert.equal(keepUnproven(r).length, 1);
 });

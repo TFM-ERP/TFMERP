@@ -3566,8 +3566,10 @@ export class ScripOnService {
 
   /**
    * Check a TREATMENT for what its direction said to KEEP, and store the result on it as
-   * data.keepCheck. Report-only. Presence only — see keep-check.util. Three states, never a score:
-   * MISSES (with the list), NO MISSES, or NOT RUN (with the reason; a failed check is NOT RUN).
+   * data.keepCheck. Report-only. Presence only — see keep-check.util. Four states, never a score:
+   * MISSES (things the checker named absent, or an item it never answered on), UNPROVEN (claimed
+   * present, quoted on words that are not in the draft — it stops, but it is NOT the draft missing
+   * anything), NO MISSES, or NOT RUN (with the reason; a failed check is NOT RUN).
    *
    * MERGED ATOMICALLY. The register check lands on the same row in parallel; a read-modify-write here
    * would lose whichever of the two finished first.
