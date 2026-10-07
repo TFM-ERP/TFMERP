@@ -4,7 +4,7 @@
  *  document (Save as PDF). Wrapped in the ScriptON rail shell so it keeps ScriptON context. */
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { checkSummaryLine, isRevisionReady, solidColor, isFirstSightOfRevision, defaultSeenStore } from '@/components/scripton/doctor/scripton-doctor.logic';
+import { checkSummaryLine, isRevisionReady, solidColor, isFirstSightOfResult, checksVisible, defaultSeenStore } from '@/components/scripton/doctor/scripton-doctor.logic';
 import { productionApi } from '@/lib/api';
 import { SxRail } from '@/components/scripton/shared/sx';
 import { markScriptonGenerating, clearScriptonGenerating, isScriptonGenerating } from '@/components/scripton/useScriptonGenerating';
@@ -87,6 +87,12 @@ export default function ScriptOnScriptPage() {
    */
   const [justRan, setJustRan] = useState(false);
   const [firstSight, setFirstSight] = useState(false);
+  /**
+   * May the checks be shown at all this load? False while a generation is in flight — the counts
+   * then describe a half-written draft — and false when the progress probe did not answer, because
+   * an unanswered probe is not evidence that nothing is running.
+   */
+  const [ckVisible, setCkVisible] = useState(false);
   /**
    * Plan 01 task 7 — RE-READ WHEN A RUN FINISHES, WHATEVER THE END STATE.
    *
@@ -198,15 +204,41 @@ export default function ScriptOnScriptPage() {
         const dateStr = new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
         const baseInfo: any = { revLabel: d.revisionLabel || 'White Draft', date: dateStr };
         setTitle(ttl); setRevLabel(d.revisionLabel || 'WHITE'); setText(joined); setPages(mapped); setInfo(baseInfo); setRevId(revId); setLoading(false);
-        // Asked once per load, and it records — so a reload of the same revision does not re-show it.
-        if (isFirstSightOfRevision(docParam || docId, revId, defaultSeenStore())) setFirstSight(true);
         let info2: any = baseInfo;
         if (docParam) {
           try {
             const pk: any = await productionApi.scripton.development.getPackage({ docId: docParam });
             const pd: any = pk.data || {}; const br: any = pd.brief || {}; const cov: any = pd.coverage || {};
-            // The checks ride on the read this page already makes — no extra request.
-            if (alive) setCkSum((pd.script && pd.script.checkSummary) || null);
+            /**
+             * THE CHECKS, AND WHEN THEY MAY BE SHOWN.
+             *
+             * Asked only after the package has answered, and only when the package describes the
+             * SAME revision whose pages are on screen — mid-run the two can differ, and a summary
+             * about another revision is worse than none.
+             *
+             * The progress probe decides whether anything may be shown at all. An unanswered probe
+             * counts as "do not ask this load": it is not evidence that nothing is running.
+             */
+            const pkgRev = String((pd.script && pd.script.revisionId) || '');
+            const sum = (pd.script && pd.script.checkSummary) || null;
+            let status: string | null = null;
+            let answered = false;
+            try {
+              const pr: any = await productionApi.scripton.development.scriptProgress(docParam);
+              status = String(pr?.data?.status || '') || null;
+              answered = true;
+            } catch { /* answered stays false — see above */ }
+            const visible = checksVisible(status, answered);
+            const sameRev = !!revId && pkgRev === String(revId);
+            if (alive) {
+              setCkVisible(visible);
+              setCkSum(visible && sameRev ? sum : null);
+              // Asked once per load, and it records — so a reload of the same RESULT does not
+              // re-show it, while the finished result after a mid-run peek still does.
+              if (visible && sameRev && isFirstSightOfResult(docParam, revId, sum, defaultSeenStore())) {
+                setFirstSight(true);
+              }
+            }
             // versionLabel is the writer's own draft name, typed at intake and stored in the build's
             // brief. It is NOT revLabel: that is the WGA revision colour, which two builds of the same
             // film share. This is what tells those two builds apart on the page.
@@ -364,7 +396,7 @@ export default function ScriptOnScriptPage() {
       setRegening(false);
       setCancelling(false);
       if (msg) setGenErr(msg);
-      setJustRan(true);
+      setJustRan(true); setCkVisible(true);
       // Every end state comes through here, so the line can never describe the run before. Only a
       // run that LANDED waits for its own revision; the rest read what is active, because that is
       // the revision whose pages are on screen.
@@ -549,6 +581,8 @@ export default function ScriptOnScriptPage() {
             the count upstream (countsAsFinding is false for INFO).
           */}
           {(() => {
+            // Nothing while a generation is in flight, or while the probe has not answered.
+            if (!ckVisible) return null;
             /**
              * ONE RULE, FROM THE TESTED MODULE. This composed the same sentence inline, which meant
              * two implementations of "what was not checked leads" and only one of them covered by a
@@ -591,7 +625,7 @@ export default function ScriptOnScriptPage() {
             // CLOSE-OUT 5 — the same rule as the toolbar line, one implementation, shown where the
             // run ended. Only after a run in THIS view: on an ordinary page load the toolbar is
             // where it belongs, and a banner on every visit would be the thing nobody reads.
-            if ((!justRan && !firstSight) || loading || err) return null;
+            if (!ckVisible || (!justRan && !firstSight) || loading || err) return null;
             const line = checkSummaryLine(ckSum);
             if (!line) return null;
             const c = solidColor(line.color);

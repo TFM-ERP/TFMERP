@@ -247,18 +247,22 @@ export function itemWhere(item: { scene?: number | null; kind?: string } | null 
 }
 
 /**
- * HAS THIS REVISION BEEN SEEN BEFORE IN THIS BROWSER?
+ * HAS THIS RESULT BEEN SEEN BEFORE IN THIS BROWSER?
  *
- * The end-of-run banner was gated on a flag set in the script page's own stop(), which only fires
- * for a run FOLLOWED on that page. A first generation is followed from studio/page.tsx and the
- * script page then opens as an ordinary load — no stop(), no flag, no banner. That is the path
- * "Lost" took, which is why its counts were never put in front of anyone.
+ * Remembering the REVISION was not enough, and the reason is in promoteToScript: the revision is
+ * created and made active BEFORE a word is written (:6140-6141), and generateScriptAsync then writes
+ * into that same id (:6147). The id is therefore constant across the whole run. So opening
+ * /scripton/script?doc=X mid-generation — which the ScriptonGenPill's openRun link does — recorded
+ * the revision while the checks still said "11 not checked", and the finished result ("1 not checked
+ * · 2 findings") was then never a first sight and never shown. The banner fired on the one state
+ * nobody needed and stayed silent on the one they did.
  *
- * So: the first time a document's active revision is a DIFFERENT one from the last seen, the
- * banner shows. Recording the id is part of asking, because a question answered twice must answer
- * differently the second time — otherwise the banner returns on every reload and becomes the thing
- * nobody reads, which is the defect and not a second copy of it.
+ * So the memory is the RESULT: the revision id together with its counts, in a fixed order. A
+ * different result for the same revision is a first sight again, which is exactly the mid-run then
+ * finished case.
  */
+export interface CheckCounts { findings?: number; notRun?: number; clean?: number; info?: number }
+
 export interface SeenStore { get(key: string): string | null; set(key: string, value: string): void }
 
 const MEMORY = new Map<string, string>();
@@ -268,8 +272,7 @@ const MEMORY = new Map<string, string>();
  *
  * Private windows and blocked site data make localStorage throw on ACCESS, not just on write. The
  * fallback keeps first-sight-per-session rather than degrading to "every reload" — showing the
- * banner forever is worse than showing it once per session, and never showing it hides a real
- * result.
+ * banner for ever is worse than showing it once a session, and never showing it hides a real result.
  */
 export function defaultSeenStore(): SeenStore {
   return {
@@ -282,18 +285,54 @@ export function defaultSeenStore(): SeenStore {
   };
 }
 
-export function isFirstSightOfRevision(
+const n0 = (v: any): number => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+
+/**
+ * The ordered value remembered per document: which revision, and what it said.
+ *
+ * null when there is no revision or no summary — there is nothing to remember, and nothing may be
+ * recorded, or the next load with a real summary would read as already seen.
+ */
+export function resultSignature(
+  revisionId: string | null | undefined, summary: CheckCounts | null | undefined,
+): string | null {
+  const rev = String(revisionId || '').trim();
+  if (!rev || !summary || typeof summary !== 'object') return null;
+  return [rev, n0(summary.findings), n0(summary.notRun), n0(summary.clean), n0(summary.info)].join('|');
+}
+
+export function isFirstSightOfResult(
   docId: string | null | undefined,
   revisionId: string | null | undefined,
+  summary: CheckCounts | null | undefined,
   store: SeenStore,
 ): boolean {
   const doc = String(docId || '').trim();
-  const rev = String(revisionId || '').trim();
-  // With nothing to identify, there is no question to answer — and nothing to record either.
-  if (!doc || !rev) return false;
-  const key = 'scripton.seenRevision.' + doc;
-  const last = store.get(key);
-  if (last === rev) return false;
-  store.set(key, rev);
+  const sig = resultSignature(revisionId, summary);
+  // With nothing to identify there is no question to answer, and nothing to record either.
+  if (!doc || !sig) return false;
+  const key = 'scripton.seenResult.' + doc;
+  if (store.get(key) === sig) return false;
+  // Recording is part of asking: a question answered twice must answer differently the second time,
+  // or the banner returns on every reload and becomes the thing nobody reads.
+  store.set(key, sig);
   return true;
+}
+
+/**
+ * MAY THE CHECKS BE SHOWN AT ALL THIS LOAD?
+ *
+ * No, while a generation is in flight: the counts then describe a half-written draft, and the
+ * reader would be told "11 not checked" about a script that is still being checked. And no when the
+ * progress probe did not answer — an unanswered probe is not evidence that nothing is running, so it
+ * counts as "do not ask this load" rather than as permission.
+ */
+export function checksVisible(
+  progressStatus: string | null | undefined, probeAnswered: boolean,
+): boolean {
+  if (!probeAnswered) return false;
+  return String(progressStatus || '').toUpperCase() !== 'GENERATING';
 }

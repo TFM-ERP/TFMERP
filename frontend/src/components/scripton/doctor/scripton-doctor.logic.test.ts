@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   scorecardTiles, verdictBanner, sceneFlowBars, arcPoints, diagRows, letterFromScore, TRANSFORM_TILES,
   tint, SX_HEX, CHECK_STATE, checkRowView, checkSummaryLine,
-  isRevisionReady, solidColor, itemWhere, isFirstSightOfRevision, defaultSeenStore,
+  isRevisionReady, solidColor, itemWhere, isFirstSightOfResult, resultSignature, checksVisible, defaultSeenStore,
 } from './scripton-doctor.logic.ts';
 
 test('scorecardTiles always returns the 5 fixed categories', () => {
@@ -243,54 +243,91 @@ test('CONTROL — "scene ?" for everything conflates two different facts', () =>
   assert.notEqual(itemWhere({ kind: 'LENGTH', scene: null }), itemWhere({ kind: 'REGISTER', scene: null }));
 });
 
-// ── THE BANNER ON A FIRST OPEN, NOT ONLY AFTER A RUN IN VIEW ─────────────────────────────────
+// ── THE BANNER FIRES ON THE RESULT, NOT THE REVISION ───────────────────────────────────────
+//
+// promoteToScript creates the revision and makes it active BEFORE anything is written (:6140-6141)
+// and generateScriptAsync writes into that same id (:6147), so the id is constant across a run.
+// Remembering the revision meant a mid-run peek — which the gen pill's openRun link produces —
+// recorded "11 not checked" and the finished result was never a first sight.
 
 const fakeStore = (seed: Record<string, string> = {}) => {
   const m = new Map(Object.entries(seed));
   return { get: (k: string) => m.get(k) ?? null, set: (k: string, v: string) => { m.set(k, v); }, _m: m };
 };
+const MID_RUN = { findings: 0, notRun: 11, clean: 0, info: 0 };
+const FINISHED = { findings: 2, notRun: 1, clean: 7, info: 1 };
 
-test('isFirstSightOfRevision — a revision never seen before is a first sight', () => {
+test('THE HOLE — a mid-run peek then the finished run shows the banner the SECOND time', () => {
   const s = fakeStore();
-  assert.equal(isFirstSightOfRevision('doc1', 'revA', s), true);
+  assert.equal(isFirstSightOfResult('doc1', 'revA', MID_RUN, s), true, 'the mid-run peek');
+  assert.equal(isFirstSightOfResult('doc1', 'revA', FINISHED, s), true,
+    'SAME revision, different result — this is the one that was lost');
+  assert.equal(isFirstSightOfResult('doc1', 'revA', FINISHED, s), false, 'and not again');
 });
 
-test('isFirstSightOfRevision — and asking again says no, because asking records', () => {
+test('CONTROL — remembering only the revision loses the finished result', () => {
   const s = fakeStore();
-  assert.equal(isFirstSightOfRevision('doc1', 'revA', s), true);
-  assert.equal(isFirstSightOfRevision('doc1', 'revA', s), false, 'a reload must not show it again');
-  assert.equal(isFirstSightOfRevision('doc1', 'revA', s), false);
+  const revisionOnly = (doc: string, rev: string) => {
+    const k = 'rev.' + doc;
+    if (s.get(k) === rev) return false;
+    s.set(k, rev);
+    return true;
+  };
+  assert.equal(revisionOnly('doc1', 'revA'), true, 'the mid-run peek');
+  assert.equal(revisionOnly('doc1', 'revA'), false, 'the defect: the finished result is never shown');
+  // the result-based memory gets it right on the same inputs
+  const s2 = fakeStore();
+  isFirstSightOfResult('doc1', 'revA', MID_RUN, s2);
+  assert.equal(isFirstSightOfResult('doc1', 'revA', FINISHED, s2), true);
 });
 
-test('isFirstSightOfRevision — a NEW revision of the same document is a first sight again', () => {
+test('the same result twice is not a first sight', () => {
   const s = fakeStore();
-  isFirstSightOfRevision('doc1', 'revA', s);
-  assert.equal(isFirstSightOfRevision('doc1', 'revB', s), true, 'a regenerate produces a new revision');
-  assert.equal(isFirstSightOfRevision('doc1', 'revB', s), false);
+  assert.equal(isFirstSightOfResult('doc1', 'revA', FINISHED, s), true);
+  assert.equal(isFirstSightOfResult('doc1', 'revA', FINISHED, s), false, 'a reload must not re-show it');
+  assert.equal(isFirstSightOfResult('doc1', 'revA', { ...FINISHED }, s), false, 'a fresh object, same counts');
 });
 
-test('isFirstSightOfRevision — documents are remembered separately', () => {
+test('a NEW revision is a first sight even with identical counts', () => {
   const s = fakeStore();
-  isFirstSightOfRevision('doc1', 'revA', s);
-  assert.equal(isFirstSightOfRevision('doc2', 'revA', s), true, 'another script, same revision id, still new here');
-  assert.equal(isFirstSightOfRevision('doc1', 'revA', s), false);
+  isFirstSightOfResult('doc1', 'revA', FINISHED, s);
+  assert.equal(isFirstSightOfResult('doc1', 'revB', FINISHED, s), true, 'a regenerate that landed the same way');
 });
 
-test('isFirstSightOfRevision — nothing to identify is not a first sight, and records nothing', () => {
-  const s = fakeStore();
-  assert.equal(isFirstSightOfRevision('', 'revA', s), false);
-  assert.equal(isFirstSightOfRevision('doc1', '', s), false);
-  assert.equal(isFirstSightOfRevision(null, null, s), false);
-  assert.equal(s._m.size, 0, 'an unanswerable question must not write a memory');
+test('every count is part of the signature', () => {
+  for (const patch of [{ findings: 3 }, { notRun: 2 }, { clean: 8 }, { info: 0 }] as any[]) {
+    const s = fakeStore();
+    isFirstSightOfResult('doc1', 'revA', FINISHED, s);
+    const changed = { ...FINISHED, ...patch };
+    const same = JSON.stringify(changed) === JSON.stringify(FINISHED);
+    assert.equal(isFirstSightOfResult('doc1', 'revA', changed, s), !same, JSON.stringify(patch));
+  }
 });
 
-test('CONTROL — not recording turns the banner into every-reload noise', () => {
+test('no summary is not a first sight, and records NOTHING', () => {
   const s = fakeStore();
-  const naive = (doc: string, rev: string) => s.get('scripton.seenRevision.' + doc) !== rev;   // asks, never records
-  assert.equal(naive('doc1', 'revA'), true);
-  assert.equal(naive('doc1', 'revA'), true, 'the defect: true for ever');
-  assert.equal(isFirstSightOfRevision('doc1', 'revA', s), true);
-  assert.equal(isFirstSightOfRevision('doc1', 'revA', s), false);
+  assert.equal(isFirstSightOfResult('doc1', 'revA', null, s), false);
+  assert.equal(isFirstSightOfResult('doc1', 'revA', undefined, s), false);
+  assert.equal(isFirstSightOfResult('doc1', '', FINISHED, s), false);
+  assert.equal(isFirstSightOfResult('', 'revA', FINISHED, s), false);
+  assert.equal(s._m.size, 0, 'recording here would make the next real summary read as already seen');
+  // and the real summary that follows IS a first sight
+  assert.equal(isFirstSightOfResult('doc1', 'revA', FINISHED, s), true);
+});
+
+test('resultSignature is ordered and null when there is nothing to remember', () => {
+  assert.equal(resultSignature('revA', FINISHED), 'revA|2|1|7|1');
+  assert.equal(resultSignature('revA', { notRun: 1, findings: 2, info: 1, clean: 7 }), 'revA|2|1|7|1',
+    'key order in the summary object must not change the signature');
+  assert.equal(resultSignature('', FINISHED), null);
+  assert.equal(resultSignature('revA', null), null);
+});
+
+test('documents are remembered separately', () => {
+  const s = fakeStore();
+  isFirstSightOfResult('doc1', 'revA', FINISHED, s);
+  assert.equal(isFirstSightOfResult('doc2', 'revA', FINISHED, s), true, 'another script, same ids, still new here');
+  assert.equal(isFirstSightOfResult('doc1', 'revA', FINISHED, s), false);
 });
 
 test('defaultSeenStore — survives a localStorage that throws on access', () => {
@@ -300,8 +337,31 @@ test('defaultSeenStore — survives a localStorage that throws on access', () =>
     const s = defaultSeenStore();
     assert.equal(s.get('k'), null, 'a throwing read is null, not a crash');
     s.set('k', 'v');
-    assert.equal(s.get('k'), 'v', 'and the in-memory fallback still remembers for the session');
+    assert.equal(s.get('k'), 'v', 'and the in-memory fallback remembers for the session');
   } finally {
     if (realWindow === undefined) delete (globalThis as any).window; else (globalThis as any).window = realWindow;
   }
+});
+
+// ── NOTHING IS SHOWN WHILE A GENERATION IS IN FLIGHT ───────────────────────────────────────
+
+test('checksVisible — not while GENERATING', () => {
+  assert.equal(checksVisible('GENERATING', true), false, 'the counts would describe a half-written draft');
+  assert.equal(checksVisible('generating', true), false, 'case does not matter');
+  assert.equal(checksVisible('DONE', true), true);
+  assert.equal(checksVisible('ERROR', true), true, 'a failed run still has a result worth reading');
+  assert.equal(checksVisible('UNKNOWN', true), true);
+  assert.equal(checksVisible(null, true), true, 'no status is not a running one');
+});
+
+test('checksVisible — a probe that did not answer is not permission', () => {
+  assert.equal(checksVisible('DONE', false), false);
+  assert.equal(checksVisible(null, false), false);
+  assert.equal(checksVisible('GENERATING', false), false);
+});
+
+test('CONTROL — treating an unanswered probe as "nothing running" shows mid-run counts', () => {
+  const naive = (status: string | null) => String(status || '') !== 'GENERATING';
+  assert.equal(naive(null), true, 'the defect: a failed probe reads as permission');
+  assert.equal(checksVisible(null, false), false);
 });
