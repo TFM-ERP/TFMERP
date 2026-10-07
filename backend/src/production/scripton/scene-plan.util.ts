@@ -204,9 +204,11 @@ export interface PlanStateFinding { kind: 'CLOCK_DISCARDED' | 'NO_EXIT_GATE'; sc
  * about what was checked, and neither of these was.
  *
  *   CLOCK_DISCARDED  extractPlanState drops the WHOLE planned clock when it runs backwards at any
- *                    point. The draft was then written with no planned clock at all, so every
- *                    downstream time check had nothing to work from. Whether to discard is plan 4;
- *                    that it HAPPENED is a finding either way.
+ *                    point, and that clock is what spineDirective hands the writer per scene
+ *                    (:5275, :5859). So the loss is the WRITER'S: every scene prompt went out with
+ *                    no intended time. It is NOT that no time check ran — the page-side clock sweep
+ *                    reads the written pages through findAllTimeTokens and ran normally, reporting
+ *                    CLEAN on run 1. Whether to discard is plan 4; that it happened is a finding.
  *   NO_EXIT_GATE     a cards-sourced plan cannot declare an exit — sceneCards maps five fields and
  *                    no `exits` — so the exit gate that stops a dead character speaking eighty
  *                    pages later had no input. Not "nobody dies": nobody could say.
@@ -229,7 +231,8 @@ export function planStateFindings(
       kind: 'CLOCK_DISCARDED',
       scenes: [],
       detail: 'the planned clock ran backwards at ' + dropped + ' point' + (dropped === 1 ? '' : 's')
-        + ' and was discarded in full — this draft was written with no planned clock, so no time check had anything to read',
+        + ' and was discarded in full — the writer was given no planned time for any scene'
+        + ' (the page-side clock check still ran, against the written pages)',
     });
   }
   if (plan && plan.count > 0 && plan.exitsDeclared === 0 && plan.source === 'cards') {

@@ -498,7 +498,10 @@ test('CLOSE-OUT 2b — a clock discarded in full is a FINDING', () => {
   assert.equal(f.length, 1);
   assert.equal(f[0].kind, 'CLOCK_DISCARDED');
   assert.match(f[0].detail, /1 point/);
-  assert.match(f[0].detail, /no planned clock/);
+  assert.match(f[0].detail, /the writer was given no planned time/);
+  // and NOT the claim that no time check ran: the page-side sweep reads the written pages and did
+  assert.doesNotMatch(f[0].detail, /no time check had anything to read/);
+  assert.match(f[0].detail, /page-side clock check still ran/);
   assert.equal(f[0].scenes.length, 0, 'the whole draft, not one scene');
 });
 
