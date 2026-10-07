@@ -33,7 +33,7 @@ import {
   type Slice, type PlanStateFailure, type PlanStateFailureKind,
 } from './plan-state-slices.util';
 import { checkSurface, surfaceSummary } from './check-surface.util';
-import { scenePlanFor, scenePlanSubject, planStateNote, planStateFindings } from './scene-plan.util';
+import { scenePlanFor, scenePlanSubject, planStateNote, planStateFindings, clockBackwardPairs, ClockPoint, ClockPair } from './scene-plan.util';
 import {
   classifyLine, nextInSpeech, checkScene, checkDraftContinuity, checkPlanCast, stripExitedCast,
   collectExits, unavailableLine, dedupeScenes, repairInstruction, summariseContinuity,
@@ -3999,8 +3999,9 @@ export class ScripOnService {
    */
   private async extractPlanState(
     scenes: any[], reg: EntityRegistry, projectId: string,
-  ): Promise<{ facts: StateFact[]; places: PlaceObservation[]; transit: Set<number>; clock: Map<number, number>; props: PropEvent[]; designators: string[]; recalled: Set<number>; failures: PlanStateFailure[]; nearMisses: number; clockDiscardedAt: number; threw?: string }> {
-    const empty = { facts: [] as StateFact[], places: [] as PlaceObservation[], transit: new Set<number>(), clock: new Map<number, number>(), props: [] as PropEvent[], designators: [] as string[], recalled: new Set<number>(), failures: [] as PlanStateFailure[], nearMisses: 0, clockDiscardedAt: 0 };
+  ): Promise<{ facts: StateFact[]; places: PlaceObservation[]; transit: Set<number>; clock: Map<number, number>; props: PropEvent[]; designators: string[]; recalled: Set<number>; failures: PlanStateFailure[]; nearMisses: number; clockDiscardedAt: number;
+    clockPlanned: ClockPoint[]; clockBackwards: ClockPair[]; threw?: string }> {
+    const empty = { facts: [] as StateFact[], places: [] as PlaceObservation[], transit: new Set<number>(), clock: new Map<number, number>(), props: [] as PropEvent[], designators: [] as string[], recalled: new Set<number>(), failures: [] as PlanStateFailure[], nearMisses: 0, clockDiscardedAt: 0, clockPlanned: [] as ClockPoint[], clockBackwards: [] as ClockPair[] };
     const list = Array.isArray(scenes) ? scenes : [];
     if (!list.length) return empty;
 
@@ -4061,6 +4062,10 @@ export class ScripOnService {
     const planFailures: PlanStateFailure[] = [];
     let planNearMisses = 0;
     let clockDiscardedAt = 0;
+    // CLOSE-OUT 2 ITEM 3 — kept because clock.clear() is about to destroy them. Declared here, at
+    // the top of the method, so the capture below cannot be read as optional.
+    let clockPlanned: ClockPoint[] = [];
+    let clockBackwards: ClockPair[] = [];
 
     /** One attempt at one slice: the parsed rows, or why it failed. */
     const askSlice = async (sl: Slice): Promise<{ rows: any[] } | { fail: PlanStateFailureKind; why: string }> => {
@@ -4223,6 +4228,19 @@ export class ScripOnService {
         // line. The rule is untouched (whether to discard is plan 4); the count travels out so the
         // planState row can say the draft was written with no planned clock.
         clockDiscardedAt = backwards;
+        /**
+         * BEFORE THE CLEAR, OR THERE IS NOTHING TO KEEP.
+         *
+         * clock.clear() on the next line is what made run 2's finding unanswerable: asked which two
+         * points, the read-out had to say the planned values are not persisted anywhere — the
+         * planning model's reply is not stored either, so the count was the only trace left.
+         *
+         * This ordering is the whole commit. A capture moved below the clear reads an empty map,
+         * returns two empty arrays, and passes every test that checks the FORMAT of the finding —
+         * which is why the spec asserts the order in the source instead.
+         */
+        clockPlanned = times.map(([scene, minutes]) => ({ scene, minutes }));
+        clockBackwards = clockBackwardPairs(clockPlanned);
         clock.clear();
       } else {
         this.log.log('extractPlanState: clock planned for ' + times.length + ' scene(s), '
@@ -4236,7 +4254,7 @@ export class ScripOnService {
       for (const b of bad.slice(0, 10)) this.log.warn('  prop: ' + b.detail);
     }
     if (designators.size) this.log.log('extractPlanState: ' + designators.size + ' locked designator(s) — ' + Array.from(designators).slice(0, 12).join(', '));
-    return { facts, places: expanded, transit, clock, props, designators: Array.from(designators), recalled: recalledScenes, failures: planFailures, nearMisses: planNearMisses, clockDiscardedAt };
+    return { facts, places: expanded, transit, clock, props, designators: Array.from(designators), recalled: recalledScenes, failures: planFailures, nearMisses: planNearMisses, clockDiscardedAt, clockPlanned, clockBackwards };
   }
 
   private cueCounts(view: { heading: string; text: string }[]): Map<string, number> {
@@ -5256,7 +5274,7 @@ export class ScripOnService {
       // fields cannot carry. It mutates `ledgerSeed.reg` by registering the vessels and objects the
       // story declares, which is why it runs before the writer starts rather than beside it.
       const planState = await this.extractPlanState(scenes, ledgerSeed.reg, projectId)
-        .catch((e: any) => { this.log.warn('extractPlanState: skipped — ' + this.why(e)); return { facts: [] as StateFact[], places: [] as PlaceObservation[], transit: new Set<number>(), clock: new Map<number, number>(), props: [] as PropEvent[], designators: [] as string[], recalled: new Set<number>(), failures: [] as PlanStateFailure[], nearMisses: 0, clockDiscardedAt: 0, threw: this.why(e) }; });
+        .catch((e: any) => { this.log.warn('extractPlanState: skipped — ' + this.why(e)); return { facts: [] as StateFact[], places: [] as PlaceObservation[], transit: new Set<number>(), clock: new Map<number, number>(), props: [] as PropEvent[], designators: [] as string[], recalled: new Set<number>(), failures: [] as PlanStateFailure[], nearMisses: 0, clockDiscardedAt: 0, clockPlanned: [] as ClockPoint[], clockBackwards: [] as ClockPair[], threw: this.why(e) }; });
       /**
        * THE SPINE, handed to each scene as it is written.
        *
@@ -5461,7 +5479,10 @@ export class ScripOnService {
            * provenance.
            */
           found: planState.threw ? null : (planState.failures as any[]).concat(
-            planStateFindings(storedPlan, { clockDiscardedAt: planState.clockDiscardedAt }) as any[],
+            planStateFindings(storedPlan, {
+              clockDiscardedAt: planState.clockDiscardedAt,
+              clockBackwards: planState.clockBackwards,
+            }) as any[],
           ),
           error: planState.threw ? 'the plan-state extraction failed outright — ' + planState.threw : undefined,
           /**
@@ -5481,7 +5502,10 @@ export class ScripOnService {
             planState.nearMisses ? planState.nearMisses + ' plan-state call(s) near the ceiling' : '',
             // CLOSE-OUT 2 + 3 — what is provenance rather than a defect: a planner-sourced zero,
             // and which list won. The clock and the missing exit gate are FINDINGS above.
-            planStateNote(storedPlan, { clockDiscardedAt: planState.clockDiscardedAt }),
+            planStateNote(storedPlan, {
+              clockDiscardedAt: planState.clockDiscardedAt,
+              clockPlanned: planState.clockPlanned,
+            }),
           ].filter(Boolean).join(' · ') || undefined,
         },
       }, savedText);
@@ -5840,7 +5864,7 @@ export class ScripOnService {
       // fields cannot carry. It mutates `ledgerSeed.reg` by registering the vessels and objects the
       // story declares, which is why it runs before the writer starts rather than beside it.
       const planState = await this.extractPlanState(scenes, ledgerSeed.reg, projectId)
-        .catch((e: any) => { this.log.warn('extractPlanState: skipped — ' + this.why(e)); return { facts: [] as StateFact[], places: [] as PlaceObservation[], transit: new Set<number>(), clock: new Map<number, number>(), props: [] as PropEvent[], designators: [] as string[], recalled: new Set<number>(), failures: [] as PlanStateFailure[], nearMisses: 0, clockDiscardedAt: 0, threw: this.why(e) }; });
+        .catch((e: any) => { this.log.warn('extractPlanState: skipped — ' + this.why(e)); return { facts: [] as StateFact[], places: [] as PlaceObservation[], transit: new Set<number>(), clock: new Map<number, number>(), props: [] as PropEvent[], designators: [] as string[], recalled: new Set<number>(), failures: [] as PlanStateFailure[], nearMisses: 0, clockDiscardedAt: 0, clockPlanned: [] as ClockPoint[], clockBackwards: [] as ClockPair[], threw: this.why(e) }; });
       /**
        * THE SPINE, handed to each scene as it is written.
        *
@@ -6019,7 +6043,10 @@ export class ScripOnService {
            * provenance.
            */
           found: planState.threw ? null : (planState.failures as any[]).concat(
-            planStateFindings(storedPlan, { clockDiscardedAt: planState.clockDiscardedAt }) as any[],
+            planStateFindings(storedPlan, {
+              clockDiscardedAt: planState.clockDiscardedAt,
+              clockBackwards: planState.clockBackwards,
+            }) as any[],
           ),
           error: planState.threw ? 'the plan-state extraction failed outright — ' + planState.threw : undefined,
           /**
@@ -6039,7 +6066,10 @@ export class ScripOnService {
             planState.nearMisses ? planState.nearMisses + ' plan-state call(s) near the ceiling' : '',
             // CLOSE-OUT 2 + 3 — what is provenance rather than a defect: a planner-sourced zero,
             // and which list won. The clock and the missing exit gate are FINDINGS above.
-            planStateNote(storedPlan, { clockDiscardedAt: planState.clockDiscardedAt }),
+            planStateNote(storedPlan, {
+              clockDiscardedAt: planState.clockDiscardedAt,
+              clockPlanned: planState.clockPlanned,
+            }),
           ].filter(Boolean).join(' · ') || undefined,
         },
       }, savedText);
