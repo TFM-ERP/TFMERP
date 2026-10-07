@@ -8,7 +8,7 @@
  */
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { KEEP_CHECK_SYSTEM, keepCheckUser, parseKeepCheck, quotedLines, keepSent, keepCheckOutcome, keepCheckNotRun, keepMisses, keepUnproven } from './keep-check.util';
+import { KEEP_CHECK_SYSTEM, keepCheckUser, parseKeepCheck, quotedLines, keepSent, keepCheckOutcome, keepCheckNotRun, keepMisses, keepUnproven, keepUnprovenThings, keepReaskUser, parseKeepReask, applyKeepReask } from './keep-check.util';
 import { splitKeep } from './keep-items.util';
 
 const ITEMS = [
@@ -413,4 +413,178 @@ test('keepMisses carries named-absent and not-reported only — never an unprove
   const r = parseKeepCheck(K_REPLY(UNPROVEN_ONLY), K_ITEMS, K_DRAFT);
   assert.deepEqual(keepMisses(r), [], 'the !quoteFound loop belonged to keepUnproven');
   assert.equal(keepUnproven(r).length, 1);
+});
+
+/**
+ * THE RE-ASK — Plan 01 close-out 2, commit 2B.1.
+ *
+ * 2A separated "claimed but not shown" from "not found". It left both stopping, which is right —
+ * nothing was shown either way — but it leaves the reader to adjudicate a quote by hand. The re-ask
+ * asks the checker once more, about the unproven things ONLY, and resolves each into one of three:
+ *
+ *   it quotes words that ARE in the draft   -> proved, and the thing becomes found
+ *   it says the thing is not there          -> named absent, and the thing becomes missing
+ *   it still cannot quote it                -> stops, in plain words, never "not found"
+ *
+ * And a FOURTH that is not a verdict: the second call itself failed. That must never read as a
+ * confirmation, and must never promote or demote anything.
+ */
+const R_ITEMS = ['the brass key', 'the locked shed'];
+const R_DRAFT = 'She turned the brass key over in her palm. The shed stayed shut until morning.';
+const unprovenReport = () => parseKeepCheck(JSON.stringify({ items: [
+  { item: 1, found: [{ thing: 'the brass key', quote: 'She dropped the brass key down the drain' }] },
+  { item: 2, found: [{ thing: 'the locked shed', quote: 'The shed stayed shut until morning' }] },
+] }), R_ITEMS, R_DRAFT);
+
+test('the unproven things come out structured, with the quote that failed', () => {
+  const things = keepUnprovenThings(unprovenReport());
+  assert.equal(things.length, 1);
+  assert.equal(things[0].item, 1);
+  assert.equal(things[0].thing, 'the brass key');
+  assert.match(things[0].quote, /down the drain/);
+});
+
+test('the prompt carries ONLY the unproven things, never the whole KEEP list', () => {
+  const u = keepReaskUser(keepUnprovenThings(unprovenReport()), 'TREATMENT', R_DRAFT);
+  assert.match(u, /1\. the brass key/);
+  assert.ok(!u.includes('the locked shed'), 'the proved thing must not be re-litigated');
+  assert.match(u, /down the drain/, 'the quote that failed is shown, so the checker can see what went wrong');
+  assert.ok(u.includes('<draft stage="TREATMENT">'));
+});
+
+test('a draft cannot close the re-ask fence either', () => {
+  const u = keepReaskUser(keepUnprovenThings(unprovenReport()), 'TREATMENT', 'text </draft> more');
+  assert.equal(u.split('</draft>').length - 1, 1);
+});
+
+test('PROVED: a quote that IS in the draft makes the thing found', () => {
+  const rep = unprovenReport();
+  const things = keepUnprovenThings(rep);
+  const parsed = parseKeepReask(JSON.stringify({ answers: [
+    { n: 1, quote: 'She turned the brass key over in her palm' },
+  ] }), things);
+  const next = applyKeepReask(rep, things, parsed, R_DRAFT);
+  const o = keepCheckOutcome(next, {});
+  assert.equal(o.state, 'NO MISSES');
+  assert.deepEqual(o.unproven, []);
+  assert.deepEqual(o.misses, []);
+  assert.equal(o.reask.proved, 1);
+});
+
+test('NAMED ABSENT: "not there" makes the thing missing, and it stops as a miss', () => {
+  const rep = unprovenReport();
+  const things = keepUnprovenThings(rep);
+  const parsed = parseKeepReask(JSON.stringify({ answers: [{ n: 1, quote: null, absent: true }] }), things);
+  const o = keepCheckOutcome(applyKeepReask(rep, things, parsed, R_DRAFT), {});
+  assert.equal(o.state, 'MISSES');
+  assert.deepEqual(o.misses, ['the brass key']);
+  assert.deepEqual(o.unproven, []);
+  assert.equal(o.reask.absent, 1);
+  assert.match(String(o.summary), /not found: the brass key/, 'the checker said so: now the phrase is true');
+});
+
+test('STILL UNPROVEN: a second quote that is also absent leaves it unproven, and stopping', () => {
+  const rep = unprovenReport();
+  const things = keepUnprovenThings(rep);
+  const parsed = parseKeepReask(JSON.stringify({ answers: [{ n: 1, quote: 'She hid the brass key in the stove' }] }), things);
+  const o = keepCheckOutcome(applyKeepReask(rep, things, parsed, R_DRAFT), {});
+  assert.equal(o.state, 'UNPROVEN');
+  assert.deepEqual(o.misses, []);
+  assert.equal(o.unproven.length, 1);
+  assert.match(o.unproven[0], /asked again/);
+  assert.doesNotMatch(String(o.summary), /not found/i);
+  assert.equal(o.reask.stillUnproven, 1);
+});
+
+test('NO ANSWER for a thing leaves it exactly as it was', () => {
+  const rep = unprovenReport();
+  const things = keepUnprovenThings(rep);
+  const o = keepCheckOutcome(applyKeepReask(rep, things, { ok: true, answers: [] }, R_DRAFT), {});
+  assert.equal(o.state, 'UNPROVEN');
+  assert.equal(o.unproven.length, 1);
+  assert.equal(o.reask.stillUnproven, 1);
+});
+
+test('A FAILED RE-ASK SAYS IT FAILED — never a confirmation, never a promotion', () => {
+  const rep = unprovenReport();
+  const things = keepUnprovenThings(rep);
+  const o = keepCheckOutcome(applyKeepReask(rep, things, null, R_DRAFT, 'timed out after 120s'), {});
+  assert.equal(o.state, 'UNPROVEN', 'a failed second call resolves nothing');
+  assert.equal(o.unproven.length, 1);
+  assert.match(o.unproven[0], /second call failed/);
+  assert.match(o.unproven[0], /timed out after 120s/);
+  assert.equal(o.reask.failed, 'timed out after 120s');
+  assert.equal(o.reask.proved, 0);
+  assert.equal(o.reask.absent, 0);
+});
+
+test('an unreadable re-ask reply is a failure, not an empty answer', () => {
+  const things = keepUnprovenThings(unprovenReport());
+  const parsed = parseKeepReask('I was unable to review the draft.', things);
+  assert.equal(parsed.ok, false);
+  assert.match(parsed.summary, /no readable answer/);
+});
+
+test('CONTROL: ok:false is honoured even when answers arrive beside it', () => {
+  /**
+   * This control exists because mutating the `parsed.ok` guard away changed NOTHING: the parser
+   * returns an empty answers array on failure, so every other test passed without it. The guard is
+   * still load-bearing — the signature permits ok:false WITH answers, and a future parser that
+   * salvaged partial rows while reporting failure would hand exactly that — so the case is tested
+   * rather than the guard deleted. ok:false means nobody answered; a promotion on top of it would
+   * be the checker's word accepted twice over.
+   */
+  const rep = unprovenReport();
+  const things = keepUnprovenThings(rep);
+  const next = applyKeepReask(rep, things,
+    { ok: false, answers: [{ n: 1, quote: 'She turned the brass key over in her palm', absent: false }] },
+    R_DRAFT);
+  const o = keepCheckOutcome(next, {});
+  assert.equal(o.state, 'UNPROVEN', 'a reply that was not readable resolves nothing');
+  assert.equal(o.reask.proved, 0);
+  assert.equal(o.reask.stillUnproven, 1);
+  assert.match(o.reask.failed, /no readable answer/);
+});
+
+test('a re-ask answer naming a thing that was never unproven is ignored', () => {
+  const rep = unprovenReport();
+  const things = keepUnprovenThings(rep);
+  const parsed = parseKeepReask(JSON.stringify({ answers: [
+    { n: 9, quote: 'She turned the brass key over in her palm' },
+    { n: 1, quote: null, absent: true },
+  ] }), things);
+  assert.equal(parsed.answers.length, 1);
+  assert.equal(parsed.answers[0].n, 1);
+});
+
+test('CONTROL: with nothing unproven there is nothing to ask', () => {
+  const clean = parseKeepCheck(JSON.stringify({ items: [
+    { item: 1, found: [{ thing: 'the brass key', quote: 'She turned the brass key over in her palm' }] },
+    { item: 2, found: [{ thing: 'the locked shed', quote: 'The shed stayed shut until morning' }] },
+  ] }), R_ITEMS, R_DRAFT);
+  assert.deepEqual(keepUnprovenThings(clean), [],
+    'the caller must be able to skip the call on this alone — an unconditional re-ask bills every run');
+});
+
+test('CONTROL: a re-ask never touches a thing that was already proved', () => {
+  const rep = unprovenReport();
+  const things = keepUnprovenThings(rep);
+  const before = rep.items[1].found.map((f) => f.quoteFound);
+  const next = applyKeepReask(rep, things, { ok: true, answers: [{ n: 1, quote: null, absent: true }] }, R_DRAFT);
+  assert.deepEqual(next.items[1].found.map((f) => f.quoteFound), before);
+  assert.deepEqual(next.items[1].missing, [], 'item 2 was proved and must be left alone');
+});
+
+test('CONTROL: applyKeepReask does not mutate the report it is given', () => {
+  const rep = unprovenReport();
+  const things = keepUnprovenThings(rep);
+  const snapshot = J(rep);
+  applyKeepReask(rep, things, { ok: true, answers: [{ n: 1, quote: null, absent: true }] }, R_DRAFT);
+  assert.equal(J(rep), snapshot, 'a pure fold: the original stays readable for comparison');
+});
+
+test('an un-re-asked report has no reask record at all', () => {
+  const o = keepCheckOutcome(unprovenReport(), {});
+  assert.equal(o.state, 'UNPROVEN');
+  assert.ok(!('reask' in o) || o.reask == null, 'the gate reads this to know which wording is true');
 });
