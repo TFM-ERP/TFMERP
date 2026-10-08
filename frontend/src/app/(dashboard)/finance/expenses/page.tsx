@@ -10,7 +10,7 @@ import { CinematicHeader } from '@/components/CinematicHeader';
 import { ExpensePayments } from '@/components/finance/ExpensePayments';
 import { useLocale } from '@/lib/i18n';
 
-const CATEGORIES = ['Fuel', 'Maintenance', 'Office', 'Freelancers', 'Crew', 'Catering', 'Equipment', 'Travel', 'Accommodation', 'Insurance', 'Legal', 'Marketing', 'Utilities', 'Other'];
+const CATEGORIES = ['Fuel', 'Maintenance', 'Office', 'Freelancers', 'Crew', 'Catering', 'Equipment', 'Travel', 'Accommodation', 'Insurance', 'Legal', 'Marketing', 'Utilities', 'Visa & Immigration', 'Other'];
 const ACTIVITIES = ['RENTAL', 'PRODUCTION', 'BOTH'];
 
 const STATUS_STYLE: Record<string, string> = {

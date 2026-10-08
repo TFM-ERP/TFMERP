@@ -9452,6 +9452,8 @@ enum AttachmentEntity {
   PURCHASE_ORDER
   QUOTATION
   CREDIT_NOTE
+  CORPORATE_TAX_RETURN
+  VAT_RETURN
 }
 
 enum DocumentKind {
@@ -9540,6 +9542,37 @@ model VatReturn {
 
   @@unique([periodStart, periodEnd])
   @@map("vat_returns")
+}
+
+/**
+ * A corporate tax return as filed, with the figures actually submitted.
+ * Mirrors VatReturn. Without this there is nowhere to record that a CT return was
+ * filed, for what period, with what result, or under what FTA reference — the 2025
+ * return was filed on 26 Sep 2026 and nothing in the system showed it.
+ * `schedules` holds the accounting schedules as submitted, so a later regeneration can
+ * be compared against what went to the FTA rather than silently replacing it.
+ */
+model CorporateTaxReturn {
+  id                  String    @id @default(cuid())
+  periodStart         DateTime
+  periodEnd           DateTime
+  schedules           Json
+  accountingIncome    Decimal   @db.Decimal(15, 2)
+  taxableIncome       Decimal   @db.Decimal(15, 2)
+  taxPayable          Decimal   @default(0) @db.Decimal(15, 2)
+  lossCarriedForward  Decimal   @default(0) @db.Decimal(15, 2)
+  smallBusinessRelief Boolean   @default(false)
+  status              String    @default("DRAFT") // DRAFT | FILED
+  filedAt             DateTime?
+  filedById           String?
+  reference           String? // FTA application number
+  notes               String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([periodStart, periodEnd])
+  @@map("corporate_tax_returns")
 }
 
 /**

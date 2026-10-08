@@ -55,6 +55,11 @@ export const CATEGORY_ACCOUNTS: Record<string, string> = {
   // Google Workspace, Frame.io, Midjourney. No dedicated software account
   // exists in the standard chart, and admin overhead is the closest true home.
   'software & subscriptions': '6200',
+  // Employee visa, Emirates ID, medical and labour-card work, usually paid to a
+  // typing centre. It is a cost of employing the person, so it belongs with
+  // 6000 Salaries & Wages rather than with office overhead. Note that the
+  // keyword fallback would send "visa" to 6900, which is why it is listed here.
+  'visa & immigration': '6000',
 
   // ── Deliberately left in 6900 ──
   // Genuinely heterogeneous — auction fees, telephone, ad-hoc equipment hire.
