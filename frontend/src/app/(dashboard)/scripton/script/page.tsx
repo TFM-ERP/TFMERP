@@ -4,6 +4,7 @@
  *  document (Save as PDF). Wrapped in the ScriptON rail shell so it keeps ScriptON context. */
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { checkSummaryLine, isRevisionReady, solidColor, isFirstSightOfResult, checksVisible, defaultSeenStore } from '@/components/scripton/doctor/scripton-doctor.logic';
 import { productionApi } from '@/lib/api';
 import { SxRail } from '@/components/scripton/shared/sx';
 import { markScriptonGenerating, clearScriptonGenerating, isScriptonGenerating } from '@/components/scripton/useScriptonGenerating';
@@ -62,6 +63,74 @@ export default function ScriptOnScriptPage() {
   const [text, setText] = useState('');
   const [pages, setPages] = useState<Pg[]>([]);
   const [info, setInfo] = useState<any>({});
+  /**
+   * Plan 01 task 7 — the one line where a run actually ends.
+   *
+   * A table in the Doctor is only marginally better than a log line for a writer who has just
+   * watched a generation finish and is looking at THIS page. null means no record of any check,
+   * which is not the same as nothing found — so it is never initialised to a zeroed summary.
+   */
+  const [ckSum, setCkSum] = useState<any>(null);
+  /**
+   * CLOSE-OUT 5 — Qais did not notice the line: in the toolbar it reads as one more button.
+   *
+   * It stays there, because that is where it belongs once the page is just being read. But the
+   * moment a run ENDS is when the counts matter most and when nobody is scanning a toolbar, so the
+   * same line is also shown as a banner beside the coverage warning — the place this page already
+   * uses to tell someone something about the draft that just landed.
+   *
+   * TWO WAYS IN, BECAUSE ONE WAS NOT ENOUGH. stop() only fires for a run FOLLOWED on this page. A
+   * first generation is followed from studio/page.tsx and this page then opens as an ordinary load:
+   * no stop(), no flag, no banner. That is the path "Lost" took, which is why its counts were never
+   * put in front of anyone. So the banner also shows the FIRST time a document's active revision
+   * differs from the last one seen in this browser — once, because asking records.
+   */
+  const [justRan, setJustRan] = useState(false);
+  const [firstSight, setFirstSight] = useState(false);
+  /**
+   * May the checks be shown at all this load? False while a generation is in flight — the counts
+   * then describe a half-written draft — and false when the progress probe did not answer, because
+   * an unanswered probe is not evidence that nothing is running.
+   */
+  const [ckVisible, setCkVisible] = useState(false);
+  /**
+   * Plan 01 task 7 — RE-READ WHEN A RUN FINISHES, WHATEVER THE END STATE.
+   *
+   * The summary was read once, in a mount effect with [] deps. refreshText() already runs as scenes
+   * land, so the pages on screen were the new revision's while this line still described the
+   * previous one — a stale "0 not checked" over a draft whose checks had just been written, or the
+   * reverse. stop() is the one place every end state passes through (DONE, ERROR and CANCELLED all
+   * call it), so the re-read belongs there rather than in the DONE branch alone.
+   */
+  const readChecks = async (docIdForChecks: string, expectRev?: string) => {
+    if (!docIdForChecks) return;
+    /**
+     * IT CAN LAND EARLY, so it waits for the revision the run actually wrote.
+     *
+     * regenerateFeature returns the new revision's id, but the run reports DONE and only THEN
+     * materialises its scenes and switches activeRevisionId (service :5712-5717) — and
+     * developmentPackage reads the ACTIVE revision. On an 85-scene script materialiseScenes is not
+     * instant, so a read fired the moment DONE appears describes the PREVIOUS revision.
+     *
+     * Three tries, two seconds apart. If the switch still has not happened the line is left EMPTY:
+     * showing the old draft's counts under the new draft's pages is worse than showing nothing,
+     * because nothing on screen would say which revision they belonged to. A fetch that throws is
+     * treated as a try that did not answer, for the same reason.
+     */
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const pk: any = await productionApi.scripton.development.getPackage({ docId: docIdForChecks });
+        const sc: any = pk?.data?.script;
+        if (isRevisionReady(sc, expectRev)) {
+          // null, never {} — no record of any check is not the same as nothing found.
+          setCkSum((sc && sc.checkSummary) || null);
+          return;
+        }
+      } catch { /* a try that did not answer; fall through to the wait */ }
+      if (attempt < 2) await new Promise((r) => setTimeout(r, 2000));
+    }
+    setCkSum(null);
+  };
   const [docId, setDocId] = useState('');
   const [regening, setRegening] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -140,6 +209,36 @@ export default function ScriptOnScriptPage() {
           try {
             const pk: any = await productionApi.scripton.development.getPackage({ docId: docParam });
             const pd: any = pk.data || {}; const br: any = pd.brief || {}; const cov: any = pd.coverage || {};
+            /**
+             * THE CHECKS, AND WHEN THEY MAY BE SHOWN.
+             *
+             * Asked only after the package has answered, and only when the package describes the
+             * SAME revision whose pages are on screen — mid-run the two can differ, and a summary
+             * about another revision is worse than none.
+             *
+             * The progress probe decides whether anything may be shown at all. An unanswered probe
+             * counts as "do not ask this load": it is not evidence that nothing is running.
+             */
+            const pkgRev = String((pd.script && pd.script.revisionId) || '');
+            const sum = (pd.script && pd.script.checkSummary) || null;
+            let status: string | null = null;
+            let answered = false;
+            try {
+              const pr: any = await productionApi.scripton.development.scriptProgress(docParam);
+              status = String(pr?.data?.status || '') || null;
+              answered = true;
+            } catch { /* answered stays false — see above */ }
+            const visible = checksVisible(status, answered);
+            const sameRev = !!revId && pkgRev === String(revId);
+            if (alive) {
+              setCkVisible(visible);
+              setCkSum(visible && sameRev ? sum : null);
+              // Asked once per load, and it records — so a reload of the same RESULT does not
+              // re-show it, while the finished result after a mid-run peek still does.
+              if (visible && sameRev && isFirstSightOfResult(docParam, revId, sum, defaultSeenStore())) {
+                setFirstSight(true);
+              }
+            }
             // versionLabel is the writer's own draft name, typed at intake and stored in the build's
             // brief. It is NOT revLabel: that is the WGA revision colour, which two builds of the same
             // film share. This is what tells those two builds apart on the page.
@@ -235,7 +334,13 @@ export default function ScriptOnScriptPage() {
     // Remember the run OUTSIDE this screen, so the rail can show it from anywhere in ScriptON —
     // and so "Continue in background" stops meaning "the generation disappears".
     markScriptonGenerating(docId, mode);
-    try { await productionApi.scripton.development.regenerateFeature(docId, mode); }
+    // The id of the revision THIS run writes. The re-read below waits for it rather than trusting
+    // whatever is active the moment DONE appears — see readChecks.
+    let expectRev = '';
+    try {
+      const rr: any = await productionApi.scripton.development.regenerateFeature(docId, mode);
+      expectRev = String(rr?.data?.revisionId || '');
+    }
     catch (e: any) { setRegening(false); setGenErr(e?.response?.data?.message || t('Could not start generation — check AI Engines & Routing.')); return; }
     // Refresh the visible text as scenes land, and keep polling the progress endpoint until it is actually DONE —
     // not just until the first incremental save (the old bug made a full regen look "finished" after ~3 scenes).
@@ -276,12 +381,26 @@ export default function ScriptOnScriptPage() {
     let lastChange = Date.now();
     let errSince = 0;
     let poll: ReturnType<typeof setInterval> | null = null;
-    const stop = (msg: string | null) => {
+    /**
+     * `landed` says whether this run produced a NEW active revision.
+     *
+     * Only DONE does. On ERROR, CANCELLED, a stall or lost contact the backend leaves
+     * activeRevisionId pointing at the OLD revision on purpose — "your current pages are safe" —
+     * so waiting for expectRev there would time out after three tries and blank a line that
+     * correctly describes the script still on screen. Those paths read what is ACTIVE, which is
+     * exactly the revision the reader is looking at.
+     */
+    const stop = (msg: string | null, landed = false) => {
       if (poll) clearInterval(poll);
       poll = null;
       setRegening(false);
       setCancelling(false);
       if (msg) setGenErr(msg);
+      setJustRan(true); setCkVisible(true);
+      // Every end state comes through here, so the line can never describe the run before. Only a
+      // run that LANDED waits for its own revision; the rest read what is active, because that is
+      // the revision whose pages are on screen.
+      void readChecks(docId || '', landed ? expectRev : undefined);
       // The rail badge exists to tell someone who WALKED AWAY that the draft landed. If the overlay
       // is on screen they have already been told, so clear it; if it was minimised, leave it beating
       // until they come back and click it. The functional updater reads the live value without
@@ -339,7 +458,7 @@ export default function ScriptOnScriptPage() {
         // A stop the operator asked for is not a failure: report what was written and leave the
         // current script exactly as it was. The partial draft stays in the revisions list.
         if (lastSt.status === 'CANCELLED') { stop(lastSt.note || t('Generation stopped. Your current script is unchanged.')); return; }
-        stop(null);
+        stop(null, true);
         setGenPct(100);
         setCovWarn(lastSt && lastSt.coverage === 'SHORT' ? (lastSt.coverageNote || t('This draft may not reach the planned ending — consider regenerating.')) : null);
       }
@@ -454,6 +573,39 @@ export default function ScriptOnScriptPage() {
           {looksUnfinished ? <button onClick={() => doRegen('rewrite')} disabled={regening} style={{ background: regening ? '#3a2f1a' : '#5b3d12', color: '#E6D2A2', border: '1px solid rgba(198,164,99,.5)', borderRadius: 9, padding: '8px 12px', fontSize: 12.5, fontWeight: 700, cursor: regening ? 'default' : 'pointer' }} title="Re-run the scene-by-scene feature writer for this script">{regening ? ('⟳ ' + t('Regenerating…')) : ('⟳ ' + t('Retry generation'))}</button> : null}
           {docId && !looksUnfinished ? <button onClick={() => doRegen('extend')} disabled={regening} style={{ background: '#1b1e25', color: '#E6D2A2', border: '1px solid rgba(198,164,99,.4)', borderRadius: 9, padding: '7px 12px', fontSize: 12.5, fontWeight: 700, cursor: regening ? 'default' : 'pointer' }} title="Keep every existing page and write the missing scenes through the ending (preserves your draft)">{regening ? ('⟳ ' + t('Working…')) : ('⟳ ' + t('Complete the script'))}</button> : null}
           {docId && !looksUnfinished ? <button onClick={() => { if (window.confirm(t('Full rewrite: re-write the whole feature from the developed outline. Your current pages are preserved as a prior revision until the new one finishes. Continue?'))) doRegen('rewrite'); }} disabled={regening} style={{ background: '#1b1e25', color: '#9aa1ab', border: '1px solid rgba(255,255,255,.1)', borderRadius: 9, padding: '7px 12px', fontSize: 12.5, cursor: regening ? 'default' : 'pointer' }} title="Re-plan and re-write the whole feature from the outline (kept as a new revision)">{t('Full rewrite')}</button> : null}
+          {/*
+            Plan 01 task 7 — counts, with what was NOT checked leading when anything was not.
+            "0 findings" over checks that never ran is the rental/logistics "Alerts 0" defect: an
+            all-clear asserted on an unread board. allClear is false while anything is unchecked,
+            so this cannot print a clean verdict the backend did not compute. echo is excluded from
+            the count upstream (countsAsFinding is false for INFO).
+          */}
+          {(() => {
+            // Nothing while a generation is in flight, or while the probe has not answered.
+            if (!ckVisible) return null;
+            /**
+             * ONE RULE, FROM THE TESTED MODULE. This composed the same sentence inline, which meant
+             * two implementations of "what was not checked leads" and only one of them covered by a
+             * test — and the covered one was not the page the rule was written for.
+             */
+            const line = checkSummaryLine(ckSum);
+            if (!line) return null;
+            return (
+              <button
+                onClick={() => { window.location.href = '/scripton/doctor' + (docId ? '?doc=' + encodeURIComponent(docId) : ''); }}
+                title={t('Open the Doctor for the full list, including the checks that did not run')}
+                style={{
+                  // .rdroot defines --gold2 --goldink --hair --faint --mute and nothing else, so
+                  // var(--amber) here is an undefined property and the line renders colourless.
+                  background: '#1b1e25', color: solidColor(line.color),
+                  border: '1px solid rgba(255,255,255,.1)', borderRadius: 9, padding: '7px 12px',
+                  fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
+                }}
+              >
+                {t(line.text)}
+              </button>
+            );
+          })()}
           {protReq ? (
             <>
               <span title={t('Review Protection is on — raw export is disabled. Manage in Settings → Review Protection.')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#C6A463', fontWeight: 700, padding: '6px 10px', border: '1px solid rgba(198,164,99,.3)', borderRadius: 9, background: 'rgba(198,164,99,.08)' }}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 13, height: 13 }}><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z" /></svg>{t('Protected')}</span>
@@ -469,6 +621,25 @@ export default function ScriptOnScriptPage() {
           {dlMsg ? <div style={{ position: 'fixed', insetInlineEnd: 18, bottom: 18, zIndex: 80, maxWidth: 460, background: '#0e1014', color: '#E6D2A2', border: '1px solid rgba(198,164,99,.45)', borderRadius: 10, padding: '9px 13px', fontSize: 12.5, lineHeight: 1.5 }}>{dlMsg}</div> : null}
         </div>
         <div className="rdscroll">
+          {(() => {
+            // CLOSE-OUT 5 — the same rule as the toolbar line, one implementation, shown where the
+            // run ended. Only after a run in THIS view: on an ordinary page load the toolbar is
+            // where it belongs, and a banner on every visit would be the thing nobody reads.
+            if (!ckVisible || (!justRan && !firstSight) || loading || err) return null;
+            const line = checkSummaryLine(ckSum);
+            if (!line) return null;
+            const c = solidColor(line.color);
+            return (
+              <div style={{ maxWidth: 820, margin: '0 auto 18px', background: '#15181e', border: '1px solid ' + c + '66', color: c, borderRadius: 10, padding: '11px 15px', fontSize: 12.5, lineHeight: 1.55, display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 15, lineHeight: 1 }}>◍</span>
+                <span style={{ fontWeight: 700 }}>{t(line.text)}</span>
+                <button
+                  onClick={() => { window.location.href = '/scripton/doctor' + (docId ? '?doc=' + encodeURIComponent(docId) : ''); }}
+                  style={{ marginInlineStart: 'auto', background: 'transparent', border: '1px solid ' + c + '66', color: c, borderRadius: 8, padding: '5px 10px', fontSize: 12, cursor: 'pointer' }}
+                >{t('Open the Doctor')} →</button>
+              </div>
+            );
+          })()}
           {covWarn && !loading && !err ? <div style={{ maxWidth: 820, margin: '0 auto 18px', background: '#2a1e0e', border: '1px solid rgba(224,162,59,.5)', color: '#e7c277', borderRadius: 10, padding: '11px 15px', fontSize: 12.5, lineHeight: 1.55, display: 'flex', alignItems: 'flex-start', gap: 10 }}><span style={{ fontSize: 15, lineHeight: 1 }}>⚠</span><span>{covWarn} {t('Use Regenerate to rebuild the full story.')}</span></div> : null}
           {loading ? <div style={{ textAlign: 'center', color: '#6b727d', marginTop: 90 }}>{t('Loading the script…')}</div>
             : err ? <div style={{ textAlign: 'center', color: '#e9a8a6', marginTop: 90 }}>{err}</div>

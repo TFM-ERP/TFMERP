@@ -1,24 +1,8 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
+import { loadCapture, missingCapture } from './capture-fixture.util';
 import {
-  classifyLine, classifyScript, nextInSpeech, looksLikeCue, readScene,
-  normaliseCharacterName, keyName, sameCharacter, splitCast,
-  collectExits, unavailableAt, unavailableLine, stripExitedCast,
-  checkScene, checkDraftContinuity, checkPlanCast,
-  normaliseForCompare, jaccard, findDuplicateScenes, dedupeScenes,
-  repairInstruction, summariseContinuity,
-  exitsAsCanonFacts, findNameDrift, canonicalForm, canonicaliseNames, properCase, trimToSentence,
-  DUPLICATE_ANYWHERE, DUPLICATE_SAME_PLACE,
-  findSecondDocument, splitAtSecondDocument, isRecalledTime,
-  CastExit,
-  findMetaCommentary, stripMetaCommentary,
-  findWrittenDeaths, collectWrittenDeaths, writtenDeathsAsExits,
-  collectPronounEvidence, findPronounDrift, checkFixedAttributes,
-  sceneDefectInstruction, checkSceneIntegrity,
-  parseSpokenClock, findAllTimeTokens, checkClockRegression, findTimeTokens,
-  checkPropContinuity, propStateAt, spineDirective, type PropEvent,
-  findFlashbackMismatches,
-  findFragmentRuns, findFalseSceneBreaks, findEchoedPhrases, headingKey,
+  classifyLine, classifyScript, nextInSpeech, looksLikeCue, readScene, normaliseCharacterName, keyName, sameCharacter, splitCast, collectExits, unavailableAt, unavailableLine, stripExitedCast, checkScene, checkDraftContinuity, checkPlanCast, normaliseForCompare, jaccard, findDuplicateScenes, dedupeScenes, repairInstruction, summariseContinuity, exitsAsCanonFacts, findNameDrift, canonicalForm, canonicaliseNames, properCase, trimToSentence, DUPLICATE_ANYWHERE, DUPLICATE_SAME_PLACE, findSecondDocument, splitAtSecondDocument, isRecalledTime, CastExit, findMetaCommentary, stripMetaCommentary, findWrittenDeaths, collectWrittenDeaths, writtenDeathsAsExits, collectPronounEvidence, findPronounDrift, checkFixedAttributes, sceneDefectInstruction, checkSceneIntegrity, parseSpokenClock, findAllTimeTokens, checkClockRegression, findTimeTokens, checkPropContinuity, propStateAt, spineDirective, type PropEvent, findFlashbackMismatches, findFragmentRuns, findFalseSceneBreaks, findEchoedPhrases, headingKey, collectNameForms, tightenSpeakerCues, SLUG_RE, TRANS_RE,
 } from './continuity.util';
 
 // ── the classifier, lifted out of paginate() ────────────────────────────────────────────────
@@ -1129,4 +1113,528 @@ test('the loudest echo is reported first', () => {
   assert.equal(echo.length, 2);
   assert.equal(echo[0].scenes.length, 6);
   assert.match(echo[0].phrase, /holds its breath/);
+});
+
+// ── NAME DRIFT: THE FOUR MEASURED FALSE POSITIVES (2 Oct, Jason Quick) ────────────────────────
+//
+// verifyAndRepair logged "scene 30 — name corrected to ALEXANDER QUICK" and the page was left
+// reading "A headline resolves: ALEXANDER QUICK —". The substitution is gone from the service; these
+// pin the collector so the finding that drove it is not raised in the first place. Every fixture
+// below is the real shape from revision cmuqy7say000bkn0guamrubkg.
+
+/** A cue and its speech, as the writer emits them: name, newline, line. */
+const cueThen = (cue: string, line: string) => cue + '\n' + line;
+
+test('(a) a capitalised run does NOT cross a line break — a cue is not part of its speech', () => {
+  const sc = [{ text: '1  INT. CAR - NIGHT\n\n' + cueThen('JASON', 'Drive.') + '\n\nJASON QUICK grips the wheel.\n' }];
+  const forms = collectNameForms(sc, ['JASON QUICK']);
+  const got = (forms.get('JASON') || []).map((f) => f.form);
+  assert.deepEqual(got, ['JASON QUICK'], 'got ' + JSON.stringify(got) + ' — "JASON DRIVE" is a cue plus a word');
+});
+
+test('(a) and it holds for the whole measured draft — no cue-plus-word forms survive', () => {
+  // Three real pairs from the 2 Oct draft that produced phantom names.
+  const sc = [{ text: [cueThen('JASON', "That's not what I said."), cueThen('SOPHIE', 'No.'),
+    cueThen('ALEXANDER', 'You will sit down.')].join('\n\n') }];
+  const all = [...collectNameForms(sc, ['JASON QUICK', 'SOPHIE QUICK', 'ALEXANDER QUICK']).values()]
+    .reduce((a: any[], v: any[]) => a.concat(v), []).map((f: any) => f.form);
+  assert.deepEqual(all, [], 'these runs are cue + first word of speech: ' + JSON.stringify(all));
+});
+
+test("(b) a possessive is the same name — ADRIAN COLE'S is ADRIAN COLE, both apostrophes", () => {
+  for (const apo of ["'", '’']) {
+    const sc = [{ text: '1  INT. DOCK - DAY\n\nADRIAN COLE' + apo + 'S launch idles.\n' },
+                { text: '2  INT. DOCK - DAY\n\nADRIAN COLE steps off.\n' }];
+    const forms = (collectNameForms(sc, ['ADRIAN COLE']).get('ADRIAN') || []).map((f) => f.form);
+    assert.deepEqual(forms, ['ADRIAN COLE'], apo + ' produced ' + JSON.stringify(forms));
+    assert.equal(findNameDrift(sc.map((x, i) => ({ heading: String(i), text: x.text })), ['ADRIAN COLE'], []).length, 0);
+  }
+});
+
+test('(c) the presence test reads the SAME filtered prose as the collector, not the heading', () => {
+  /*
+   * This has to be built so the fix is actually exercised: a real drift must exist somewhere, and
+   * the WRONG form must appear in a third scene ONLY inside its heading. Reading raw text there
+   * reports a scene for a spelling the collector never saw in its prose. (A first version of this
+   * test used a scene with no collected forms at all, so the presence test was never reached and
+   * the test passed with the fix reverted — it proved nothing.)
+   */
+  const sc = [
+    { heading: '1  INT. DOCK - DAY', text: '1  INT. DOCK - DAY\n\nADRIAN COLE steps off.\n' },
+    { heading: '2  INT. DOCK - DAY', text: '2  INT. DOCK - DAY\n\nADRIAN COLSE waits.\n' },
+    { heading: "3  INT. ADRIAN COLSE'S BOAT - DAY", text: "3  INT. ADRIAN COLSE'S BOAT - DAY\n\nRain on the glass.\n" },
+  ];
+  const f = findNameDrift(sc, ['ADRIAN COLE'], []);
+  const scenes = f.map((x) => x.sceneIndex + 1);
+  assert.deepEqual(scenes, [2], 'only scene 2 has the misspelling in its PROSE; got ' + JSON.stringify(scenes));
+  // And the heading is not evidence either way for the collector.
+  assert.deepEqual([...collectNameForms([sc[2]], ['ADRIAN COLE']).values()], [],
+    'a heading is ours — it is never evidence of a character spelling');
+});
+
+test('(d) a run that STARTS with a registered name is that name plus words', () => {
+  const sc = [{ heading: '1  INT. OFFICE - DAY',
+    text: "1  INT. OFFICE - DAY\n\nA headline resolves: ALEXANDER QUICK'S SON ALIVE —\n\nALEXANDER QUICK stands.\n" }];
+  const forms = (collectNameForms(sc, ['ALEXANDER QUICK']).get('ALEXANDER') || []).map((f) => f.form);
+  assert.deepEqual(forms, ['ALEXANDER QUICK'], 'got ' + JSON.stringify(forms));
+  assert.equal(findNameDrift(sc, ['ALEXANDER QUICK'], []).length, 0, 'the measured headline case');
+});
+
+test('(d) a run that IS a registered name entire is left alone', () => {
+  const sc = [{ text: '1  INT. A - DAY\n\nALEXANDER QUICK signs.\n' }];
+  assert.deepEqual((collectNameForms(sc, ['ALEXANDER QUICK']).get('ALEXANDER') || []).map((f) => f.form),
+    ['ALEXANDER QUICK']);
+});
+
+test('(fifth rule) two REGISTERED names sharing a key are two people, not one misspelled', () => {
+  // keyName reduces both to "ATTACKER". Scene 2 of the draft has both cues.
+  const sc = [{ heading: '2  EXT. GATE - NIGHT',
+    text: '2  EXT. GATE - NIGHT\n\nATTACKER ONE (O.S.) moves left.\n\nATTACKER TWO (O.S.) follows.\n' }];
+  assert.equal(findNameDrift(sc, ['ATTACKER ONE', 'ATTACKER TWO'], []).length, 0);
+  // RULED (plan 01 task 8): two names identical except for a trailing number are different people,
+  // registered or not. This half asserted the opposite — that an unregistered ATTACKER THREE beside
+  // a registered ATTACKER ONE is drift — and the two expectations cannot both hold. Being off the
+  // cast list makes an extra undeclared, not misnamed; telling the writer to rename their third
+  // attacker is a false finding, and the enumerator is the signal that separates it from a
+  // misspelled surname. The surname case is pinned directly below.
+  const sc2 = [{ heading: '1', text: '1  INT. A - DAY\n\nATTACKER ONE waits.\n' },
+               { heading: '2', text: '2  INT. B - DAY\n\nATTACKER THREE waits.\n' }];
+  assert.equal(findNameDrift(sc2, ['ATTACKER ONE'], []).length, 0, 'a third attacker is a third person');
+});
+
+test('THE CONTRACT THAT MUST SURVIVE — a genuine middle-name variant is still reported', () => {
+  const sc = [{ heading: '1', text: '1  INT. A - DAY\n\nJASON ANDREW QUICK signs.\n' },
+              { heading: '2', text: '2  INT. B - DAY\n\nJASON RICHARD QUICK signs again.\n' }];
+  const f = findNameDrift(sc, ['JASON ANDREW QUICK'], []);
+  assert.equal(f.length, 1, 'suppressing this would be the opposite defect');
+  assert.equal(f[0].kind, 'NAME_DRIFT');
+});
+
+test('NEGATIVE CONTROL — the OLD collector produced the cue-plus-word name', () => {
+  // The previous rule, reconstructed: match the run regex over the lines JOINED, so \s+ crosses
+  // the newline between a cue and its speech.
+  const RUN = /\b\p{Lu}[\p{Ll}\p{Lu}'’-]+(?:\s+\p{Lu}[\p{Ll}\p{Lu}'’-]+)+/gu;
+  const joined = cueThen('JASON', 'Drive.');
+  // The regex captures the newline inside the run; normaliseCharacterName then collapses \s+ to a
+  // single space, which is where "JASON\nDRIVE" became the name "JASON DRIVE".
+  const raw = joined.match(RUN) || [];
+  assert.deepEqual(raw, ['JASON\nDrive'], 'the run crossed the line break: ' + JSON.stringify(raw));
+  const old = raw.map((r) => normaliseCharacterName(r));
+  assert.ok(old.indexOf('JASON DRIVE') >= 0, 'the old form is the defect: ' + JSON.stringify(old));
+  // And the collector no longer yields it.
+  const now = (collectNameForms([{ text: joined }], ['JASON QUICK']).get('JASON') || []).map((f) => f.form);
+  assert.deepEqual(now, []);
+});
+
+test("NEGATIVE CONTROL — without possessive folding, ADRIAN COLE'S reads as a second name", () => {
+  const two = [{ form: "ADRIAN COLE'S", count: 1 }, { form: 'ADRIAN COLE', count: 1 }];
+  assert.notEqual(two[0].form, two[1].form, 'unfolded they are two forms — the defect');
+  const sc = [{ heading: '1', text: "1  INT. A - DAY\n\nADRIAN COLE'S launch idles.\n" },
+              { heading: '2', text: '2  INT. B - DAY\n\nADRIAN COLE steps off.\n' }];
+  assert.equal(findNameDrift(sc, ['ADRIAN COLE'], []).length, 0, 'folded, they are one name');
+});
+
+// ── ONE NAME WRITTEN LONG AND SHORT, AND WHO IS A DIFFERENT PERSON ───────────────────────────
+//
+// Commit A reported JASON QUICK against JASON ALEXANDER QUICK on the 2 Oct draft and argued it was
+// a true positive. It is not: the bible's register names "Jason Alexander Quick" as his identity,
+// and the finding count was an artefact of how the cast list happened to be spelled — the same text
+// gave 0 findings spelled JASON, 2 spelled JASON QUICK, 1 spelled JASON ALEXANDER QUICK.
+
+/** Scenes with a one-line body each, the shape findNameDrift is given in production. */
+const body = (...bodies: string[]) => bodies.map((b, i) => ({
+  heading: String(i + 1), text: (i + 1) + '  INT. ROOM - DAY\n\n' + b + '\n',
+}));
+
+test('(A2-a) a shorter spelling inside a longer one is ONE name, not drift', () => {
+  assert.equal(findNameDrift(body('JASON QUICK waits.', 'JASON ALEXANDER QUICK signs.'), ['JASON QUICK'], []).length, 0);
+  // and the other way round — which spelling is on the cast list must not change the answer
+  assert.equal(findNameDrift(body('JASON QUICK waits.', 'JASON ALEXANDER QUICK signs.'), ['JASON ALEXANDER QUICK'], []).length, 0);
+});
+
+test('(A2-a) the count no longer flips with the cast spelling', () => {
+  const scenes = body('JASON QUICK waits.', 'JASON ALEXANDER QUICK signs.', 'JASON ALEXANDER QUICK leaves.');
+  const counts = ['JASON', 'JASON QUICK', 'JASON ALEXANDER QUICK']
+    .map((cast) => findNameDrift(scenes, [cast], []).length);
+  assert.deepEqual(counts, [0, 0, 0], 'spelled JASON / JASON QUICK / JASON ALEXANDER QUICK: ' + JSON.stringify(counts));
+});
+
+test('(A2-a) but a form that conflicts with a MORE-USED form is still reported', () => {
+  // Both long forms are compatible with the canonical; they are not compatible with each other.
+  const f = findNameDrift(body('JASON QUICK waits.', 'JASON ANDREW QUICK signs.',
+    'JASON ANDREW QUICK signs again.', 'JASON RICHARD QUICK signs.'), ['JASON QUICK'], []);
+  const forms = [...new Set(f.flatMap((x) => x.names.slice(1)))];
+  assert.deepEqual(forms, ['JASON RICHARD QUICK'],
+    'the rarer of two incompatible middle names is the one to report; got ' + JSON.stringify(forms));
+});
+
+test('(A2-b) two registered forms are different people only when the LAST token differs', () => {
+  // Different last token: two people.
+  assert.equal(findNameDrift(body('ATTACKER ONE moves.', 'ATTACKER TWO follows.'),
+    ['ATTACKER ONE', 'ATTACKER TWO'], []).length, 0);
+  // Same first and last, different middle: one person, still reported even though both are cast.
+  assert.equal(findNameDrift(body('JASON ANDREW QUICK signs.', 'JASON RICHARD QUICK signs again.'),
+    ['JASON ANDREW QUICK', 'JASON RICHARD QUICK'], []).length, 1,
+    'the first version of this rule excused any registered form and hid this contradiction');
+});
+
+test('(A2) THE CONTRACT STILL HOLDS — spec :323 reports', () => {
+  const f = findNameDrift(body('JASON ANDREW QUICK signs.', 'JASON RICHARD QUICK signs again.'),
+    ['JASON ANDREW QUICK'], []);
+  assert.equal(f.length, 1);
+  assert.equal(f[0].kind, 'NAME_DRIFT');
+});
+
+test('NEGATIVE CONTROL (A2-a) — without subsumption, the long form is reported as drift', () => {
+  // The rule it replaced: anything that is not the canonical string is wrong.
+  const forms = [{ form: 'JASON QUICK', count: 3 }, { form: 'JASON ALEXANDER QUICK', count: 2 }];
+  const canonical = 'JASON QUICK';
+  const oldWrong = forms.filter((f) => f.form !== canonical).map((f) => f.form);
+  assert.deepEqual(oldWrong, ['JASON ALEXANDER QUICK'], 'the old rule reported it — the defect');
+  // and the collector no longer does
+  assert.equal(findNameDrift(body('JASON QUICK waits.', 'JASON ALEXANDER QUICK signs.'), ['JASON QUICK'], []).length, 0);
+});
+
+test('NEGATIVE CONTROL (A2-b) — the WIDE fifth rule hid a real middle-name contradiction', () => {
+  const registered = ['JASON ANDREW QUICK', 'JASON RICHARD QUICK'];
+  const canonical = 'JASON ANDREW QUICK';
+  const other = 'JASON RICHARD QUICK';
+  // The wide rule: any registered form is excused.
+  assert.equal(registered.indexOf(other) >= 0, true, 'the wide rule would have excused it — the defect');
+  // The narrow rule: excused only if the last token differs.
+  const lastOf = (n: string) => n.split(' ').slice(-1)[0];
+  assert.equal(lastOf(other) === lastOf(canonical), true, 'same last token, so one person');
+  assert.equal(findNameDrift(body('JASON ANDREW QUICK signs.', 'JASON RICHARD QUICK signs again.'),
+    registered, []).length, 1, 'and it is reported');
+});
+
+// ── THE TIE, AND NAMING THE RIVAL ─────────────────────────────────────────────────────────────
+//
+// A2 reported only a form that conflicted with a form used MORE often. On a tie that test has no
+// answer, so two single-use middle names cancelled each other and the scene reported nothing —
+// worse than the over-reporting it replaced, because two competing spellings is the ordinary case.
+// At fcccee7 both were reported; at 56186e8 neither was.
+
+test('(A3) A TIE IS BROKEN BY WHICHEVER APPEARED FIRST — the later one is reported', () => {
+  const f = findNameDrift(body('JASON QUICK waits.', 'JASON ANDREW QUICK signs.',
+    'JASON RICHARD QUICK signs again.'), ['JASON QUICK'], []);
+  const forms = [...new Set(f.flatMap((x) => x.names.slice(1)))];
+  assert.deepEqual(forms, ['JASON RICHARD QUICK'],
+    'Andrew is in scene 2 and Richard in scene 3, both once; got ' + JSON.stringify(forms));
+  assert.equal(f.length, 1);
+});
+
+test('(A3) and the tie-break follows the order of appearance, not the alphabet', () => {
+  // Richard first this time: Andrew becomes the later one and is the one reported.
+  const f = findNameDrift(body('JASON QUICK waits.', 'JASON RICHARD QUICK signs.',
+    'JASON ANDREW QUICK signs again.'), ['JASON QUICK'], []);
+  assert.deepEqual([...new Set(f.flatMap((x) => x.names.slice(1)))], ['JASON ANDREW QUICK']);
+});
+
+test('(A3) the detail names the form it ACTUALLY conflicts with', () => {
+  const f = findNameDrift(body('JASON QUICK waits.', 'JASON ANDREW QUICK signs.',
+    'JASON RICHARD QUICK signs again.'), ['JASON QUICK'], []);
+  assert.match(f[0].detail, /written as "JASON RICHARD QUICK" here/);
+  assert.match(f[0].detail, /but as "JASON ANDREW QUICK" elsewhere/,
+    'it used to name the canonical — telling the reader to write JASON QUICK, which is not the conflict');
+  assert.doesNotMatch(f[0].detail, /but as "JASON QUICK" elsewhere/);
+});
+
+test('(A3) a form that conflicts with the CANONICAL still names the canonical', () => {
+  // Nothing subsumes anything here, so the canonical is the real counterpart.
+  const f = findNameDrift(body('JASON ANDREW QUICK signs.', 'JASON RICHARD QUICK signs again.'),
+    ['JASON ANDREW QUICK'], []);
+  assert.match(f[0].detail, /but as "JASON ANDREW QUICK" elsewhere/);
+});
+
+test('NEGATIVE CONTROL (A3) — without the tie half, two single-use spellings cancel out', () => {
+  // The A2 rule, reconstructed: a rival must be used strictly more often.
+  const forms = [{ form: 'JASON QUICK', count: 1, firstScene: 0 },
+    { form: 'JASON ANDREW QUICK', count: 1, firstScene: 1 },
+    { form: 'JASON RICHARD QUICK', count: 1, firstScene: 2 }];
+  const subseq = (a: string, b: string) => {
+    const x = a.split(' '); const y = b.split(' '); let i = 0;
+    for (const t of y) if (i < x.length && t === x[i]) i++;
+    return i === x.length;
+  };
+  const compat = (a: string, b: string) => a === b || subseq(a, b) || subseq(b, a);
+  const canonical = 'JASON QUICK';
+  const oldWrong = forms.filter((f) => f.form !== canonical
+    && (!compat(f.form, canonical) || forms.some((g) => g.count > f.count && !compat(f.form, g.form))));
+  assert.deepEqual(oldWrong.map((f) => f.form), [], 'strictly-more-often reported nothing — the defect');
+  // With the tie half, the later one is reported.
+  const f = findNameDrift(body('JASON QUICK waits.', 'JASON ANDREW QUICK signs.',
+    'JASON RICHARD QUICK signs again.'), ['JASON QUICK'], []);
+  assert.deepEqual([...new Set(f.flatMap((x) => x.names.slice(1)))], ['JASON RICHARD QUICK']);
+});
+
+// ── THE GAP BETWEEN A SPEAKER AND THEIR SPEECH ────────────────────────────────────────────────
+//
+// nextInSpeech('blank') is false by design, so a cue, a blank, then the line made classifyLine read
+// the line as ACTION with inSpeech false — a character's words rendered as stage direction.
+// Measured on revision cmuqy7say000bkn0guamrubkg: 99 cues whose speech did not classify as
+// dialogue, 112 gaps, in eight consecutive scenes.
+//
+// The first version acted under ANY line satisfying looksLikeCue whenever the next line held a
+// lower-case letter — and every action paragraph holds one. It joined BANG to "The door flies
+// open." Its own doc comment said beats were left alone; nothing had tested it. A line must NAME a
+// speaker: a cue extension, or a match against the speakers the caller knows.
+
+const SPEAKERS = ['JASON', 'NORA', 'MUSA', 'MOIRA', 'THE BOY', 'CALLUM', 'SOPHIE', 'MARCUS', 'GIDEON'];
+
+test('(B2-1) THE FOUR PROBES — an all-caps beat is never a speaker, list or no list', () => {
+  const probes = [
+    'BANG\n\nThe door flies open.',
+    'THE DOOR SLAMS OPEN\n\nJason turns.',
+    'THE ELEVEN NAMES\n\nJason writes them.',
+    'SUPER: SEVEN YEARS EARLIER\n\nRain.',
+  ];
+  for (const t of probes) {
+    assert.equal(tightenSpeakerCues(t), t, 'no list: ' + JSON.stringify(t.split('\n')[0]));
+    assert.equal(tightenSpeakerCues(t, SPEAKERS), t, 'with a cast: ' + JSON.stringify(t.split('\n')[0]));
+  }
+});
+
+test("(B2-1) spec :35's own text survives both ways", () => {
+  const t = 'BANG\n\nThe door gives.\n\nJASON\nGet down.';
+  assert.equal(tightenSpeakerCues(t), t);
+  assert.equal(tightenSpeakerCues(t, SPEAKERS), t, 'JASON is already adjacent to its speech');
+  // and the classification spec :35 relies on is unchanged by the rewrite
+  const cues = classifyScript(tightenSpeakerCues(t, SPEAKERS)).filter((l) => l.kind === 'cue');
+  assert.equal(cues[0].text, 'BANG');
+  assert.equal(cues[0].speaks, false, 'BANG still has no speech under it');
+});
+
+test('(B2-1i) a cue EXTENSION names a speaker with no list at all', () => {
+  for (const ext of ["(CONT'D)", '(O.S.)', '(V.O.)', '(O.C.)']) {
+    assert.equal(tightenSpeakerCues('SOMEONE ' + ext + '\n\nHold on.'), 'SOMEONE ' + ext + '\nHold on.', ext);
+  }
+  // (MORE) renders on the cue line but is a page-break artefact, not evidence of a speaker.
+  assert.equal(tightenSpeakerCues('SOMEONE (MORE)\n\nHold on.'), 'SOMEONE (MORE)\n\nHold on.');
+});
+
+test('(B2-1ii) a known speaker names one; an unknown all-caps line does not', () => {
+  assert.equal(tightenSpeakerCues('NORA\n\nComing round.', SPEAKERS), 'NORA\nComing round.');
+  assert.equal(tightenSpeakerCues('NORA\n\nComing round.'), 'NORA\n\nComing round.', 'no list, no match');
+  assert.equal(tightenSpeakerCues('THE ELEVEN NAMES\n\nJason writes them.', SPEAKERS),
+    'THE ELEVEN NAMES\n\nJason writes them.', 'not in the cast');
+});
+
+test('(B2-1ii) sameCharacter does the matching, so a fuller cue still resolves', () => {
+  assert.equal(tightenSpeakerCues('JASON QUICK\n\nSecond hook.', ['JASON']), 'JASON QUICK\nSecond hook.');
+});
+
+test('(B2-3) under a named speaker the speech is taken whatever its case', () => {
+  assert.equal(tightenSpeakerCues('MUSA\n\nTHE MERCY.', SPEAKERS), 'MUSA\nTHE MERCY.',
+    'an all-caps shout is still speech — this was the one bad cue left after commit B');
+  const after = classifyScript(tightenSpeakerCues('MUSA\n\nTHE MERCY.', SPEAKERS));
+  assert.equal(after[0].kind, 'cue');
+  assert.equal(after[1].kind, 'dialogue');
+});
+
+test('(B2-3) but not when the next line is itself a cue, a slug or a transition', () => {
+  assert.equal(tightenSpeakerCues('JASON\n\nNORA\n\nComing round.', SPEAKERS).split('\n')[1], '',
+    'two cues in a row must stay apart');
+  assert.equal(tightenSpeakerCues('JASON\n\nINT. BOAT - DAY', SPEAKERS), 'JASON\n\nINT. BOAT - DAY');
+  assert.equal(tightenSpeakerCues('JASON\n\nCUT TO:', SPEAKERS), 'JASON\n\nCUT TO:');
+});
+
+test('(B2) a short SLUG is not a speaker — even when the cast shares a word with it', () => {
+  assert.equal(looksLikeCue('EXT. DOCK ROAD - CONTINUOUS'), true, 'the trap');
+  const slug = 'EXT. DOCK ROAD - CONTINUOUS\n\nHe comes out onto cracked tarmac.';
+  assert.equal(tightenSpeakerCues(slug, SPEAKERS), slug);
+  /*
+   * The guard is NOT redundant, and this is the case that shows it. sameCharacter matches on token
+   * overlap, so a cast entry of "BOAT" matches the slug "INT. BOAT - DAY" — nameTokens of the slug
+   * contains BOAT. splitCast reads plan data, which can carry entries like that. Without the
+   * slug/transition test the heading would qualify as a speaker and swallow the action beneath it.
+   */
+  assert.equal(sameCharacter('BOAT', 'INT BOAT DAY'), true, 'the overlap is real');
+  const slugShared = 'INT. BOAT - DAY\n\nHe waits at the rail.';
+  assert.equal(tightenSpeakerCues(slugShared, ['BOAT']), slugShared);
+  const transShared = 'CUT TO:\n\nThe kettle is still whistling.';
+  assert.equal(tightenSpeakerCues(transShared, ['CUT']), transShared);
+});
+
+test('(B2-a/b) the blanks close and a prose parenthetical splits — under a named speaker only', () => {
+  assert.equal(tightenSpeakerCues('JASON\n\n\n\nSecond hook.', SPEAKERS), 'JASON\nSecond hook.');
+  assert.equal(tightenSpeakerCues('NORA (at the helm, shouting back)\n\nComing round.', SPEAKERS),
+    'NORA\n(at the helm, shouting back)\nComing round.');
+  assert.equal(tightenSpeakerCues("NORA (CONT'D) (at the helm)\n\nComing round.", SPEAKERS),
+    "NORA (CONT'D)\n(at the helm)\nComing round.");
+  // Not a known speaker and no extension: left alone entirely.
+  assert.equal(tightenSpeakerCues('THE ELEVEN NAMES (carved shallow)\n\nJason reads.'),
+    'THE ELEVEN NAMES (carved shallow)\n\nJason reads.');
+});
+
+test('(B2) idempotent, with and without a list', () => {
+  for (const t of ['JASON\n\nSecond hook.', 'NORA (at the helm)\n\nComing round.', 'BANG\n\nThe door gives.',
+    'MUSA\n\nTHE MERCY.', 'EXT. DOCK - DAY\n\nHe waits.', '', '\n\n']) {
+    for (const list of [undefined, SPEAKERS] as any[]) {
+      const once = tightenSpeakerCues(t, list);
+      assert.equal(tightenSpeakerCues(once, list), once, JSON.stringify(t));
+    }
+  }
+});
+
+test('NEGATIVE CONTROL (B2-1) — the loose rule joined every all-caps line to the next paragraph', () => {
+  // The shipped-and-withdrawn rule: looksLikeCue, and a follower with a lower-case letter.
+  const loose = (text: string) => {
+    const lines = text.split('\n'); const out: string[] = [];
+    for (let i = 0; i < lines.length; i++) {
+      out.push(lines[i]);
+      const t = lines[i].trim();
+      if (SLUG_RE.test(t) || TRANS_RE.test(t) || !looksLikeCue(t)) continue;
+      let j = i + 1; while (j < lines.length && !lines[j].trim()) j++;
+      if (j > i + 1 && j < lines.length && /\p{Ll}/u.test(lines[j].trim())) i = j - 1;
+    }
+    return out.join('\n');
+  };
+  assert.equal(loose('BANG\n\nThe door flies open.'), 'BANG\nThe door flies open.',
+    'the defect: BANG speaks the action');
+  assert.equal(tightenSpeakerCues('BANG\n\nThe door flies open.', SPEAKERS), 'BANG\n\nThe door flies open.');
+});
+
+test('NEGATIVE CONTROL (B2-3) — refusing an all-caps follower leaves a shout as action', () => {
+  // The commit-B guard: the follower had to contain a lower-case letter.
+  const needsLower = /\p{Ll}/u.test('THE MERCY.');
+  assert.equal(needsLower, false, 'so the gap stayed open and the shout classified as action');
+  assert.equal(classifyScript('MUSA\n\nTHE MERCY.')[2].kind, 'action');
+  assert.equal(classifyScript(tightenSpeakerCues('MUSA\n\nTHE MERCY.', SPEAKERS))[1].kind, 'dialogue');
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// PLAN 01 TASK 0 STEP 2 — THE LANGUAGE CASE, ON REAL DRAFTS.
+//
+// The claim here is about real scripts, so it is made against real scripts. Both skip BY NAME when
+// their capture is not on the machine; the screenplays stay out of the repo.
+//
+// What this pins: the Arabic blindness is the \p{Lu} RUN regex at collectNameForms, and NOTHING
+// ELSE. The cast is real (looksLikeCue reads Arabic cues), the key names are real, the early return
+// at the top of collectNameForms is NOT taken — and the result is still empty. Without this test the
+// Arabic NOT_RUN rule would rest on an argument instead of a measurement.
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+
+const DAS_CAP = loadCapture('DAS-script.json');
+const MM_CAP = loadCapture('MM-script.json');
+
+test('ARABIC (داس) — a real cast, real key names, and still zero name forms',
+  DAS_CAP ? {} : { skip: missingCapture('DAS-script.json') }, () => {
+    const c = DAS_CAP!;
+    assert.ok(c.script.arabicShare > 0.9, 'arabicShare=' + c.script.arabicShare);
+    assert.ok(c.script.latin > 0, 'a real Arabic screenplay still carries Latin: ' + c.script.latin + ' letters');
+
+    const cast = c.cueCast.map((x) => x.name);
+    assert.equal(cast.length, 37, 'looksLikeCue found this many speakers in an Arabic draft');
+
+    const keys = cast.map((n) => keyName(n)).filter((k) => k.length >= 3);
+    assert.equal(keys.length, 36,
+      'collectNameForms returns early only when NO key is >= 3 chars — it does not here, so the zero below is real');
+
+    assert.equal(collectNameForms(c.pageText, cast).size, 0,
+      'zero forms from a real cast: the blindness is the \\p{Lu} RUN regex, not an empty-cast shortcut');
+  });
+
+test('MINUTEMEN — the same call on a Latin draft finds forms',
+  MM_CAP ? {} : { skip: missingCapture('MM-script.json') }, () => {
+    const c = MM_CAP!;
+    assert.equal(c.script.latinShare, 1);
+    const cast = c.cueCast.map((x) => x.name);
+    assert.equal(cast.length, 12);
+    assert.equal(cast.map((n) => keyName(n)).filter((k) => k.length >= 3).length, 12);
+    assert.equal(collectNameForms(c.pageText, cast).size, 4,
+      'the contrast that makes the Arabic zero mean something');
+  });
+
+test('CONTROL — an empty cast returns an empty Map in EITHER language, which is why the tests above pass their own cast',
+  (DAS_CAP && MM_CAP) ? {} : { skip: missingCapture('DAS-script.json / MM-script.json') }, () => {
+    assert.equal(collectNameForms(DAS_CAP!.pageText, []).size, 0);
+    assert.equal(collectNameForms(MM_CAP!.pageText, []).size, 0,
+      'a Latin draft also returns 0 with no cast — so an empty-cast probe proves nothing about language');
+  });
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// PLAN 01 TASK 8 — THE NAME CHECK'S TWO KNOWN BLIND SPOTS.
+//
+// Both were recorded as residue when A3 shipped and both were measured against the shipped code
+// before these tests were written. Small invented names, per standing rule 1.
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+
+const SC = (...t: string[]) => t.map((text, i) => ({ heading: (i + 1) + '  INT. ROOM - DAY', text }));
+
+test('TASK 8 LIMIT — one full form under a first-name cast stays silent, and must', () => {
+  const f = findNameDrift(SC('ALDER VOSS walks in.', 'ALDER VOSS sits down.'), ['ALDER'], []);
+  assert.equal(f.length, 0, 'one person, two compatible spellings — subsumes is doing its job');
+});
+
+test('TASK 8 — a first-name cast no longer hides a drift between two DIFFERENT full forms', () => {
+  const f = findNameDrift(SC('ALDER VOSS walks in.', 'ALDER VANCE sits down.'), ['ALDER'], []);
+  assert.equal(f.length, 1, 'measured 0 before this task');
+  assert.match(f[0].detail, /ALDER VANCE/);
+  assert.match(f[0].detail, /ALDER VOSS/, 'reported against the form it conflicts with');
+});
+
+test('TASK 8 CONTROL — the same pages already reported it when the longer form was cast', () => {
+  const f = findNameDrift(SC('ALDER VOSS walks in.', 'ALDER VANCE sits down.'), ['ALDER VOSS'], []);
+  assert.equal(f.length, 1, 'this path always worked — the registry just had to match a written form');
+});
+
+test('TASK 8 — extras sharing a role noun are not one person', () => {
+  const f = findNameDrift(SC('WARDEN ONE opens.', 'WARDEN TWO closes.', 'WARDEN THREE waits.'), ['WARDEN ONE'], []);
+  assert.equal(f.length, 0, 'measured 2 before the ruling — one finding per scene carrying a wrong form');
+});
+
+test('TASK 8 CONTROL — a differing SURNAME is still drift: HALL is not a number', () => {
+  const f = findNameDrift(SC('WARDEN HALE opens.', 'WARDEN HALL closes.'), ['WARDEN HALE'], []);
+  assert.equal(f.length, 1, 'the enumerator exemption must not swallow a misspelled surname');
+  assert.match(f[0].detail, /WARDEN HALL/);
+});
+
+test('TASK 8 CONTROL — the exemption needs IDENTICAL prefixes, not just two enumerators', () => {
+  // GUARD TWO and WARDEN ONE share a key only if keyName agrees; they are not one family either way.
+  assert.equal(findNameDrift(SC('WARDEN ONE opens.', 'WARDEN 2 closes.'), ['WARDEN ONE'], []).length, 0,
+    'a digit is an enumerator too');
+  assert.equal(findNameDrift(SC('WARDEN ONE opens.', 'WARDEN ONE SENIOR closes.'), ['WARDEN ONE'], []).length, 0,
+    'a longer spelling of one registered extra is compatible, not drift');
+});
+
+test('TASK 8 CONTROL — without the role noun in the cast there is nothing to start red', () => {
+  const f = findNameDrift(SC('WARDEN ONE opens.', 'WARDEN TWO closes.'), ['ALDER'], []);
+  assert.equal(f.length, 0, 'collectNameForms keys on tracked names, so this probe proves nothing');
+});
+
+test('TASK 8 LIMIT — the enumerator exemption does NOT excuse a real surname drift', () => {
+  const f = findNameDrift(SC('ALDER VOSS walks in.', 'ALDER VOSSE sits down.'), ['ALDER VOSS'], []);
+  assert.equal(f.length, 1, 'VOSSE is not an enumerator — a misspelled surname is still a drift');
+});
+
+test('TASK 8 LIMIT — subsumption still protects a longer spelling of one registered person', () => {
+  const f = findNameDrift(SC('ALDER VOSS walks in.', 'ALDER MARTIN VOSS sits down.'), ['ALDER VOSS'], []);
+  assert.equal(f.length, 0, 'the JASON ALEXANDER QUICK ruling — one person, two compatible forms');
+});
+
+test('TASK 8 LIMIT — an unregistered name is still not acted on at all', () => {
+  const f = findNameDrift(SC('BRENN HALE walks in.', 'BRENN VOSS sits down.'), ['ALDER'], []);
+  assert.equal(f.length, 0, 'nothing in the registry recognises BRENN — guessing is the 1 Sep failure');
+});
+
+test('TASK 8 LIMIT — a registered name that is NOT a spelling of either written form vouches for neither', () => {
+  // keyName('ALDER VOSS') is ALDER, so both forms are collected — they reach canonicalForm. But the
+  // registry names ALDER VOSS, and neither ALDER HALE nor ALDER MARK is a spelling of it, so we do
+  // not know which is right. '' means "no canonical", which means no report. Guessing here is the
+  // 1 Sep failure.
+  //
+  // This is the probe that makes the `subsumes` constraint in `vouched` load-bearing: the earlier
+  // BRENN test passes because collectNameForms never collects an unkeyed name at all, so it cannot
+  // distinguish "vouched by containment" from "vouched by having any registry at all".
+  const f = findNameDrift(SC('ALDER HALE walks in.', 'ALDER MARK sits down.'), ['ALDER VOSS'], []);
+  assert.equal(f.length, 0);
+});
+
+test('TASK 8 LIMIT — the exemption needs the prefix IDENTICAL, not merely two enumerators', () => {
+  // Both key to WARDEN and both end in an enumerator, but NORTH and SOUTH differ, so these are not
+  // "identical except for a trailing number" and the ruling does not exempt them. Under-exempting
+  // costs a false finding; over-exempting would quietly fuse two families of extras into one.
+  const f = findNameDrift(SC('WARDEN NORTH ONE opens.', 'WARDEN SOUTH TWO closes.'), ['WARDEN NORTH ONE'], []);
+  assert.equal(f.length, 1, 'reported — the prefixes are not the same name');
 });

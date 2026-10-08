@@ -71,6 +71,9 @@ function buildGauges(c: any): SxGauge[] {
 }
 
 export default function ScriptOnDoctorPage() {
+  // Plan 01 task 7 — null means "no record", which is not the same as "nothing found".
+  const [checks, setChecks] = useState<any[] | null>(null);
+  const [checkSummary, setCheckSummary] = useState<any>(null);
   const router = useRouter();
   const { t } = useLocale();
   const vp = useViewport();
@@ -83,7 +86,7 @@ export default function ScriptOnDoctorPage() {
   const [revColor, setRevColor] = useState('#ffffff');
   const [gauges, setGauges] = useState<SxGauge[]>(NEUTRAL_GAUGES);
   const [cov, setCov] = useState<SxCoverage>(null);
-  const [covRaw, setCovRaw] = useState<any | null>(null); // raw latestCoverage for the new single-canvas
+  const [covRaw, setCovRaw] = useState<any | null>(null); // this document's own coverage, from developmentPackage (build-exact) — null means THIS script has none
   const [actHealth, setActHealth] = useState(SAMPLE_ACT);
   const [tab, setTab] = useState<SxTab>('Coverage');
   const [covLoading, setCovLoading] = useState(false);
@@ -111,13 +114,60 @@ export default function ScriptOnDoctorPage() {
         if (!proj?.id) return;
         const dr: any = await productionApi.script.list(proj.id);
         const docs = Array.isArray(dr.data) ? dr.data : (dr.data?.items ?? []);
-        const doc = docs[0];
+        /**
+         * Plan 01 task 7 fix 3 — THE ADDRESS DECIDES WHEN IT SAYS SO.
+         *
+         * The script page links here for the full list of checks on a PARTICULAR script. Reading
+         * nothing from the address meant that link always landed on docs[0], so the reader was shown
+         * another document's checks under the heading they had just clicked from.
+         */
+        const wantDoc = new URLSearchParams(window.location.search).get('doc') || '';
+        const doc = (wantDoc && docs.find((d: any) => d && d.id === wantDoc)) || docs[0];
         const revId = doc?.activeRevisionId || doc?.revisions?.[0]?.id;
         if (revId) { try { const rv: any = await productionApi.script.getRevision(revId); if (alive) setActiveRev(rv.data); } catch { /* */ } }
         const rev = doc?.revisions?.find((r: any) => r.id === revId) || doc?.revisions?.[0];
-        let c: any = null; try { const cr: any = await productionApi.scripton.latestCoverage(proj.id); c = cr.data || null; } catch { /* */ }
-        let aData: any = null; try { const a: any = await productionApi.scripton.analytics(proj.id); aData = a.data; } catch { /* */ }
-        let nData: any[] = []; try { const nn: any = await productionApi.scripton.notes(proj.id); nData = Array.isArray(nn.data) ? nn.data : []; } catch { /* */ }
+        /**
+         * CLOSE-OUT 4 — THIS DOCUMENT'S COVERAGE, NOT THE PROJECT'S NEWEST.
+         *
+         * All three were asked BY PROJECT, and the ScripON Library hosts many documents under one
+         * projectId. Seen on "Lost": it has no coverage of its own, the project's only report
+         * belongs to a different document, and latestCoverage returned that — so a 1521 logline and
+         * a C- sat above Lost's own checks with nothing saying they were someone else's.
+         *
+         * developmentPackage already resolves coverage build-exactly (by documentId, never the
+         * project's latest), so it is the honest source and is read below. analytics and notes are
+         * scoped to THIS revision, which both endpoints accept — analytics through resolveRevision,
+         * notes through its revisionId query.
+         */
+        let aData: any = null;
+        let nData: any[] = [];
+        if (revId) {
+          try { const a: any = await productionApi.scripton.analytics(proj.id, { revisionId: revId }); aData = a.data; } catch { /* */ }
+          try { const nn: any = await productionApi.scripton.notes(proj.id, revId); nData = Array.isArray(nn.data) ? nn.data : []; } catch { /* */ }
+        }
+        /**
+         * Plan 01 task 7 — the stored checks, from the read that already resolves this document.
+         *
+         * LEFT NULL ON FAILURE, NEVER []. An empty array would render as "every check ran and found
+         * nothing" over a request that never arrived; null renders as "no record of any check",
+         * which is what a failed read actually means.
+         */
+        let ckData: any[] | null = null; let ckSum: any = null; let c: any = null;
+        try {
+          /**
+           * Plan 01 task 7 fix 1 — docId, NOT projectId alone.
+           *
+           * developmentPackage with no docId falls back to findFirst by createdAt desc with NO
+           * archived or deleted filter (service :6058), while this page names docs[0] of the ACTIVE
+           * list. Archive or bin the newest document and the two disagree: one script's title over
+           * another script's checks. Naming the document removes the question.
+           */
+          const pk: any = await productionApi.scripton.development.getPackage({ docId: doc.id, projectId: proj.id });
+          const sc: any = pk?.data?.script;
+          if (sc && Array.isArray(sc.checks)) { ckData = sc.checks; ckSum = sc.checkSummary || null; }
+          // CLOSE-OUT 4 — build-exact: null here means "THIS script has no coverage", not "none exists".
+          c = pk?.data?.coverage || null;
+        } catch { /* leave null — see above */ }
         if (!alive) return;
         setProjectId(proj.id); setTitle(doc?.title || proj.name || proj.title || 'Script');
         if (rev) { setRevLabel(rev.revisionLabel || 'CURRENT'); setRevColor(rev.hex || '#ffffff'); }
@@ -125,6 +175,7 @@ export default function ScriptOnDoctorPage() {
         setCovRaw(c || null);
         if (c) { setCov(buildCoverage(c)); setGauges(buildGauges(c)); } else { setCov(null); setGauges(NEUTRAL_GAUGES); }
         setAn(aData); setNotesV2(nData);
+        setChecks(ckData); setCheckSummary(ckSum);
       } catch { /* keep sample */ }
     })();
     return () => { alive = false; };
@@ -218,6 +269,7 @@ export default function ScriptOnDoctorPage() {
       title={title} revisionLabel={revLabel} revisionColor={revColor}
       meta={t('Coverage · diagnostics · continuity · fixes — grounded in your pages')}
       coverageRaw={covRaw} analytics={an} diagnostics={diag}
+      checks={checks} checkSummary={checkSummary}
       covLoading={covLoading} diagLoading={diagLoading} kernelInert
       onGenerate={generate} onRunDiag={runDiag} onAction={onAction}
       onNav={onNav} onBack={onBack} onFullReport={() => onAction('package')}

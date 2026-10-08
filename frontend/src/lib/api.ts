@@ -594,7 +594,11 @@ export const productionApi = {
       setVersion: (stageId: string, versionId: string) => api.post(`/production/scripton/development/version/${stageId}/set`, { versionId }),
       duplicate: (versionId: string, label?: string) => api.post(`/production/scripton/development/version/${versionId}/duplicate`, { label }),
       read: (versionId: string) => api.post(`/production/scripton/development/version/${versionId}/read`, {}),
-      promoteToScript: (versionId: string) => api.post(`/production/scripton/development/version/${versionId}/promote-to-script`, {}),
+      // waiveChecks is sent ONLY when it is explicitly true, so the body carries the waiver on the
+      // one call the writer waived and on no other. Nothing stores it between calls.
+      promoteToScript: (versionId: string, waiveChecks?: boolean) =>
+        api.post(`/production/scripton/development/version/${versionId}/promote-to-script`,
+          waiveChecks === true ? { waiveChecks: true } : {}),
       regenerateFeature: (docId: string, mode: 'extend' | 'rewrite' = 'extend') => api.post('/production/scripton/development/script/' + docId + '/regenerate', { mode }),
       cancelFeature: (docId: string) => api.post('/production/scripton/development/script/' + docId + '/cancel', {}),
       listExemplars: (variety?: string) => api.get('/production/scripton/dialect/exemplars' + (variety ? ('?variety=' + encodeURIComponent(variety)) : '')),
@@ -926,10 +930,13 @@ export const productionApi = {
     removeRequest: (id: string) => api.delete(`/production/script-readiness/requests/${id}`),
   },
   script: {
-    list: (projectId: string) => api.get(`/production/script/project/${projectId}`),
+    // `view` is optional: omitting it keeps the active-only list every existing caller expects.
+    list: (projectId: string, view?: 'active' | 'archived' | 'bin') => api.get(`/production/script/project/${projectId}`, view ? { params: { view } } : undefined),
     binList: (projectId: string) => api.get(`/production/script/project/${projectId}/bin`),
     trash: (id: string) => api.post(`/production/script/document/${id}/trash`, {}),
     restore: (id: string) => api.post(`/production/script/document/${id}/restore`, {}),
+    archive: (id: string) => api.post(`/production/script/document/${id}/archive`, {}),
+    unarchive: (id: string) => api.post(`/production/script/document/${id}/unarchive`, {}),
     remove: (id: string) => api.delete(`/production/script/document/${id}`),
     getDocument: (id: string) => api.get(`/production/script/document/${id}`),
     getRevision: (id: string) => api.get(`/production/script/revision/${id}`),

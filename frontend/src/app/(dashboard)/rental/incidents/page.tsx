@@ -37,6 +37,13 @@ export default function IncidentsPage() {
   const [resolveForm, setResolveForm] = useState({ resolutionNotes: '', resolutionCost: '' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  /**
+   * Three error slots, one owner each, because `error` renders ONLY inside the create-form modal
+   * (below, next to its Save button). A refusal from the resolve dialog or from a row's status
+   * dropdown written into `error` would be set and never displayed.
+   */
+  const [listError, setListError] = useState('');      // the table: read failures and row actions
+  const [resolveError, setResolveError] = useState(''); // the resolve dialog
 
   const [drivers, setDrivers] = useState<any[]>([]);
   const [assets, setAssets] = useState<any[]>([]);
@@ -70,8 +77,16 @@ export default function IncidentsPage() {
         setItems(ir.data.items || []);
         setTotal(ir.data.total || 0);
         setSummary(sr.data);
+        setListError('');
       })
-      .catch(console.error)
+      // A CONSOLE LINE IS NOT A READER. This was .catch(console.error): the list stayed empty,
+      // loading went false, and the table rendered "No incident reports found" — a calm, false
+      // statement over a list nobody managed to read. The incident routes are rentals:1 from this
+      // commit, so a rentals:0 role opening this page hits exactly that path.
+      .catch((e: any) => {
+        setItems([]); setTotal(0);
+        setListError(e?.response?.data?.message || e?.message || 'Could not load incident reports.');
+      })
       .finally(() => setLoading(false));
   }, [statusFilter, typeFilter, urgencyFilter]);
 
@@ -104,23 +119,50 @@ export default function IncidentsPage() {
     } finally { setSaving(false); }
   };
 
+  /**
+   * Open and close go through these two, so the dialog's error cannot outlive the dialog.
+   * Clearing at each call site instead would work until the next Resolve button is added
+   * somewhere without the clear — a refusal shown for incident A would then greet the dialog
+   * opened for incident B, before any attempt had been made.
+   */
+  const openResolve = (id: string) => { setResolveError(''); setShowResolveId(id); };
+  const closeResolve = () => {
+    setShowResolveId(null);
+    setResolveForm({ resolutionNotes: '', resolutionCost: '' });
+    setResolveError('');
+  };
+
+  /**
+   * Resolving and re-statusing are rentals:2 from this commit, and FINANCE_MANAGER, SALES and
+   * PRODUCTION_MANAGER sit at rentals:1 and still see both controls. handleResolve had a finally
+   * and no catch, so a refusal left the dialog open with the notes still in it and said nothing;
+   * handleStatusChange had no try at all, so the dropdown simply snapped back. Both now show the
+   * server's message first — PermissionsGuard names the module it refused on, where axios's own
+   * err.message is only "Request failed with status code 403".
+   */
   const handleResolve = async () => {
     if (!showResolveId || !resolveForm.resolutionNotes) return;
-    setSaving(true);
+    setSaving(true); setResolveError('');
     try {
       await rentalApi.incidents.resolve(showResolveId, {
         resolutionNotes: resolveForm.resolutionNotes,
         resolutionCost: resolveForm.resolutionCost ? Number(resolveForm.resolutionCost) : undefined,
       });
-      setShowResolveId(null);
-      setResolveForm({ resolutionNotes: '', resolutionCost: '' });
+      closeResolve();
       load();
+    } catch (e: any) {
+      setResolveError(e?.response?.data?.message || e?.message || 'Could not resolve the incident.');
     } finally { setSaving(false); }
   };
 
   const handleStatusChange = async (id: string, status: string) => {
-    await rentalApi.incidents.updateStatus(id, status);
-    load();
+    setListError('');
+    try {
+      await rentalApi.incidents.updateStatus(id, status);
+      load();
+    } catch (e: any) {
+      setListError(e?.response?.data?.message || e?.message || 'Could not change the incident status.');
+    }
   };
 
   return (
@@ -215,6 +257,7 @@ export default function IncidentsPage() {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
             <h3 className="text-sm font-semibold text-gray-800 mb-4">Resolve Incident</h3>
+            {resolveError && <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded text-sm text-red-700">{resolveError}</div>}
             <div className="space-y-3">
               <div>
                 <label className="label">Resolution Notes *</label>
@@ -233,7 +276,7 @@ export default function IncidentsPage() {
               <button onClick={handleResolve} disabled={saving || !resolveForm.resolutionNotes} className="btn btn-primary disabled:opacity-50">
                 {saving ? 'Resolving...' : 'Mark Resolved'}
               </button>
-              <button onClick={() => { setShowResolveId(null); setResolveForm({ resolutionNotes: '', resolutionCost: '' }); }} className="btn btn-secondary">Cancel</button>
+              <button onClick={closeResolve} className="btn btn-secondary">Cancel</button>
             </div>
           </div>
         </div>
@@ -263,6 +306,12 @@ export default function IncidentsPage() {
 
       {/* Table */}
       <div className="card overflow-hidden p-0">
+        {/* A banner, not a replacement: a failed status change must not blank the rows that are
+            still on screen. The empty-state row below is suppressed while this stands, because
+            "No incident reports found" is a claim about data we do not have. */}
+        {listError && (
+          <div className="px-4 py-2.5 text-sm border-b border-red-200 bg-red-50 text-red-700">{listError}</div>
+        )}
         <table className="w-full">
           <thead>
             <tr>
@@ -315,12 +364,12 @@ export default function IncidentsPage() {
                         <button onClick={() => handleStatusChange(inc.id, 'IN_PROGRESS')}
                           className="text-yellow-600 hover:text-yellow-700 text-xs font-medium">Start</button>
                         <span className="text-gray-300">·</span>
-                        <button onClick={() => { setShowResolveId(inc.id); }}
+                        <button onClick={() => openResolve(inc.id)}
                           className="text-green-600 hover:text-green-700 text-xs font-medium">Resolve</button>
                       </>
                     )}
                     {inc.status === 'IN_PROGRESS' && (
-                      <button onClick={() => { setShowResolveId(inc.id); }}
+                      <button onClick={() => openResolve(inc.id)}
                         className="text-green-600 hover:text-green-700 text-xs font-medium">Resolve</button>
                     )}
                     {inc.status === 'RESOLVED' && (
@@ -335,7 +384,7 @@ export default function IncidentsPage() {
                 </td>
               </tr>
             ))}
-            {items.length === 0 && !loading && (
+            {items.length === 0 && !loading && !listError && (
               <tr><td colSpan={10} className="text-center py-12 text-gray-400">No incident reports found</td></tr>
             )}
           </tbody>

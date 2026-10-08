@@ -18,6 +18,8 @@
  * chosen. Pure; never throws.
  */
 
+import { windowKeepingEnd, type Window } from './excerpt-window.util';
+
 export interface SoFarStage { kind: string; body: string }
 export interface SoFarPart { kind: string; sent: number; total: number; complete: boolean }
 export interface SoFarResult {
@@ -43,12 +45,41 @@ export interface SoFarResult {
 export const SOFAR_BUDGET = 64000;
 /** Below this, the remaining space is not worth a fragment: the stage is named as omitted instead. */
 export const SOFAR_MIN_FRAGMENT = 500;
+
+/**
+ * THIS BLOCK'S FLOORS ARE LOWER THAN THE PROMPT-PART DEFAULTS, AND THE REASON IS THE ALTERNATIVE.
+ *
+ * excerpt-window's defaults (head 1,200 / tail 1,600) suit a part competing for room in a prompt,
+ * where a budget too small to give both ends means the part should say it was not carried. Here the
+ * alternative is not a smaller part — it is DROPPING A WHOLE LADDER STAGE, which is the exact
+ * failure this module was written to end: "a dropped stage is the failure this replaces, so nothing
+ * is dropped while there is room to carry part of it."
+ *
+ * With the defaults, a 2,834-character room — enough for a real fragment — fell under the floor and
+ * the stage vanished from the block entirely. That trades a known defect for a worse one. These
+ * floors keep both ends legible at fragment sizes and leave the drop for rooms that genuinely
+ * cannot carry a window.
+ */
+const FRAGMENT_FLOORS = { minHead: 400, minTail: 600, minSide: 200 };
 const HEADER = '\nDEVELOPMENT SO FAR (everything already written - stay fully consistent with all of it; build directly on it):';
 const num = (n: number) => n.toLocaleString('en-US');
 
-/** '--- TREATMENT (first 2,400 of 9,792 characters) ---' / '--- LOGLINE (complete, 241 characters) ---' */
-export function soFarLabel(kind: string, sent: number, total: number): string {
-  return '--- ' + kind + (sent < total ? ' (first ' + num(sent) + ' of ' + num(total) + ' characters)' : ' (complete, ' + num(total) + ' characters)') + ' ---';
+/**
+ * '--- LOGLINE (complete, 241 characters) ---'
+ * '--- TREATMENT (opening and ending - 2,400 of 9,792 characters; 7,392 omitted from the middle) ---'
+ *
+ * The middle form is new. It used to read "(first 2,400 of 9,792 characters)", which was honest
+ * about the QUANTITY and silent about the SHAPE — and the shape was a head slice, so every
+ * shortened stage arrived without its ending. The `first` wording is kept for a caller that still
+ * passes no elision, so the label never describes a window that was not made.
+ */
+export function soFarLabel(kind: string, sent: number, total: number, elided = 0): string {
+  if (sent >= total) return '--- ' + kind + ' (complete, ' + num(total) + ' characters) ---';
+  if (elided > 0) {
+    return '--- ' + kind + ' (opening and ending - ' + num(sent) + ' of ' + num(total)
+      + ' characters; ' + num(elided) + ' omitted from the middle) ---';
+  }
+  return '--- ' + kind + ' (first ' + num(sent) + ' of ' + num(total) + ' characters) ---';
 }
 
 export function developmentSoFar(stages: SoFarStage[], budget = SOFAR_BUDGET): SoFarResult {
@@ -61,13 +92,24 @@ export function developmentSoFar(stages: SoFarStage[], budget = SOFAR_BUDGET): S
   // is spent from the bottom up. The first stage that does not fit whole goes in as ONE fragment of
   // what is left — a dropped stage is the failure this replaces, so nothing is dropped while there is
   // room to carry part of it. Anything past that is omitted, and named in the block.
-  const taken = new Map<string, number>();          // kind → characters carried
+  // THE SHAPE OF THE BUDGET IS UNCHANGED — whole stages, newest first, the one that does not fit
+  // whole goes in as a single fragment. What changed is that the fragment is now a WINDOW: its head
+  // AND its tail, with the omission marked, instead of its first N characters. A stage carried
+  // whole is untouched, so on a ladder that fits inside the budget this block is byte-identical to
+  // what it was.
+  const taken = new Map<string, Window>();
   let used = 0;
   for (let i = all.length - 1; i >= 0; i--) {
     const st = all[i];
     const room = budget - used;
-    if (st.body.length <= room) { taken.set(st.kind, st.body.length); used += st.body.length; continue; }
-    if (room >= SOFAR_MIN_FRAGMENT) { taken.set(st.kind, room); used += room; }
+    if (st.body.length <= room) { taken.set(st.kind, windowKeepingEnd(st.body, room)); used += st.body.length; continue; }
+    if (room >= SOFAR_MIN_FRAGMENT) {
+      // The window has its own floor — both ends must be legible or it is not a window. A room that
+      // clears SOFAR_MIN_FRAGMENT but not that floor yields a dropped window, and the stage is then
+      // NAMED as omitted rather than carried as a stub.
+      const w = windowKeepingEnd(st.body, room, FRAGMENT_FLOORS);
+      if (!w.dropped) { taken.set(st.kind, w); used += room; }
+    }
     break;
   }
   const omitted = all.filter((st) => !taken.has(st.kind)).map((st) => ({ kind: st.kind, total: st.body.length }));
@@ -77,11 +119,10 @@ export function developmentSoFar(stages: SoFarStage[], budget = SOFAR_BUDGET): S
   const parts: SoFarPart[] = [];
   let body = '';
   for (const st of all) {
-    const sent = taken.get(st.kind);
-    if (sent === undefined) continue;
-    const piece = st.body.slice(0, sent);
-    parts.push({ kind: st.kind, sent: piece.length, total: st.body.length, complete: piece.length === st.body.length });
-    body += '\n' + soFarLabel(st.kind, piece.length, st.body.length) + '\n' + piece;
+    const w = taken.get(st.kind);
+    if (!w) continue;
+    parts.push({ kind: st.kind, sent: w.sent, total: w.total, complete: w.complete });
+    body += '\n' + soFarLabel(st.kind, w.sent, w.total, w.elided) + '\n' + w.text;
   }
   const note = omitted.length
     ? '\n[Not carried here, for length: ' + omitted.map((o) => o.kind + ' (' + num(o.total) + ' characters)').join(', ') + '. Everything below this line is present as labelled.]'

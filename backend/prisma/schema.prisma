@@ -433,21 +433,21 @@ model ClientContact {
 // â”€â”€ Core: Bank Accounts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 model BankAccount {
-  id                 String   @id @default(cuid())
+  id                 String           @id @default(cuid())
   accountName        String
   bankName           String
   branch             String?
   accountNumber      String
   iban               String?
   swiftCode          String?
-  currency           Currency @default(AED)
+  currency           Currency         @default(AED)
   bankAddress        String?
   qrPaymentData      String?
   notes              String?
-  isActive           Boolean  @default(true)
-  isDefaultInvoice   Boolean  @default(false)
-  isDefaultQuotation Boolean  @default(false)
-  isDefaultReceiving Boolean  @default(false)
+  isActive           Boolean          @default(true)
+  isDefaultInvoice   Boolean          @default(false)
+  isDefaultQuotation Boolean          @default(false)
+  isDefaultReceiving Boolean          @default(false)
   ownership          AccountOwnership @default(COMPANY)
   cardLast4          String? // last 4 digits only, for matching card slips
 
@@ -2871,6 +2871,10 @@ model ScriptDocument {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
   deletedAt        DateTime?
+  /// Archived is indefinite and never swept: the 30-day purge is keyed on deletedAt, so a document
+  /// with archivedAt set and deletedAt null cannot be reached by it. Never both — archive clears
+  /// deletedAt and trash clears archivedAt, so exclusivity is a property of the writes.
+  archivedAt       DateTime?
 
   revisions    ScriptRevision[]
   layers       AnnotationLayer[]
@@ -2878,6 +2882,7 @@ model ScriptDocument {
 
   @@index([projectId])
   @@index([masterScriptId])
+  @@index([archivedAt])
   @@map("script_documents")
 }
 
@@ -3265,6 +3270,20 @@ model ScriptRevision {
   pdfUrl         String // /uploads/<file>
   pageCount      Int            @default(0)
   pageText       Json? // [{ page, text }] captured at upload (anchor source)
+  /// The scene list the writer was HANDED, stored before the first scene was written.
+  /// { count, at, source, wroteFrom, scenes[] } — source is 'planner' or 'cards' because the two
+  /// are not the same list: when the developed SCENES cards outnumber the planner's list the cards
+  /// win, and whichever wins is then re-weighted and cast-stripped before writing. wroteFrom is the
+  /// index an extend run began at, null on a fresh run.
+  /// NOT the ScriptScene rows: those come from re-parsing the WRITTEN pages, and on the 2 Oct run
+  /// that produced 85 rows from an 81-scene plan — the difference is four unnumbered CONTINUOUS
+  /// sub-headings. Every nameDrift / ledger / flashback finding is a disagreement between this list
+  /// and the page, and this half used to be discarded the moment a run ended.
+  /// NULL means "this revision predates the column", never "written from no plan": a planning
+  /// failure stores null, and a plan that genuinely had no scenes stores an empty one.
+  /// (The applied migration.sql still carries the original wording. It is NOT edited — Prisma
+  /// checksums it — so this declaration is the current description.)
+  scenePlan      Json?
   // SYS-14 V3-B: AI Director — per-line delivery, { [sceneOrdinal]: { [segIdx]: { tag, take } } }
   lineDirections Json?
   uploadedById   String?
@@ -3276,6 +3295,23 @@ model ScriptRevision {
   lockedAt       DateTime?
   supersedesId   String? // parent revision (for diffing)
   changeSummary  String?
+  /// C1 — PROVENANCE, not verdict. { KIND: stageVersionId } for every developed stage whose body
+  /// actually reached the writer's prompt. Taken from the resolution the prompt builder used, never
+  /// re-derived: see consumed-stamp.util.ts. Null on every revision written before 20 Sep 2026.
+  consumed       Json?
+  /// F10 — VERDICT, not provenance. Checks run against THIS revision's text:
+  /// { kind: { state: 'FINDINGS'|'CLEAN'|'NOT_RUN', reason, at, sha256 } }.
+  ///
+  /// `consumed` and `checks` are deliberately separate columns and a reader that merges them has
+  /// lost the distinction: consumed says what this script was WRITTEN FROM, checks says what was
+  /// FOUND IN IT. An abstention is stored as NOT_RUN with its reason and never as a pass — a
+  /// persisted false verdict outlives the process and reads like evidence.
+  ///
+  /// `sha256` fingerprints the text judged, because dialectRepairDoc rewrites an active revision's
+  /// pageText IN PLACE (scripton.service.ts:720) — the one path that mutates a revision's content
+  /// rather than creating a new one. A verdict can therefore outlive the text it describes; a
+  /// reader that finds a mismatch must report STALE, not CLEAN.
+  checks         Json?
   createdAt      DateTime       @default(now())
 
   scenes    ScriptScene[]

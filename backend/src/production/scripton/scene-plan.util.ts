@@ -1,0 +1,372 @@
+/**
+ * PLAN 01 TASK 5 — WHAT A STORED PLAN IS.
+ *
+ * WHY THE PLAN IS WORTH A COLUMN. Every nameDrift, ledger and flashback finding is a disagreement
+ * between the PLAN and the PAGE, and the plan half was discarded the moment a run ended. What
+ * survived was misleading rather than absent: the ScriptScene rows come from materialiseScenes
+ * re-parsing the WRITTEN pages, and on the 2 Oct run that produced 85 rows from an 81-scene plan.
+ * The four extra rows are unnumbered "- CONTINUOUS" sub-headings. They are the output re-read, not
+ * the plan it was written from, and they are not even the same length.
+ *
+ * JQ2-FINAL-plan.json exists only because the plan could not be read back out of the database at
+ * all. Five searches went into establishing that, and the answer was that nothing stored it.
+ *
+ * EVERY PLANNER FIELD, AND `exits` ABOVE ALL. The planner's own contract is
+ * { intExt, location, dayNight, brief, characters, exits, pageWeight } — the seven fields parse()
+ * maps at scripton.service.ts:3082 — plus a heading derived from the first three. An earlier draft
+ * of this projection kept four of the seven and dropped exits, which is the one field the planner's
+ * prompt describes as "what stops a murdered character answering a telephone eighty pages later":
+ * it feeds collectExits -> unavailableAt, so a stored plan without it cannot reproduce a single
+ * exit finding and the column would be decorative.
+ *
+ * `recalled` IS NOT HERE. It is plan STATE, produced by extractPlanState from a separate model
+ * call, not something the planner returned. Storing it beside the planner's own fields would file a
+ * derived flag as though the model had said it.
+ *
+ * Pure; never throws. No imports.
+ */
+
+/** The planner's own seven, exactly as parse() maps them. */
+export const PLANNER_FIELDS = [
+  'intExt', 'location', 'dayNight', 'brief', 'characters', 'exits', 'pageWeight',
+] as const;
+
+export interface PlannedExit { name: string; how: string }
+
+export interface PlannedScene {
+  intExt: string;
+  location: string;
+  dayNight: string;
+  brief: string;
+  characters: string;
+  /** [{ name, how }]. EMPTY, never absent — see the comment on emptiness below. */
+  exits: PlannedExit[];
+  pageWeight: number | null;
+  /** Derived from intExt / location / dayNight, so a reader does not have to reassemble it. */
+  heading: string;
+}
+
+/**
+ * WHICH LIST THE WRITER WAS HANDED.
+ *
+ * `planned` is not it. When the developed SCENES cards outnumber the planner's list the cards win
+ * (service :5170, :5739), and whichever list wins is then re-weighted by applyPageWeights and
+ * cast-stripped by stripExitedCast before a single scene is written. A column holding `planned`
+ * could therefore describe a list that never reached the writer, with nothing to say so.
+ *
+ * 'unknown' is the default rather than 'planner': a caller that does not say must not be recorded
+ * as having said the common case.
+ */
+export type ScenePlanSource = 'planner' | 'cards' | 'unknown';
+
+export interface StoredScenePlan {
+  count: number;
+  scenes: PlannedScene[];
+  at: string;
+  source: ScenePlanSource;
+  /**
+   * BOTH COUNTS, SO "THE CARDS WON" IS CHECKABLE RATHER THAN ASSERTED.
+   *
+   * `source` says which list the writer got; these say what the alternative was. On run 1 the cards
+   * won 34 to roughly 7, and that 7 could only be INFERRED from the planning call's output tokens
+   * because the planner's own list is stored nowhere. null means the caller did not say — never 0,
+   * which would read as "the planner returned none".
+   */
+  plannerCount: number | null;
+  cardsCount: number | null;
+  /**
+   * How many scenes in the stored list declare an exit.
+   *
+   * Run 1 stored 0 of 34, and the reason was not that the planner saw no deaths: sceneCards maps
+   * five fields and no `exits` at all, so a cards-sourced plan CANNOT declare one. A zero here with
+   * source 'cards' is a statement about the pipeline, not about the story.
+   */
+  exitsDeclared: number;
+  /**
+   * The index this run began writing at, on the extend path. NULL means "not an extend" — 0 would
+   * say an extend found nothing written, which is a different fact and a real one.
+   */
+  wroteFrom: number | null;
+}
+
+const str = (v: any): string => String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
+
+const weight = (v: any): number | null => {
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? n : null;
+};
+
+/**
+ * Exits, normalised to [{ name, how }].
+ *
+ * EMPTY RATHER THAN ABSENT, deliberately. The planner is told to omit the field entirely when a
+ * scene has no exits, so `undefined` means "the planner said nothing" — but on a stored row that is
+ * indistinguishable from "this projection lost it". Since this is the field that decides who may
+ * speak again eighty pages later, the two must not look alike, and an explicit [] says the plan was
+ * read and had none.
+ */
+function exitsOf(v: any): PlannedExit[] {
+  const list = Array.isArray(v) ? v : (v ? [v] : []);
+  return list
+    .map((e: any) => ({ name: str(e && e.name), how: str(e && e.how) }))
+    .filter((e) => !!e.name);
+}
+
+/**
+ * The slug a planned scene describes. Assembled rather than stored by the planner, and empty when
+ * there is nothing to assemble — "undefined. - undefined" on a row is worse than a blank.
+ */
+export function planHeading(sc: any): string {
+  const ie = str(sc && sc.intExt).toUpperCase();
+  const loc = str(sc && sc.location).toUpperCase();
+  const dn = str(sc && sc.dayNight).toUpperCase();
+  // No all-empty guard: with every part blank the assembly below already yields ''. A guard whose
+  // removal changes no behaviour is code that cannot be verified, so it is not here.
+  const left = [ie ? ie + '.' : '', loc].filter(Boolean).join(' ');
+  return dn ? (left ? left + ' - ' + dn : dn) : left;
+}
+
+/**
+ * The projection written to ScriptRevision.scenePlan.
+ *
+ * NULL AND EMPTY ARE DIFFERENT FACTS, and the column's whole comment rests on it. `null` means the
+ * planner produced nothing — a failure — and reads back as "this revision predates the column or
+ * was never planned". An empty plan means the planner ran and returned no scenes. Collapsing them
+ * is the same conflation the three-state check shape exists to prevent, one table over.
+ *
+ * Junk inside a plan is carried as junk: `count` is what the planner returned, however poor, because
+ * a projection that silently drops malformed scenes would make the stored count disagree with the
+ * run that produced it.
+ */
+export function scenePlanFor(
+  handed: any,
+  source: ScenePlanSource = 'unknown',
+  opts?: {
+    wroteFrom?: number | null;
+    /** What the planner's own list held, and what the SCENES cards held. See StoredScenePlan. */
+    plannerCount?: number | null;
+    cardsCount?: number | null;
+  } | null,
+  now: Date = new Date(),
+): StoredScenePlan | null {
+  if (!Array.isArray(handed)) return null;
+  const from = opts && opts.wroteFrom != null ? Number(opts.wroteFrom) : null;
+  const num = (v: any): number | null => {
+    if (v == null) return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+  const scenes = handed.map((sc: any) => ({
+    intExt: str(sc && sc.intExt),
+    location: str(sc && sc.location),
+    dayNight: str(sc && sc.dayNight),
+    brief: str(sc && sc.brief),
+    characters: str(sc && sc.characters),
+    exits: exitsOf(sc && sc.exits),
+    pageWeight: weight(sc && sc.pageWeight),
+    heading: planHeading(sc),
+  }));
+  return {
+    count: handed.length,
+    at: now.toISOString(),
+    source,
+    wroteFrom: Number.isFinite(from as number) ? (from as number) : null,
+    plannerCount: num(opts && opts.plannerCount),
+    cardsCount: num(opts && opts.cardsCount),
+    exitsDeclared: scenes.filter((x) => x.exits.length > 0).length,
+    scenes,
+  };
+}
+
+/**
+ * WHAT THE RUN KNEW AND THE ROW DID NOT SAY.
+ *
+ * Appended to the planState entry's reason, never folded into its state: none of this is a defect
+ * in the plan state, and a clean sweep must stay clean. Two facts, both measured on run 1 and both
+ * reaching nothing but a log line:
+ *
+ *   THE DISCARDED CLOCK. extractPlanState drops the WHOLE planned clock when it runs backwards at
+ *   any point (clock.clear()), on the sound grounds that handing a broken timeline to a hundred
+ *   scene prompts spreads the damage. Run 1 discarded it at 1 point and the row still read "the
+ *   planState sweep ran and found nothing" — so a reader could not tell a draft written WITH a
+ *   planned clock from one written without. The discard rule is untouched; only the silence is.
+ *
+ *   THE UNDECLARED EXITS. 0 of 34, because the cards carry no exits field. Said plainly, with the
+ *   source beside it, so the zero cannot be read as "nobody dies in this film".
+ */
+export interface PlanStateFinding { kind: 'CLOCK_DISCARDED' | 'NO_EXIT_GATE'; scenes: number[]; detail: string }
+
+/** One scene's planned time, in minutes since midnight — the shape extractPlanState's clock map holds. */
+export interface ClockPoint { scene: number; minutes: number }
+/** Two adjacent planned times where the later scene is earlier on the clock. */
+export interface ClockPair { fromScene: number; fromMinutes: number; toScene: number; toMinutes: number }
+
+/** How many pairs the finding names before it falls back to a count. */
+export const CLOCK_PAIRS_SHOWN = 6;
+/** How many planned times the note lists before it falls back to a count. */
+export const CLOCK_POINTS_SHOWN = 12;
+
+const hhmm = (m: number): string =>
+  String(Math.floor(m / 60) % 24).padStart(2, '0') + ':' + String(((m % 60) + 60) % 60).padStart(2, '0');
+
+const sortedPoints = (times: ClockPoint[] | null | undefined): ClockPoint[] =>
+  (Array.isArray(times) ? times : [])
+    .filter((t) => t && Number.isFinite(Number(t.scene)) && Number.isFinite(Number(t.minutes)))
+    .map((t) => ({ scene: Number(t.scene), minutes: Number(t.minutes) }))
+    .sort((a, b) => a.scene - b.scene);
+
+/**
+ * WHERE THE PLANNED CLOCK GOES BACKWARDS — the fact clock.clear() destroyed.
+ *
+ * extractPlanState counts these and then drops the whole clock, so the stored finding could say
+ * "2 points" and nothing else. The planning model's reply is not persisted, so a reader had no
+ * second source: the read-out for run 2 could not enumerate the two points from anything at all.
+ *
+ * The same comparison extractPlanState makes, in the same order (sorted by scene, each against the
+ * one before), so `clockBackwardPairs(times).length` is the count it reports. A spec asserts that
+ * identity across six shapes rather than trusting two expressions to agree. Equal adjacent times are
+ * not a step backwards, which is why this is `<` and not `<=`.
+ */
+export function clockBackwardPairs(times: ClockPoint[] | null | undefined): ClockPair[] {
+  const pts = sortedPoints(times);
+  const out: ClockPair[] = [];
+  for (let i = 1; i < pts.length; i++) {
+    if (pts[i].minutes < pts[i - 1].minutes) {
+      out.push({
+        fromScene: pts[i - 1].scene, fromMinutes: pts[i - 1].minutes,
+        toScene: pts[i].scene, toMinutes: pts[i].minutes,
+      });
+    }
+  }
+  return out;
+}
+
+/** "scene 9 00:30 → scene 10 00:00", the first few, then how many were not named. */
+function pairsPhrase(pairs: ClockPair[]): string {
+  if (!pairs.length) return '';
+  const shown = pairs.slice(0, CLOCK_PAIRS_SHOWN)
+    .map((p) => 'scene ' + p.fromScene + ' ' + hhmm(p.fromMinutes) + ' → scene ' + p.toScene + ' ' + hhmm(p.toMinutes));
+  const rest = pairs.length - shown.length;
+  return shown.join('; ') + (rest > 0 ? '; and ' + rest + ' more' : '');
+}
+
+/**
+ * TWO THINGS THAT ARE FINDINGS, NOT NOTES.
+ *
+ * As notes they rode on the entry's reason while its state stayed CLEAN, so surfaceSummary could
+ * report allClear over a draft that two of its own guards never covered. An all-clear is a claim
+ * about what was checked, and neither of these was.
+ *
+ *   CLOCK_DISCARDED  extractPlanState drops the WHOLE planned clock when it runs backwards at any
+ *                    point, and that clock is what spineDirective hands the writer per scene
+ *                    (:5275, :5859). So the loss is the WRITER'S: every scene prompt went out with
+ *                    no intended time. It is NOT that no time check ran — the page-side clock sweep
+ *                    reads the written pages through findAllTimeTokens and ran normally, reporting
+ *                    CLEAN on run 1. Whether to discard is plan 4; that it happened is a finding.
+ *   NO_EXIT_GATE     a cards-sourced plan cannot declare an exit — sceneCards maps five fields and
+ *                    no `exits` — so the exit gate that stops a dead character speaking eighty
+ *                    pages later had no input. Not "nobody dies": nobody could say.
+ *
+ * A PLANNER-SOURCED ZERO IS NOT HERE. The planner was asked for exits and declared none; that is an
+ * answer, and reporting it as a finding would cry wolf on every film where nobody dies. It stays a
+ * note. So do the two counts — provenance, not a defect.
+ *
+ * `scenes` is empty on both, and STAYS empty now that CLOCK_DISCARDED can name its points (26a53f5).
+ * Each is a property of the whole draft, and a scene number here would send a reader somewhere to
+ * look for something that is not there. At a midnight crossing the scene it would name is not even
+ * at fault: the scene is right and the rule that read it is wrong. The points belong in the detail,
+ * where they are evidence, not in `scenes`, where they would be a location.
+ */
+export function planStateFindings(
+  plan: StoredScenePlan | null | undefined,
+  facts?: { clockDiscardedAt?: number; clockBackwards?: ClockPair[] } | null,
+): PlanStateFinding[] {
+  const out: PlanStateFinding[] = [];
+  const dropped = Number((facts && facts.clockDiscardedAt) || 0);
+  if (dropped > 0) {
+    const where = pairsPhrase(Array.isArray(facts && facts.clockBackwards) ? (facts as any).clockBackwards : []);
+    out.push({
+      kind: 'CLOCK_DISCARDED',
+      scenes: [],
+      detail: 'the planned clock ran backwards at ' + dropped + ' point' + (dropped === 1 ? '' : 's')
+        + ' and was discarded in full'
+        // Absent on a revision written before the pairs were kept: the count is then all there is,
+        // and claiming points would be worse than saying less.
+        + (where ? ' — ' + where : '')
+        + ' — the writer was given no planned time for any scene'
+        + ' (the page-side clock check still ran, against the written pages)',
+    });
+  }
+  if (plan && plan.count > 0 && plan.exitsDeclared === 0 && plan.source === 'cards') {
+    out.push({
+      kind: 'NO_EXIT_GATE',
+      scenes: [],
+      detail: 'no exits could be declared for any of ' + plan.count + ' scene(s): the plan came from the cards,'
+        + ' and the SCENES cards carry no exits field — so the exit gate had no input, which is not the same as nobody dying',
+    });
+  }
+  return out;
+}
+
+/**
+ * What is worth recording but is not a defect: a planner-sourced zero, and the provenance of the
+ * list that won. Appended to the entry's reason, leaving its state alone.
+ */
+export function planStateNote(
+  plan: StoredScenePlan | null | undefined,
+  facts?: { clockDiscardedAt?: number; clockPlanned?: ClockPoint[] } | null,
+): string {
+  const bits: string[] = [];
+  // THE CLOCK THE PLANNER DID PRODUCE. The finding names where it broke; this says what it was, so a
+  // reader can see whether a 23:00-to-05:55 night was planned straight and misread, or planned
+  // wrong. It is a note, not a finding: the values themselves are not a defect.
+  const pts = sortedPoints(facts && facts.clockPlanned);
+  if (pts.length) {
+    const shown = pts.slice(0, CLOCK_POINTS_SHOWN).map((t) => 'scene ' + t.scene + ' ' + hhmm(t.minutes));
+    bits.push('planned clock: ' + shown.join(' · ')
+      + (pts.length > shown.length ? ' · and ' + (pts.length - shown.length) + ' more' : '')
+      + ' (' + pts.length + ' scene' + (pts.length === 1 ? '' : 's') + ' timed)');
+  }
+  if (plan && plan.count > 0 && plan.exitsDeclared === 0 && plan.source !== 'cards') {
+    bits.push('no exits declared in ' + plan.count + ' scene(s) from the ' + plan.source
+      + ' — the planner was asked and declared none');
+  }
+  if (plan && plan.plannerCount != null && plan.cardsCount != null) {
+    bits.push('planner ' + plan.plannerCount + ' vs cards ' + plan.cardsCount + ' — the ' + plan.source + ' won');
+  }
+  return bits.join(' · ');
+}
+
+/**
+ * THE SUBJECT A planState VERDICT IS FINGERPRINTED OVER — reproducible from the column.
+ *
+ * Run 1 stored planState CLEAN and a reader saw STALE. The hash had been taken over
+ * JSON.stringify(scenes), the RAW handed array, while the column stores the normalised projection:
+ * no reader could reproduce it from anything available, so the row read STALE for ever. That is the
+ * failure readCheckEntry avoids by refusing to staleness-check plan.tail at all — making `plan`
+ * comparable and then hashing something unstorable was worse than leaving it uncomparable.
+ *
+ * `at` IS EXCLUDED DELIBERATELY. It changes on every store, so including it would make the
+ * fingerprint depend on WHEN it was taken rather than on what it describes, and a second store of
+ * an identical plan would read as a change. What is hashed is the content: the count, where the
+ * list came from, where writing began, and the scenes themselves.
+ */
+export function scenePlanSubject(plan: StoredScenePlan | null | undefined): string {
+  if (!plan || typeof plan !== 'object') return '';
+  const scenes = Array.isArray(plan.scenes) ? plan.scenes : [];
+  // POSITIONAL TUPLES, NOT OBJECTS. JSON.stringify follows insertion order and Postgres normalises
+  // jsonb key order, so an object-shaped subject differs between the plan written and the plan read
+  // back — measured on the real column: written intExt,location,dayNight,brief,characters,exits,
+  // pageWeight,heading; read back brief,exits,intExt,heading,dayNight,location,characters,
+  // pageWeight. A tuple has no key order to lose, so the fixed field order below IS the format.
+  return JSON.stringify([
+    plan.count,
+    plan.source,
+    plan.wroteFrom === undefined ? null : plan.wroteFrom,
+    scenes.map((sc: any) => [
+      sc && sc.intExt, sc && sc.location, sc && sc.dayNight, sc && sc.brief, sc && sc.characters,
+      (Array.isArray(sc && sc.exits) ? sc.exits : []).map((e: any) => [e && e.name, e && e.how]),
+      sc && sc.pageWeight, sc && sc.heading,
+    ]),
+  ]);
+}

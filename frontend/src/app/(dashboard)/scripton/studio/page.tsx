@@ -71,6 +71,33 @@ function StudioPageInner() {
   const [reads, setReads] = useState<Record<string, any>>({});
   const [toast, setToast] = useState<string | null>(null);
   const [genErr, setGenErr] = useState<string | null>(null); // sticky generation error — stays until dismissed or the next run (mirrors the reader)
+  /**
+   * THE WAIVER, REACHABLE — one click, one call, never remembered.
+   *
+   * A pre-spend gate refusal ends with "re-run with waiveChecks", and until now there was no way to
+   * do that from this screen. `genRetry` holds the single call that was refused, and only while its
+   * refusal is on screen: the effect below clears it the moment genErr clears, so dismissing the
+   * alert or starting any other run discards it. Nothing is stored, nothing is defaulted, and the
+   * waiver travels only in the one request the writer clicked for — the server still logs WAIVED.
+   */
+  const [genRetry, setGenRetry] = useState<{ label: string; forMessage: string; run: () => void } | null>(null);
+  /**
+   * THE BINDING IS THE GUARANTEE, NOT THE EFFECT BELOW. Clearing on genErr === null was not enough:
+   * :305 (a failed approval route) calls setGenErr with a new message over an existing one without
+   * ever passing through null, so the effect never fired and "Proceed anyway" sat under "Could not
+   * route approval." — offering to waive findings the reader was no longer looking at. The button is
+   * now tied to the exact message it was made for and renders only while that message is on screen.
+   * The effect stays as a tidy-up so a dismissed alert does not leave a closure in state.
+   */
+  useEffect(() => { if (!genErr) setGenRetry(null); }, [genErr]);
+  const retryForCurrent = genRetry && genErr && genRetry.forMessage === genErr ? genRetry : null;
+  /**
+   * Detected from the text, which is the only thing a refusal carries over HTTP — the job hands back
+   * an `error` string and the promote route a 400 message. The backend marks the error OBJECT
+   * instead (pre-spend-gate.util's PRE_SPEND_REFUSAL) precisely because it has the object; here the
+   * header emitted by gateText is the contract. If that header is reworded, this must move with it.
+   */
+  const isPreSpendStop = (msg: any) => /PRE-SPEND CHECK/.test(String(msg || ''));
   const [mounted, setMounted] = useState(false);
   const [building, setBuilding] = useState(false);
   const [buildItems, setBuildItems] = useState<any[]>([]);
@@ -215,12 +242,19 @@ function StudioPageInner() {
     }
     return null;
   };
-  const settleStageJob = async (kind: string, j: any, pid: string) => {
+  const settleStageJob = async (kind: string, j: any, pid: string, retryWaived?: () => void) => {
     const label = t(STAGE_LABEL[kind] || kind);
     await loadPipeline(pid);
     if (!pollAlive.current) return;
     if (!j) { setGenErr(label + ': ' + t('lost contact with the server while it was being written. It may still finish — reload in a few minutes to see it.')); return; }
-    if (j.status === 'ERROR') { setGenErr(String(j.error || (label + ': ' + t('generation failed.')))); return; }
+    if (j.status === 'ERROR') {
+      const msg = String(j.error || (label + ': ' + t('generation failed.')));
+      setGenErr(msg);
+      // Only a pre-spend stop is waivable. Any other failure has nothing to waive, and offering the
+      // button would invite a second expensive run at a fault that would simply recur.
+      if (retryWaived && isPreSpendStop(msg)) setGenRetry({ label: t('Proceed anyway'), forMessage: msg, run: retryWaived });
+      return;
+    }
     if (j.status !== 'DONE') { setGenErr(label + ': ' + t('the server no longer has this run (it was probably restarted). If a new version shows in the ladder it was saved; otherwise generate it again.')); return; }
     // A stage cut off at its ceiling was NOT generated — it was started. Say so, not "generated."
     if (j.truncated) setGenErr(label + ': ' + String(j.warning || t('incomplete — cut off')));
@@ -233,7 +267,11 @@ function StudioPageInner() {
     try {
       const r: any = await productionApi.scripton.development.generateAsync(pid, { kind, buildId: buildIdRef.current, ...extra });
       const job: any = (r && r.data) || {};
-      await settleStageJob(kind, job.status === 'RUNNING' ? await followStageJob(String(job.key)) : job, pid);
+      await settleStageJob(kind, job.status === 'RUNNING' ? await followStageJob(String(job.key)) : job, pid,
+        // THE SAME CALL, re-sent with the waiver — same kind, same build, same extras. Not a fresh
+        // request rebuilt from whatever the screen happens to look like by then. Already-waived runs
+        // offer nothing: there is no second waiver to give.
+        extra?.waiveChecks ? undefined : () => { void genStage(kind, { ...extra, waiveChecks: true }); });
     }
     catch (e: any) { setGenErr(e?.response?.data?.message || t('Develop engine needs an AI key configured on the server.')); }
     finally { if (pollAlive.current) setGenBusy(null); }
@@ -279,7 +317,7 @@ function StudioPageInner() {
 
   const onRead = async (versionId: string) => { setGenErr(null); try { const r: any = await productionApi.scripton.development.read(versionId); setReads((m) => ({ ...m, [versionId]: r.data })); flash(t('Gate read ready.')); } catch (e: any) { setGenErr(e?.response?.data?.message || t('Read needs an AI key on the server.')); } };
   const onBranch = async (stageId: string, versionId: string) => { if (!projectId) return; try { await productionApi.scripton.development.duplicate(versionId, 'Branch'); await loadPipeline(projectId); flash(t('Branched — flip versions with ◀ ▶, then Approve the winner.')); } catch { flash(t('Could not branch.')); } };
-  const onPromoteScript = async (versionId: string) => {
+  const onPromoteScript = async (versionId: string, waiveChecks?: boolean) => {
     if (!projectId) return;
     const steps = [t('Planning the scenes'), t('Writing scene by scene'), t('Paginating the feature'), t('Filing in your Library')];
     setBuildName(title || t('Feature')); setBuildDirections(null); setBuildActions(null);
@@ -288,7 +326,7 @@ function StudioPageInner() {
     clearInterval(promoCrawl.current);
     let docId = '';
     try {
-      const r: any = await productionApi.scripton.development.promoteToScript(versionId);
+      const r: any = await productionApi.scripton.development.promoteToScript(versionId, waiveChecks === true);
       docId = (r && r.data && r.data.documentId) || '';
       const total0 = (r && r.data && r.data.total) || 45;
       if (!docId) { setBuildError(t('Could not start generation. Your draft is safe.')); return; }
@@ -329,7 +367,15 @@ function StudioPageInner() {
       }, 1700);
     } catch (e: any) {
       clearInterval(promoCrawl.current);
-      setBuildError(e?.response?.data?.message || t('Could not send to production. Your draft is safe \u2014 try again.'));
+      const msg = e?.response?.data?.message || t('Could not send to production. Your draft is safe \u2014 try again.');
+      if (isPreSpendStop(msg)) {
+        // The gate refused BEFORE anything was created or spent, so the build overlay \u2014 a progress
+        // bar over four steps \u2014 would be describing work that never started. Close it and put the
+        // refusal in the alert, which is where Proceed anyway lives and where it can be read.
+        setBuilding(false); setBuildProgress(null); setBuildItems([]); setBuildActions(null); setBuildError(null);
+        setGenErr(msg);
+        setGenRetry({ label: t('Proceed anyway'), forMessage: msg, run: () => { void onPromoteScript(versionId, true); } });
+      } else setBuildError(msg);
     }
   };
   const onAdapt = async (source: string) => {
@@ -519,8 +565,20 @@ function StudioPageInner() {
       <span aria-hidden style={{ fontSize: 16, lineHeight: '19px', color: '#E8A0A0', flexShrink: 0 }}>⚠</span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: 0.7, color: '#E8A0A0', textTransform: 'uppercase', marginBottom: 3 }}>{t('Generation stopped')}</div>
-        <div style={{ fontSize: 12.5, color: '#F0E9DC', lineHeight: 1.55, wordBreak: 'break-word' }}>{genErr}</div>
-        <div style={{ fontSize: 11, color: '#b9a9a9', marginTop: 5 }}>{t('Stays until you dismiss it or run again.')}</div>
+        {/* pre-wrap KEEPS THE LINE BREAKS: a gate refusal is a list \u2014 findings, then NOT RUN, then
+            the clean count \u2014 and rendered as one paragraph it was unreadable even when all of it
+            arrived. maxHeight + overflowY means a long refusal scrolls here instead of being cut. */}
+        <div style={{ fontSize: 12.5, color: '#F0E9DC', lineHeight: 1.55, wordBreak: 'break-word',
+          whiteSpace: 'pre-wrap', maxHeight: 280, overflowY: 'auto' }}>{genErr}</div>
+        {retryForCurrent ? (
+          <button onClick={() => { const r = retryForCurrent.run; setGenErr(null); setGenRetry(null); r(); }}
+            style={{ marginTop: 8, background: 'rgba(214,109,109,0.16)', border: '1px solid rgba(214,109,109,0.55)',
+              borderRadius: 8, color: '#F0D7D7', cursor: 'pointer', fontSize: 11.5, fontWeight: 700,
+              padding: '5px 11px', fontFamily: 'inherit' }}>{retryForCurrent.label}</button>
+        ) : null}
+        <div style={{ fontSize: 11, color: '#b9a9a9', marginTop: 5 }}>
+          {retryForCurrent ? t('Proceeding waives these findings for this one run, and is recorded.') : t('Stays until you dismiss it or run again.')}
+        </div>
       </div>
       <button onClick={() => setGenErr(null)} aria-label={t('Dismiss')} title={t('Dismiss')} style={{ flexShrink: 0, background: 'transparent', border: 'none', color: '#d9b3b3', cursor: 'pointer', fontSize: 16, lineHeight: '19px', padding: 0 }}>✕</button>
     </div>

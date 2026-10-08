@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Req, UseGuards, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, Req, UseGuards, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname, join } from 'path';
@@ -29,10 +29,15 @@ const pdfUpload = {
 export class ScriptController {
   constructor(private service: ScriptService) {}
 
-  @Get('project/:projectId') list(@Param('projectId') projectId: string) { return this.service.list(projectId); }
+  // `view` defaults to active, so every existing caller keeps the list it had.
+  @Get('project/:projectId') list(@Param('projectId') projectId: string, @Query('view') view?: 'active' | 'archived' | 'bin') { return this.service.list(projectId, view === 'archived' || view === 'bin' ? view : 'active'); }
   @Get('project/:projectId/bin') binList(@Param('projectId') projectId: string) { return this.service.binList(projectId); }
   @Post('document/:id/trash') @RequirePermission('production', 2) trashDoc(@Param('id') id: string) { return this.service.trashDocument(id); }
   @Post('document/:id/restore') @RequirePermission('production', 2) restoreDoc(@Param('id') id: string) { return this.service.restoreDocument(id); }
+  // Beside trash/restore and at the same level the builds' archive uses (production, 2): archiving
+  // destroys nothing and is reversible, so it is not gated like a purge.
+  @Post('document/:id/archive') @RequirePermission('production', 2) archiveDoc(@Param('id') id: string) { return this.service.archiveDocument(id); }
+  @Post('document/:id/unarchive') @RequirePermission('production', 2) unarchiveDoc(@Param('id') id: string) { return this.service.unarchiveDocument(id); }
   @Get('document/:id') getDocument(@Param('id') id: string) { return this.service.getDocument(id); }
   @Get('revision/:id') getRevision(@Param('id') id: string) { return this.service.getRevision(id); }
 

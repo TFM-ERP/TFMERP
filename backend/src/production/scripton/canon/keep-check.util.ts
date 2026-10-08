@@ -91,6 +91,24 @@ export interface KeepCheckReport {
   salvaged: boolean;
   items: KeepCheckItem[];
   summary: string;
+  /** Present only when a re-ask actually happened. Absent means nobody asked twice. */
+  reask?: KeepReaskRecord;
+}
+
+/**
+ * WHAT THE SECOND ASK SETTLED. Absent on a report nobody asked twice, which is how the gate knows
+ * which closing line is true: "its own evidence failed" before a re-ask, "asked again and still
+ * could not quote the words" after one.
+ *
+ * `failed` is the second call's own failure — thrown, timed out, or no readable answer. It resolves
+ * nothing and must never read as a confirmation.
+ */
+export interface KeepReaskRecord {
+  asked: number;
+  proved: number;
+  absent: number;
+  stillUnproven: number;
+  failed?: string;
 }
 
 const norm = (t: string) => String(t || '').replace(/[‘’]/g, "'").replace(/[“”]/g, '"')
@@ -192,7 +210,8 @@ export function parseKeepCheck(text: string, items: string[], body: string): Kee
     + (count('UNPROVEN') ? ' · ' + count('UNPROVEN') + ' claimed found with no quote in the draft' : '')
     + (count('NOT REPORTED') ? ' · ' + count('NOT REPORTED') + ' NOT REPORTED by the checker' : '')
     + (missingNames.length ? ' — not found: ' + missingNames.join('; ') : '')
-    + (unverifiedQuotes ? ' · ' + unverifiedQuotes + ' quoted passage(s) NOT FOUND in the draft (not counted as found)' : '')
+    + (unverifiedQuotes ? ' · ' + unverifiedQuotes + ' quoted passage(s) are not in the draft, so'
+      + ' those things are unproven rather than missing (not counted as found)' : '')
     + (notVerbatim ? ' · ' + notVerbatim + ' quoted line(s) claimed found whose words are not in the draft (not counted as found)' : '')
     + (invalid ? ' · ' + invalid + ' row(s) named no item' : '')
     + (salvaged ? ' · recovered from malformed JSON' : '');
@@ -207,7 +226,22 @@ export function parseKeepCheck(text: string, items: string[], body: string): Kee
 // not run — a version with no result must not look like a version with nothing missing (SYNOPSIS v2's
 // register check was killed by a restart and left no trace at all).
 
-export type KeepCheckState = 'NO MISSES' | 'MISSES' | 'NOT RUN';
+/**
+ * FOUR STATES. UNPROVEN was folded into MISSES and that cost a build two blanket waivers.
+ *
+ * Run 2's TREATMENT named NOTHING absent (`missing: []`) and proved fifteen of sixteen things. The
+ * sixteenth was claimed found on a line the checker had composed from two scene headings — "7. 03:50
+ * — THE THIRD DOOR", where the draft has "7. 03:00 — THE COURTEOUS HOUR" and "8. 03:50 — THE THIRD
+ * DOOR". That is a bad citation, not an absent beat, and two entries later the same item proved the
+ * same beat with a quote that does match. It was stored "MISSES — not found: Rashid at 3 a.m.", the
+ * gate stopped the build on it twice, and because waiveChecks is a blanket boolean each waiver
+ * cleared every other finding on those versions too. A false positive on an all-or-nothing lever
+ * teaches the operator to pull it.
+ *
+ * So UNPROVEN stops — nothing has been shown either way, and that is not a pass — but it stops in
+ * its own words and is never reported as the draft missing something.
+ */
+export type KeepCheckState = 'NO MISSES' | 'MISSES' | 'UNPROVEN' | 'NOT RUN';
 
 /** The Keep a TREATMENT prompt carried — or why it carried none. Mirrors directionSteerText. */
 export function keepSent(buildId: any, dirRow: any): { keep: string | null; reason: string | null } {
@@ -222,27 +256,252 @@ export function keepCheckNotRun(reason: string, extra?: Record<string, any>): an
   return { state: 'NOT RUN' as KeepCheckState, reason, misses: null, summary: 'KEEP CHECK DID NOT RUN: ' + reason, ...(extra || {}) };
 }
 
+/** The suffix that marks an item the checker never answered on, so the summary can give it its own verb. */
+const NOT_CHECKED = ' (not checked)';
+
 /**
- * Everything not confirmed present, in item order. Unconfirmed is listed, never dropped: an item the
- * checker never reported, or a "found" whose quote is not in the draft, is not a pass.
+ * WHAT IS NOT ON THE PAGE, in item order — and only that.
+ *
+ * Two kinds, both of which stop: a thing the checker NAMED as absent, and an item it never reported
+ * at all. The third kind — claimed present, quoted on words the draft does not hold — used to be
+ * appended here and is now keepUnproven's. Folding it in made a mis-citation indistinguishable from
+ * a missing beat, and the headline word was "not found".
  */
 export function keepMisses(report: KeepCheckReport): string[] {
   const out: string[] = [];
   for (const it of report.items) {
-    if (it.status === 'NOT REPORTED') { out.push(it.text + ' (not checked)'); continue; }
+    if (it.status === 'NOT REPORTED') { out.push(it.text + NOT_CHECKED); continue; }
     out.push(...it.missing);
-    for (const f of it.found) if (!f.quoteFound) out.push((f.thing || 'item ' + it.item) + ' (the quoted words are not in the draft)');
   }
   return out;
 }
 
-/** The stored result. No count and no fraction — the per-item audit is kept for traceability only. */
+/** One unproven claim, as the re-ask needs it: which item, which thing, and the quote that failed. */
+export interface KeepUnprovenThing { item: number; thing: string; quote: string }
+
+/**
+ * The unproven claims, structured — the re-ask's entire subject.
+ *
+ * Empty is the caller's signal to make NO second call. An unconditional re-ask would bill every run
+ * for a question nobody has.
+ */
+export function keepUnprovenThings(report: KeepCheckReport): KeepUnprovenThing[] {
+  const out: KeepUnprovenThing[] = [];
+  for (const it of report.items) {
+    for (const f of it.found) {
+      if (f.quoteFound) continue;
+      out.push({ item: it.item, thing: f.thing || 'item ' + it.item, quote: String(f.quote || '') });
+    }
+  }
+  return out;
+}
+
+/**
+ * Claimed present on words that are not in the draft — neither proved nor shown missing.
+ *
+ * The quote travels with it, because the quote is the whole evidence: a reader who can see
+ * "7. 03:50 — THE THIRD DOOR" beside a draft that says "8. 03:50" can tell a bad citation from a
+ * missing beat in one glance, and that is the judgement this check kept taking away from them.
+ */
+export function keepUnproven(report: KeepCheckReport): string[] {
+  const asked = report.reask;
+  const out: string[] = [];
+  for (const it of report.items) {
+    for (const f of it.found) {
+      if (f.quoteFound) continue;
+      const thing = f.thing || 'item ' + it.item;
+      const quote = String(f.quote || '').replace(/\s+/g, ' ').trim();
+      // THREE DIFFERENT SITUATIONS, THREE SENTENCES. A reader deciding whether to waive needs to
+      // know whether anyone looked twice, and whether the second look happened at all.
+      if (asked && asked.failed) {
+        out.push(thing + ' — the checker was asked again and the second call failed ('
+          + asked.failed + '), so this is still neither proved nor shown missing: "' + quote + '"');
+      } else if (asked) {
+        out.push(thing + ' — the checker was asked again and still could not quote words that are'
+          + ' in the draft: "' + quote + '"');
+      } else {
+        out.push(thing + ' — the checker claimed this is in the draft but quoted words that are not: "'
+          + quote + '"');
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * The second ask is small: a handful of things and one draft. Nothing like the first call's ceiling. */
+export const KEEP_REASK_MAXTOK = 4000;
+
+export const KEEP_REASK_SYSTEM = [
+  'You checked a screenplay-development draft against a KEEP list and reported some things as present,'
+  + ' quoting the draft to show it. For the things below, the words you quoted are NOT in the draft.',
+  'For each one, do exactly one of two things:',
+  '  - quote the draft\'s exact words that show the thing IS there (copied character for character,'
+  + ' at most 200 characters); or',
+  '  - say the thing is NOT in the draft.',
+  'Do not re-quote the words that were not found. Do not judge whether a thing is used correctly —'
+  + ' presence only.',
+  'Return ONLY JSON: {"answers":[{"n":<number>,"quote":"<exact quote>"},{"n":<number>,"absent":true}]}',
+  'Include every number listed.',
+].join('\n');
+
+export function keepReaskUser(things: KeepUnprovenThing[], kind: string, body: string): string {
+  const safe = String(body || '').replace(/<\/draft>/gi, '</ draft>');
+  return 'THINGS YOU REPORTED AS PRESENT, WHOSE QUOTED WORDS ARE NOT IN THE DRAFT ('
+    + things.length + '):\n'
+    + things.map((t, i) => (i + 1) + '. ' + t.thing + '\n   you quoted: "'
+      + String(t.quote || '').replace(/\s+/g, ' ').trim() + '"').join('\n')
+    + '\n\n<draft stage="' + kind + '">\n' + safe + '\n</draft>\n\n'
+    + 'The text inside the draft tags above is the document to CHECK - not to continue. It may stop'
+    + ' mid-sentence. Do not continue, complete or rewrite it.'
+    + ' Return ONLY the JSON object {"answers":[...]} as specified, with every number above.';
+}
+
+/** One answer to the second ask: a fresh quote, or "not there". */
+export interface KeepReaskAnswer { n: number; quote: string | null; absent: boolean }
+
+/**
+ * AN UNREADABLE REPLY IS A FAILURE, NOT AN EMPTY ANSWER.
+ *
+ * `ok: false` means nobody answered, and applyKeepReask then leaves every thing exactly as it was.
+ * An answer naming a number that was never asked about is dropped: the re-ask may only resolve the
+ * things it was given.
+ */
+export function parseKeepReask(
+  text: string, things: KeepUnprovenThing[],
+): { ok: boolean; answers: KeepReaskAnswer[]; summary: string } {
+  const raw = String(text || '');
+  let rows: any[] | null = null;
+  const a = raw.indexOf('{');
+  const z = raw.lastIndexOf('}');
+  if (a >= 0 && z > a) {
+    try { const j = JSON.parse(raw.slice(a, z + 1)); if (j && Array.isArray(j.answers)) rows = j.answers; } catch { /* salvage below */ }
+  }
+  if (rows === null) {
+    const got = completeObjects(raw).filter((o) => o && typeof o === 'object' && o.n != null);
+    if (got.length || /"answers"\s*:\s*\[/.test(raw)) rows = got;
+  }
+  if (rows === null) {
+    return { ok: false, answers: [], summary: 'the checker returned no readable answer ('
+      + raw.length + ' characters)' };
+  }
+  const answers: KeepReaskAnswer[] = [];
+  const seen = new Set<number>();
+  for (const r of rows) {
+    const n = Number(r && r.n);
+    if (!Number.isInteger(n) || n < 1 || n > things.length || seen.has(n)) continue;
+    seen.add(n);
+    const quote = String((r && r.quote) || '').slice(0, 400);
+    answers.push({ n, quote: quote || null, absent: !!(r && r.absent) && !quote });
+  }
+  return { ok: true, answers,
+    summary: answers.length + ' of ' + things.length + ' answered' };
+}
+
+/**
+ * FOLD THE SECOND ASK BACK INTO THE REPORT. Pure — the report given is never mutated, so a caller
+ * can still print what the first ask said.
+ *
+ *   a quote that IS in the draft   -> that `found` entry is proved, and the thing counts as found
+ *   "not there"                    -> the entry is removed and the thing joins the item's `missing`
+ *   a quote still not in the draft -> left unproven, and the record says it was asked twice
+ *   no answer, or a failed call    -> left exactly as it was
+ *
+ * `failure` is the second call's own failure. It resolves nothing and promotes nothing.
+ */
+export function applyKeepReask(
+  report: KeepCheckReport,
+  things: KeepUnprovenThing[],
+  parsed: { ok: boolean; answers: KeepReaskAnswer[] } | null,
+  body: string,
+  failure?: string | null,
+): KeepCheckReport {
+  const B = norm(body);
+  const byN = new Map<number, KeepReaskAnswer>();
+  if (parsed && parsed.ok) for (const ans of parsed.answers) byN.set(ans.n, ans);
+  const asked = things.length;
+  let proved = 0, absent = 0;
+
+  // A deep copy of just what can change, so the input stays readable.
+  const items: KeepCheckItem[] = report.items.map((it) => ({
+    ...it, found: it.found.map((f) => ({ ...f })), missing: it.missing.slice(), lines: it.lines.slice(),
+  }));
+
+  things.forEach((t, i) => {
+    const ans = byN.get(i + 1);
+    if (!ans) return;                                  // unanswered, or the call failed
+    const item = items.find((x) => x.item === t.item);
+    if (!item) return;
+    const slot = item.found.find((f) => !f.quoteFound && (f.thing || '') === t.thing && String(f.quote || '') === t.quote);
+    if (!slot) return;
+    if (ans.quote && B.includes(norm(ans.quote))) {
+      slot.quote = ans.quote;
+      slot.quoteFound = true;
+      proved++;
+      return;
+    }
+    if (ans.absent) {
+      item.found = item.found.filter((f) => f !== slot);
+      if (!item.missing.some((m) => norm(m) === norm(t.thing))) item.missing.push(t.thing);
+      absent++;
+      return;
+    }
+    // a second quote that is also absent: keep the FIRST one on the record, since that is the
+    // evidence the reader has already been shown. Still unproven.
+  });
+
+  // The statuses are recomputed from the evidence, by the same rule parseKeepCheck uses.
+  const counted = (f: KeepFound) => f.quoteFound && !f.notVerbatim;
+  for (const it of items) {
+    if (it.status === 'NOT REPORTED') continue;
+    const verified = it.found.filter(counted).length;
+    const unverified = it.found.filter((f) => !f.quoteFound).length;
+    const demoted = it.found.filter((f) => f.quoteFound && f.notVerbatim).length;
+    it.status = verified ? ((it.missing.length || unverified || demoted) ? 'PARTIAL' : 'FOUND')
+      : unverified ? 'UNPROVEN' : 'MISSING';
+  }
+
+  const stillUnproven = items.reduce((n, it) => n + it.found.filter((f) => !f.quoteFound).length, 0);
+  const reask: KeepReaskRecord = { asked, proved, absent, stillUnproven };
+  const why = String(failure || (parsed && !parsed.ok ? 'the checker returned no readable answer' : '') || '').trim();
+  if (why) reask.failed = why;
+  return { ...report, items, reask };
+}
+
+/**
+ * The stored result. No count and no fraction — the per-item audit is kept for traceability only.
+ *
+ * THREE FACTS, THREE VERBS. They used to share one sentence that opened "not found", which is a
+ * claim about the DRAFT, and only one of the three is:
+ *
+ *   named absent   the checker says it is not there           "not found"
+ *   not reported   the checker said nothing about the item     "not checked"
+ *   unproven       claimed there, quoted words that are not    "claimed but not shown"
+ *
+ * THE PARSER'S OWN SENTENCE IS STILL NOT STORED, AND THAT IS DELIBERATE. It distinguishes these
+ * three too, which is why keeping it looked like the fix — but it opens "N of M items named and
+ * found", and never showing a score is a standing rule here: a draft that had never seen the Keep
+ * list once scored 6 of 10, because a draft and its Keep share a source. The spec's `noScore`
+ * control refuses it. The composed summary below draws the same distinction with three verbs and no
+ * arithmetic, so the sentence is reworded at the parser (where it is logged) and composed afresh
+ * here (where it is stored).
+ */
 export function keepCheckOutcome(report: KeepCheckReport, meta: Record<string, any>): any {
   if (!report.ok) return keepCheckNotRun('the check failed: ' + report.summary.replace(/^KEEP CHECK FAILED: /, ''), meta);
   const misses = keepMisses(report);
-  const state: KeepCheckState = misses.length ? 'MISSES' : 'NO MISSES';
+  const unproven = keepUnproven(report);
+  // MISSES is the stronger claim and wins when both are present: something IS named absent.
+  const state: KeepCheckState = misses.length ? 'MISSES' : (unproven.length ? 'UNPROVEN' : 'NO MISSES');
   const items = report.items.map((i) => ({ item: i.item, text: i.text, status: i.status, found: i.found, missing: i.missing, lines: i.lines }));
-  return { state, misses, items, salvaged: report.salvaged, invalid: report.invalid, ...meta,
-    summary: misses.length ? 'KEEP CHECK — not found: ' + misses.join('; ')
+  const namedAbsent = misses.filter((m) => !m.endsWith(NOT_CHECKED));
+  const notChecked = misses.filter((m) => m.endsWith(NOT_CHECKED)).map((m) => m.slice(0, -NOT_CHECKED.length));
+  const parts: string[] = [];
+  if (namedAbsent.length) parts.push('not found: ' + namedAbsent.join('; '));
+  if (notChecked.length) parts.push('not checked: ' + notChecked.join('; '));
+  if (unproven.length) parts.push('claimed but not shown: ' + unproven.join('; '));
+  return { state, misses, unproven, items, salvaged: report.salvaged, invalid: report.invalid,
+    // Absent when nobody asked twice — the gate reads this to choose its closing line.
+    ...(report.reask ? { reask: report.reask } : {}), ...meta,
+    summary: parts.length ? 'KEEP CHECK — ' + parts.join(' · ')
       : 'KEEP CHECK — nothing named in the KEEP list is missing from the draft (presence only; not a judgment of how it is used)' };
 }

@@ -3,10 +3,12 @@ import { useEffect, useRef, useState } from 'react';
 import { productionApi } from '@/lib/api';
 import { resolveScriptonProjectId } from '@/components/scripton/useScriptonProject';
 import { useLocale } from '@/lib/i18n';
+import CardActions, { CARD_ACTIONS_CSS, ICON_ARCHIVE, ICON_TRASH } from './CardActions';
+import ViewSwitcher, { VIEW_SWITCHER_CSS } from './ViewSwitcher';
 
 /** Builds — name, save, switch and promote development builds. Folded into Studio as an overlay panel
  *  (was the standalone /scripton/builds). Open loads that build into Studio; Promote snapshots into a project. */
-const CSS = `
+const CSS = CARD_ACTIONS_CSS + VIEW_SWITCHER_CSS + `
 .bld{--bg:#0b0c0f;--panel:#14161c;--hair:rgba(255,255,255,.07);--hair2:rgba(255,255,255,.13);--gold:#C6A463;--gold2:#E6D2A2;--goldink:#1a1509;--cream:#F4EEE0;--text:#E8E6E0;--mute:#9aa1ab;--faint:#6b727d;--green:#57b368;--blue:#5b8def;background:radial-gradient(1200px 600px at 50% -8%,#15171d,#0b0c0f 60%);min-height:100vh;color:var(--text);font-family:var(--sx-body)}
 .bld *{box-sizing:border-box}
 .bld .scr{display:flex;flex-direction:column;height:100vh;position:relative}
@@ -32,9 +34,6 @@ const CSS = `
 .bld .warn{border:1px solid rgba(229,99,95,.5);background:rgba(229,99,95,.08);border-radius:12px;padding:13px 15px;display:flex;flex-direction:column;gap:5px}
 .bld .warnt{font-size:13px;font-weight:700;color:#e5635f}
 .bld .warns{font-size:11.5px;color:var(--mute);line-height:1.55}
-.bld .seg{margin-inline-start:auto;display:inline-flex;background:#15181e;border:1px solid var(--hair);border-radius:9px;padding:3px;gap:2px}
-.bld .segb{font-size:12px;font-weight:600;padding:5px 12px;border-radius:7px;cursor:pointer;color:var(--mute);white-space:nowrap}
-.bld .segb.on{color:var(--gold2);background:rgba(198,164,99,.16)}
 .bld .grid{display:grid;grid-template-columns:repeat(3,1fr);grid-auto-rows:max-content;gap:16px;align-content:start}
 /* WHY grid-auto-rows:max-content, MEASURED — do not drop it back to plain auto rows.
    Every implicit row was resolving to .bc's min-height floor (180px on the live board, 214.925px in
@@ -47,7 +46,7 @@ const CSS = `
    12.3px, ragged true). min-width:0 stays — a grid item defaults to min-width:auto, and the identity
    line grew long enough that it could not shrink below its track.
    Verified at 3, 2 and 1 columns, on a card with a two-line wrapped title: spill 0, overlap 0. */
-.bld .bc{background:var(--panel);border:1px solid var(--hair);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.bld .bc{position:relative;background:var(--panel);border:1px solid var(--hair);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
 .bld .r1{display:flex;align-items:center;justify-content:space-between}
 .bld .spill{font-size:10px;font-weight:800;letter-spacing:.4px;padding:4px 9px;border-radius:999px}
 .bld .spill.draft{background:rgba(154,161,171,.16);color:var(--mute)}.bld .spill.review{background:rgba(91,141,239,.16);color:#a9c4f7}.bld .spill.greenlit{background:rgba(87,179,104,.16);color:var(--green)}.bld .spill.promoted{background:rgba(198,164,99,.18);color:var(--gold2)}
@@ -156,7 +155,7 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
     setEditId(null);
     if (!name || name === String(b.name || '')) return;
     try { await productionApi.scripton.development.renameBuild(b.id, name.slice(0, 120)); flash(t('Renamed.')); }
-    catch { flash(t('Could not rename this build.')); }
+    catch (e: any) { flash(e?.response?.data?.message || t('Could not rename this build.')); }
     await load(projectId || '', view);
   };
   // A LOAD THAT NEVER ANSWERS MUST STILL SAY SO. Without this a hung request looks identical to a
@@ -223,10 +222,10 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
   const daysLeft = (d?: string) => { if (!d) return 30; const ms = new Date(d).getTime() + 30 * 86400000 - Date.now(); return Math.max(0, Math.ceil(ms / 86400000)); };
   const isDemo = (b: any) => /^b\d$/.test(String(b && b.id));
   const switchView = (v: 'active' | 'archived' | 'bin') => { setView(v); setFilter('All'); if (projectId) load(projectId, v); };
-  const doArchive = async (b: any) => { if (isDemo(b)) { flash(t('Demo build.')); return; } try { await productionApi.scripton.development.archiveBuild(b.id); flash(t('Archived — kept indefinitely, with no countdown.')); if (projectId) await load(projectId, view); } catch { flash(t('Could not archive.')); } };
-  const doUnarchive = async (b: any) => { if (isDemo(b)) { flash(t('Demo build.')); return; } try { await productionApi.scripton.development.unarchiveBuild(b.id); flash(t('Back on the active board.')); if (projectId) await load(projectId, view); } catch { flash(t('Could not unarchive.')); } };
-  const doRestore = async (b: any) => { if (isDemo(b)) { flash(t('Demo build.')); return; } try { await productionApi.scripton.development.restoreBuild(b.id); flash(t('Restored.')); if (projectId) await load(projectId, view); } catch { flash(t('Could not restore.')); } };
-  const doConfirm = async () => { const b = confirm.b; const kind = confirm.kind; setConfirm(null); if (isDemo(b)) { flash(t('Demo build - connect a project.')); return; } try { if (kind === 'purge') { const r: any = await productionApi.scripton.development.purgeBuild(b.id); const d = r?.data?.purged || r?.purged; flash(d && d.chars ? (t('Deleted forever') + ' — ' + d.stageVersions + ' ' + t('draft(s)') + ', ' + Number(d.chars).toLocaleString() + ' ' + t('characters of writing.')) : t('Deleted forever.')); } else { await productionApi.scripton.development.deleteBuild(b.id); flash(t('Moved to bin.')); } if (projectId) await load(projectId, view); } catch { flash(t('Action failed.')); } };
+  const doArchive = async (b: any) => { if (isDemo(b)) { flash(t('Demo build.')); return; } try { await productionApi.scripton.development.archiveBuild(b.id); flash(t('Archived — kept indefinitely, with no countdown.')); if (projectId) await load(projectId, view); } catch (e: any) { flash(e?.response?.data?.message || t('Could not archive.')); } };
+  const doUnarchive = async (b: any) => { if (isDemo(b)) { flash(t('Demo build.')); return; } try { await productionApi.scripton.development.unarchiveBuild(b.id); flash(t('Back on the active board.')); if (projectId) await load(projectId, view); } catch (e: any) { flash(e?.response?.data?.message || t('Could not unarchive.')); } };
+  const doRestore = async (b: any) => { if (isDemo(b)) { flash(t('Demo build.')); return; } try { await productionApi.scripton.development.restoreBuild(b.id); flash(t('Restored.')); if (projectId) await load(projectId, view); } catch (e: any) { flash(e?.response?.data?.message || t('Could not restore.')); } };
+  const doConfirm = async () => { const b = confirm.b; const kind = confirm.kind; setConfirm(null); if (isDemo(b)) { flash(t('Demo build - connect a project.')); return; } try { if (kind === 'purge') { const r: any = await productionApi.scripton.development.purgeBuild(b.id); const d = r?.data?.purged || r?.purged; flash(d && d.chars ? (t('Deleted forever') + ' — ' + d.stageVersions + ' ' + t('draft(s)') + ', ' + Number(d.chars).toLocaleString() + ' ' + t('characters of writing.')) : t('Deleted forever.')); } else { await productionApi.scripton.development.deleteBuild(b.id); flash(t('Moved to bin.')); } if (projectId) await load(projectId, view); } catch (e: any) { flash(e?.response?.data?.message || t('Action failed.')); } };
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -300,7 +299,7 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
 
   const openBuild = (id: string) => { if (typeof window !== 'undefined') window.location.assign('/scripton/studio?build=' + id); };
   const openScript = (docId: string) => { if (docId && typeof window !== 'undefined') window.location.assign('/scripton/script?doc=' + docId); };
-  const cycleStatus = async (b: any) => { if (isDemo(b)) { flash(t('Demo build - connect a project to manage status.')); return; } const order = ['DRAFT', 'REVIEW', 'GREENLIT']; const cur = String(b.status || 'DRAFT').toUpperCase(); const next = order[(order.indexOf(cur) + 1) % order.length]; try { await productionApi.scripton.development.setBuildStatus(b.id, next); flash(t('Status') + ' \u2192 ' + next.charAt(0) + next.slice(1).toLowerCase()); if (projectId) await load(projectId, view); } catch { flash(t('Could not update status.')); } };
+  const cycleStatus = async (b: any) => { if (isDemo(b)) { flash(t('Demo build - connect a project to manage status.')); return; } const order = ['DRAFT', 'REVIEW', 'GREENLIT']; const cur = String(b.status || 'DRAFT').toUpperCase(); const next = order[(order.indexOf(cur) + 1) % order.length]; try { await productionApi.scripton.development.setBuildStatus(b.id, next); flash(t('Status') + ' \u2192 ' + next.charAt(0) + next.slice(1).toLowerCase()); if (projectId) await load(projectId, view); } catch (e: any) { flash(e?.response?.data?.message || t('Could not update status.')); } };
   const openModal = (b: any) => { setModal(b); setTarget('existing'); setNewName(b.name + ' (project)'); };
 
   const resolveVersion = async (): Promise<string | null> => {
@@ -322,6 +321,21 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
   /** One card. Lifted out of the map so the Recent and Recovered sections cannot drift apart. */
   const renderCard = (b: any, i = 0) => { const st = String(b.status || 'DRAFT').toUpperCase(); const dots = DOTS[st] || 2; return (
                 <div key={(b && b.id != null && !dupIds.has(String(b.id))) ? String(b.id) : ((b && b.id != null ? String(b.id) : 'noid') + '#' + i)} className="bc">
+                  {/* CORNER CLUSTER — the same two actions on every view, always visible.
+                      bin:      Archive (rescue without returning it to the board) + Delete forever
+                      archived: Unarchive is a RESTORE, not a destroy, so it stays in the footer;
+                                the corner carries Move-to-bin only
+                      active:   Archive + Move-to-bin, moved out of the footer row
+                      Every handler and every confirmation is the one that was already there. */}
+                  <CardActions actions={bin ? [
+                    { key: 'arch', icon: ICON_ARCHIVE, label: t('Keep it indefinitely, off the active board and out of the bin'), onClick: () => doArchive(b) },
+                    { key: 'purge', icon: ICON_TRASH, label: t('Delete forever'), danger: true, onClick: () => setConfirm({ kind: 'purge', b }) },
+                  ] : archived ? [
+                    { key: 'del', icon: ICON_TRASH, label: t('Move to bin'), danger: true, onClick: () => setConfirm({ kind: 'delete', b }) },
+                  ] : [
+                    { key: 'arch', icon: ICON_ARCHIVE, label: t('Keep indefinitely, off the board. No countdown, never swept.'), onClick: () => doArchive(b) },
+                    { key: 'del', icon: ICON_TRASH, label: t('Move to bin \u2014 deleted after 30 days'), danger: true, onClick: () => setConfirm({ kind: 'delete', b }) },
+                  ]} />
                   <div className="r1"><span className={'spill ' + (SPILL[st] || 'draft')} title={(st !== 'PROMOTED' && !bin && !isDemo(b)) ? t('Click to advance: Draft \u2192 Review \u2192 Greenlit') : (st === 'PROMOTED' ? t('Promoted to production') : '')} onClick={() => { if (st !== 'PROMOTED' && !bin && !isDemo(b)) cycleStatus(b); }} style={{ cursor: (st !== 'PROMOTED' && !bin && !isDemo(b)) ? 'pointer' : 'default' }}>{st}</span>{b.recovered ? <span className="when" title={t('When this build row was recreated from its orphaned stages')}>{t('recreated') + ' ' + onDate(b.createdAt)}</span> : null}</div>
                   {editId === b.id ? (
                     <input className="nm-in" autoFocus value={editName} placeholder={t('Name this build')}
@@ -393,23 +407,13 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
                     {bin ? (<>
                       <span className="when" style={{ marginRight: 'auto' }}>{daysLeft(b.deletedAt)}{t('d left in bin')}</span>
                       <span className="mini gold" onClick={() => doRestore(b)}>↩ {t('Restore')}</span>
-                      {/* Rescue WITHOUT returning it to the active board — archiving from the bin
-                          clears the countdown and leaves it out of the way. */}
-                      <span className="mini" onClick={() => doArchive(b)} title={t('Keep it indefinitely, off the active board and out of the bin')}><svg className="ico" viewBox="0 0 24 24"><path d="M3 7h18v13H3zM3 7l2-4h14l2 4M9 12h6" /></svg>{t('Archive')}</span>
-                      <span className="mini" onClick={() => setConfirm({ kind: 'purge', b })} style={{ color: '#e5635f', borderColor: 'rgba(229,99,95,.4)' }}>{t('Delete forever')}</span>
                     </>) : archived ? (<>
                       {/* NO COUNTDOWN — there isn't one. Archived is indefinite. */}
                       <span className="mini" onClick={() => openBuild(b.id)}><svg className="ico" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" /></svg>{t('Open')}</span>
                       <span className="mini gold" onClick={() => doUnarchive(b)} title={t('Put it back on the active board')}>↩ {t('Unarchive')}</span>
-                      <span className="mini" title={t('Move to bin')} onClick={() => setConfirm({ kind: 'delete', b })} style={{ marginLeft: 'auto', color: '#e5635f', borderColor: 'rgba(229,99,95,.4)' }}>✖ {t('Delete')}</span>
                     </>) : (<>
                       {(st === 'PROMOTED' || b.linkedScriptId) ? (<>{b.linkedScriptId ? (<span className="mini gold" onClick={() => openScript(b.linkedScriptId)} title={t('Open the promoted script')}><svg className="ico" viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z" /></svg>{t('Open script')}</span>) : null}<span className="mini" onClick={() => openBuild(b.id)} title={t('Open Develop \u2014 refine or re-send to production')}><svg className="ico" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" /></svg>{t('Develop')}</span></>) : (<><span className="mini" onClick={() => openBuild(b.id)}><svg className="ico" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" /></svg>{t('Open')}</span>{(st === 'GREENLIT' || st === 'REVIEW') ? (<span className="mini gold" onClick={() => openModal(b)}><svg className="ico" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14" /></svg>{t('Promote to project')}</span>) : null}</>)}
                       <span className="mini" onClick={() => openSettings(b)} title={t('View saved settings (read-only)')}><svg className="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" /><path d="M19.4 13a7 7 0 000-2l2-1.5-2-3.4-2.3 1a7 7 0 00-1.7-1L15 3h-4l-.4 2.6a7 7 0 00-1.7 1l-2.3-1-2 3.4L6.6 11a7 7 0 000 2l-2 1.5 2 3.4 2.3-1a7 7 0 001.7 1L11 21h4l.4-2.6a7 7 0 001.7-1l2.3 1 2-3.4z" /></svg>{t('Settings')}</span>
-                      {/* TWO ACTIONS WHERE THERE WAS ONE. Archive is neutral and destroys nothing;
-                          Delete is red and starts a 30-day countdown. A single ✖ meaning both is how
-                          work ends up in the bin only because there was nowhere else to put it. */}
-                      <span className="mini" style={{ marginInlineStart: 'auto' }} onClick={() => doArchive(b)} title={t('Keep indefinitely, off the board. No countdown, never swept.')}><svg className="ico" viewBox="0 0 24 24"><path d="M3 7h18v13H3zM3 7l2-4h14l2 4M9 12h6" /></svg>{t('Archive')}</span>
-                      <span className="mini" title={t('Move to bin — deleted after 30 days')} onClick={() => setConfirm({ kind: 'delete', b })} style={{ color: '#e5635f', borderColor: 'rgba(229,99,95,.4)' }}>✖ {t('Delete')}</span>
                     </>)}
                   </div>
                 </div>
@@ -424,7 +428,7 @@ export default function ScriptOnBuildsPanel({ projectId, onClose, onNewBuild, ra
         <div className="body">
           <div className="main">
             <div className="phead"><h1>{t('Builds')}</h1><div className="sub">{t('Name, save and switch development builds. Open loads a build into Studio; promote a finished build into a project.')}</div></div>
-            <div className="tbar">{(bin ? [] : ['All', 'Draft', 'Review', 'Greenlit', 'Promoted']).map((c) => (<span key={c} className={'chip' + (filter === c ? ' on' : '')} onClick={() => setFilter(c)}>{t(c)}</span>))}<span className="seg">{([['active', t('Active')], ['archived', '▤ ' + t('Archived')], ['bin', '✖ ' + t('Bin')]] as const).map(([v, label]) => (<span key={v} className={'segb' + (view === v ? ' on' : '')} onClick={() => switchView(v as any)}>{label}</span>))}</span></div>
+            <div className="tbar">{(bin ? [] : ['All', 'Draft', 'Review', 'Greenlit', 'Promoted']).map((c) => (<span key={c} className={'chip' + (filter === c ? ' on' : '')} onClick={() => setFilter(c)}>{t(c)}</span>))}<ViewSwitcher view={view} onView={(v) => switchView(v)} t={t} /></div>
             <div className="sections">
               {/* A state grid, and ONLY when there is a state. Left unconditional by the sections
                   change, this rendered an empty <div class="grid"> above every populated board. */}

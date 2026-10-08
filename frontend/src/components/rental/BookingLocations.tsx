@@ -30,8 +30,29 @@ export default function BookingLocations({ bookingId }: { bookingId: string }) {
   const [list, setList] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<any>({ ...EMPTY });
+  /** '' means the schedule really is empty; anything else is a failure that must be shown. */
+  const [error, setError] = useState('');
 
-  const load = () => rentalApi.bookings.locations(bookingId).then(r => setList(r.data)).catch(() => {});
+  /**
+   * NONE OF THIS SAID ANYTHING WHEN IT FAILED.
+   *
+   * The three writes below had no try at all, so a refusal rejected the promise, left the dialog
+   * open or the row unchanged, and reported nothing but an unhandled rejection. The read swallowed
+   * into .catch(() => {}), so an empty list rendered "Single-site hire. Add stops if units move
+   * between locations…" — a confident description of a schedule nobody managed to read.
+   *
+   * This commit is what makes both reachable: the location writes are rentals:2, so FINANCE_MANAGER,
+   * SALES and PRODUCTION_MANAGER (all rentals:1) are refused while still seeing the buttons, and the
+   * read is rentals:1, so a rentals:0 role opening a booking is refused the list itself.
+   *
+   * The server's message comes first — PermissionsGuard names the module it refused on, where
+   * axios's own err.message is only "Request failed with status code 403".
+   */
+  const msg = (e: any, fallback: string) => e?.response?.data?.message || e?.message || fallback;
+
+  const load = () => rentalApi.bookings.locations(bookingId)
+    .then(r => { setList(r.data); setError(''); })
+    .catch(e => { setList([]); setError(msg(e, 'Could not load the location schedule.')); });
   useEffect(() => { load(); }, [bookingId]);
 
   const save = async () => {
@@ -45,11 +66,23 @@ export default function BookingLocations({ bookingId }: { bookingId: string }) {
       sequence: list.length,
     };
     if (pin) { payload.lat = pin.lat; payload.lng = pin.lng; }
-    await rentalApi.bookings.addLocation(bookingId, payload);
-    setForm({ ...EMPTY }); setOpen(false); load();
+    setError('');
+    try {
+      await rentalApi.bookings.addLocation(bookingId, payload);
+      setForm({ ...EMPTY }); setOpen(false); load();
+    } catch (e: any) { setError(msg(e, 'Could not add the stop.')); }
   };
-  const setStatus = async (id: string, status: string) => { await rentalApi.bookings.updateLocation(id, { status }); load(); };
-  const del = async (id: string) => { if (confirm('Remove this stop?')) { await rentalApi.bookings.removeLocation(id); load(); } };
+  const setStatus = async (id: string, status: string) => {
+    setError('');
+    try { await rentalApi.bookings.updateLocation(id, { status }); load(); }
+    catch (e: any) { setError(msg(e, 'Could not change the stop status.')); }
+  };
+  const del = async (id: string) => {
+    if (!confirm('Remove this stop?')) return;
+    setError('');
+    try { await rentalApi.bookings.removeLocation(id); load(); }
+    catch (e: any) { setError(msg(e, 'Could not remove the stop.')); }
+  };
 
   return (
     <div className="card overflow-hidden">
@@ -58,9 +91,14 @@ export default function BookingLocations({ bookingId }: { bookingId: string }) {
         <button onClick={() => setOpen(true)} className="btn-secondary text-xs"><Plus size={12} /> Add stop</button>
       </div>
 
-      {list.length === 0 ? (
+      {/* A banner, not a replacement: a failed WRITE must not blank the stops that are still there.
+          The empty-state sentence below is suppressed while an error stands, because "single-site
+          hire" is a claim about the data and we do not have the data. */}
+      {error && <div className="px-5 py-2.5 text-sm border-b border-gray-100" style={{ color: '#e5635f' }}>{error}</div>}
+
+      {list.length === 0 ? (error ? null : (
         <div className="px-5 py-8 text-center text-gray-400 text-sm">Single-site hire. Add stops if units move between locations — each appears on the Live Logistics map and the driver's route.</div>
-      ) : (
+      )) : (
         <div className="p-4">
           {list.map((l, i) => (
             <div key={l.id} className="flex gap-3">

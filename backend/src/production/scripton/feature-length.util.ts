@@ -1128,3 +1128,35 @@ export function expansionCandidates(
   rows.sort((a, b) => b.shortfall - a.shortfall);
   return rows.slice(0, Math.max(0, limit));
 }
+
+export interface LengthFinding { kind: 'LENGTH'; scenes: number[]; detail: string }
+
+/**
+ * THE DRAFT'S LENGTH, AS A FINDING ON THE RECORD.
+ *
+ * Run 1 wrote 19 pages against a target of 12 and said so in exactly two places that do not
+ * outlive the process: a log line, and genProgress.coverageNote — an in-memory Map, the same class
+ * of store that F10 was about. The revision carried no trace, so a reader opening the script later
+ * had no way to know it overran its own budget.
+ *
+ * It belongs on the DENSITY row, because "the shape of the draft" is the question length answers,
+ * and density already reports the two other shape defects (a repeated heading, a stretch that never
+ * lands). `scenes` is empty on purpose: length is a property of the whole draft, not of one scene,
+ * and naming a scene would send a reader somewhere to look for something that is not there.
+ *
+ * null when the draft is inside its band, or when there is no target to judge against. A draft with
+ * no pages at all is a different and louder failure, reported by the ending gate.
+ */
+export function lengthFinding(actualPages: number, targetPages: number): LengthFinding | null {
+  const pages = Math.max(0, Number(actualPages) || 0);
+  const target = Number(targetPages) || 0;
+  if (!pages || target <= 0) return null;
+  const over = isLengthOver(pages, target);
+  const short = !isLengthComplete(pages, target);
+  if (!over && !short) return null;
+  const which = over
+    ? 'over length — ' + pages + ' pages against a target of ' + target
+    : 'short of length — ' + pages + ' pages against a target of ' + target;
+  const ratio = Math.round(completionRatio(pages, target) * 100);
+  return { kind: 'LENGTH', scenes: [], detail: which + ' (' + ratio + '% of the budget)' };
+}

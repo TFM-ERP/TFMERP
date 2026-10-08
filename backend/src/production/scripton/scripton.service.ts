@@ -14,17 +14,30 @@ import { seriesSceneCount } from './series-scene-count.util';
 import { SCENE_SYSTEM_PROMPT, sceneLengthRule } from './scene-prompt.util';
 import {
   planFeatureLength, applyPageWeights, lineBudgetFor, snapPageWeight, countVisualLines,
-  expansionCandidates, isLengthComplete, isLengthOver, completionRatio,
+  expansionCandidates, isLengthComplete, isLengthOver, completionRatio, lengthFinding,
   remainingBudgetScale, LINES_PER_PAGE, planSliceBudget, planSliceInstruction, MIN_PLANNED_SCENES,
   genreProfileTable,
   type FeatureLengthPlan, type LineBudget, type GenreOverride, type GenreProfileRow,
 } from './feature-length.util';
 import { draftLengthCheck } from './draft-length.util';
 import { windowKeepingEnd, windowLabel, allocate } from './excerpt-window.util';
+import { consumedStamp, hasConsumed } from './consumed-stamp.util';
+import { preSpendGate, GATE_CHECKS, markPreSpendRefusal, errorTextForJob, isWaived } from './pre-spend-gate.util';
+import {
+  endingEntry, mergeChecks, resolveSecondLook, findingsEntry, sweepFailed, EXPECTED_CHECKS,
+  shouldRecheckPlanEnding, registerEntry,
+  type CheckSubject, type CheckEntry, type EndingVerdict,
+} from './revision-checks.util';
+import {
+  planStateSlices, whyFailed, nearCeiling, sliceLabel, readSpanWithRetry, MAX_HALVINGS,
+  type Slice, type PlanStateFailure, type PlanStateFailureKind,
+} from './plan-state-slices.util';
+import { checkSurface, surfaceSummary } from './check-surface.util';
+import { scenePlanFor, scenePlanSubject, planStateNote, planStateFindings, clockBackwardPairs, ClockPoint, ClockPair } from './scene-plan.util';
 import {
   classifyLine, nextInSpeech, checkScene, checkDraftContinuity, checkPlanCast, stripExitedCast,
   collectExits, unavailableLine, dedupeScenes, repairInstruction, summariseContinuity,
-  exitsAsCanonFacts, findNameDrift, canonicaliseNames, splitCast, trimToSentence,
+  exitsAsCanonFacts, findNameDrift, splitCast, trimToSentence,
   classifyScript, normaliseCharacterName,
   splitAtSecondDocument,
   type LineKind, type CastExit, type ContinuityFinding,
@@ -38,6 +51,7 @@ import {
   findFlashbackMismatches,
   findFragmentRuns, findFalseSceneBreaks, findEchoedPhrases,
   type SceneDefect, type TimeToken,
+  tightenSpeakerCues,
 } from './continuity.util';
 import {
   createRegistry, registerEntity, resolveEntity, allForms, auditLedger, ledgerFindingInstruction,
@@ -50,7 +64,9 @@ import { transcribeRegister, REGISTER_VERSION } from './canon/canon-register.uti
 import { truncationFlag, truncationOf, nextStageRefusal, approvalRefusal, scriptRefusal } from './stage-truncation.util';
 import { continuationUser, joinContinuation, DRAFT_CONTINUATION_PASSES } from './prose-continuation.util';
 import { registerLines, registerCheckUser, parseRegisterCheck, REGISTER_CHECK_SYSTEM, REGISTER_CHECK_MAXTOK } from './canon/register-check.util';
-import { KEEP_CHECK_SYSTEM, KEEP_CHECK_MAXTOK, keepCheckUser, parseKeepCheck, keepSent, keepCheckNotRun, keepCheckOutcome } from './canon/keep-check.util';
+import { KEEP_CHECK_SYSTEM, KEEP_CHECK_MAXTOK, keepCheckUser, parseKeepCheck, keepSent, keepCheckNotRun, keepCheckOutcome,
+  KEEP_REASK_SYSTEM, KEEP_REASK_MAXTOK, keepReaskUser, parseKeepReask, applyKeepReask, keepUnprovenThings } from './canon/keep-check.util';
+import { scriptRegisterLines, RegisterLine, RULE_KINDS } from './canon/register-check.util';
 import { splitKeep } from './canon/keep-items.util';
 import { developmentSoFar } from './development-so-far.util';
 import { resolveStoryYear, storyYearInputsSha, storedStoryYearIsFresh, storedAsResult, makeStoredStoryYear, datingPairs, StoryYearForBuild } from './story-year.util';
@@ -89,6 +105,36 @@ const SCENE_STUB = '(The scene continues.)';
  * Numbers (scene/location/INT-EXT/DAY-NIGHT/page counts, per-character Scenes-%) are COMPUTED
  * from the scene model; the AI writes the prose around those facts. Governed via AiService.
  */
+/**
+ * Plan 01 task 1B — what the eight end-of-run sweeps produced, on the way to the revision.
+ *
+ * `found: null` is NO RESULT (it threw, or it was never reached). `found: []` is "it ran and found
+ * nothing". Those are different facts about a script and the whole point of the three-state shape.
+ */
+type SweepResults = Record<string, {
+  found: any[] | null;
+  error?: string;
+  /**
+   * The text THIS entry's fingerprint is taken over, when it is not the saved page text. planState
+   * judges the PLAN (SUBJECT_OF.planState is 'plan'), so hashing it against the page would stamp a
+   * plan-side verdict with a page-side fingerprint — the mismatch that makes per-subject staleness
+   * meaningless in the one place it matters.
+   */
+  text?: any;
+  /**
+   * Something worth recording that is NOT a finding, appended to the stored reason. Task 3C's
+   * near-ceiling notes land here: a planning call that spent 94% of its budget is a fact about the
+   * run, not a defect in the plan, so it must not turn a CLEAN entry into FINDINGS.
+   */
+  note?: string;
+  /**
+   * An entry the caller already built, because its states cannot be derived from a findings array.
+   * The register check is the case: "no bible", "ran and failed" and "clean" are three different
+   * things that all present as zero items.
+   */
+  preBuilt?: CheckEntry;
+}>;
+
 @Injectable()
 export class ScripOnService {
   /**
@@ -1124,7 +1170,11 @@ export class ScripOnService {
       })
       .catch((e: any) => {
         const j = this.stageJobs.get(key);
-        const msg = this.why(e);
+        // A GATE REFUSAL IS THE ONE ERROR MEANT TO BE READ, so it is recorded verbatim — full
+        // length, line breaks intact. Every other failure keeps why()'s 300-character cap and
+        // whitespace collapse: those are exception messages, not a report for a person. The choice
+        // lives in pre-spend-gate.util so it is covered by a test rather than by this line.
+        const msg = errorTextForJob(e, (x) => this.why(x));
         if (j) { j.status = 'ERROR'; j.finishedAt = Date.now(); j.elapsedSec = Math.round((j.finishedAt - j.startedAt) / 1000); j.error = msg; }
         this.log.error('startStage: ' + kind + ' FAILED for project ' + projectId + ' after ' + (j ? j.elapsedSec : '?') + 's — ' + msg);
       });
@@ -1365,6 +1415,31 @@ export class ScripOnService {
     // first 2,400 characters of a 9,792-character treatment is an instruction no stage can follow.
     const soFarOut = developmentSoFar(earlier.map((st: any) => ({ kind: st.kind, body: String((st.current && st.current.body) || '') })));
     const soFarBlock = soFarOut.block;
+    // C1's stamp is computed here, before the paid call, because C2's gate reads it.
+    const consumed = consumedStamp(soFarOut.parts, stages);
+    // ── C2 — THE PRE-SPEND GATE ────────────────────────────────────────────────────────────────
+    // The checks on the versions this stage is about to be written from already exist. Read them
+    // BEFORE the expensive call, not after. On 20 Sep the register check had already named line 39
+    // on STEP_OUTLINE and 79 scenes were written on top of it.
+    // Report-only for every stage except DRAFT, which is where the spend becomes a film.
+    if (kind === 'DRAFT') {
+      const gateVersions = stages
+        .map((st: any) => ({ id: st.current && st.current.id, kind: st.kind, data: st.current && st.current.data }))
+        .filter((v: any) => v.id);
+      const gate = preSpendGate(consumed, gateVersions, { checks: GATE_CHECKS });
+      // isWaived is === true, not truthy. generate-async spreads the raw request body into
+      // startStage, so a stray waiveChecks of '0', 'false' or 1 would have waived a gate that
+      // exists to be hard to pass. One predicate, one test, both gates.
+      if (gate.stop && !isWaived(opts)) {
+        // Marked so startStage's catch keeps it whole: why() would cap it at 300 characters and
+        // flatten the line breaks, which is how the findings and this sentence went missing.
+        throw markPreSpendRefusal(new BadRequestException(gate.text
+          + '\n\nNothing has been generated and nothing has been spent. Amend the upstream stage, or'
+          + ' re-run with waiveChecks to proceed on the record above.'));
+      }
+      if (gate.stop) this.log.warn('generateStage DRAFT: PRE-SPEND FINDINGS WAIVED —\n' + gate.text);
+      else this.log.log('generateStage DRAFT: ' + gate.text);
+    }
     if (soFarOut.parts.some((p) => !p.complete) || soFarOut.omitted.length) {
       this.log.log('generateStage ' + kind + ': DEVELOPMENT SO FAR carries ' + soFarOut.parts.map((p) => p.kind + ' ' + p.sent + '/' + p.total).join(', ')
         + (soFarOut.omitted.length ? ' — not carried: ' + soFarOut.omitted.map((o) => o.kind + ' (' + o.total + ')').join(', ') : ''));
@@ -1540,6 +1615,11 @@ export class ScripOnService {
     if (ai.__truncated) data.truncated = ai.__truncated; // and as a flag, so "is this stage done?" can read it
     // UNCONDITIONAL, unlike the two above: a clean run is exactly the case whose numbers were lost.
     if (ai.__ceiling) data.ceiling = ai.__ceiling;
+    // C1 — WHICH UPSTREAM VERSIONS BUILT THIS ONE. Taken from developmentSoFar's `parts` (what the
+    // block actually CARRIED, never its `omitted`) resolved against pipeline()'s own `current`, so
+    // the stamp records what was read rather than what happened to be available. See
+    // consumed-stamp.util for why it must not be re-derived from currentVersionId.
+    if (hasConsumed(consumed)) data.consumed = consumed;
     const maxN = (stage.versions || []).reduce((m: number, v: any) => Math.max(m, v.n || 0), 0);
     const n = maxN + 1;
     const META = new Set(['title', 'format', 'rating', 'totalScenes', 'type', 'genre']);
@@ -2890,7 +2970,7 @@ export class ScripOnService {
    * on a small per-scene call help or crowd the scene is measured, not assumed:
    * scripts/ab-scene-register.js.
    */
-  private async buildFeatureCtx(projectId: string, buildId: string | null, stages: any[], directive = '', sourceText: any = ''): Promise<string> {
+  private async buildFeatureCtx(projectId: string, buildId: string | null, stages: any[], directive = '', sourceText: any = '', carried?: string[]): Promise<string> {
     const steer = await this.intakeSteer(projectId, buildId);
     const intakeRow: any = await (this.prisma as any).intakeProfile.findUnique({ where: { projectId } }).catch(() => null);
     // 3b-READ, as in generateStage: a build gets no research block until it has research of its own —
@@ -2919,6 +2999,7 @@ export class ScripOnService {
       const w = windowKeepingEnd(bodyOf(kind), cap);
       if (w.dropped || (!w.text && w.total)) return '\n' + label + ' (not carried, ' + w.total + ' characters):';
       if (!w.text) return '';
+      if (carried) carried.push(kind);   // C1 — emitted, so it reached the prompt
       return '\n' + windowLabel(label, w) + ':\n' + w.text;
     };
     return (directive ? directive + '\n' : '') + (steer ? steer + '\n' : '') + (research ? '\nRESEARCH (honour for authenticity):\n' + research + '\n' : '')
@@ -2954,7 +3035,7 @@ export class ScripOnService {
    * fund is NAMED rather than silently missing. The header in planScenes was corrected in the same
    * commit: a marked gap underneath a promise of completeness is still an instruction to trust it.
    */
-  private buildSpine(stages: any[]): string {
+  private buildSpine(stages: any[], carried?: string[]): string {
     const bodyOf = (k: string) => { const x: any = stages.find((y: any) => y.kind === k); return String((x && x.current && x.current.body) || ''); };
     const SPEC: { kind: string; label: string; cap: number }[] = [
       { kind: 'SYNOPSIS', label: 'SYNOPSIS', cap: 4000 },
@@ -2978,6 +3059,8 @@ export class ScripOnService {
       if (!w || w.dropped || !w.text) { dropped.push({ kind: p.label, total: p.body.length }); continue; }
       out.push(windowLabel(p.label, w) + ':\n' + w.text);
       held.push(p.label + ' ' + w.sent + '/' + w.total);
+      if (carried) carried.push(p.kind);   // C1 — emitted, so it reached the prompt
+
     }
     if (dropped.length || held.some((h) => { const [, n] = h.split(' '); const [s, t] = n.split('/'); return s !== t; })) {
       this.log.log('buildSpine: ' + held.join(', ')
@@ -3003,7 +3086,29 @@ export class ScripOnService {
   // the climax AND resolution, never stopping mid-story. Tolerant JSON parse + a continuation pass if it comes short.
   // `episode` (#45): map ONE pilot episode at the format's per-episode scene density instead of a
   // full feature — so a series targets its real per-episode volume, not the 55-90 feature band.
-  private async planScenes(ctx: string, projectId: string, spine = '', target = 55, episode = false, onBeat?: () => void, plan?: FeatureLengthPlan | null): Promise<any[]> {
+  private async planScenes(ctx: string, projectId: string, spine = '', target = 55, episode = false, onBeat?: () => void, plan?: FeatureLengthPlan | null, planVerdicts?: any[], ceilingNotes?: string[]): Promise<any[]> {
+    /**
+     * Plan 01 task 3C — A PLANNING CALL THAT CAME CLOSE. Detected and recorded; nothing else.
+     *
+     * On 2 Oct the continuation call used 14,097 of 15,000 output tokens — 94% — and stopped
+     * `end_turn`. It was NOT cut off, so stoppedAtCeiling is correctly false and nothing anywhere
+     * noticed. A call that close is the next truncation, and the only reason anyone knows about
+     * this one is that someone read the ledger weeks later.
+     *
+     * No retry, no resize, no behaviour change: raising a planning ceiling changes what the model
+     * is allowed to produce, and that is a decision for a person holding the next run's numbers.
+     */
+    const PLAN_MAXTOK = 15000;
+    const noteCeiling = (label: string, r: any) => {
+      const cap = { outputTokens: r?.usage?.output_tokens, maxTokens: PLAN_MAXTOK, stopReason: r?.stopReason };
+      if (!nearCeiling(cap)) return;
+      const pct = Math.round(100 * (Number(cap.outputTokens) || 0) / PLAN_MAXTOK);
+      const cut = stoppedAtCeiling(cap);
+      const msg = label + ' used ' + cap.outputTokens + ' of ' + PLAN_MAXTOK + ' tokens (' + pct + '%)'
+        + (cut ? ' and WAS cut off at the ceiling' : ' without stopping at the ceiling — the next one may');
+      this.log.warn('planScenes: ' + msg);
+      if (ceilingNotes) ceilingNotes.push(msg);
+    };
     this.planFailure.delete(projectId);   // this run's verdict only — never last run's
     // The band the planner is asked for. It used to be floored at 50-70 regardless of the film's real
     // length; it now tracks the page budget, so a 105-page feature asks for ~110 scenes, not ~60.
@@ -3065,6 +3170,7 @@ export class ScripOnService {
           : '\nMap the FIRST ' + firstSlice.ask + ' scenes now, in order from the opening beat. The finished map will run to '
             + lo + '-' + hi + ' scenes in total.\n' + planSliceInstruction(firstSlice)
             + '\nReturn ONLY JSON {scenes:[...]}.'), maxTokens: 15000, timeoutMs: 230000, projectId, refType: 'Project', refId: projectId });
+      noteCeiling('the first planning pass', r);
       scenes = dedupeScenes(parse(r)).scenes;
       if (!scenes.length) {
         this.log.warn('planScenes: the model returned no parseable scenes on the first pass (project ' + projectId + ') — the draft will fall back to the existing SCENES cards.');
@@ -3107,6 +3213,7 @@ export class ScripOnService {
             : '\nContinue from scene ' + slice.from + '. Return the NEXT ' + slice.ask + ' scenes only, in order, and do NOT repeat any scene listed above.\n'
               + planSliceInstruction(slice, barren > 0)
               + '\nReturn ONLY JSON {scenes:[...]}.')), maxTokens: 15000, timeoutMs: 230000, projectId, refType: 'Project', refId: projectId });
+        noteCeiling('planning continuation ' + (scenes.length ? 'after ' + scenes.length + ' scenes' : ''), cont);
         const more = parse(cont);
         if (more.length) {
           const d = dedupeScenes(scenes.concat(more));
@@ -3153,9 +3260,16 @@ export class ScripOnService {
     // map" did not — the planner has been told twice, in the system prompt, that the last scenes must
     // dramatise the ending, and ignored it both times. Telling it what is missing is a different ask.
     if (spine && scenes.length && !episode) {
+      // Plan 01 task 3B — what the loop last concluded, and whether the plan changed under it.
+      let loopVerdict: any = null;
+      let loopTail = '';
+      let planRepairs = 0;
       for (let attempt = 0; attempt < 2; attempt++) {
         const tail = scenes.slice(-6).map((x: any, i: number) => (scenes.length - 6 + i + 1) + '. ' + String(x.brief || '')).join('\n');
         const verdict = await this.verifyPlanEnding(spine, tail, projectId);
+        loopVerdict = verdict;
+        loopTail = tail;
+        if (planVerdicts) planVerdicts.push({ verdict, text: tail });
         if (verdict.complete) break;
         this.log.warn('planScenes: the plan does NOT reach the outline\'s ending (attempt ' + (attempt + 1) + '/2)'
           + (verdict.missing.length ? ' — missing: ' + verdict.missing.join('; ') : '') + '. Repairing.');
@@ -3171,6 +3285,7 @@ export class ScripOnService {
               + ' Do NOT repeat or restate any scene already mapped. Return ONLY JSON {scenes:[...]} for the MISSING scenes.'),
             maxTokens: 15000, timeoutMs: 230000, projectId, refType: 'Project', refId: projectId,
           });
+          noteCeiling('the ending repair', fix);
           const more = parse(fix);
           if (!more.length) { this.log.warn('planScenes: ending repair returned no scenes on attempt ' + (attempt + 1) + '.'); continue; }
           // Without this dedupe the repair pass is a duplicate-climax machine: whenever the ending
@@ -3182,6 +3297,7 @@ export class ScripOnService {
           const added = d.scenes.length - scenes.length;
           scenes = d.scenes;
           if (added <= 0) { this.log.warn('planScenes: ending repair added nothing new on attempt ' + (attempt + 1) + '.'); continue; }
+          planRepairs++;
           this.log.log('planScenes: ending repair added ' + added + ' scenes — plan now ' + scenes.length + '.');
         } catch (e) {
           this.log.warn('planScenes: ending repair failed on attempt ' + (attempt + 1) + ' — ' + this.why(e));
@@ -3190,7 +3306,35 @@ export class ScripOnService {
       // Last check. Failing HERE costs three planning calls; failing after the write costs the whole
       // run, and hands over a headless script that reads as finished.
       const finalTail = scenes.slice(-6).map((x: any) => '- ' + String(x.brief || '')).join('\n');
-      const last = await this.verifyPlanEnding(spine, finalTail, projectId);
+      /**
+       * Plan 01 task 3B — THE REPEAT THAT DESTROYED A GOOD ANSWER.
+       *
+       * This check used to run unconditionally. On 2 Oct the loop above broke on a TYPED verdict at
+       * 12:42:39 (out 310, end_turn, 196 chars) and this call ran six seconds later, spent all 400
+       * of its tokens on thinking, emitted 33 characters, and abstained — and because it is pushed
+       * last, its abstention is what reached the revision. The record then said NOT_RUN about a plan
+       * that had been checked and had passed.
+       *
+       * So it is skipped only after a TYPED verdict with nothing repaired. An abstention still gets
+       * it, because an abstention never answered; a repair still gets it, because the plan it would
+       * be vouching for is no longer the plan that was judged.
+       */
+      const last = shouldRecheckPlanEnding(loopVerdict, { repaired: planRepairs })
+        ? await this.verifyPlanEnding(spine, finalTail, projectId)
+        : loopVerdict;
+      /**
+       * Task 3D — THE VERDICT IS FINGERPRINTED OVER THE TEXT IT ACTUALLY JUDGED.
+       *
+       * When the repeat is skipped, `last` is the loop's verdict, taken over the in-loop `tail` —
+       * which is formatted differently from `finalTail` ("12. brief" against "- brief"). Pushing it
+       * with finalTail stamped a verdict with the hash of text it never saw, so the surface would
+       * report FRESH or STALE on a comparison that means nothing.
+       */
+      const lastText = last === loopVerdict ? loopTail : finalTail;
+      if (last === loopVerdict) {
+        this.log.log('planScenes: the plan-ending check already returned a verdict and nothing was repaired — not re-asking.');
+      }
+      if (planVerdicts) planVerdicts.push({ verdict: last, text: lastText });
       if (!last.complete) {
         // Actionable half FIRST, missing beats LAST: the caller's catch truncates at 200 characters, and
         // the fixed sentence is 195 — so a long beat list is what gets cut, never the instruction.
@@ -3204,48 +3348,97 @@ export class ScripOnService {
 
   // Ending gate, plan-side twin of verifyEnding(). Same tolerant contract: any failure of the CHECK
   // itself assumes complete, so an AI outage can never block a run — only a confident "no" does.
-  private async verifyPlanEnding(spine: string, planTail: string, projectId: string): Promise<{ complete: boolean; missing: string[]; note: string }> {
-    if (!spine || !planTail) return { complete: true, missing: [], note: '' };
+  private async verifyPlanEnding(spine: string, planTail: string, projectId: string): Promise<EndingVerdict & { missing: string[]; note: string }> {
+    // A CHECK WITH NOTHING TO CHECK AGAINST DID NOT RUN. This guard returned a bare pass, so an
+    // absent outline or an empty plan recorded CLEAN — the same untyped abstention as the fail-opens
+    // below, reached earlier and without a log line to betray it. Control flow is unchanged.
+    if (!spine || !planTail) {
+      return { complete: true, missing: [], failOpen: true,
+        note: !spine ? 'no outline to check the ending against' : 'no plan to check' };
+    }
     try {
       const sys = 'You check whether a SCENE MAP covers the ending of a developed outline. You are given the OUTLINE (its final beats are the intended climax and resolution) and the LAST scenes of the scene map. Decide whether those scenes dramatise the outline\'s final beats. Return ONLY JSON {complete: true|false, missing: ["short beat name", ...], note: "one short sentence"} — list in "missing" only outline beats that the scene map does not cover, at most 4.';
       const user = 'OUTLINE (its ending = the final beats):\n' + spine.slice(-3000)
         + '\n\nLAST SCENES OF THE SCENE MAP:\n' + planTail.slice(-2000)
         + '\n\nDoes the scene map reach the outline\'s climax AND resolution?';
-      const r: any = await this.ai.run({ task: 'scripton.feature.coverage', system: sys, user, maxTokens: 400, timeoutMs: 60000, projectId, refType: 'Project', refId: projectId });
+    /**
+     * Plan 01 task 3B — THE CEILING WAS TOO SMALL FOR THE ANSWER PLUS THE THINKING.
+     *
+     * Measured on the one call that worked: out 310 tokens for 196 characters of JSON. 196 chars of
+     * verdict is about 50 tokens, so roughly 260 of those 310 were thinking — and a ceiling of 400
+     * left a thinking budget of about 90. The next call spent all 400 and emitted 33 characters.
+     *
+     * 1500 IS NOT A MEASURED NUMBER. It is ~5x the observed thinking plus the verdict, chosen with
+     * margin because the alternative is another silent cap. Which is exactly why the abstention
+     * below now records the stop reason: the next run's row says whether 1500 was enough, instead
+     * of leaving the question to be re-derived from a token count.
+     *
+     * Raising it costs nothing. Ceilings are not billed; output tokens are, and this call spends
+     * about 310 of them.
+     */
+      const COVERAGE_MAXTOK = 1500;
+      const r: any = await this.ai.run({ task: 'scripton.feature.coverage', system: sys, user, maxTokens: COVERAGE_MAXTOK, timeoutMs: 60000, projectId, refType: 'Project', refId: projectId });
       let j: any = (r && r.json) || null;
       if (!j && r && typeof r.text === 'string') { try { const m = r.text.match(/\{[\s\S]*\}/); if (m) j = JSON.parse(m[0]); } catch { /* */ } }
       if (j && typeof j.complete === 'boolean') {
         const missing = Array.isArray(j.missing) ? j.missing.map((x: any) => String(x).slice(0, 120)).slice(0, 4) : [];
         return { complete: j.complete, missing, note: trimToSentence(j.note, 240) };
       }
-      this.log.warn('verifyPlanEnding: no usable verdict — assuming the plan reaches the ending (fail-open).');
+      // A CEILING STOP IS ITS OWN REASON. The 2 Oct row said only "no usable verdict returned by
+      // the plan-ending check", so the cause — a 400-token ceiling spent on thinking — could not be
+      // read back from the revision at all. stoppedAtCeiling is the provider's own account.
+      const cut = stoppedAtCeiling({ outputTokens: r?.usage?.output_tokens, maxTokens: COVERAGE_MAXTOK, stopReason: r?.stopReason });
+      const why = cut
+        ? 'the plan-ending check was cut off at its ' + COVERAGE_MAXTOK + '-token ceiling'
+        : 'no usable verdict returned by the plan-ending check';
+      this.log.warn('verifyPlanEnding: ' + why + ' — assuming the plan reaches the ending (fail-open).');
+      // F10 defect two: the fail-open still does not BLOCK — that is its purpose — but it is no
+      // longer indistinguishable from a verdict. `failOpen` is what the persisted entry types as
+      // NOT_RUN, so an abstention can never be read back as a pass.
+      return { complete: true, missing: [], note: why, failOpen: true };
     } catch (e) {
       this.log.warn('verifyPlanEnding: check failed, assuming complete — ' + this.why(e));
+      return { complete: true, missing: [], note: 'the plan-ending check failed: ' + this.why(e), failOpen: true };
     }
-    return { complete: true, missing: [], note: '' };
+    // Unreachable — both branches above return — but an untyped pass here would be the defect.
+    return { complete: true, missing: [], note: 'the plan-ending check produced no branch verdict', failOpen: true };
   }
 
   // Coverage guard: did the finished script actually reach the outline's FINAL beats (climax + resolution)?
   // One small, tolerant AI check — any failure assumes complete, so it never raises a false alarm.
-  private async verifyEnding(spine: string, scriptTail: string, projectId: string, tailChars = 3000): Promise<{ complete: boolean; note: string }> {
-    if (!spine || !scriptTail) return { complete: true, note: '' };
+  private async verifyEnding(spine: string, scriptTail: string, projectId: string, tailChars = 3000): Promise<EndingVerdict & { note: string }> {
+    // Same defect, same reason: nothing to compare is not a pass.
+    if (!spine || !scriptTail) {
+      return { complete: true, failOpen: true,
+        note: !spine ? 'no outline to check the ending against' : 'no script text to check' };
+    }
     try {
       const sys = 'You verify whether a screenplay reached its planned ENDING. Given a developed OUTLINE (whose FINAL beats are the intended climax and resolution) and the LAST pages of the generated script, decide whether the script actually dramatises those final beats. Return ONLY JSON {complete: true|false, note: "one short sentence"}.';
       const user = 'OUTLINE (its ending = the final beats):\n' + spine.slice(-3000) + '\n\nLAST PAGES OF THE GENERATED SCRIPT:\n' + scriptTail.slice(-tailChars) + '\n\nDoes the script reach the outline\'s final beats (the climax and resolution)?';
-      const r: any = await this.ai.run({ task: 'scripton.feature.coverage', system: sys, user, maxTokens: 300, timeoutMs: 60000, projectId, refType: 'Project', refId: projectId });
+      // Plan 01 task 3B — same reasoning as verifyPlanEnding: 300 was below the thinking budget.
+      const COVERAGE_MAXTOK = 1500;
+      const r: any = await this.ai.run({ task: 'scripton.feature.coverage', system: sys, user, maxTokens: COVERAGE_MAXTOK, timeoutMs: 60000, projectId, refType: 'Project', refId: projectId });
       let j: any = (r && r.json) || null;
       if (!j && r && typeof r.text === 'string') { try { const m = r.text.match(/\{[\s\S]*\}/); if (m) j = JSON.parse(m[0]); } catch { /* */ } }
       // Trimmed at a sentence, not a flat character count: this note is now shown to a writer as the
       // reason a finished draft was rejected, and the 200-char cut produced "...through a Baltimore
       // freight terminal using." on screen. See trimToSentence.
       if (j && typeof j.complete === 'boolean') return { complete: j.complete, note: trimToSentence(j.note, 240) };
-      this.log.warn('verifyEnding: no usable verdict returned — assuming the ending is complete (fail-open).');
+      const cut = stoppedAtCeiling({ outputTokens: r?.usage?.output_tokens, maxTokens: COVERAGE_MAXTOK, stopReason: r?.stopReason });
+      const why = cut
+        ? 'the ending check was cut off at its ' + COVERAGE_MAXTOK + '-token ceiling'
+        : 'no usable verdict returned by the ending check';
+      this.log.warn('verifyEnding: ' + why + ' — assuming the ending is complete (fail-open).');
+      return { complete: true, note: why, failOpen: true };
     } catch (e) {
       // Fail-open by design: a failed check must never raise a false alarm on a good script. But an
       // always-failing check means the coverage flag is meaningless, which is worth knowing.
       this.log.warn('verifyEnding: check failed, assuming complete — ' + this.why(e));
+      return { complete: true, note: 'the ending check failed: ' + this.why(e), failOpen: true };
     }
-    return { complete: true, note: '' };
+    // Unreachable in practice — both branches above return — but a bare `complete: true` here would
+    // be an untyped pass, which is the defect. Typed as an abstention for the same reason.
+    return { complete: true, note: 'the ending check produced no branch verdict', failOpen: true };
   }
 
   // Write ONE full scene (action + dialogue) — slug line is supplied, so the model focuses on dramatising.
@@ -3255,7 +3448,7 @@ export class ScripOnService {
    * Shared by the writer and the continuity repair pass: a repair that skipped any of these would
    * reintroduce, into an already-good scene, exactly the defects the writer strips out.
    */
-  private cleanSceneText(raw: string): string {
+  private cleanSceneText(raw: string, speakers?: readonly string[]): string {
     const cleaned = String(raw || '')
       .replace(/^```[a-z]*\s*/i, '').replace(/```\s*$/i, '').trim()
       // The model occasionally emits markdown emphasis, which reached the page raw: a real draft
@@ -3282,7 +3475,16 @@ export class ScripOnService {
     if (stripped !== cleaned) {
       this.log.warn('cleanSceneText: dropped model meta-commentary — ' + findMetaCommentary(cleaned).join(' | '));
     }
-    return stripped;
+    // CLOSE THE GAP BETWEEN A SPEAKER AND THEIR SPEECH. Last, so it sees the text the page will
+    // get: the inline-parenthetical split above can itself leave a cue and its speech apart.
+    // Writing side only — looksLikeCue, classifyLine, nextInSpeech and paginate are untouched,
+    // because PAGE_BUDGET is calibrated on them.
+    //
+    // THE NAMES MATTER. Without them only an extension-marked cue qualifies, which is the half
+    // that cannot misfire; with them a plain "NORA" is recognised too. A caller that passes
+    // nothing gets the conservative behaviour rather than a guess: this used to act under any
+    // all-caps short line, which joined "BANG" to "The door flies open."
+    return tightenSpeakerCues(stripped, speakers);
   }
 
   /**
@@ -3320,23 +3522,41 @@ export class ScripOnService {
    * as data.registerCheck. Report-only: nothing is blocked, regenerated or hidden on the result.
    * A failed check is stored as failed — never as a clean pass — see parseRegisterCheck.
    */
-  async checkAgainstRegister(versionId: string, kind: string, body: string, facts: CanonFactCore[], projectId?: string | null): Promise<any> {
-    const lines = registerLines(facts);
-    if (!lines.length || !String(body || '').trim()) return null;
+  /**
+   * Plan 01 task 6 — THE CALL, WITHOUT THE SAVE.
+   *
+   * checkAgainstRegister did two things in one method: it made the call, then it read and rewrote
+   * stageVersion.data.registerCheck. A finished SCRIPT has no stageVersion, so pointing the old
+   * method at a revision would either fail its findUnique or — worse — write the script's verdict
+   * onto whatever version id was passed. This is the call on its own, so both paths share it and
+   * neither inherits the other's storage.
+   *
+   * `ref` is only the ledger's refType/refId for cost attribution; nothing is written through it.
+   */
+  private async runRegisterCheck(
+    kind: string, body: string, lines: ReturnType<typeof registerLines>,
+    projectId?: string | null, ref?: { refType: string; refId: string } | null,
+  ): Promise<any> {
     const at = new Date().toISOString();
-    let registerCheck: any;
     try {
       const r: any = await this.ai.run({ task: 'scripton.develop.register-check', system: REGISTER_CHECK_SYSTEM,
         // 15 minutes: the ceiling at the ~60 tokens/s measured on opus-5 is ~9 minutes. Streamed (ai.run
         // streams anything this size), so a stalled call still dies on the 120s idle abort.
         user: registerCheckUser(lines, kind, body), maxTokens: REGISTER_CHECK_MAXTOK, timeoutMs: 900000,
-        projectId: projectId || null, refType: 'StageVersion', refId: versionId });
+        projectId: projectId || null, refType: (ref && ref.refType) || null, refId: (ref && ref.refId) || null });
       const text = String((r && r.text) || '') || (r && r.json ? JSON.stringify(r.json) : '');
-      registerCheck = { ...parseRegisterCheck(text, lines, body), at, model: (r && r.model) || null, stopReason: (r && r.stopReason) || null };
+      return { ...parseRegisterCheck(text, lines, body), at, model: (r && r.model) || null, stopReason: (r && r.stopReason) || null };
     } catch (e) {
-      registerCheck = { ok: false, checked: lines.length, contradicted: null, rate: null, items: [], at,
+      return { ok: false, checked: lines.length, contradicted: null, rate: null, items: [], at,
         error: String(this.why(e)).slice(0, 400), summary: 'REGISTER CHECK FAILED: ' + String(this.why(e)).slice(0, 200) };
     }
+  }
+
+  async checkAgainstRegister(versionId: string, kind: string, body: string, facts: CanonFactCore[], projectId?: string | null): Promise<any> {
+    const lines = registerLines(facts);
+    if (!lines.length || !String(body || '').trim()) return null;
+    // Behaviour unchanged: the same call, then the same stageVersion save it always did.
+    const registerCheck: any = await this.runRegisterCheck(kind, body, lines, projectId, { refType: 'StageVersion', refId: versionId });
     const v: any = await (this.prisma as any).stageVersion.findUnique({ where: { id: versionId }, select: { data: true } }).catch(() => null);
     if (v) {
       await (this.prisma as any).stageVersion.update({ where: { id: versionId }, data: { data: { ...((v && v.data) || {}), registerCheck } } })
@@ -3348,8 +3568,10 @@ export class ScripOnService {
 
   /**
    * Check a TREATMENT for what its direction said to KEEP, and store the result on it as
-   * data.keepCheck. Report-only. Presence only — see keep-check.util. Three states, never a score:
-   * MISSES (with the list), NO MISSES, or NOT RUN (with the reason; a failed check is NOT RUN).
+   * data.keepCheck. Report-only. Presence only — see keep-check.util. Four states, never a score:
+   * MISSES (things the checker named absent, or an item it never answered on), UNPROVEN (claimed
+   * present, quoted on words that are not in the draft — it stops, but it is NOT the draft missing
+   * anything), NO MISSES, or NOT RUN (with the reason; a failed check is NOT RUN).
    *
    * MERGED ATOMICALLY. The register check lands on the same row in parallel; a read-modify-write here
    * would lose whichever of the two finished first.
@@ -3449,7 +3671,42 @@ export class ScripOnService {
         user: keepCheckUser(items, lead, 'TREATMENT', body), maxTokens: KEEP_CHECK_MAXTOK, timeoutMs: 900000,
         projectId: projectId || null, refType: 'StageVersion', refId: versionId });
       const text = String((r && r.text) || '') || (r && r.json ? JSON.stringify(r.json) : '');
-      keepCheck = keepCheckOutcome(parseKeepCheck(text, items, body), { ...meta, at: new Date().toISOString(), model: (r && r.model) || null, stopReason: (r && r.stopReason) || null });
+      const report = parseKeepCheck(text, items, body);
+      /**
+       * THE SECOND ASK — ONLY WHEN THERE IS SOMETHING TO ASK ABOUT.
+       *
+       * Measured on run 2: the checker reported "Rashid at 3 a.m." as present and quoted
+       * "7. 03:50 — THE THIRD DOOR", a line it had composed from two scene headings. The beat WAS in
+       * the draft — two entries later it proved the same beat with a quote that matched — and the
+       * gate stopped the build on it twice, each waiver clearing every other finding on those
+       * versions because waiveChecks is a blanket boolean.
+       *
+       * keepUnprovenThings empty means no call: an unconditional re-ask would bill every run for a
+       * question nobody has. One call for the lot, never one per thing.
+       *
+       * AND ITS FAILURE IS NOT A VERDICT. The first ask produced a usable result; throwing it away
+       * because the second call died would be worse than the defect being fixed. So the catch is
+       * around the re-ask alone, and applyKeepReask records the failure while promoting and demoting
+       * nothing.
+       */
+      const unproven = keepUnprovenThings(report);
+      let finalReport = report;
+      if (unproven.length) {
+        try {
+          const r2: any = await this.ai.run({ task: 'scripton.develop.keep-check', system: KEEP_REASK_SYSTEM,
+            user: keepReaskUser(unproven, 'TREATMENT', body), maxTokens: KEEP_REASK_MAXTOK, timeoutMs: 300000,
+            projectId: projectId || null, refType: 'StageVersion', refId: versionId });
+          const t2 = String((r2 && r2.text) || '') || (r2 && r2.json ? JSON.stringify(r2.json) : '');
+          finalReport = applyKeepReask(report, unproven, parseKeepReask(t2, unproven), body);
+        } catch (e) {
+          finalReport = applyKeepReask(report, unproven, null, body, String(this.why(e)).slice(0, 200));
+        }
+        const rk = finalReport.reask;
+        this.log.log('checkAgainstKeep: asked again about ' + unproven.length + ' unproven claim(s) — '
+          + (rk && rk.failed ? 'the second call failed: ' + rk.failed
+            : (rk ? rk.proved + ' proved, ' + rk.absent + ' named absent, ' + rk.stillUnproven + ' still unproven' : 'no result')));
+      }
+      keepCheck = keepCheckOutcome(finalReport, { ...meta, at: new Date().toISOString(), model: (r && r.model) || null, stopReason: (r && r.stopReason) || null });
     } catch (e) {
       keepCheck = keepCheckNotRun('the check failed: ' + String(this.why(e)).slice(0, 300), { ...meta, at: new Date().toISOString() });
     }
@@ -3700,7 +3957,7 @@ export class ScripOnService {
       + '\n\nRewrite it now, corrected.';
     try {
       const r: any = await this.ai.run({ task: 'scripton.feature.repair', system: sys, user, maxTokens: budget.maxTokens, temperature: 0.6, timeoutMs: 120000, projectId, refType: 'Project', refId: projectId });
-      const fixed = this.cleanSceneText(String((r && r.text) || ''));
+      const fixed = this.cleanSceneText(String((r && r.text) || ''), splitCast(sc && sc.characters));
       // A repair can start a second document exactly as a first draft can, and this one is handed
       // the scene as written — which is a document boundary in the prompt itself.
       const cut = splitAtSecondDocument(fixed);
@@ -3779,8 +4036,9 @@ export class ScripOnService {
    */
   private async extractPlanState(
     scenes: any[], reg: EntityRegistry, projectId: string,
-  ): Promise<{ facts: StateFact[]; places: PlaceObservation[]; transit: Set<number>; clock: Map<number, number>; props: PropEvent[]; designators: string[]; recalled: Set<number> }> {
-    const empty = { facts: [] as StateFact[], places: [] as PlaceObservation[], transit: new Set<number>(), clock: new Map<number, number>(), props: [] as PropEvent[], designators: [] as string[], recalled: new Set<number>() };
+  ): Promise<{ facts: StateFact[]; places: PlaceObservation[]; transit: Set<number>; clock: Map<number, number>; props: PropEvent[]; designators: string[]; recalled: Set<number>; failures: PlanStateFailure[]; nearMisses: number; clockDiscardedAt: number;
+    clockPlanned: ClockPoint[]; clockBackwards: ClockPair[]; threw?: string }> {
+    const empty = { facts: [] as StateFact[], places: [] as PlaceObservation[], transit: new Set<number>(), clock: new Map<number, number>(), props: [] as PropEvent[], designators: [] as string[], recalled: new Set<number>(), failures: [] as PlanStateFailure[], nearMisses: 0, clockDiscardedAt: 0, clockPlanned: [] as ClockPoint[], clockBackwards: [] as ClockPair[] };
     const list = Array.isArray(scenes) ? scenes : [];
     if (!list.length) return empty;
 
@@ -3824,34 +4082,93 @@ export class ScripOnService {
     const designators = new Set<string>();
     const openedAt = new Map<string, StateFact>();
     let recordedAt = 0;
-    const CHUNK = 50;
+    /**
+     * Plan 01 task 3A — THE SLICE IS SIZED FROM A MEASURED COST, AND A FAILURE DOES NOT VANISH.
+     *
+     * This was `const CHUNK = 50` against `maxTokens: 16000`. The arithmetic nobody did: the one
+     * call that completed emitted 326 output tokens per scene, so 50 scenes needed 16,300 of a
+     * 16,000 ceiling — the request could not fit before it was sent. On 2 Oct scenes 1-50 of 81 came
+     * back truncated, the parse threw, and the catch ran `continue`: the run carried on with no
+     * knowledge and no geography for 62% of the plan, and the closing tally reported its partial
+     * figures as though they were whole.
+     *
+     * Now: slices that fit with headroom, a retry bounded at two halvings, and a span that still
+     * cannot be read leaves a typed failure behind for the caller to store.
+     */
+    const PLAN_STATE_MAXTOK = 16000;
+    const planFailures: PlanStateFailure[] = [];
+    let planNearMisses = 0;
+    let clockDiscardedAt = 0;
+    // CLOSE-OUT 2 ITEM 3 — kept because clock.clear() is about to destroy them. Declared here, at
+    // the top of the method, so the capture below cannot be read as optional.
+    let clockPlanned: ClockPoint[] = [];
+    let clockBackwards: ClockPair[] = [];
 
-    for (let start = 0; start < list.length; start += CHUNK) {
-      const slice = list.slice(start, start + CHUNK);
-      const lines = slice.map((sc: any, k: number) => {
-        const n = start + k + 1;
+    /** One attempt at one slice: the parsed rows, or why it failed. */
+    const askSlice = async (sl: Slice): Promise<{ rows: any[] } | { fail: PlanStateFailureKind; why: string }> => {
+      const lines = list.slice(sl.start, sl.end + 1).map((sc: any, k: number) => {
+        const n = sl.start + k + 1;
         return n + '. ' + this.slugOf(sc || {}) + ' | ' + String((sc && sc.brief) || '').slice(0, 220)
           + ' | cast: ' + splitCast(sc && sc.characters).join(', ');
       }).join('\n');
       const user = 'CAST (the only names you may use):\n' + cast.join(', ')
-        + '\n\nSCENES ' + (start + 1) + '-' + (start + slice.length) + ':\n' + lines;
-      let rows: any[] = [];
+        + '\n\nSCENES ' + (sl.start + 1) + '-' + (sl.end + 1) + ':\n' + lines;
+      let r: any = null;
       try {
-        const r: any = await this.ai.run({
+        r = await this.ai.run({
           task: 'scripton.feature.plan', system: sys, user,
-          maxTokens: 16000, timeoutMs: 180000, projectId, refType: 'Project', refId: projectId,
+          maxTokens: PLAN_STATE_MAXTOK, timeoutMs: 180000, projectId, refType: 'Project', refId: projectId,
         });
-        const parsed = JSON.parse(String((r && r.text) || '{}').replace(/^[^{]*/, '').replace(/[^}]*$/, ''));
-        rows = Array.isArray(parsed && parsed.scenes) ? parsed.scenes : [];
-        for (const d of (Array.isArray(parsed && parsed.designators) ? parsed.designators : [])) {
-          const name = String(d || '').trim();
-          if (name && name.length <= 40) designators.add(name);
-        }
       } catch (e: any) {
-        this.log.warn('extractPlanState: scenes ' + (start + 1) + '-' + (start + slice.length)
-          + ' returned nothing usable — the ledger loses knowledge and geography for this span. ' + this.why(e));
-        continue;
+        return { fail: 'UNPARSEABLE', why: 'the call itself failed — ' + this.why(e) };
       }
+      const cap = { outputTokens: r?.usage?.output_tokens, maxTokens: PLAN_STATE_MAXTOK, stopReason: r?.stopReason };
+      // 3C — a call that came CLOSE. Reported, never acted on: no retry, no resize. planScenes call 2
+      // used 94% of its ceiling on 2 Oct and stopped end_turn, so stoppedAtCeiling was correctly
+      // false and nothing noticed. The next run's row is how a person decides to raise it.
+      if (nearCeiling(cap) && !stoppedAtCeiling(cap)) {
+        planNearMisses++;
+        this.log.warn('extractPlanState: ' + sliceLabel(sl) + ' used ' + cap.outputTokens + ' of '
+          + PLAN_STATE_MAXTOK + ' tokens — it did not stop at the ceiling, but the next one may.');
+      }
+      const body = String((r && r.text) || '').replace(/^[^{]*/, '').replace(/[^}]*$/, '');
+      // STOP REASON FIRST, PARSE SECOND. The body was unparseable on 2 Oct BECAUSE the call was cut
+      // off; reading the parse first blames the model and retries the same impossible request.
+      const failed = whyFailed(cap, body);
+      if (failed) {
+        return {
+          fail: failed,
+          why: failed === 'CEILING'
+            ? 'was cut off at its ' + PLAN_STATE_MAXTOK + '-token ceiling'
+            : 'returned nothing that could be parsed',
+        };
+      }
+      const parsed = JSON.parse(body || '{}');
+      for (const d of (Array.isArray(parsed && parsed.designators) ? parsed.designators : [])) {
+        const name = String(d || '').trim();
+        if (name && name.length <= 40) designators.add(name);
+      }
+      return { rows: Array.isArray(parsed && parsed.scenes) ? parsed.scenes : [] };
+    };
+
+    for (const sl of planStateSlices(list.length, { maxTokens: PLAN_STATE_MAXTOK })) {
+      /**
+       * Task 3D — THE DESCENT KEEPS WHAT CAME BACK.
+       *
+       * The first wiring re-asked the whole partition each round and discarded a half that had
+       * already answered — seven calls where five do, with the good half paid for twice — and then
+       * declared the ENTIRE slice lost when any part of it failed, so scenes that had been read
+       * fine were recorded as gone. readSpanWithRetry descends per branch: a half that answers is
+       * kept, only the half that failed is halved, and the failure names only the sub-span lost.
+       */
+      const span = await readSpanWithRetry(sl, askSlice, MAX_HALVINGS, (s, why) => {
+        this.log.warn('extractPlanState: ' + sliceLabel(s) + ' ' + why + ' — halving and retrying that part only.');
+      });
+      for (const f of span.failures) {
+        planFailures.push(f);
+        this.log.warn('extractPlanState: ' + f.reason);
+      }
+      const rows: any[] = span.rows;
 
       for (const row of rows) {
         const n = Number(row && row.n);
@@ -3944,6 +4261,23 @@ export class ScripOnService {
         // cannot keep it straight, handing it to 139 scene prompts would only spread the damage.
         this.log.warn('extractPlanState: the planned clock runs backwards at ' + backwards
           + ' point(s) — dropping it rather than handing a broken timeline to the writer.');
+        // CLOSE-OUT 2 — the DISCARD is the fact a reader needs, and it reached nothing but this
+        // line. The rule is untouched (whether to discard is plan 4); the count travels out so the
+        // planState row can say the draft was written with no planned clock.
+        clockDiscardedAt = backwards;
+        /**
+         * BEFORE THE CLEAR, OR THERE IS NOTHING TO KEEP.
+         *
+         * clock.clear() on the next line is what made run 2's finding unanswerable: asked which two
+         * points, the read-out had to say the planned values are not persisted anywhere — the
+         * planning model's reply is not stored either, so the count was the only trace left.
+         *
+         * This ordering is the whole commit. A capture moved below the clear reads an empty map,
+         * returns two empty arrays, and passes every test that checks the FORMAT of the finding —
+         * which is why the spec asserts the order in the source instead.
+         */
+        clockPlanned = times.map(([scene, minutes]) => ({ scene, minutes }));
+        clockBackwards = clockBackwardPairs(clockPlanned);
         clock.clear();
       } else {
         this.log.log('extractPlanState: clock planned for ' + times.length + ' scene(s), '
@@ -3957,7 +4291,7 @@ export class ScripOnService {
       for (const b of bad.slice(0, 10)) this.log.warn('  prop: ' + b.detail);
     }
     if (designators.size) this.log.log('extractPlanState: ' + designators.size + ' locked designator(s) — ' + Array.from(designators).slice(0, 12).join(', '));
-    return { facts, places: expanded, transit, clock, props, designators: Array.from(designators), recalled: recalledScenes };
+    return { facts, places: expanded, transit, clock, props, designators: Array.from(designators), recalled: recalledScenes, failures: planFailures, nearMisses: planNearMisses, clockDiscardedAt, clockPlanned, clockBackwards };
   }
 
   private cueCounts(view: { heading: string; text: string }[]): Map<string, number> {
@@ -4019,7 +4353,19 @@ export class ScripOnService {
     docId: string, out: string[], scenes: any[], exits: CastExit[], facts: CanonFactCore[],
     ctx: string, projectId: string, ar: boolean, startIdx: number, setP: (patch: any) => void,
     ledger?: { reg: EntityRegistry; facts: StateFact[]; places?: PlaceObservation[]; transit?: Set<number> },
-  ): Promise<{ found: number; repaired: number; residue: ContinuityFinding[] }> {
+  ): Promise<{ found: number; repaired: number; residue: ContinuityFinding[]; sweeps: SweepResults }> {
+    /**
+     * Plan 01 task 1B — WHAT EACH SWEEP ACTUALLY PRODUCED, carried out to the caller.
+     *
+     * No database write happens in here. The caller already fingerprints the `ending` verdict
+     * against the SAVED page text, and these sweeps judge the same draft — so they are stored
+     * against the same text by the same caller. Fingerprinting them here against the in-progress
+     * `view()` would make all seven read STALE the instant the pages were filed.
+     *
+     * `found: null` means the sweep produced NO RESULT. `found: []` means it ran and found nothing.
+     * findingsEntry keeps those apart; collapsing them is how a sweep that never ran reads as a pass.
+     */
+    const sweeps: SweepResults = {};
     const slot = (i: number) => i - startIdx + 1;
     const headOf = (i: number) => (i + 1) + '  ' + this.slugOf(scenes[i] || {}, ar);
     const view = () => scenes.map((_: any, i: number) => ({ heading: headOf(i), text: i < startIdx ? '' : String(out[slot(i)] || '') }));
@@ -4031,15 +4377,30 @@ export class ScripOnService {
     setP({ phase: 'VERIFYING', note: 'Final checks — continuity.' });
     const findings = sweep();
     const found = findings.length;
+    /**
+     * A CLEAN CONTINUITY SWEEP IS NOT A REASON TO STOP AUDITING THE DRAFT.
+     *
+     * This used to `return` here, and that early return sat ABOVE the ledger, writtenDeaths, clock,
+     * flashback, density and echo blocks — so a draft with NO continuity finding was audited by none
+     * of them. Six sweeps that exist to catch what continuity cannot see only ever ran on drafts
+     * that had already failed a different check. A clean first sweep was the one case where they
+     * were most worth running.
+     *
+     * They are all pure and report-only — no model call, no database access, not one `await` in the
+     * 233 lines they occupy — so running them on every draft costs nothing but the arithmetic.
+     *
+     * What the early return guarded was the REPAIR loop, and that still only runs when there is
+     * something to repair: `findings.slice(...)` is empty when `found` is 0, so the loop is already
+     * a no-op and needs no guard of its own.
+     */
     if (!found) {
       this.log.log('verifyAndRepair: continuity clean across ' + (scenes.length - startIdx) + ' written scene(s) — '
-        + exits.length + ' exit(s) and ' + tracked.length + ' name(s) tracked.');
-      setP({ note: '' });
-      return { found: 0, repaired: 0, residue: [] };
+        + exits.length + ' exit(s) and ' + tracked.length + ' name(s) tracked. Continuing to the whole-draft sweeps.');
+    } else {
+      this.log.warn('verifyAndRepair: ' + found + ' continuity issue(s) — '
+        + findings.slice(0, 8).map((f) => 'sc ' + (f.sceneIndex + 1) + ' ' + f.kind).join('; '));
+      setP({ phase: 'REPAIRING', note: found + ' continuity issue' + (found === 1 ? '' : 's') + ' found — repairing.' });
     }
-    this.log.warn('verifyAndRepair: ' + found + ' continuity issue(s) — '
-      + findings.slice(0, 8).map((f) => 'sc ' + (f.sceneIndex + 1) + ' ' + f.kind).join('; '));
-    setP({ phase: 'REPAIRING', note: found + ' continuity issue' + (found === 1 ? '' : 's') + ' found — repairing.' });
 
     let repaired = 0;
     for (const f of findings.slice(0, ScripOnService.MAX_CONTINUITY_REPAIRS)) {
@@ -4051,34 +4412,27 @@ export class ScripOnService {
       const current = String(out[slot(i)] || '');
       if (!current) continue;
 
-      // A name is a substitution, not a rewrite. Sending a four-character correction to a language
-      // model would risk an entire working scene to fix a middle name.
+      // REPORTED, NEVER SUBSTITUTED.
+      //
+      // This branch used to canonicalise the name in place. Two drafts running, it got it wrong in
+      // the same way twice: on 1 Sep it rewrote "Vale Meridian" to "Vale Man" twenty times, in
+      // prose and in every heading; on 2 Oct it logged "scene 30 — name corrected to ALEXANDER
+      // QUICK" and left the page reading "A headline resolves: ALEXANDER QUICK —". What words it
+      // removed is UNKNOWN: the pre-repair text of scene 30 is stored nowhere, so the loss is
+      // visible only as a sentence that no longer parses. The spec fixture
+      // "ALEXANDER QUICK'S SON ALIVE" reproduces the mechanism; it is not the lost line.
+      // Both passed the guards in front of them — a word-count
+      // ceiling and a re-run of the same sweep — because both were small, well-formed edits of the
+      // wrong text. The check that found the drift is not evidence about what the sentence means.
+      //
+      // So a NAME_DRIFT is now a report and nothing else: logged at warn WITH its detail and its
+      // competing forms, never counted in `repaired`, never sent to repairScene. The writer decides.
+      // canonicaliseNames stays in the util with its own specs — it is a sound function that was
+      // being asked an unsound question.
       if (f.kind === 'NAME_DRIFT') {
-        // CONFIRMED LIKE EVERY OTHER REPAIR. This branch used to substitute and move on, on the
-        // argument that "a name is a substitution, not a rewrite" — which is true, and was beside
-        // the point. On 1 Sep it rewrote "Vale Meridian" to "Vale Man" twenty times, in prose AND
-        // in every scene heading, and nothing downstream noticed. An unverified edit is not a safe
-        // edit because it is small; it is an unobserved one.
-        const bodyOnly = current.startsWith(header) ? current.slice(header.length).replace(/^\n+/, '') : current;
-        const fixedBody = canonicaliseNames(bodyOnly, f.names.slice(1), f.names[0]);
-        if (fixedBody === bodyOnly) { setP({ note: 'Repairing continuity — ' + repaired + ' of ' + found + ' fixed.' }); continue; }
-        const candidate = current.startsWith(header) ? header + '\n\n' + fixedBody : fixedBody;
-        // A name correction changes a handful of words. Anything larger is not a name correction.
-        const wasW = (bodyOnly.match(/\S+/g) || []).length;
-        const nowW = (fixedBody.match(/\S+/g) || []).length;
-        const reshaped = wasW > 0 && Math.abs(nowW - wasW) > Math.max(6, wasW * 0.1);
-        // And the check has to actually be cleared — re-run the same sweep on the corrected scene.
-        const stillDrifting = findNameDrift(
-          [{ heading: header, text: candidate }], tracked, facts,
-        ).length > 0;
-        if (reshaped || stillDrifting) {
-          this.log.warn('verifyAndRepair: REJECTED the name correction in scene ' + (i + 1)
-            + (reshaped ? ' — it changed ' + wasW + ' words to ' + nowW + '.' : ' — the drift is still there afterwards.'));
-          setP({ note: 'Repairing continuity — ' + repaired + ' of ' + found + ' fixed.' });
-          continue;
-        }
-        out[slot(i)] = candidate; repaired++;
-        this.log.log('verifyAndRepair: scene ' + (i + 1) + ' — name corrected to ' + f.names[0] + '.');
+        this.log.warn('verifyAndRepair: NAME_DRIFT in scene ' + (i + 1) + ' — ' + f.detail
+          + ' Forms here: ' + f.names.slice(1).map((n: string) => '"' + n + '"').join(', ')
+          + '. NOT repaired — a name is reported, never substituted.');
         setP({ note: 'Repairing continuity — ' + repaired + ' of ' + found + ' fixed.' });
         continue;
       }
@@ -4103,8 +4457,10 @@ export class ScripOnService {
       setP({ note: 'Repairing continuity — ' + repaired + ' of ' + found + ' fixed.' });
     }
 
-    const residue = sweep();
-    this.log.log('verifyAndRepair: ' + repaired + ' of ' + found + ' repaired, ' + residue.length + ' unresolved.');
+    // Nothing was repaired on a clean draft, so there is nothing to re-sweep: `findings` was already
+    // empty and a second full sweep would return the same empty array at full cost.
+    const residue = found ? sweep() : [];
+    if (found) this.log.log('verifyAndRepair: ' + repaired + ' of ' + found + ' repaired, ' + residue.length + ' unresolved.');
 
     // MECHANISM D — the whole-draft ledger audit. REPORTED, never repaired.
     //
@@ -4120,6 +4476,7 @@ export class ScripOnService {
         places: (led as any).places || [],
         transitScenes: (led as any).transit || [],
       });
+      sweeps.ledger = { found: found2 };
       if (found2.length) {
         this.log.warn('ledger: ' + found2.length + ' identity/state finding(s) across the draft —');
         for (const f of found2.slice(0, 20)) this.log.warn('  [' + f.kind + '] ' + ledgerFindingInstruction(f));
@@ -4128,6 +4485,7 @@ export class ScripOnService {
       }
     } catch (e: any) {
       // The ledger is a report. It must never be able to fail a run that produced a script.
+      sweeps.ledger = { found: null, error: this.why(e) };
       this.log.warn('ledger: audit skipped — ' + this.why(e));
     }
 
@@ -4146,6 +4504,7 @@ export class ScripOnService {
     try {
       const invented = collectWrittenDeaths(view(), tracked);
       const newExits = writtenDeathsAsExits(invented, exits);
+      sweeps.writtenDeaths = { found: invented.filter((x) => newExits.some((n) => n.name === x.name)) };
       if (newExits.length) {
         this.log.warn('writtenDeaths: ' + newExits.length + ' character(s) die in the prose that the plan never declared —');
         for (const d of invented.filter((x) => newExits.some((n) => n.name === x.name))) {
@@ -4160,6 +4519,7 @@ export class ScripOnService {
         }
       }
     } catch (e: any) {
+      sweeps.writtenDeaths = { found: null, error: this.why(e) };
       this.log.warn('writtenDeaths: check skipped — ' + this.why(e));
     }
 
@@ -4174,6 +4534,10 @@ export class ScripOnService {
     // seconds once they are told where to look — sending the scene to a model to be rewritten would
     // risk a page of prose to save a keystroke.
     try {
+      // DELIBERATELY NOT STORED. 5 of 5 false on the only measured run (2 Oct), every one a pronoun
+      // attributed to the wrong person. It keeps its log line and is absent from EXPECTED_CHECKS:
+      // five false claims in the column that carries `ending: CLEAN` would make the whole column
+      // unreadable. Re-adding it needs a fixture that shows a true positive. See plan 01 task 1.
       const attrs = checkFixedAttributes(view(), tracked);
       if (attrs.length) {
         this.log.warn('fixedAttributes: ' + attrs.length + ' character(s) change a fixed property mid-draft —');
@@ -4214,6 +4578,7 @@ export class ScripOnService {
         for (const t of findAllTimeTokens(i, draft[i].text)) clocks.push(t);
       }
       const back = checkClockRegression(clocks as any, recalled);
+      sweeps.clock = { found: back };
       if (back.length) {
         this.log.warn('clock: ' + back.length + ' regression(s) — the story clock runs backwards —');
         for (const b of back.slice(0, 10)) this.log.warn('  ' + b.detail);
@@ -4221,6 +4586,7 @@ export class ScripOnService {
         this.log.log('clock: ' + clocks.length + ' time reference(s) across the draft, none of them backwards.');
       }
     } catch (e: any) {
+      sweeps.clock = { found: null, error: this.why(e) };
       this.log.warn('clock: check skipped — ' + this.why(e));
     }
 
@@ -4245,6 +4611,7 @@ export class ScripOnService {
         draft.map((d: any) => ({ heading: String((d && d.heading) || ''), text: String((d && d.text) || '') })),
         plannedRecalled,
       );
+      sweeps.flashback = { found: flash };
       if (flash.length) {
         const unmarked = flash.filter((f) => f.kind === 'UNMARKED_ON_THE_PAGE').length;
         this.log.warn('flashback: ' + flash.length + ' scene(s) where the plan and the page disagree about time — '
@@ -4254,6 +4621,7 @@ export class ScripOnService {
         this.log.log('flashback: ' + plannedRecalled.size + ' planned memory scene(s), all of them marked on the page.');
       }
     } catch (e: any) {
+      sweeps.flashback = { found: null, error: this.why(e) };
       this.log.warn('flashback: check skipped — ' + this.why(e));
     }
 
@@ -4301,17 +4669,30 @@ export class ScripOnService {
         this.log.log('density: ' + written + ' written scene(s), no fragment stretches and no repeated headings.');
       }
 
+      // Both density sub-checks land in ONE entry: a repeated heading and a stretch that never
+      // lands are both "the shape of the draft", and splitting them would put two rows on the
+      // surface for one question.
+      sweeps.density = { found: (fake as any[]).concat(frag as any[]) };
       const echo = findEchoedPhrases(draft);
+      sweeps.echo = { found: echo };
       if (echo.length) {
         this.log.log('echo: ' + echo.length + ' phrase(s) the draft returns to — motif or tic, the writer decides —');
         for (const e of echo.slice(0, 6)) this.log.log('  ' + e.detail);
       }
     } catch (e: any) {
+      // One try wraps density AND echo, so a throw loses both. Recorded as both.
+      if (!sweeps.density) sweeps.density = { found: null, error: this.why(e) };
+      if (!sweeps.echo) sweeps.echo = { found: null, error: this.why(e) };
       this.log.warn('density: check skipped — ' + this.why(e));
     }
 
+    // NAME DRIFT IS WHAT SURVIVED. The repair loop no longer substitutes names (fcccee7), so every
+    // drift it saw is still in `residue` — but filtering the residue rather than re-sweeping is what
+    // keeps this honest if a future repair ever does fix one.
+    sweeps.nameDrift = { found: residue.filter((f) => f.kind === 'NAME_DRIFT') };
+
     setP({ note: '' });
-    return { found, repaired, residue };
+    return { found, repaired, residue, sweeps };
   }
 
   private async writeScene(ctx: string, sc: any, header: string, storySoFar: string, prevTail: string, projectId: string, budget?: LineBudget, unavailable = '', canon = '', canonNames?: Iterable<string>, spine = ''): Promise<string> {
@@ -4364,7 +4745,13 @@ export class ScripOnService {
       + '\nTARGET LENGTH: ' + b.target + ' lines (' + b.pages + ' page' + (b.pages === 1 ? '' : 's') + ').'
       + '\n\n' + lengthRule
       + '\n\nWrite this scene in full now.';
-    const clean = (raw: string) => this.cleanSceneText(raw);
+    // The scene's own cast, plus the run's canon vocabulary where the caller has it — the same
+    // two sources tracked is built from, so a speaker the writer was told about is a speaker this
+    // recognises.
+    const sceneSpeakers = Array.from(new Set(
+      splitCast(sc && sc.characters).concat(Array.from(canonNames || [])).map(String).filter(Boolean),
+    ));
+    const clean = (raw: string) => this.cleanSceneText(raw, sceneSpeakers);
     // What the last attempt got wrong, in words, appended to the next attempt's prompt.
     //
     // The gate used to detect a broken scene and retry the IDENTICAL request, which asks the model
@@ -4570,7 +4957,216 @@ export class ScripOnService {
    * is real and worth reading. Every page stays exactly as saved on its revision row — the same contract
    * as a cancel, reached by a different route.
    */
-  private failHeadlessDraft(docId: string, pageCount: number, sceneCount: number, coverageNote: string, reason: string, retry: string): void {
+  /**
+   * F10 — PERSIST ONE VERDICT ON THE REVISION IT IS ABOUT.
+   *
+   * The verdict used to live only in genProgress, an in-memory Map: the user was told no and the
+   * reason could not be shown twice. This merges a single typed entry into scriptRevision.checks
+   * without disturbing other kinds. Never throws — a failure to record a verdict must not fail the
+   * run that produced it, but it IS logged, because a silently unrecorded verdict is the defect.
+   */
+  private async recordRevisionCheck(revId: string, kind: string, verdict: any, text: any, subject: CheckSubject = 'revision.pageText'): Promise<void> {
+    if (!revId) return;
+    try {
+      const entry = endingEntry(kind, verdict, text, subject);
+      const row: any = await (this.prisma as any).scriptRevision.findUnique({ where: { id: revId }, select: { checks: true } });
+      await (this.prisma as any).scriptRevision.update({ where: { id: revId }, data: { checks: mergeChecks(row && row.checks, entry) } });
+      this.log.log('recordRevisionCheck: ' + kind + ' = ' + entry.state + ' on revision ' + revId
+        + (entry.state === 'NOT_RUN' ? ' — ' + entry.reason : ''));
+    } catch (e: any) {
+      this.log.warn('recordRevisionCheck: could NOT persist ' + kind + ' on revision ' + revId + ' — ' + this.why(e));
+    }
+  }
+
+  /**
+   * Plan 01 task 1B — STORE WHAT THE SWEEPS FOUND, in one write.
+   *
+   * recordRevisionCheck does a read and a write per entry, which is right for the one ending
+   * verdict and wrong for seven at once. This merges them all into the stored blob and writes once,
+   * so a seven-entry record cannot half-land.
+   *
+   * `text` is the SAVED page text — the same text the `ending` verdict is fingerprinted against, so
+   * a later in-place repair (dialectRepairDoc, :720) stales all of them together or none of them.
+   *
+   * Report-only, like every sweep feeding it: a failure to store is logged and never fails a run
+   * that produced a script.
+   */
+  /**
+   * Plan 01 task 6 — THE REGISTER CHECK ON THE FINISHED SCRIPT. Report-only.
+   *
+   * It found the Cape Breton contradiction in STEP_OUTLINE step 13 on 20 Sep — the finding 79
+   * scenes were then written on top of — and it has never been pointed at the finished script,
+   * which is where a contradiction finally lands on a page.
+   *
+   * IT MUST NOT REPAIR. fcccee7 removed name substitution from verifyAndRepair for a measured
+   * reason: with two drafts running, the repair edited the wrong text and both edits passed the
+   * guards in front of them because they were small. This over 122 pages would be that mistake at
+   * 81 scenes' scale. So it stores an entry and changes nothing.
+   *
+   * AND IT MUST NOT LOOK LIKE A STALL. The script page gives up on a cold heartbeat after
+   * STALL_MS = 420000 — seven minutes — while this call's own ceiling is timeoutMs 900000, fifteen.
+   * The DRAFT check took 152s, comfortably inside; a slower one is not. The page's own comment says
+   * it watches the heartbeat precisely because a counter cannot move during one long call, and that
+   * poll has no cancel: a false "timed out" leaves the user watching nothing while the run finishes
+   * unseen, and a second click starts a duplicate run on the same document. So this sets a phase and
+   * keeps lastActivityAt moving for as long as it waits.
+   *
+   * NO BIBLE IS A ROW, NOT A SILENCE. With no register lines the old method returned null AND the
+   * stage call site never entered it (`if (registerFacts.length)`), so there were two separate
+   * silences. registerEntry records NOT_RUN naming the reason instead.
+   */
+  /**
+   * THE RULE LINES FOR A FINISHED SCRIPT, FROM THE BUILD'S OWN STORED CANON.
+   *
+   * Both feature paths used to hand registerCheckOnScript `exitsAsCanonFacts(exits)` — kind
+   * CHARACTER — while registerLines keeps kind REGISTER, so the list was empty on every script ever
+   * generated and the row read "no bible" even on builds with a bible and 91 stored facts.
+   *
+   * THE LADDER'S CHAIN, NOT THE BRIEF ALONE. generateStage resolves brief.sourceText -> the intake
+   * profile's sourceText -> opts.seed, each through asSourceText (:1286-1288). There is no seed on
+   * the script path, but there IS an intake profile, and reading only the brief would report a build
+   * whose source lives there as having none. asSourceText also rejects a bare number however long,
+   * which is what keeps `brief.seed` — a six-digit randomness seed on at least one real project —
+   * from becoming the source material.
+   *
+   * READ-ONLY. extract: false, always. A script run must never pay for a canon extraction and must
+   * never wait for one; a source that has never been extracted is an answer, not a reason to spend.
+   */
+  private async scriptRuleLinesFor(
+    bRow: any, projectId?: string | null,
+  ): Promise<{ lines: RegisterLine[]; notRunReason: string | null }> {
+    const brief = (bRow && bRow.brief) || {};
+    let src = asSourceText(brief.sourceText);
+    if (!src && projectId) {
+      const intakeRow: any = await (this.prisma as any).intakeProfile
+        .findUnique({ where: { projectId } }).catch(() => null);
+      src = asSourceText(intakeRow && intakeRow.sourceText);
+    }
+    let canonRead = false;
+    let facts: CanonFactCore[] | null = null;
+    if (src) {
+      try {
+        const got = await this.loadSourceCanon(projectId || '', src, { extract: false });
+        if (got) { canonRead = true; facts = got.facts; }
+      } catch (e: any) {
+        // A read that FAILED is not a source without rules. Say which it was, in its own words —
+        // scriptRegisterLines cannot know the difference from its inputs.
+        this.log.warn('scriptRuleLinesFor: the stored canon could not be read — ' + this.why(e));
+        return { lines: [], notRunReason: 'the rules could not be read — the stored canon for this'
+          + ' source could not be loaded (' + String(this.why(e)).slice(0, 160) + ')' };
+      }
+    }
+    return scriptRegisterLines({ sourceChars: src.length, canonRead, facts });
+  }
+
+  private async registerCheckOnScript(
+    docId: string, revId: string, text: string, rules: { lines: RegisterLine[]; notRunReason: string | null },
+    projectId?: string | null,
+  ): Promise<CheckEntry> {
+    const lines = (rules && rules.lines) || [];
+    if (!lines.length || !String(text || '').trim()) {
+      // The REAL count: registerEntry decides which absence to name, and it checks the text first.
+      const e = registerEntry(null, text, { lines: lines.length, notRunReason: rules && rules.notRunReason });
+      this.log.warn('registerCheckOnScript: ' + e.reason);
+      return e;
+    }
+    this.log.log('registerCheckOnScript: checking the script against ' + lines.length + ' rule line(s) — '
+      + RULE_KINDS.map((k) => lines.filter((l) => l.kind === k).length + ' ' + k).join(', '));
+    const p = this.genProgress.get(docId);
+    const beat = setInterval(() => {
+      const q = this.genProgress.get(docId);
+      if (q) q.lastActivityAt = Date.now();
+    }, 30000);
+    if (p) { p.phase = 'CHECKING'; p.note = 'Checking the finished script against the source register.'; p.lastActivityAt = Date.now(); }
+    try {
+      const report = await this.runRegisterCheck('SCRIPT', text, lines, projectId, { refType: 'ScriptRevision', refId: revId });
+      const e = registerEntry(report, text);
+      this.log.log('registerCheckOnScript: ' + e.state + ' — ' + e.reason);
+      for (const it of (e.items || []).slice(0, 20)) {
+        this.log.warn('  [REGISTER] ' + (it.scene == null ? 'scene ?' : 'scene ' + it.scene) + ': ' + it.detail);
+      }
+      return e;
+    } catch (e: any) {
+      // It must never be able to fail a run that produced a script.
+      const entry = registerEntry({ ok: false, checked: lines.length, contradicted: null, items: [], error: this.why(e) }, text);
+      this.log.warn('registerCheckOnScript: ' + entry.reason);
+      return entry;
+    } finally {
+      clearInterval(beat);
+      const q = this.genProgress.get(docId);
+      if (q) { q.note = ''; q.lastActivityAt = Date.now(); }
+    }
+  }
+
+  /**
+   * Plan 01 task 5 — STORE THE PLAN BEFORE THE FIRST SCENE IS WRITTEN.
+   *
+   * It was written after saveRev, at the end of the run, which meant a run that died mid-script —
+   * a provider outage, a restart, the low-memory killer — lost the plan it had been writing from
+   * and left a half-written revision nothing could be compared against. The plan is known at
+   * planning time and revId exists there already (planEnding is recorded against it), so there is
+   * no reason to wait for the last page to persist the first fact.
+   *
+   * Written ONCE per run, through this one function on both feature paths, so neither can drift.
+   * Report-only: a store that fails is logged and can never fail a run that is about to produce a
+   * script.
+   */
+  private async storeScenePlan(
+    revId: string, handed: any[], source: 'planner' | 'cards',
+    counts?: { plannerCount?: number | null; cardsCount?: number | null } | null,
+    wroteFrom?: number | null,
+  ): Promise<ReturnType<typeof scenePlanFor>> {
+    const plan = scenePlanFor(handed, source, {
+      wroteFrom: wroteFrom == null ? null : wroteFrom,
+      plannerCount: counts ? counts.plannerCount : null,
+      cardsCount: counts ? counts.cardsCount : null,
+    });
+    if (!revId) return plan;
+    try {
+      await (this.prisma as any).scriptRevision.update({ where: { id: revId }, data: { scenePlan: plan as any } });
+      this.log.log('storeScenePlan: ' + (plan ? plan.count + ' scene(s) from the ' + source : 'no plan')
+        + (plan && plan.wroteFrom != null ? ', writing from index ' + plan.wroteFrom : '')
+        + ' stored on revision ' + revId + ' BEFORE writing.');
+    } catch (e: any) {
+      this.log.warn('storeScenePlan: could NOT store the plan on revision ' + revId + ' — ' + this.why(e));
+    }
+    // Returned so the planState verdict can be fingerprinted over the SAME content the column holds.
+    return plan;
+  }
+
+  private async recordSweepChecks(revId: string, sweeps: SweepResults | null | undefined, text: any): Promise<void> {
+    if (!revId || !sweeps) return;
+    const kinds = Object.keys(sweeps).filter((k) => EXPECTED_CHECKS.indexOf(k) >= 0);
+    if (!kinds.length) return;
+    try {
+      const entries: CheckEntry[] = kinds.map((k) => {
+        const r = sweeps[k];
+        // A sweep that threw, or was never reached, carries its reason rather than an empty array.
+        // A per-entry text wins: planState's fingerprint belongs over the plan, not the page.
+        const subjectText = (r && r.text !== undefined) ? r.text : text;
+        const e = (r && r.preBuilt)
+          ? r.preBuilt
+          : (r && r.found === null)
+            ? sweepFailed(k, r.error || 'the sweep produced no result', subjectText)
+            : findingsEntry(k, r ? r.found : null, subjectText);
+        // A note rides on the reason, never on the state: see SweepResults.note.
+        return (r && r.note) ? { ...e, reason: e.reason + ' · ' + r.note } : e;
+      });
+      const row: any = await (this.prisma as any).scriptRevision.findUnique({ where: { id: revId }, select: { checks: true } });
+      let blob: any = (row && row.checks) || null;
+      for (const e of entries) blob = mergeChecks(blob, e);
+      await (this.prisma as any).scriptRevision.update({ where: { id: revId }, data: { checks: blob } });
+      const say = entries.map((e) => e.kind + '=' + e.state + (e.items && e.items.length ? '(' + e.items.length + ')' : '')).join(' ');
+      this.log.log('recordSweepChecks: ' + entries.length + ' sweep(s) stored on revision ' + revId + ' — ' + say);
+      for (const e of entries) {
+        if (e.state === 'NOT_RUN') this.log.warn('recordSweepChecks: ' + e.kind + ' NOT_RUN — ' + e.reason);
+      }
+    } catch (e: any) {
+      this.log.warn('recordSweepChecks: could NOT persist the sweeps on revision ' + revId + ' — ' + this.why(e));
+    }
+  }
+
+  private failHeadlessDraft(docId: string, pageCount: number, sceneCount: number, coverageNote: string, reason: string, retry: string, revId?: string, text?: string): void {
     const why = String(reason || '').trim().replace(/\.+$/, '');
     const p = this.genProgress.get(docId);
     if (p) {
@@ -4584,6 +5180,9 @@ export class ScripOnService {
         + '. It was not filed as your script — your current pages are untouched, and the ' + pageCount + ' pages that were written have been saved, not discarded. Run ' + retry + ' again to write through to the climax and resolution.';
       p.lastActivityAt = Date.now();
     }
+    // F12 — THE REASON OUTLIVES THE PROCESS, and it is already stored: the awaited
+    // recordRevisionCheck one line before every call site writes this same verdict against the
+    // same text. A second fire-and-forget write here would duplicate it and race the caller.
     this.log.error('failHeadlessDraft: script ' + docId + ' wrote ' + sceneCount + ' scenes over ' + pageCount
       + ' pages but did NOT reach the outline\'s final beats — filed as ERROR, revision NOT activated.'
       + (why ? ' Verdict: ' + why : ''));
@@ -4663,13 +5262,15 @@ export class ScripOnService {
       const bRow: any = await (this.prisma as any).developmentBuild.findFirst({ where: { linkedScriptId: docId } }).catch((e: any) => { this.log.warn('build lookup failed for script ' + docId + ' — falling back to an empty brief. ' + this.why(e)); return null; });
       const featBrief = (bRow && bRow.brief) || {};
       const featDirective = [await this.langDirective(featBrief), knowledgeDirective(featBrief)].filter(Boolean).join('\n');
-      const ctx = await this.buildFeatureCtx(projectId, (bRow && bRow.id) || null, stages, featDirective, featBrief.sourceText);
+      // C1 — the kinds whose bodies actually reach this writer's prompt, collected as they are emitted.
+      const carried: string[] = [];
+      const ctx = await this.buildFeatureCtx(projectId, (bRow && bRow.id) || null, stages, featDirective, featBrief.sourceText, carried);
       const ar = this.isArabicBrief((bRow && bRow.brief) || {});
       // Build the scene list that drives the whole script. The old bug: it trusted any existing SCENES list of
       // >= 20 cards and stopped there — so a partial SCENES stage (e.g. 20 cards covering only the first ~2/3)
       // produced a script that ended mid-story. Now we plan the FULL feature from the complete developed outline,
       // and only reuse the existing SCENES cards when they actually cover the whole story (>= beat count).
-      const spine = this.buildSpine(stages);
+      const spine = this.buildSpine(stages, carried);
       const beatN = this.countBeats(stages);
       // ALWAYS plan the full feature from the COMPLETE developed outline (synopsis+treatment+beats+step-outline),
       // then take the LARGER of the plan vs the existing SCENES cards. The old "existing.length >= 30 = complete"
@@ -4686,7 +5287,23 @@ export class ScripOnService {
       // Heartbeat while PLANNING (planScenes runs minutes before the first scene is written, so the
       // page counter can't move — the frontend stall guard must watch this, not just `done`).
       const beat = () => { const p = this.genProgress.get(docId); if (p) { p.phase = 'PLANNING'; p.lastActivityAt = Date.now(); } };
-      const planned = await this.planScenes(ctx, projectId, spine, target, !!ssc, beat, lenPlan);
+      // F10 — verifyPlanEnding runs inside planScenes, which has no revision to write to. Its
+      // verdicts are collected here and the last one is recorded against the revision, subject
+      // 'plan.tail' because it judged the PLAN, not the script's pages.
+      const planVerdicts: any[] = [];
+      const planCeilingNotes: string[] = [];
+      // RECORDED IN A `finally`: planScenes THROWS when the plan does not reach the ending after its
+      // repair pass, and that refusal is exactly the case worth having on the row. Recording it only
+      // on the success path would keep a verdict for every run except the one that failed.
+      let planned: any[];
+      try {
+        planned = await this.planScenes(ctx, projectId, spine, target, !!ssc, beat, lenPlan, planVerdicts, planCeilingNotes);
+      } finally {
+        if (planVerdicts.length) {
+          const lastPlan = planVerdicts[planVerdicts.length - 1];
+          await this.recordRevisionCheck(revId, 'planEnding', lastPlan.verdict, lastPlan.text, 'plan.tail');
+        }
+      }
       // An EMPTY plan is a planner failure, and writing a script from whatever happens to be lying in
       // the SCENES stage is not a recovery — it is how a timed-out planning call became a 95-page draft
       // with no page weights, no exits, no continuity gate and no error message. A SHORT plan may still
@@ -4697,6 +5314,22 @@ export class ScripOnService {
       // Series: use the planned pilot at episode density (don't let a full-season SCENES stage override it).
       let scenes: any[] = ssc ? planned : ((planned.length >= (existing ? existing.length : 0)) ? planned : existing);
       if (!scenes || !scenes.length) scenes = (existing && existing.length) ? existing : planned;
+      /**
+       * WHICH LIST WON, recorded where the choice is actually made rather than guessed later.
+       * `scenes` is reassigned twice more below — applyPageWeights re-weights it and
+       * stripExitedCast rewrites its cast — so an identity test after those would compare against
+       * a list that no longer exists. Decided here, once.
+       */
+      const planSource: 'planner' | 'cards' = scenes === planned ? 'planner' : 'cards';
+      // C1 — the SCENES cards are consumed only when they actually drive the script. When the
+      // planner's list wins, the developed cards reached nothing and must not be stamped.
+      if (scenes === existing && existing && existing.length) carried.push('SCENES');
+      const revConsumed = consumedStamp(carried, stages);
+      if (hasConsumed(revConsumed)) {
+        await (this.prisma as any).scriptRevision.update({ where: { id: revId }, data: { consumed: revConsumed } })
+          .catch((e: any) => this.log.warn('C1: could not stamp consumed on revision ' + revId + ' — ' + this.why(e)));
+        this.log.log('generateFeatureAsync: consumed ' + Object.keys(revConsumed).join(', '));
+      }
       // Normalise the per-scene page allocations so they add up to the page target. The planner is asked
       // for them, but models drift on arithmetic across a hundred items, so the totals are rescaled here
       // rather than trusted. A reused SCENES stage has no weights at all and gets a sane default.
@@ -4725,7 +5358,7 @@ export class ScripOnService {
       // fields cannot carry. It mutates `ledgerSeed.reg` by registering the vessels and objects the
       // story declares, which is why it runs before the writer starts rather than beside it.
       const planState = await this.extractPlanState(scenes, ledgerSeed.reg, projectId)
-        .catch((e: any) => { this.log.warn('extractPlanState: skipped — ' + this.why(e)); return { facts: [] as StateFact[], places: [] as PlaceObservation[], transit: new Set<number>(), clock: new Map<number, number>(), props: [] as PropEvent[], designators: [] as string[], recalled: new Set<number>() }; });
+        .catch((e: any) => { this.log.warn('extractPlanState: skipped — ' + this.why(e)); return { facts: [] as StateFact[], places: [] as PlaceObservation[], transit: new Set<number>(), clock: new Map<number, number>(), props: [] as PropEvent[], designators: [] as string[], recalled: new Set<number>(), failures: [] as PlanStateFailure[], nearMisses: 0, clockDiscardedAt: 0, clockPlanned: [] as ClockPoint[], clockBackwards: [] as ClockPair[], threw: this.why(e) }; });
       /**
        * THE SPINE, handed to each scene as it is written.
        *
@@ -4778,6 +5411,9 @@ export class ScripOnService {
         await saveRev(pages); setP({ status: 'DONE', total: pages.length, done: pages.length, pageCount: pages.length });
         return;
       }
+      // Plan 01 task 5 — the list the writer is about to be handed, stored before the first scene.
+      const storedPlan = await this.storeScenePlan(revId, scenes, planSource,
+        { plannerCount: planned.length, cardsCount: existing ? existing.length : 0 });
       setP({
         total: scenes.length, phase: 'WRITING', note: '',
         targetPages: lenPlan ? lenPlan.targetPages : null,
@@ -4869,6 +5505,95 @@ export class ScripOnService {
       out.push('FADE OUT.');
       const pages = this.paginate(out.join('\n\n'));
       await saveRev(pages);
+      // Plan 01 task 1B — the text the sweeps are stored against is the SAVED page text, hoisted
+      // above the series/feature split so a pilot build records its sweeps too (it skips the
+      // feature ending check, not the continuity sweeps). The `ending` verdict below reuses this
+      // same value, so every entry on the revision stales together or not at all.
+      const savedText = pages.map((pg: any) => String((pg && pg.text) || '')).join('\n');
+      /**
+       * Plan 01 task 3A — planState is stored on SUCCESS too, not only on failure.
+       *
+       * An entry that appears only when something went wrong cannot tell a reader "this run read
+       * the whole plan" from "this version predates the check". `failures` empty is the CLEAN case.
+       * Its subject is the plan, so it carries its own text to be fingerprinted over: hashing a
+       * plan-side verdict against the page would make its staleness meaningless.
+       */
+      // Plan 01 task 6 — awaited BEFORE the run reports DONE, so the entry is on the row when the
+      // page first reads it. Report-only: pageText is not touched by it.
+      const scriptRules = await this.scriptRuleLinesFor(bRow, projectId);
+      const registerRow = await this.registerCheckOnScript(docId, revId, savedText, scriptRules, projectId);
+      /**
+       * CLOSE-OUT 4 — THE DRAFT'S LENGTH, ONTO THE DENSITY ROW.
+       *
+       * Run 1 wrote 19 pages against a target of 12 and recorded it in two places that do not
+       * outlive the process: a log line and genProgress.coverageNote, an in-memory Map. The
+       * revision carried no trace of it.
+       *
+       * Density is the right row — it already reports the other two shape defects — and this is
+       * appended HERE because recordSweepChecks runs now, while tooShort/tooLong are computed about
+       * fifty lines below, after the row is already written.
+       *
+       * A density sweep that THREW keeps `found: null`: a length finding must not resurrect a sweep
+       * that produced no result, or NOT_RUN would silently become FINDINGS.
+       */
+      const lenItem = lengthFinding(pages.length, lenPlan ? lenPlan.targetPages : 0);
+      const densitySweep = contin.sweeps.density;
+      const densityWithLength = (densitySweep && Array.isArray(densitySweep.found) && lenItem)
+        ? { ...densitySweep, found: densitySweep.found.concat([lenItem as any]) }
+        : densitySweep;
+      await this.recordSweepChecks(revId, {
+        ...contin.sweeps,
+        ...(densityWithLength ? { density: densityWithLength } : {}),
+        register: { found: [], text: savedText, preBuilt: registerRow },
+        planState: {
+          /**
+           * Task 3D — A WHOLESALE THROW IS NOT A CLEAN SWEEP.
+           *
+           * Both catch fallbacks returned `failures: []`, and an empty array means "it ran and
+           * found nothing" — so extractPlanState throwing outright recorded planState as CLEAN:
+           * the strongest possible statement about a plan nobody read. `threw` carries the reason
+           * through, and `found: null` is what findingsEntry turns into NOT_RUN.
+           */
+          /**
+           * CLOSE-OUT 2b — THE DISCARDED CLOCK AND THE MISSING EXIT GATE ARE FINDINGS.
+           *
+           * As notes they rode under a CLEAN state, so the summary could report allClear over a
+           * draft that two of its own guards never covered: no planned clock for any time check to
+           * read, and no exits for the gate that stops a dead character speaking. A planner-sourced
+           * zero and the two counts stay on the note — the first is an answer, the second is
+           * provenance.
+           */
+          found: planState.threw ? null : (planState.failures as any[]).concat(
+            planStateFindings(storedPlan, {
+              clockDiscardedAt: planState.clockDiscardedAt,
+              clockBackwards: planState.clockBackwards,
+            }) as any[],
+          ),
+          error: planState.threw ? 'the plan-state extraction failed outright — ' + planState.threw : undefined,
+          /**
+           * CLOSE-OUT 1 — FINGERPRINTED OVER WHAT THE COLUMN HOLDS.
+           *
+           * This was JSON.stringify(scenes), the raw handed array. Run 1 stored planState CLEAN and
+           * a reader saw STALE: the column keeps the normalised projection, so the hash could not be
+           * reproduced from anything available and the row read STALE for ever. scenePlanSubject is
+           * derived from the stored projection and excludes `at`, so a reader with the column in
+           * hand computes the same value.
+           */
+          text: scenePlanSubject(storedPlan),
+          // 3C — recorded on the row, not folded into the state: a near-miss is a fact about the
+          // run, not a defect in the plan state.
+          note: [
+            planCeilingNotes.length ? planCeilingNotes.length + ' planning call(s) near the ceiling: ' + planCeilingNotes.join('; ') : '',
+            planState.nearMisses ? planState.nearMisses + ' plan-state call(s) near the ceiling' : '',
+            // CLOSE-OUT 2 + 3 — what is provenance rather than a defect: a planner-sourced zero,
+            // and which list won. The clock and the missing exit gate are FINDINGS above.
+            planStateNote(storedPlan, {
+              clockDiscardedAt: planState.clockDiscardedAt,
+              clockPlanned: planState.clockPlanned,
+            }),
+          ].filter(Boolean).join(' · ') || undefined,
+        },
+      }, savedText);
       if (ssc) {
         // #45: a series build delivers the PILOT episode at its per-episode density; the full season
         // is episodes × per-ep. Don't run the feature ending-check (the pilot ends on a cliffhanger).
@@ -4877,6 +5602,9 @@ export class ScripOnService {
         // Two independent completeness checks, because they fail independently: verifyEnding asks whether
         // the story ARRIVED, the length gate asks whether the film is FEATURE-LENGTH. A draft can pass
         // either one alone and still not be deliverable.
+        // F10 — the text this verdict judges, fingerprinted with it so a later in-place repair
+        // (dialectRepairDoc) cannot leave a stale pass standing.
+        const scriptText = savedText;
         let cov = await this.verifyEnding(spine, out.slice(-4).join('\n\n'), projectId);
         // Second look before an incomplete verdict is allowed to fail the whole run. The first pass reads
         // 3,000 characters of tail; one long closing scene can push the resolution out of that window, and
@@ -4885,8 +5613,12 @@ export class ScripOnService {
         if (!cov.complete) {
           const wider = await this.verifyEnding(spine, out.slice(-8).join('\n\n'), projectId, 6000);
           if (wider.complete) this.log.warn('generateFeatureAsync: the ending check disagreed with itself — the 3k-tail read said incomplete, the 6k-tail read said complete. Taking the wider read.');
-          cov = wider.complete ? wider : { complete: false, note: wider.note || cov.note };
+          // Only a REAL pass may overturn a real failure — a fail-open also says complete: true.
+          cov = resolveSecondLook(cov, wider);
         }
+        // F10 — the verdict is recorded whether it passed, failed or abstained. A fail-open lands
+        // as NOT_RUN with its reason; only a real verdict can read CLEAN.
+        await this.recordRevisionCheck(revId, 'ending', cov, scriptText, 'revision.pageText');
         const lp = lenPlan as FeatureLengthPlan;
         // Two bounds, not one. The gate used to test only "is it long enough", so a 190-page draft
         // filed as COMPLETE — a script that overshoots the feature band is no more deliverable than
@@ -4937,7 +5669,7 @@ export class ScripOnService {
         // ENDING GATE, post-write twin of the plan-side gate in planScenes. The plan gate stops a headless
         // scene map before a single scene is paid for; this one catches the case where the plan promised an
         // ending and the writing never arrived at it. Either way the run does not become the user's script.
-        if (!cov.complete) { this.failHeadlessDraft(docId, pages.length, scenes.length, notes.join(' · '), cov.note, 'Generate script'); return; }
+        if (!cov.complete) { this.failHeadlessDraft(docId, pages.length, scenes.length, notes.join(' · '), cov.note, 'Generate script', revId, scriptText); return; }
         setP({
           status: 'DONE', done: scenes.length, pageCount: pages.length,
           coverage: (!tooShort && !tooLong) ? 'COMPLETE' : tooLong ? 'LONG' : 'SHORT',
@@ -5173,7 +5905,20 @@ export class ScripOnService {
       const lenPlan: FeatureLengthPlan | null = ssc ? null : planFeatureLength(featBrief, beatN);
       const target = ssc ? ssc.scenesPerEp : (lenPlan as FeatureLengthPlan).targetScenes;
       const beat = () => { const p = this.genProgress.get(docId); if (p) { p.phase = 'PLANNING'; p.lastActivityAt = Date.now(); } };
-      const planned = await this.planScenes(ctx, projectId, spine, target, !!ssc, beat, lenPlan);
+      const planVerdicts: any[] = [];
+      const planCeilingNotes: string[] = [];
+      // RECORDED IN A `finally`: planScenes THROWS when the plan does not reach the ending after its
+      // repair pass, and that refusal is exactly the case worth having on the row. Recording it only
+      // on the success path would keep a verdict for every run except the one that failed.
+      let planned: any[];
+      try {
+        planned = await this.planScenes(ctx, projectId, spine, target, !!ssc, beat, lenPlan, planVerdicts, planCeilingNotes);
+      } finally {
+        if (planVerdicts.length) {
+          const lastPlan = planVerdicts[planVerdicts.length - 1];
+          await this.recordRevisionCheck(revId, 'planEnding', lastPlan.verdict, lastPlan.text, 'plan.tail');
+        }
+      }
       // An EMPTY plan is a planner failure, and writing a script from whatever happens to be lying in
       // the SCENES stage is not a recovery — it is how a timed-out planning call became a 95-page draft
       // with no page weights, no exits, no continuity gate and no error message. A SHORT plan may still
@@ -5182,6 +5927,8 @@ export class ScripOnService {
         throw new Error(this.whyThePlanWasEmpty(projectId));
       }
       let scenes: any[] = ssc ? planned : ((planned.length >= existing.length) ? planned : existing);
+      // Same reasoning as the fresh path: decided before scenes is reassigned.
+      const planSource: 'planner' | 'cards' = scenes === planned ? 'planner' : 'cards';
       if (lenPlan && scenes.length) scenes = applyPageWeights(scenes, lenPlan.targetPages);
       // Same continuity state as a fresh run — an extend writes real scenes and can resurrect
       // somebody just as easily. See generateFeatureAsync for why these two exist.
@@ -5202,7 +5949,7 @@ export class ScripOnService {
       // fields cannot carry. It mutates `ledgerSeed.reg` by registering the vessels and objects the
       // story declares, which is why it runs before the writer starts rather than beside it.
       const planState = await this.extractPlanState(scenes, ledgerSeed.reg, projectId)
-        .catch((e: any) => { this.log.warn('extractPlanState: skipped — ' + this.why(e)); return { facts: [] as StateFact[], places: [] as PlaceObservation[], transit: new Set<number>(), clock: new Map<number, number>(), props: [] as PropEvent[], designators: [] as string[], recalled: new Set<number>() }; });
+        .catch((e: any) => { this.log.warn('extractPlanState: skipped — ' + this.why(e)); return { facts: [] as StateFact[], places: [] as PlaceObservation[], transit: new Set<number>(), clock: new Map<number, number>(), props: [] as PropEvent[], designators: [] as string[], recalled: new Set<number>(), failures: [] as PlanStateFailure[], nearMisses: 0, clockDiscardedAt: 0, clockPlanned: [] as ClockPoint[], clockBackwards: [] as ClockPair[], threw: this.why(e) }; });
       /**
        * THE SPINE, handed to each scene as it is written.
        *
@@ -5250,6 +5997,11 @@ export class ScripOnService {
       const existingText = (existingPages || []).map((p: any) => String(p.text || '')).join('\n');
       const haveN = (existingText.match(/^\s*\d+\s{2,}\S/gmu) || []).length || Math.max(1, Math.round((existingPages.length || 1) / 1.7));
       const startIdx = Math.min(haveN, scenes.length);
+      // Plan 01 task 5 — before the first scene, and before the early return below: a run that
+      // writes nothing still records the list it was checked against, and the index it would have
+      // started from.
+      const storedPlan = await this.storeScenePlan(revId, scenes, planSource,
+        { plannerCount: planned.length, cardsCount: existing ? existing.length : 0 }, startIdx);
       if (startIdx >= scenes.length) { setP({ status: 'DONE', done: scenes.length, total: scenes.length, pageCount: existingPages.length, coverage: 'COMPLETE', coverageNote: 'Script already covers the full planned scene list.' }); return; }
       setP({
         total: scenes.length, done: startIdx, phase: 'WRITING', note: '',
@@ -5318,18 +6070,112 @@ export class ScripOnService {
       out.push('FADE OUT.');
       const pages = this.paginate(out.join('\n\n'));
       await saveRev(pages);
+      // Plan 01 task 1B — the text the sweeps are stored against is the SAVED page text, hoisted
+      // above the series/feature split so a pilot build records its sweeps too (it skips the
+      // feature ending check, not the continuity sweeps). The `ending` verdict below reuses this
+      // same value, so every entry on the revision stales together or not at all.
+      const savedText = pages.map((pg: any) => String((pg && pg.text) || '')).join('\n');
+      /**
+       * Plan 01 task 3A — planState is stored on SUCCESS too, not only on failure.
+       *
+       * An entry that appears only when something went wrong cannot tell a reader "this run read
+       * the whole plan" from "this version predates the check". `failures` empty is the CLEAN case.
+       * Its subject is the plan, so it carries its own text to be fingerprinted over: hashing a
+       * plan-side verdict against the page would make its staleness meaningless.
+       */
+      // Plan 01 task 6 — awaited BEFORE the run reports DONE, so the entry is on the row when the
+      // page first reads it. Report-only: pageText is not touched by it.
+      const scriptRules = await this.scriptRuleLinesFor(bRow, projectId);
+      const registerRow = await this.registerCheckOnScript(docId, revId, savedText, scriptRules, projectId);
+      /**
+       * CLOSE-OUT 4 — THE DRAFT'S LENGTH, ONTO THE DENSITY ROW.
+       *
+       * Run 1 wrote 19 pages against a target of 12 and recorded it in two places that do not
+       * outlive the process: a log line and genProgress.coverageNote, an in-memory Map. The
+       * revision carried no trace of it.
+       *
+       * Density is the right row — it already reports the other two shape defects — and this is
+       * appended HERE because recordSweepChecks runs now, while tooShort/tooLong are computed about
+       * fifty lines below, after the row is already written.
+       *
+       * A density sweep that THREW keeps `found: null`: a length finding must not resurrect a sweep
+       * that produced no result, or NOT_RUN would silently become FINDINGS.
+       */
+      const lenItem = lengthFinding(pages.length, lenPlan ? lenPlan.targetPages : 0);
+      const densitySweep = contin.sweeps.density;
+      const densityWithLength = (densitySweep && Array.isArray(densitySweep.found) && lenItem)
+        ? { ...densitySweep, found: densitySweep.found.concat([lenItem as any]) }
+        : densitySweep;
+      await this.recordSweepChecks(revId, {
+        ...contin.sweeps,
+        ...(densityWithLength ? { density: densityWithLength } : {}),
+        register: { found: [], text: savedText, preBuilt: registerRow },
+        planState: {
+          /**
+           * Task 3D — A WHOLESALE THROW IS NOT A CLEAN SWEEP.
+           *
+           * Both catch fallbacks returned `failures: []`, and an empty array means "it ran and
+           * found nothing" — so extractPlanState throwing outright recorded planState as CLEAN:
+           * the strongest possible statement about a plan nobody read. `threw` carries the reason
+           * through, and `found: null` is what findingsEntry turns into NOT_RUN.
+           */
+          /**
+           * CLOSE-OUT 2b — THE DISCARDED CLOCK AND THE MISSING EXIT GATE ARE FINDINGS.
+           *
+           * As notes they rode under a CLEAN state, so the summary could report allClear over a
+           * draft that two of its own guards never covered: no planned clock for any time check to
+           * read, and no exits for the gate that stops a dead character speaking. A planner-sourced
+           * zero and the two counts stay on the note — the first is an answer, the second is
+           * provenance.
+           */
+          found: planState.threw ? null : (planState.failures as any[]).concat(
+            planStateFindings(storedPlan, {
+              clockDiscardedAt: planState.clockDiscardedAt,
+              clockBackwards: planState.clockBackwards,
+            }) as any[],
+          ),
+          error: planState.threw ? 'the plan-state extraction failed outright — ' + planState.threw : undefined,
+          /**
+           * CLOSE-OUT 1 — FINGERPRINTED OVER WHAT THE COLUMN HOLDS.
+           *
+           * This was JSON.stringify(scenes), the raw handed array. Run 1 stored planState CLEAN and
+           * a reader saw STALE: the column keeps the normalised projection, so the hash could not be
+           * reproduced from anything available and the row read STALE for ever. scenePlanSubject is
+           * derived from the stored projection and excludes `at`, so a reader with the column in
+           * hand computes the same value.
+           */
+          text: scenePlanSubject(storedPlan),
+          // 3C — recorded on the row, not folded into the state: a near-miss is a fact about the
+          // run, not a defect in the plan state.
+          note: [
+            planCeilingNotes.length ? planCeilingNotes.length + ' planning call(s) near the ceiling: ' + planCeilingNotes.join('; ') : '',
+            planState.nearMisses ? planState.nearMisses + ' plan-state call(s) near the ceiling' : '',
+            // CLOSE-OUT 2 + 3 — what is provenance rather than a defect: a planner-sourced zero,
+            // and which list won. The clock and the missing exit gate are FINDINGS above.
+            planStateNote(storedPlan, {
+              clockDiscardedAt: planState.clockDiscardedAt,
+              clockPlanned: planState.clockPlanned,
+            }),
+          ].filter(Boolean).join(' · ') || undefined,
+        },
+      }, savedText);
       if (ssc) {
         setP({ status: 'DONE', done: scenes.length, pageCount: pages.length, coverage: 'COMPLETE', scenesPerEp: ssc.scenesPerEp, seasonScenes: ssc.seasonScenes, coverageNote: 'Pilot episode: ' + scenes.length + ' scenes at ~' + featBrief.minutesPerEp + ' min/ep · full season ≈ ' + ssc.seasonScenes + ' scenes (' + ssc.episodes + ' ep × ' + ssc.scenesPerEp + ').' + (continNote ? ' · ' + continNote : '') });
       } else {
         // An extend writes every scene from where the draft stopped to the end of the plan, so a headless
         // result here is not 'still in progress' — it is a plan that reached the ending and writing
         // that did not. Same confirmation, same gate as a fresh run.
+        // F10 — the text this verdict judges, fingerprinted with it so a later in-place repair
+        // (dialectRepairDoc) cannot leave a stale pass standing.
+        const scriptText = savedText;
         let cov = await this.verifyEnding(spine, out.slice(-4).join('\n\n'), projectId);
         if (!cov.complete) {
           const wider = await this.verifyEnding(spine, out.slice(-8).join('\n\n'), projectId, 6000);
           if (wider.complete) this.log.warn('extendFeatureAsync: the ending check disagreed with itself — the 3k-tail read said incomplete, the 6k-tail read said complete. Taking the wider read.');
-          cov = wider.complete ? wider : { complete: false, note: wider.note || cov.note };
+          // Only a REAL pass may overturn a real failure — a fail-open also says complete: true.
+          cov = resolveSecondLook(cov, wider);
         }
+        await this.recordRevisionCheck(revId, 'ending', cov, scriptText, 'revision.pageText');
         const lp = lenPlan as FeatureLengthPlan;
         const tooShort = !!lenPlan && !isLengthComplete(pages.length, lp.targetPages);
         const tooLong = !!lenPlan && isLengthOver(pages.length, lp.targetPages);
@@ -5345,7 +6191,7 @@ export class ScripOnService {
         }
         // Not filed as DONE, so the extended revision is not swapped in and the shorter draft the user
         // already has stays active. The new pages are persisted on the revision, not discarded.
-        if (!cov.complete) { this.failHeadlessDraft(docId, pages.length, scenes.length, notes.join(' · '), cov.note, 'Regenerate (extend)'); return; }
+        if (!cov.complete) { this.failHeadlessDraft(docId, pages.length, scenes.length, notes.join(' · '), cov.note, 'Regenerate (extend)', revId, scriptText); return; }
         setP({
           status: 'DONE', done: scenes.length, pageCount: pages.length,
           coverage: (!tooShort && !tooLong) ? 'COMPLETE' : tooLong ? 'LONG' : 'SHORT',
@@ -5363,7 +6209,7 @@ export class ScripOnService {
   }
 
   // Promote: file the document immediately, then write it in the background by format (poll scriptProgress).
-  async promoteToScript(versionId: string, userId?: string) {
+  async promoteToScript(versionId: string, userId?: string, opts?: { waiveChecks?: boolean }) {
     const v: any = await (this.prisma as any).stageVersion.findUnique({ where: { id: versionId } });
     if (!v) throw new BadRequestException('Version not found.');
     const stage: any = await (this.prisma as any).developmentStage.findUnique({ where: { id: v.stageId } });
@@ -5377,6 +6223,25 @@ export class ScripOnService {
     if (truncationOf(v.data) && cutForScript.indexOf(stage.kind) < 0) cutForScript.push(stage.kind);
     const cutRefusal = scriptRefusal(cutForScript, 'write');
     if (cutRefusal) throw new BadRequestException(cutRefusal);
+    // ── C2 — THE PRE-SPEND GATE, on the other side of the same spend ───────────────────────────
+    // The feature writer is 40-84 paid calls. These are the stages it reads: buildFeatureCtx takes
+    // LOGLINE/SYNOPSIS/TREATMENT/BEATS, buildSpine adds STEP_OUTLINE, and sceneCards reads SCENES.
+    // Checked BEFORE the document row is created, so a refusal leaves nothing behind.
+    const FEATURE_CONSUMES = ['LOGLINE', 'SYNOPSIS', 'TREATMENT', 'BEATS', 'STEP_OUTLINE', 'SCENES'];
+    const featureConsumed: Record<string, string> = {};
+    for (const k of FEATURE_CONSUMES) {
+      const st: any = stages.find((x: any) => x.kind === k);
+      if (st && st.current && st.current.id) featureConsumed[k] = st.current.id;
+    }
+    const featureGate = preSpendGate(featureConsumed, stages.map((st: any) => ({ id: st.current && st.current.id, kind: st.kind, data: st.current && st.current.data })).filter((v: any) => v.id), { checks: GATE_CHECKS });
+    // The same predicate as the DRAFT gate above.
+    if (featureGate.stop && !isWaived(opts)) {
+      throw markPreSpendRefusal(new BadRequestException(featureGate.text
+        + '\n\nNo script document has been created and nothing has been spent. Amend the upstream'
+        + ' stage, or re-run with waiveChecks to proceed on the record above.'));
+    }
+    if (featureGate.stop) this.log.warn('promoteToScript: PRE-SPEND FINDINGS WAIVED —\n' + featureGate.text);
+    else this.log.log('promoteToScript: ' + featureGate.text);
     const lg: any = stages.find((s: any) => s.kind === 'LOGLINE');
     const fromLog = String((lg && lg.current && lg.current.body) || '').split(/[.\n]/)[0].trim();
     const bld: any = stage.buildId ? await (this.prisma as any).developmentBuild.findUnique({ where: { id: stage.buildId } }).catch(() => null) : null;
@@ -5421,7 +6286,10 @@ export class ScripOnService {
     // Build-exact coverage: only coverage filed against THIS build's own script document — never the project's
     // "latest" (that is a different build in the shared workspace). No coverage yet → null, not someone else's.
     const coverage = doc ? await (this.prisma as any).coverageReport.findFirst({ where: { documentId: doc.id }, orderBy: { createdAt: 'desc' } }).catch(() => null) : null;
-    let rev: any = null; if (doc && doc.activeRevisionId) rev = await (this.prisma as any).scriptRevision.findUnique({ where: { id: doc.activeRevisionId }, select: { id: true, pageCount: true, revisionLabel: true } }).catch(() => null);
+    // Plan 01 task 2 — `checks` and `pageText` join this select so the stored verdicts can be shown
+    // AND staleness can be judged. pageText is read, hashed and discarded; it is never in the
+    // payload. Without it every row would read UNCHECKED, which is honest but useless.
+    let rev: any = null; if (doc && doc.activeRevisionId) rev = await (this.prisma as any).scriptRevision.findUnique({ where: { id: doc.activeRevisionId }, select: { id: true, pageCount: true, revisionLabel: true, checks: true, pageText: true, scenePlan: true } }).catch(() => null);
     const proj: any = await (this.prisma as any).productionProject.findUnique({ where: { id: projectId }, select: { id: true, title: true, scriponWorkspace: true } }).catch(() => null);
     // Title comes from the build (e.g. "Try"), not the shared "ScripON Library" workspace project.
     const projTitle = (build && build.name) || (proj && !proj.scriponWorkspace && proj.title) || (doc && doc.title) || 'Project';
@@ -5434,10 +6302,39 @@ export class ScripOnService {
     }
     if (!charBible && coverage && Array.isArray(coverage.characters) && coverage.characters.length) charBible = coverage.characters;
     const briefObj: any = (build && build.brief) || null;
+    // Hashed here and the text dropped: pageText was read only so staleness could be judged, and a
+    // 100 KB field has no business in a dossier payload.
+    const checkRows = checkSurface(rev && rev.checks, {
+      'revision.pageText': (rev && Array.isArray(rev.pageText))
+        ? rev.pageText.map((pg: any) => String((pg && pg.text) || '')).join('\n')
+        : undefined,
+      // CLOSE-OUT 1 — the plan subject, so planState can be judged instead of reading UNCHECKED.
+      // Undefined when the column is NULL: a revision that predates the column has nothing to
+      // compare, and UNCHECKED is the honest answer there.
+      plan: (rev && rev.scenePlan) ? scenePlanSubject(rev.scenePlan as any) : undefined,
+    });
     return {
       project: { id: projectId, title: projTitle },
       build: build ? { id: build.id, name: build.name, status: build.status, brief: build.brief || null, characterBible: build.characterBible || null, promotedVersionId: build.promotedVersionId || null, linkedProjectId: build.linkedProjectId || null } : null,
-      script: doc ? { docId: doc.id, title: doc.title, revisionId: rev ? rev.id : (doc.activeRevisionId || null), pageCount: rev ? rev.pageCount : null } : null,
+      /**
+       * Plan 01 task 2 — the checks reach a reader.
+       *
+       * One row per expected check, so a check that never ran is a row saying ABSENT rather than a
+       * gap nobody notices. On the 2 Oct run this column held `ending: CLEAN` and
+       * `planEnding: NOT_RUN` and NOTHING displayed either of them — a finished 122-page script
+       * showed no sign that one of its two checks had abstained.
+       *
+       * `checkSummary` is what a one-line banner needs. Its `allClear` is false while anything is
+       * unchecked, by design: "0 findings" over six checks that never ran is an all-clear asserted
+       * on an unread board.
+       */
+      script: doc ? {
+        docId: doc.id, title: doc.title,
+        revisionId: rev ? rev.id : (doc.activeRevisionId || null),
+        pageCount: rev ? rev.pageCount : null,
+        checks: checkRows,
+        checkSummary: surfaceSummary(checkRows),
+      } : null,
       stages: byKind,
       coverage: coverage || null,
       brief: briefObj,

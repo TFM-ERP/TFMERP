@@ -19,12 +19,21 @@ export default function DamagePage() {
   const [pages, setPages] = useState(1);
   const [severity, setSeverity] = useState('');
   const [loading, setLoading] = useState(false);
+  /** '' means there really are no damage reports; anything else is a failure to say out loud. */
+  const [listError, setListError] = useState('');
 
   const load = useCallback(() => {
     setLoading(true);
     rentalApi.damage.list({ severity: severity || undefined, page, limit: 25 })
-      .then(r => { setItems(r.data.items); setTotal(r.data.total); setPages(r.data.pages); })
-      .catch(console.error)
+      .then(r => { setItems(r.data.items); setTotal(r.data.total); setPages(r.data.pages); setListError(''); })
+      // A CONSOLE LINE IS NOT A READER. This was .catch(console.error): the list stayed empty,
+      // loading went false, and the table rendered "No damage reports" — a calm, false statement
+      // over a list nobody managed to read. GET /rental/damage is rentals:1 from this commit, so a
+      // rentals:0 role opening this page hits exactly that path.
+      .catch((e: any) => {
+        setItems([]); setTotal(0); setPages(1);
+        setListError(e?.response?.data?.message || e?.message || 'Could not load damage reports.');
+      })
       .finally(() => setLoading(false));
   }, [severity, page]);
 
@@ -64,6 +73,9 @@ export default function DamagePage() {
       </div>
 
       <div className="card overflow-hidden p-0">
+        {listError && (
+          <div className="px-4 py-2.5 text-sm border-b border-red-200 bg-red-50 text-red-700">{listError}</div>
+        )}
         <table className="w-full">
           <thead>
             <tr>
@@ -130,7 +142,9 @@ export default function DamagePage() {
                 </td>
               </tr>
             ))}
-            {items.length === 0 && !loading && (
+            {/* !listError: "No damage reports" is a claim about data we do not have, so it is
+                suppressed while the banner above the table carries the reason instead. */}
+            {items.length === 0 && !loading && !listError && (
               <tr><td colSpan={9} className="text-center py-12 text-gray-400">No damage reports</td></tr>
             )}
           </tbody>

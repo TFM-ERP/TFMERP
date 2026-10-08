@@ -12,15 +12,41 @@ export default function DriverApprovalsPage() {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
+  /** Why the list is empty. '' means it really is empty; anything else is a failure to say out loud. */
+  const [error, setError] = useState('');
 
-  const load = () => { setLoading(true); driverAppApi.pending().then(r => setItems(r.data || [])).finally(() => setLoading(false)); };
+  /**
+   * A REFUSAL IS NOT AN EMPTY QUEUE.
+   *
+   * `load` had a .finally and no .catch, so a failed read left `items` at [] and the card below
+   * rendered "Nothing pending. All caught up." — a sentence that is false and reassuring at the
+   * same time, over a queue nobody managed to read. The only other trace was an unhandled
+   * rejection in the console. `review` had the same shape: try/finally with no catch, so a refused
+   * approval did nothing visible at all.
+   *
+   * Both now show THE SERVER'S MESSAGE FIRST. PermissionsGuard names the module it refused on,
+   * while axios's own err.message is just "Request failed with status code 403". The claims routes
+   * are rentals:2, and Finance Manager, Production Manager and Sales all sit at rentals:1 and can
+   * open this page — so the 403 path is reachable, not hypothetical.
+   */
+  const msg = (e: any, fallback: string) => e?.response?.data?.message || e?.message || fallback;
+
+  const load = () => {
+    setLoading(true);
+    driverAppApi.pending()
+      .then(r => { setItems(r.data || []); setError(''); })
+      .catch(e => { setItems([]); setError(msg(e, 'Could not load driver submissions.')); })
+      .finally(() => setLoading(false));
+  };
   useEffect(() => { load(); }, []);
 
   const review = async (id: string, status: string) => {
     setBusy(id);
     let notes: string | undefined;
     if (status === 'REJECTED') { notes = prompt('Reason for rejection (optional):') || undefined; }
-    try { await driverAppApi.review(id, status, notes); load(); } finally { setBusy(''); }
+    try { await driverAppApi.review(id, status, notes); load(); }
+    catch (e: any) { alert(msg(e, 'Could not record that decision.')); }
+    finally { setBusy(''); }
   };
 
   return (
@@ -35,7 +61,9 @@ export default function DriverApprovalsPage() {
       </div>
 
       <div className="card overflow-hidden">
-        {loading ? <div className="p-10 text-center text-gray-400 text-sm">Loading…</div> : items.length === 0 ? (
+        {loading ? <div className="p-10 text-center text-gray-400 text-sm">Loading…</div> : error ? (
+          <div className="p-10 text-center text-sm" style={{ color: '#e5635f' }}>{error}</div>
+        ) : items.length === 0 ? (
           <div className="p-10 text-center text-gray-400 text-sm">Nothing pending. All caught up.</div>
         ) : (
           <div className="divide-y divide-gray-50">

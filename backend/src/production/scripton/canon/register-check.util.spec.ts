@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { registerLines, registerCheckUser, parseRegisterCheck, REGISTER_CHECK_SYSTEM } from './register-check.util';
+import { registerLines, registerCheckUser, parseRegisterCheck, REGISTER_CHECK_SYSTEM, scriptRegisterLines, registerReplyCutOff, RULE_KINDS } from './register-check.util';
 import type { CanonFactCore } from './canon.types';
 
 const reg = (statement: string, at: number, section: string): CanonFactCore => ({
@@ -108,4 +108,149 @@ test('a truncated answer keeps every COMPLETE row and says it was recovered', ()
   assert.equal(r.salvaged, true);
   assert.equal(r.contradicted, 1);
   assert.match(r.summary, /recovered from malformed JSON/);
+});
+
+/**
+ * THE SCRIPT'S RULE LINES — Plan 01 close-out 2, commit 1.1.
+ *
+ * The finished script has never once been checked against its source. Both feature paths hand
+ * registerCheckOnScript `exitsAsCanonFacts(exits)`, which hardcodes kind CHARACTER, while
+ * registerLines keeps only kind REGISTER — so the list is empty by construction, and the row has
+ * read "no bible" on every script ever generated, including builds with a 2,996-character bible and
+ * 91 stored facts.
+ *
+ * Three kinds are rules: REGISTER, PROHIBITION and ORDERING. Measured on stored canons, the four
+ * largest hold 184 / 193 / 186 / 169 of them, and 105 of the largest's are REGISTER — so dropping a
+ * kind to avoid a badly-detected line would blind the check on every real bible.
+ *
+ * Invented rules throughout, per the standing rule.
+ */
+const F = (kind: string, statement: string, extra: Partial<CanonFactCore> = {}): CanonFactCore => ({
+  kind: kind as any, subject: 'X', predicate: 'p', object: 'o', statement, validFrom: 0, validTo: null, ...extra,
+} as CanonFactCore);
+
+const RULES = [
+  F('REGISTER', 'The harbour bell rings only at dusk.', { sourceOffset: 10, sourceSection: 'WORLD' }),
+  F('PROHIBITION', 'Do not let the dog indoors.', { sourceOffset: 40 }),
+  F('ORDERING', 'The letter is burned before the train leaves.', { sourceOffset: 70 }),
+  F('MOTIVE', 'She wants the shop back.', { sourceOffset: 90 }),
+  F('CRIME', 'He forged the deed.', { sourceOffset: 95 }),
+];
+
+test('the three rule kinds become lines; nothing else does', () => {
+  const got = scriptRegisterLines({ sourceChars: 3000, canonRead: true, facts: RULES });
+  assert.equal(got.notRunReason, null);
+  assert.equal(got.lines.length, 3);
+  assert.deepEqual(got.lines.map((l) => l.kind), ['REGISTER', 'PROHIBITION', 'ORDERING']);
+  assert.deepEqual(got.lines.map((l) => l.n), [1, 2, 3]);
+});
+
+test('no source at all: the sentence names what was ACTUALLY checked', () => {
+  const got = scriptRegisterLines({ sourceChars: 0, canonRead: false, facts: null });
+  assert.equal(got.lines.length, 0);
+  assert.match(got.notRunReason!, /^no source on this build/);
+  assert.match(got.notRunReason!, /the brief and the intake profile/);
+});
+
+test('CONTROL: the sentence does not claim a seed was checked', () => {
+  // generateStage's chain is brief -> intake profile -> opts.seed (:1286-1288). There IS no seed on
+  // the script path: scriptRuleLinesFor reads the first two and stops. Naming a third source that
+  // was never consulted would send a reader to look for one.
+  const got = scriptRegisterLines({ sourceChars: 0, canonRead: false, facts: null });
+  assert.doesNotMatch(got.notRunReason!, /seed/i,
+    'the resolver reads the brief and the intake profile only; a seed is never consulted');
+});
+
+test('a source too short for rules to exist says so, with the count', () => {
+  const got = scriptRegisterLines({ sourceChars: 212, canonRead: false, facts: null });
+  assert.match(got.notRunReason!, /212 characters/);
+  assert.match(got.notRunReason!, /400/, 'a canon can never arrive below 400, so a retry would be a false promise');
+  assert.doesNotMatch(got.notRunReason!, /^no source/, 'there IS a source; it is too short');
+});
+
+test('a source with no stored canon says the rules could not be read', () => {
+  const got = scriptRegisterLines({ sourceChars: 3000, canonRead: false, facts: null });
+  assert.match(got.notRunReason!, /^the rules could not be read/);
+});
+
+test('a canon with no rule facts is its own answer', () => {
+  const got = scriptRegisterLines({ sourceChars: 3000, canonRead: true, facts: [F('MOTIVE', 'a'), F('CRIME', 'b')] });
+  assert.match(got.notRunReason!, /^a source with no rule facts/);
+});
+
+test('CONTROL: never the words "no bible", in any casing, for any input', () => {
+  const inputs = [
+    { sourceChars: 0, canonRead: false, facts: null },
+    { sourceChars: 212, canonRead: false, facts: null },
+    { sourceChars: 3000, canonRead: false, facts: null },
+    { sourceChars: 3000, canonRead: true, facts: [] },
+    { sourceChars: 3000, canonRead: true, facts: RULES },
+  ];
+  for (const i of inputs) {
+    const got = scriptRegisterLines(i as any);
+    assert.doesNotMatch(String(got.notRunReason || ''), /no bible/i, JSON.stringify(i));
+  }
+});
+
+test('CONTROL: handed exit facts and nothing else, there is nothing to check', () => {
+  // The shape exitsAsCanonFacts produces: kind CHARACTER, one per declared exit.
+  const exits = [F('CHARACTER', 'ANWAR dies in the flood.'), F('CHARACTER', 'LEILA leaves for good.')];
+  const got = scriptRegisterLines({ sourceChars: 3000, canonRead: true, facts: exits });
+  assert.equal(got.lines.length, 0, 'an exit is not a rule');
+  assert.match(got.notRunReason!, /^a source with no rule facts/);
+});
+
+test('CONTROL: the numbering is reproducible when offsets are missing or shared', () => {
+  const awkward = [
+    F('PROHIBITION', 'Do not open the gate.'),
+    F('ORDERING', 'The bell rings before the gate opens.', { sourceOffset: 50 }),
+    F('REGISTER', 'The gate is iron.', { sourceOffset: 50 }),
+    F('PROHIBITION', 'Do not speak of the river.'),
+    F('REGISTER', 'The river is dry in August.', { sourceOffset: 5 }),
+    F('ORDERING', 'August comes after the flood.', { sourceOffset: 5 }),
+  ];
+  const first = scriptRegisterLines({ sourceChars: 9000, canonRead: true, facts: awkward }).lines;
+  assert.equal(first.length, 6);
+  for (const seed of [1, 2, 3, 4, 5]) {
+    const shuffled = awkward.slice().sort(() => (seed % 2 ? 1 : -1));
+    const again = scriptRegisterLines({ sourceChars: 9000, canonRead: true, facts: shuffled }).lines;
+    assert.deepEqual(again.map((l) => [l.n, l.rule]), first.map((l) => [l.n, l.rule]),
+      'sourceOffset ?? 0 made the numbering depend on insertion order, while stored items cite line numbers');
+  }
+});
+
+test('the prompt names the kind of each rule — a restated rule reads as one rule seen twice', () => {
+  const { lines } = scriptRegisterLines({ sourceChars: 3000, canonRead: true, facts: RULES });
+  const u = registerCheckUser(lines, 'SCRIPT', 'a draft');
+  assert.match(u, /1\. \[REGISTER · WORLD\] The harbour bell/);
+  assert.match(u, /\[PROHIBITION · document\] Do not let the dog indoors\./);
+});
+
+test('CONTROL: the ladder\'s prompt is byte-identical — its lines carry no kind', () => {
+  const ladder = registerLines(RULES);
+  assert.equal(ladder.length, 1, 'the ladder reads REGISTER only, and that does not change here');
+  assert.ok(!('kind' in ladder[0]) || ladder[0].kind === undefined);
+  const u = registerCheckUser(ladder, 'DRAFT', 'a draft');
+  assert.match(u, /^REGISTER \(1 lines\):\n1\. \[WORLD\] The harbour bell rings only at dusk\./,
+    'no kind is printed when none is set, so the seven ladder calls keep the prompt they have');
+});
+
+test('a contradiction carries the kind of rule it came from', () => {
+  const { lines } = scriptRegisterLines({ sourceChars: 3000, canonRead: true, facts: RULES });
+  const body = 'The dog sleeps by the hearth every night.';
+  const r = parseRegisterCheck(JSON.stringify({ contradictions: [
+    { line: 2, draft: 'The dog sleeps by the hearth', why: 'the dog is indoors' },
+  ] }), lines, body);
+  assert.equal(r.items.length, 1);
+  assert.equal(r.items[0].kind, 'PROHIBITION');
+});
+
+// ── registerReplyCutOff: one predicate, shared by registerEntry (1.2) and readCheck (1.2b) ───────
+test('registerReplyCutOff is true for a ceiling stop and for a salvage, false otherwise', () => {
+  assert.equal(registerReplyCutOff({ stopReason: 'max_tokens', salvaged: false }), true);
+  assert.equal(registerReplyCutOff({ stopReason: 'end_turn', salvaged: true }), true);
+  assert.equal(registerReplyCutOff({ stopReason: 'end_turn', salvaged: false }), false);
+  assert.equal(registerReplyCutOff({}), false);
+  assert.equal(registerReplyCutOff(null), false);
+  assert.equal(registerReplyCutOff(undefined), false);
 });

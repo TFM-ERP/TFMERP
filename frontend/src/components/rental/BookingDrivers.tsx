@@ -19,8 +19,36 @@ export default function BookingDrivers({ bookingId, assets }: { bookingId: strin
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<any>({ driverId: '', jobType: 'DELIVERY', assetId: assets[0]?.id || '', scheduledAt: '', pickupLocation: '', dropoffLocation: '', notes: '' });
 
-  const load = () => rentalApi.drivers.jobsByBooking(bookingId).then(r => setJobs(r.data)).catch(() => {});
-  useEffect(() => { load(); rentalApi.drivers.list({ limit: 200 }).then(r => setDrivers(r.data.items || r.data || [])).catch(() => {}); }, [bookingId]);
+  /** '' means there really are no driver legs; anything else is a failure that must be shown. */
+  const [error, setError] = useState('');
+
+  /**
+   * NEITHER READ NOR THE STATUS CHANGE SAID ANYTHING WHEN IT FAILED.
+   *
+   * Both reads swallowed into .catch(() => {}), so an empty list rendered "No driver assigned. Add a
+   * delivery, pickup or transfer leg." — an instruction, over a list nobody managed to read — and
+   * the driver dropdown in the assign dialog came back empty with no reason. changeStatus had no try
+   * at all, so a refusal rejected the promise and the select snapped back to its old value.
+   *
+   * Both reads are rentals:1 and updateJobStatus is rentals:2 (b57a35a), so a rentals:0 role is
+   * refused the list and a rentals:1 role — FINANCE_MANAGER, SALES, PRODUCTION_MANAGER — is refused
+   * the status change while still seeing the select. The server's message comes first: PermissionsGuard
+   * names the module it refused on, where axios's own err.message is only "Request failed with status
+   * code 403".
+   */
+  const msg = (e: any, fallback: string) => e?.response?.data?.message || e?.message || fallback;
+
+  const load = () => rentalApi.drivers.jobsByBooking(bookingId)
+    .then(r => { setJobs(r.data); setError(''); })
+    .catch(e => { setJobs([]); setError(msg(e, 'Could not load the driver legs.')); });
+  useEffect(() => {
+    load();
+    rentalApi.drivers.list({ limit: 200 })
+      .then(r => setDrivers(r.data.items || r.data || []))
+      // The same rentals:1 floor as the list above, so this fails only when that fails and the
+      // banner already carries the reason — but an empty driver picker must not look deliberate.
+      .catch(e => { setDrivers([]); setError(prev => prev || msg(e, 'Could not load the driver list.')); });
+  }, [bookingId]);
 
   const save = async () => {
     if (!form.driverId || !form.scheduledAt) return;
@@ -31,8 +59,11 @@ export default function BookingDrivers({ bookingId, assets }: { bookingId: strin
   };
 
   const changeStatus = async (jobId: string, status: string) => {
-    await rentalApi.drivers.updateJobStatus(jobId, status);
-    load();
+    setError('');
+    try {
+      await rentalApi.drivers.updateJobStatus(jobId, status);
+      load();
+    } catch (e: any) { setError(msg(e, 'Could not change the leg status.')); }
   };
 
   const fmt = (d: string) => new Date(d).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
@@ -46,9 +77,14 @@ export default function BookingDrivers({ bookingId, assets }: { bookingId: strin
         <button onClick={() => setOpen(true)} className="btn-secondary text-xs"><Plus size={12} /> Assign driver</button>
       </div>
 
-      {jobs.length === 0 ? (
+      {/* A banner, not a replacement: a failed status change must not blank the legs still on
+          screen. The empty-state line below is suppressed while this stands — it tells the reader
+          to add a leg, which is advice we cannot give about a list we could not read. */}
+      {error && <div className="px-5 py-2.5 text-sm border-b border-gray-100" style={{ color: '#e5635f' }}>{error}</div>}
+
+      {jobs.length === 0 ? (error ? null : (
         <div className="px-5 py-8 text-center text-gray-400 text-sm">No driver assigned. Add a delivery, pickup or transfer leg.</div>
-      ) : (
+      )) : (
         <div className="divide-y divide-gray-50">
           {jobs.map(j => (
             <div key={j.id} className="px-5 py-3 flex items-center gap-3">

@@ -156,17 +156,29 @@ function DocUploadCard({
       await rentalApi.drivers.update(driverId, { [field]: result.url });
       onUploaded(field, result.url);
     } catch (err: any) {
-      setError(err.message || 'Upload failed');
+      // The server's message first: this handler's second call is drivers.update, now rentals:2,
+      // and axios's own err.message for that is only "Request failed with status code 403".
+      setError(err?.response?.data?.message || err?.message || 'Upload failed');
     } finally {
       setUploading(false);
       e.target.value = '';
     }
   };
 
+  /**
+   * Removing a document is the same drivers.update call, and it had no try at all — a refusal
+   * rejected the promise, left the document on screen, and said nothing. rentals:1 roles still see
+   * this button, so the refusal is reachable.
+   */
   const handleRemove = async () => {
     if (!confirm('Remove this document?')) return;
-    await rentalApi.drivers.update(driverId, { [field]: null });
-    onUploaded(field, null);
+    setError('');
+    try {
+      await rentalApi.drivers.update(driverId, { [field]: null });
+      onUploaded(field, null);
+    } catch (err: any) {
+      setError(err?.response?.data?.message || err?.message || 'Could not remove the document.');
+    }
   };
 
   return (
@@ -238,6 +250,10 @@ export default function DriverDetailPage() {
   const [invoiceJobIds, setInvoiceJobIds] = useState<string[]>([]);
   const [invoice, setInvoice] = useState<any>(null);
   const [generating, setGenerating] = useState(false);
+  /** Why no invoice appeared. '' means none was asked for; anything else is a failure to say aloud. */
+  const [invoiceError, setInvoiceError] = useState('');
+  /** Why the edits did not stick. Same rule: '' is silence, anything else gets shown. */
+  const [saveError, setSaveError] = useState('');
 
   const load = useCallback(async () => {
     try {
@@ -258,12 +274,21 @@ export default function DriverDetailPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  /**
+   * PUT /rental/drivers/:id is rentals:2 as of this commit, and FINANCE_MANAGER, PRODUCTION_MANAGER
+   * and SALES all sit at rentals:1 and still see the Edit button. This had a finally and no catch,
+   * so a refusal left the form open with the edits still in it, no message, and an unhandled
+   * rejection — indistinguishable from a slow save. The form deliberately stays open on failure so
+   * the typing is not lost; what changes is that the reason is now on screen.
+   */
   const handleSave = async () => {
-    setSaving(true);
+    setSaving(true); setSaveError('');
     try {
       await rentalApi.drivers.update(id, editForm);
       setEditing(false);
       load();
+    } catch (e: any) {
+      setSaveError(e?.response?.data?.message || e?.message || 'Could not save the driver.');
     } finally { setSaving(false); }
   };
 
@@ -273,12 +298,24 @@ export default function DriverDetailPage() {
     );
   };
 
+  /**
+   * A REFUSAL IS NOT A MISSING INVOICE. This had a finally and no catch, so a failed call left the
+   * spinner to stop, `setInvoice` never ran, and nothing whatever appeared — the only trace was an
+   * unhandled rejection in the console.
+   *
+   * That route is now rentals:3. RENTAL_COORDINATOR, DISPATCHER and MAINTENANCE all sit at
+   * rentals:2 and can open this tab, so the 403 is reachable rather than hypothetical, and the
+   * server's message names the module it refused on. The other four money routes on this driver
+   * already surface theirs through DriverPayments' act() (:34-39); this was the one that did not.
+   */
   const handleGenerateInvoice = async () => {
     if (!invoiceJobIds.length) return;
-    setGenerating(true);
+    setGenerating(true); setInvoiceError('');
     try {
       const r = await rentalApi.drivers.generateInvoice(id, invoiceJobIds);
       setInvoice(r.data);
+    } catch (e: any) {
+      setInvoiceError(e?.response?.data?.message || e?.message || 'Could not generate the invoice.');
     } finally { setGenerating(false); }
   };
 
@@ -306,21 +343,24 @@ export default function DriverDetailPage() {
             {driver.mobile}
           </p>
         </div>
-        <div className="flex gap-2">
-          {!editing ? (
-            <button onClick={() => setEditing(true)} className="btn btn-secondary text-sm">
-              <Edit2 size={13} className="me-1" /> Edit
-            </button>
-          ) : (
-            <>
-              <button onClick={handleSave} disabled={saving} className="btn btn-primary text-sm disabled:opacity-50">
-                <Save size={13} className="me-1" /> {saving ? 'Saving...' : 'Save'}
+        <div className="flex flex-col items-end gap-1">
+          <div className="flex gap-2">
+            {!editing ? (
+              <button onClick={() => setEditing(true)} className="btn btn-secondary text-sm">
+                <Edit2 size={13} className="me-1" /> Edit
               </button>
-              <button onClick={() => { setEditing(false); setEditForm(driver); }} className="btn btn-secondary text-sm">
-                <X size={13} />
-              </button>
-            </>
-          )}
+            ) : (
+              <>
+                <button onClick={handleSave} disabled={saving} className="btn btn-primary text-sm disabled:opacity-50">
+                  <Save size={13} className="me-1" /> {saving ? 'Saving...' : 'Save'}
+                </button>
+                <button onClick={() => { setEditing(false); setEditForm(driver); setSaveError(''); }} className="btn btn-secondary text-sm">
+                  <X size={13} />
+                </button>
+              </>
+            )}
+          </div>
+          {saveError && <p className="text-xs text-red-600 max-w-xs text-end">{saveError}</p>}
         </div>
       </div>
 
@@ -627,6 +667,7 @@ export default function DriverDetailPage() {
                 className="btn btn-primary w-full mt-4 disabled:opacity-50">
                 {generating ? 'Generating...' : `Generate Invoice (${invoiceJobIds.length} jobs)`}
               </button>
+              {invoiceError && <p className="text-sm mt-2 text-center" style={{ color: '#e5635f' }}>{invoiceError}</p>}
             </div>
           </div>
 

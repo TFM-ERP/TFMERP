@@ -88,3 +88,251 @@ export const TRANSFORM_TILES: TransformTile[] = [
   { key: 'humour', name: 'Humour injection', desc: 'by culture', dot: 'var(--teal)', action: 'humour' },
   { key: 'character', name: 'Add / remove character', desc: 'redistribute', dot: 'var(--blue)', action: 'character' },
 ];
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// PLAN 01 TASK 7 — THE CHECKS, AS A READER SEES THEM.
+//
+// Pure, and here rather than inline in the component for one reason: this directory already has a
+// logic module with a node:test suite beside it (scripton-doctor.logic.test.ts, run with
+// `npx tsx --test`). The first version of task 7 put these maps in the .tsx and reported "there is
+// no frontend test runner" — which is true of package.json and false of this folder.
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * The .sx palette, by variable name. Needed because a CSS custom property cannot be concatenated
+ * into a colour: `'var(--red)' + '29'` is `var(--red)29`, which is not a colour at all, so the
+ * element gets NO background. The tag tints in this file have had that bug since they were written.
+ */
+export const SX_HEX: Record<string, string> = {
+  'var(--red)': '#e5635f',
+  'var(--green)': '#57b368',
+  'var(--amber)': '#e0a23b',
+  'var(--blue)': '#5b8def',
+  'var(--faint)': '#6b727d',
+  'var(--violet)': '#8b7cf0',
+};
+
+/**
+ * A translucent wash of a colour, valid whether it arrives as a var() name or a hex.
+ * Unknown input falls back to a neutral rather than producing an invalid value, because an
+ * invisible tag is how this went unnoticed.
+ */
+export function tint(color: string, alpha = '29'): string {
+  const c = String(color || '');
+  const hex = SX_HEX[c] || (/^#[0-9a-fA-F]{6}$/.test(c) ? c : '');
+  return hex ? hex + alpha : 'rgba(255,255,255,.06)';
+}
+
+export type CheckDisplay = 'FINDINGS' | 'CLEAN' | 'INFO' | 'NOT_RUN' | 'STALE' | 'ABSENT';
+
+/**
+ * SIX STATES, SEPARATED IN WORDS AND NOT ONLY IN COLOUR. CLEAN must not be the quiet default: on
+ * the 2 Oct revision nine of eleven checks had never written a row and one had abstained, and the
+ * page showed a finished 122-page script with no sign of either. A colour alone reads as decoration.
+ */
+export const CHECK_STATE: Record<CheckDisplay, { word: string; color: string; note: string }> = {
+  FINDINGS: { word: 'found something', color: 'var(--red)', note: 'ran and found something' },
+  CLEAN: { word: 'clean', color: 'var(--green)', note: 'ran and found nothing' },
+  INFO: { word: 'for information', color: 'var(--blue)', note: 'an observation, not a verdict' },
+  NOT_RUN: { word: 'DID NOT RUN', color: 'var(--amber)', note: 'this is NOT a pass' },
+  STALE: { word: 'OUT OF DATE', color: 'var(--amber)', note: 'the pages changed after this verdict' },
+  ABSENT: { word: 'NEVER RECORDED', color: 'var(--faint)', note: 'nothing ever wrote a result' },
+};
+
+export const CHECK_LABEL: Record<string, string> = {
+  ending: 'Ending reached', planEnding: 'Plan reaches the ending', planState: 'Plan state read',
+  nameDrift: 'Name drift', ledger: 'Identity & state', writtenDeaths: 'Deaths written on the page',
+  clock: 'Story clock', flashback: 'Flashbacks', density: 'Shape of the draft',
+  echo: 'Repeated phrases', register: 'Against the source register',
+};
+
+export type CheckRowView = {
+  kind: string; label: string; word: string; color: string; bg: string;
+  reason: string; items: Array<{ scene: number | null; kind: string; detail: string }>;
+};
+
+/** One row, ready to render. An unknown display degrades to ABSENT, never to CLEAN. */
+export function checkRowView(row: any): CheckRowView {
+  const kind = String((row && row.kind) || 'unknown');
+  const display = (CHECK_STATE as any)[row && row.display] ? (row.display as CheckDisplay) : 'ABSENT';
+  const st = CHECK_STATE[display];
+  return {
+    kind,
+    label: CHECK_LABEL[kind] || kind,
+    word: st.word,
+    color: st.color,
+    bg: tint(st.color),
+    reason: String((row && row.reason) || st.note),
+    items: Array.isArray(row && row.items) ? row.items : [],
+  };
+}
+
+/**
+ * The one line a writer sees where a run ends.
+ *
+ * WHAT WAS NOT CHECKED LEADS whenever anything was not. "0 findings" over ten checks nobody ran is
+ * the rental/logistics "Alerts 0" defect — an all-clear asserted on an unread board. The clean
+ * verdict is printed only when the backend's own allClear is true, which is false while anything is
+ * unchecked, so this cannot claim something nobody computed. `null` is no record at all, which is
+ * not the same as nothing found.
+ */
+export function checkSummaryLine(sum: any): { text: string; color: string } | null {
+  if (!sum || typeof sum !== 'object') return null;
+  const findings = Number(sum.findings) || 0;
+  const notRun = Number(sum.notRun) || 0;
+  if (sum.allClear === true) {
+    return { text: '✓ every check ran, nothing found', color: 'var(--green)' };
+  }
+  if (notRun > 0) {
+    return {
+      text: notRun + ' not checked' + (findings ? ' · ' + findings + ' finding(s)' : ''),
+      color: 'var(--amber)',
+    };
+  }
+  return { text: findings + ' finding(s)', color: findings ? 'var(--red)' : 'var(--faint)' };
+}
+
+/**
+ * Does this package read describe the revision we are waiting for?
+ *
+ * WHY THE QUESTION EXISTS. regenerateFeature returns the NEW revision's id, but the run reports
+ * status DONE and only THEN materialises its scenes and switches scriptDocument.activeRevisionId
+ * (service :5712-5717). developmentPackage reads the active revision, so a read fired the moment
+ * DONE appears can describe the PREVIOUS revision — and on an 85-scene script materialiseScenes is
+ * not instant. Showing that read is worse than showing nothing: it reports the old draft's checks
+ * under the new draft's pages, and nothing on screen says which.
+ *
+ * With no expected id (the ordinary page load) whatever is active is the right answer.
+ */
+export function isRevisionReady(script: any, expectRev?: string | null): boolean {
+  const want = String(expectRev || '').trim();
+  if (!want) return true;
+  const got = String((script && script.revisionId) || '').trim();
+  return !!got && got === want;
+}
+
+/**
+ * The literal colour behind a .sx variable, for surfaces that do not define it.
+ *
+ * The .sx palette is declared per component. The script page's root is .rdroot, which defines only
+ * --gold2, --goldink, --hair, --faint and --mute — so a `var(--amber)` handed to it is an undefined
+ * custom property, the declaration is dropped, and the element inherits. The summary line was
+ * therefore colourless on the one surface it was written for, while being correct in the Doctor.
+ *
+ * A hex passes through. Anything unrecognised falls back to --mute's literal value rather than to
+ * an undefined variable, because invisible is the failure mode being fixed.
+ */
+export function solidColor(color: string): string {
+  const c = String(color || '');
+  if (SX_HEX[c]) return SX_HEX[c];
+  return /^#[0-9a-fA-F]{3,8}$/.test(c) ? c : '#9aa1ab';
+}
+
+/**
+ * Where an item sits, in words a reader can act on.
+ *
+ * A whole-draft item carries no scene — LENGTH, CLOCK_DISCARDED and NO_EXIT_GATE are properties of
+ * the draft, not of one page — and the row printed "scene ?" for them, which reads as a defect the
+ * system failed to locate rather than one that has no location. Those two cases are different and
+ * must not share a phrase: "scene ?" stays for a finding that SHOULD have a scene and lost it.
+ */
+const WHOLE_DRAFT = new Set(['LENGTH', 'CLOCK_DISCARDED', 'NO_EXIT_GATE']);
+
+export function itemWhere(item: { scene?: number | null; kind?: string } | null | undefined): string {
+  const kind = String((item && item.kind) || '').toUpperCase();
+  const scene = item && item.scene;
+  if (typeof scene === 'number' && Number.isFinite(scene) && scene > 0) return 'scene ' + scene;
+  if (WHOLE_DRAFT.has(kind)) return 'the whole draft';
+  return 'scene not identified';
+}
+
+/**
+ * HAS THIS RESULT BEEN SEEN BEFORE IN THIS BROWSER?
+ *
+ * Remembering the REVISION was not enough, and the reason is in promoteToScript: the revision is
+ * created and made active BEFORE a word is written (:6140-6141), and generateScriptAsync then writes
+ * into that same id (:6147). The id is therefore constant across the whole run. So opening
+ * /scripton/script?doc=X mid-generation — which the ScriptonGenPill's openRun link does — recorded
+ * the revision while the checks still said "11 not checked", and the finished result ("1 not checked
+ * · 2 findings") was then never a first sight and never shown. The banner fired on the one state
+ * nobody needed and stayed silent on the one they did.
+ *
+ * So the memory is the RESULT: the revision id together with its counts, in a fixed order. A
+ * different result for the same revision is a first sight again, which is exactly the mid-run then
+ * finished case.
+ */
+export interface CheckCounts { findings?: number; notRun?: number; clean?: number; info?: number }
+
+export interface SeenStore { get(key: string): string | null; set(key: string, value: string): void }
+
+const MEMORY = new Map<string, string>();
+
+/**
+ * localStorage when it works, an in-process Map when it does not.
+ *
+ * Private windows and blocked site data make localStorage throw on ACCESS, not just on write. The
+ * fallback keeps first-sight-per-session rather than degrading to "every reload" — showing the
+ * banner for ever is worse than showing it once a session, and never showing it hides a real result.
+ */
+export function defaultSeenStore(): SeenStore {
+  return {
+    get(key) {
+      try { return window.localStorage.getItem(key); } catch { return MEMORY.get(key) ?? null; }
+    },
+    set(key, value) {
+      try { window.localStorage.setItem(key, value); } catch { MEMORY.set(key, value); }
+    },
+  };
+}
+
+const n0 = (v: any): number => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+
+/**
+ * The ordered value remembered per document: which revision, and what it said.
+ *
+ * null when there is no revision or no summary — there is nothing to remember, and nothing may be
+ * recorded, or the next load with a real summary would read as already seen.
+ */
+export function resultSignature(
+  revisionId: string | null | undefined, summary: CheckCounts | null | undefined,
+): string | null {
+  const rev = String(revisionId || '').trim();
+  if (!rev || !summary || typeof summary !== 'object') return null;
+  return [rev, n0(summary.findings), n0(summary.notRun), n0(summary.clean), n0(summary.info)].join('|');
+}
+
+export function isFirstSightOfResult(
+  docId: string | null | undefined,
+  revisionId: string | null | undefined,
+  summary: CheckCounts | null | undefined,
+  store: SeenStore,
+): boolean {
+  const doc = String(docId || '').trim();
+  const sig = resultSignature(revisionId, summary);
+  // With nothing to identify there is no question to answer, and nothing to record either.
+  if (!doc || !sig) return false;
+  const key = 'scripton.seenResult.' + doc;
+  if (store.get(key) === sig) return false;
+  // Recording is part of asking: a question answered twice must answer differently the second time,
+  // or the banner returns on every reload and becomes the thing nobody reads.
+  store.set(key, sig);
+  return true;
+}
+
+/**
+ * MAY THE CHECKS BE SHOWN AT ALL THIS LOAD?
+ *
+ * No, while a generation is in flight: the counts then describe a half-written draft, and the
+ * reader would be told "11 not checked" about a script that is still being checked. And no when the
+ * progress probe did not answer — an unanswered probe is not evidence that nothing is running, so it
+ * counts as "do not ask this load" rather than as permission.
+ */
+export function checksVisible(
+  progressStatus: string | null | undefined, probeAnswered: boolean,
+): boolean {
+  if (!probeAnswered) return false;
+  return String(progressStatus || '').toUpperCase() !== 'GENERATING';
+}

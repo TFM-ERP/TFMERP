@@ -1,0 +1,50 @@
+-- ─────────────────────────────────────────────────────────────────────────────────────────────
+-- NOT APPLIED. NOT IN prisma/migrations/. DO NOT RUN THIS FILE.
+--
+-- It is staged under prisma/pending-migrations/ on purpose: Prisma only scans prisma/migrations/,
+-- so a `migrate deploy` run by ANYONE — including the accounting session, which shares this
+-- database — cannot pick it up from here. The standing rule is that nothing touches the database
+-- without Qais's explicit "apply", and a file sitting in the scanned directory would arm exactly
+-- the accident that rule exists to prevent.
+--
+-- ON "apply", IN THIS ORDER:
+--
+--   1. THE BACKUP. The rows, not the schema — no --schema-only and no --data-only, or it restores
+--      nothing. Run from the repo root:
+--
+--        pg_dump "$DATABASE_URL" -t script_revisions \
+--          -f "Claude outputs/captures/db-backup-20261003-script_revisions-pre-scenePlan.sql"
+--
+--      Then VERIFY it before trusting it: the dump's COPY/INSERT row count must equal
+--
+--        SELECT count(*) FROM script_revisions;        -- 43 at the time of writing
+--
+--   2. confirm the accounting session is not mid-`migrate deploy`
+--   3. move this directory to backend/prisma/migrations/20261003120000_script_revision_scene_plan
+--   4. npm run migrate:deploy      (NEVER migrate dev, db push, or migrate diff output)
+--   5. declare the column in schema.prisma, then prisma generate — in this worktree only
+--   6. rebuild and restart the backend, with nothing generating
+--
+-- TIMESTAMP. 20261003120000 sorts after 20260922120000_payment_paid_from_slips, which is both the
+-- newest directory in the TFM-System tree and the newest applied row in _prisma_migrations. The
+-- scripton worktree's own newest is 20260922100000_script_document_archived_at, so reading either
+-- tree alone would have produced a timestamp that sorts before the accounting session's work.
+-- ─────────────────────────────────────────────────────────────────────────────────────────────
+
+-- WHAT THIS IS FOR. Every nameDrift, ledger and flashback finding is a disagreement between the
+-- PLAN and the PAGE, and the plan half is discarded the moment a run ends. The 85 ScriptScene rows
+-- are not it: materialiseScenes re-parses the WRITTEN pages, and on the 2 Oct run that produced 85
+-- rows from an 81-scene plan — a different list, four scenes longer. JQ2-FINAL-plan.json exists
+-- only because the plan could not be captured from the database at all.
+--
+-- scenePlan: the scene list the script was written FROM, as planned, before any scene was written.
+--
+-- NULLABLE, ADDITIVE, NO DEFAULT, NO BACKFILL. All 43 existing revisions keep NULL, which reads as
+-- "this revision predates the column" and never as "this revision was written from no plan". The
+-- distinction is load-bearing: the util that writes this column returns null for a planning failure
+-- and a stored empty plan for a plan that genuinely had no scenes, and a DEFAULT '[]' here would
+-- erase that difference for every row written before it.
+--
+-- No index. Nothing queries into this column; it is read whole, by revision id, on a row that is
+-- already being fetched.
+ALTER TABLE "script_revisions" ADD COLUMN "scenePlan" JSONB;

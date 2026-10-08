@@ -96,6 +96,94 @@ export interface ClassifiedLine {
  * non-blank line is dialogue or a parenthetical. "BANG" followed by a blank line and an action
  * paragraph is an action beat, not a character called BANG.
  */
+/**
+ * CLOSE THE GAP BETWEEN A SPEAKER AND THEIR SPEECH.
+ *
+ * nextInSpeech('blank') is false, deliberately — a blank line ends a speech. So when the writer
+ * emits a cue, a blank, then the line, classifyLine sees the line with inSpeech false and calls it
+ * ACTION. The page renders a character's words as stage direction. Measured on the 2 Oct draft:
+ * 99 cues whose speech did not classify as dialogue, 112 gaps, in scenes 5-12.
+ *
+ * ONLY UNDER A LINE THAT NAMES A SPEAKER. The first version of this acted under any line that
+ * satisfied looksLikeCue when the next line contained a lower-case letter — and every action
+ * paragraph contains one, so it joined "BANG" to "The door flies open.", "THE DOOR SLAMS OPEN" to
+ * "Jason turns.", and "SUPER: SEVEN YEARS EARLIER" to "Rain." Its own doc comment claimed beats
+ * were left alone; nothing had tested that. A line names a speaker only when:
+ *
+ *   (i)  it carries a cue extension — (CONT'D), (O.S.), (V.O.), (O.C.) — which no action beat does;
+ *   (ii) or its base matches one of the speakers the caller knows about, by sameCharacter.
+ *
+ * With no list, (i) alone applies: the conservative half, and the one that cannot misfire.
+ *
+ * (MORE) stays on a cue line for rendering, but is NOT on its own evidence of a speaker: it is a
+ * page-break artefact and the brief names four markers, not five.
+ *
+ * Two normalisations, both on the WRITING side only. looksLikeCue, classifyLine, nextInSpeech and
+ * paginate are untouched: PAGE_BUDGET is calibrated on them, and a classifier that accepted a
+ * blank inside a speech would change every page count in the system.
+ *
+ *   (a) the blank line(s) between a speaker and their speech are removed;
+ *   (b) a prose parenthetical on the speaker's line moves to its own line beneath it.
+ *
+ * Under a named speaker the speech is taken whatever its case — an all-caps shout is still speech —
+ * unless the next line is itself a cue, a slug or a transition.
+ *
+ * Pure, and idempotent: running it twice is running it once.
+ */
+const CUE_EXT_RE = /^\((?:CONT'?D|CONTINUED|O\.?S\.?|V\.?O\.?|O\.?C\.?|MORE)\)$/i;
+/** The four that identify a speaker on their own. (MORE) renders but does not identify. */
+const SPEAKER_EXT_RE = /^\((?:CONT'?D|CONTINUED|O\.?S\.?|V\.?O\.?|O\.?C\.?)\)$/i;
+
+export function tightenSpeakerCues(text: string, knownSpeakers?: readonly string[] | null): string {
+  const known = (Array.isArray(knownSpeakers) ? knownSpeakers : [])
+    .map((n) => String(n || '').trim()).filter(Boolean);
+  const lines = String(text || '').replace(/\r/g, '').split('\n');
+  const out: string[] = [];
+
+  const isSlugOrTrans = (t: string) => SLUG_RE.test(t) || AR_SLUG_RE.test(t) || TRANS_RE.test(t);
+
+  /** Does this line NAME a speaker? Never a slug, a transition, or a bare all-caps beat. */
+  const namesSpeaker = (base: string, hasSpeakerExt: boolean): boolean => {
+    if (!base || isSlugOrTrans(base) || !looksLikeCue(base)) return false;
+    if (hasSpeakerExt) return true;
+    return known.some((k) => sameCharacter(k, base));
+  };
+
+  /** The speech under a named speaker: anything that is not another cue, a slug or a transition. */
+  const isSpeech = (t: string) => !!t && !isSlugOrTrans(t) && !looksLikeCue(t);
+
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i];
+    const t = raw.trim();
+
+    // Peel any trailing parenthetical off, so the base can be tested on its own.
+    let cueLine = raw;
+    let splitParen = '';
+    let base = t.replace(/\s*\([^)\n]*\)\s*$/u, '').trim();
+    let hasSpeakerExt = false;
+    for (const m of t.match(/\([^)\n]*\)/gu) || []) if (SPEAKER_EXT_RE.test(m)) hasSpeakerExt = true;
+
+    const trailing = t.match(/^(.*?)\s*(\([^)\n]*\))$/u);
+    if (trailing && trailing[1] && !CUE_EXT_RE.test(trailing[2])) {
+      const kept = trailing[1].trim();
+      const keptBase = kept.replace(/\s*\([^)\n]*\)\s*$/u, '').trim();
+      if (namesSpeaker(keptBase, hasSpeakerExt)) { cueLine = kept; splitParen = trailing[2]; base = keptBase; }
+    }
+
+    out.push(cueLine);
+    if (splitParen) out.push(splitParen);
+
+    if (!namesSpeaker(base, hasSpeakerExt)) continue;
+    let j = i + 1;
+    while (j < lines.length && !lines[j].trim()) j++;
+    if (j > i + 1 && j < lines.length
+      && (isSpeech(lines[j].trim()) || lines[j].trim().charAt(0) === '(')) {
+      i = j - 1;   // swallow the blanks; the loop picks up at the speech line
+    }
+  }
+  return out.join('\n');
+}
+
 export function classifyScript(text: string): ClassifiedLine[] {
   const lines = String(text || '').replace(/\r/g, '').split('\n');
   const out: ClassifiedLine[] = [];
@@ -720,26 +808,69 @@ export interface NameForm { form: string; count: number; firstScene: number }
  * JASON ANDREW QUICK and Jason Richard Quick both resolve to JASON, and are then two forms of one
  * person. Single-token uses (plain "Jason") are ignored: they cannot disagree with anything.
  */
+/**
+ * Prose only. A slug line is a LOCATION, and reading it as a name is how "VALE MERIDIAN EXECUTIVE
+ * FLOOR" became a spelling of a character on 1 Sep — and then how the repair rewrote every heading
+ * in the screenplay. Headings are supplied by us; they are never evidence of drift.
+ *
+ * Exported shape is LINES, not joined text, because the collector must match within a line and the
+ * presence test in findNameDrift must look at exactly the same prose the collector read. When those
+ * two disagreed, a form found in filtered prose was confirmed against raw text that still had the
+ * heading in it.
+ */
+function proseLines(text: any): string[] {
+  return String(text || '')
+    .split('\n')
+    .filter((ln) => { const t = ln.trim(); return !(SLUG_RE.test(t) || AR_SLUG_RE.test(t) || TRANS_RE.test(t)); });
+}
+
+/**
+ * A POSSESSIVE IS THE SAME PERSON. "ADRIAN COLE'S" and "ADRIAN COLE" are one name, and on the
+ * 2 Oct draft treating them as two was most of the drift this check reported. Both apostrophes,
+ * because the writer emits the typographic one.
+ */
+function dropPossessives(norm: string): string {
+  return String(norm || '').split(' ').map((t) => t.replace(/['’][Ss]$/u, '')).filter(Boolean).join(' ');
+}
+
+/**
+ * A RUN THAT STARTS WITH A KNOWN NAME IS THAT NAME PLUS WORDS, not a new spelling of it.
+ * "ALEXANDER QUICK'S SON ALIVE" in a headline is ALEXANDER QUICK followed by two more capitals;
+ * read whole it looked like a fourth way of spelling him. The longest registered prefix wins, and
+ * a run that IS a registered name entire is left alone — it is not "a name plus words".
+ */
+function trimToRegisteredPrefix(norm: string, registeredFull: Set<string>): string {
+  const toks = String(norm || '').split(' ').filter(Boolean);
+  if (toks.length < 3 || registeredFull.has(norm)) return norm;
+  for (let n = toks.length - 1; n >= 2; n--) {
+    const prefix = toks.slice(0, n).join(' ');
+    if (registeredFull.has(prefix)) return prefix;
+  }
+  return norm;
+}
+
 export function collectNameForms(
   written: Array<{ text: string }>,
   tracked: string[],
 ): Map<string, NameForm[]> {
-  const keys = (Array.isArray(tracked) ? tracked : []).map((t) => keyName(t)).filter((k) => k.length >= 3);
+  const trackedNorm = (Array.isArray(tracked) ? tracked : [])
+    .map((t) => dropPossessives(normaliseCharacterName(t))).filter(Boolean);
+  const registeredFull = new Set(trackedNorm);
+  const keys = trackedNorm.map((t) => keyName(t)).filter((k) => k.length >= 3);
   const byKey = new Map<string, NameForm[]>();
   if (!keys.length) return byKey;
   const RUN = /\b\p{Lu}[\p{Ll}\p{Lu}'’-]+(?:\s+\p{Lu}[\p{Ll}\p{Lu}'’-]+)+/gu;
   const list = Array.isArray(written) ? written : [];
   for (let i = 0; i < list.length; i++) {
-    // Prose only. A slug line is a LOCATION, and reading it as a name is how "VALE MERIDIAN
-    // EXECUTIVE FLOOR" became a spelling of a character on 1 Sep — and then how the repair rewrote
-    // every heading in the screenplay. Headings are supplied by us; they are never evidence of drift.
-    const text = String((list[i] && list[i].text) || '')
-      .split('\n')
-      .filter((ln) => { const t = ln.trim(); return !(SLUG_RE.test(t) || AR_SLUG_RE.test(t) || TRANS_RE.test(t)); })
-      .join('\n');
-    const runs = text.match(RUN) || [];
+    // ONE RUN NEVER CROSSES A LINE BREAK. Matched over joined text, \s+ swallowed the newline
+    // between a speaker cue and its speech, so "JASON" + "DRIVE." became the name "JASON DRIVE" —
+    // and on the 2 Oct draft that manufactured over a hundred phantom spellings ("JASON THAT'S"
+    // ten times, "ALEXANDER YOU" five). Per line, a cue is a cue and its speech is its own line.
+    for (const line of proseLines((list[i] && list[i].text) || '')) {
+    const runs = line.match(RUN) || [];
     for (const run of runs) {
-      const norm = normaliseCharacterName(run);
+      let norm = dropPossessives(normaliseCharacterName(run));
+      norm = trimToRegisteredPrefix(norm, registeredFull);
       const toks = norm ? norm.split(' ') : [];
       if (toks.length < 2) continue;
       const k = keyName(norm);
@@ -749,6 +880,7 @@ export function collectNameForms(
       if (hit) hit.count++;
       else forms.push({ form: norm, count: 1, firstScene: i });
       byKey.set(k, forms);
+    }
     }
   }
   return byKey;
@@ -789,7 +921,28 @@ export function canonicalForm(forms: NameForm[], facts: CanonFactCore[], registe
   const reg = registered
     ? new Set(Array.from(registered).map((r) => normaliseCharacterName(r)).filter(Boolean))
     : null;
-  const known = (form: string) => canonParts.some((c) => statesName(c, form)) || (!!reg && reg.has(form));
+  /**
+   * A REGISTERED NAME SHORTER THAN EVERY WRITTEN FORM STILL RECOGNISES THE PERSON.
+   *
+   * `reg.has(form)` alone needs the registry to hold a spelling the page actually used. Cast a
+   * character as ALDER and let the pages write ALDER VOSS and ALDER VANCE and nothing matched, so
+   * `pool` came back empty, canonicalForm returned '' and findNameDrift abandoned the key — two
+   * different surnames on one registered given name, reported as nothing.
+   *
+   * This is NOT the "nothing recognised" case the comment below guards. The registry does recognise
+   * the person; it simply does not pin the full spelling. A registered name contained in a written
+   * form IN ORDER is the same relation subsumes already uses everywhere else in this file, so
+   * ALDER vouches for ALDER VOSS while BRENN vouches for nothing.
+   *
+   * It cannot resurrect the JASON ALEXANDER QUICK false positive: when the registry DOES hold a
+   * written spelling, that spelling becomes canonical and the longer one is compatible with it, so
+   * it is still not reported.
+   *
+   * No r !== form guard: reg.has(form) is checked first and short-circuits, so an exact match never
+   * reaches this.
+   */
+  const vouched = (form: string) => !!reg && Array.from(reg).some((r) => subsumes(r, form));
+  const known = (form: string) => canonParts.some((c) => statesName(c, form)) || (!!reg && reg.has(form)) || vouched(form);
   const stated = list.filter((f) => known(f.form));
   // With a registry and nothing recognised, we do not know which spelling is right — and guessing is
   // how the last one went wrong. Returning '' means "no repair", which is the correct answer.
@@ -803,6 +956,84 @@ export function canonicalForm(forms: NameForm[], facts: CanonFactCore[], registe
  * A character written under more than one full name. Exact, not inferred: two spellings resolving to
  * one key name is a contradiction whatever the story is about.
  */
+/**
+ * ONE NAME, WRITTEN LONG AND SHORT. JASON QUICK's tokens appear in order inside JASON ALEXANDER
+ * QUICK, so they are two spellings of one identity rather than two identities — the bible's own
+ * register names "Jason Alexander Quick" as who he is. Reporting them as drift made the count an
+ * artefact of how the cast list happened to be spelled: on the 2 Oct draft the same text yielded
+ * 0 findings spelled JASON, 2 spelled JASON QUICK and 1 spelled JASON ALEXANDER QUICK.
+ *
+ * Subsequence, not prefix: a middle name is inserted, not appended.
+ */
+function subsumes(shorter: string, longer: string): boolean {
+  const x = String(shorter || '').split(' ').filter(Boolean);
+  const y = String(longer || '').split(' ').filter(Boolean);
+  if (!x.length || x.length > y.length) return false;
+  let i = 0;
+  for (const t of y) if (i < x.length && t === x[i]) i++;
+  return i === x.length;
+}
+
+/** Two forms of one name: identical, or one contained in the other in order. */
+function compatibleForms(a: string, b: string): boolean {
+  return a === b || subsumes(a, b) || subsumes(b, a);
+}
+
+/**
+ * TWO REGISTERED FORMS ARE DIFFERENT PEOPLE ONLY WHEN THEIR LAST TOKEN DIFFERS.
+ *
+ * The first version of this rule excused any form that appeared on the cast list, which was too
+ * wide: with JASON ANDREW QUICK and JASON RICHARD QUICK both registered and both in the prose, a
+ * genuine contradiction went unreported. ATTACKER ONE and ATTACKER TWO differ in the last token
+ * and are two people; ANDREW and RICHARD share it and are one person written two ways.
+ */
+function differentRegisteredPeople(a: string, b: string): boolean {
+  const at = String(a || '').split(' ').filter(Boolean);
+  const bt = String(b || '').split(' ').filter(Boolean);
+  if (!at.length || !bt.length) return false;
+  return at[at.length - 1] !== bt[bt.length - 1];
+}
+
+/**
+ * The words and figures a screenplay uses to number its extras. No story names: these are the
+ * ordinals and digits any draft reaches for, and nothing else belongs here — every word on this
+ * list is a word the name check stops reading as a misspelling.
+ *
+ * Single letters are included because SOLDIER A / SOLDIER B is the other common form.
+ */
+const ENUMERATOR = new Set([
+  'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE', 'TEN', 'ELEVEN', 'TWELVE',
+  'FIRST', 'SECOND', 'THIRD', 'FOURTH', 'FIFTH',
+  'A', 'B', 'C', 'D', 'E', 'F',
+]);
+
+const isEnumeratorToken = (t: string): boolean => ENUMERATOR.has(t) || /^\d{1,3}$/.test(t);
+
+/**
+ * TWO NAMES IDENTICAL EXCEPT FOR A TRAILING NUMBER ARE DIFFERENT PEOPLE. Never drift, registered
+ * or not. (Ruled.)
+ *
+ * differentRegisteredPeople exempts a pair only when BOTH spellings are on the cast list, which is
+ * right for names — an unregistered form whose last token differs is usually the misspelling we
+ * want to report. It is wrong for extras: a plan that casts WARDEN ONE and then writes WARDEN TWO
+ * and WARDEN THREE has not misspelled anything, it has three guards, and the check told the writer
+ * to rename two of them.
+ *
+ * THE TEST IS NARROW ON BOTH SIDES. The prefixes must be IDENTICAL and both last tokens must be
+ * enumerators, so WARDEN HALE and WARDEN HALL stay reportable — HALL is not a number — and GUARD
+ * ONE and WARDEN TWO are not quietly treated as one family.
+ */
+function enumeratedApart(a: string, b: string): boolean {
+  const at = String(a || '').split(' ').filter(Boolean);
+  const bt = String(b || '').split(' ').filter(Boolean);
+  if (at.length < 2 || bt.length < 2 || at.length !== bt.length) return false;
+  const la = at[at.length - 1];
+  const lb = bt[bt.length - 1];
+  if (la === lb) return false;
+  if (!isEnumeratorToken(la) || !isEnumeratorToken(lb)) return false;
+  return at.slice(0, -1).join(' ') === bt.slice(0, -1).join(' ');
+}
+
 export function findNameDrift(
   written: Array<{ heading: string; text: string }>,
   tracked: string[],
@@ -815,7 +1046,7 @@ export function findNameDrift(
   const registered = Array.from(new Set(
     (Array.isArray(tracked) ? tracked : []).concat(
       (Array.isArray(facts) ? facts : []).map((f) => String((f && f.subject) || '')),
-    ).map((t) => normaliseCharacterName(t)).filter(Boolean),
+    ).map((t) => dropPossessives(normaliseCharacterName(t))).filter(Boolean),
   ));
   byKey.forEach((forms, key) => {
     if (forms.length < 2) return;
@@ -823,11 +1054,57 @@ export function findNameDrift(
     // '' means the registry recognised none of the spellings. Two unknown forms of an unknown name
     // is not a fact we can act on, and acting on it anyway is precisely the 1 Sep failure.
     if (!canonical) return;
-    const wrong = forms.filter((f) => f.form !== canonical);
+    /*
+     * ONLY FORMS THAT CONFLICT. Three filters, in order:
+     *
+     *   1. the canonical itself is never drift;
+     *   2. a registered form is a different PERSON only when its last token differs from the
+     *      canonical's (ATTACKER ONE / ATTACKER TWO) — sharing it means one person written two
+     *      ways, which is still reportable;
+     *   3. a form conflicts when it is NOT a longer-or-shorter spelling of the canonical, or when
+     *      it is not a longer-or-shorter spelling of some form used MORE OFTEN than it is.
+     *
+     * The second half of (3) is what keeps the real contradiction visible. With canonical JASON
+     * QUICK, JASON ANDREW QUICK twice and JASON RICHARD QUICK once, both long forms are compatible
+     * with the canonical — but they are not compatible with each other, so the rarer one is
+     * reported against the commoner one and ANDREW is left alone.
+     */
+    /**
+     * The form this one conflicts WITH, or '' when it conflicts with nothing. Returning the rival
+     * rather than a boolean is what lets the detail line name it: it used to name the canonical,
+     * so a scene reported for contradicting JASON ANDREW QUICK was told it should read JASON QUICK.
+     *
+     * "More often" alone had no answer on a tie. Two single-use middle names cancelled each other
+     * out and the scene reported nothing at all — worse than the over-reporting it replaced,
+     * because a contradiction between exactly two spellings is the ordinary case. The tie is broken
+     * the way canonicalForm breaks it (:842): count descending, then firstScene ascending, so the
+     * spelling that appeared first stands and the later one is reported against it.
+     */
+    const rivalFor = (f: NameForm): string => {
+      if (!compatibleForms(f.form, canonical)) return canonical;
+      const rival = forms
+        .filter((g) => g.form !== f.form && !compatibleForms(f.form, g.form))
+        .sort((a, b) => (b.count - a.count) || (a.firstScene - b.firstScene))
+        .find((g) => g.count > f.count || (g.count === f.count && g.firstScene < f.firstScene));
+      return rival ? rival.form : '';
+    };
+    const rivalOf = new Map<string, string>();
+    const wrong = forms.filter((f) => {
+      if (f.form === canonical) return false;
+      if (registered.indexOf(f.form) >= 0 && differentRegisteredPeople(f.form, canonical)) return false;
+      // Enumerated extras are different people whether or not the plan bothered to cast them all.
+      if (enumeratedApart(f.form, canonical)) return false;
+      const r = rivalFor(f);
+      if (!r) return false;
+      rivalOf.set(f.form, r);
+      return true;
+    });
     if (!wrong.length) return;
     const list = Array.isArray(written) ? written : [];
     for (let i = 0; i < list.length; i++) {
-      const text = String((list[i] && list[i].text) || '');
+      // THE SAME PROSE THE COLLECTOR READ. This was raw text, heading included — so a scene could
+      // be reported for a form the collector had never seen in it.
+      const text = proseLines((list[i] && list[i].text) || '').join('\n');
       const here = wrong.filter((w) => text.indexOf(properCase(w.form)) >= 0 || text.indexOf(w.form) >= 0);
       if (!here.length) continue;
       out.push({
@@ -835,8 +1112,11 @@ export function findNameDrift(
         sceneIndex: i,
         heading: String((list[i] && list[i].heading) || ''),
         names: [canonical].concat(here.map((w) => w.form)),
-        detail: key + ' is written as ' + here.map((w) => '"' + w.form + '"').join(' and ')
-          + ' here, but as "' + canonical + '" elsewhere.',
+        // NAME THE FORM IT ACTUALLY CONFLICTS WITH. Per clause, because two forms in one scene can
+        // each contradict a different spelling; the single-form case reads as it always did.
+        detail: key + ' is written as ' + here
+          .map((w) => '"' + w.form + '" here, but as "' + (rivalOf.get(w.form) || canonical) + '" elsewhere')
+          .join('; and as ') + '.',
         repairable: true,
       });
     }

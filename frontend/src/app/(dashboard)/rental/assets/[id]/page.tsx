@@ -471,6 +471,12 @@ export default function AssetDetailPage() {
       });
       setEditing(false);
       load();
+    } catch (e: any) {
+      // PUT /rental/assets/:id is rentals:2 from this commit, and FINANCE_MANAGER, SALES and
+      // PRODUCTION_MANAGER sit at rentals:1 and still see the Edit button. This had a finally and
+      // no catch, so a refusal left the form open with the edits in it and said nothing. The form
+      // still stays open — setEditing(false) is skipped on a throw — but now with a reason.
+      alert(e?.response?.data?.message || e?.message || 'Could not save the asset.');
     } finally { setSaving(false); }
   };
 
@@ -503,14 +509,21 @@ export default function AssetDetailPage() {
     } catch (e: any) { alert(e?.response?.data?.message || 'Could not remove the photo.'); }
   };
 
-  // Doc uploads
+  // Doc uploads and removes. All four call PUT :id, now rentals:2 — the uploads had a finally and
+  // no catch, and the two removes were inline arrows in the JSX with no try at all, so a refusal
+  // left the document on screen and reported nothing. They are named handlers now so the catch has
+  // somewhere to live, and they use this file's existing alert idiom (:493, :503).
+  const docFailed = (e: any, what: string) =>
+    alert(e?.response?.data?.message || e?.message || `Could not ${what}.`);
+
   const handleRegDocUpload = async (file: File) => {
     setUploadingRegDoc(true);
     try {
       const result = await uploadFile(file);
       await rentalApi.assets.update(id, { registrationDocUrl: result.url });
       setAsset((a: any) => ({ ...a, registrationDocUrl: result.url }));
-    } finally { setUploadingRegDoc(false); }
+    } catch (e: any) { docFailed(e, 'upload the registration card'); }
+    finally { setUploadingRegDoc(false); }
   };
 
   const handleInsDocUpload = async (file: File) => {
@@ -519,7 +532,22 @@ export default function AssetDetailPage() {
       const result = await uploadFile(file);
       await rentalApi.assets.update(id, { insuranceDocUrl: result.url });
       setAsset((a: any) => ({ ...a, insuranceDocUrl: result.url }));
-    } finally { setUploadingInsDoc(false); }
+    } catch (e: any) { docFailed(e, 'upload the insurance certificate'); }
+    finally { setUploadingInsDoc(false); }
+  };
+
+  const handleRegDocRemove = async () => {
+    try {
+      await rentalApi.assets.update(id, { registrationDocUrl: null });
+      setAsset((a: any) => ({ ...a, registrationDocUrl: null }));
+    } catch (e: any) { docFailed(e, 'remove the registration card'); }
+  };
+
+  const handleInsDocRemove = async () => {
+    try {
+      await rentalApi.assets.update(id, { insuranceDocUrl: null });
+      setAsset((a: any) => ({ ...a, insuranceDocUrl: null }));
+    } catch (e: any) { docFailed(e, 'remove the insurance certificate'); }
   };
 
   if (loading) return (
@@ -698,14 +726,14 @@ export default function AssetDetailPage() {
                   label="Registration Card (Mulkiya)"
                   docUrl={asset.registrationDocUrl}
                   onUpload={handleRegDocUpload}
-                  onRemove={async () => { await rentalApi.assets.update(id, { registrationDocUrl: null }); setAsset((a: any) => ({ ...a, registrationDocUrl: null })); }}
+                  onRemove={handleRegDocRemove}
                   uploading={uploadingRegDoc}
                 />
                 <DocUploadCard
                   label="Insurance Certificate"
                   docUrl={asset.insuranceDocUrl}
                   onUpload={handleInsDocUpload}
-                  onRemove={async () => { await rentalApi.assets.update(id, { insuranceDocUrl: null }); setAsset((a: any) => ({ ...a, insuranceDocUrl: null })); }}
+                  onRemove={handleInsDocRemove}
                   uploading={uploadingInsDoc}
                 />
               </div>

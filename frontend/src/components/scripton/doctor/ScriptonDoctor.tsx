@@ -14,6 +14,7 @@ import ScriptonShell from '@/components/scripton/ScriptonShell';
 import {
   scorecardTiles, verdictBanner, sceneFlowBars, arcPoints, diagRows, TRANSFORM_TILES,
   type DiagRow,
+  tint, checkRowView, checkSummaryLine, itemWhere,
 } from './scripton-doctor.logic';
 
 const firstSentence = (s?: string) => {
@@ -123,6 +124,28 @@ const CSS = `
 .sx.doctor[data-vp="mobile"] .phead h1{font-size:20px}
 `;
 
+/**
+ * Plan 01 task 7 — ONE ROW PER CHECK, INCLUDING THE CHECKS THAT NEVER RAN.
+ *
+ * checkSurface on the backend returns one of these per EXPECTED_CHECKS entry, so a check nobody
+ * wired up is a row saying ABSENT rather than a gap in a list. Mirrored here rather than imported
+ * because the frontend does not import from backend/src.
+ */
+export type SxCheckRow = {
+  kind: string;
+  display: 'FINDINGS' | 'CLEAN' | 'INFO' | 'NOT_RUN' | 'STALE' | 'ABSENT';
+  reason: string;
+  isPass: boolean;
+  countsAsFinding: boolean;
+  staleness: 'FRESH' | 'STALE' | 'UNCHECKED';
+  at: string | null;
+  items: Array<{ scene: number | null; kind: string; detail: string }>;
+};
+export type SxCheckSummary = {
+  findings: number; notRun: number; clean: number; info: number; stale: number; absent: number;
+  allClear: boolean;
+};
+
 export type DoctorCanvasProps = {
   title: string; revisionLabel: string; revisionColor: string; meta: string;
   coverageRaw: any | null; analytics: any | null; diagnostics: any[] | null;
@@ -130,6 +153,9 @@ export type DoctorCanvasProps = {
   onGenerate: () => void; onRunDiag: () => void; onAction: (k: string) => void;
   onNav: (k: string) => void; onBack: () => void; onFullReport: () => void;
   toast?: string | null; vp: 'mobile' | 'tablet' | 'desktop';
+  /** null = the read carried no checks at all, which is NOT an all-clear. See the panel below. */
+  checks?: SxCheckRow[] | null;
+  checkSummary?: SxCheckSummary | null;
 };
 
 export default function ScriptonDoctor(props: DoctorCanvasProps) {
@@ -158,9 +184,9 @@ export default function ScriptonDoctor(props: DoctorCanvasProps) {
                 {/* Verdict banner */}
                 {v.hasData ? (
                   <div className="verdict">
-                    <div className="gchip" style={{ color: v.gradeColor, background: v.gradeColor + '29' }}>{v.grade}</div>
+                    <div className="gchip" style={{ color: v.gradeColor, background: tint(v.gradeColor) }}>{v.grade}</div>
                     <div className="vmid">
-                      {v.rec ? <span className="vrec" style={{ background: v.recColor + '29', color: v.recColor }}>{v.rec}</span> : null}
+                      {v.rec ? <span className="vrec" style={{ background: tint(v.recColor), color: v.recColor }}>{v.rec}</span> : null}
                       <div className="vlog">{v.logline || t('Coverage complete — open the full report for the breakdown.')}</div>
                     </div>
                     <div className="vright">
@@ -171,7 +197,7 @@ export default function ScriptonDoctor(props: DoctorCanvasProps) {
                 ) : (
                   <div className="verdict">
                     <div className="gchip" style={{ color: 'var(--faint)', background: 'rgba(255,255,255,.05)' }}>—</div>
-                    <div className="vmid"><div className="vlog">{t('No coverage yet — generate it to read the verdict, scorecard and notes.')}</div></div>
+                    <div className="vmid"><div className="vlog">{t('No coverage for THIS script yet — generate it to read the verdict, scorecard and notes.')}</div></div>
                     <div className="vright"><button className="btn gold" disabled={props.covLoading} onClick={props.onGenerate}>{props.covLoading ? t('Generating…') : t('Generate coverage')}</button></div>
                   </div>
                 )}
@@ -214,13 +240,61 @@ export default function ScriptonDoctor(props: DoctorCanvasProps) {
                       {rows.length ? rows.slice(0, 6).map((r, i) => (
                         <div className="drow" key={i}>
                           <div className="dmid"><div className="dslug">{r.scene} · {r.slug || t('scene')}</div>{r.note ? <div className="dnote">{r.note}</div> : null}</div>
-                          <span className="dtag" style={{ background: r.tagColor + '29', color: r.tagColor }}>{r.tag}</span>
+                          {/* tint(), not string concatenation: 'var(--green)' + '29' is not a colour,
+                              so this tag has had no background since it was written. */}
+                          <span className="dtag" style={{ background: tint(r.tagColor), color: r.tagColor }}>{r.tag}</span>
                         </div>
                       )) : <div className="muted">{t('Run diagnostics to surface per-scene notes.')}</div>}
-                      {/* Conflict detector — kernel-degraded */}
+                      {/*
+                        Plan 01 task 7 — THE CHECKS, AS ROWS.
+                        This printed one generic sentence whatever the revision actually knew about
+                        itself. The 2 Oct revision stored `ending: CLEAN` and `planEnding: NOT_RUN`
+                        and showed neither; nine more checks had never written a row at all.
+                      */}
                       <div className="conflict">
-                        <div className="ct">{t('Conflict Detector')}</div>
-                        <div className="cn">{props.kernelInert === false ? <>{t('No continuity conflicts in the current pass.')} <span className="ok">✓</span></> : t('Continuity is grounded in your pages. Stage a pass to check it against canon.')}</div>
+                        <div className="ct">{t('Checks on this revision')}</div>
+                        {!props.checks ? (
+                          /* NOT an empty panel: an empty panel over an unread column is the
+                             rental/logistics "Alerts 0" defect — an all-clear nobody computed. */
+                          <div className="cn">{t('This revision carries no record of any check — not even that one was skipped. Nothing here has been verified.')}</div>
+                        ) : (<>
+                          {(() => {
+                            const line = checkSummaryLine(props.checkSummary);
+                            return line ? (
+                              <div className="cn" style={{ marginBottom: 6, color: line.color, fontWeight: 700 }}>
+                                {t(line.text)}
+                              </div>
+                            ) : null;
+                          })()}
+                          {props.checks.map((row) => {
+                            const c = checkRowView(row);
+                            return (
+                              <div className="drow" key={c.kind} style={{ alignItems: 'flex-start' }}>
+                                <div className="dmid">
+                                  <div className="dslug">{t(c.label)}</div>
+                                  <div className="dnote">
+                                    <span style={{ color: c.color, fontWeight: 700 }}>{t(c.word)}</span>
+                                    {' — '}{c.reason}
+                                  </div>
+                                  {c.items.length ? (
+                                    <div className="dnote" style={{ opacity: 0.85, marginTop: 3 }}>
+                                      {c.items.slice(0, 4).map((it, j) => (
+                                        <div key={j}>
+                                          {/* itemWhere, not "scene ?": a whole-draft item has no
+                                              location, which is not the same as having lost one. */}
+                                          {t(itemWhere(it))}: {it.detail}
+                                        </div>
+                                      ))}
+                                      {c.items.length > 4
+                                        ? <div>{'+ ' + (c.items.length - 4) + ' ' + t('more')}</div> : null}
+                                    </div>
+                                  ) : null}
+                                </div>
+                                <span className="dtag" style={{ background: c.bg, color: c.color }}>{t(c.word)}</span>
+                              </div>
+                            );
+                          })}
+                        </>)}
                       </div>
                     </div>
 
