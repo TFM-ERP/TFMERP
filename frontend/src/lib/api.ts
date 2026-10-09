@@ -110,9 +110,6 @@ export const uploadFile = async (file: File): Promise<{ url: string; originalNam
   return res.json();
 };
 
-export const deleteUploadedFile = (filename: string) =>
-  api.delete(`/upload/${filename}`);
-
 // ── Finance API helpers ───────────────────────────────────────────────────
 
 export const financeApi = {

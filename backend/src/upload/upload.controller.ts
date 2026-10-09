@@ -1,13 +1,12 @@
 import {
   Controller, Post, UseInterceptors, UploadedFile,
-  UseGuards, BadRequestException, Param, Delete,
+  UseGuards, BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiConsumes } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { diskStorage } from 'multer';
 import { extname, join } from 'path';
-import { existsSync, unlinkSync } from 'fs';
 import { randomUUID } from 'crypto';
 
 const ALLOWED_TYPES = /\.(jpg|jpeg|png|pdf|webp|heic|fdx|docx|txt|fountain)$/i;
@@ -50,19 +49,5 @@ export class UploadController {
       size: file.size,
       mimetype: file.mimetype,
     };
-  }
-
-  @Delete(':filename')
-  @ApiOperation({ summary: 'Delete an uploaded file' })
-  deleteFile(@Param('filename') filename: string) {
-    // Security: only allow simple filenames (no path traversal)
-    if (!/^[a-zA-Z0-9\-_.]+$/.test(filename)) {
-      throw new BadRequestException('Invalid filename');
-    }
-    const filePath = join(process.cwd(), 'uploads', filename);
-    if (existsSync(filePath)) {
-      unlinkSync(filePath);
-    }
-    return { deleted: true };
   }
 }
