@@ -1,5 +1,5 @@
 import {
-  Module, Controller, Injectable, Get, Post, Param, Query, Req, Res,
+  Module, Controller, Injectable, Get, Post, Delete, Param, Query, Req, Res,
   UseGuards, ExecutionContext, BadRequestException, NotFoundException,
   InternalServerErrorException,
 } from '@nestjs/common';
@@ -10,6 +10,12 @@ import { createHmac, timingSafeEqual, randomUUID } from 'crypto';
 import { basename, extname, join, resolve, sep } from 'path';
 import { createReadStream, existsSync, statSync } from 'fs';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PrismaService } from '../common/prisma/prisma.service';
+import { SkipAudit } from '../audit/skip-audit.decorator';
+import {
+  FILE_PASS_COOKIE, FilePass, signFilePass, verifyFilePass, readCookie, passExpiry, jwtExp,
+  filePassCookie, clearFilePassCookie,
+} from './file-pass';
 
 /**
  * Guarded delivery for everything in backend/uploads.
@@ -22,27 +28,37 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
  * token, no session, no log. With supplier invoices, client addresses and the
  * company TRN in there, it was the widest hole in the backend.
  *
- * Two ways in, both authenticated:
+ * Three ways in, all authenticated:
  *
  *   GET /api/v1/uploads/:filename
  *       with an Authorization: Bearer <jwt> header. For fetch/XHR.
  *
  *   GET /api/v1/uploads/:filename?t=<signed>
- *       with a short-lived signed token. A browser <iframe>, <embed> or <img>
- *       cannot attach an Authorization header, so a PDF viewer needs this. The
- *       token is an HMAC over the filename and an expiry, keyed on JWT_SECRET —
- *       it grants ONE file until it expires, and nothing else.
+ *       with a short-lived signed token. It is an HMAC over the filename and an
+ *       expiry, keyed on JWT_SECRET — it grants ONE file until it expires, and
+ *       nothing else. This is what the public token pages (clearance, listen)
+ *       hand out, signed by the resolver that already checked their share token.
  *
+ *   GET /api/v1/uploads/:filename   with the file-pass cookie
+ *       A browser <img>, <audio>, <video> or <a> cannot attach an Authorization
+ *       header, and a per-file link expires in the middle of a two-hour table
+ *       read. So a signed-in browser carries an HttpOnly cookie scoped to this
+ *       path, holding a file pass (see file-pass.ts — it is not the JWT). The
+ *       guard re-checks the user and the login session on every request, so
+ *       revoking a session cuts file access on the next one.
+ *
+ *       THE COOKIE OPENS THIS ONE GET AND NOTHING ELSE. FileAccessGuard is on no
+ *       other handler, and it ignores the cookie on any method but GET and HEAD.
+ *       No other route in the API reads a cookie at all.
+ *
+ *   POST /api/v1/uploads/session      (Bearer only) sets that cookie.
+ *   DELETE /api/v1/uploads/session    (no credentials) clears it from the browser.
  *   POST /api/v1/uploads/:filename/link   (Bearer only)
- *       mints one of those tokens. Default 5 minutes, 60 minutes maximum.
+ *       mints a ?t= token. Default 5 minutes, 60 minutes maximum.
  *
  * Stored URLs do not change: DocumentAttachment.url and every other *Url column
- * stay "/uploads/<name>". What resolves them is `assetUrl` in the frontend's
- * lib/api.ts, and as of this commit it STRIPS "/api/v1" rather than adding it —
- * so nothing the app renders comes through this controller yet. That is why the
- * static mount in main.ts is still in place here: this commit adds the guarded
- * route beside it and changes no existing behaviour. The client switch and the
- * mount's removal are the two commits that follow.
+ * stay "/uploads/<name>". `uploadName` below is the one place that turns a
+ * stored value into a filename this route will serve.
  *
  * RANGE REQUESTS ARE SERVED. express.static answered a Range header with a 206;
  * a controller that always returns 200 leaves audio and video playing from the
@@ -57,7 +73,18 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 const UPLOADS_DIR = resolve(join(process.cwd(), 'uploads'));
 const DEFAULT_TTL_SECONDS = 300;
-const MAX_TTL_SECONDS = 3600;
+/**
+ * The ceiling for any TTL a CALLER asks for: POST /uploads/:filename/link clamps to this and no
+ * route accepts more. One hour.
+ */
+export const MAX_TTL_SECONDS = 3600;
+/**
+ * The ceiling for a link the SERVER signs on its own authority, inside a resolver that has
+ * already checked a share token (the public listen page: a feature table read runs 90-120
+ * minutes, and re-resolving to refresh the link would burn a view). Four hours. Reached only
+ * through signedUploadPath(..., 'server') — never from a request parameter.
+ */
+export const SERVER_MAX_TTL_SECONDS = 14400;
 
 /**
  * Content types we are willing to name. Anything else downloads as binary.
@@ -158,6 +185,29 @@ function resolveInsideUploads(name: string): string | null {
   return full;
 }
 
+/**
+ * The filename a stored value points at, or null when it is not one of ours to serve.
+ * Accepts "/uploads/<name>", a bare "<name>", and "/api/v1/uploads/<name>" with or without a
+ * query string. External and data URLs, nested paths and anything safeName rejects are null.
+ */
+export function uploadName(stored: string | null | undefined): string | null {
+  if (typeof stored !== 'string') return null;
+  const s = stored.trim();
+  if (!s || /^[a-z][a-z0-9+.-]*:/i.test(s)) return null;      // http:, https:, data:, blob: — not ours
+  const path = s.split(/[?#]/)[0];
+  const m = /^(?:\/api\/v1)?\/uploads\/([^/]+)$/.exec(path);
+  const raw = m ? m[1] : path.includes('/') ? null : path;
+  return raw ? safeName(raw) : null;
+}
+
+/** The TTL POST /uploads/:filename/link will use for a raw ?ttl= value. Never above MAX_TTL_SECONDS. */
+export function linkTtl(raw: unknown): number {
+  const requested = Number(raw);
+  return raw != null && raw !== '' && Number.isFinite(requested) && requested > 0
+    ? Math.min(Math.floor(requested), MAX_TTL_SECONDS)
+    : DEFAULT_TTL_SECONDS;
+}
+
 function secret(): string | null {
   const s = process.env.JWT_SECRET;
   return s && s.length ? s : null;
@@ -189,32 +239,136 @@ export function verifyFileToken(name: string, token: string): boolean {
 }
 
 /**
- * A valid signed token for THIS filename is enough. Otherwise fall through to
- * the normal Bearer check, so nothing is weakened for API callers.
+ * A server-signed link to one stored file: "/api/v1/uploads/<name>?t=<token>", or null when the
+ * value is not an upload. For resolvers that have already decided the caller may see the file.
+ *
+ * `ceiling` says whose authority the TTL rests on. 'link' (the default) is the one-hour limit
+ * that applies to anything a caller could influence. 'server' is the four-hour limit, for a TTL
+ * the server computed itself. The disk is not checked: a missing file is a 404 when fetched.
+ */
+export function signedUploadPath(
+  stored: string | null | undefined,
+  ttlSeconds: number = MAX_TTL_SECONDS,
+  ceiling: 'link' | 'server' = 'link',
+): string | null {
+  const name = uploadName(stored);
+  if (!name) return null;
+  const max = ceiling === 'server' ? SERVER_MAX_TTL_SECONDS : MAX_TTL_SECONDS;
+  const ttl = Number.isFinite(ttlSeconds) ? Math.min(Math.max(Math.floor(ttlSeconds), 1), max) : MAX_TTL_SECONDS;
+  return `/api/v1/uploads/${encodeURIComponent(name)}?t=${signFileToken(name, ttl).token}`;
+}
+
+/**
+ * Three doors, tried in this order:
+ *   1. a valid signed ?t= for THIS filename;
+ *   2. on GET or HEAD only, a file-pass cookie whose user is still active and whose login
+ *      session still exists;
+ *   3. the normal Bearer check, unchanged, so nothing is weakened for API callers.
+ *
+ * Door 2 is the only cookie authentication in the backend. It is refused on every other method
+ * before the cookie is even parsed, and this guard is applied to the serve handler alone.
  */
 @Injectable()
 export class FileAccessGuard extends AuthGuard('jwt') {
-  canActivate(ctx: ExecutionContext) {
+  constructor(private readonly prisma: PrismaService) {
+    super();
+  }
+
+  async canActivate(ctx: ExecutionContext): Promise<boolean> {
     const req = ctx.switchToHttp().getRequest<Request>();
     const token = typeof req.query?.t === 'string' ? req.query.t : null;
     const name = safeName(String((req.params as any)?.filename ?? ''));
     if (token && name && verifyFileToken(name, token)) return true;
-    return super.canActivate(ctx);
+
+    if (req.method === 'GET' || req.method === 'HEAD') {
+      const pass = verifyFilePass(readCookie(req.headers?.cookie, FILE_PASS_COOKIE));
+      if (pass && (await this.holderIsLive(pass))) {
+        (req as any).user = { id: pass.sub, sessionId: pass.sid ?? undefined };
+        return true;
+      }
+    }
+    return this.bearer(ctx);
   }
+
+  /** The Bearer check every other guarded route uses. */
+  protected async bearer(ctx: ExecutionContext): Promise<boolean> {
+    return (await super.canActivate(ctx)) as boolean;
+  }
+
+  /**
+   * The same two questions JwtStrategy.validate() asks of a JWT: is the user still active, and —
+   * when the pass names a session — does that session row still exist for them. Revoking a
+   * session therefore cuts file access on the next request. A pass with no sid came from a
+   * legacy login with no session row, which the strategy still accepts too.
+   *
+   * No lastSeenAt heartbeat here: every seek in an audio file is a request.
+   */
+  private async holderIsLive(pass: FilePass): Promise<boolean> {
+    try {
+      const user = await this.prisma.user.findUnique({ where: { id: pass.sub }, select: { id: true, isActive: true } });
+      if (!user || !user.isActive) return false;
+      if (!pass.sid) return true;
+      const session = await this.prisma.userSession.findUnique({ where: { id: pass.sid }, select: { id: true, userId: true } });
+      return !!session && session.userId === user.id;
+    } catch {
+      return false;
+    }
+  }
+}
+
+/** Secure is a deployment fact, not something to sniff from a request that arrives through a proxy hop. */
+function secureCookie(): boolean {
+  return process.env.FILE_PASS_SECURE === 'true';
 }
 
 @ApiTags('Files')
 @Controller('uploads')
 export class FilesController {
+  @Post('session')
+  @UseGuards(JwtAuthGuard)
+  @SkipAudit()
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Set the file-pass cookie for this browser',
+    description:
+      'Bearer only — the cookie cannot renew itself. Sets an HttpOnly, SameSite=Lax cookie scoped to ' +
+      '/api/v1/uploads so <img>, <audio>, <video> and <a> can load files. It lives as long as the ' +
+      'login it came from, eight hours at most, and is accepted by GET /uploads/:filename only.',
+  })
+  session(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const user = (req as any).user as { id: string; sessionId?: string };
+    const now = Date.now();
+    const exp = passExpiry(jwtExp(req.headers?.authorization), now);
+    const value = signFilePass({ sub: user.id, sid: user.sessionId ?? null, exp });
+    res.setHeader('Set-Cookie', filePassCookie(value, exp, now, secureCookie()));
+    return { expiresAt: new Date(exp * 1000).toISOString() };
+  }
+
+  @Delete('session')
+  @SkipAudit()
+  @ApiOperation({
+    summary: 'Clear the file-pass cookie from this browser',
+    description:
+      'Takes no credentials and reads none: it is called on logout and after a 401, when there may be ' +
+      'no valid token left. It removes the cookie from the browser that asks. It does not invalidate ' +
+      'a pass value copied beforehand — only removing the login session does that.',
+  })
+  clearSession(@Res({ passthrough: true }) res: Response) {
+    res.setHeader('Set-Cookie', clearFilePassCookie(secureCookie()));
+    return { cleared: true };
+  }
+
   @Get(':filename')
   @UseGuards(FileAccessGuard)
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Download an uploaded file',
     description:
-      'Requires a Bearer token, or a signed ?t= token obtained from POST /uploads/:filename/link.',
+      'Requires a Bearer token, a signed ?t= token, or the file-pass cookie from POST /uploads/session. ' +
+      'Add ?dl=1 to have it saved rather than shown.',
   })
   @ApiQuery({ name: 't', required: false, description: 'Short-lived signed token' })
+  @ApiQuery({ name: 'dl', required: false, description: '1 to force a download' })
   serve(@Param('filename') filename: string, @Req() req: Request, @Res() res: Response) {
     const name = safeName(filename);
     if (!name) throw new BadRequestException('Invalid filename');
@@ -226,7 +380,9 @@ export class FilesController {
     if (!stat.isFile()) throw new NotFoundException('File not found');
 
     const ext = extname(name).toLowerCase();
-    const disposition = INLINE.has(ext) ? 'inline' : 'attachment';
+    // ?dl=1 is not part of any signature: it only changes how a file the caller may already
+    // read is presented. <a download> is ignored across origins, and mp3/mp4 are inline above.
+    const disposition = INLINE.has(ext) && (req.query as any)?.dl !== '1' ? 'inline' : 'attachment';
 
     res.setHeader('Content-Type', MIME[ext] || 'application/octet-stream');
     res.setHeader('Content-Disposition', `${disposition}; filename="${name}"`);
@@ -274,10 +430,7 @@ export class FilesController {
     const full = resolveInsideUploads(name);
     if (!full || !existsSync(full)) throw new NotFoundException('File not found');
 
-    const requested = Number(ttl);
-    const seconds = Number.isFinite(requested) && requested > 0
-      ? Math.min(Math.floor(requested), MAX_TTL_SECONDS)
-      : DEFAULT_TTL_SECONDS;
+    const seconds = linkTtl(ttl);
 
     const { token, expiresAt } = signFileToken(name, seconds);
     return {
