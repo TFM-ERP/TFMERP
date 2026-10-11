@@ -1,5 +1,36 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { signedUploadPath } from '../../files/files.module';
+
+/** How long a document link on the public clearance page lives. The page re-signs on each load. */
+const PUBLIC_DOC_TTL_SECONDS = 3600;
+
+/** One stored document value as the public page may use it: a signed link, an external url as it is, or null. */
+function signDoc(stored: unknown, ttl: number): string | null {
+  if (typeof stored !== 'string' || !stored) return null;
+  if (/^https?:\/\//i.test(stored)) return stored;
+  return signedUploadPath(stored, ttl);
+}
+
+/**
+ * A pack member's documents, each as a signed link to the guarded route. The clearance page has
+ * no login — no Bearer, no file pass — so the resolver that checked the pack token signs what it
+ * hands out. Consent is decided upstream: a withheld document is already null when it gets here.
+ * Signs under the default one-hour ceiling, whatever ttl is passed.
+ */
+export function signMemberDocs(
+  m: { passportUrl?: unknown; emiratesIdUrl?: unknown; photoUrl?: unknown; otherDocs?: unknown },
+  ttl: number = PUBLIC_DOC_TTL_SECONDS,
+) {
+  return {
+    passportUrl: signDoc(m.passportUrl, ttl),
+    emiratesIdUrl: signDoc(m.emiratesIdUrl, ttl),
+    photoUrl: signDoc(m.photoUrl, ttl),
+    otherDocs: Array.isArray(m.otherDocs)
+      ? m.otherDocs.map(d => (d && typeof d === 'object' ? { ...d, url: signDoc((d as any).url, ttl) } : d))
+      : m.otherDocs,
+  };
+}
 
 /**
  * SYS-07 V2 · Slice 3 — Clearance pack.
@@ -175,7 +206,7 @@ export class ClearancePacksService {
       message: pack.message,
       members: pack.members.filter(m => m.consentGiven).map(m => ({
         name: m.name, roleTitle: m.roleTitle, department: m.department,
-        passportUrl: m.passportUrl, emiratesIdUrl: m.emiratesIdUrl, photoUrl: m.photoUrl, otherDocs: m.otherDocs,
+        ...signMemberDocs(m, PUBLIC_DOC_TTL_SECONDS),
       })),
     };
   }
