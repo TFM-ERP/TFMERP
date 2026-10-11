@@ -12,6 +12,7 @@
  */
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
+import { createHmac } from 'crypto';
 
 process.env.JWT_SECRET = 'file-pass-spec-secret-not-a-real-one';
 
@@ -76,6 +77,19 @@ test('CROSSED TOKENS, BOTH WAYS: a pass is not a ?t= token and a ?t= token is no
   // sanity: each is valid as itself, so the two refusals above are about the kind, not a bad value
   assert.equal(verifyFileToken('a.pdf', fileToken), true);
   assert.notEqual(verifyFilePass(pass, NOW), null);
+});
+
+test('THE PREFIX IS PART OF WHAT IS SIGNED: a signature over "<exp>:<sub>:<sid>" alone is not a pass', () => {
+  // The crossed-token test above would still pass on shape alone (a ?t= token has two parts, a
+  // pass five). This one is signed with the right key over the right fields in the right shape,
+  // and lacks only the "file-pass:v1:" prefix — so it fails for that reason and no other.
+  const hmac = (msg: string) => createHmac('sha256', process.env.JWT_SECRET as string).update(msg).digest('base64url');
+  const bare = `v1.${future}.user1.sess1.${hmac(`${future}:user1:sess1`)}`;
+  assert.equal(verifyFilePass(bare, NOW), null, 'a signature with no prefix was accepted as a pass');
+  // sanity: the same construction WITH the prefix is exactly what signFilePass produces
+  const prefixed = `v1.${future}.user1.sess1.${hmac(`file-pass:v1:${future}:user1:sess1`)}`;
+  assert.equal(prefixed, signFilePass({ sub: 'user1', sid: 'sess1', exp: future }));
+  assert.notEqual(verifyFilePass(prefixed, NOW), null);
 });
 
 test('with no secret configured: signing throws, verifying refuses', () => {
