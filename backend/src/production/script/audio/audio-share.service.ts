@@ -3,11 +3,44 @@ import { randomBytes } from 'crypto';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { MailService } from '../../mail/mail.service';
+import { signedUploadPath, SERVER_MAX_TTL_SECONDS } from '../../../files/files.module';
 
 const APP_URL = process.env.APP_URL || 'http://localhost:3000';
-// The API serves /uploads on :3001 by convention (mirrors mail.service link building).
+// Where a listener's browser reaches the API. Files are served by the guarded route
+// /api/v1/uploads/<name> and nowhere else; there is no public /uploads.
 const API_BASE = (process.env.API_URL || APP_URL.replace(/:3000$/, ':3001')).replace(/\/$/, '');
-const absUrl = (u?: string | null) => (!u ? null : /^https?:\/\//i.test(u) ? u : `${API_BASE}${u.startsWith('/') ? '' : '/'}${u}`);
+
+/** Length assumed for an audio whose duration was never recorded: two hours. */
+const UNKNOWN_DURATION_SECONDS = 7200;
+/** Slack on top of the audio's length, for pauses and a late start. */
+const LISTEN_MARGIN_SECONDS = 3600;
+
+/**
+ * How long the listen page's audio link lives, in seconds. A feature table read runs 90-120
+ * minutes, and the page cannot ask again — every resolve counts as a view — so the one link has
+ * to last the whole play: the audio's length (two hours if unknown) plus an hour, at most
+ * SERVER_MAX_TTL_SECONDS. And never past the share link's own expiry. At least 1.
+ */
+export function audioShareTtl(durationSec: unknown, shareExpiresAt: Date | null | undefined, nowMs: number): number {
+  const known = typeof durationSec === 'number' && Number.isFinite(durationSec) && durationSec > 0;
+  let ttl = Math.min(Math.floor(known ? (durationSec as number) : UNKNOWN_DURATION_SECONDS) + LISTEN_MARGIN_SECONDS, SERVER_MAX_TTL_SECONDS);
+  const until = shareExpiresAt instanceof Date ? shareExpiresAt.getTime() : Number.NaN;
+  if (Number.isFinite(until)) ttl = Math.min(ttl, Math.floor((until - nowMs) / 1000));
+  return Math.max(ttl, 1);
+}
+
+/**
+ * The absolute, signed link the listen page plays: apiBase + "/api/v1/uploads/<name>?t=...". The
+ * page has no login, so the resolver that checked the share token signs it — under the 'server'
+ * ceiling, since the TTL is one the server worked out. An external http(s) value passes through;
+ * anything else that is not an upload is null.
+ */
+export function signAudioUrl(storedUrl: string | null | undefined, apiBase: string, ttl: number): string | null {
+  if (!storedUrl) return null;
+  if (/^https?:\/\//i.test(storedUrl)) return storedUrl;
+  const path = signedUploadPath(storedUrl, ttl, 'server');
+  return path ? `${apiBase}${path}` : null;
+}
 
 /**
  * SYS-13c — Share & deliver. Secure, time-limited links to a rendered AudioAsset so reviewers /
@@ -64,7 +97,7 @@ export class AudioShareService {
     return {
       title: link.title || asset.title,
       note: link.note,
-      audioUrl: absUrl(asset.url),
+      audioUrl: signAudioUrl(asset.url, API_BASE, audioShareTtl(asset.durationSec, link.expiresAt, Date.now())),
       format: asset.format,
       durationSec: asset.durationSec,
       allowDownload: link.allowDownload,
