@@ -4,12 +4,13 @@
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useMobileAccess } from '@/lib/mobileAccess';
+import { clearFilePass } from '@/lib/file-pass';
 import { LogOut, Truck, ShieldCheck, ChevronRight, Route, Plane, BedDouble, CalendarDays, FileText, CalendarRange, Search, Film } from 'lucide-react';
 
 export default function MobileMe() {
   const router = useRouter();
   const { name, role, ready, can } = useMobileAccess();
-  const logout = () => { localStorage.removeItem('tfm_token'); localStorage.removeItem('tfm_user'); router.replace('/login'); };
+  const logout = () => { localStorage.removeItem('tfm_token'); localStorage.removeItem('tfm_user'); clearFilePass(); router.replace('/login'); };
 
   const Row = ({ href, icon: Icon, label, ext }: { href: string; icon: any; label: string; ext?: boolean }) => (
     <Link href={href} target={ext ? '_blank' : undefined} className="flex items-center gap-3 px-4 py-3" style={{ borderTop: '1px solid var(--border-1)' }}>

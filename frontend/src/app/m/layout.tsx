@@ -10,6 +10,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Home, CalendarDays, MessageSquare, Camera, User } from 'lucide-react';
 import { MobileAccessProvider, useMobileAccess } from '@/lib/mobileAccess';
+import { useFilePassReady } from '@/lib/file-pass';
 
 const TABS = [
   { href: '/m', label: 'Today', icon: Home, mod: 'callsheet', ready: true },
@@ -50,9 +51,12 @@ function Shell({ children }: { children: React.ReactNode }) {
 export default function MobileLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   useEffect(() => { if (typeof window !== 'undefined' && !localStorage.getItem('tfm_token')) router.replace('/login'); }, [router]);
+  // Hold the page until the file pass cookie exists, so no image is asked for before it can be
+  // answered. One round trip per page load, capped at 3 s.
+  const filePassReady = useFilePassReady();
   return (
     <MobileAccessProvider>
-      <Shell>{children}</Shell>
+      <Shell>{filePassReady ? children : null}</Shell>
     </MobileAccessProvider>
   );
 }

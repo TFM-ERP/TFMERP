@@ -4,10 +4,14 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { LogOut } from 'lucide-react';
 import DriverPwa from '@/components/DriverPwa';
+import { useFilePassReady, clearFilePass } from '@/lib/file-pass';
 
 export default function DriverLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [name, setName] = useState('');
+  // Hold the page until the file pass cookie exists, so no image is asked for before it can be
+  // answered. One round trip per page load, capped at 3 s.
+  const filePassReady = useFilePassReady();
 
   useEffect(() => {
     const token = localStorage.getItem('tfm_token');
@@ -15,7 +19,7 @@ export default function DriverLayout({ children }: { children: React.ReactNode }
     try { setName(JSON.parse(localStorage.getItem('tfm_user') || '{}')?.fullName || ''); } catch {}
   }, [router]);
 
-  const logout = () => { localStorage.removeItem('tfm_token'); localStorage.removeItem('tfm_user'); router.replace('/login'); };
+  const logout = () => { localStorage.removeItem('tfm_token'); localStorage.removeItem('tfm_user'); clearFilePass(); router.replace('/login'); };
 
   return (
     <div style={{ minHeight: '100vh', background: '#f4f5f7' }}>
@@ -29,7 +33,7 @@ export default function DriverLayout({ children }: { children: React.ReactNode }
           <button onClick={logout} aria-label="Log out" style={{ background: 'none', border: 'none', color: '#9fb0d0' }}><LogOut size={18} /></button>
         </div>
       </header>
-      <main style={{ maxWidth: 560, margin: '0 auto', padding: '12px' }}>{children}</main>
+      <main style={{ maxWidth: 560, margin: '0 auto', padding: '12px' }}>{filePassReady ? children : null}</main>
       <DriverPwa />
     </div>
   );
