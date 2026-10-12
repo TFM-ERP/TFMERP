@@ -28,21 +28,23 @@ export class BankAccountsController {
   @Get(':id')
   findOne(@Param('id') id: string) { return this.service.findOne(id); }
 
-  // Mutating bank accounts changes where money is sent → require 'edit' (finance:2),
-  // not just view, so finance-view roles (e.g. production/rental managers) can't alter them.
+  // Mutating bank accounts changes where money is sent → require 'manage' (finance:3).
+  // These are the SAME prisma.bankAccount rows company.controller.ts writes, and that door is at
+  // finance:3; a lower level here would leave the rows writable through this one. No screen calls
+  // these three — every bank-account write in the app goes through the company door.
   @Post()
-  @RequirePermission('finance', 2)
+  @RequirePermission('finance', 3)
   @ApiOperation({ summary: 'Add a new bank account' })
   create(@Body() dto: CreateBankAccountDto) { return this.service.create(dto); }
 
   @Put(':id')
-  @RequirePermission('finance', 2)
+  @RequirePermission('finance', 3)
   update(@Param('id') id: string, @Body() dto: UpdateBankAccountDto) {
     return this.service.update(id, dto);
   }
 
   @Delete(':id')
-  @RequirePermission('finance', 2)
+  @RequirePermission('finance', 3)
   @ApiOperation({ summary: 'Deactivate a bank account' })
   remove(@Param('id') id: string) { return this.service.remove(id); }
 }
