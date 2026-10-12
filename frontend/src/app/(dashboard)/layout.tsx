@@ -13,6 +13,7 @@ import NotificationBell from '@/components/NotificationBell';
 import PwaRegister from '@/components/PwaRegister';
 import { settingsApi, statusApi, permissionsApi, accountApi, assetUrl, companyLogoUrl } from '@/lib/api';
 import { useLocale, applyLocale } from '@/lib/i18n';
+import { useFilePassReady, clearFilePass } from '@/lib/file-pass';
 import { useScriptonShellFlag } from '@/components/scripton/osShellFlag';
 import { rememberFilmosRoute } from '@/components/scripton/os-workspaces';
 
@@ -227,6 +228,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => { rememberFilmosRoute(pathname); }, [pathname]);
   const router = useRouter();
   const { locale, t, isRTL, setLocale } = useLocale();
+  // Hold the page (not the shell) until the file pass cookie exists, so no image is asked for
+  // before it can be answered. One round trip per page load, capped at 3 s.
+  const filePassReady = useFilePassReady();
   useEffect(() => { applyLocale(locale); }, [locale]);
 
   const [user, setUser] = useState<{ fullName: string; role: string; avatarUrl?: string | null; preferredName?: string | null } | null>(null);
@@ -378,6 +382,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const handleLogout = () => {
     localStorage.removeItem('tfm_token');
     localStorage.removeItem('tfm_user');
+    clearFilePass();
     router.push('/login');
   };
 
@@ -461,7 +466,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (isScripton && shellFlag === 'new') {
     return (
       <div style={{ height: '100vh', overflow: 'hidden', background: 'var(--page-bg)' }}>
-        <SetupGate>{children}</SetupGate>
+        <SetupGate>{filePassReady ? children : null}</SetupGate>
       </div>
     );
   }
@@ -531,7 +536,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             style={{ padding: expanded ? '7px 9px' : '9px 0', gap: 9, justifyContent: expanded ? 'flex-start' : 'center' }}
             onMouseEnter={e => (e.currentTarget.style.background = pal.itemHover)} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
             <div className="w-7 h-7 rounded-full overflow-hidden flex items-center justify-center text-xs font-bold shrink-0" style={{ background: pal.avBg, color: pal.avText }}>
-              {user?.avatarUrl
+              {user?.avatarUrl && filePassReady
                 ? <img src={assetUrl(user.avatarUrl)} alt="" className="w-full h-full object-cover" />
                 : (user?.preferredName || user?.fullName)?.[0]?.toUpperCase() || 'A'}
             </div>
@@ -650,7 +655,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         {/* Page content */}
         <main className="flex-1 overflow-y-auto" style={{ paddingBottom: isPhone ? 60 : undefined }}>
-          <SetupGate>{children}</SetupGate>
+          <SetupGate>{filePassReady ? children : null}</SetupGate>
         </main>
       </div>
 

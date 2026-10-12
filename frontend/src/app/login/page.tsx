@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
+import { ensureFilePass } from '@/lib/file-pass';
 import { Eye, EyeOff } from 'lucide-react';
 
 const SAVED_EMAIL_KEY   = 'tfm_saved_email';
@@ -44,6 +45,9 @@ export default function LoginPage() {
         localStorage.removeItem(SAVED_EMAIL_KEY);
         localStorage.removeItem(SAVED_REMEMBER_KEY);
       }
+      // The file pass cookie, before the first screen asks for an image. Never throws; a failure
+      // here does not block sign-in — the shell tries again.
+      await ensureFilePass();
       router.push('/finance');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Invalid email or password');

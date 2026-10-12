@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { uploadPath } from './file-url.logic';
+import { clearFilePass } from './file-pass';
 
 // The re-auth prompts on Void/Delete post the invoice password to check it. A wrong
 // password is a normal, expected 401 there — the dialog shows its own error — so those
@@ -49,6 +50,7 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401 && !error.config?.skipAuthRedirect && typeof window !== 'undefined') {
       localStorage.removeItem('tfm_token');
+      clearFilePass(); // the login is gone: drop the file pass cookie with it
       window.location.href = '/login';
     }
     return Promise.reject(error);
