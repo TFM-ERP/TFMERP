@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { uploadPath } from './file-url.logic';
 
 // The re-auth prompts on Void/Delete post the invoice password to check it. A wrong
 // password is a normal, expected 401 there — the dialog shows its own error — so those
@@ -17,11 +18,16 @@ const API_BASE = (typeof window !== 'undefined' && RAW_API_BASE.startsWith('/') 
   ? 'http://localhost:3001/api/v1'
   : RAW_API_BASE;
 
-// Uploaded files are served by the backend at /uploads/... — turn a stored path
-// into an absolute URL so links/images resolve to the API server, not the frontend.
+// Uploaded files are served by ONE backend route — GET /api/v1/uploads/<name> — behind a guard;
+// there is no public /uploads. assetUrl turns a stored value ("/uploads/<name>", a bare name, or a
+// link the server already signed) into an absolute URL on that route. An <img>, <audio>, <video>
+// or <a> gets in with the file pass cookie (lib/file-pass.ts); code that fetches sends Bearer.
+// `download: true` adds dl=1, which makes the route answer with Content-Disposition: attachment.
 export const API_ROOT = API_BASE.replace('/api/v1', '');
-export const assetUrl = (u?: string | null): string =>
-  !u ? '' : (u.startsWith('http') || u.startsWith('data:')) ? u : `${API_ROOT}${u.startsWith('/') ? '' : '/'}${u}`;
+export const assetUrl = (u?: string | null, opts?: { download?: boolean }): string => {
+  const p = uploadPath(u, opts);
+  return p.kind === 'empty' ? '' : p.kind === 'external' ? p.url : `${API_ROOT}${p.path}`;
+};
 
 export const api = axios.create({
   baseURL: API_BASE,
@@ -53,9 +59,9 @@ api.interceptors.response.use(
  * The company logo, as a URL an <img> can load directly.
  *
  * Takes whatever the company profile stores (logoUrl / darkLogoUrl /
- * invoiceLogoUrl) and points at the public company-logo route. `${API_ROOT}/uploads/...`
- * — what every print page used to build — is a 404: uploaded files sit behind a
- * Bearer token an <img> cannot send, which is why the real logo never printed.
+ * invoiceLogoUrl) and points at the public company-logo route, which needs no login —
+ * so the logo also shows on pages opened without one. `${API_ROOT}/uploads/...`, what
+ * every print page used to build, is a 404: there is no public /uploads.
  *
  * Returns '' when there is nothing stored, so callers can fall back.
  */
@@ -65,32 +71,6 @@ export const companyLogoUrl = (stored?: string | null): string => {
   const filename = stored.split('/').filter(Boolean).pop();
   return filename ? `${API_ROOT}/api/v1/company/logo/${encodeURIComponent(filename)}` : '';
 };
-
-/**
- * An <img>- or <iframe>-safe URL for a private file under /uploads.
- *
- * Uploaded files are NOT served statically — they sit behind FilesModule at
- * GET /api/v1/uploads/:filename, which needs a Bearer token that an <img>,
- * <iframe> or <embed> cannot send. This mints the short-lived signed link the
- * backend provides for exactly that case. For the company logo use
- * `companyLogoUrl` instead: it needs no round trip.
- *
- * Returns '' when there is nothing to show, so callers can fall back.
- */
-export async function signedFileUrl(stored?: string | null, ttlSeconds = 900): Promise<string> {
-  if (!stored) return '';
-  if (stored.startsWith('http') || stored.startsWith('data:')) return stored;
-  const filename = stored.split('/').filter(Boolean).pop();
-  if (!filename) return '';
-  try {
-    const { data } = await api.post(`/uploads/${encodeURIComponent(filename)}/link`, null, {
-      params: { ttl: ttlSeconds },
-    });
-    return data?.url ? `${API_ROOT}${data.url}` : '';
-  } catch {
-    return '';
-  }
-}
 
 // ── File Upload ───────────────────────────────────────────────────────────────
 
