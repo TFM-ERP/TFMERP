@@ -6,6 +6,8 @@
  * base, so VAT is recalculated proportionally on the reduced base.
  */
 
+import { r2 } from './money.util';
+
 export interface LineItemLike {
   quantity: number;
   unitPrice: number;
@@ -21,8 +23,6 @@ export interface DocumentTotals {
   vatAmount: number;
   total: number;
 }
-
-const r2 = (n: number) => Math.round(n * 100) / 100;
 
 /** Fold line items into a pre-discount subtotal and the raw (pre-deduction) VAT. */
 export function sumLineItems(items: LineItemLike[]): { subtotal: number; rawVat: number } {

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { COMPANY_PROFILE } from './company-profile';
+import { r2, rateOf } from '../../finance/money.util';
 
 /**
  * The UAE VAT return, in the fifteen-box shape of form VAT 201.
@@ -156,7 +157,8 @@ export class Vat201Service {
     const domesticExpenses = expenses.filter(e => !isReverseCharge(e));
 
     const rcNet = r2(rcExpenses.reduce((s, e) => s + Number(e.amount), 0));
-    const reverseCharge = { amount: rcNet, vat: r2(rcNet * STANDARD_RATE) };
+    // Computed in integer fils: `rcNet * 0.05` then rounding is one fils short on 1.7% of nets.
+    const reverseCharge = { amount: rcNet, vat: rateOf(rcNet, Math.round(STANDARD_RATE * 10_000)) };
 
     const expenseNet = r2(domesticExpenses.reduce((s, e) => s + Number(e.amount), 0));
     const expenseVat = r2(domesticExpenses.reduce((s, e) => s + Number(e.vatAmount), 0));
@@ -301,8 +303,4 @@ export class Vat201Service {
       },
     };
   }
-}
-
-function r2(n: number): number {
-  return Math.round((n + Number.EPSILON) * 100) / 100;
 }
