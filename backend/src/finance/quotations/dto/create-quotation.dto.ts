@@ -31,6 +31,9 @@ export class QuotationItemDto {
   @IsString()
   unit?: string;
 
+  @ApiPropertyOptional({ example: 1, description: 'Hire duration for this line' })
+  @IsOptional() @IsNumber() days?: number;
+
   @ApiProperty({ example: 1500 })
   @IsNumber()
   @Min(0)
