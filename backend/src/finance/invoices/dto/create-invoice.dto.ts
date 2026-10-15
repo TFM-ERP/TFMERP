@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsEnum, IsArray, ValidateNested, IsNumber, Min, IsDateString } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsArray, ValidateNested, IsNumber, Min, IsDateString, ValidateIf, Matches } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Activity, Currency, InvoiceType } from '@prisma/client';
@@ -28,7 +28,15 @@ export class CreateInvoiceDto {
   @IsOptional() @IsEnum(Currency) currency?: Currency;
   @IsOptional() @IsNumber() discountAmount?: number;
   @IsOptional() @IsNumber() @Min(0) deductionAmount?: number;
-  @IsOptional() @IsString() deductionReason?: string;
+  /**
+   * A non-zero deduction changes what the client is charged, so it must say why. Empty or
+   * whitespace-only is not a reason — the same rule as voidedReason. With no deduction (absent or
+   * 0) the reason is not checked: the rule binds only when money moves.
+   */
+  @ValidateIf((o) => Number(o.deductionAmount) > 0)
+  @IsString({ message: 'deductionReason is required when a deduction is applied — say why the client is charged less' })
+  @Matches(/\S/, { message: 'deductionReason is required when a deduction is applied — say why the client is charged less' })
+  deductionReason?: string;
   @IsOptional() @IsString() vatDisplay?: string;
   @IsOptional() @IsString() subject?: string;
   @IsOptional() @IsString() notes?: string;

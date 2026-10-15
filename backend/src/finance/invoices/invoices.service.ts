@@ -13,10 +13,22 @@ import { sumLineItems, computeDocumentTotals } from '../totals.util';
 import * as bcrypt from 'bcryptjs';
 import { canDelete, canVoid, canArchive, buildReversalLines, DELETABLE_STATUSES, LifecycleState } from './invoice-lifecycle.rules';
 import { VoidInvoiceDto, DeleteInvoiceDto } from './dto/lifecycle.dto';
+import { PermissionsService } from '../../permissions/permissions.service';
 
 // A real bcrypt hash compared against when no user is found, so a missing user takes
 // the same time as a wrong password (defeats user-enumeration via timing).
 const DUMMY_HASH = bcrypt.hashSync('no-such-user-constant-time-guard', 12);
+
+/**
+ * Applying or changing a deduction needs finance:2 — the level @RequirePermission('finance', 2)
+ * sets on the other money-moving routes. It is checked here, not as a decorator on create/update,
+ * because those routes are finance:1 for an invoice WITHOUT a deduction, and that must not change:
+ * only the deduction is gated. (Today every finance:2 role is the one owner, so this refuses no
+ * one; it is for when there are other logins.)
+ */
+export const DEDUCTION_PERMISSION = { module: 'finance', level: 2 } as const;
+const DEDUCTION_REASON_REQUIRED =
+  'deductionReason is required when a deduction is applied — say why the client is charged less';
 
 @Injectable()
 export class InvoicesService {
@@ -24,6 +36,7 @@ export class InvoicesService {
     private prisma: PrismaService,
     private statusService: StatusService,
     private email: EmailService,
+    private permissions: PermissionsService,
   ) {}
 
   /**
@@ -95,6 +108,7 @@ export class InvoicesService {
     oldValue: unknown,
     ip?: string,
     client: Prisma.TransactionClient = this.prisma,
+    newValue?: unknown,
   ): Promise<void> {
     await client.auditLog.create({
       data: {
@@ -103,9 +117,35 @@ export class InvoicesService {
         resource: 'Invoice',
         resourceId: invoiceId,
         oldValue: oldValue === null ? undefined : (oldValue as any),
+        ...(newValue !== undefined && { newValue: newValue as any }),
         ipAddress: ip || null,
       },
     });
+  }
+
+  // ── Deduction control ───────────────────────────────────────────────────
+  //
+  // A deduction changes what the client is charged. So: a non-zero one must carry a reason
+  // (empty or whitespace is not one), it needs finance:2, and every apply or change writes a
+  // 'DEDUCTION' audit row with the old and new amount and reason. That row is written through
+  // `writeAudit` with the transaction's `tx`, so a failed audit insert rolls the invoice write
+  // back with it — the deduction never lands without its record.
+
+  /** The reason, trimmed; throws when it is missing, empty or whitespace. */
+  private requireDeductionReason(reason: unknown): string {
+    if (typeof reason !== 'string' || !reason.trim()) throw new BadRequestException(DEDUCTION_REASON_REQUIRED);
+    return reason.trim();
+  }
+
+  /** Throws unless the user's role holds finance:2 — the role as stored on the user, read now. */
+  private async assertMayDeduct(userId: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+    const level = user ? (await this.permissions.forRole(user.role))[DEDUCTION_PERMISSION.module] ?? 0 : 0;
+    if (level < DEDUCTION_PERMISSION.level) {
+      throw new ForbiddenException(
+        `Applying or changing a deduction needs ${DEDUCTION_PERMISSION.module} permission level ${DEDUCTION_PERMISSION.level}`,
+      );
+    }
   }
 
   /** Loads exactly what the rules module needs to reach a verdict. */
@@ -212,6 +252,13 @@ export class InvoicesService {
   }
 
   async create(dto: CreateInvoiceDto, userId: string) {
+    // Calculate totals from items (deduction applied before VAT)
+    const totals = this.computeTotals(dto.items, dto.discountAmount, dto.deductionAmount);
+    const hasDeduction = (totals.deductionAmount || 0) > 0;
+    // Refused before a number is taken, so a refused deduction leaves no gap in the sequence.
+    const deductionReason = hasDeduction ? this.requireDeductionReason(dto.deductionReason) : null;
+    if (hasDeduction) await this.assertMayDeduct(userId);
+
     const invoiceNumber = await this.nextNumber(
       dto.invoiceType === 'PROFORMA' ? 'PI' : 'INV',
     );
@@ -219,61 +266,68 @@ export class InvoicesService {
       ? new Date(dto.dueDate)
       : (() => { const d = new Date(); d.setDate(d.getDate() + 30); return d; })();
 
-    // Calculate totals from items (deduction applied before VAT)
-    const totals = this.computeTotals(dto.items, dto.discountAmount, dto.deductionAmount);
-    const hasDeduction = (totals.deductionAmount || 0) > 0;
-
-    return this.prisma.invoice.create({
-      data: {
-        invoiceNumber,
-        clientId: dto.clientId,
-        bankAccountId: dto.bankAccountId,
-        quotationId: dto.quotationId,
-        activity: dto.activity || 'RENTAL',
-        invoiceType: dto.invoiceType || 'TAX_INVOICE',
-        status: 'DRAFT',
-        issueDate: dto.issueDate ? new Date(dto.issueDate) : new Date(),
-        dueDate,
-        currency: dto.currency || 'AED',
-        subtotal: totals.subtotal,
-        discountAmount: totals.discountAmount,
-        deductionAmount: totals.deductionAmount,
-        deductionReason: hasDeduction ? dto.deductionReason : null,
-        deductionAppliedById: hasDeduction ? userId : null,
-        deductionAppliedAt: hasDeduction ? new Date() : null,
-        vatAmount: totals.vatAmount,
-        total: totals.total,
-        amountPaid: 0,
-        amountDue: totals.total,
-        vatDisplay: dto.vatDisplay || 'SEPARATE',
-        subject: dto.subject,
-        notes: dto.notes,
-        termsConditions: dto.termsConditions,
-        internalNotes: dto.internalNotes,
-        poNumber: dto.poNumber,
-        createdById: userId,
-        items: {
-          create: dto.items.map((item, i) => ({
-            sortOrder: i,
-            kind: (item as any).kind || 'ASSET',
-            serviceItemId: (item as any).serviceItemId || undefined,
-            description: item.description,
-            details: item.details,
-            quantity: item.quantity,
-            unit: item.unit,
-            days: item.days || 1,
-            unitPrice: item.unitPrice,
-            discountPct: item.discountPct || 0,
-            lineTotal: item.quantity * (item.days || 1) * item.unitPrice * (1 - (item.discountPct || 0) / 100),
-            taxRateId: item.taxRateId,
-            taxAmount: item.taxAmount || 0,
-          })),
+    return this.prisma.$transaction(async (tx) => {
+      const created = await tx.invoice.create({
+        data: {
+          invoiceNumber,
+          clientId: dto.clientId,
+          bankAccountId: dto.bankAccountId,
+          quotationId: dto.quotationId,
+          activity: dto.activity || 'RENTAL',
+          invoiceType: dto.invoiceType || 'TAX_INVOICE',
+          status: 'DRAFT',
+          issueDate: dto.issueDate ? new Date(dto.issueDate) : new Date(),
+          dueDate,
+          currency: dto.currency || 'AED',
+          subtotal: totals.subtotal,
+          discountAmount: totals.discountAmount,
+          deductionAmount: totals.deductionAmount,
+          deductionReason,
+          deductionAppliedById: hasDeduction ? userId : null,
+          deductionAppliedAt: hasDeduction ? new Date() : null,
+          vatAmount: totals.vatAmount,
+          total: totals.total,
+          amountPaid: 0,
+          amountDue: totals.total,
+          vatDisplay: dto.vatDisplay || 'SEPARATE',
+          subject: dto.subject,
+          notes: dto.notes,
+          termsConditions: dto.termsConditions,
+          internalNotes: dto.internalNotes,
+          poNumber: dto.poNumber,
+          createdById: userId,
+          items: {
+            create: dto.items.map((item, i) => ({
+              sortOrder: i,
+              kind: (item as any).kind || 'ASSET',
+              serviceItemId: (item as any).serviceItemId || undefined,
+              description: item.description,
+              details: item.details,
+              quantity: item.quantity,
+              unit: item.unit,
+              days: item.days || 1,
+              unitPrice: item.unitPrice,
+              discountPct: item.discountPct || 0,
+              lineTotal: item.quantity * (item.days || 1) * item.unitPrice * (1 - (item.discountPct || 0) / 100),
+              taxRateId: item.taxRateId,
+              taxAmount: item.taxAmount || 0,
+            })),
+          },
         },
-      },
-      include: {
-        client: { select: { id: true, companyName: true } },
-        items: { include: { taxRate: true } },
-      },
+        include: {
+          client: { select: { id: true, companyName: true } },
+          items: { include: { taxRate: true } },
+        },
+      });
+      if (hasDeduction) {
+        await this.writeAudit(
+          userId, 'DEDUCTION', created.id,
+          { invoiceNumber, deductionAmount: 0, deductionReason: null },
+          undefined, tx,
+          { invoiceNumber, deductionAmount: totals.deductionAmount, deductionReason },
+        );
+      }
+      return created;
     });
   }
 
@@ -301,63 +355,88 @@ export class InvoicesService {
     const deductionInput = dto.deductionAmount ?? Number(existing.deductionAmount || 0);
     const totals = this.computeTotals(items, discountInput, deductionInput);
     const hasDeduction = (totals.deductionAmount || 0) > 0;
-    const deductionChanged = dto.deductionAmount !== undefined && Number(dto.deductionAmount) !== Number(existing.deductionAmount || 0);
 
-    if (dto.items) {
-      await this.prisma.invoiceItem.deleteMany({ where: { invoiceId: id } });
-    }
+    // The deduction as stored, and as it will be. The amount is compared after totals (which
+    // clamp it to the taxable base), so a change made by editing lines counts too. The reason is
+    // the one sent, else the one stored; it goes with the deduction when the deduction goes.
+    const oldAmount = Number(existing.deductionAmount || 0);
+    const oldReason: string | null = existing.deductionReason ?? null;
+    const newAmount = totals.deductionAmount || 0;
+    const reasonSent = dto.deductionReason !== undefined;
+    const amountMoved = newAmount !== oldAmount;
+    let newReason: string | null = hasDeduction ? (reasonSent ? (dto.deductionReason as any) : oldReason) : null;
+    // A reason is required whenever this update touches a non-zero deduction. A stored row with
+    // no reason that this update leaves alone stays as it is — that is history, not a new write.
+    if (hasDeduction && (amountMoved || reasonSent)) newReason = this.requireDeductionReason(newReason);
+    const deductionTouched = amountMoved || newReason !== oldReason;
+    if (deductionTouched) await this.assertMayDeduct(userId);
 
-    return this.prisma.invoice.update({
-      where: { id },
-      data: {
-        ...(dto.clientId && { clientId: dto.clientId }),
-        ...(dto.bankAccountId !== undefined && { bankAccountId: dto.bankAccountId || null }),
-        ...(dto.activity && { activity: dto.activity }),
-        ...(dto.invoiceType && { invoiceType: dto.invoiceType }),
-        ...(dto.issueDate && { issueDate: new Date(dto.issueDate) }),
-        ...(dto.dueDate && { dueDate: new Date(dto.dueDate) }),
-        ...(dto.currency && { currency: dto.currency }),
-        ...(dto.vatDisplay && { vatDisplay: dto.vatDisplay }),
-        ...(dto.subject !== undefined && { subject: dto.subject }),
-        ...(dto.notes !== undefined && { notes: dto.notes }),
-        ...(dto.termsConditions !== undefined && { termsConditions: dto.termsConditions }),
-        ...(dto.internalNotes !== undefined && { internalNotes: dto.internalNotes }),
-        ...(dto.poNumber !== undefined && { poNumber: dto.poNumber }),
-        ...(dto.deductionReason !== undefined && { deductionReason: hasDeduction ? dto.deductionReason : null }),
-        ...(deductionChanged && {
-          deductionAppliedById: hasDeduction ? userId : null,
-          deductionAppliedAt: hasDeduction ? new Date() : null,
-        }),
-        subtotal: totals.subtotal,
-        discountAmount: totals.discountAmount,
-        deductionAmount: totals.deductionAmount,
-        vatAmount: totals.vatAmount,
-        total: totals.total,
-        amountDue: totals.total,
-        ...(dto.items && {
-          items: {
-            create: dto.items.map((item: any, i: number) => ({
-              sortOrder: i,
-              kind: item.kind || 'ASSET',
-              serviceItemId: item.serviceItemId || undefined,
-              description: item.description,
-              details: item.details,
-              quantity: item.quantity,
-              unit: item.unit,
-              days: item.days || 1,
-              unitPrice: item.unitPrice,
-              discountPct: item.discountPct || 0,
-              lineTotal: item.quantity * (item.days || 1) * item.unitPrice * (1 - (item.discountPct || 0) / 100),
-              taxRateId: item.taxRateId,
-              taxAmount: item.taxAmount || 0,
-            })),
-          },
-        }),
-      },
-      include: {
-        client: { select: { id: true, companyName: true } },
-        items: { include: { taxRate: true } },
-      },
+    return this.prisma.$transaction(async (tx) => {
+      if (dto.items) {
+        await tx.invoiceItem.deleteMany({ where: { invoiceId: id } });
+      }
+
+      const updated = await tx.invoice.update({
+        where: { id },
+        data: {
+          ...(dto.clientId && { clientId: dto.clientId }),
+          ...(dto.bankAccountId !== undefined && { bankAccountId: dto.bankAccountId || null }),
+          ...(dto.activity && { activity: dto.activity }),
+          ...(dto.invoiceType && { invoiceType: dto.invoiceType }),
+          ...(dto.issueDate && { issueDate: new Date(dto.issueDate) }),
+          ...(dto.dueDate && { dueDate: new Date(dto.dueDate) }),
+          ...(dto.currency && { currency: dto.currency }),
+          ...(dto.vatDisplay && { vatDisplay: dto.vatDisplay }),
+          ...(dto.subject !== undefined && { subject: dto.subject }),
+          ...(dto.notes !== undefined && { notes: dto.notes }),
+          ...(dto.termsConditions !== undefined && { termsConditions: dto.termsConditions }),
+          ...(dto.internalNotes !== undefined && { internalNotes: dto.internalNotes }),
+          ...(dto.poNumber !== undefined && { poNumber: dto.poNumber }),
+          ...(deductionTouched && { deductionReason: newReason }),
+          ...(amountMoved && {
+            deductionAppliedById: hasDeduction ? userId : null,
+            deductionAppliedAt: hasDeduction ? new Date() : null,
+          }),
+          subtotal: totals.subtotal,
+          discountAmount: totals.discountAmount,
+          deductionAmount: totals.deductionAmount,
+          vatAmount: totals.vatAmount,
+          total: totals.total,
+          amountDue: totals.total,
+          ...(dto.items && {
+            items: {
+              create: dto.items.map((item: any, i: number) => ({
+                sortOrder: i,
+                kind: item.kind || 'ASSET',
+                serviceItemId: item.serviceItemId || undefined,
+                description: item.description,
+                details: item.details,
+                quantity: item.quantity,
+                unit: item.unit,
+                days: item.days || 1,
+                unitPrice: item.unitPrice,
+                discountPct: item.discountPct || 0,
+                lineTotal: item.quantity * (item.days || 1) * item.unitPrice * (1 - (item.discountPct || 0) / 100),
+                taxRateId: item.taxRateId,
+                taxAmount: item.taxAmount || 0,
+              })),
+            },
+          }),
+        },
+        include: {
+          client: { select: { id: true, companyName: true } },
+          items: { include: { taxRate: true } },
+        },
+      });
+      if (deductionTouched) {
+        await this.writeAudit(
+          userId, 'DEDUCTION', id,
+          { invoiceNumber: existing.invoiceNumber, deductionAmount: oldAmount, deductionReason: oldReason },
+          undefined, tx,
+          { invoiceNumber: existing.invoiceNumber, deductionAmount: newAmount, deductionReason: newReason },
+        );
+      }
+      return updated;
     });
   }
 
